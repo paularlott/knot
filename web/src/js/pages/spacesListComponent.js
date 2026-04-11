@@ -112,6 +112,7 @@ window.spacesListComponent = function (
       .using(sessionStorage),
     action: "stop", // 'stop' or 'restart'
     collapsedStacks: {}, // tracks which stacks are collapsed
+    stackBusy: {}, // tracks which stacks have an in-progress action
     templateSelector: {
       show: false,
       templates: [],
@@ -819,6 +820,72 @@ window.spacesListComponent = function (
 
     toggleStack(stackName) {
       this.collapsedStacks[stackName] = !this.collapsedStacks[stackName];
+    },
+    async _stackAction(stackName, action) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+      try {
+        while (true) {
+          try {
+            const res = await fetch(`/api/spaces/stacks/${encodeURIComponent(stackName)}/${action}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: controller.signal,
+            });
+            if (res.status === 202) {
+              return null;
+            }
+            const data = await res.json().catch(() => ({}));
+            return data.error || `Stack could not be ${action}ed`;
+          } catch (e) {
+            if (e.name === "AbortError") {
+              return `Stack ${action} timed out`;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    async startStack(stackName) {
+      this.stackBusy[stackName] = true;
+      try {
+        const err = await this._stackAction(stackName, "start");
+        if (err) {
+          this.$dispatch("show-alert", { msg: err, type: "error" });
+        } else {
+          this.$dispatch("show-alert", { msg: `Stack "${stackName}" started`, type: "success" });
+        }
+      } finally {
+        this.stackBusy[stackName] = false;
+      }
+    },
+    async stopStack(stackName) {
+      this.stackBusy[stackName] = true;
+      try {
+        const err = await this._stackAction(stackName, "stop");
+        if (err) {
+          this.$dispatch("show-alert", { msg: err, type: "error" });
+        } else {
+          this.$dispatch("show-alert", { msg: `Stack "${stackName}" stopped`, type: "success" });
+        }
+      } finally {
+        this.stackBusy[stackName] = false;
+      }
+    },
+    async restartStack(stackName) {
+      this.stackBusy[stackName] = true;
+      try {
+        const err = await this._stackAction(stackName, "restart");
+        if (err) {
+          this.$dispatch("show-alert", { msg: err, type: "error" });
+        } else {
+          this.$dispatch("show-alert", { msg: `Stack "${stackName}" restarted`, type: "success" });
+        }
+      } finally {
+        this.stackBusy[stackName] = false;
+      }
     },
     hasStacks() {
       return this.spaces.some((s) => s.stack && !s.searchHide);

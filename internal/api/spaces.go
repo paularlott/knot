@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
@@ -1305,14 +1307,272 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+const stackStartTimeout = 120 * time.Second
+const stackPollInterval = 2 * time.Second
+
+func resolveStackRequest(w http.ResponseWriter, r *http.Request) (*model.User, string, error) {
+	stackName := r.PathValue("stack_name")
+	if stackName == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "stack_name is required"})
+		return nil, "", fmt.Errorf("missing stack_name")
+	}
+	user := r.Context().Value("user").(*model.User)
+	if userId := r.URL.Query().Get("user_id"); userId != "" {
+		if !user.HasPermission(model.PermissionManageSpaces) {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "no permission to manage spaces for other users"})
+			return nil, "", fmt.Errorf("forbidden")
+		}
+		db := database.GetInstance()
+		targetUser, err := db.GetUser(userId)
+		if err != nil || targetUser == nil {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+			return nil, "", fmt.Errorf("user not found")
+		}
+		user = targetUser
+	}
+	return user, stackName, nil
+}
+
+func stackSpaces(stackName, userId string) ([]*model.Space, error) {
+	db := database.GetInstance()
+	all, err := db.GetSpacesForUser(userId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load spaces: %w", err)
+	}
+	var result []*model.Space
+	for _, s := range all {
+		if !s.IsDeleted && s.Stack == stackName {
+			result = append(result, s)
+		}
+	}
+	return result, nil
+}
+
+func startStackTier(tier []*model.Space, user *model.User) error {
+	db := database.GetInstance()
+	type result struct {
+		name string
+		err  error
+	}
+	results := make(chan result, len(tier))
+	for _, s := range tier {
+		go func(space *model.Space) {
+			tmpl, err := db.GetTemplate(space.TemplateId)
+			if err != nil {
+				results <- result{space.Name, fmt.Errorf("template not found for space %q: %w", space.Name, err)}
+				return
+			}
+			if err := service.GetContainerService().StartSpace(space, tmpl, user); err != nil {
+				results <- result{space.Name, fmt.Errorf("failed to start space %q: %w", space.Name, err)}
+				return
+			}
+			deadline := time.Now().Add(stackStartTimeout)
+			for time.Now().Before(deadline) {
+				time.Sleep(stackPollInterval)
+				fresh, err := db.GetSpace(space.Id)
+				if err != nil {
+					results <- result{space.Name, fmt.Errorf("error polling space %q: %w", space.Name, err)}
+					return
+				}
+				if fresh.IsDeployed {
+					results <- result{space.Name, nil}
+					return
+				}
+				if !fresh.IsPending && !fresh.IsDeployed {
+					results <- result{space.Name, fmt.Errorf("space %q failed to start", space.Name)}
+					return
+				}
+			}
+			results <- result{space.Name, fmt.Errorf("timed out waiting for space %q to start", space.Name)}
+		}(s)
+	}
+	for range tier {
+		r := <-results
+		if r.err != nil {
+			return r.err
+		}
+	}
+	return nil
+}
+
+func startStack(stackName string, user *model.User) error {
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		return err
+	}
+	if len(spaces) == 0 {
+		return fmt.Errorf("no spaces found in stack %q", stackName)
+	}
+	db := database.GetInstance()
+	inStack := make(map[string]bool, len(spaces))
+	for _, s := range spaces {
+		inStack[s.Id] = true
+	}
+	started := make(map[string]bool)
+	for len(started) < len(spaces) {
+		fresh := make(map[string]*model.Space, len(spaces))
+		for _, s := range spaces {
+			fs, err := db.GetSpace(s.Id)
+			if err != nil {
+				return fmt.Errorf("failed to refresh space %q: %w", s.Name, err)
+			}
+			fresh[s.Id] = fs
+		}
+		for _, s := range spaces {
+			if fresh[s.Id].IsDeployed {
+				started[s.Id] = true
+			}
+		}
+		if len(started) == len(spaces) {
+			break
+		}
+		var tier []*model.Space
+		for _, s := range spaces {
+			if started[s.Id] {
+				continue
+			}
+			fs := fresh[s.Id]
+			if fs.IsPending {
+				continue
+			}
+			ready := true
+			for _, depId := range s.DependsOn {
+				if inStack[depId] {
+					if !started[depId] {
+						ready = false
+						break
+					}
+				} else {
+					dep, err := db.GetSpace(depId)
+					if err != nil || dep == nil || !dep.IsDeployed {
+						return fmt.Errorf("external dependency %q for space %q is not running", depId, s.Name)
+					}
+				}
+			}
+			if ready {
+				tier = append(tier, s)
+			}
+		}
+		if len(tier) == 0 {
+			anyPending := false
+			for _, s := range spaces {
+				if !started[s.Id] && fresh[s.Id].IsPending {
+					anyPending = true
+					break
+				}
+			}
+			if anyPending {
+				time.Sleep(stackPollInterval)
+				continue
+			}
+			return fmt.Errorf("cannot resolve start order for stack %q: possible dependency cycle or unmet external dependency", stackName)
+		}
+		if err := startStackTier(tier, user); err != nil {
+			return err
+		}
+		for _, s := range tier {
+			started[s.Id] = true
+		}
+	}
+	return nil
+}
+
+func stopStack(stackName string, user *model.User) error {
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		return err
+	}
+	if len(spaces) == 0 {
+		return fmt.Errorf("no spaces found in stack %q", stackName)
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, len(spaces))
+	for i, s := range spaces {
+		if !s.IsDeployed && !s.IsPending {
+			continue
+		}
+		wg.Add(1)
+		go func(idx int, space *model.Space) {
+			defer wg.Done()
+			errs[idx] = service.GetContainerService().StopSpace(space)
+		}(i, s)
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func waitStackStopped(stackName string, user *model.User) error {
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		return err
+	}
+	db := database.GetInstance()
+	deadline := time.Now().Add(stackStartTimeout)
+	for time.Now().Before(deadline) {
+		allStopped := true
+		for _, s := range spaces {
+			fresh, err := db.GetSpace(s.Id)
+			if err != nil {
+				return fmt.Errorf("error polling space %q: %w", s.Name, err)
+			}
+			if fresh.IsDeployed || fresh.IsPending {
+				allStopped = false
+				break
+			}
+		}
+		if allStopped {
+			return nil
+		}
+		time.Sleep(stackPollInterval)
+	}
+	return fmt.Errorf("timed out waiting for stack %q to stop", stackName)
+}
+
 func HandleStackStart(w http.ResponseWriter, r *http.Request) {
-	rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "stack lifecycle operations require a pro license"})
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	if err := startStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func HandleStackStop(w http.ResponseWriter, r *http.Request) {
-	rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "stack lifecycle operations require a pro license"})
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	if err := stopStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func HandleStackRestart(w http.ResponseWriter, r *http.Request) {
-	rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "stack lifecycle operations require a pro license"})
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	if err := stopStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := waitStackStopped(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := startStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
 }

@@ -2,7 +2,9 @@ package apiclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
@@ -250,6 +252,38 @@ func (c *ApiClient) StopSpace(ctx context.Context, spaceId string) (int, error) 
 
 func (c *ApiClient) RestartSpace(ctx context.Context, spaceId string) (int, error) {
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/restart", nil, nil, 200)
+}
+
+func stackAction(c *ApiClient, ctx context.Context, stackName, action string) (int, error) {
+	// Stack operations block synchronously on the server (up to 120s per tier).
+	// Disable the default 10s client timeout for this call.
+	c.httpClient.SetTimeout(0)
+	defer c.httpClient.SetTimeout(10 * time.Second)
+
+	code, err := c.httpClient.PostJSON(ctx, "/api/spaces/stacks/"+stackName+"/"+action, nil, nil, 202)
+	if err != nil {
+		if idx := strings.Index(err.Error(), "{"); idx != -1 {
+			var body struct {
+				Error string `json:"error"`
+			}
+			if jsonErr := json.Unmarshal([]byte(err.Error()[idx:]), &body); jsonErr == nil && body.Error != "" {
+				return code, fmt.Errorf("%s", body.Error)
+			}
+		}
+	}
+	return code, err
+}
+
+func (c *ApiClient) StartStack(ctx context.Context, stackName string) (int, error) {
+	return stackAction(c, ctx, stackName, "start")
+}
+
+func (c *ApiClient) StopStack(ctx context.Context, stackName string) (int, error) {
+	return stackAction(c, ctx, stackName, "stop")
+}
+
+func (c *ApiClient) RestartStack(ctx context.Context, stackName string) (int, error) {
+	return stackAction(c, ctx, stackName, "restart")
 }
 
 func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId string) (int, error) {

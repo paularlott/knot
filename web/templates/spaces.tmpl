@@ -146,12 +146,31 @@
           <template x-for="group in stackedGroups()" :key="'stack-' + group.name">
             <tbody>
               <!-- Stack header row -->
-              <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 cursor-pointer select-none" @click="toggleStack(group.name)">
+              <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                 <td colspan="6" class="px-4 py-2">
                   <div class="flex items-center gap-2">
-                    <svg :class="{'rotate-90': !collapsedStacks[group.name], '-rotate-90': collapsedStacks[group.name]}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
-                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="group.name"></span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + group.count + ' space' + (group.count !== 1 ? 's' : '') + ')'"></span>
+                    <div class="flex items-center gap-2 cursor-pointer select-none flex-1" @click="toggleStack(group.name)">
+                      <svg :class="{'rotate-90': !collapsedStacks[group.name], '-rotate-90': collapsedStacks[group.name]}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                      <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="group.name"></span>
+                      <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + group.count + ' space' + (group.count !== 1 ? 's' : '') + ')'"></span>
+                    </div>
+                    <div class="flex items-center gap-1 ml-auto">
+                      <button x-show="group.spaces.some(s => !s.is_deployed && !s.is_pending)" @click.stop="startStack(group.name)" :disabled="stackBusy[group.name] === true" type="button" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg x-show="stackBusy[group.name] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-3" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd"/></svg>
+                        <svg x-show="stackBusy[group.name] === true" x-cloak class="size-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        Start
+                      </button>
+                      <button x-show="group.spaces.some(s => s.is_deployed || s.is_pending)" @click.stop="stopStack(group.name)" :disabled="stackBusy[group.name] === true" type="button" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg x-show="stackBusy[group.name] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-3" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 7.5a3 3 0 0 1 3-3h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9Z" clip-rule="evenodd"/></svg>
+                        <svg x-show="stackBusy[group.name] === true" x-cloak class="size-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        Stop
+                      </button>
+                      <button x-show="group.spaces.every(s => s.is_deployed)" @click.stop="restartStack(group.name)" :disabled="stackBusy[group.name] === true" type="button" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg x-show="stackBusy[group.name] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-3" aria-hidden="true"><path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd"/></svg>
+                        <svg x-show="stackBusy[group.name] === true" x-cloak class="size-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        Restart
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>

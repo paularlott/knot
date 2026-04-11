@@ -17,6 +17,7 @@ import (
 	commands_forward "github.com/paularlott/knot/command/forward"
 	commands_port "github.com/paularlott/knot/command/port"
 	command_spaces "github.com/paularlott/knot/command/spaces"
+	command_stack "github.com/paularlott/knot/command/stack"
 	command_ssh_config "github.com/paularlott/knot/command/ssh-config"
 	command_templates "github.com/paularlott/knot/command/templates"
 	"github.com/paularlott/knot/internal/config"
@@ -109,6 +110,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_scripts.ScriptsCmd,
 			command_skills.SkillsCmd,
 			command_spaces.SpacesCmd,
+			command_stack.StackCmd,
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,
 			commands_admin.AdminCmd,
