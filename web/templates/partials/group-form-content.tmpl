@@ -2,16 +2,15 @@
 <div x-data="userGroupForm(groupFormModal.isEdit, groupFormModal.groupId)" x-init="initData()">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
-    <section class="form-section">
-      <h4 class="form-section-title">Group Identity</h4>
-      <p class="form-section-copy">Set the shared limits and defaults that apply to everyone in this group.</p>
-      <div class="mt-4 space-y-4">
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
+      <div class="space-y-6">
         <div>
           <label for="name" class="form-label">Name</label>
           <input type="text" name="name" id="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Group name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Group name can be a max 64 characters.</div>
         </div>
-        <div class="form-grid">
+        <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label for="max_spaces" class="form-label">Maximum Spaces</label>
             <input type="number" class="form-field" name="max_spaces" id="max_spaces" x-model="formData.max_spaces" min="0" max="10000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" >
@@ -38,8 +37,7 @@
           </div>
         </div>
       </div>
-    </section>
-
+    </fieldset>
     <div class="form-actions">
       <button type="button" @click="groupFormModal.show = false" class="form-cancel" x-text="isEdit ? 'Discard' : 'Cancel'"></button>
       <button type="submit" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
