@@ -32,11 +32,6 @@
                 </ul>
               </div>
             </div>
-            <button type="button" class="ml-2 text-gray-900 dark:text-white" @click="clear()" x-show="formData.icon_url.length" aria-label="Clear Icon">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
-                <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-            </button>
           </div>
         </div>
         <div class="mb-4">
@@ -154,45 +149,31 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
               <label for="startup_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Startup Script</label>
-              <div class="flex items-center">
-                <div class="relative w-full">
-                  <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
-                  <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
-                    <ul class="list-none" role="listbox" :id="_listboxId">
-                      <template x-for="(option, index) in filteredOptions" :key="index">
-                        <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
-                          <div x-text="option.name"></div>
-                        </li>
-                      </template>
-                    </ul>
-                  </div>
-                </div>
-                <div class="cursor-pointer ml-2 text-gray-900 dark:text-white" @click="clear()" x-show="formData.startup_script_id.length" title="Clear Script">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
+              <div class="relative w-full">
+                <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+                  <ul class="list-none" role="listbox" :id="_listboxId">
+                    <template x-for="(option, index) in filteredOptions" :key="index">
+                      <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
+                        <div x-text="option.name"></div>
+                      </li>
+                    </template>
+                  </ul>
                 </div>
               </div>
             </div>
             <div x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="shutdown_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
               <label for="shutdown_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Shutdown Script</label>
-              <div class="flex items-center">
-                <div class="relative w-full">
-                  <input id="shutdown_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
-                  <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
-                    <ul class="list-none" role="listbox" :id="_listboxId">
-                      <template x-for="(option, index) in filteredOptions" :key="index">
-                        <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
-                          <div x-text="option.name"></div>
-                        </li>
-                      </template>
-                    </ul>
-                  </div>
-                </div>
-                <div class="cursor-pointer ml-2 text-gray-900 dark:text-white" @click="clear()" x-show="formData.shutdown_script_id.length" title="Clear Script">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
+              <div class="relative w-full">
+                <input id="shutdown_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+                  <ul class="list-none" role="listbox" :id="_listboxId">
+                    <template x-for="(option, index) in filteredOptions" :key="index">
+                      <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
+                        <div x-text="option.name"></div>
+                      </li>
+                    </template>
+                  </ul>
                 </div>
               </div>
             </div>

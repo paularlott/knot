@@ -288,7 +288,10 @@ window.autocompleterIcon = function(dataSource) {
       this.parentVarGroup = this.$el.getAttribute('data-parent-var-group');
       this.parentVariable = this.$el.getAttribute('data-parent-variable');
       this.loadOptions();
-      this.$watch('search', () => { this.selectedIndex = -1; });
+      this.$watch('search', () => {
+        this.selectedIndex = -1;
+        if (this.search === '') this[this.parentVarGroup][this.parentVariable] = '';
+      });
       this.$watch('showList', (value) => {
         if (value) {
           this.$nextTick(() => {
@@ -353,12 +356,6 @@ window.autocompleterIcon = function(dataSource) {
       )
       .slice(0, 50);
     },
-    clear() {
-      this.search = '';
-      this[this.parentVarGroup][this.parentVariable] = '';
-      this.showList = false;
-      this.selectedIndex = -1;
-    },
     refresh() {
       this.loadOptions();
     }
@@ -377,7 +374,10 @@ window.autocompleterScript = function() {
     init() {
       this.parentVarGroup = this.$el.getAttribute('data-parent-var-group');
       this.parentVariable = this.$el.getAttribute('data-parent-variable');
-      this.$watch('search', () => { this.selectedIndex = -1; });
+      this.$watch('search', () => {
+        this.selectedIndex = -1;
+        if (this.search === '') this[this.parentVarGroup][this.parentVariable] = '';
+      });
       this.$watch('showList', (value) => {
         if (value) {
           this.$nextTick(() => {
@@ -450,12 +450,6 @@ window.autocompleterScript = function() {
           option.name.toLowerCase().includes(this.search.toLowerCase())
         )
         .slice(0, 50);
-    },
-    clear() {
-      this.search = '';
-      this[this.parentVarGroup][this.parentVariable] = '';
-      this.showList = false;
-      this.selectedIndex = -1;
     },
     refresh() {
       this.loadOptions();
