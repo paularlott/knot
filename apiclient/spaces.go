@@ -171,6 +171,16 @@ type PortStopRequest struct {
 	LocalPort uint16 `json:"local_port"`
 }
 
+type PortApplyRequest struct {
+	Forwards []PortForwardRequest `json:"forwards"`
+}
+
+type PortApplyResponse struct {
+	Applied []PortForwardInfo `json:"applied"`
+	Stopped []PortForwardInfo `json:"stopped"`
+	Errors  []string          `json:"errors,omitempty"`
+}
+
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
@@ -329,6 +339,15 @@ func (c *ApiClient) ListPorts(ctx context.Context, spaceId string) (*PortListRes
 
 func (c *ApiClient) StopPort(ctx context.Context, spaceId string, request *PortStopRequest) (int, error) {
 	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/stop", request, nil, 200)
+}
+
+func (c *ApiClient) ApplyPorts(ctx context.Context, spaceId string, request *PortApplyRequest) (*PortApplyResponse, int, error) {
+	response := &PortApplyResponse{}
+	code, err := c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/apply", request, response, 200)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
 }
 
 func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*SpaceDefinition, error) {

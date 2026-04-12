@@ -650,3 +650,33 @@ def port_stop(name, local_port):
     body = {"local_port": local_port}
     api.post(f"/space-io/{name}/port/stop", body)
     return True
+
+
+def port_apply(source_space, forwards):
+    """Replace all port forwards with the given list.
+
+    Stops any existing forwards not in the list and starts any new ones.
+    Forwards that already exist with the same local_port, space, and
+    remote_port are left unchanged.
+
+    Args:
+        source_space: Source space name or ID
+        forwards: List of dicts, each containing:
+            - local_port: Local port number
+            - space: Remote space name or ID
+            - remote_port: Remote port number
+            Optional keys:
+            - persistent: bool (default False)
+            - force: bool (default False)
+
+    Returns:
+        A dict containing:
+        - applied: List of forwards that were started
+        - stopped: List of forwards that were stopped
+        - errors: List of error messages (if any)
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    body = {"forwards": forwards}
+    return api.post(f"/space-io/{source_space}/port/apply", body)
