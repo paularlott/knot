@@ -34,6 +34,8 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_auto_restart TINYINT(1) NOT NULL DEFAULT 0`,
 	// 15: add stack field to spaces
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS stack VARCHAR(255) DEFAULT ''`,
+	// 16: add port_forwards to spaces
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS port_forwards JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

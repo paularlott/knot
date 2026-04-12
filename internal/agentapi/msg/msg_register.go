@@ -1,5 +1,7 @@
 package msg
 
+import "github.com/paularlott/knot/internal/database/model"
+
 // message sent from an agent to the server to register itself
 type Register struct {
 	SpaceId string
@@ -29,4 +31,5 @@ type RegisterResponse struct {
 	HealthCheckInterval      uint32
 	HealthCheckMaxFailures   uint32
 	HealthCheckAutoRestart   bool
+	PortForwards             []model.PortForwardEntry
 }

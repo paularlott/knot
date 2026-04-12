@@ -162,6 +162,7 @@ func handleAgentConnection(conn net.Conn) {
 	response.HealthCheckInterval = template.HealthCheckInterval
 	response.HealthCheckMaxFailures = template.HealthCheckMaxFailures
 	response.HealthCheckAutoRestart = template.HealthCheckAutoRestart
+	response.PortForwards = space.PortForwards
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -522,6 +523,14 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handlePortStop(stream, session)
 			return // Single shot command so done
 
+		case byte(msg.CmdAddPortForward):
+			handleAddPortForward(stream, session)
+			return
+
+		case byte(msg.CmdRemovePortForward):
+			handleRemovePortForward(stream, session)
+			return
+
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
@@ -853,4 +862,73 @@ func mapsEqual(a, b map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func handleAddPortForward(stream net.Conn, session *Session) {
+	var addMsg msg.AddPortForwardMsg
+	if err := msg.ReadMessage(stream, &addMsg); err != nil {
+		log.WithError(err).Error("reading add port forward message:")
+		return
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(session.Id)
+	if err != nil {
+		log.Error("unknown space:", "agent", session.Id)
+		return
+	}
+
+	// Replace existing entry with same LocalPort, or append
+	found := false
+	for i := range space.PortForwards {
+		if space.PortForwards[i].LocalPort == addMsg.LocalPort {
+			space.PortForwards[i] = addMsg.PortForwardEntry
+			found = true
+			break
+		}
+	}
+	if !found {
+		space.PortForwards = append(space.PortForwards, addMsg.PortForwardEntry)
+	}
+
+	space.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(space, []string{"PortForwards", "UpdatedAt"}); err != nil {
+		log.WithError(err).Error("updating space port forwards:")
+		return
+	}
+
+	service.GetTransport().GossipSpace(space)
+	log.Info("added persistent port forward to space", "space_id", session.Id, "local_port", addMsg.LocalPort)
+}
+
+func handleRemovePortForward(stream net.Conn, session *Session) {
+	var removeMsg msg.RemovePortForwardMsg
+	if err := msg.ReadMessage(stream, &removeMsg); err != nil {
+		log.WithError(err).Error("reading remove port forward message:")
+		return
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(session.Id)
+	if err != nil {
+		log.Error("unknown space:", "agent", session.Id)
+		return
+	}
+
+	filtered := space.PortForwards[:0]
+	for _, pf := range space.PortForwards {
+		if pf.LocalPort != removeMsg.LocalPort {
+			filtered = append(filtered, pf)
+		}
+	}
+	space.PortForwards = filtered
+
+	space.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(space, []string{"PortForwards", "UpdatedAt"}); err != nil {
+		log.WithError(err).Error("updating space port forwards:")
+		return
+	}
+
+	service.GetTransport().GossipSpace(space)
+	log.Info("removed persistent port forward from space", "space_id", session.Id, "local_port", removeMsg.LocalPort)
 }

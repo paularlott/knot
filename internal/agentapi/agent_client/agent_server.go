@@ -13,7 +13,9 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
+	"github.com/paularlott/knot/internal/portforward"
 	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/internal/util"
 
@@ -212,6 +214,11 @@ func (s *agentServer) ConnectAndServe() {
 				// Fetch and start vscode tunnel
 				if s.agentClient.withVSCodeTunnel {
 					go startVSCodeTunnel(cfg.VSCodeTunnel)
+				}
+
+				// Restore persistent port forwards from server
+				if len(response.PortForwards) > 0 && s.agentClient.withRunCommand {
+					go s.restorePortForwards(response.PortForwards)
 				}
 			}
 			s.agentClient.firstRegistrationMutex.Unlock()
@@ -577,5 +584,47 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 	default:
 		log.Error("unknown command:", "cmd", cmd)
+	}
+}
+
+func (s *agentServer) restorePortForwards(forwards []model.PortForwardEntry) {
+	for _, entry := range forwards {
+		server := s.agentClient.GetServerURL()
+		token := s.agentClient.GetAgentToken()
+		if server == "" || token == "" {
+			log.Error("cannot restore port forwards: missing credentials")
+			return
+		}
+
+		cfg := config.GetAgentConfig()
+
+		if portforward.IsPortForwarded(entry.LocalPort) {
+			log.Warn("skipping port forward restore, port already forwarded", "local_port", entry.LocalPort)
+			continue
+		}
+
+		forwardCtx, cancel := context.WithCancel(context.Background())
+		portforward.StartForward(entry.LocalPort, entry.RemotePort, entry.Space, cancel)
+		portforward.MarkPersistent(entry.LocalPort)
+
+		go func(e model.PortForwardEntry) {
+			listener := portforward.RunTCPForwarderViaAgentWithContext(
+				forwardCtx,
+				server,
+				fmt.Sprintf("127.0.0.1:%d", e.LocalPort),
+				e.Space,
+				int(e.RemotePort),
+				token,
+				cfg.TLS.SkipVerify,
+			)
+			if listener != nil {
+				portforward.StoreListener(e.LocalPort, listener)
+			}
+
+			<-forwardCtx.Done()
+			portforward.StopForward(e.LocalPort)
+		}(entry)
+
+		log.Info("restored persistent port forward", "local_port", entry.LocalPort, "space", entry.Space, "remote_port", entry.RemotePort)
 	}
 }

@@ -18,6 +18,26 @@ type SpaceCustomField struct {
 	Value string `json:"value"`
 }
 
+type PortForwardEntry struct {
+	LocalPort  uint16 `json:"local_port"`
+	Space      string `json:"space"`
+	RemotePort uint16 `json:"remote_port"`
+}
+
+// Value implements the driver.Valuer interface.
+func (pf PortForwardEntry) Value() (driver.Value, error) {
+	return json.Marshal(pf)
+}
+
+// Scan implements the sql.Scanner interface.
+func (pf *PortForwardEntry) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(b, pf)
+}
+
 type SpaceVolume struct {
 	Id        string `json:"id"`
 	Namespace string `json:"Namespace"`
@@ -91,6 +111,7 @@ type Space struct {
 	IsDeleted        bool               `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	AltNames         []string           `json:"alt_names" msgpack:"alt_names"`
 	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
+	PortForwards     []PortForwardEntry `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
 	CreatedAt        time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
 	UpdatedAt        hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
@@ -134,6 +155,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		SharedWithUserId: "",
 		IconURL:          iconURL,
 		CustomFields:     customFields,
+		PortForwards:     []PortForwardEntry{},
 	}
 
 	return space

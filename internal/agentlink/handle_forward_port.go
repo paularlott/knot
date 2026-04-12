@@ -7,6 +7,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/portforward"
 )
@@ -101,8 +102,13 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 	portforward.StartForward(request.LocalPort, request.RemotePort, request.Space, cancel)
 
 	if request.Persistent {
-		if err := portforward.SaveForward(request.LocalPort, request.RemotePort, request.Space); err != nil {
-			log.WithError(err).Warn("Failed to persist port forward")
+		portforward.MarkPersistent(request.LocalPort)
+		if err := agentClient.AddPortForward(model.PortForwardEntry{
+			LocalPort:  request.LocalPort,
+			Space:      request.Space,
+			RemotePort: request.RemotePort,
+		}); err != nil {
+			log.WithError(err).Warn("Failed to persist port forward to server")
 		}
 	}
 

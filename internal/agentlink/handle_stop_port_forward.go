@@ -24,8 +24,8 @@ func handleStopPortForward(conn net.Conn, msg *CommandMsg) {
 
 	portforward.StopForward(request.LocalPort)
 
-	if err := portforward.RemoveForward(request.LocalPort); err != nil {
-		log.WithError(err).Error("Failed to remove persistent port forward entry")
+	if err := agentClient.RemovePortForward(request.LocalPort); err != nil {
+		log.WithError(err).Error("Failed to remove persistent port forward from server")
 	}
 
 	sendMsg(conn, CommandNil, RunCommandResponse{Success: true})

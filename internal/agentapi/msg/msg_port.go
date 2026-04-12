@@ -1,5 +1,12 @@
 package msg
 
+import (
+	"net"
+
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/log"
+)
+
 type TcpPort struct {
 	Port uint16
 }
@@ -41,4 +48,36 @@ type PortStopRequest struct {
 type PortStopResponse struct {
 	Success bool   `json:"success" msgpack:"success"`
 	Error   string `json:"error" msgpack:"error"`
+}
+
+type AddPortForwardMsg struct {
+	model.PortForwardEntry
+}
+
+type RemovePortForwardMsg struct {
+	LocalPort uint16 `json:"local_port" msgpack:"local_port"`
+}
+
+func SendAddPortForward(conn net.Conn, entry model.PortForwardEntry) error {
+	if err := WriteCommand(conn, CmdAddPortForward); err != nil {
+		log.WithError(err).Error("writing add port forward command")
+		return err
+	}
+	if err := WriteMessage(conn, &AddPortForwardMsg{PortForwardEntry: entry}); err != nil {
+		log.WithError(err).Error("writing add port forward message")
+		return err
+	}
+	return nil
+}
+
+func SendRemovePortForward(conn net.Conn, localPort uint16) error {
+	if err := WriteCommand(conn, CmdRemovePortForward); err != nil {
+		log.WithError(err).Error("writing remove port forward command")
+		return err
+	}
+	if err := WriteMessage(conn, &RemovePortForwardMsg{LocalPort: localPort}); err != nil {
+		log.WithError(err).Error("writing remove port forward message")
+		return err
+	}
+	return nil
 }

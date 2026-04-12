@@ -7,6 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/portforward"
 
 	"github.com/paularlott/knot/internal/log"
@@ -68,8 +69,13 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 	portforward.StartForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space, cancel)
 
 	if portCmd.Persistent {
-		if err := portforward.SaveForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space); err != nil {
-			log.WithError(err).Warn("Failed to persist port forward")
+		portforward.MarkPersistent(portCmd.LocalPort)
+		if err := agentClient.AddPortForward(model.PortForwardEntry{
+			LocalPort:  portCmd.LocalPort,
+			Space:      portCmd.Space,
+			RemotePort: portCmd.RemotePort,
+		}); err != nil {
+			log.WithError(err).Warn("Failed to persist port forward to server")
 		}
 	}
 
@@ -136,8 +142,8 @@ func handlePortStopExecution(stream net.Conn, portCmd msg.PortStopRequest, agent
 	}
 
 	portforward.StopForward(portCmd.LocalPort)
-	if err := portforward.RemoveForward(portCmd.LocalPort); err != nil {
-		log.WithError(err).Error("Failed to remove persistent port forward entry")
+	if err := agentClient.RemovePortForward(portCmd.LocalPort); err != nil {
+		log.WithError(err).Error("Failed to remove persistent port forward from server")
 	}
 	msg.WriteMessage(stream, &msg.PortStopResponse{
 		Success: true,
