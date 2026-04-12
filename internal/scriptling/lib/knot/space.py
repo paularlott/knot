@@ -582,7 +582,7 @@ def write_file(name, file_path, content):
     return True
 
 
-def port_forward(source_space, local_port, remote_space, remote_port):
+def port_forward(source_space, local_port, remote_space, remote_port, persistent=False, force=False):
     """Forward a local port to a remote space port.
 
     Args:
@@ -590,6 +590,8 @@ def port_forward(source_space, local_port, remote_space, remote_port):
         local_port: Local port number
         remote_space: Remote space name or ID
         remote_port: Remote port number
+        persistent: Persist the forward across agent restarts (default False)
+        force: Create the forward even if the target space is not running (default False)
 
     Returns:
         True if successful
@@ -600,7 +602,9 @@ def port_forward(source_space, local_port, remote_space, remote_port):
     body = {
         "local_port": local_port,
         "space": remote_space,
-        "remote_port": remote_port
+        "remote_port": remote_port,
+        "persistent": persistent,
+        "force": force,
     }
     api.post(f"/space-io/{source_space}/port/forward", body)
     return True

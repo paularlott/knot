@@ -74,17 +74,41 @@ var ForwardCmd = &cli.Command{
 			return fmt.Errorf("failed to get spaces: %w", err)
 		}
 
-		var spaceId string
-		for _, s := range spaces.Spaces {
-			if s.Name == fromSpace {
-				spaceId = s.Id
+		var fromSpaceInfo *apiclient.SpaceInfo
+		for i := range spaces.Spaces {
+			if spaces.Spaces[i].Name == fromSpace {
+				fromSpaceInfo = &spaces.Spaces[i]
 				break
 			}
 		}
 
-		if spaceId == "" {
+		if fromSpaceInfo == nil {
 			return fmt.Errorf("space '%s' not found", fromSpace)
 		}
+
+		if !fromSpaceInfo.IsDeployed || !fromSpaceInfo.HasState {
+			if !cmd.GetBool("persistent") {
+				return fmt.Errorf("space '%s' is not running", fromSpace)
+			}
+		}
+
+		if !cmd.GetBool("force") {
+			var toSpaceInfo *apiclient.SpaceInfo
+			for i := range spaces.Spaces {
+				if spaces.Spaces[i].Name == toSpace {
+					toSpaceInfo = &spaces.Spaces[i]
+					break
+				}
+			}
+			if toSpaceInfo == nil {
+				return fmt.Errorf("space '%s' not found", toSpace)
+			}
+			if !toSpaceInfo.IsDeployed || !toSpaceInfo.HasState {
+				return fmt.Errorf("space '%s' is not running", toSpace)
+			}
+		}
+
+		spaceId := fromSpaceInfo.Id
 
 		force := cmd.GetBool("force")
 
@@ -105,7 +129,9 @@ var ForwardCmd = &cli.Command{
 			} else if code == 403 {
 				return fmt.Errorf("no permission to forward ports")
 			} else if code == 404 {
-				return fmt.Errorf("space not found or not running")
+				return fmt.Errorf("space not found")
+			} else if code == 409 {
+				return fmt.Errorf("space is not running, only persistent forwards can be created for stopped spaces")
 			}
 			return fmt.Errorf("port forward failed: %w", err)
 		}

@@ -9,11 +9,59 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/log"
 )
+
+// helper to save a persistent port forward entry to the space in the database.
+func savePortForwardToDB(space *model.Space, entry model.PortForwardEntry) error {
+	db := database.GetInstance()
+
+	found := false
+	for i := range space.PortForwards {
+		if space.PortForwards[i].LocalPort == entry.LocalPort {
+			space.PortForwards[i] = entry
+			found = true
+			break
+		}
+	}
+	if !found {
+		space.PortForwards = append(space.PortForwards, entry)
+	}
+
+	space.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(space, []string{"PortForwards", "UpdatedAt"}); err != nil {
+		return err
+	}
+
+	service.GetTransport().GossipSpace(space)
+	return nil
+}
+
+// helper to remove a persistent port forward entry from the space in the database.
+func removePortForwardFromDB(space *model.Space, localPort uint16) error {
+	db := database.GetInstance()
+
+	filtered := space.PortForwards[:0]
+	for _, pf := range space.PortForwards {
+		if pf.LocalPort != localPort {
+			filtered = append(filtered, pf)
+		}
+	}
+	space.PortForwards = filtered
+
+	space.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(space, []string{"PortForwards", "UpdatedAt"}); err != nil {
+		return err
+	}
+
+	service.GetTransport().GossipSpace(space)
+	return nil
+}
 
 func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
@@ -28,13 +76,6 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
 	if err != nil || space == nil || (space.UserId != user.Id && !space.IsSharedWith(user.Id)) {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	// Get the agent session
-	agentSession := agent_server.GetSession(spaceId)
-	if agentSession == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -62,7 +103,47 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send the port forward message to the agent
+	// Get the agent session for the source space
+	agentSession := agent_server.GetSession(spaceId)
+
+	// Source space not running — only persistent forwards allowed
+	if agentSession == nil && !request.Persistent {
+		writeJSONError(w, http.StatusConflict, "Space is not running, only persistent forwards can be created for stopped spaces")
+		return
+	}
+
+	// Validate the target space exists and is running (unless force)
+	if !request.Force {
+		targetSpace, err := db.GetSpaceByName(space.UserId, request.Space)
+		if err != nil || targetSpace == nil {
+			writeJSONError(w, http.StatusNotFound, "Target space not found")
+			return
+		}
+		if agent_server.GetSession(targetSpace.Id) == nil {
+			writeJSONError(w, http.StatusConflict, "Target space is not running")
+			return
+		}
+	}
+
+	if agentSession == nil {
+
+		entry := model.PortForwardEntry{
+			LocalPort:  request.LocalPort,
+			Space:      request.Space,
+			RemotePort: request.RemotePort,
+		}
+
+		if err := savePortForwardToDB(space, entry); err != nil {
+			log.WithError(err).Error("Failed to save port forward to database")
+			writeJSONError(w, http.StatusInternalServerError, "Failed to save port forward")
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Space is running — forward to agent
 	portForwardMsg := &msg.PortForwardRequest{
 		LocalPort:  uint16(request.LocalPort),
 		Space:      request.Space,
@@ -71,7 +152,6 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 		Force:      request.Force,
 	}
 
-	// Send the command to the agent and get the response
 	response, err := agentSession.SendPortForward(portForwardMsg)
 	if err != nil {
 		log.WithError(err).Error("Failed to send port forward command to agent")
@@ -105,12 +185,26 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 
 	// Get the agent session
 	agentSession := agent_server.GetSession(spaceId)
+
 	if agentSession == nil {
-		w.WriteHeader(http.StatusNotFound)
+		// Space is not running — return persistent forwards from database
+		forwards := make([]apiclient.PortForwardInfo, 0, len(space.PortForwards))
+		for _, pf := range space.PortForwards {
+			forwards = append(forwards, apiclient.PortForwardInfo{
+				LocalPort:  pf.LocalPort,
+				Space:      pf.Space,
+				RemotePort: pf.RemotePort,
+				Persistent: true,
+			})
+		}
+
+		rest.WriteResponse(http.StatusOK, w, r, apiclient.PortListResponse{
+			Forwards: forwards,
+		})
 		return
 	}
 
-	// Send the command to the agent and get the response
+	// Space is running — query agent for live forwards
 	response, err := agentSession.SendPortList()
 	if err != nil {
 		log.WithError(err).Error("failed to send port list command to agent")
@@ -128,11 +222,9 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	portListResponse := apiclient.PortListResponse{
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.PortListResponse{
 		Forwards: forwards,
-	}
-
-	rest.WriteResponse(http.StatusOK, w, r, portListResponse)
+	})
 }
 
 func HandlePortStop(w http.ResponseWriter, r *http.Request) {
@@ -152,13 +244,6 @@ func HandlePortStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the agent session
-	agentSession := agent_server.GetSession(spaceId)
-	if agentSession == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
 	// Read the port stop request
 	var request apiclient.PortStopRequest
 	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
@@ -172,12 +257,26 @@ func HandlePortStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send the port stop message to the agent
+	// Get the agent session
+	agentSession := agent_server.GetSession(spaceId)
+
+	if agentSession == nil {
+		// Space is not running — remove from database
+		if err := removePortForwardFromDB(space, request.LocalPort); err != nil {
+			log.WithError(err).Error("Failed to remove port forward from database")
+			writeJSONError(w, http.StatusInternalServerError, "Failed to remove port forward")
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Space is running — forward to agent (agent handles both live forward + DB removal)
 	portStopMsg := &msg.PortStopRequest{
 		LocalPort: uint16(request.LocalPort),
 	}
 
-	// Send the command to the agent and get the response
 	response, err := agentSession.SendPortStop(portStopMsg)
 	if err != nil {
 		log.WithError(err).Error("Failed to send port stop command to agent")
@@ -216,13 +315,6 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the agent session
-	agentSession := agent_server.GetSession(spaceId)
-	if agentSession == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
 	// Read the apply request
 	var request apiclient.PortApplyRequest
 	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
@@ -251,7 +343,67 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch current forwards from the agent
+	// Get the agent session
+	agentSession := agent_server.GetSession(spaceId)
+
+	if agentSession == nil {
+		// Space is not running — check that all forwards are persistent, then apply to DB
+		for _, fwd := range request.Forwards {
+			if !fwd.Persistent {
+				writeJSONError(w, http.StatusConflict, "Space is not running, only persistent forwards can be created for stopped spaces")
+				return
+			}
+		}
+
+		var applied []apiclient.PortForwardInfo
+		var stopped []apiclient.PortForwardInfo
+
+		// Build a set of desired local_ports
+		desiredSet := make(map[uint16]apiclient.PortForwardRequest)
+		for _, fwd := range request.Forwards {
+			desiredSet[fwd.LocalPort] = fwd
+		}
+
+		// Remove forwards not in the desired list or that have changed
+		for _, current := range space.PortForwards {
+			desired, exists := desiredSet[current.LocalPort]
+			if !exists || current.Space != desired.Space || current.RemotePort != desired.RemotePort {
+				stopped = append(stopped, apiclient.PortForwardInfo{
+					LocalPort:  current.LocalPort,
+					Space:      current.Space,
+					RemotePort: current.RemotePort,
+					Persistent: true,
+				})
+			}
+		}
+
+		// Apply all desired forwards to the database
+		for _, fwd := range request.Forwards {
+			entry := model.PortForwardEntry{
+				LocalPort:  fwd.LocalPort,
+				Space:      fwd.Space,
+				RemotePort: fwd.RemotePort,
+			}
+			if err := savePortForwardToDB(space, entry); err != nil {
+				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to save port forward %d: %v", fwd.LocalPort, err))
+				return
+			}
+			applied = append(applied, apiclient.PortForwardInfo{
+				LocalPort:  fwd.LocalPort,
+				Space:      fwd.Space,
+				RemotePort: fwd.RemotePort,
+				Persistent: true,
+			})
+		}
+
+		rest.WriteResponse(http.StatusOK, w, r, apiclient.PortApplyResponse{
+			Applied: applied,
+			Stopped: stopped,
+		})
+		return
+	}
+
+	// Space is running — use agent for apply
 	currentList, err := agentSession.SendPortList()
 	if err != nil {
 		log.WithError(err).Error("Failed to get current port list from agent")

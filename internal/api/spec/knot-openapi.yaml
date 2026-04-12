@@ -2076,6 +2076,8 @@ paths:
           $ref: "#/components/responses/forbidden"
         "404":
           $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
         "500":
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
@@ -5787,6 +5789,12 @@ components:
   responses:
     bad-request:
       description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/error"
+    conflict:
+      description: Conflict
       content:
         application/json:
           schema:
