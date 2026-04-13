@@ -75,6 +75,11 @@ const (
 	AuditEventSkillCreate = "Skill Create"
 	AuditEventSkillUpdate = "Skill Update"
 	AuditEventSkillDelete = "Skill Delete"
+
+	// Stack Definitions
+	AuditEventStackDefCreate = "Stack Definition Create"
+	AuditEventStackDefUpdate = "Stack Definition Update"
+	AuditEventStackDefDelete = "Stack Definition Delete"
 )
 
 type AuditLogFilter struct {

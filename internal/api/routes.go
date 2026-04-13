@@ -120,6 +120,13 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /api/skill/{skill_id}", middleware.ApiAuth(HandleUpdateSkill))
 	router.HandleFunc("DELETE /api/skill/{skill_id}", middleware.ApiAuth(HandleDeleteSkill))
 
+	// Stack Definitions
+	router.HandleFunc("GET /api/stack-definitions", middleware.ApiAuth(HandleGetStackDefinitions))
+	router.HandleFunc("GET /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleGetStackDefinition))
+	router.HandleFunc("POST /api/stack-definitions", middleware.ApiAuth(HandleCreateStackDefinition))
+	router.HandleFunc("PUT /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleUpdateStackDefinition))
+	router.HandleFunc("DELETE /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleDeleteStackDefinition))
+
 	// Tunnels
 	router.HandleFunc("GET /api/tunnels", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnels)))
 	router.HandleFunc("GET /api/tunnels/server-info", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnelServerInfo)))

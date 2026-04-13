@@ -339,57 +339,6 @@ def set_stack(name, stack):
     return True
 
 
-def start_stack(stack_name):
-    """Start all spaces in a stack.
-
-    Args:
-        stack_name: Stack name
-
-    Returns:
-        True if successful
-
-    Raises:
-        Exception if not configured, on API error, or if not licensed for
-        stack lifecycle operations
-    """
-    api.post(f"/api/spaces/stacks/{stack_name}/start")
-    return True
-
-
-def stop_stack(stack_name):
-    """Stop all spaces in a stack.
-
-    Args:
-        stack_name: Stack name
-
-    Returns:
-        True if successful
-
-    Raises:
-        Exception if not configured, on API error, or if not licensed for
-        stack lifecycle operations
-    """
-    api.post(f"/api/spaces/stacks/{stack_name}/stop")
-    return True
-
-
-def restart_stack(stack_name):
-    """Restart all spaces in a stack.
-
-    Args:
-        stack_name: Stack name
-
-    Returns:
-        True if successful
-
-    Raises:
-        Exception if not configured, on API error, or if not licensed for
-        stack lifecycle operations
-    """
-    api.post(f"/api/spaces/stacks/{stack_name}/restart")
-    return True
-
-
 def get_field(name, field):
     """Get a custom field value from a space.
 

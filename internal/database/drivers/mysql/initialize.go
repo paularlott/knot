@@ -319,6 +319,32 @@ INDEX created_at (created_at)
 		return err
 	}
 
+	db.logger.Debug("creating stack_definitions table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS stack_definitions (
+	stack_definition_id CHAR(36) PRIMARY KEY,
+	user_id CHAR(36) NOT NULL DEFAULT '',
+	name VARCHAR(64) NOT NULL,
+	description TEXT DEFAULT '',
+	icon_url VARCHAR(255) NOT NULL DEFAULT '',
+	groups JSON NOT NULL DEFAULT '[]',
+	zones JSON NOT NULL DEFAULT '[]',
+	active TINYINT(1) NOT NULL DEFAULT 1,
+	is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+	is_managed TINYINT(1) NOT NULL DEFAULT 0,
+	components JSON NOT NULL DEFAULT '[]',
+	created_user_id CHAR(36) DEFAULT '',
+	created_at TIMESTAMP(6),
+	updated_user_id CHAR(36) DEFAULT '',
+	updated_at BIGINT UNSIGNED DEFAULT 0,
+	INDEX user_id (user_id),
+	UNIQUE INDEX user_name (user_id, name),
+	INDEX idx_active (active),
+	INDEX idx_is_deleted (is_deleted)
+	)`)
+	if err != nil {
+		return err
+	}
+
 	db.logger.Debug("creating configs table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS configs (
 name VARCHAR(64) PRIMARY KEY,

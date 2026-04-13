@@ -43,6 +43,9 @@ const (
 	PermissionSetSpaceDependencies         // Can configure space dependencies in the UI
 	PermissionUseSpaceStartupScript        // Can configure user startup script in the space form UI
 	PermissionDownloadAuditLogs            // Can Download Audit Logs
+	PermissionManageStackDefinitions       // Can create/edit/delete global (system) stack definitions
+	PermissionManageOwnStackDefinitions    // Can create/edit/delete personal stack definitions
+	PermissionUseStackDefinitions          // Can create instances from stack definitions
 )
 
 type PermissionName struct {
@@ -76,6 +79,10 @@ var PermissionNames = []PermissionName{
 
 	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
 	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
+
+	{PermissionManageStackDefinitions,    "Stacks", "Manage Global Stack Definitions"},
+	{PermissionManageOwnStackDefinitions, "Stacks", "Manage Own Stack Definitions"},
+	{PermissionUseStackDefinitions,       "Stacks", "Use Stack Definitions"},
 
 	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
 	{PermissionSetSpaceDependencies, "Space Operations", "Set Space Dependencies"},
@@ -157,6 +164,9 @@ func SetRoleCache(roles []*Role) {
 			PermissionExecuteOwnScripts,
 			PermissionManageGlobalSkills,
 			PermissionManageOwnSkills,
+			PermissionManageStackDefinitions,
+			PermissionManageOwnStackDefinitions,
+			PermissionUseStackDefinitions,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

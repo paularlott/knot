@@ -40,6 +40,9 @@ tags:
   - name: Skills
     description: |
       Operations for working with skills (knowledge base content).
+  - name: Stack Definitions
+    description: |
+      Operations for working with stack definitions (reusable space blueprints).
 paths:
   /v1/models:
     get:
@@ -3420,6 +3423,149 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/stack-definitions:
+    get:
+      tags:
+        - Stack Definitions
+      summary: List Stack Definitions
+      description: List all stack definitions visible to the current user.
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: string
+          description: Filter to definitions owned by a specific user.
+        - name: all_zones
+          in: query
+          schema:
+            type: boolean
+          description: Include definitions from all zones.
+      responses:
+        "200":
+          description: List of stack definitions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  stack_definitions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StackDefinition"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      tags:
+        - Stack Definitions
+      summary: Create Stack Definition
+      description: Create a new stack definition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StackDefinitionRequest"
+      responses:
+        "201":
+          description: Stack definition created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  stack_definition_id:
+                    type: string
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/stack-definitions/{definition_id}:
+    get:
+      tags:
+        - Stack Definitions
+      summary: Get Stack Definition
+      description: Get a stack definition by ID.
+      parameters:
+        - name: definition_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Stack definition ID
+      responses:
+        "200":
+          description: Stack definition details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StackDefinition"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - Stack Definitions
+      summary: Update Stack Definition
+      description: Update an existing stack definition.
+      parameters:
+        - name: definition_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Stack definition ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StackDefinitionRequest"
+      responses:
+        "200":
+          description: Stack definition updated
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - Stack Definitions
+      summary: Delete Stack Definition
+      description: Delete a stack definition.
+      parameters:
+        - name: definition_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Stack definition ID
+      responses:
+        "200":
+          description: Stack definition deleted
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/ping:
     get:
       tags:
@@ -3449,6 +3595,113 @@ components:
         error:
           type: string
           description: Error message
+
+    StackDefinitionComponent:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Space name used for naming and references
+        template_id:
+          type: string
+          description: Template ID to use for this space
+        description:
+          type: string
+          description: Component description
+        shell:
+          type: string
+          description: Override shell
+        startup_script_id:
+          type: string
+          description: Startup script ID
+        depends_on:
+          type: array
+          items:
+            type: string
+          description: List of component keys this depends on
+        custom_fields:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+          description: Custom field values
+        port_forwards:
+          type: array
+          items:
+            type: object
+            properties:
+              to_space:
+                type: string
+              local_port:
+                type: integer
+              remote_port:
+                type: integer
+          description: Port forward rules
+
+    StackDefinition:
+      type: object
+      properties:
+        stack_definition_id:
+          type: string
+        user_id:
+          type: string
+          description: Owner user ID (empty for global definitions)
+        name:
+          type: string
+        description:
+          type: string
+        icon_url:
+          type: string
+        active:
+          type: boolean
+        groups:
+          type: array
+          items:
+            type: string
+          description: Group IDs allowed to create instances
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zone restrictions
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/StackDefinitionComponent"
+        is_managed:
+          type: boolean
+          description: Whether managed by a parent server
+
+    StackDefinitionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        icon_url:
+          type: string
+        active:
+          type: boolean
+        scope:
+          type: string
+          enum: [personal, system]
+        groups:
+          type: array
+          items:
+            type: string
+        zones:
+          type: array
+          items:
+            type: string
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/StackDefinitionComponent"
 
     ChatMessage:
       type: object

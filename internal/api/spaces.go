@@ -329,8 +329,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Default shell to user's preferred shell if not specified
+	shell := request.Shell
+	if shell == "" {
+		shell = user.PreferredShell
+	}
+
 	// Create the space
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, "", request.IconURL, customFields)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, shell, &request.AltNames, "", request.IconURL, customFields)
 	space.NodeId = nodeId
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn

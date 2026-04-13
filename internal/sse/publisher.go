@@ -147,6 +147,22 @@ func PublishSkillsDeleted(skillId string) {
 	})
 }
 
+// PublishStackDefinitionsChanged notifies clients that a stack definition has changed
+func PublishStackDefinitionsChanged(defId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventStackDefinitionsChanged,
+		Payload: ResourcePayload{Id: defId},
+	})
+}
+
+// PublishStackDefinitionsDeleted notifies clients that a stack definition was deleted
+func PublishStackDefinitionsDeleted(defId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventStackDefinitionsDeleted,
+		Payload: ResourcePayload{Id: defId},
+	})
+}
+
 // PublishSessionsChanged notifies clients that a session has changed
 func PublishSessionsChanged(sessionId string) {
 	GetHub().Broadcast(&Event{
