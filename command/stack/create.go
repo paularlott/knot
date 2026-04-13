@@ -138,14 +138,14 @@ var CreateCmd = &cli.Command{
 			}
 			forwards := make([]apiclient.PortForwardRequest, 0, len(s.space.PortForwards))
 			for _, pf := range s.space.PortForwards {
-				_, ok := keyToID[pf.ToSpace]
+				targetID, ok := keyToID[pf.ToSpace]
 				if !ok {
 					fmt.Printf("  Warning: port forward target %q not found for space %q\n", pf.ToSpace, s.key)
 					continue
 				}
 				forwards = append(forwards, apiclient.PortForwardRequest{
 					LocalPort:  pf.LocalPort,
-					Space:      prefix + "-" + pf.ToSpace,
+					Space:      targetID,
 					RemotePort: pf.RemotePort,
 					Persistent: true,
 				})

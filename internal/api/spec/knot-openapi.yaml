@@ -5620,7 +5620,7 @@ components:
         space:
           type: string
           example: backend-api
-          description: The name of the target space.
+          description: The ID or name of the target space.
         remote_port:
           type: integer
           minimum: 1

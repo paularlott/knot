@@ -258,11 +258,12 @@ def create(definition_name, prefix, stack_name=None):
         forwards = []
         for pf in port_forwards:
             target_name = pf.get("to_space", "")
-            if target_name not in space_map:
+            target_id = space_map.get(target_name, "")
+            if not target_id:
                 continue
             forwards.append({
                 "local_port": pf.get("local_port"),
-                "space": f"{prefix}-{target_name}",
+                "space": target_id,
                 "remote_port": pf.get("remote_port"),
                 "persistent": True,
             })

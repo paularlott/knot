@@ -110,12 +110,24 @@ var ForwardCmd = &cli.Command{
 
 		spaceId := fromSpaceInfo.Id
 
+		// Resolve target space name to ID
+		var toSpaceId string
+		for i := range spaces.Spaces {
+			if spaces.Spaces[i].Name == toSpace {
+				toSpaceId = spaces.Spaces[i].Id
+				break
+			}
+		}
+		if toSpaceId == "" {
+			return fmt.Errorf("space '%s' not found", toSpace)
+		}
+
 		force := cmd.GetBool("force")
 
-		// Create the request
+		// Create the request (send target space ID)
 		request := &apiclient.PortForwardRequest{
 			LocalPort:  uint16(fromPort),
-			Space:      toSpace,
+			Space:      toSpaceId,
 			RemotePort: uint16(toPort),
 			Persistent: cmd.GetBool("persistent"),
 			Force:      force,

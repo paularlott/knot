@@ -254,10 +254,11 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
             continue;
           const forwards = [];
           for (const pf of s.comp.port_forwards) {
-            if (!keyToID[pf.to_space]) continue;
+            const targetID = keyToID[pf.to_space];
+            if (!targetID) continue;
             forwards.push({
               local_port: pf.local_port,
-              space: prefix + "-" + pf.to_space,
+              space: targetID,
               remote_port: pf.remote_port,
               persistent: true,
             });
