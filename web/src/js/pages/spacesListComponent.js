@@ -679,7 +679,11 @@ window.spacesListComponent = function (
 
       // Collect stack names that match the search term
       const matchingStacks = term.length
-        ? new Set(this.spaces.filter((s) => s.stack && s.stack.toLowerCase().includes(term)).map((s) => s.stack))
+        ? new Set(
+            this.spaces
+              .filter((s) => s.stack && s.stack.toLowerCase().includes(term))
+              .map((s) => s.stack),
+          )
         : new Set();
 
       this.visibleSpaces = 0;
@@ -736,7 +740,9 @@ window.spacesListComponent = function (
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            shares: self.chooseUser.isShare ? [this.chooseUser.toUserId] : undefined,
+            shares: self.chooseUser.isShare
+              ? [this.chooseUser.toUserId]
+              : undefined,
             user_id: this.chooseUser.toUserId,
           }),
         },
@@ -827,11 +833,14 @@ window.spacesListComponent = function (
       try {
         while (true) {
           try {
-            const res = await fetch(`/api/spaces/stacks/${encodeURIComponent(stackName)}/${action}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              signal: controller.signal,
-            });
+            const res = await fetch(
+              `/api/spaces/stacks/${encodeURIComponent(stackName)}/${action}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: controller.signal,
+              },
+            );
             if (res.status === 202) {
               return null;
             }
@@ -855,10 +864,14 @@ window.spacesListComponent = function (
         if (err) {
           this.$dispatch("show-alert", { msg: err, type: "error" });
         } else {
-          this.$dispatch("show-alert", { msg: `Stack "${stackName}" started`, type: "success" });
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" started`,
+            type: "success",
+          });
         }
       } finally {
         this.stackBusy[stackName] = false;
+        this.getSpaces();
       }
     },
     async stopStack(stackName) {
@@ -868,10 +881,14 @@ window.spacesListComponent = function (
         if (err) {
           this.$dispatch("show-alert", { msg: err, type: "error" });
         } else {
-          this.$dispatch("show-alert", { msg: `Stack "${stackName}" stopped`, type: "success" });
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" stopped`,
+            type: "success",
+          });
         }
       } finally {
         this.stackBusy[stackName] = false;
+        this.getSpaces();
       }
     },
     async restartStack(stackName) {
@@ -881,10 +898,14 @@ window.spacesListComponent = function (
         if (err) {
           this.$dispatch("show-alert", { msg: err, type: "error" });
         } else {
-          this.$dispatch("show-alert", { msg: `Stack "${stackName}" restarted`, type: "success" });
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" restarted`,
+            type: "success",
+          });
         }
       } finally {
         this.stackBusy[stackName] = false;
+        this.getSpaces();
       }
     },
     hasStacks() {
