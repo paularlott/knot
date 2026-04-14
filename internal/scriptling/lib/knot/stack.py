@@ -176,6 +176,50 @@ def delete_def(name):
     return True
 
 
+def validate_def(spaces, name="", description="", scope="personal", active=True,
+                 groups=None, zones=None, icon_url=""):
+    """Validate a stack definition without creating it.
+
+    Checks for required fields, circular dependencies, invalid references,
+    duplicate space names, and port number ranges.
+
+    Args:
+        spaces: List of space dicts, each containing:
+            - name: Space identifier
+            - template_id: Template ID
+            - depends_on: List of space names this depends on
+            - port_forwards: List of {to_space, local_port, remote_port} dicts
+            - custom_fields: List of {name, value} dicts
+        name: Definition name (recommended, checked if provided)
+        description: Optional description
+        scope: "personal" or "system" (default: "personal")
+        active: Whether the definition would be active
+        groups: List of group IDs
+        zones: List of zone restrictions
+        icon_url: Optional icon URL
+
+    Returns:
+        A dict containing:
+        - valid: True if no errors were found
+        - errors: List of error dicts (each with field, message, and optionally space)
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    body = {
+        "name": name,
+        "description": description,
+        "scope": scope,
+        "active": active,
+        "groups": groups or [],
+        "zones": zones or [],
+        "spaces": spaces or [],
+        "icon_url": icon_url,
+    }
+
+    return api.post("/api/stack-definitions/validate", body)
+
+
 # ── Stack Operations ────────────────────────────────────────────────────
 
 def create(definition_name, prefix, stack_name=None):

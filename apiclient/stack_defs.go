@@ -24,6 +24,17 @@ type StackDefSpace struct {
 	PortForwards  []StackDefPortForward `json:"port_forwards"`
 }
 
+type ValidationError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+	Space   string `json:"space,omitempty"`
+}
+
+type StackDefinitionValidationResponse struct {
+	Valid  bool              `json:"valid"`
+	Errors []ValidationError `json:"errors,omitempty"`
+}
+
 type StackDefinitionRequest struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
@@ -92,6 +103,15 @@ func (c *ApiClient) CreateStackDefinition(ctx context.Context, req *StackDefinit
 
 func (c *ApiClient) UpdateStackDefinition(ctx context.Context, id string, req *StackDefinitionRequest) (int, error) {
 	return c.httpClient.Put(ctx, "/api/stack-definitions/"+id, req, nil, 200)
+}
+
+func (c *ApiClient) ValidateStackDefinition(ctx context.Context, req *StackDefinitionRequest) (*StackDefinitionValidationResponse, int, error) {
+	response := &StackDefinitionValidationResponse{}
+	code, err := c.httpClient.Post(ctx, "/api/stack-definitions/validate", req, response, 200)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
 }
 
 func (c *ApiClient) DeleteStackDefinition(ctx context.Context, id string) (int, error) {

@@ -12,11 +12,11 @@ import (
 var ApplyCmd = &cli.Command{
 	Name:        "apply",
 	Usage:       "Update an existing stack definition",
-	Description: "Update an existing stack definition from a TOML file.",
+	Description: "Update an existing stack definition from a TOML or JSON file.",
 	Arguments: []cli.Argument{
 		&cli.StringArg{
 			Name:     "file",
-			Usage:    "Path to the TOML definition file",
+			Usage:    "Path to the TOML or JSON definition file",
 			Required: true,
 		},
 	},
@@ -28,7 +28,7 @@ var ApplyCmd = &cli.Command{
 			os.Exit(1)
 		}
 
-		req, err := loadStackDefFromTOML(ctx, cmd.GetStringArg("file"), client)
+		req, err := loadStackDef(ctx, cmd.GetStringArg("file"), client)
 		if err != nil {
 			fmt.Println("Error reading definition:", err)
 			os.Exit(1)

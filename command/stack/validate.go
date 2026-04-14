@@ -9,10 +9,10 @@ import (
 	"github.com/paularlott/knot/command/cmdutil"
 )
 
-var CreateDefCmd = &cli.Command{
-	Name:        "create-def",
-	Usage:       "Create a new stack definition",
-	Description: "Create a new stack definition from a TOML or JSON file.",
+var ValidateCmd = &cli.Command{
+	Name:        "validate",
+	Usage:       "Validate a stack definition file",
+	Description: "Validate a stack definition TOML or JSON file without creating it.",
 	Arguments: []cli.Argument{
 		&cli.StringArg{
 			Name:     "file",
@@ -34,24 +34,26 @@ var CreateDefCmd = &cli.Command{
 			os.Exit(1)
 		}
 
-		// Fail if a definition with this name already exists
-		existing, err := client.GetStackDefinitionByName(ctx, req.Name)
+		result, _, err := client.ValidateStackDefinition(ctx, req)
 		if err != nil {
-			fmt.Println("Error checking for existing definition:", err)
-			os.Exit(1)
-		}
-		if existing != nil {
-			fmt.Printf("Stack definition %q already exists. Use 'apply' to update it.\n", req.Name)
+			fmt.Println("Error validating definition:", err)
 			os.Exit(1)
 		}
 
-		_, _, err = client.CreateStackDefinition(ctx, req)
-		if err != nil {
-			fmt.Println("Error creating stack definition:", err)
-			os.Exit(1)
+		if result.Valid {
+			fmt.Println("Stack definition is valid.")
+			return nil
 		}
 
-		fmt.Printf("Stack definition %q created.\n", req.Name)
+		fmt.Printf("Stack definition has %d error(s):\n", len(result.Errors))
+		for _, e := range result.Errors {
+			if e.Space != "" {
+				fmt.Printf("  [%s] %s: %s\n", e.Space, e.Field, e.Message)
+			} else {
+				fmt.Printf("  %s: %s\n", e.Field, e.Message)
+			}
+		}
+		os.Exit(1)
 		return nil
 	},
 }

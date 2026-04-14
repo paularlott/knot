@@ -2,12 +2,54 @@ package command_stack
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/paularlott/cli"
 	cli_toml "github.com/paularlott/cli/toml"
 	"github.com/paularlott/knot/apiclient"
 )
+
+// loadStackDef loads a stack definition from a TOML or JSON file, auto-detected by extension.
+func loadStackDef(ctx context.Context, filePath string, client *apiclient.ApiClient) (*apiclient.StackDefinitionRequest, error) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".toml":
+		return loadStackDefFromTOML(ctx, filePath, client)
+	case ".json":
+		return loadStackDefFromJSON(filePath)
+	default:
+		return nil, fmt.Errorf("unsupported file format: %s (use .toml or .json)", ext)
+	}
+}
+
+// loadStackDefFromJSON reads a JSON file directly into a StackDefinitionRequest.
+// JSON files use IDs directly (template_id, startup_script_id, group IDs) matching the API wire format.
+func loadStackDefFromJSON(filePath string) (*apiclient.StackDefinitionRequest, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", filePath, err)
+	}
+
+	req := &apiclient.StackDefinitionRequest{
+		Active: true,
+	}
+	if err := json.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	if req.Name == "" {
+		return nil, fmt.Errorf("stack definition must have a name")
+	}
+	if req.Scope == "" {
+		req.Scope = "personal"
+	}
+
+	return req, nil
+}
 
 // loadStackDefFromTOML reads a TOML file and resolves template/script/group names to IDs.
 func loadStackDefFromTOML(ctx context.Context, filePath string, client *apiclient.ApiClient) (*apiclient.StackDefinitionRequest, error) {

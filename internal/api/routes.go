@@ -123,6 +123,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// Stack Definitions
 	router.HandleFunc("GET /api/stack-definitions", middleware.ApiAuth(HandleGetStackDefinitions))
 	router.HandleFunc("GET /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleGetStackDefinition))
+	router.HandleFunc("POST /api/stack-definitions/validate", middleware.ApiAuth(HandleValidateStackDefinition))
 	router.HandleFunc("POST /api/stack-definitions", middleware.ApiAuth(HandleCreateStackDefinition))
 	router.HandleFunc("PUT /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleUpdateStackDefinition))
 	router.HandleFunc("DELETE /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleDeleteStackDefinition))

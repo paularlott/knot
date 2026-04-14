@@ -381,6 +381,22 @@ func HandleDeleteStackDefinition(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func HandleValidateStackDefinition(w http.ResponseWriter, r *http.Request) {
+	request := apiclient.StackDefinitionRequest{}
+	err := rest.DecodeRequestBody(w, r, &request)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	errors := validate.ValidateStackDefinition(&request)
+
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.StackDefinitionValidationResponse{
+		Valid:  len(errors) == 0,
+		Errors: errors,
+	})
+}
+
 func stackDefToInfo(def *model.StackDefinition) apiclient.StackDefinitionInfo {
 	spaces := make([]apiclient.StackDefSpace, 0, len(def.Components))
 	for _, comp := range def.Components {
