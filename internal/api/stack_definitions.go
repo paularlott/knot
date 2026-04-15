@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -196,6 +197,10 @@ func HandleCreateStackDefinition(w http.ResponseWriter, r *http.Request) {
 
 	sse.PublishStackDefinitionsChanged(def.Id)
 
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipStackDefinition(def)
+	}
+
 	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
@@ -298,6 +303,10 @@ func HandleUpdateStackDefinition(w http.ResponseWriter, r *http.Request) {
 
 	sse.PublishStackDefinitionsChanged(def.Id)
 
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipStackDefinition(def)
+	}
+
 	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
@@ -367,6 +376,10 @@ func HandleDeleteStackDefinition(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sse.PublishStackDefinitionsDeleted(def.Id)
+
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipStackDefinition(def)
+	}
 
 	audit.LogWithRequest(r,
 		user.Username,

@@ -127,6 +127,19 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 		}
 	}
 
+	stackDefs, err := db.GetStackDefinitions()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting stack definitions from database:")
+	} else {
+		for _, def := range stackDefs {
+			if def.IsManaged {
+				if err := db.DeleteStackDefinition(def); err != nil {
+					c.logger.Error("error while deleting managed stack definition from database:", "stack_definition", def.Name)
+				}
+			}
+		}
+	}
+
 	go func() {
 		fullSyncDone := false
 
@@ -242,6 +255,9 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 				case leafmsg.MessageGossipSkill:
 					c.handleLeafGossipSkill(msg)
+
+				case leafmsg.MessageGossipStackDefinition:
+					c.handleLeafGossipStackDefinition(msg)
 
 				case leafmsg.MessageGossipResponse:
 					// Agent responses - not handled by leaf nodes
@@ -386,6 +402,24 @@ func (c *Cluster) handleLeafGossipSkill(msg *leafmsg.Message) {
 
 	if err := c.mergeSkills(skills); err != nil {
 		c.logger.WithError(err).Error("error while merging skills from leaf:")
+		return
+	}
+}
+
+func (c *Cluster) handleLeafGossipStackDefinition(msg *leafmsg.Message) {
+	defs := []*model.StackDefinition{}
+	if err := msg.UnmarshalPayload(&defs); err != nil {
+		c.logger.WithError(err).Error("error while unmarshalling leaf stack definition message:")
+		return
+	}
+
+	// Mark the stack definitions as managed
+	for _, def := range defs {
+		def.IsManaged = true
+	}
+
+	if err := c.mergeStackDefinitions(defs); err != nil {
+		c.logger.WithError(err).Error("error while merging stack definitions from leaf:")
 		return
 	}
 }

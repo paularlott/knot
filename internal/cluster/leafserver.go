@@ -238,5 +238,33 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 	}
 	session.SendMessage(leafmsg.MessageGossipSkill, &filteredSkills)
 
+	stackDefs, err := db.GetStackDefinitions()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting stack definitions:")
+		return
+	}
+
+	// Filter stack definitions: only send active global defs matching user groups
+	filteredStackDefs := []*model.StackDefinition{}
+	for _, def := range stackDefs {
+		if def.IsDeleted || !def.Active || def.UserId != "" {
+			continue
+		}
+		if len(def.Groups) == 0 {
+			filteredStackDefs = append(filteredStackDefs, def)
+			continue
+		}
+		for _, groupId := range def.Groups {
+			for _, userGroupId := range user.Groups {
+				if groupId == userGroupId {
+					filteredStackDefs = append(filteredStackDefs, def)
+					goto nextStackDef
+				}
+			}
+		}
+	nextStackDef:
+	}
+	session.SendMessage(leafmsg.MessageGossipStackDefinition, &filteredStackDefs)
+
 	session.SendMessage(leafmsg.MessageFullSyncEnd, nil)
 }
