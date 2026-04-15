@@ -65,13 +65,24 @@ var ListCmd = &cli.Command{
 			return nil
 		}
 
+		// Build a lookup map for resolving space names
+		spaceNames := make(map[string]string, len(spaces.Spaces))
+		for _, s := range spaces.Spaces {
+			spaceNames[s.Id] = s.Name
+		}
+
 		fmt.Printf("Active port forwards in space '%s':\n", spaceName)
 		for _, fwd := range response.Forwards {
 			mode := "temporary"
 			if fwd.Persistent {
 				mode = "persistent"
 			}
-			fmt.Printf("  %d -> %s:%d (%s)\n", fwd.LocalPort, fwd.Space, fwd.RemotePort, mode)
+			// The server returns space names for display, but fall back to UUID lookup
+			target := fwd.Space
+			if name, ok := spaceNames[fwd.Space]; ok {
+				target = name
+			}
+			fmt.Printf("  %d -> %s:%d (%s)\n", fwd.LocalPort, target, fwd.RemotePort, mode)
 		}
 
 		return nil

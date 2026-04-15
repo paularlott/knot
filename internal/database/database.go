@@ -117,6 +117,14 @@ type DbDriver interface {
 	GetAuditLogs(filter *model.AuditLogFilter, offset int, limit int) ([]*model.AuditLogEntry, int, error)
 	GetAuditLogsForExport(filter *model.AuditLogFilter) ([]*model.AuditLogEntry, error)
 
+	// Stack Definitions
+	SaveStackDefinition(def *model.StackDefinition, updateFields []string) error
+	DeleteStackDefinition(def *model.StackDefinition) error
+	GetStackDefinition(id string) (*model.StackDefinition, error)
+	GetStackDefinitions() ([]*model.StackDefinition, error)
+	GetStackDefinitionsByUserId(userId string) ([]*model.StackDefinition, error)
+	GetStackDefinitionByName(name string, userId string) (*model.StackDefinition, error)
+
 	// Config Values
 	GetCfgValues() ([]*model.CfgValue, error)
 	GetCfgValue(name string) (*model.CfgValue, error)

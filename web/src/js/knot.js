@@ -40,6 +40,8 @@ import './pages/scriptListComponent.js';
 import './pages/scriptForm.js';
 import './pages/skillListComponent.js';
 import './pages/skillForm.js';
+import './pages/stackDefinitionBuilder.js';
+import './pages/stackListComponent.js';
 import './components/chat.js';
 
 import './terminal.js';

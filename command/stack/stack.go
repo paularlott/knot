@@ -42,9 +42,18 @@ var StackCmd = &cli.Command{
 		},
 	},
 	Commands: []*cli.Command{
+		ValidateCmd,
+		CreateDefCmd,
+		ApplyCmd,
+		DeleteDefCmd,
+		EnableCmd,
+		DisableCmd,
+		ListDefsCmd,
 		ListCmd,
+		CreateCmd,
 		StartCmd,
 		StopCmd,
 		RestartCmd,
+		DeleteCmd,
 	},
 }

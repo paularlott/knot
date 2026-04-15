@@ -20,6 +20,7 @@ const (
 	MessageGossipUser
 	MessageGossipScript
 	MessageGossipSkill
+	MessageGossipStackDefinition
 	MessageGossipResponse
 )
 

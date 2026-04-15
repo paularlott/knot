@@ -63,6 +63,14 @@ func removePortForwardFromDB(space *model.Space, localPort uint16) error {
 	return nil
 }
 
+// resolvePortForwardTarget resolves a space ID or name to a space object.
+func resolvePortForwardTarget(db database.DbDriver, userId, spaceRef string) (*model.Space, error) {
+	if validate.UUID(spaceRef) {
+		return db.GetSpace(spaceRef)
+	}
+	return db.GetSpaceByName(userId, spaceRef)
+}
+
 func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
@@ -99,7 +107,14 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if request.Space == "" {
-		writeJSONError(w, http.StatusBadRequest, "Target space name is required")
+		writeJSONError(w, http.StatusBadRequest, "Target space ID is required")
+		return
+	}
+
+	// Resolve the target space (accepts UUID or name)
+	targetSpace, err := resolvePortForwardTarget(db, space.UserId, request.Space)
+	if err != nil || targetSpace == nil {
+		writeJSONError(w, http.StatusNotFound, "Target space not found")
 		return
 	}
 
@@ -112,24 +127,20 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the target space exists and is running (unless force)
+	// Validate the target space is running (unless force)
 	if !request.Force {
-		targetSpace, err := db.GetSpaceByName(space.UserId, request.Space)
-		if err != nil || targetSpace == nil {
-			writeJSONError(w, http.StatusNotFound, "Target space not found")
-			return
-		}
 		if agent_server.GetSession(targetSpace.Id) == nil {
 			writeJSONError(w, http.StatusConflict, "Target space is not running")
 			return
 		}
 	}
 
+	// Store UUID in DB, send name to agent
 	if agentSession == nil {
 
 		entry := model.PortForwardEntry{
 			LocalPort:  request.LocalPort,
-			Space:      request.Space,
+			Space:      targetSpace.Id,
 			RemotePort: request.RemotePort,
 		}
 
@@ -143,10 +154,10 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Space is running — forward to agent
+	// Space is running — forward to agent using space name
 	portForwardMsg := &msg.PortForwardRequest{
 		LocalPort:  uint16(request.LocalPort),
-		Space:      request.Space,
+		Space:      targetSpace.Name,
 		RemotePort: uint16(request.RemotePort),
 		Persistent: request.Persistent,
 		Force:      request.Force,
@@ -188,11 +199,16 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 
 	if agentSession == nil {
 		// Space is not running — return persistent forwards from database
+		// Resolve UUIDs to names for display
 		forwards := make([]apiclient.PortForwardInfo, 0, len(space.PortForwards))
 		for _, pf := range space.PortForwards {
+			name := pf.Space
+			if targetSpace, err := db.GetSpace(pf.Space); err == nil && targetSpace != nil {
+				name = targetSpace.Name
+			}
 			forwards = append(forwards, apiclient.PortForwardInfo{
 				LocalPort:  pf.LocalPort,
-				Space:      pf.Space,
+				Space:      name,
 				RemotePort: pf.RemotePort,
 				Persistent: true,
 			})
@@ -327,7 +343,8 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate each forward
+	// Resolve all target spaces (accepts UUID or name) and build a lookup
+	targetLookup := make(map[string]*model.Space)
 	for _, fwd := range request.Forwards {
 		if fwd.LocalPort < 1 || fwd.LocalPort > 65535 {
 			writeJSONError(w, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
@@ -338,8 +355,16 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if fwd.Space == "" {
-			writeJSONError(w, http.StatusBadRequest, "Target space name is required")
+			writeJSONError(w, http.StatusBadRequest, "Target space ID is required")
 			return
+		}
+		if _, seen := targetLookup[fwd.Space]; !seen {
+			ts, err := resolvePortForwardTarget(db, space.UserId, fwd.Space)
+			if err != nil || ts == nil {
+				writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Target space %q not found", fwd.Space))
+				return
+			}
+			targetLookup[fwd.Space] = ts
 		}
 	}
 
@@ -358,30 +383,46 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		var applied []apiclient.PortForwardInfo
 		var stopped []apiclient.PortForwardInfo
 
-		// Build a set of desired local_ports
-		desiredSet := make(map[uint16]apiclient.PortForwardRequest)
+		// Build a set of desired local_ports with resolved UUIDs
+		type resolvedForward struct {
+			LocalPort  uint16
+			SpaceID    string
+			SpaceName  string
+			RemotePort uint16
+		}
+		desiredResolved := make(map[uint16]resolvedForward)
 		for _, fwd := range request.Forwards {
-			desiredSet[fwd.LocalPort] = fwd
+			ts := targetLookup[fwd.Space]
+			desiredResolved[fwd.LocalPort] = resolvedForward{
+				LocalPort:  fwd.LocalPort,
+				SpaceID:    ts.Id,
+				SpaceName:  ts.Name,
+				RemotePort: fwd.RemotePort,
+			}
 		}
 
 		// Remove forwards not in the desired list or that have changed
 		for _, current := range space.PortForwards {
-			desired, exists := desiredSet[current.LocalPort]
-			if !exists || current.Space != desired.Space || current.RemotePort != desired.RemotePort {
+			desired, exists := desiredResolved[current.LocalPort]
+			if !exists || current.Space != desired.SpaceID || current.RemotePort != desired.RemotePort {
+				currentName := current.Space
+				if ts, err := db.GetSpace(current.Space); err == nil && ts != nil {
+					currentName = ts.Name
+				}
 				stopped = append(stopped, apiclient.PortForwardInfo{
 					LocalPort:  current.LocalPort,
-					Space:      current.Space,
+					Space:      currentName,
 					RemotePort: current.RemotePort,
 					Persistent: true,
 				})
 			}
 		}
 
-		// Apply all desired forwards to the database
-		for _, fwd := range request.Forwards {
+		// Apply all desired forwards to the database (store UUIDs)
+		for _, fwd := range desiredResolved {
 			entry := model.PortForwardEntry{
 				LocalPort:  fwd.LocalPort,
-				Space:      fwd.Space,
+				Space:      fwd.SpaceID,
 				RemotePort: fwd.RemotePort,
 			}
 			if err := savePortForwardToDB(space, entry); err != nil {
@@ -390,7 +431,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			}
 			applied = append(applied, apiclient.PortForwardInfo{
 				LocalPort:  fwd.LocalPort,
-				Space:      fwd.Space,
+				Space:      fwd.SpaceName,
 				RemotePort: fwd.RemotePort,
 				Persistent: true,
 			})
@@ -404,6 +445,26 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Space is running — use agent for apply
+	// Build resolved forwards with names for agent communication
+	type agentForward struct {
+		LocalPort  uint16
+		SpaceName  string
+		RemotePort uint16
+		Persistent bool
+		Force      bool
+	}
+	agentForwards := make(map[uint16]agentForward)
+	for _, fwd := range request.Forwards {
+		ts := targetLookup[fwd.Space]
+		agentForwards[fwd.LocalPort] = agentForward{
+			LocalPort:  fwd.LocalPort,
+			SpaceName:  ts.Name,
+			RemotePort: fwd.RemotePort,
+			Persistent: fwd.Persistent,
+			Force:      fwd.Force,
+		}
+	}
+
 	currentList, err := agentSession.SendPortList()
 	if err != nil {
 		log.WithError(err).Error("Failed to get current port list from agent")
@@ -417,20 +478,14 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		currentMap[currentList.Forwards[i].LocalPort] = &currentList.Forwards[i]
 	}
 
-	// Build a set of desired local_ports
-	desiredSet := make(map[uint16]apiclient.PortForwardRequest)
-	for _, fwd := range request.Forwards {
-		desiredSet[fwd.LocalPort] = fwd
-	}
-
 	var stopped []apiclient.PortForwardInfo
 	var applied []apiclient.PortForwardInfo
 	var errors []string
 
 	// Phase 1: Stop forwards that are not in the desired list or have changed
 	for port, current := range currentMap {
-		desired, exists := desiredSet[port]
-		needsStop := !exists || current.Space != desired.Space || current.RemotePort != desired.RemotePort
+		desired, exists := agentForwards[port]
+		needsStop := !exists || current.Space != desired.SpaceName || current.RemotePort != desired.RemotePort
 
 		if needsStop {
 			stopMsg := &msg.PortStopRequest{LocalPort: port}
@@ -451,14 +506,14 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Phase 2: Start forwards that are new or were just stopped
-	for _, fwd := range request.Forwards {
+	for _, fwd := range agentForwards {
 		current, exists := currentMap[fwd.LocalPort]
-		needsStart := !exists || current.Space != fwd.Space || current.RemotePort != fwd.RemotePort
+		needsStart := !exists || current.Space != fwd.SpaceName || current.RemotePort != fwd.RemotePort
 
 		if needsStart {
 			portForwardMsg := &msg.PortForwardRequest{
 				LocalPort:  uint16(fwd.LocalPort),
-				Space:      fwd.Space,
+				Space:      fwd.SpaceName,
 				RemotePort: uint16(fwd.RemotePort),
 				Persistent: fwd.Persistent,
 				Force:      fwd.Force,
@@ -471,7 +526,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			} else {
 				applied = append(applied, apiclient.PortForwardInfo{
 					LocalPort:  uint16(fwd.LocalPort),
-					Space:      fwd.Space,
+					Space:      fwd.SpaceName,
 					RemotePort: uint16(fwd.RemotePort),
 					Persistent: fwd.Persistent,
 				})

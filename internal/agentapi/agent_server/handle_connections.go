@@ -162,7 +162,20 @@ func handleAgentConnection(conn net.Conn) {
 	response.HealthCheckInterval = template.HealthCheckInterval
 	response.HealthCheckMaxFailures = template.HealthCheckMaxFailures
 	response.HealthCheckAutoRestart = template.HealthCheckAutoRestart
-	response.PortForwards = space.PortForwards
+	// Translate port forward space UUIDs to names for the agent
+		portForwards := make([]model.PortForwardEntry, 0, len(space.PortForwards))
+		for _, pf := range space.PortForwards {
+			name := pf.Space
+			if targetSpace, err := db.GetSpace(pf.Space); err == nil && targetSpace != nil {
+				name = targetSpace.Name
+			}
+			portForwards = append(portForwards, model.PortForwardEntry{
+				LocalPort:  pf.LocalPort,
+				Space:      name,
+				RemotePort: pf.RemotePort,
+			})
+		}
+		response.PortForwards = portForwards
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {

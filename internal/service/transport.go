@@ -18,6 +18,7 @@ type Transport interface {
 	GossipSession(session *model.Session)
 	GossipScript(script *model.Script)
 	GossipSkill(skill *model.Skill)
+	GossipStackDefinition(stackDef *model.StackDefinition)
 	GossipResponse(response *model.Response)
 	GetAgentEndpoints() []string
 	GetTunnelServers() []string
