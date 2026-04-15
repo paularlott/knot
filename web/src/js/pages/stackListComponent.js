@@ -1,6 +1,6 @@
 import Alpine from "alpinejs";
 
-window.stackListComponent = function (userId, zone, permissionManageStackDefinitions, isLeafNode, permissionUseSpaces) {
+window.stackListComponent = function (userId, zone, permissionManageStackDefinitions, permissionManageOwnStackDefinitions, isLeafNode, permissionUseSpaces) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
@@ -12,6 +12,9 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
   const defaultShowGlobalDefs = true;
 
   return {
+    // Spread in the builder functionality from the separate module
+    ...window.stackDefinitionBuilder(),
+
     loading: true,
     definitions: [],
     showMyDefs: Alpine.$persist(defaultShowMyDefs)
@@ -30,7 +33,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       .as("stack-search-term")
       .using(sessionStorage),
 
-    // Modals
+    // Modals (existing)
     deleteDefConfirm: { show: false, def: {} },
     createStackModal: { show: false, def: null, prefix: "", name: "", error: "", creating: false },
 
@@ -38,6 +41,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     currentUserId: userId || "",
     currentZone: zone || "",
     permissionManageStackDefinitions: permissionManageStackDefinitions || false,
+    permissionManageOwnStackDefinitions: permissionManageOwnStackDefinitions || false,
     isLeafNode: isLeafNode || false,
     permissionUseSpaces: permissionUseSpaces || false,
 
@@ -60,6 +64,14 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
           this.getDefinitions();
         });
       }
+
+      // Unsaved changes guard
+      window.addEventListener('beforeunload', (e) => {
+        if (this.editor.active && this.editor.dirty) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      });
     },
 
     async getDefinitions(defId) {
@@ -337,6 +349,8 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       const term = this.searchTerm.toLowerCase();
       this.definitions.forEach((d) => {
         let showRow = true;
+
+        if (!d.active && !this.showInactive) showRow = false;
 
         const isGlobal = !d.user_id;
         const isMine = d.user_id === this.currentUserId;

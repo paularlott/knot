@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Stacks{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="stackListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageStackDefinitions }}, {{ .isLeafNode }}, {{ .permissionUseSpaces }})" data-zone="{{ .zone }}">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="stackListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .isLeafNode }}, {{ .permissionUseSpaces }})" data-zone="{{ .zone }}">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
@@ -60,6 +60,24 @@
           </div>
           {{ end }}
         </div>
+      </div>
+      <div class="flex gap-2">
+        {{ if or .isLeafNode .permissionManageOwnStackDefinitions }}
+        <button @click.prevent="createDefinition(true)" class="btn-primary flex items-center mt-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          My Definition
+        </button>
+        {{ end }}
+        {{ if or .isLeafNode .permissionManageStackDefinitions }}
+        <button @click.prevent="createDefinition(false)" class="btn-primary flex items-center mt-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          Global Definition
+        </button>
+        {{ end }}
       </div>
     </form>
 
@@ -140,6 +158,13 @@
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg> Create Stack
+                          </button>
+                        </template>
+                        <template x-if="canEditDef(d)">
+                          <button @click="$refs.defPanel.close; editDefinition(d.stack_definition_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                            </svg> Edit Definition
                           </button>
                         </template>
                         <template x-if="d.active && permissionUseSpaces && canDeleteDef(d)">
@@ -228,6 +253,9 @@
       </div>
 
     </div>
+
+      {{ template "stack-definition-builder" . }}
+
   </div>
 </main>
 {{ end }}

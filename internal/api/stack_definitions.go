@@ -48,8 +48,8 @@ func HandleGetStackDefinitions(w http.ResponseWriter, r *http.Request) {
 				if def.IsDeleted || (!includeInactive && !def.Active) {
 					continue
 				}
-				// For users without manage permission, filter by group membership
-				if !canManageGlobal && !canManageOwn && len(def.Groups) > 0 && !user.HasAnyGroup(&def.Groups) {
+				// For users without global manage permission, filter by group membership
+				if !canManageGlobal && len(def.Groups) > 0 && !user.HasAnyGroup(&def.Groups) {
 					continue
 				}
 				response.Definitions = append(response.Definitions, stackDefToInfo(def))
@@ -91,7 +91,7 @@ func HandleGetStackDefinition(w http.ResponseWriter, r *http.Request) {
 		def, err = db.GetStackDefinition(defIdOrName)
 	} else {
 		def, err = db.GetStackDefinitionByName(defIdOrName, user.Id)
-		if def == nil && (user.HasPermission(model.PermissionManageStackDefinitions) || cfg.LeafNode) {
+		if def == nil && (user.HasPermission(model.PermissionManageStackDefinitions) || user.HasPermission(model.PermissionUseSpaces) || cfg.LeafNode) {
 			def, err = db.GetStackDefinitionByName(defIdOrName, "")
 		}
 	}
@@ -102,15 +102,24 @@ func HandleGetStackDefinition(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !cfg.LeafNode {
-		if def.UserId != "" && def.UserId != user.Id && !user.HasPermission(model.PermissionManageStackDefinitions) {
+		canManageGlobal := user.HasPermission(model.PermissionManageStackDefinitions)
+		canManageOwn := user.HasPermission(model.PermissionManageOwnStackDefinitions)
+		canUseSpaces := user.HasPermission(model.PermissionUseSpaces)
+
+		if def.UserId != "" && def.UserId != user.Id && !canManageGlobal {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Stack definition not found"})
 			return
 		}
-		if def.UserId != "" && def.UserId == user.Id && !user.HasPermission(model.PermissionManageOwnStackDefinitions) {
+		if def.UserId != "" && def.UserId == user.Id && !canManageOwn && !canUseSpaces {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Stack definition not found"})
 			return
 		}
-		if def.UserId == "" && !user.HasPermission(model.PermissionManageStackDefinitions) {
+		if def.UserId == "" && !canManageGlobal && !canUseSpaces {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Stack definition not found"})
+			return
+		}
+		// For global defs, only global manage bypasses group check; user defs always visible to their owner
+		if def.UserId == "" && !canManageGlobal && len(def.Groups) > 0 && !user.HasAnyGroup(&def.Groups) {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Stack definition not found"})
 			return
 		}
