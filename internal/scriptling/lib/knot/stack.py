@@ -59,7 +59,6 @@ def get_def(name):
         - name: Definition name
         - description: Description
         - user_id: Owner user ID (empty for global)
-        - icon_url: Icon URL
         - active: Whether the definition is active
         - groups: List of group IDs
         - zones: List of zone restrictions
@@ -75,7 +74,6 @@ def get_def(name):
         "name": response.get("name"),
         "description": response.get("description", ""),
         "user_id": response.get("user_id", ""),
-        "icon_url": response.get("icon_url", ""),
         "active": response.get("active", True),
         "groups": response.get("groups", []),
         "zones": response.get("zones", []),
@@ -83,15 +81,15 @@ def get_def(name):
     }
 
 
-def create_def(name, description="", scope="personal", active=True, groups=None, zones=None, spaces=None, icon_url=""):
+def create_def(name, description="", scope="user", active=True, groups=None, zones=None, spaces=None):
     """Create a new stack definition.
 
     Args:
         name: Unique name for the definition
         description: Optional description
-        scope: "personal" or "system" (default: "personal")
+        scope: "user" or "global" (default: "user")
         active: Whether the definition is active (default: True)
-        groups: List of group names allowed to create instances (system scope only)
+        groups: List of group names allowed to create instances (global scope only)
         zones: List of zone restrictions
         spaces: List of space dicts, each containing:
             - name: Space identifier (used in prefix-name naming and dependency references)
@@ -102,7 +100,6 @@ def create_def(name, description="", scope="personal", active=True, groups=None,
             - depends_on: List of space names this depends on
             - custom_fields: List of {name, value} dicts
             - port_forwards: List of {to_space, local_port, remote_port} dicts
-        icon_url: Optional icon URL
 
     Returns:
         The new stack definition ID
@@ -118,7 +115,6 @@ def create_def(name, description="", scope="personal", active=True, groups=None,
         "groups": groups or [],
         "zones": zones or [],
         "spaces": spaces or [],
-        "icon_url": icon_url,
     }
 
     response = api.post("/api/stack-definitions", body)
@@ -134,7 +130,7 @@ def update_def(name, **fields):
     Args:
         name: Definition name or ID
         **fields: Fields to update (name, description, active, groups, zones,
-                  spaces, icon_url, scope)
+                  spaces, scope)
 
     Returns:
         True if successful
@@ -147,12 +143,11 @@ def update_def(name, **fields):
     body = {
         "name": fields.get("name", defn.get("name")),
         "description": fields.get("description", defn.get("description", "")),
-        "scope": fields.get("scope", "system" if not defn.get("user_id") else "personal"),
+        "scope": fields.get("scope", "global" if not defn.get("user_id") else "user"),
         "active": fields.get("active", defn.get("active", True)),
         "groups": fields.get("groups", defn.get("groups", [])),
         "zones": fields.get("zones", defn.get("zones", [])),
         "spaces": fields.get("spaces", defn.get("spaces", [])),
-        "icon_url": fields.get("icon_url", defn.get("icon_url", "")),
     }
 
     api.put(f"/api/stack-definitions/{defn.get('id')}", body)
@@ -176,8 +171,8 @@ def delete_def(name):
     return True
 
 
-def validate_def(spaces, name="", description="", scope="personal", active=True,
-                 groups=None, zones=None, icon_url=""):
+def validate_def(spaces, name="", description="", scope="user", active=True,
+                 groups=None, zones=None):
     """Validate a stack definition without creating it.
 
     Checks for required fields, circular dependencies, invalid references,
@@ -192,11 +187,10 @@ def validate_def(spaces, name="", description="", scope="personal", active=True,
             - custom_fields: List of {name, value} dicts
         name: Definition name (recommended, checked if provided)
         description: Optional description
-        scope: "personal" or "system" (default: "personal")
+        scope: "user" or "global" (default: "user")
         active: Whether the definition would be active
         groups: List of group IDs
         zones: List of zone restrictions
-        icon_url: Optional icon URL
 
     Returns:
         A dict containing:
@@ -214,7 +208,6 @@ def validate_def(spaces, name="", description="", scope="personal", active=True,
         "groups": groups or [],
         "zones": zones or [],
         "spaces": spaces or [],
-        "icon_url": icon_url,
     }
 
     return api.post("/api/stack-definitions/validate", body)

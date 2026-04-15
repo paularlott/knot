@@ -49,7 +49,6 @@ var EnableCmd = &cli.Command{
 		_, err = client.UpdateStackDefinition(ctx, def.Id, &apiclient.StackDefinitionRequest{
 			Name:        def.Name,
 			Description: def.Description,
-			IconURL:     def.IconURL,
 			Active:      true,
 			Scope:       def.Scope,
 			Groups:      def.Groups,

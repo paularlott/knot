@@ -45,7 +45,7 @@ func loadStackDefFromJSON(filePath string) (*apiclient.StackDefinitionRequest, e
 		return nil, fmt.Errorf("stack definition must have a name")
 	}
 	if req.Scope == "" {
-		req.Scope = "personal"
+		req.Scope = "user"
 	}
 
 	return req, nil
@@ -61,7 +61,6 @@ func loadStackDefFromTOML(ctx context.Context, filePath string, client *apiclien
 	req := &apiclient.StackDefinitionRequest{
 		Name:        cfg.GetString("name"),
 		Description: cfg.GetString("description"),
-		IconURL:     cfg.GetString("icon_url"),
 		Active:      true,
 		Scope:       cfg.GetString("scope"),
 		Groups:      cfg.GetStringSlice("groups"),
@@ -72,7 +71,7 @@ func loadStackDefFromTOML(ctx context.Context, filePath string, client *apiclien
 		return nil, fmt.Errorf("stack definition must have a name")
 	}
 	if req.Scope == "" {
-		req.Scope = "personal"
+		req.Scope = "user"
 	}
 
 	// Resolve group names to IDs

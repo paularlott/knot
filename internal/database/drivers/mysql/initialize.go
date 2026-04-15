@@ -325,7 +325,6 @@ INDEX created_at (created_at)
 	user_id CHAR(36) NOT NULL DEFAULT '',
 	name VARCHAR(64) NOT NULL,
 	description TEXT DEFAULT '',
-	icon_url VARCHAR(255) NOT NULL DEFAULT '',
 	groups JSON NOT NULL DEFAULT '[]',
 	zones JSON NOT NULL DEFAULT '[]',
 	active TINYINT(1) NOT NULL DEFAULT 1,

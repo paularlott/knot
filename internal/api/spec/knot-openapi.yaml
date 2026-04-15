@@ -3682,8 +3682,6 @@ components:
           type: string
         description:
           type: string
-        icon_url:
-          type: string
         active:
           type: boolean
         groups:
@@ -3711,13 +3709,11 @@ components:
           type: string
         description:
           type: string
-        icon_url:
-          type: string
         active:
           type: boolean
         scope:
           type: string
-          enum: [personal, system]
+          enum: [user, global]
         groups:
           type: array
           items:

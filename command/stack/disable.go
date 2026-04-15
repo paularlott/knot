@@ -49,7 +49,6 @@ var DisableCmd = &cli.Command{
 		_, err = client.UpdateStackDefinition(ctx, def.Id, &apiclient.StackDefinitionRequest{
 			Name:        def.Name,
 			Description: def.Description,
-			IconURL:     def.IconURL,
 			Active:      false,
 			Scope:       def.Scope,
 			Groups:      def.Groups,

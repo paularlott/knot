@@ -129,7 +129,7 @@ func HandleCreateStackDefinition(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
 
 	var ownerUserId string
-	isPersonal := request.Scope != "system"
+	isPersonal := request.Scope != "global"
 
 	if !cfg.LeafNode {
 		if isPersonal {
@@ -173,7 +173,6 @@ func HandleCreateStackDefinition(w http.ResponseWriter, r *http.Request) {
 	def := model.NewStackDefinition(
 		request.Name,
 		request.Description,
-		request.IconURL,
 		request.Groups,
 		request.Zones,
 		true,
@@ -278,7 +277,6 @@ func HandleUpdateStackDefinition(w http.ResponseWriter, r *http.Request) {
 
 	def.Name = request.Name
 	def.Description = request.Description
-	def.IconUrl = request.IconURL
 	def.Active = request.Active
 	def.Groups = request.Groups
 	def.Zones = request.Zones
@@ -417,9 +415,9 @@ func stackDefToInfo(def *model.StackDefinition) apiclient.StackDefinitionInfo {
 		spaces = append(spaces, s)
 	}
 
-	scope := "system"
+	scope := "global"
 	if def.UserId != "" {
-		scope = "personal"
+		scope = "user"
 	}
 
 	return apiclient.StackDefinitionInfo{
@@ -427,7 +425,6 @@ func stackDefToInfo(def *model.StackDefinition) apiclient.StackDefinitionInfo {
 		UserId:      def.UserId,
 		Name:        def.Name,
 		Description: def.Description,
-		IconURL:     def.IconUrl,
 		Active:      def.Active,
 		Scope:       scope,
 		Groups:      def.Groups,

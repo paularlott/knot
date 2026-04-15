@@ -38,7 +38,6 @@ type StackDefinitionValidationResponse struct {
 type StackDefinitionRequest struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
-	IconURL     string          `json:"icon_url"`
 	Active      bool            `json:"active"`
 	Scope       string          `json:"scope"`
 	Groups      []string        `json:"groups"`
@@ -56,7 +55,6 @@ type StackDefinitionInfo struct {
 	UserId      string          `json:"user_id"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
-	IconURL     string          `json:"icon_url"`
 	Active      bool            `json:"active"`
 	Scope       string          `json:"scope"`
 	Groups      []string        `json:"groups"`
