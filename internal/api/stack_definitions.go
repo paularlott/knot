@@ -21,11 +21,13 @@ func HandleGetStackDefinitions(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 
 	filterUserId := r.URL.Query().Get("user_id")
+	includeInactive := r.URL.Query().Get("include_inactive") == "true"
 
 	canManageGlobal := user.HasPermission(model.PermissionManageStackDefinitions)
 	canManageOwn := user.HasPermission(model.PermissionManageOwnStackDefinitions) || cfg.LeafNode
+	canUseSpaces := user.HasPermission(model.PermissionUseSpaces)
 
-	if !canManageGlobal && !canManageOwn {
+	if !canManageGlobal && !canManageOwn && !canUseSpaces {
 		rest.WriteResponse(http.StatusOK, w, r, apiclient.StackDefinitionList{Count: 0, Definitions: []apiclient.StackDefinitionInfo{}})
 		return
 	}
@@ -38,11 +40,15 @@ func HandleGetStackDefinitions(w http.ResponseWriter, r *http.Request) {
 	seen := make(map[string]bool)
 
 	// Fetch global definitions
-	if canManageGlobal && filterUserId == "" {
+	if (canManageGlobal || canUseSpaces) && filterUserId == "" {
 		defs, err := db.GetStackDefinitions()
 		if err == nil {
 			for _, def := range defs {
-				if def.IsDeleted || !def.Active {
+				if def.IsDeleted || (!includeInactive && !def.Active) {
+					continue
+				}
+				// For users without manage permission, filter by group membership
+				if !canManageGlobal && !canManageOwn && len(def.Groups) > 0 && !user.HasAnyGroup(&def.Groups) {
 					continue
 				}
 				response.Definitions = append(response.Definitions, stackDefToInfo(def))
@@ -53,11 +59,11 @@ func HandleGetStackDefinitions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch user definitions
-	if canManageOwn && (filterUserId == "" || filterUserId == user.Id) {
+	if (canManageOwn || canUseSpaces) && (filterUserId == "" || filterUserId == user.Id) {
 		defs, err := db.GetStackDefinitionsByUserId(user.Id)
 		if err == nil {
 			for _, def := range defs {
-				if def.IsDeleted || seen[def.Id] {
+				if def.IsDeleted || seen[def.Id] || (!includeInactive && !def.Active) {
 					continue
 				}
 				response.Definitions = append(response.Definitions, stackDefToInfo(def))

@@ -9,7 +9,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
   });
 
   const defaultShowMyDefs = true;
-  const defaultShowGlobalDefs = false;
+  const defaultShowGlobalDefs = true;
 
   return {
     loading: true,
@@ -22,6 +22,9 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       .using(sessionStorage),
     showAllZones: Alpine.$persist(false)
       .as("stack-show-all-zones")
+      .using(sessionStorage),
+    showInactive: Alpine.$persist(false)
+      .as("stack-show-inactive")
       .using(sessionStorage),
     searchTerm: Alpine.$persist("")
       .as("stack-search-term")
@@ -62,7 +65,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     async getDefinitions(defId) {
       const url = defId
         ? `/api/stack-definitions/${defId}`
-        : `/api/stack-definitions?all_zones=${this.showAllZones}`;
+        : `/api/stack-definitions?all_zones=${this.showAllZones}&include_inactive=${this.showInactive}`;
 
       const groupsResponse = await fetch("/api/groups");
       const groupsData =
@@ -106,7 +109,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       // Fetch user definitions
       if (this.currentUserId && !defId) {
         await fetch(
-          `/api/stack-definitions?user_id=${this.currentUserId}&all_zones=${this.showAllZones}`,
+          `/api/stack-definitions?user_id=${this.currentUserId}&all_zones=${this.showAllZones}&include_inactive=${this.showInactive}`,
           { headers: { "Content-Type": "application/json" } },
         )
           .then((response) => {
@@ -315,6 +318,10 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     },
 
     showAllZonesChanged() {
+      this.getDefinitions();
+    },
+
+    showInactiveChanged() {
       this.getDefinitions();
     },
 

@@ -23,11 +23,10 @@
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
           </svg>
-          <span x-show="!showMyDefs || !showGlobalDefs || showAllZones" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
+          <span x-show="!showMyDefs || !showGlobalDefs || showAllZones || showInactive" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
         </button>
 
         <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" x-cloak>
-          {{ if or .isLeafNode .permissionManageOwnStackDefinitions }}
           <div class="mb-2 mt-2">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" @change="filterChanged" x-model="showMyDefs">
@@ -35,8 +34,6 @@
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">My Stacks</span>
             </label>
           </div>
-          {{ end }}
-          {{ if or .isLeafNode .permissionManageStackDefinitions }}
           <div class="mb-2">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" @change="filterChanged" x-model="showGlobalDefs">
@@ -44,13 +41,21 @@
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Global Stacks</span>
             </label>
           </div>
-          {{ end }}
           {{ if not .isLeafNode }}
           <div class="mb-2 mt-4">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" @change="showAllZonesChanged" x-model="showAllZones">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Zones</span>
+            </label>
+          </div>
+          {{ end }}
+          {{ if or .isLeafNode .permissionManageStackDefinitions .permissionManageOwnStackDefinitions }}
+          <div class="mb-2 mt-4">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" @change="showInactiveChanged" x-model="showInactive">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show Inactive</span>
             </label>
           </div>
           {{ end }}
@@ -122,7 +127,7 @@
                     </template>
                   </td>
                   <td class="px-4 py-3">
-                    <div class="flex items-center justify-end" x-data x-show="canUseDef(d)">
+                    <div class="flex items-center justify-end" x-data x-show="canUseDef(d) || canDeleteDef(d)">
                       <button @click="$refs.defPanel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true">
                           <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
@@ -130,12 +135,14 @@
                       </button>
 
                       <div x-ref="defPanel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.defPanel.close" @keydown.window.escape="$refs.defPanel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                        <button @click="$refs.defPanel.close; openCreateStack(d)" class="group nav-item text-sm px-4 w-full" role="menuitem">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                          </svg> Create Stack
-                        </button>
-                        <template x-if="canDeleteDef(d)">
+                        <template x-if="d.active && permissionUseSpaces">
+                          <button @click="$refs.defPanel.close; openCreateStack(d)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg> Create Stack
+                          </button>
+                        </template>
+                        <template x-if="d.active && permissionUseSpaces && canDeleteDef(d)">
                           <hr class="my-2" />
                         </template>
                         <template x-if="canDeleteDef(d)">
