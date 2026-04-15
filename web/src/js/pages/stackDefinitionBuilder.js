@@ -152,7 +152,7 @@ window.stackDefinitionBuilder = function () {
       this.editor.dirty = false;
       this.editor.valid = true;
       this.editor.errors = [];
-      this.editor.form = { ...blankForm(), scope: isPersonal ? 'personal' : 'global' };
+      this.editor.form = { ...blankForm(), scope: isPersonal ? 'user' : 'global' };
       this.editor.zoneValid = [];
       this.loadReferenceData();
 
@@ -182,7 +182,7 @@ window.stackDefinitionBuilder = function () {
         name: def.name || '',
         description: def.description || '',
         active: def.active !== false,
-        scope: def.user_id ? 'personal' : 'global',
+        scope: def.user_id ? 'user' : 'global',
         groups: [...(def.groups || [])],
         zones: [...(def.zones || [])],
         spaces,

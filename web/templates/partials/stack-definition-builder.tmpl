@@ -44,8 +44,8 @@
                     <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
                   </label>
                 </div>
-                <!-- Groups as toggles (same pattern as template form) -->
-                <div x-show="editor.groups.length" x-cloak>
+                <!-- Groups as toggles (only for global definitions) -->
+                <div x-show="editor.form.scope === 'global' && editor.groups.length" x-cloak>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Restrict to Groups</label>
                   <template x-for="(group, index) in editor.groups" :key="group.group_id">
                     <label class="flex items-center cursor-pointer mb-2">
