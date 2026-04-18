@@ -358,6 +358,7 @@ value MEDIUMTEXT
 provider_id VARCHAR(64) NOT NULL,
 provider_uid VARCHAR(255) NOT NULL,
 user_id CHAR(36) NOT NULL,
+refresh_token TEXT,
 PRIMARY KEY (provider_id, provider_uid),
 INDEX user_id (user_id)
 )`)

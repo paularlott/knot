@@ -13,35 +13,36 @@ import (
 
 // ExternalProvider holds the identity and token for a linked OAuth provider.
 type ExternalProvider struct {
-	ProviderUID string `json:"provider_uid"` // provider's own stable user ID (e.g. GitHub integer ID)
-	Username    string `json:"username"`     // human-readable handle, may change
-	Token       string `json:"token"`        // encrypted access token
+	ProviderUID  string `json:"provider_uid"`            // provider's own stable user ID (e.g. GitHub integer ID)
+	Username     string `json:"username"`                // human-readable handle, may change
+	Token        string `json:"token"`                   // encrypted access token
+	RefreshToken string `json:"refresh_token,omitempty"` // encrypted refresh token
 }
 
 // User object
 type User struct {
-	Id              string                      `json:"user_id" db:"user_id,pk" msgpack:"user_id"`
-	Username        string                      `json:"username" db:"username" msgpack:"username"`
-	Email           string                      `json:"email" db:"email" msgpack:"email"`
-	Password        string                      `json:"password" db:"password" msgpack:"password"`
-	TOTPSecret      string                      `json:"totp_secret" db:"totp_secret" msgpack:"totp_secret"`
-	ServicePassword string                      `json:"service_password" db:"service_password" msgpack:"service_password"`
-	SSHPublicKey    string                      `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
-	GitHubUsername  string                      `json:"github_username" db:"github_username" msgpack:"github_username"`
-	ExternalAuthProviders  map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
-	Roles           []string                    `json:"roles" db:"roles,json" msgpack:"roles"`
-	Groups          []string      `json:"groups" db:"groups,json" msgpack:"groups"`
-	Active          bool          `json:"active" db:"active" msgpack:"active"`
-	IsDeleted       bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	MaxSpaces       uint32        `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
-	ComputeUnits    uint32        `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
-	StorageUnits    uint32        `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
-	MaxTunnels      uint32        `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
-	PreferredShell  string        `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
-	Timezone        string        `json:"timezone" db:"timezone" msgpack:"timezone"`
-	LastLoginAt     *time.Time    `json:"last_login_at" db:"last_login_at" msgpack:"last_login_at"`
-	UpdatedAt       hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
-	CreatedAt       time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	Id                    string                      `json:"user_id" db:"user_id,pk" msgpack:"user_id"`
+	Username              string                      `json:"username" db:"username" msgpack:"username"`
+	Email                 string                      `json:"email" db:"email" msgpack:"email"`
+	Password              string                      `json:"password" db:"password" msgpack:"password"`
+	TOTPSecret            string                      `json:"totp_secret" db:"totp_secret" msgpack:"totp_secret"`
+	ServicePassword       string                      `json:"service_password" db:"service_password" msgpack:"service_password"`
+	SSHPublicKey          string                      `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
+	GitHubUsername        string                      `json:"github_username" db:"github_username" msgpack:"github_username"`
+	ExternalAuthProviders map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
+	Roles                 []string                    `json:"roles" db:"roles,json" msgpack:"roles"`
+	Groups                []string                    `json:"groups" db:"groups,json" msgpack:"groups"`
+	Active                bool                        `json:"active" db:"active" msgpack:"active"`
+	IsDeleted             bool                        `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	MaxSpaces             uint32                      `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits          uint32                      `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
+	StorageUnits          uint32                      `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
+	MaxTunnels            uint32                      `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
+	PreferredShell        string                      `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
+	Timezone              string                      `json:"timezone" db:"timezone" msgpack:"timezone"`
+	LastLoginAt           *time.Time                  `json:"last_login_at" db:"last_login_at" msgpack:"last_login_at"`
+	UpdatedAt             hlc.Timestamp               `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	CreatedAt             time.Time                   `json:"created_at" db:"created_at" msgpack:"created_at"`
 }
 
 type Usage struct {
@@ -151,13 +152,17 @@ func (u *User) IsAdmin() bool {
 	return false
 }
 
-// SetOAuthToken stores an encrypted OAuth access token for the given provider.
-func (u *User) SetOAuthToken(providerID, token, encryptionKey string) {
+// SetOAuthTokens stores encrypted OAuth tokens for the given provider.
+// Refresh tokens are preserved when the provider omits them on a later login.
+func (u *User) SetOAuthTokens(providerID, token, refreshToken, encryptionKey string) {
 	if u.ExternalAuthProviders == nil {
 		return
 	}
 	if ep, ok := u.ExternalAuthProviders[providerID]; ok {
 		ep.Token = crypt.EncryptB64(encryptionKey, token)
+		if refreshToken != "" {
+			ep.RefreshToken = crypt.EncryptB64(encryptionKey, refreshToken)
+		}
 		u.ExternalAuthProviders[providerID] = ep
 	}
 }
@@ -174,10 +179,23 @@ func (u *User) GetOAuthToken(providerID, encryptionKey string) string {
 	return crypt.DecryptB64(encryptionKey, ep.Token)
 }
 
-// ClearOAuthToken removes the stored token for the given provider.
-func (u *User) ClearOAuthToken(providerID string) {
+// GetOAuthRefreshToken returns the decrypted OAuth refresh token for the given provider, or empty string.
+func (u *User) GetOAuthRefreshToken(providerID, encryptionKey string) string {
+	if u.ExternalAuthProviders == nil {
+		return ""
+	}
+	ep, ok := u.ExternalAuthProviders[providerID]
+	if !ok || ep.RefreshToken == "" {
+		return ""
+	}
+	return crypt.DecryptB64(encryptionKey, ep.RefreshToken)
+}
+
+// ClearOAuthTokens removes the stored tokens for the given provider.
+func (u *User) ClearOAuthTokens(providerID string) {
 	if ep, ok := u.ExternalAuthProviders[providerID]; ok {
 		ep.Token = ""
+		ep.RefreshToken = ""
 		u.ExternalAuthProviders[providerID] = ep
 	}
 }
