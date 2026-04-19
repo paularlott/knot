@@ -4575,6 +4575,27 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.secret",
+    description:
+      "Server-configured secret access using aliases from server.secret_providers",
+    functions: [
+      {
+        name: "get",
+        signature: 'get(alias, path, field="")',
+        description:
+          "Resolve a secret through a server-configured provider alias without exposing provider credentials to the script",
+        returns: "str - Secret value",
+      },
+      {
+        name: "list",
+        signature: "list(alias, path)",
+        description:
+          "List keys or items available at a provider-specific path through a server-configured provider alias",
+        returns: "list - Available keys or item names",
+      },
+    ],
+  },
+  {
     module: "subprocess",
     description: "Subprocess management and command execution",
     functions: [
