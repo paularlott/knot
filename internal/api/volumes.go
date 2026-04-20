@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/specvalidate"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -203,6 +204,29 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 		Status:   true,
 		VolumeId: volume.Id,
 	})
+}
+
+func HandleValidateVolume(w http.ResponseWriter, r *http.Request) {
+	request := apiclient.VolumeValidateRequest{}
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	issues := specvalidate.ValidateVolumeSpec(request.Platform, request.Definition)
+	response := apiclient.ValidationResponse{
+		Valid:  len(issues) == 0,
+		Errors: make([]apiclient.ValidationError, 0, len(issues)),
+	}
+
+	for _, issue := range issues {
+		response.Errors = append(response.Errors, apiclient.ValidationError{
+			Field:   issue.Field,
+			Message: issue.Message,
+		})
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
 func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {

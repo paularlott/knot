@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/specvalidate"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -325,6 +326,29 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		Status: true,
 		Id:     template.Id,
 	})
+}
+
+func HandleValidateTemplate(w http.ResponseWriter, r *http.Request) {
+	request := apiclient.TemplateValidateRequest{}
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	issues := specvalidate.ValidateTemplateSpec(request.Platform, request.Job, request.Volumes)
+	response := apiclient.ValidationResponse{
+		Valid:  len(issues) == 0,
+		Errors: make([]apiclient.ValidationError, 0, len(issues)),
+	}
+
+	for _, issue := range issues {
+		response.Errors = append(response.Errors, apiclient.ValidationError{
+			Field:   issue.Field,
+			Message: issue.Message,
+		})
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
 func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {

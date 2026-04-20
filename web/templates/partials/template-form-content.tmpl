@@ -147,7 +147,14 @@
                 <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
                   <textarea name="job" class="form-field" id="job"></textarea>
                 </div>
-                <div x-show="!jobValid" class="error-message" x-cloak>Template is required.</div>
+                <div x-show="jobRequired" class="error-message" x-cloak>Template is required.</div>
+                <template x-if="specErrors.job.length">
+                  <div class="mt-2 space-y-1">
+                    <template x-for="(error, index) in specErrors.job" :key="`job-${index}`">
+                      <div class="error-message" x-text="error"></div>
+                    </template>
+                  </div>
+                </template>
               </div>
             </div>
             <div>
@@ -156,7 +163,14 @@
                 <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">
                   <textarea name="vol" class="form-field" id="vol"></textarea>
                 </div>
-                <div x-show="!volValid" class="error-message" x-cloak>Volume definition must be valid YAML.</div>
+                <div x-show="volRequired" class="error-message" x-cloak>Volume definition is required.</div>
+                <template x-if="specErrors.volumes.length">
+                  <div class="mt-2 space-y-1">
+                    <template x-for="(error, index) in specErrors.volumes" :key="`volume-${index}`">
+                      <div class="error-message" x-text="error"></div>
+                    </template>
+                  </div>
+                </template>
               </div>
             </div>
             {{ if not .isLeafNode }}

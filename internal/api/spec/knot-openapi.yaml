@@ -2264,6 +2264,36 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/templates/validate:
+    post:
+      summary: Validate a Template Specification
+      description: Validate the template job/container specification and volume definition without saving the template.
+      operationId: validateTemplate
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateValidateRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecValidationResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/templates/{template_id}:
     put:
       summary: Update a Template
@@ -2640,6 +2670,36 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created volume.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/volumes/validate:
+    post:
+      summary: Validate a Volume Specification
+      description: Validate a standalone volume definition without saving the volume.
+      operationId: validateVolume
+      tags:
+        - Volumes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VolumeValidateRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecValidationResponse"
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -4269,7 +4329,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         shares:
           type: array
           description: The users the space is shared with.
@@ -4598,7 +4658,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -4698,7 +4758,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         active:
           type: boolean
           description: If the template is active.
@@ -4833,7 +4893,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -4973,7 +5033,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -5095,6 +5155,20 @@ components:
           type: string
           description: The end time of the schedule.
           example: "5:00pm"
+
+    TemplateValidateRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          description: The platform the template targets.
+        job:
+          type: string
+          description: Nomad HCL or local container YAML, depending on platform.
+        volumes:
+          type: string
+          description: YAML volume definition for the selected platform.
 
     TemplateVar:
       type: object
@@ -5535,7 +5609,18 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
+
+    VolumeValidateRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: ["docker", "podman", "nomad", "apple", "container"]
+          description: The platform the volume targets.
+        definition:
+          type: string
+          description: YAML volume definition to validate.
 
     VolumeCreateRequest:
       type: object
@@ -5549,7 +5634,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
         node_id:
           type: string
           description: The ID of the node to assign the volume to.
@@ -5566,7 +5651,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
         node_id:
           type: string
           description: The ID of the node to assign the volume to (only editable when volume is stopped).
@@ -5598,7 +5683,29 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
+
+    SpecValidationResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the submitted specification is valid.
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpecValidationError"
+          description: Validation errors grouped by field.
+
+    SpecValidationError:
+      type: object
+      properties:
+        field:
+          type: string
+          description: The field that failed validation, such as job or volumes.
+        message:
+          type: string
+          description: Human-readable validation message.
 
     SpaceTransferRequest:
       type: object

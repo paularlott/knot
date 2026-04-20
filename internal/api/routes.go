@@ -79,12 +79,14 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))
 	router.HandleFunc("GET /api/templates/{template_id}", middleware.ApiAuth(HandleGetTemplate))
 	router.HandleFunc("GET /api/templates/{template_id}/nodes", middleware.ApiAuth(HandleGetTemplateNodes))
+	router.HandleFunc("POST /api/templates/validate", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleValidateTemplate)))
 	router.HandleFunc("POST /api/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
 
 	// Volumes
 	router.HandleFunc("GET /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumes)))
+	router.HandleFunc("POST /api/volumes/validate", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleValidateVolume)))
 	router.HandleFunc("POST /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleCreateVolume)))
 	router.HandleFunc("GET /api/volumes/nodes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumeNodes)))
 	router.HandleFunc("PUT /api/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleUpdateVolume)))

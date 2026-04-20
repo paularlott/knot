@@ -482,6 +482,10 @@ window.spaceForm = function (
 
       if (err) {
         self.saving = false;
+        self.$dispatch("show-alert", {
+          msg: "Please fix the validation errors before saving",
+          type: "error",
+        });
         return;
       }
 
