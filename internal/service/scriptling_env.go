@@ -79,7 +79,7 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 	}
 }
 
-// registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob)
+// registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob, scriptling.grep, scriptling.sed)
 // and interactive agent support
 func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterSubprocessLibrary(env)
@@ -91,6 +91,8 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 
 	scriptlingconsole.Register(env) // scriptling.console
+	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
+	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil) // scriptling.glob
@@ -355,7 +357,7 @@ func NewHealthCheckScriptlingEnv() (*scriptling.Scriptling, error) {
 }
 
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
-// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
+// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, scriptling.grep, scriptling.sed, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
 // Output: Captured and returned for user scripts, discarded for system scripts (startup/shutdown)
@@ -378,7 +380,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 }
 
 // NewRemoteStreamingScriptlingEnv creates a scriptling environment for streaming remote execution
-// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
+// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, scriptling.grep, scriptling.sed, knot.space, knot.ai, knot.mcp
 // Note: scriptling.console and scriptling.ai.agent.interact are registered after env creation in execute_script_stream.go
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
@@ -396,6 +398,8 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 	// scriptling.console intentionally not registered here — registered via registerConsoleStub in execute_script_stream.go
 	// scriptling.ai.agent.interact intentionally not registered here — registered via agent.RegisterInteract in execute_script_stream.go
+	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
+	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil)

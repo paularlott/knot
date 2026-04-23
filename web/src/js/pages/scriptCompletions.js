@@ -1208,6 +1208,61 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.grep",
+    description:
+      "Fast file content search with regex or literal patterns (Local/Remote/External environments)",
+    functions: [
+      {
+        name: "pattern",
+        signature:
+          'pattern(regex, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          'Search for a regex pattern in a file or directory. Returns a list of match dicts: {"file": str, "line": int, "text": str}',
+        returns: "list - List of match dicts with file, line, text",
+      },
+      {
+        name: "string",
+        signature:
+          'string(text, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          'Search for a literal string in a file or directory. Returns a list of match dicts: {"file": str, "line": int, "text": str}',
+        returns: "list - List of match dicts with file, line, text",
+      },
+    ],
+  },
+  {
+    module: "scriptling.sed",
+    description:
+      "In-place file content replacement and capture group extraction (Local/Remote/External environments)",
+    functions: [
+      {
+        name: "replace",
+        signature:
+          'replace(old, new, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          "Replace all occurrences of a literal string in a file or directory. Files are modified in-place using atomic temp-file rename",
+        returns: "int - Number of files modified",
+      },
+      {
+        name: "replace_pattern",
+        signature:
+          'replace_pattern(regex, new, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          "Replace all regex matches in a file or directory. Supports capture groups in replacement string (e.g. ${1}, ${name})",
+        returns: "int - Number of files modified",
+      },
+      {
+        name: "extract",
+        signature:
+          'extract(regex, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          'Extract regex capture groups from a file or directory. Returns a list of match dicts: {"file": str, "line": int, "text": str, "groups": list}',
+        returns:
+          "list - List of match dicts with file, line, text, groups",
+      },
+    ],
+  },
+  {
     module: "scriptling.console",
     description: "TUI console for interactive terminal applications with multi-panel layouts (Local environment only)",
     constants: [
