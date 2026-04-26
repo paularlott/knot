@@ -130,6 +130,13 @@ export const localVolumeSpecCompletions = [
     score: 900,
     docHTML: docs("volume name", "A local named volume to create."),
   },
+  {
+    caption: "size",
+    value: "size: 20G",
+    meta: "volume",
+    score: 890,
+    docHTML: docs("size", "Volume size (Apple Containers only), e.g. 10G, 512M."),
+  },
 ];
 
 export const nomadJobCompletions = [

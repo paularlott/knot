@@ -81,6 +81,18 @@ volumes:
 	}
 }
 
+func TestValidateVolumeSpecAppleWithSize(t *testing.T) {
+	issues := ValidateVolumeSpec(model.PlatformApple, `
+volumes:
+  workspace:
+    size: 20G
+`)
+
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got %+v", issues)
+	}
+}
+
 func TestValidateVolumeSpecNomadRequiresPluginID(t *testing.T) {
 	issues := ValidateVolumeSpec(model.PlatformNomad, `
 volumes:

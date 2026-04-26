@@ -45,8 +45,12 @@ type jobSpec struct {
 	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
+type volumeSpec struct {
+	Size string `yaml:"size,omitempty"`
+}
+
 type volInfo struct {
-	Volumes map[string]interface{} `yaml:"volumes"`
+	Volumes map[string]volumeSpec `yaml:"volumes"`
 }
 
 type containerInspect struct {
@@ -391,13 +395,18 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}()
 
-	for volName := range volInfo.Volumes {
+	for volName, spec := range volInfo.Volumes {
 		c.logger.Debug("checking volume", "volname", volName)
 
 		if _, ok := space.VolumeData[volName]; !ok {
 			c.logger.Debug("creating volume", "volname", volName)
 
-			cmd := exec.Command("container", "volume", "create", volName)
+			args := []string{"volume", "create"}
+			if spec.Size != "" {
+				args = append(args, "-s", spec.Size)
+			}
+			args = append(args, volName)
+			cmd := exec.Command("container", args...)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				c.logger.Error("creating volume error, output:", "volname", volName, "output", string(output))
@@ -484,10 +493,15 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 		return fmt.Errorf("volume definition must contain exactly 1 volume")
 	}
 
-	for volName := range volInfo.Volumes {
+	for volName, spec := range volInfo.Volumes {
 		c.logger.Debug("creating volume:", "volname", volName)
 
-		cmd := exec.Command("container", "volume", "create", volName)
+		args := []string{"volume", "create"}
+		if spec.Size != "" {
+			args = append(args, "-s", spec.Size)
+		}
+		args = append(args, volName)
+		cmd := exec.Command("container", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			c.logger.Error("creating volume error, output:", "volname", volName, "output", string(output))

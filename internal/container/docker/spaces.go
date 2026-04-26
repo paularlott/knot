@@ -50,8 +50,12 @@ type jobSpec struct {
 	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
+type volumeSpec struct {
+	Size string `yaml:"size,omitempty"`
+}
+
 type volInfo struct {
-	Volumes map[string]interface{} `yaml:"volumes"`
+	Volumes map[string]volumeSpec `yaml:"volumes"`
 }
 
 // ---- Docker REST API request/response types ----

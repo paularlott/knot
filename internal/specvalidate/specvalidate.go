@@ -43,8 +43,12 @@ type localContainerSpec struct {
 	CPUs          string              `yaml:"cpus,omitempty"`
 }
 
+type localVolumeEntry struct {
+	Size string `yaml:"size,omitempty"`
+}
+
 type localVolumeSpec struct {
-	Volumes map[string]interface{} `yaml:"volumes"`
+	Volumes map[string]localVolumeEntry `yaml:"volumes"`
 }
 
 type NomadJobParser func(string) error
