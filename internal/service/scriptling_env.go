@@ -58,6 +58,8 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	scriptlingmcp.RegisterToolHelpers(env)
 	extlibs.RegisterTOMLLibrary(env)
 	extlibs.RegisterWebSocketLibrary(env)
+	extlibs.RegisterTemplateHTMLLibrary(env)
+	extlibs.RegisterTemplateTextLibrary(env)
 }
 
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments

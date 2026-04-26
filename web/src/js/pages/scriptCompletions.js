@@ -2989,6 +2989,77 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.template.html",
+    description:
+      "HTML template rendering with automatic HTML escaping (html/template)",
+    functions: [
+      {
+        name: "Set",
+        signature: "Set()",
+        description: "Create a new HTML template set with auto-escaping",
+        returns: "Set - A template set with add(source) and render([name,] data) methods",
+        returnType: "Set",
+      },
+    ],
+    classes: [
+      {
+        name: "Set",
+        description: "HTML template set",
+        methods: [
+          {
+            name: "add",
+            signature: "add(source)",
+            description:
+              'Add template source, may contain {{define "name"}} blocks',
+            returns: "None",
+          },
+          {
+            name: "render",
+            signature: "render(data) or render(name, data)",
+            description:
+              "Render a template from the set with the given data dict",
+            returns: "string - Rendered output",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.template.text",
+    description: "Text template rendering with no escaping (text/template)",
+    functions: [
+      {
+        name: "Set",
+        signature: "Set()",
+        description: "Create a new text template set (no HTML escaping)",
+        returns: "Set - A template set with add(source) and render([name,] data) methods",
+        returnType: "Set",
+      },
+    ],
+    classes: [
+      {
+        name: "Set",
+        description: "Text template set",
+        methods: [
+          {
+            name: "add",
+            signature: "add(source)",
+            description:
+              'Add template source, may contain {{define "name"}} blocks',
+            returns: "None",
+          },
+          {
+            name: "render",
+            signature: "render(data) or render(name, data)",
+            description:
+              "Render a template from the set with the given data dict",
+            returns: "string - Rendered output",
+          },
+        ],
+      },
+    ],
+  },
+  {
     module: "html.parser",
     description: "HTML parsing for simple structured data extraction",
     functions: [],
