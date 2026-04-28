@@ -1210,7 +1210,7 @@ const scriptLibraries = [
   {
     module: "scriptling.grep",
     description:
-      "Fast file content search with regex or literal patterns (Local/Remote/External environments)",
+      "Fast file content search with regex or literal patterns (Remote/External environments)",
     functions: [
       {
         name: "pattern",
@@ -1233,7 +1233,7 @@ const scriptLibraries = [
   {
     module: "scriptling.sed",
     description:
-      "In-place file content replacement and capture group extraction (Local/Remote/External environments)",
+      "In-place file content replacement and capture group extraction (Remote/External environments)",
     functions: [
       {
         name: "replace",
@@ -1264,7 +1264,7 @@ const scriptLibraries = [
   },
   {
     module: "scriptling.console",
-    description: "TUI console for interactive terminal applications with multi-panel layouts (Local environment only)",
+    description: "TUI console for interactive terminal applications with multi-panel layouts (Remote environment only)",
     constants: [
       { name: "PRIMARY", description: "Theme primary color", type: "string" },
       { name: "SECONDARY", description: "Theme secondary color", type: "string" },
@@ -2183,7 +2183,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime",
     description:
-      "Runtime utilities for background function execution (Local/Remote environments)",
+      "Runtime utilities for background function execution (Remote environments)",
     functions: [
       {
         name: "background",
@@ -2218,7 +2218,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.kv",
     description:
-      "Key-value store for runtime state sharing (Local/Remote environments)",
+      "Key-value store for runtime state sharing (Remote environments)",
     constants: [
       {
         name: "default",
@@ -2301,7 +2301,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.sync",
     description:
-      "Concurrency primitives for thread synchronization (Local/Remote environments)",
+      "Concurrency primitives for thread synchronization (Remote environments)",
     classes: [
       {
         name: "Mutex",
@@ -2465,7 +2465,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.sandbox",
     description:
-      "Isolated script execution environments (Local/Remote environments)",
+      "Isolated script execution environments (Remote environments)",
     classes: [
       {
         name: "Sandbox",
@@ -2518,7 +2518,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.http",
     description:
-      "HTTP server route registration and response helpers (Local/Remote environments)",
+      "HTTP server route registration and response helpers (Remote environments)",
     classes: [
       {
         name: "Request",
@@ -2964,7 +2964,7 @@ const scriptLibraries = [
   },
   {
     module: "scriptling.glob",
-    description: "Unix shell-style wildcards for file path matching (Local/Remote environments)",
+    description: "Unix shell-style wildcards for file path matching (Remote environments)",
     functions: [
       {
         name: "glob",

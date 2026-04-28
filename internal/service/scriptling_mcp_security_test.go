@@ -255,29 +255,6 @@ result = "wait_for_imported"
 	}
 }
 
-// TestLocalScriptlingEnv_CanImportSystemLibraries verifies that local environment
-// CAN import system libraries (contrast with MCP).
-func TestLocalScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
-	env, err := NewLocalScriptlingEnv(nil, nil, "", "", nil)
-	if err != nil {
-		t.Fatalf("NewLocalScriptlingEnv() failed: %v", err)
-	}
-
-	// These imports should succeed in local environment
-	scriptContent := `
-import subprocess
-import os
-import pathlib
-import sys
-result = "all_system_libs_imported"
-`
-
-	_, err = env.Eval(scriptContent)
-	if err != nil {
-		t.Errorf("Local environment should be able to import system libraries: %v", err)
-	}
-}
-
 // TestRemoteScriptlingEnv_CanImportSystemLibraries verifies that remote environment
 // CAN import system libraries (contrast with MCP).
 func TestRemoteScriptlingEnv_CanImportSystemLibraries(t *testing.T) {

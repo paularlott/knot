@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
 	command_scripts "github.com/paularlott/knot/agent/cmd/scripts"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
@@ -116,7 +115,6 @@ It offers both a user-friendly web interface and a command line interface to str
 			commands_admin.AdminCmd,
 			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,
-			agentcmd.RunScriptCmd,
 			command.ServerCmd,
 			command.PingCmd,
 			command.ScaffoldCmd,
