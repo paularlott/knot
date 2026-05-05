@@ -908,7 +908,7 @@ const scriptLibraries = [
       {
         name: "Client",
         signature:
-          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, top_p=0, remote_servers=[])',
+          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, top_p=0, headers={}, remote_servers=[])',
         description:
           "Create a new AI client instance for making API calls to supported services",
         returns: "OpenAIClient - A client instance",
@@ -969,10 +969,11 @@ const scriptLibraries = [
       },
       {
         name: "estimate_tokens",
-        signature: "estimate_tokens(request, response)",
+        signature: "estimate_tokens(request, response=None)",
         description:
-          "Estimate token counts for request messages and response using character-based heuristic",
-        returns: "tuple - (request_tokens, response_tokens)",
+          "Estimate token counts for request messages and/or response using character-based heuristic",
+        returns:
+          "dict - {'prompt_tokens': int, 'completion_tokens': int, 'total_tokens': int}",
       },
     ],
     classes: [
@@ -982,13 +983,15 @@ const scriptLibraries = [
         methods: [
           {
             name: "completion",
-            signature: "completion(model, messages, **kwargs)",
+            signature:
+              "completion(model, messages, tools=[], temperature=0, top_p=0, max_tokens=0, extra_body={}, timeout=0)",
             description: "Create a chat completion",
             returns: "dict - Response with id, choices, usage",
           },
           {
             name: "completion_stream",
-            signature: "completion_stream(model, messages, **kwargs)",
+            signature:
+              "completion_stream(model, messages, tools=[], temperature=0, top_p=0, max_tokens=0, extra_body={}, timeout=0)",
             description: "Create a streaming chat completion",
             returns: "ChatStream - Stream object with next() method",
             returnType: "ChatStream",
