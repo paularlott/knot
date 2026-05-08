@@ -21,10 +21,10 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.72
 	github.com/paularlott/cli v0.8.4
-	github.com/paularlott/gossip v0.12.4
+	github.com/paularlott/gossip v0.12.5
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.15.8
-	github.com/paularlott/scriptling v0.6.6
+	github.com/paularlott/mcp v0.16.0
+	github.com/paularlott/scriptling v0.7.1
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
@@ -33,7 +33,7 @@ require (
 	golang.org/x/crypto v0.50.0
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 	golang.org/x/net v0.53.0
-	golang.org/x/term v0.42.0
+	golang.org/x/term v0.43.0
 	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -75,11 +75,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/image v0.39.0 // indirect
-	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
