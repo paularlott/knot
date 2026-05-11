@@ -79,10 +79,10 @@ func GetHealthCheckLibrary() *object.Library {
 		}
 		resp, httpErr := client.Head(url)
 		if httpErr != nil {
-			return &object.Boolean{Value: false}
+			return object.NewBoolean(false)
 		}
 		resp.Body.Close()
-		return &object.Boolean{Value: resp.StatusCode == http.StatusOK}
+		return object.NewBoolean(resp.StatusCode == http.StatusOK)
 	}, "http_head(url, skip_ssl_verify=False, timeout=10) - HTTP HEAD check, returns True if status 200")
 
 	builder.FunctionWithHelp("tcp_port", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
@@ -104,10 +104,10 @@ func GetHealthCheckLibrary() *object.Library {
 
 		conn, dialErr := net.DialTimeout("tcp", strings.Join([]string{"127.0.0.1:", fmt.Sprint(port)}, ""), time.Duration(timeout)*time.Second)
 		if dialErr != nil {
-			return &object.Boolean{Value: false}
+			return object.NewBoolean(false)
 		}
 		conn.Close()
-		return &object.Boolean{Value: true}
+		return object.NewBoolean(true)
 	}, "tcp_port(port, timeout=10) - TCP port check, returns True if port is open")
 
 	builder.FunctionWithHelp("program", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
@@ -129,13 +129,13 @@ func GetHealthCheckLibrary() *object.Library {
 
 		parts := strings.Fields(command)
 		if len(parts) == 0 {
-			return &object.Boolean{Value: false}
+			return object.NewBoolean(false)
 		}
 		cmdCtx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(cmdCtx, parts[0], parts[1:]...)
 		runErr := cmd.Run()
-		return &object.Boolean{Value: runErr == nil}
+		return object.NewBoolean(runErr == nil)
 	}, "program(command, timeout=10) - Run command, returns True if exit code 0")
 
 	builder.FunctionWithHelp("check_result", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {

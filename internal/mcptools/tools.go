@@ -189,8 +189,10 @@ func GetMCPTools(visibility string) []mcp.MCPTool {
 			continue
 		}
 
-		// Build tool using upstream builder
-		toolBuilder := toolmetadata.BuildMCPTool(tool.Name, tool.Metadata)
+		toolBuilder, err := toolmetadata.BuildMCPTool(tool.Name, tool.Metadata)
+		if err != nil {
+			continue
+		}
 		mcpTool := toolBuilder.ToMCPTool()
 		tools = append(tools, mcpTool)
 	}
@@ -205,7 +207,10 @@ func GetAllMCPTools() []mcp.MCPTool {
 
 	tools := make([]mcp.MCPTool, 0, len(registry))
 	for _, tool := range registry {
-		toolBuilder := toolmetadata.BuildMCPTool(tool.Name, tool.Metadata)
+		toolBuilder, err := toolmetadata.BuildMCPTool(tool.Name, tool.Metadata)
+		if err != nil {
+			continue
+		}
 		mcpTool := toolBuilder.ToMCPTool()
 		tools = append(tools, mcpTool)
 	}

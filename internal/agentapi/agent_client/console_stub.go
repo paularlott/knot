@@ -241,7 +241,7 @@ func newConsoleClass(w io.Writer, inbound <-chan string) *object.Class {
 					s.commands[name] = func(cmdCtx context.Context, cmdArgs string) {
 						if eval != nil {
 							eval.CallObjectFunction(cmdCtx, fn,
-								[]object.Object{&object.String{Value: cmdArgs}}, nil, env)
+								[]object.Object{object.NewString(cmdArgs)}, nil, env)
 						}
 					}
 					s.mu.Unlock()
@@ -273,13 +273,13 @@ func newConsoleClass(w io.Writer, inbound <-chan string) *object.Class {
 				Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 					// No local TUI — return text unstyled
 					if len(args) < 3 {
-						return &object.String{Value: ""}
+						return object.NewString("")
 					}
 					text, err := args[2].AsString()
 					if err != nil {
 						return err
 					}
-					return &object.String{Value: text}
+					return object.NewString(text)
 				},
 			},
 			"on_escape": &object.Builtin{
@@ -311,7 +311,7 @@ func newConsoleClass(w io.Writer, inbound <-chan string) *object.Class {
 						s.submitCb = func(submitCtx context.Context, text string) {
 							if eval != nil {
 								eval.CallObjectFunction(submitCtx, fn,
-									[]object.Object{&object.String{Value: text}}, nil, env)
+									[]object.Object{object.NewString(text)}, nil, env)
 							}
 						}
 						s.mu.Unlock()
@@ -413,12 +413,12 @@ func registerConsoleStub(
 ) {
 	lib := object.NewLibrary(consoleLibraryName, nil, map[string]object.Object{
 		"Console":   newConsoleClass(w, inbound),
-		"PRIMARY":   &object.String{Value: "primary"},
-		"SECONDARY": &object.String{Value: "secondary"},
-		"ERROR":     &object.String{Value: "error"},
-		"DIM":       &object.String{Value: "dim"},
-		"USER":      &object.String{Value: "user"},
-		"TEXT":      &object.String{Value: "text"},
+		"PRIMARY":   object.NewString("primary"),
+		"SECONDARY": object.NewString("secondary"),
+		"ERROR":     object.NewString("error"),
+		"DIM":       object.NewString("dim"),
+		"USER":      object.NewString("user"),
+		"TEXT":      object.NewString("text"),
 	}, "Console I/O with TUI backend (remote stub)")
 	registrar.RegisterLibrary(lib)
 }
