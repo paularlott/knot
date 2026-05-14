@@ -58,6 +58,21 @@ type containerInspect struct {
 	Status string `json:"status"`
 }
 
+func normalizeContainerReference(ref string) string {
+	ref = strings.ReplaceAll(ref, "\r\n", "\n")
+	ref = strings.ReplaceAll(ref, "\r", "\n")
+
+	lines := strings.Split(ref, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line != "" {
+			return line
+		}
+	}
+
+	return ""
+}
+
 func NewClient() *AppleClient {
 	return &AppleClient{
 		DriverName: "apple",
@@ -182,7 +197,11 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 			return
 		}
 
-		containerID := strings.TrimSpace(string(output))
+		containerID := normalizeContainerReference(string(output))
+		if containerID == "" {
+			c.logger.Error("creating container returned empty container reference", "spec_containername", spec.ContainerName, "output", string(output))
+			return
+		}
 		c.logger.Debug("container running,", "spec_containername", spec.ContainerName, "containerid", containerID)
 
 		db := database.GetInstance()
@@ -206,7 +225,12 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 }
 
 func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error {
-	c.logger.Debug("deleting space job,", "space_id", space.Id, "space_containerid", space.ContainerId)
+	containerRef := normalizeContainerReference(space.ContainerId)
+	c.logger.Debug("deleting space job,", "space_id", space.Id, "space_containerid", containerRef)
+
+	if containerRef == "" {
+		return fmt.Errorf("space container reference is empty")
+	}
 
 	db := database.GetInstance()
 
@@ -250,17 +274,17 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		default:
 		}
 
-		c.logger.Debug("stopping container", "space_containerid", space.ContainerId)
-		cmd := exec.CommandContext(ctx, "container", "stop", space.ContainerId)
+		c.logger.Debug("stopping container", "space_containerid", containerRef)
+		cmd := exec.CommandContext(ctx, "container", "stop", containerRef)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			outputStr := string(output)
 			if !strings.Contains(outputStr, "not found") && !strings.Contains(outputStr, "internalError") {
-				c.logger.Error("stopping container error, output:", "space_containerid", space.ContainerId, "output", outputStr)
+				c.logger.Error("stopping container error, output:", "space_containerid", containerRef, "output", outputStr)
 				return
 			}
 			if strings.Contains(outputStr, "internalError") {
-				c.logger.Warn("stop returned XPC error, will wait for container to stop", "space_containerid", space.ContainerId)
+				c.logger.Warn("stop returned XPC error, will wait for container to stop", "space_containerid", containerRef)
 			}
 		}
 
@@ -269,24 +293,24 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			// Check if context has been cancelled
 			select {
 			case <-ctx.Done():
-				c.logger.Warn("container stop cancelled due to timeout", "space_containerid", space.ContainerId)
+				c.logger.Warn("container stop cancelled due to timeout", "space_containerid", containerRef)
 				return
 			default:
 			}
 
-			cmd := exec.CommandContext(ctx, "container", "inspect", space.ContainerId)
+			cmd := exec.CommandContext(ctx, "container", "inspect", containerRef)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				if strings.Contains(string(output), "not found") {
 					break
 				}
-				c.logger.Error("inspecting container error", "space_containerid", space.ContainerId)
+				c.logger.Error("inspecting container error", "space_containerid", containerRef)
 				return
 			}
 
 			var inspectData []containerInspect
 			if err := json.Unmarshal(output, &inspectData); err != nil {
-				c.logger.Error("parsing inspect output error", "space_containerid", space.ContainerId)
+				c.logger.Error("parsing inspect output error", "space_containerid", containerRef)
 				return
 			}
 
@@ -295,11 +319,11 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			}
 
 			if time.Now().After(timeout) {
-				c.logger.Error("timeout waiting for container to stop", "space_containerid", space.ContainerId)
+				c.logger.Error("timeout waiting for container to stop", "space_containerid", containerRef)
 				return
 			}
 
-			c.logger.Debug("waiting for container to stop", "space_containerid", space.ContainerId)
+			c.logger.Debug("waiting for container to stop", "space_containerid", containerRef)
 			time.Sleep(500 * time.Millisecond)
 		}
 
@@ -311,12 +335,12 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		default:
 		}
 
-		c.logger.Debug("removing container", "space_containerid", space.ContainerId)
-		cmd = exec.CommandContext(ctx, "container", "rm", space.ContainerId)
+		c.logger.Debug("removing container", "space_containerid", containerRef)
+		cmd = exec.CommandContext(ctx, "container", "rm", containerRef)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			if !strings.Contains(string(output), "not found") {
-				c.logger.Error("removing container error, output:", "space_containerid", space.ContainerId, "output", string(output))
+				c.logger.Error("removing container error, output:", "space_containerid", containerRef, "output", string(output))
 				return
 			}
 		}
