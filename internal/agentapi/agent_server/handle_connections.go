@@ -289,19 +289,22 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.ActivityDistinctDirs = state.ActivityDistinctDirs
 				session.LastActivityAtUnix = state.LastActivityAtUnix
 
+				db := database.GetInstance()
+				space, err := db.GetSpace(session.Id)
+				if err == nil {
+					spaceusage.RecordFromAgentState(space.Id, space.UserId, &state)
+				}
+
 				// Update health status if changed
 				prev := health.Get(session.Id)
-				if prev == nil || prev.Healthy != state.Healthy || true {
+				if prev == nil || prev.Healthy != state.Healthy {
 					health.Set(session.Id, state.Healthy, 0)
 					stateChanged = true
 				}
 
 				// Only send SSE event if state actually changed
 				if stateChanged {
-					db := database.GetInstance()
-					space, err := db.GetSpace(session.Id)
 					if err == nil {
-						spaceusage.RecordFromAgentState(space.Id, space.UserId, &state)
 						sse.PublishSpaceChanged(space.Id, space.UserId)
 					}
 				}

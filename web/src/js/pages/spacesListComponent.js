@@ -36,6 +36,8 @@ window.spacesListComponent = function (
     loading: true,
     spaces: [],
     visibleSpaces: 0,
+    refreshHandle: null,
+    uptimeHandle: null,
     // Debounced version of getSpaces for SSE events (500ms debounce)
     debouncedGetSpaces: debounce(function (spaceId) {
       this.getSpaces(spaceId);
@@ -262,12 +264,27 @@ window.spacesListComponent = function (
         });
       }
 
+      this.refreshHandle = setInterval(() => {
+        this.getSpaces();
+      }, 10000);
+
       // Refresh uptime displays every 5s
-      setInterval(() => {
+      this.uptimeHandle = setInterval(() => {
         this.spaces.forEach((space) => {
           space.uptime = this.formatTimeDiff(space.started_at);
         });
       }, 5000);
+    },
+    destroy() {
+      if (this.refreshHandle) {
+        clearInterval(this.refreshHandle);
+        this.refreshHandle = null;
+      }
+
+      if (this.uptimeHandle) {
+        clearInterval(this.uptimeHandle);
+        this.uptimeHandle = null;
+      }
     },
     userSearchReset() {
       this.forUserId = userId;
