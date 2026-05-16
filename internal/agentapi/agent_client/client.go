@@ -61,7 +61,6 @@ type AgentClient struct {
 	activityDeleteCount   uint32
 	activityRenameCount   uint32
 	activityDistinctPaths uint32
-	activityDistinctDirs  uint32
 	lastActivityAtUnix    int64
 }
 
@@ -183,7 +182,7 @@ func (c *AgentClient) GetServerURL() string {
 	return c.serverURL
 }
 
-func (c *AgentClient) snapshotActivityState() (uint32, uint32, uint32, uint32, uint32, uint32, int64) {
+func (c *AgentClient) snapshotActivityState() (uint32, uint32, uint32, uint32, uint32, int64) {
 	c.activityMu.RLock()
 	defer c.activityMu.RUnlock()
 
@@ -192,6 +191,5 @@ func (c *AgentClient) snapshotActivityState() (uint32, uint32, uint32, uint32, u
 		c.activityDeleteCount,
 		c.activityRenameCount,
 		c.activityDistinctPaths,
-		c.activityDistinctDirs,
 		c.lastActivityAtUnix
 }

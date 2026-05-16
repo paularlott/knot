@@ -12,8 +12,8 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
-	"github.com/paularlott/knot/internal/spaceusage"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spaceusage"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util/crypt"
@@ -164,19 +164,19 @@ func handleAgentConnection(conn net.Conn) {
 	response.HealthCheckMaxFailures = template.HealthCheckMaxFailures
 	response.HealthCheckAutoRestart = template.HealthCheckAutoRestart
 	// Translate port forward space UUIDs to names for the agent
-		portForwards := make([]model.PortForwardEntry, 0, len(space.PortForwards))
-		for _, pf := range space.PortForwards {
-			name := pf.Space
-			if targetSpace, err := db.GetSpace(pf.Space); err == nil && targetSpace != nil {
-				name = targetSpace.Name
-			}
-			portForwards = append(portForwards, model.PortForwardEntry{
-				LocalPort:  pf.LocalPort,
-				Space:      name,
-				RemotePort: pf.RemotePort,
-			})
+	portForwards := make([]model.PortForwardEntry, 0, len(space.PortForwards))
+	for _, pf := range space.PortForwards {
+		name := pf.Space
+		if targetSpace, err := db.GetSpace(pf.Space); err == nil && targetSpace != nil {
+			name = targetSpace.Name
 		}
-		response.PortForwards = portForwards
+		portForwards = append(portForwards, model.PortForwardEntry{
+			LocalPort:  pf.LocalPort,
+			Space:      name,
+			RemotePort: pf.RemotePort,
+		})
+	}
+	response.PortForwards = portForwards
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -286,7 +286,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.ActivityDeleteCount = state.ActivityDeleteCount
 				session.ActivityRenameCount = state.ActivityRenameCount
 				session.ActivityDistinctPaths = state.ActivityDistinctPaths
-				session.ActivityDistinctDirs = state.ActivityDistinctDirs
 				session.LastActivityAtUnix = state.LastActivityAtUnix
 
 				db := database.GetInstance()

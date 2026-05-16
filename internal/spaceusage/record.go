@@ -12,11 +12,9 @@ import (
 	"github.com/paularlott/knot/internal/service"
 )
 
-const writeInterval = 1 * time.Minute
-
 var (
-	lastWriteMu   sync.Mutex
-	lastWriteTime = map[string]time.Time{}
+	lastWriteMu           sync.Mutex
+	lastSpaceMinuteBucket = map[string]int64{}
 )
 
 func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
@@ -25,14 +23,14 @@ func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
 	}
 
 	now := time.Now().UTC()
+	minuteBucketStart := model.BucketStartForKind(now, model.SpaceUsageBucketMinute).Unix()
 
 	lastWriteMu.Lock()
-	last, ok := lastWriteTime[spaceId]
-	if ok && now.Sub(last) < writeInterval {
+	if lastSpaceMinuteBucket[spaceId] == minuteBucketStart {
 		lastWriteMu.Unlock()
 		return
 	}
-	lastWriteTime[spaceId] = now
+	lastSpaceMinuteBucket[spaceId] = minuteBucketStart
 	lastWriteMu.Unlock()
 
 	db := database.GetInstance()
@@ -56,7 +54,7 @@ func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
 
 func ForgetSpace(spaceId string) {
 	lastWriteMu.Lock()
-	delete(lastWriteTime, spaceId)
+	delete(lastSpaceMinuteBucket, spaceId)
 	lastWriteMu.Unlock()
 }
 
@@ -72,7 +70,6 @@ func buildSampleFromState(spaceId, userId, bucketKind string, now time.Time, sta
 	sample.ActivityDeleteCount = state.ActivityDeleteCount
 	sample.ActivityRenameCount = state.ActivityRenameCount
 	sample.ActivityDistinctPaths = state.ActivityDistinctPaths
-	sample.ActivityDistinctDirs = state.ActivityDistinctDirs
 	if state.LastActivityAtUnix > 0 {
 		lastActivityAt := time.Unix(state.LastActivityAtUnix, 0).UTC()
 		sample.LastActivityAt = &lastActivityAt
@@ -123,7 +120,6 @@ func mergeSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
 	}
 
 	target.ActivityDistinctPaths = maxUint32(target.ActivityDistinctPaths, incoming.ActivityDistinctPaths)
-	target.ActivityDistinctDirs = maxUint32(target.ActivityDistinctDirs, incoming.ActivityDistinctDirs)
 
 	if incoming.LastActivityAt != nil && (target.LastActivityAt == nil || incoming.LastActivityAt.After(*target.LastActivityAt)) {
 		lastActivityAt := incoming.LastActivityAt.UTC()

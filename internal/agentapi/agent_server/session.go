@@ -33,7 +33,6 @@ type Session struct {
 	ActivityDeleteCount   uint32
 	ActivityRenameCount   uint32
 	ActivityDistinctPaths uint32
-	ActivityDistinctDirs  uint32
 	LastActivityAtUnix    int64
 	MuxSession            *yamux.Session
 	logger                logger.Logger

@@ -31,7 +31,6 @@ type SpaceUsageSample struct {
 	ActivityDeleteCount   uint32        `json:"activity_delete_count" db:"activity_delete_count" msgpack:"activity_delete_count"`
 	ActivityRenameCount   uint32        `json:"activity_rename_count" db:"activity_rename_count" msgpack:"activity_rename_count"`
 	ActivityDistinctPaths uint32        `json:"activity_distinct_paths" db:"activity_distinct_paths" msgpack:"activity_distinct_paths"`
-	ActivityDistinctDirs  uint32        `json:"activity_distinct_dirs" db:"activity_distinct_dirs" msgpack:"activity_distinct_dirs"`
 	ActivitySpaceStarts   uint32        `json:"activity_space_starts" db:"activity_space_starts" msgpack:"activity_space_starts"`
 	ActivitySpaceStops    uint32        `json:"activity_space_stops" db:"activity_space_stops" msgpack:"activity_space_stops"`
 	ActivitySpaceCreates  uint32        `json:"activity_space_creates" db:"activity_space_creates" msgpack:"activity_space_creates"`

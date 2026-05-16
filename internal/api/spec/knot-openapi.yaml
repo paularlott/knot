@@ -4738,9 +4738,6 @@ components:
         distinct_paths:
           type: integer
           format: int32
-        distinct_dirs:
-          type: integer
-          format: int32
         last_activity_at:
           type: string
           format: date-time

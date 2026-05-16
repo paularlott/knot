@@ -39,37 +39,37 @@ type SpaceShareUpdateRequest struct {
 }
 
 type SpaceInfo struct {
-	Id              string            `json:"space_id"`
-	Name            string            `json:"name"`
-	Description     string            `json:"description"`
-	Note            string            `json:"note"`
-	TemplateName    string            `json:"template_name"`
-	TemplateId      string            `json:"template_id"`
-	Zone            string            `json:"zone"`
-	Username        string            `json:"username"`
-	UserId          string            `json:"user_id"`
-	Platform        string            `json:"platform"`
-	Shares          []string          `json:"shares"`
-	DependsOn       []string          `json:"depends_on"`
-	HasCodeServer   bool              `json:"has_code_server"`
-	HasSSH          bool              `json:"has_ssh"`
-	HasHttpVNC      bool              `json:"has_http_vnc"`
-	HasTerminal     bool              `json:"has_terminal"`
-	HasState        bool              `json:"has_state"`
-	IsDeployed      bool              `json:"is_deployed"`
-	IsPending       bool              `json:"is_pending"`
-	IsDeleting      bool              `json:"is_deleting"`
-	TcpPorts        map[string]string `json:"tcp_ports"`
-	HttpPorts       map[string]string `json:"http_ports"`
-	UpdateAvailable bool              `json:"update_available"`
-	IsRemote        bool              `json:"is_remote"`
-	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
-	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
-	StartedAt       time.Time         `json:"started_at"`
-	IconURL         string            `json:"icon_url"`
-	Healthy         bool              `json:"healthy"`
-	NodeHostname    string            `json:"node_hostname"`
-	Stack           string            `json:"stack"`
+	Id              string              `json:"space_id"`
+	Name            string              `json:"name"`
+	Description     string              `json:"description"`
+	Note            string              `json:"note"`
+	TemplateName    string              `json:"template_name"`
+	TemplateId      string              `json:"template_id"`
+	Zone            string              `json:"zone"`
+	Username        string              `json:"username"`
+	UserId          string              `json:"user_id"`
+	Platform        string              `json:"platform"`
+	Shares          []string            `json:"shares"`
+	DependsOn       []string            `json:"depends_on"`
+	HasCodeServer   bool                `json:"has_code_server"`
+	HasSSH          bool                `json:"has_ssh"`
+	HasHttpVNC      bool                `json:"has_http_vnc"`
+	HasTerminal     bool                `json:"has_terminal"`
+	HasState        bool                `json:"has_state"`
+	IsDeployed      bool                `json:"is_deployed"`
+	IsPending       bool                `json:"is_pending"`
+	IsDeleting      bool                `json:"is_deleting"`
+	TcpPorts        map[string]string   `json:"tcp_ports"`
+	HttpPorts       map[string]string   `json:"http_ports"`
+	UpdateAvailable bool                `json:"update_available"`
+	IsRemote        bool                `json:"is_remote"`
+	HasVSCodeTunnel bool                `json:"has_vscode_tunnel"`
+	VSCodeTunnel    string              `json:"vscode_tunnel_name"`
+	StartedAt       time.Time           `json:"started_at"`
+	IconURL         string              `json:"icon_url"`
+	Healthy         bool                `json:"healthy"`
+	NodeHostname    string              `json:"node_hostname"`
+	Stack           string              `json:"stack"`
 	ResourceUsage   *SpaceResourceUsage `json:"resource_usage,omitempty"`
 }
 
@@ -144,12 +144,11 @@ type SpaceResourceUsage struct {
 }
 
 type SpaceActivityUsage struct {
-	WriteCount    uint32     `json:"write_count"`
-	CreateCount   uint32     `json:"create_count"`
-	DeleteCount   uint32     `json:"delete_count"`
-	RenameCount   uint32     `json:"rename_count"`
-	DistinctPaths uint32     `json:"distinct_paths"`
-	DistinctDirs  uint32     `json:"distinct_dirs"`
+	WriteCount     uint32     `json:"write_count"`
+	CreateCount    uint32     `json:"create_count"`
+	DeleteCount    uint32     `json:"delete_count"`
+	RenameCount    uint32     `json:"rename_count"`
+	DistinctPaths  uint32     `json:"distinct_paths"`
 	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
 }
 
