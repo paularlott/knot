@@ -22,6 +22,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const spaceStartupTimeout = 30 * time.Minute
+
 // ---- job spec (parsed from template YAML) ----
 
 type authConfig struct {
@@ -92,12 +94,12 @@ type containerHostConfig struct {
 }
 
 type containerCreateRequest struct {
-	Image        string                 `json:"Image"`
-	Hostname     string                 `json:"Hostname"`
-	Env          []string               `json:"Env,omitempty"`
-	Cmd          []string               `json:"Cmd,omitempty"`
-	ExposedPorts map[string]struct{}    `json:"ExposedPorts,omitempty"`
-	HostConfig   containerHostConfig    `json:"HostConfig"`
+	Image        string              `json:"Image"`
+	Hostname     string              `json:"Hostname"`
+	Env          []string            `json:"Env,omitempty"`
+	Cmd          []string            `json:"Cmd,omitempty"`
+	ExposedPorts map[string]struct{} `json:"ExposedPorts,omitempty"`
+	HostConfig   containerHostConfig `json:"HostConfig"`
 }
 
 type containerCreateResponse struct {
@@ -419,7 +421,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), spaceStartupTimeout)
 		defer cancel()
 
 		succeeded := false
@@ -439,7 +441,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 
 		select {
 		case <-ctx.Done():
-			c.Logger.Warn("image pull cancelled due to timeout", "space_id", space.Id, "image", spec.Image)
+			c.Logger.Warn("image pull cancelled due to timeout", "space_id", space.Id, "image", spec.Image, "timeout", spaceStartupTimeout)
 			return
 		default:
 		}
@@ -452,7 +454,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 
 		select {
 		case <-ctx.Done():
-			c.Logger.Warn("container creation cancelled due to timeout", "space_id", space.Id)
+			c.Logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "timeout", spaceStartupTimeout)
 			return
 		default:
 		}
@@ -466,7 +468,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 
 		select {
 		case <-ctx.Done():
-			c.Logger.Warn("container start cancelled due to timeout", "space_id", space.Id)
+			c.Logger.Warn("container start cancelled due to timeout", "space_id", space.Id, "timeout", spaceStartupTimeout)
 			c.containerRemove(ctx, containerID)
 			return
 		default:

@@ -18,6 +18,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const spaceStartupTimeout = 30 * time.Minute
+
 type AppleClient struct {
 	DriverName string
 	logger     logger.Logger
@@ -123,8 +125,8 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
-		// Create context with timeout for container operations
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		// Large image pulls can legitimately take a while; use a long startup window.
+		ctx, cancel := context.WithTimeout(context.Background(), spaceStartupTimeout)
 		defer cancel()
 
 		succeeded := false
@@ -184,7 +186,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		// Check if context has been cancelled before running the command
 		select {
 		case <-ctx.Done():
-			c.logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "container_name", spec.ContainerName)
+			c.logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "container_name", spec.ContainerName, "timeout", spaceStartupTimeout)
 			return
 		default:
 		}

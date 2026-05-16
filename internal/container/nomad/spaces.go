@@ -13,6 +13,8 @@ import (
 	"github.com/paularlott/knot/internal/sse"
 )
 
+const jobMonitorTimeout = 30 * time.Minute
+
 func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 	db := database.GetInstance()
 
@@ -264,15 +266,15 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 	go func() {
 		client.logger.Info("watching job  status for change", "nomad", space.ContainerId)
 
-		// Create context with timeout for monitoring
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		// Job startup can include large image pulls on the client, so keep watching longer.
+		ctx, cancel := context.WithTimeout(context.Background(), jobMonitorTimeout)
 		defer cancel()
 
 		for {
 			// Check if context has been cancelled
 			select {
 			case <-ctx.Done():
-				client.logger.Warn("job monitoring cancelled due to timeout", "space_id", space.Id, "nomad_job", space.ContainerId)
+				client.logger.Warn("job monitoring cancelled due to timeout", "space_id", space.Id, "nomad_job", space.ContainerId, "timeout", jobMonitorTimeout)
 				return
 			default:
 			}
