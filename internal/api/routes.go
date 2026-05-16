@@ -61,6 +61,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/spaces/{space_id}/custom-field/{field_name}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceCustomField)))
 	router.HandleFunc("DELETE /api/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleDeleteSpace)))
 	router.HandleFunc("GET /api/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpace)))
+	router.HandleFunc("GET /api/spaces/{space_id}/usage/current", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceUsageCurrent)))
+	router.HandleFunc("GET /api/spaces/{space_id}/usage/history", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceUsageHistory)))
 	router.HandleFunc("POST /api/spaces/{space_id}/start", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStart)))
 	router.HandleFunc("POST /api/spaces/{space_id}/stop", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStop)))
 	router.HandleFunc("POST /api/spaces/{space_id}/restart", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceRestart)))

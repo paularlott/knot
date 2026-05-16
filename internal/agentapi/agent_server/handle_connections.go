@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
+	"github.com/paularlott/knot/internal/spaceusage"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
@@ -275,6 +276,18 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HttpPorts = state.HttpPorts
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
+				session.CPUPercent = state.CPUPercent
+				session.MemoryUsedBytes = state.MemoryUsedBytes
+				session.MemoryLimitBytes = state.MemoryLimitBytes
+				session.DiskUsedBytes = state.DiskUsedBytes
+				session.DiskLimitBytes = state.DiskLimitBytes
+				session.ActivityWriteCount = state.ActivityWriteCount
+				session.ActivityCreateCount = state.ActivityCreateCount
+				session.ActivityDeleteCount = state.ActivityDeleteCount
+				session.ActivityRenameCount = state.ActivityRenameCount
+				session.ActivityDistinctPaths = state.ActivityDistinctPaths
+				session.ActivityDistinctDirs = state.ActivityDistinctDirs
+				session.LastActivityAtUnix = state.LastActivityAtUnix
 
 				// Update health status if changed
 				prev := health.Get(session.Id)
@@ -288,6 +301,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 					db := database.GetInstance()
 					space, err := db.GetSpace(session.Id)
 					if err == nil {
+						spaceusage.RecordFromAgentState(space.Id, space.UserId, &state)
 						sse.PublishSpaceChanged(space.Id, space.UserId)
 					}
 				}

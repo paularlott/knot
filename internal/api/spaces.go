@@ -145,6 +145,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 			s.HasVSCodeTunnel = state.HasVSCodeTunnel
 			s.VSCodeTunnel = state.VSCodeTunnelName
+			s.ResourceUsage = &apiclient.SpaceResourceUsage{
+				CPUPercent:       state.CPUPercent,
+				MemoryUsedBytes:  state.MemoryUsedBytes,
+				MemoryLimitBytes: state.MemoryLimitBytes,
+				DiskUsedBytes:    state.DiskUsedBytes,
+				DiskLimitBytes:   state.DiskLimitBytes,
+			}
 
 			// If template is manual then force IsDeployed to true as agent is live
 			if template.IsManual() {

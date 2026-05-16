@@ -263,7 +263,6 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /profile", middleware.WebAuth(HandleUserProfilePage))
 	router.HandleFunc("GET /logout", middleware.WebAuth(HandleLogoutPage))
 	router.HandleFunc("GET /usage", middleware.WebAuth(HandleSimplePage))
-
 	router.HandleFunc("GET /terminal/{space_id}", middleware.WebAuth(HandleTerminalPage))
 	router.HandleFunc("GET /terminal/{space_id}/{vsc}", middleware.WebAuth(HandleTerminalPage))
 

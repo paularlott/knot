@@ -240,6 +240,14 @@ func (db *RedisDbDriver) Connect() error {
 				}
 				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
 			})
+
+			db.cleanupObjectType("SpaceUsage", before.Add(-4*24*time.Hour), func(data []byte) (bool, time.Time, error) {
+				var obj model.SpaceUsageSample
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
+				}
+				return obj.BucketStart.Before(time.Now().UTC().Add(-model.SpaceUsageRetentionForKind(obj.BucketKind))), obj.UpdatedAt.Time(), nil
+			})
 		}
 	}()
 

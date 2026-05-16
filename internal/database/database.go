@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	driver_badgerdb "github.com/paularlott/knot/internal/database/drivers/badgerdb"
@@ -51,6 +52,9 @@ type DbDriver interface {
 	GetSpaceByName(userId string, spaceName string) (*model.Space, error)
 	GetSpacesByTemplateId(templateId string) ([]*model.Space, error)
 	GetSpaces() ([]*model.Space, error)
+	SaveSpaceUsageSample(sample *model.SpaceUsageSample) error
+	GetSpaceUsageSample(id string) (*model.SpaceUsageSample, error)
+	GetSpaceUsageSamples(spaceId string, bucketKind string, from time.Time, to time.Time) ([]*model.SpaceUsageSample, error)
 
 	// Templates
 	SaveTemplate(template *model.Template, updateFields []string) error

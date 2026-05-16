@@ -98,6 +98,39 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
+	db.logger.Debug("creating space usage table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS space_usage (
+space_usage_id VARCHAR(64) PRIMARY KEY,
+space_id CHAR(36) NOT NULL,
+user_id CHAR(36) NOT NULL,
+bucket_kind VARCHAR(16) NOT NULL DEFAULT 'minute',
+bucket_start TIMESTAMP(6) NOT NULL,
+cpu_percent DOUBLE NOT NULL DEFAULT 0,
+memory_used_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+memory_limit_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+disk_used_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+disk_limit_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+activity_write_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_create_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_delete_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_rename_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_distinct_paths INT UNSIGNED NOT NULL DEFAULT 0,
+activity_distinct_dirs INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_starts INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_stops INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_creates INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_deletes INT UNSIGNED NOT NULL DEFAULT 0,
+last_activity_at TIMESTAMP(6) DEFAULT NULL,
+created_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX idx_space_usage_space_time (space_id, bucket_kind, bucket_start),
+INDEX idx_space_usage_user_time (user_id, bucket_kind, bucket_start),
+INDEX idx_space_usage_bucket (bucket_kind, bucket_start)
+)`)
+	if err != nil {
+		return err
+	}
+
 	db.logger.Debug("creating templates table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templates (
 template_id CHAR(36) PRIMARY KEY,
@@ -395,6 +428,11 @@ INDEX user_id (user_id)
 				if err != nil {
 					goto again
 				}
+			}
+
+			err = db.cleanupExpiredSpaceUsageSamples()
+			if err != nil {
+				goto again
 			}
 		}
 	}()

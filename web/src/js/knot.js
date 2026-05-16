@@ -32,6 +32,7 @@ import './pages/volumeListComponent.js';
 import './pages/volumeForm.js';
 import './pages/spaceForm.js';
 import './pages/spacesListComponent.js';
+import './pages/spaceUsageComponent.js';
 import './pages/usageComponent.js';
 import './pages/tunnelsListComponent.js';
 import './pages/auditLogComponent.js';

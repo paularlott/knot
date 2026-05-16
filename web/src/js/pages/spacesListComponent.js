@@ -74,6 +74,11 @@ window.spacesListComponent = function (
         note: "",
       },
     },
+    spaceUsageModal: {
+      show: false,
+      spaceId: "",
+      spaceName: "",
+    },
 
     showingSpecificUser: userId !== forUserId,
     forUserId:
@@ -315,10 +320,7 @@ window.spacesListComponent = function (
                   (s) => s.space_id === space.space_id,
                 );
                 if (!existing) {
-                  space.is_local = space.zone === "" || zone === space.zone;
-                  space.shares = space.shares || [];
-                  space.uptime = this.formatTimeDiff(space.started_at);
-                  space.icon_url_exists = this.imageExists(space.icon_url);
+                  this.applySpaceState(space);
 
                   this.spaces.push(space);
                   spacesAdded = true;
@@ -334,41 +336,7 @@ window.spacesListComponent = function (
                     return;
                   }
 
-                  existing.shares = space.shares || [];
-                  // Don't update name if space is deleting (backend changes name to ID during deletion)
-                  if (!space.is_deleting) {
-                    existing.name = space.name;
-                  }
-                  existing.description = space.description;
-                  existing.platform = space.platform;
-                  existing.note = space.note;
-                  existing.zone = space.zone;
-                  existing.node_hostname = space.node_hostname;
-                  existing.has_code_server = space.has_code_server;
-                  existing.has_ssh = space.has_ssh;
-                  existing.has_terminal = space.has_terminal;
-                  existing.is_deployed = space.is_deployed;
-                  existing.is_pending = space.is_pending;
-                  existing.is_deleting = space.is_deleting;
-                  existing.update_available = space.update_available;
-                  existing.healthy = space.healthy;
-                  existing.tcp_ports = space.tcp_ports;
-                  existing.http_ports = space.http_ports;
-                  existing.has_http_vnc = space.has_http_vnc;
-                  existing.has_vscode_tunnel = space.has_vscode_tunnel;
-                  existing.vscode_tunnel_name = space.vscode_tunnel_name;
-                  existing.sshCmd = `ssh -o ProxyCommand='knot forward ssh ${space.name}' -o StrictHostKeyChecking=no ${username}@knot.${space.name}`;
-                  existing.is_local = space.zone === "" || zone === space.zone;
-                  existing.has_state = space.has_state;
-                  existing.started_at = space.started_at;
-                  existing.template_name = space.template_name;
-                  existing.stack = space.stack || "";
-                  existing.uptime = this.formatTimeDiff(space.started_at);
-
-                  if (existing.icon_url !== space.icon_url) {
-                    existing.icon_url = space.icon_url;
-                    existing.icon_url_exists = this.imageExists(space.icon_url);
-                  }
+                  this.applySpaceState(existing, space);
                 }
               });
 
@@ -410,6 +378,78 @@ window.spacesListComponent = function (
       } catch {
         return false;
       }
+    },
+    applySpaceState(target, source = null) {
+      const space = source || target;
+
+      target.shares = space.shares || [];
+      if (!space.is_deleting) {
+        target.name = space.name;
+      }
+      target.description = space.description;
+      target.platform = space.platform;
+      target.note = space.note;
+      target.zone = space.zone;
+      target.node_hostname = space.node_hostname;
+      target.has_code_server = space.has_code_server;
+      target.has_ssh = space.has_ssh;
+      target.has_terminal = space.has_terminal;
+      target.is_deployed = space.is_deployed;
+      target.is_pending = space.is_pending;
+      target.is_deleting = space.is_deleting;
+      target.update_available = space.update_available;
+      target.healthy = space.healthy;
+      target.tcp_ports = space.tcp_ports;
+      target.http_ports = space.http_ports;
+      target.has_http_vnc = space.has_http_vnc;
+      target.has_vscode_tunnel = space.has_vscode_tunnel;
+      target.vscode_tunnel_name = space.vscode_tunnel_name;
+      target.sshCmd = `ssh -o ProxyCommand='knot forward ssh ${space.name}' -o StrictHostKeyChecking=no ${username}@knot.${space.name}`;
+      target.is_local = space.zone === "" || zone === space.zone;
+      target.has_state = space.has_state;
+      target.started_at = space.started_at;
+      target.template_name = space.template_name;
+      target.stack = space.stack || "";
+      target.uptime = this.formatTimeDiff(space.started_at);
+      target.resource_usage = space.resource_usage || null;
+
+      if (!source || target.icon_url !== space.icon_url) {
+        target.icon_url = space.icon_url;
+        target.icon_url_exists = this.imageExists(space.icon_url);
+      }
+    },
+    usagePercent(used, limit = 100) {
+      if (!limit) {
+        return 0;
+      }
+
+      return Math.max(0, Math.min(100, (used / limit) * 100));
+    },
+    formatPercent(value) {
+      return `${Number(value || 0).toFixed(1)}%`;
+    },
+    formatBytes(value) {
+      if (!value) {
+        return "0 B";
+      }
+
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let current = value;
+      let unitIndex = 0;
+
+      while (current >= 1024 && unitIndex < units.length - 1) {
+        current /= 1024;
+        unitIndex++;
+      }
+
+      return `${current.toFixed(current >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+    },
+    formatUsage(used, limit) {
+      if (!limit) {
+        return this.formatBytes(used);
+      }
+
+      return `${this.formatBytes(used)} / ${this.formatBytes(limit)}`;
     },
     async startSpace(spaceId) {
       const self = this;
@@ -673,6 +713,17 @@ window.spacesListComponent = function (
     },
     openLogWindow(spaceId) {
       popup.openLogWindow(spaceId);
+    },
+    openSpaceUsage(spaceId) {
+      const space = this.spaces.find((item) => item.space_id === spaceId);
+      this.spaceUsageModal.spaceId = spaceId;
+      this.spaceUsageModal.spaceName = space?.name || "Space Usage";
+      this.spaceUsageModal.show = true;
+    },
+    closeSpaceUsage() {
+      this.spaceUsageModal.show = false;
+      this.spaceUsageModal.spaceId = "";
+      this.spaceUsageModal.spaceName = "";
     },
     searchChanged() {
       const term = this.searchTerm.toLowerCase();

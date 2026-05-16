@@ -22,6 +22,7 @@ const (
 	MessageGossipSkill
 	MessageGossipStackDefinition
 	MessageGossipResponse
+	MessageGossipSpaceUsage
 )
 
 type Message struct {

@@ -1528,6 +1528,74 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/spaces/{space_id}/usage/current:
+    get:
+      summary: Get Current Space Usage
+      description: Retrieve the latest resource usage snapshot for a space.
+      operationId: getSpaceUsageCurrent
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceUsagePoint"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/usage/history:
+    get:
+      summary: Get Space Usage History
+      description: Retrieve per-minute usage for the last hour or daily usage for the last 7 days.
+      operationId: getSpaceUsageHistory
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1h, 7d]
+            default: 1h
+          description: Select `1h` for per-minute history or `7d` for daily rollups.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceUsageHistoryResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/spaces/{space_id}/custom-field:
     put:
       summary: Set a Custom Field
@@ -4401,6 +4469,8 @@ components:
         stack:
           type: string
           description: The stack name this space belongs to, or empty if unstacked.
+        resource_usage:
+          $ref: "#/components/schemas/SpaceResourceUsage"
 
     SpaceInfoList:
       type: object
@@ -4628,6 +4698,83 @@ components:
         healthy:
           type: boolean
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+        resource_usage:
+          $ref: "#/components/schemas/SpaceResourceUsage"
+
+    SpaceResourceUsage:
+      type: object
+      properties:
+        cpu_percent:
+          type: number
+          format: double
+        memory_used_bytes:
+          type: integer
+          format: int64
+        memory_limit_bytes:
+          type: integer
+          format: int64
+        disk_used_bytes:
+          type: integer
+          format: int64
+        disk_limit_bytes:
+          type: integer
+          format: int64
+
+    SpaceActivityUsage:
+      type: object
+      properties:
+        write_count:
+          type: integer
+          format: int32
+        create_count:
+          type: integer
+          format: int32
+        delete_count:
+          type: integer
+          format: int32
+        rename_count:
+          type: integer
+          format: int32
+        distinct_paths:
+          type: integer
+          format: int32
+        distinct_dirs:
+          type: integer
+          format: int32
+        last_activity_at:
+          type: string
+          format: date-time
+
+    SpaceUsagePoint:
+      type: object
+      properties:
+        bucket_start:
+          type: string
+          format: date-time
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        resource_usage:
+          $ref: "#/components/schemas/SpaceResourceUsage"
+        activity_usage:
+          $ref: "#/components/schemas/SpaceActivityUsage"
+
+    SpaceUsageHistoryResponse:
+      type: object
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        range:
+          type: string
+          enum: [1h, 7d]
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceUsagePoint"
 
     TemplateInfo:
       type: object

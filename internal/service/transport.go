@@ -14,6 +14,7 @@ type Transport interface {
 	GossipUser(user *model.User)
 	GossipToken(token *model.Token)
 	GossipVolume(volume *model.Volume)
+	GossipSpaceUsageSample(sample *model.SpaceUsageSample)
 	GossipAuditLog(entry *model.AuditLogEntry)
 	GossipSession(session *model.Session)
 	GossipScript(script *model.Script)

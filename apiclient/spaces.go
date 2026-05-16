@@ -70,6 +70,7 @@ type SpaceInfo struct {
 	Healthy         bool              `json:"healthy"`
 	NodeHostname    string            `json:"node_hostname"`
 	Stack           string            `json:"stack"`
+	ResourceUsage   *SpaceResourceUsage `json:"resource_usage,omitempty"`
 }
 
 type SpaceInfoList struct {
@@ -131,6 +132,39 @@ type SpaceDefinition struct {
 	IsRemote           bool                         `json:"is_remote"`
 	NodeHostname       string                       `json:"node_hostname"`
 	Stack              string                       `json:"stack"`
+	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`
+}
+
+type SpaceResourceUsage struct {
+	CPUPercent       float64 `json:"cpu_percent"`
+	MemoryUsedBytes  uint64  `json:"memory_used_bytes"`
+	MemoryLimitBytes uint64  `json:"memory_limit_bytes"`
+	DiskUsedBytes    uint64  `json:"disk_used_bytes"`
+	DiskLimitBytes   uint64  `json:"disk_limit_bytes"`
+}
+
+type SpaceActivityUsage struct {
+	WriteCount    uint32     `json:"write_count"`
+	CreateCount   uint32     `json:"create_count"`
+	DeleteCount   uint32     `json:"delete_count"`
+	RenameCount   uint32     `json:"rename_count"`
+	DistinctPaths uint32     `json:"distinct_paths"`
+	DistinctDirs  uint32     `json:"distinct_dirs"`
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+}
+
+type SpaceUsagePoint struct {
+	BucketStart   time.Time           `json:"bucket_start"`
+	BucketKind    string              `json:"bucket_kind,omitempty"`
+	ResourceUsage *SpaceResourceUsage `json:"resource_usage,omitempty"`
+	ActivityUsage *SpaceActivityUsage `json:"activity_usage,omitempty"`
+}
+
+type SpaceUsageHistoryResponse struct {
+	SpaceId    string            `json:"space_id"`
+	Range      string            `json:"range,omitempty"`
+	BucketKind string            `json:"bucket_kind,omitempty"`
+	Points     []SpaceUsagePoint `json:"points"`
 }
 
 type RunCommandRequest struct {

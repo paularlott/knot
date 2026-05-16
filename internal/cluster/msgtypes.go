@@ -34,4 +34,6 @@ const (
 	StackDefinitionGossipMsg
 	ResponseFullSyncMsg
 	ResponseGossipMsg
+	SpaceUsageFullSyncMsg
+	SpaceUsageGossipMsg
 )

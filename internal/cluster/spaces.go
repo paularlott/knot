@@ -144,7 +144,9 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 				c.logger.Error("Failed to save space", "error", err, "name", space.Name, "is_deleted", space.IsDeleted)
 			}
 
-			if !space.IsDeleted {
+			if space.IsDeleted {
+				// Usage history ages out via retention and local reapers.
+			} else {
 				sse.PublishSpaceChanged(space.Id, space.UserId)
 			}
 		}

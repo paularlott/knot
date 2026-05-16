@@ -43,5 +43,6 @@ export const popup = {
   openLogWindow(spaceId) {
     window.open(`/logs/${spaceId}`, `spaces_${spaceId}_log`, 'width=800,height=500');
     return false;
-  }
+  },
+
 };

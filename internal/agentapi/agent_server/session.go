@@ -13,18 +13,30 @@ import (
 
 // Struct holding the state / registration information of an agent
 type Session struct {
-	Id               string
-	Version          string
-	HasCodeServer    bool
-	SSHPort          int
-	VNCHttpPort      int
-	HasTerminal      bool
-	TcpPorts         map[string]string
-	HttpPorts        map[string]string
-	HasVSCodeTunnel  bool
-	VSCodeTunnelName string
-	MuxSession       *yamux.Session
-	logger           logger.Logger
+	Id                    string
+	Version               string
+	HasCodeServer         bool
+	SSHPort               int
+	VNCHttpPort           int
+	HasTerminal           bool
+	TcpPorts              map[string]string
+	HttpPorts             map[string]string
+	HasVSCodeTunnel       bool
+	VSCodeTunnelName      string
+	CPUPercent            float64
+	MemoryUsedBytes       uint64
+	MemoryLimitBytes      uint64
+	DiskUsedBytes         uint64
+	DiskLimitBytes        uint64
+	ActivityWriteCount    uint32
+	ActivityCreateCount   uint32
+	ActivityDeleteCount   uint32
+	ActivityRenameCount   uint32
+	ActivityDistinctPaths uint32
+	ActivityDistinctDirs  uint32
+	LastActivityAtUnix    int64
+	MuxSession            *yamux.Session
+	logger                logger.Logger
 
 	// The log history
 	LogHistoryMutex *sync.RWMutex

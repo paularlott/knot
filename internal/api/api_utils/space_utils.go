@@ -188,6 +188,16 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		Stack:              space.Stack,
 	}
 
+	if state != nil {
+		response.ResourceUsage = &apiclient.SpaceResourceUsage{
+			CPUPercent:       state.CPUPercent,
+			MemoryUsedBytes:  state.MemoryUsedBytes,
+			MemoryLimitBytes: state.MemoryLimitBytes,
+			DiskUsedBytes:    state.DiskUsedBytes,
+			DiskLimitBytes:   state.DiskLimitBytes,
+		}
+	}
+
 	for i, field := range space.CustomFields {
 		response.CustomFields[i] = apiclient.CustomFieldValue{
 			Name:  field.Name,

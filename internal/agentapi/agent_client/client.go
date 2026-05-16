@@ -54,6 +54,15 @@ type AgentClient struct {
 	// Current health status — set by health check runner, read by reportState
 	healthMu sync.RWMutex
 	healthy  bool
+
+	activityMu            sync.RWMutex
+	activityWriteCount    uint32
+	activityCreateCount   uint32
+	activityDeleteCount   uint32
+	activityRenameCount   uint32
+	activityDistinctPaths uint32
+	activityDistinctDirs  uint32
+	lastActivityAtUnix    int64
 }
 
 func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
@@ -172,4 +181,17 @@ func (c *AgentClient) GetServerURL() string {
 	c.credentialsMutex.RLock()
 	defer c.credentialsMutex.RUnlock()
 	return c.serverURL
+}
+
+func (c *AgentClient) snapshotActivityState() (uint32, uint32, uint32, uint32, uint32, uint32, int64) {
+	c.activityMu.RLock()
+	defer c.activityMu.RUnlock()
+
+	return c.activityWriteCount,
+		c.activityCreateCount,
+		c.activityDeleteCount,
+		c.activityRenameCount,
+		c.activityDistinctPaths,
+		c.activityDistinctDirs,
+		c.lastActivityAtUnix
 }
