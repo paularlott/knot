@@ -31,7 +31,7 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            compute_units=0, storage_units=0, with_terminal=False,
            with_vscode_tunnel=False, with_code_server=False, with_ssh=False,
            with_run_command=False, schedule_enabled=False, icon_url="",
-           groups=None, zones=None):
+           groups=None, zones=None, disable_user_activity=False):
     """Create a new template."""
     body = {
         "name": name,
@@ -52,7 +52,8 @@ def create(name, job="", description="", platform="", volumes="", active=True,
         "groups": groups or [],
         "zones": zones or [],
         "schedule": [],
-        "custom_fields": []
+        "custom_fields": [],
+        "disable_user_activity": disable_user_activity,
     }
 
     response = api.post("/api/templates", body)
@@ -63,7 +64,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            volumes=None, active=None, compute_units=None, storage_units=None,
            with_terminal=None, with_vscode_tunnel=None, with_code_server=None,
            with_ssh=None, with_run_command=None, schedule_enabled=None,
-           icon_url=None, groups=None, zones=None):
+           icon_url=None, groups=None, zones=None, disable_user_activity=None):
     """Update template properties."""
     current = api.get(f"/api/templates/{template_id}")
 
@@ -91,7 +92,8 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "shutdown_script_id": current.get("shutdown_script_id", ""),
         "auto_start": current.get("auto_start", False),
         "max_uptime": current.get("max_uptime", 0),
-        "max_uptime_unit": current.get("max_uptime_unit", "hours")
+        "max_uptime_unit": current.get("max_uptime_unit", "hours"),
+        "disable_user_activity": disable_user_activity if disable_user_activity is not None else current.get("disable_user_activity", False),
     }
 
     api.put(f"/api/templates/{template_id}", body)
@@ -163,5 +165,6 @@ def _parse_template(response):
         "groups": response.get("groups", []),
         "zones": response.get("zones", []),
         "schedule": schedule,
-        "custom_fields": custom_fields
+        "custom_fields": custom_fields,
+        "disable_user_activity": response.get("disable_user_activity", False),
     }

@@ -5006,6 +5006,9 @@ components:
         health_check_auto_restart:
           type: boolean
           description: Auto-restart the space on failure (false = flag only).
+        disable_user_activity:
+          type: boolean
+          description: Disable filesystem-based user activity collection for spaces created from this template.
 
     TemplateUpdateRequest:
       type: object
@@ -5138,6 +5141,9 @@ components:
         health_check_auto_restart:
           type: boolean
           description: Auto-restart the space on failure (false = flag only).
+        disable_user_activity:
+          type: boolean
+          description: Disable filesystem-based user activity collection for spaces created from this template.
 
     TemplateDetails:
       type: object
@@ -5284,6 +5290,9 @@ components:
         health_check_auto_restart:
           type: boolean
           description: Auto-restart the space on failure (false = flag only).
+        disable_user_activity:
+          type: boolean
+          description: Disable filesystem-based user activity collection for spaces created from this template.
 
     TemplateDetailsDay:
       type: object

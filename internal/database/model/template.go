@@ -33,33 +33,33 @@ const (
 
 // Template object
 type Template struct {
-	Id               string                 `json:"template_id" db:"template_id,pk"`
-	Name             string                 `json:"name" db:"name"`
-	Description      string                 `json:"description" db:"description"`
-	Hash             string                 `json:"hash" db:"hash"`
-	Platform         string                 `json:"platform" db:"platform"`
-	IconURL          string                 `json:"icon_url" db:"icon_url"`
-	Job              string                 `json:"job" db:"job"`
-	Volumes          string                 `json:"volumes" db:"volumes"`
-	Groups           []string               `json:"groups" db:"groups,json"`
-	Active           bool                   `json:"active" db:"active"`
-	WithTerminal     bool                   `json:"with_terminal" db:"with_terminal"`
-	WithVSCodeTunnel bool                   `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
-	WithCodeServer   bool                   `json:"with_code_server" db:"with_code_server"`
-	WithSSH          bool                   `json:"with_ssh" db:"with_ssh"`
-	WithRunCommand   bool                   `json:"with_run_command" db:"with_run_command"`
-	StartupScriptId  string                 `json:"startup_script_id" db:"startup_script_id"`
-	ShutdownScriptId string                 `json:"shutdown_script_id" db:"shutdown_script_id"`
-	ComputeUnits     uint32                 `json:"compute_units" db:"compute_units"`
-	StorageUnits     uint32                 `json:"storage_units" db:"storage_units"`
-	ScheduleEnabled  bool                   `json:"schedule_enabled" db:"schedule_enabled"`
-	AutoStart        bool                   `json:"auto_start" db:"auto_start"`
-	IsDeleted        bool                   `json:"is_deleted" db:"is_deleted"`
-	IsManaged        bool                   `json:"is_managed" db:"is_managed"`
-	Schedule         []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
-	Zones            []string               `json:"zones" db:"zones,json"`
-	CustomFields     []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json"`
-	MaxUptime        uint32                 `json:"max_uptime" db:"max_uptime"`
+	Id                       string                 `json:"template_id" db:"template_id,pk"`
+	Name                     string                 `json:"name" db:"name"`
+	Description              string                 `json:"description" db:"description"`
+	Hash                     string                 `json:"hash" db:"hash"`
+	Platform                 string                 `json:"platform" db:"platform"`
+	IconURL                  string                 `json:"icon_url" db:"icon_url"`
+	Job                      string                 `json:"job" db:"job"`
+	Volumes                  string                 `json:"volumes" db:"volumes"`
+	Groups                   []string               `json:"groups" db:"groups,json"`
+	Active                   bool                   `json:"active" db:"active"`
+	WithTerminal             bool                   `json:"with_terminal" db:"with_terminal"`
+	WithVSCodeTunnel         bool                   `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
+	WithCodeServer           bool                   `json:"with_code_server" db:"with_code_server"`
+	WithSSH                  bool                   `json:"with_ssh" db:"with_ssh"`
+	WithRunCommand           bool                   `json:"with_run_command" db:"with_run_command"`
+	StartupScriptId          string                 `json:"startup_script_id" db:"startup_script_id"`
+	ShutdownScriptId         string                 `json:"shutdown_script_id" db:"shutdown_script_id"`
+	ComputeUnits             uint32                 `json:"compute_units" db:"compute_units"`
+	StorageUnits             uint32                 `json:"storage_units" db:"storage_units"`
+	ScheduleEnabled          bool                   `json:"schedule_enabled" db:"schedule_enabled"`
+	AutoStart                bool                   `json:"auto_start" db:"auto_start"`
+	IsDeleted                bool                   `json:"is_deleted" db:"is_deleted"`
+	IsManaged                bool                   `json:"is_managed" db:"is_managed"`
+	Schedule                 []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
+	Zones                    []string               `json:"zones" db:"zones,json"`
+	CustomFields             []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json"`
+	MaxUptime                uint32                 `json:"max_uptime" db:"max_uptime"`
 	MaxUptimeUnit            string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
 	HealthCheckType          string                 `json:"health_check_type" db:"health_check_type"`
 	HealthCheckConfig        string                 `json:"health_check_config" db:"health_check_config"`
@@ -68,10 +68,11 @@ type Template struct {
 	HealthCheckInterval      uint32                 `json:"health_check_interval" db:"health_check_interval"`
 	HealthCheckMaxFailures   uint32                 `json:"health_check_max_failures" db:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
+	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
 	CreatedUserId            string                 `json:"created_user_id" db:"created_user_id"`
-	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
-	UpdatedUserId    string                 `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt        hlc.Timestamp          `json:"updated_at" db:"updated_at"`
+	CreatedAt                time.Time              `json:"created_at" db:"created_at"`
+	UpdatedUserId            string                 `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt                hlc.Timestamp          `json:"updated_at" db:"updated_at"`
 }
 
 type TemplateScheduleDays struct {
@@ -239,24 +240,24 @@ func (template *Template) IsLocalContainer() bool {
 //
 // Returns true if the template can be deployed in the specified zone, false otherwise.
 func (template *Template) IsValidForZone(zone string) bool {
-    // If no zones specified, template is valid for all zones
-    if len(template.Zones) == 0 {
-        return true
-    }
+	// If no zones specified, template is valid for all zones
+	if len(template.Zones) == 0 {
+		return true
+	}
 
-    // Check for negated zones first
-    for _, z := range template.Zones {
-        if z[0] == '!' && z[1:] == zone {
-            return false
-        }
-    }
+	// Check for negated zones first
+	for _, z := range template.Zones {
+		if z[0] == '!' && z[1:] == zone {
+			return false
+		}
+	}
 
-    // Check for positive zones
-    for _, z := range template.Zones {
-        if z[0] != '!' && z == zone {
-            return true
-        }
-    }
+	// Check for positive zones
+	for _, z := range template.Zones {
+		if z[0] != '!' && z == zone {
+			return true
+		}
+	}
 
-    return false
+	return false
 }

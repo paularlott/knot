@@ -42,6 +42,7 @@ type TemplateCreateRequest struct {
 	HealthCheckInterval      uint32               `json:"health_check_interval"`
 	HealthCheckMaxFailures   uint32               `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
+	DisableUserActivity      bool                 `json:"disable_user_activity"`
 }
 
 type TemplateUpdateRequest struct {
@@ -76,6 +77,7 @@ type TemplateUpdateRequest struct {
 	HealthCheckInterval      uint32               `json:"health_check_interval"`
 	HealthCheckMaxFailures   uint32               `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
+	DisableUserActivity      bool                 `json:"disable_user_activity"`
 }
 
 type TemplateCreateResponse struct {
@@ -152,6 +154,7 @@ type TemplateDetails struct {
 	HealthCheckInterval      uint32               `json:"health_check_interval"`
 	HealthCheckMaxFailures   uint32               `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
+	DisableUserActivity      bool                 `json:"disable_user_activity"`
 }
 
 func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {
