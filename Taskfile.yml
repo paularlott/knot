@@ -47,7 +47,7 @@ tasks:
 
   build:
     desc: Build the binary for the current platform
-    deps: [agents, packages, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
     vars:
       GOOS: '{{OS | default "linux"}}'
       GOARCH: '{{ARCH | default "amd64"}}'
@@ -67,7 +67,7 @@ tasks:
 
   build-amd64:
     desc: Build the binary for the current platform
-    deps: [agents, packages, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
     env:
       GOOS: "linux"
       GOARCH: "amd64"
@@ -84,7 +84,7 @@ tasks:
 
   build-arm64:
     desc: Build the binary for the current platform
-    deps: [agents, packages, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
     env:
       GOOS: "linux"
       GOARCH: "arm64"
@@ -101,6 +101,7 @@ tasks:
 
   knot-dns:
     desc: Build the knot-dns binary for all platforms
+    deps: [legal-license, legal-notice]
     cmds:
       - task: build-knot-dns-platform
         vars: { PLATFORM: "{{.ITEM}}" }
@@ -132,7 +133,7 @@ tasks:
 
   all:
     desc: Build the binary for all platforms
-    deps: [agents, packages, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
     cmds:
       - task: build-platform
         vars: { PLATFORM: "{{.ITEM}}" }
@@ -255,20 +256,15 @@ tasks:
       - ../homebrew-tap/Formula/knot.rb
 
   legal:
-    desc: Collect the license files from dependencies and copy them to the legal directory
-    deps: [legal-license, legal-notice]
+    desc: Generate the third-party license report in the project root
     cmds:
-      - rm -rf ./legal/licenses
-      - go-licenses save --save_path ./legal/licenses/ --skip_copy_source --ignore github.com/paularlott/knot --ignore github.com/golang/freetype --ignore github.com/yeqown/reedsolomon .
-      - find ./legal/licenses -type f -exec gzip {} \;
+      - go-licenses report --ignore github.com/paularlott/knot --ignore github.com/golang/freetype --ignore github.com/yeqown/reedsolomon ./... > THIRD_PARTY_LICENSES.txt
     sources:
       - go.mod
       - go.sum
       - ./**/*.go
-      - LICENSE.txt
-      - NOTICE.txt
     generates:
-      - legal/licenses/**/*
+      - THIRD_PARTY_LICENSES.txt
 
   legal-license:
     desc: Copy the application license file for inclusion in the binary
@@ -332,6 +328,7 @@ tasks:
       - rm -rf {{.AGENT_OUTPUT_DIR}}/*
       - rm -f legal/license.txt
       - rm -f legal/notice.txt
+      - rm -f THIRD_PARTY_LICENSES.txt
       - rm -rf web/public_html/api-docs/index.html
       - rm -rf web/public_html/css/*
       - rm -rf web/public_html/js/*
