@@ -128,7 +128,6 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					// Look up space to get userId
 					space, err := db.GetSpace(spaceId)
 					if err != nil {
-						logger.Debug("space not found", "space_id", spaceId)
 						returnUnauthorized(w, r)
 						return
 					}
@@ -144,8 +143,6 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 
 					// Add space ID to context
 					ctx = context.WithValue(ctx, "space_id", spaceId)
-
-					logger.Debug("agent token authenticated", "space_id", spaceId, "user_id", userId)
 				} else {
 					// Regular API token
 					token, _ := db.GetToken(bearer)
