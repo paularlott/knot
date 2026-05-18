@@ -61,8 +61,8 @@ func (db *MySQLDriver) SaveUser(user *model.User, updateFields []string) error {
 		// Upsert current index rows
 		for providerID, ep := range user.ExternalAuthProviders {
 			_, err = tx.Exec(
-				"INSERT INTO user_providers (provider_id, provider_uid, user_id) VALUES (?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id)",
-				providerID, ep.ProviderUID, user.Id,
+				"INSERT INTO user_providers (provider_id, provider_uid, user_id, refresh_token) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id), refresh_token=VALUES(refresh_token)",
+				providerID, ep.ProviderUID, user.Id, ep.RefreshToken,
 			)
 			if err != nil {
 				return err

@@ -187,7 +187,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !user.Active || !user.CheckPassword(request.Password) {
 		code := http.StatusUnauthorized
 
-		audit.Log(
+		audit.LogWithRequest(r,
 			request.Email,
 			model.AuditActorTypeUser,
 			model.AuditEventAuthFailed,
@@ -261,7 +261,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, cookie)
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		request.Email,
 		model.AuditActorTypeUser,
 		model.AuditEventAuthOk,

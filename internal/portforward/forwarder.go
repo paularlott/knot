@@ -19,8 +19,9 @@ import (
 
 // Shared state for port forwards (used by both agentlink and mux session handlers)
 var (
-	forwardsMux sync.RWMutex
-	forwards    = make(map[uint16]*ForwardInfo)
+	forwardsMux     sync.RWMutex
+	forwards        = make(map[uint16]*ForwardInfo)
+	persistentPorts = make(map[uint16]bool)
 )
 
 // ForwardInfo holds information about an active port forward
@@ -58,6 +59,7 @@ func StopForward(localPort uint16) {
 			fwd.Listener.Close()
 		}
 		delete(forwards, localPort)
+		delete(persistentPorts, localPort)
 	}
 }
 
@@ -99,6 +101,27 @@ func StoreListener(localPort uint16, listener net.Listener) {
 	if fwd, exists := forwards[localPort]; exists {
 		fwd.Listener = listener
 	}
+}
+
+// MarkPersistent marks a port forward as persistent.
+func MarkPersistent(localPort uint16) {
+	forwardsMux.Lock()
+	defer forwardsMux.Unlock()
+	persistentPorts[localPort] = true
+}
+
+// UnmarkPersistent removes the persistent mark from a port forward.
+func UnmarkPersistent(localPort uint16) {
+	forwardsMux.Lock()
+	defer forwardsMux.Unlock()
+	delete(persistentPorts, localPort)
+}
+
+// IsPersistent checks if a port forward is marked as persistent.
+func IsPersistent(localPort uint16) bool {
+	forwardsMux.RLock()
+	defer forwardsMux.RUnlock()
+	return persistentPorts[localPort]
 }
 
 // RunTCPForwarderViaAgentWithContext runs a TCP forwarder via the agent proxy server

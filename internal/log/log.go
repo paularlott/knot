@@ -33,6 +33,23 @@ func Configure(level, format string, writer io.Writer) {
 	})
 }
 
+// ConfigureWithHTTP sets up the logger to send JSON-formatted records to the
+// given HTTP endpoint. When a URL is configured stderr output is suppressed.
+func ConfigureWithHTTP(level, url, format, stream string) {
+	if format == "" {
+		format = "ndjson"
+	}
+	if stream == "" {
+		stream = "knot"
+	}
+
+	defaultLogger = logslog.New(logslog.Config{
+		Level:  level,
+		Format: "json",
+		Writer: newHTTPWriter(url, format, stream, nil),
+	})
+}
+
 // GetLogger returns the configured logger instance
 // Use this when passing to libraries
 func GetLogger() logger.Logger {

@@ -28,8 +28,10 @@ const (
 	EventSessionsDeleted     EventType = "sessions:deleted"
 	EventScriptsChanged      EventType = "scripts:changed"
 	EventScriptsDeleted      EventType = "scripts:deleted"
-	EventSkillsChanged       EventType = "skills:changed"
-	EventSkillsDeleted       EventType = "skills:deleted"
+	EventSkillsChanged             EventType = "skills:changed"
+	EventSkillsDeleted             EventType = "skills:deleted"
+	EventStackDefinitionsChanged   EventType = "stack-definitions:changed"
+	EventStackDefinitionsDeleted   EventType = "stack-definitions:deleted"
 	EventTunnelsChanged      EventType = "tunnels:changed"
 	EventTunnelsDeleted      EventType = "tunnels:deleted"
 	EventAuditLogsChanged    EventType = "auditlogs:changed"
@@ -50,10 +52,10 @@ type Event struct {
 
 // ResourcePayload contains data for resource-specific events
 type ResourcePayload struct {
-	Id               string `json:"id"`
-	UserId           string `json:"user_id,omitempty"`
-	SharedWithUserId string `json:"shared_with_user_id,omitempty"`
-	PreviousUserId   string `json:"previous_user_id,omitempty"`
+	Id                string   `json:"id"`
+	UserId            string   `json:"user_id,omitempty"`
+	SharedWithUserIds []string `json:"shared_with_user_ids,omitempty"`
+	PreviousUserIds   []string `json:"previous_user_ids,omitempty"`
 }
 
 // Client represents a connected SSE client

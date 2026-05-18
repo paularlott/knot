@@ -11,7 +11,9 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spaceusage"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util/crypt"
@@ -131,9 +133,9 @@ func handleAgentConnection(conn net.Conn) {
 		response.GitHubUsernames = append(response.GitHubUsernames, user.GitHubUsername)
 	}
 
-	// If space shared then get the keys from the shared user
-	if space.SharedWithUserId != "" {
-		sharedUser, err := db.GetUser(space.SharedWithUserId)
+	// If space shared then get the keys from shared users
+	for _, sharedUserId := range space.SharedUserIds() {
+		sharedUser, err := db.GetUser(sharedUserId)
 		if err == nil {
 			if sharedUser.SSHPublicKey != "" {
 				response.SSHKeys = append(response.SSHKeys, sharedUser.SSHPublicKey)
@@ -154,6 +156,27 @@ func handleAgentConnection(conn net.Conn) {
 	}
 	response.AgentToken = agentToken
 	response.ServerURL = cfg.URL
+	response.HealthCheckType = template.HealthCheckType
+	response.HealthCheckConfig = template.HealthCheckConfig
+	response.HealthCheckSkipSSLVerify = template.HealthCheckSkipSSLVerify
+	response.HealthCheckTimeout = template.HealthCheckTimeout
+	response.HealthCheckInterval = template.HealthCheckInterval
+	response.HealthCheckMaxFailures = template.HealthCheckMaxFailures
+	response.HealthCheckAutoRestart = template.HealthCheckAutoRestart
+	// Translate port forward space UUIDs to names for the agent
+	portForwards := make([]model.PortForwardEntry, 0, len(space.PortForwards))
+	for _, pf := range space.PortForwards {
+		name := pf.Space
+		if targetSpace, err := db.GetSpace(pf.Space); err == nil && targetSpace != nil {
+			name = targetSpace.Name
+		}
+		portForwards = append(portForwards, model.PortForwardEntry{
+			LocalPort:  pf.LocalPort,
+			Space:      name,
+			RemotePort: pf.RemotePort,
+		})
+	}
+	response.PortForwards = portForwards
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -253,11 +276,33 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HttpPorts = state.HttpPorts
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
+				session.CPUPercent = state.CPUPercent
+				session.MemoryUsedBytes = state.MemoryUsedBytes
+				session.MemoryLimitBytes = state.MemoryLimitBytes
+				session.DiskUsedBytes = state.DiskUsedBytes
+				session.DiskLimitBytes = state.DiskLimitBytes
+				session.ActivityWriteCount = state.ActivityWriteCount
+				session.ActivityCreateCount = state.ActivityCreateCount
+				session.ActivityDeleteCount = state.ActivityDeleteCount
+				session.ActivityRenameCount = state.ActivityRenameCount
+				session.ActivityDistinctPaths = state.ActivityDistinctPaths
+				session.LastActivityAtUnix = state.LastActivityAtUnix
+
+				db := database.GetInstance()
+				space, err := db.GetSpace(session.Id)
+				if err == nil {
+					spaceusage.RecordFromAgentState(space.Id, space.UserId, &state)
+				}
+
+				// Update health status if changed
+				prev := health.Get(session.Id)
+				if prev == nil || prev.Healthy != state.Healthy {
+					health.Set(session.Id, state.Healthy, 0)
+					stateChanged = true
+				}
 
 				// Only send SSE event if state actually changed
 				if stateChanged {
-					db := database.GetInstance()
-					space, err := db.GetSpace(session.Id)
 					if err == nil {
 						sse.PublishSpaceChanged(space.Id, space.UserId)
 					}
@@ -506,6 +551,14 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		case byte(msg.CmdPortStop):
 			handlePortStop(stream, session)
 			return // Single shot command so done
+
+		case byte(msg.CmdAddPortForward):
+			handleAddPortForward(stream, session)
+			return
+
+		case byte(msg.CmdRemovePortForward):
+			handleRemovePortForward(stream, session)
+			return
 
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
@@ -838,4 +891,73 @@ func mapsEqual(a, b map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func handleAddPortForward(stream net.Conn, session *Session) {
+	var addMsg msg.AddPortForwardMsg
+	if err := msg.ReadMessage(stream, &addMsg); err != nil {
+		log.WithError(err).Error("reading add port forward message:")
+		return
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(session.Id)
+	if err != nil {
+		log.Error("unknown space:", "agent", session.Id)
+		return
+	}
+
+	// Replace existing entry with same LocalPort, or append
+	found := false
+	for i := range space.PortForwards {
+		if space.PortForwards[i].LocalPort == addMsg.LocalPort {
+			space.PortForwards[i] = addMsg.PortForwardEntry
+			found = true
+			break
+		}
+	}
+	if !found {
+		space.PortForwards = append(space.PortForwards, addMsg.PortForwardEntry)
+	}
+
+	space.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(space, []string{"PortForwards", "UpdatedAt"}); err != nil {
+		log.WithError(err).Error("updating space port forwards:")
+		return
+	}
+
+	service.GetTransport().GossipSpace(space)
+	log.Info("added persistent port forward to space", "space_id", session.Id, "local_port", addMsg.LocalPort)
+}
+
+func handleRemovePortForward(stream net.Conn, session *Session) {
+	var removeMsg msg.RemovePortForwardMsg
+	if err := msg.ReadMessage(stream, &removeMsg); err != nil {
+		log.WithError(err).Error("reading remove port forward message:")
+		return
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(session.Id)
+	if err != nil {
+		log.Error("unknown space:", "agent", session.Id)
+		return
+	}
+
+	filtered := space.PortForwards[:0]
+	for _, pf := range space.PortForwards {
+		if pf.LocalPort != removeMsg.LocalPort {
+			filtered = append(filtered, pf)
+		}
+	}
+	space.PortForwards = filtered
+
+	space.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(space, []string{"PortForwards", "UpdatedAt"}); err != nil {
+		log.WithError(err).Error("updating space port forwards:")
+		return
+	}
+
+	service.GetTransport().GossipSpace(space)
+	log.Info("removed persistent port forward from space", "space_id", session.Id, "local_port", removeMsg.LocalPort)
 }

@@ -111,7 +111,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipGroup(group)
 	sse.PublishGroupsChanged(group.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventGroupUpdate,
@@ -170,7 +170,7 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipGroup(group)
 	sse.PublishGroupsChanged(group.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventGroupCreate,
@@ -221,7 +221,7 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipGroup(group)
 	sse.PublishGroupsDeleted(group.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventGroupDelete,

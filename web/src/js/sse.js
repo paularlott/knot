@@ -14,6 +14,7 @@ class SSEClient {
     this.autoConnectEnabled = false; // Track if auto-connect should be enabled
     this.hasActiveSubscriptions = false; // Track if there are any active subscriptions
     this.wasDisconnected = false; // Track if we were previously disconnected
+    this.connectedAt = null; // Track when connection was established
   }
 
   /**
@@ -31,6 +32,7 @@ class SSEClient {
       this.connected = true;
       this.reconnecting = false;
       this.reconnectDelay = 1000; // Reset reconnect delay on successful connection
+      this.connectedAt = Date.now();
 
       // If we were previously disconnected, emit a reconnected event
       if (wasDisconnected) {
@@ -118,14 +120,22 @@ class SSEClient {
     }
 
     this.reconnecting = true;
-    console.debug(`SSE reconnecting in ${this.reconnectDelay}ms...`);
+
+    // If the connection dropped very quickly after connecting, it's likely a network
+    // change (e.g. ERR_NETWORK_CHANGED from Apple container restarts) — reconnect fast.
+    const networkChange = this.connectedAt && (Date.now() - this.connectedAt) < 2000;
+    const delay = networkChange ? 500 : this.reconnectDelay;
+
+    console.debug(`SSE reconnecting in ${delay}ms...`);
 
     setTimeout(() => {
       this.reconnecting = false;
       this.connect();
-      // Exponential backoff
-      this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
-    }, this.reconnectDelay);
+      // Only apply exponential backoff for non-network-change errors
+      if (!networkChange) {
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+      }
+    }, delay);
   }
 
   /**

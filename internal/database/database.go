@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	driver_badgerdb "github.com/paularlott/knot/internal/database/drivers/badgerdb"
@@ -51,6 +52,9 @@ type DbDriver interface {
 	GetSpaceByName(userId string, spaceName string) (*model.Space, error)
 	GetSpacesByTemplateId(templateId string) ([]*model.Space, error)
 	GetSpaces() ([]*model.Space, error)
+	SaveSpaceUsageSample(sample *model.SpaceUsageSample) error
+	GetSpaceUsageSample(id string) (*model.SpaceUsageSample, error)
+	GetSpaceUsageSamples(spaceId string, bucketKind string, from time.Time, to time.Time) ([]*model.SpaceUsageSample, error)
 
 	// Templates
 	SaveTemplate(template *model.Template, updateFields []string) error
@@ -114,8 +118,16 @@ type DbDriver interface {
 	// Audit Logs
 	HasAuditLog() bool
 	SaveAuditLog(auditLog *model.AuditLogEntry) error
-	GetNumberOfAuditLogs() (int, error)
-	GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error)
+	GetAuditLogs(filter *model.AuditLogFilter, offset int, limit int) ([]*model.AuditLogEntry, int, error)
+	GetAuditLogsForExport(filter *model.AuditLogFilter) ([]*model.AuditLogEntry, error)
+
+	// Stack Definitions
+	SaveStackDefinition(def *model.StackDefinition, updateFields []string) error
+	DeleteStackDefinition(def *model.StackDefinition) error
+	GetStackDefinition(id string) (*model.StackDefinition, error)
+	GetStackDefinitions() ([]*model.StackDefinition, error)
+	GetStackDefinitionsByUserId(userId string) ([]*model.StackDefinition, error)
+	GetStackDefinitionByName(name string, userId string) (*model.StackDefinition, error)
 
 	// Config Values
 	GetCfgValues() ([]*model.CfgValue, error)

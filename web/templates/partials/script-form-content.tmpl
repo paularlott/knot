@@ -2,133 +2,138 @@
 <div x-data="scriptForm(scriptFormModal.isEdit, scriptFormModal.scriptId, scriptFormModal.isUserScript)" x-init="initData()">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
-    <div>
-      <label for="name" class="form-label">Name</label>
-      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="script_name" x-model="formData.name" :readonly="formData.is_managed">
-      <div x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
-    </div>
-
     <div x-show="formData.is_managed" x-cloak class="toggle-shell border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
       <p class="text-sm text-yellow-800 dark:text-yellow-200">📡 This script is managed by the parent server and cannot be edited.</p>
     </div>
-
-    <div>
-      <label class="form-label">Description</label>
-      <div class="short-editor">
-        <div class="editor-wrap">
-          <textarea name="description" class="form-field" id="description" placeholder="What this script does" :readonly="formData.is_managed"></textarea>
+    <fieldset :class="{'opacity-50 pointer-events-none': formData.is_managed}" class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
+      <div class="space-y-6">
+        <div>
+          <label for="name" class="form-label">Name</label>
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="script_name" x-model="formData.name" :readonly="formData.is_managed">
+          <div x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
+        </div>
+        <div>
+          <label class="form-label">Description</label>
+          <div class="short-editor">
+            <div class="editor-wrap">
+              <textarea name="description" class="form-field" id="description" placeholder="What this script does" :readonly="formData.is_managed"></textarea>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div class="mb-4">
-      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Script Type</label>
-      <div class="flex items-center space-x-4">
-        <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-          <template x-for="type in [{value: 'script', label: 'Script'}, {value: 'lib', label: 'Library'}, {value: 'tool', label: 'MCP Tool'}]" :key="type.value">
-            <label class="relative">
-              <input
-                type="radio"
-                name="script_type"
-                :value="type.value"
-                x-model="formData.script_type"
-                class="sr-only peer"
-                :disabled="formData.is_managed"
-              >
-              <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
-                peer-checked:bg-blue-600 peer-checked:text-white
-                peer-focus:ring-2 peer-focus:ring-blue-300
-                transition-colors duration-200 ease-in-out
-                text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
-                hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600"
-                :class="{'opacity-50 cursor-not-allowed': formData.is_managed}">
-                <span x-text="type.label"></span>
-              </div>
+    </fieldset>
+    <fieldset :class="{'opacity-50 pointer-events-none': formData.is_managed}" class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Configuration</legend>
+      <div class="space-y-6">
+        <div>
+          <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Script Type</label>
+          <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <template x-for="type in [{value: 'script', label: 'Script'}, {value: 'lib', label: 'Library'}, {value: 'tool', label: 'MCP Tool'}]" :key="type.value">
+                <label class="relative">
+                  <input
+                    type="radio"
+                    name="script_type"
+                    :value="type.value"
+                    x-model="formData.script_type"
+                    class="sr-only peer"
+                    :disabled="formData.is_managed"
+                  >
+                  <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                    peer-checked:bg-blue-600 peer-checked:text-white
+                    peer-focus:ring-2 peer-focus:ring-blue-300
+                    transition-colors duration-200 ease-in-out
+                    text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                    hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600"
+                    :class="{'opacity-50 cursor-not-allowed': formData.is_managed}">
+                    <span x-text="type.label"></span>
+                  </div>
+                </label>
+              </template>
+            </div>
+            <label class="flex items-center cursor-pointer" x-show="formData.script_type === 'tool'" x-cloak>
+              <input type="checkbox" name="discoverable" id="discoverable" x-model="formData.discoverable" class="sr-only peer" :disabled="formData.is_managed">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Discoverable</span>
             </label>
-          </template>
+          </div>
+          <div class="description mt-2" x-show="formData.script_type === 'tool'" x-cloak>Discoverable tools are only available via tool_search.</div>
         </div>
-        <label class="inline-flex items-center cursor-pointer" x-show="formData.script_type === 'tool'" x-cloak>
-          <input type="checkbox" name="discoverable" id="discoverable" x-model="formData.discoverable" class="sr-only peer" :disabled="formData.is_managed">
-          <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Discoverable</span>
-        </label>
-      </div>
-      <div class="description mt-2" x-show="formData.script_type === 'tool'" x-cloak>Discoverable tools are only available via tool_search.</div>
-    </div>
-
-    <div x-show="formData.script_type === 'tool'" x-cloak>
-      <div class="mb-4">
-        <label for="mcp_keywords" class="form-label">MCP Keywords (comma-separated)</label>
-        <input type="text" class="form-field" name="mcp_keywords" id="mcp_keywords" placeholder="keyword1, keyword2" x-model="mcpKeywordsStr" :readonly="formData.is_managed">
-        <div class="description">Keywords help AI assistants discover this tool.</div>
-      </div>
-      <div>
-        <label class="form-label">MCP Input Schema (TOML)</label>
-        <div class="mid-editor">
-          <div class="editor-wrap" id="mcp_schema"></div>
+        <div x-show="formData.script_type === 'tool'" x-cloak>
+          <div class="mb-4">
+            <label for="mcp_keywords" class="form-label">MCP Keywords (comma-separated)</label>
+            <input type="text" class="form-field" name="mcp_keywords" id="mcp_keywords" placeholder="keyword1, keyword2" x-model="mcpKeywordsStr" :readonly="formData.is_managed">
+            <div class="description">Keywords help AI assistants discover this tool.</div>
+          </div>
+          <div>
+            <label class="form-label">MCP Input Schema (TOML)</label>
+            <div class="mid-editor">
+              <div class="editor-wrap" id="mcp_schema"></div>
+            </div>
+            <div class="description">Define tool parameters in TOML format.</div>
+          </div>
         </div>
-        <div class="description">Define tool parameters in TOML format.</div>
       </div>
-    </div>
-
-    <div>
-      <label class="form-label">Script</label>
+    </fieldset>
+    <fieldset :class="{'opacity-50 pointer-events-none': formData.is_managed}" class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Script</legend>
       <div class="large-editor">
         <div :class="{'form-field-error': !contentValid, 'editor-wrap': true}" id="content"></div>
       </div>
       <div x-show="!contentValid" class="error-message" x-cloak>Content must be less than 4MB.</div>
-    </div>
-
-    {{ if not .isLeafNode }}
-    <div>
-      <div class="flex items-center mb-1">
-        <label class="form-label mb-0 mr-2">Limit to Zones</label>
-        <button type="button" x-on:click="addZone()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5" :disabled="formData.is_managed">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          <span class="sr-only">Add</span>
-        </button>
-      </div>
-      <template x-for="(name, index) in formData.zones" :key="index">
-        <div class="mb-2">
-          <div class="flex items-center">
-            <input type="text" class="form-field mr-2" x-model="formData.zones[index]" x-on:keyup.debounce.500ms="checkZone(index)" :class="{'form-field-error': !zoneValid[index]}" placeholder="Zone Name" aria-label="Zone Name" :readonly="formData.is_managed">
-            <button type="button" x-on:click="removeZone(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5" :disabled="formData.is_managed">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
-                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg> <span class="sr-only">Remove</span>
-            </button>
-          </div>
-          <div x-show="!zoneValid[index]" class="error-message">Zone is limited to 64 characters and must appear only once.</div>
+    </fieldset>
+    {{ if or (not .isLeafNode) .permissionManageScripts }}
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Access</legend>
+      <div class="flex flex-col gap-6">
+        {{ if not .isLeafNode }}
+        <div class="flex items-center justify-between gap-4">
+          <div class="description">Restrict the zones the script shows within.</div>
+          <button type="button" x-on:click="addZone()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0" :disabled="formData.is_managed">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span class="sr-only">Add</span>
+          </button>
         </div>
-      </template>
-      <div class="description">Restrict the zones the script shows within.</div>
-    </div>
+        <template x-for="(name, index) in formData.zones" :key="index">
+          <div class="mb-2">
+            <div class="flex items-center">
+              <input type="text" class="form-field mr-2" x-model="formData.zones[index]" x-on:keyup.debounce.500ms="checkZone(index)" :class="{'form-field-error': !zoneValid[index]}" placeholder="Zone Name" aria-label="Zone Name" :readonly="formData.is_managed">
+              <button type="button" x-on:click="removeZone(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5" :disabled="formData.is_managed">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg> <span class="sr-only">Remove</span>
+              </button>
+            </div>
+            <div x-show="!zoneValid[index]" class="error-message">Zone is limited to 64 characters and must appear only once.</div>
+          </div>
+        </template>
+        {{ end }}
+        {{ if .permissionManageScripts }}
+        <div class="max-w-md" x-show="availableGroups.length && !isUserScript" x-cloak>
+          <label class="form-label">Restrict to Groups</label>
+          <template x-for="(group, index) in availableGroups" :key="index">
+            <label class="flex items-center cursor-pointer mb-2" :class="{'opacity-50 cursor-not-allowed': formData.is_managed}">
+              <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)" :disabled="formData.is_managed">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
+            </label>
+          </template>
+        </div>
+        {{ end }}
+      </div>
+    </fieldset>
     {{ end }}
-
-    {{ if .permissionManageScripts }}
-    <div class="max-w-md" x-show="availableGroups.length && !isUserScript" x-cloak>
-      <label class="form-label">Restrict to Groups</label>
-      <template x-for="(group, index) in availableGroups" :key="index">
-        <label class="flex items-center cursor-pointer mb-2" :class="{'opacity-50 cursor-not-allowed': formData.is_managed}">
-          <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)" :disabled="formData.is_managed">
-          <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
-        </label>
-      </template>
-    </div>
-    {{ end }}
-
-    <div>
-      <label class="inline-flex items-center mb-5 cursor-pointer" :class="{'opacity-50 cursor-not-allowed': formData.is_managed}">
+    <div :class="{'opacity-50 pointer-events-none': formData.is_managed}">
+      <label class="flex items-center cursor-pointer mb-2">
         <input type="checkbox" name="active" id="active" x-model="formData.active" class="sr-only peer" :disabled="formData.is_managed">
-        <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+        <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
         <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
       </label>
       <div class="description">Only active scripts can be executed.</div>
     </div>
-
     <div class="form-actions">
       <button type="button" @click="scriptFormModal.show = false" class="form-cancel" x-text="formData.is_managed ? 'Close' : (isEdit ? 'Discard' : 'Cancel')"></button>
       <div class="flex gap-2" x-show="!formData.is_managed" x-cloak>

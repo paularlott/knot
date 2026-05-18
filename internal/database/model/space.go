@@ -18,6 +18,26 @@ type SpaceCustomField struct {
 	Value string `json:"value"`
 }
 
+type PortForwardEntry struct {
+	LocalPort  uint16 `json:"local_port"`
+	Space      string `json:"space"`
+	RemotePort uint16 `json:"remote_port"`
+}
+
+// Value implements the driver.Valuer interface.
+func (pf PortForwardEntry) Value() (driver.Value, error) {
+	return json.Marshal(pf)
+}
+
+// Scan implements the sql.Scanner interface.
+func (pf *PortForwardEntry) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(b, pf)
+}
+
 type SpaceVolume struct {
 	Id        string `json:"id"`
 	Namespace string `json:"Namespace"`
@@ -68,10 +88,13 @@ type Space struct {
 	ParentSpaceId    string             `json:"parent_space_id" db:"parent_space_id" msgpack:"parent_space_id"`
 	UserId           string             `json:"user_id" db:"user_id" msgpack:"user_id"`
 	TemplateId       string             `json:"template_id" db:"template_id" msgpack:"template_id"`
-	SharedWithUserId string             `json:"shared_with_user_id" db:"shared_with_user_id" msgpack:"shared_with_user_id"`
+	Shares           []string           `json:"shares" db:"shares,json" msgpack:"shares"`
+	DependsOn        []string           `json:"depends_on" db:"depends_on,json" msgpack:"depends_on"`
+	SharedWithUserId string             `json:"-" msgpack:"-"`
 	Name             string             `json:"name" db:"name" msgpack:"name"`
 	Description      string             `json:"description" db:"description" msgpack:"description"`
 	Note             string             `json:"note" db:"note" msgpack:"note"`
+	Stack            string             `json:"stack" db:"stack" msgpack:"stack"`
 	Zone             string             `json:"zone" db:"zone" msgpack:"zone"`
 	NodeId           string             `json:"node_id,omitempty" db:"node_id" msgpack:"node_id,omitempty"`
 	Shell            string             `json:"shell" db:"shell" msgpack:"shell"`
@@ -88,6 +111,7 @@ type Space struct {
 	IsDeleted        bool               `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	AltNames         []string           `json:"alt_names" msgpack:"alt_names"`
 	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
+	PortForwards     []PortForwardEntry `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
 	CreatedAt        time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
 	UpdatedAt        hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
@@ -126,9 +150,12 @@ func NewSpace(name string, description string, userId string, templateId string,
 		UpdatedAt:        hlc.Now(),
 		Zone:             zone,
 		SSHHostSigner:    ed25519,
+		Shares:           []string{},
+		DependsOn:        []string{},
 		SharedWithUserId: "",
 		IconURL:          iconURL,
 		CustomFields:     customFields,
+		PortForwards:     []PortForwardEntry{},
 	}
 
 	return space
@@ -160,4 +187,77 @@ func (s *Space) MaxUptimeReached(template *Template) bool {
 	}
 
 	return false
+}
+
+func (s *Space) NormalizeShares() {
+	seen := map[string]bool{}
+	normalized := make([]string, 0, len(s.Shares))
+
+	for _, shareUserId := range s.Shares {
+		if shareUserId == "" || seen[shareUserId] {
+			continue
+		}
+		seen[shareUserId] = true
+		normalized = append(normalized, shareUserId)
+	}
+
+	if len(normalized) == 0 && s.SharedWithUserId != "" {
+		normalized = append(normalized, s.SharedWithUserId)
+	}
+
+	s.Shares = normalized
+	if len(s.Shares) > 0 {
+		s.SharedWithUserId = s.Shares[0]
+	} else {
+		s.SharedWithUserId = ""
+	}
+}
+
+func (s *Space) NormalizeDependsOn() {
+	seen := map[string]bool{}
+	normalized := make([]string, 0, len(s.DependsOn))
+
+	for _, dependencyId := range s.DependsOn {
+		if dependencyId == "" || seen[dependencyId] {
+			continue
+		}
+		seen[dependencyId] = true
+		normalized = append(normalized, dependencyId)
+	}
+
+	s.DependsOn = normalized
+}
+
+func (s *Space) SharedUserIds() []string {
+	s.NormalizeShares()
+
+	userIds := make([]string, 0, len(s.Shares))
+	userIds = append(userIds, s.Shares...)
+
+	return userIds
+}
+
+func (s *Space) IsSharedWith(userId string) bool {
+	if userId == "" {
+		return false
+	}
+
+	for _, sharedUserId := range s.SharedUserIds() {
+		if sharedUserId == userId {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *Space) SetSingleShare(userId string) {
+	if userId == "" {
+		s.Shares = []string{}
+		s.SharedWithUserId = ""
+		return
+	}
+
+	s.Shares = []string{userId}
+	s.SharedWithUserId = userId
 }

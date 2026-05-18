@@ -99,15 +99,15 @@ func mcpListTools(ctx context.Context, client *apiclient.ApiClient, args ...obje
 		toolDict := &object.Dict{
 			Pairs: map[string]object.DictPair{
 				"name": {
-					Key:   &object.String{Value: "name"},
-					Value: &object.String{Value: tool.Name},
+					Key:   object.NewString("name"),
+					Value: object.NewString(tool.Name),
 				},
 				"description": {
-					Key:   &object.String{Value: "description"},
-					Value: &object.String{Value: tool.Description},
+					Key:   object.NewString("description"),
+					Value: object.NewString(tool.Description),
 				},
 				"parameters": {
-					Key:   &object.String{Value: "parameters"},
+					Key:   object.NewString("parameters"),
 					Value: conversion.FromGo(tool.InputSchema),
 				},
 			},
@@ -196,17 +196,17 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 	searchArgs := &object.Dict{
 		Pairs: map[string]object.DictPair{
 			"query": {
-				Key:   &object.String{Value: "query"},
-				Value: &object.String{Value: query},
+				Key:   object.NewString("query"),
+				Value: object.NewString(query),
 			},
 			"max_results": {
-				Key:   &object.String{Value: "max_results"},
-				Value: &object.Integer{Value: int64(maxResults)},
+				Key:   object.NewString("max_results"),
+				Value: object.NewInteger(int64(maxResults)),
 			},
 		},
 	}
 
-	result := mcpCallTool(ctx, client, &object.String{Value: "tool_search"}, searchArgs)
+	result := mcpCallTool(ctx, client, object.NewString("tool_search"), searchArgs)
 
 	// The result should be a scriptling object from the bridge package
 	// If it's a list with a single dict containing "text" field, parse the tools
@@ -226,7 +226,7 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 
 			if textVal != nil {
 				// Parse the JSON text to extract tools using the bridge package
-				tools, err := scriptlingmcp.ParseToolSearchResultsFromText(textVal.Value)
+				tools, err := scriptlingmcp.ParseToolSearchResultsFromText(textVal.StringValue())
 				if err == nil {
 					return tools
 				}
@@ -270,7 +270,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 		Name: "execute_tool",
 		Arguments: map[string]interface{}{
 			"name":      toolName,
-			"arguments": arguments,
+			"parameters": arguments,
 		},
 	}
 

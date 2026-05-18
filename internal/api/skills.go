@@ -250,7 +250,7 @@ func HandleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipSkill(skill)
 	sse.PublishSkillsChanged(skill.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSkillCreate,
@@ -360,7 +360,7 @@ func HandleUpdateSkill(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipSkill(skill)
 	sse.PublishSkillsChanged(skill.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSkillUpdate,
@@ -437,7 +437,7 @@ func HandleDeleteSkill(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipSkill(skill)
 	sse.PublishSkillsDeleted(skill.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSkillDelete,

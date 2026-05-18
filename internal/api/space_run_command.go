@@ -57,7 +57,7 @@ func HandleRunCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check permissions
-	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to run commands in this space"})
 		return
 	}

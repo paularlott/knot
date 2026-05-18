@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
 	command_scripts "github.com/paularlott/knot/agent/cmd/scripts"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
@@ -17,6 +16,7 @@ import (
 	commands_forward "github.com/paularlott/knot/command/forward"
 	commands_port "github.com/paularlott/knot/command/port"
 	command_spaces "github.com/paularlott/knot/command/spaces"
+	command_stack "github.com/paularlott/knot/command/stack"
 	command_ssh_config "github.com/paularlott/knot/command/ssh-config"
 	command_templates "github.com/paularlott/knot/command/templates"
 	"github.com/paularlott/knot/internal/config"
@@ -70,6 +70,30 @@ It offers both a user-friendly web interface and a command line interface to str
 				DefaultValue: "info",
 				Global:       true,
 			},
+			&cli.StringFlag{
+				Name:         "log-output-url",
+				Usage:        "HTTP URL to send log output to (e.g. http://localhost:9428/insert/jsonline).",
+				ConfigPath:   []string{"log.output.url"},
+				EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_URL"},
+				DefaultValue: "",
+				Global:       true,
+			},
+			&cli.StringFlag{
+				Name:         "log-output-format",
+				Usage:        "Log output format: ndjson, loki, or elasticsearch.",
+				ConfigPath:   []string{"log.output.format"},
+				EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_FORMAT"},
+				DefaultValue: "ndjson",
+				Global:       true,
+			},
+			&cli.StringFlag{
+				Name:         "log-output-stream",
+				Usage:        "Log stream name / identifier sent with each log record.",
+				ConfigPath:   []string{"log.output.stream"},
+				EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_STREAM"},
+				DefaultValue: "knot",
+				Global:       true,
+			},
 			&cli.StringSliceFlag{
 				Name:       "nameservers",
 				Usage:      "Nameservers to use for DNS resolution, maybe given multiple times.",
@@ -85,12 +109,12 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_scripts.ScriptsCmd,
 			command_skills.SkillsCmd,
 			command_spaces.SpacesCmd,
+			command_stack.StackCmd,
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,
 			commands_admin.AdminCmd,
 			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,
-			agentcmd.RunScriptCmd,
 			command.ServerCmd,
 			command.PingCmd,
 			command.ScaffoldCmd,

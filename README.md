@@ -54,7 +54,7 @@ Time-based one-time passwords (TOTP) should be enabled if the web interface is e
 
 ## Documentation
 
-Documentation and [Getting Started](https://getknot.dev/docs/getting-started/)
+Documentation and [Getting Started](https://getknot.dev/docs/quick-start/)
 
 ## Icons
 

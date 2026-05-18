@@ -40,6 +40,9 @@ tags:
   - name: Skills
     description: |
       Operations for working with skills (knowledge base content).
+  - name: Stack Definitions
+    description: |
+      Operations for working with stack definitions (reusable space blueprints).
 paths:
   /v1/models:
     get:
@@ -162,7 +165,7 @@ paths:
       tags:
         - Audit Logs
       summary: Get Audit Logs
-      description: Retrieve the audit logs.
+      description: Retrieve the audit logs with optional filtering.
       operationId: getAuditLogs
       parameters:
         - name: start
@@ -180,6 +183,44 @@ paths:
             type: integer
             format: int32
             default: 10
+        - name: q
+          in: query
+          description: Full-text search across actor, event, and details.
+          required: false
+          schema:
+            type: string
+        - name: actor
+          in: query
+          description: Filter by actor name (exact match).
+          required: false
+          schema:
+            type: string
+        - name: actor_type
+          in: query
+          description: Filter by actor type (User, System, MCP).
+          required: false
+          schema:
+            type: string
+        - name: event
+          in: query
+          description: Filter by event type (exact match).
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          description: Start of date range (RFC3339).
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End of date range (RFC3339).
+          required: false
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: A list of audited operations.
@@ -1487,6 +1528,74 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/spaces/{space_id}/usage/current:
+    get:
+      summary: Get Current Space Usage
+      description: Retrieve the latest resource usage snapshot for a space.
+      operationId: getSpaceUsageCurrent
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceUsagePoint"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/usage/history:
+    get:
+      summary: Get Space Usage History
+      description: Retrieve per-minute usage for the last hour or daily usage for the last 7 days.
+      operationId: getSpaceUsageHistory
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1h, 7d]
+            default: 1h
+          description: Select `1h` for per-minute history or `7d` for daily rollups.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceUsageHistoryResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/spaces/{space_id}/custom-field:
     put:
       summary: Set a Custom Field
@@ -1577,7 +1686,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SpaceTransferRequest"
+              $ref: "#/components/schemas/SpaceShareUpdateRequest"
 
       responses:
         "200":
@@ -1617,7 +1726,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SpaceTransferRequest"
+              $ref: "#/components/schemas/SpaceShareUpdateRequest"
       responses:
         "200":
           description: Successful operation
@@ -1650,6 +1759,12 @@ paths:
           schema:
             type: string
             description: The ID or name of the space to cease sharing.
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Optional shared user ID, username, or email to remove. If omitted, owners stop all sharing and recipients leave their own share.
       responses:
         "200":
           description: Successful operation
@@ -1752,6 +1867,102 @@ paths:
           $ref: "#/components/responses/not-found"
         "423":
           $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/stacks/{stack_name}/start:
+    post:
+      summary: Start a Stack
+      description: Start all spaces in a stack. Spaces are started in dependency order.
+      operationId: startStack
+      tags:
+        - Spaces
+      parameters:
+        - name: stack_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the stack to start.
+        - name: user_id
+          in: query
+          description: Optional user ID to operate on behalf of (admin only).
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Stack start operation accepted and processing.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/stacks/{stack_name}/stop:
+    post:
+      summary: Stop a Stack
+      description: Stop all spaces in a stack. Spaces are stopped in reverse dependency order.
+      operationId: stopStack
+      tags:
+        - Spaces
+      parameters:
+        - name: stack_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the stack to stop.
+        - name: user_id
+          in: query
+          description: Optional user ID to operate on behalf of (admin only).
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Stack stop operation accepted and processing.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/stacks/{stack_name}/restart:
+    post:
+      summary: Restart a Stack
+      description: Restart all spaces in a stack. Spaces are restarted in dependency order.
+      operationId: restartStack
+      tags:
+        - Spaces
+      parameters:
+        - name: stack_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the stack to restart.
+        - name: user_id
+          in: query
+          description: Optional user ID to operate on behalf of (admin only).
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Stack restart operation accepted and processing.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
         "500":
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
@@ -1936,6 +2147,8 @@ paths:
           $ref: "#/components/responses/forbidden"
         "404":
           $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
         "500":
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
@@ -2008,6 +2221,49 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /space-io/{space_id}/port/apply:
+    post:
+      summary: Apply port forwards
+      description: |
+        Replace all port forwards for a space with the given list. Any existing forwards
+        not in the list are stopped, and any new forwards are started. Forwards that already
+        exist with the same local port, space, and remote port are left unchanged.
+      operationId: portApply
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the source space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortApplyRequest"
+      responses:
+        "200":
+          description: Port forwards applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortApplyResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/templates:
     get:
       summary: Get Templates
@@ -2066,6 +2322,36 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created template.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/templates/validate:
+    post:
+      summary: Validate a Template Specification
+      description: Validate the template job/container specification and volume definition without saving the template.
+      operationId: validateTemplate
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateValidateRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecValidationResponse"
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -2452,6 +2738,36 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created volume.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/volumes/validate:
+    post:
+      summary: Validate a Volume Specification
+      description: Validate a standalone volume definition without saving the volume.
+      operationId: validateVolume
+      tags:
+        - Volumes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VolumeValidateRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecValidationResponse"
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -3235,6 +3551,177 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/stack-definitions:
+    get:
+      tags:
+        - Stack Definitions
+      summary: List Stack Definitions
+      description: List all stack definitions visible to the current user.
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: string
+          description: Filter to definitions owned by a specific user.
+        - name: all_zones
+          in: query
+          schema:
+            type: boolean
+          description: Include definitions from all zones.
+      responses:
+        "200":
+          description: List of stack definitions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  stack_definitions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StackDefinition"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      tags:
+        - Stack Definitions
+      summary: Create Stack Definition
+      description: Create a new stack definition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StackDefinitionRequest"
+      responses:
+        "201":
+          description: Stack definition created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  stack_definition_id:
+                    type: string
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/stack-definitions/validate:
+    post:
+      tags:
+        - Stack Definitions
+      summary: Validate Stack Definition
+      description: |
+        Validate a stack definition structure without creating it.
+        Checks for required fields, circular dependencies, invalid references,
+        duplicate space names, and port number ranges.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StackDefinitionRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StackDefinitionValidationResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/stack-definitions/{definition_id}:
+    get:
+      tags:
+        - Stack Definitions
+      summary: Get Stack Definition
+      description: Get a stack definition by ID.
+      parameters:
+        - name: definition_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Stack definition ID
+      responses:
+        "200":
+          description: Stack definition details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StackDefinition"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - Stack Definitions
+      summary: Update Stack Definition
+      description: Update an existing stack definition.
+      parameters:
+        - name: definition_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Stack definition ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StackDefinitionRequest"
+      responses:
+        "200":
+          description: Stack definition updated
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - Stack Definitions
+      summary: Delete Stack Definition
+      description: Delete a stack definition.
+      parameters:
+        - name: definition_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Stack definition ID
+      responses:
+        "200":
+          description: Stack definition deleted
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/ping:
     get:
       tags:
@@ -3264,6 +3751,134 @@ components:
         error:
           type: string
           description: Error message
+
+    StackDefinitionComponent:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Space name used for naming and references
+        template_id:
+          type: string
+          description: Template ID to use for this space
+        description:
+          type: string
+          description: Component description
+        shell:
+          type: string
+          description: Override shell
+        startup_script_id:
+          type: string
+          description: Startup script ID
+        depends_on:
+          type: array
+          items:
+            type: string
+          description: List of component keys this depends on
+        custom_fields:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+          description: Custom field values
+        port_forwards:
+          type: array
+          items:
+            type: object
+            properties:
+              to_space:
+                type: string
+              local_port:
+                type: integer
+              remote_port:
+                type: integer
+          description: Port forward rules
+
+    StackDefinition:
+      type: object
+      properties:
+        stack_definition_id:
+          type: string
+        user_id:
+          type: string
+          description: Owner user ID (empty for global definitions)
+        name:
+          type: string
+        description:
+          type: string
+        active:
+          type: boolean
+        groups:
+          type: array
+          items:
+            type: string
+          description: Group IDs allowed to create instances
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zone restrictions
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/StackDefinitionComponent"
+        is_managed:
+          type: boolean
+          description: Whether managed by a parent server
+
+    StackDefinitionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        active:
+          type: boolean
+        scope:
+          type: string
+          enum: [user, global]
+        groups:
+          type: array
+          items:
+            type: string
+        zones:
+          type: array
+          items:
+            type: string
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/StackDefinitionComponent"
+
+    StackDefinitionValidationResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the definition passed all validation checks
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/StackValidationError"
+          description: List of validation errors (empty when valid is true)
+
+    StackValidationError:
+      type: object
+      properties:
+        field:
+          type: string
+          description: The field that failed validation
+        message:
+          type: string
+          description: Human-readable error description
+        space:
+          type: string
+          description: Space name, if the error relates to a specific space
 
     ChatMessage:
       type: object
@@ -3782,14 +4397,19 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
-        shared_user_id:
-          type: string
-          format: uuid
-          description: The ID or username of the user the space is shared with, or an empty string if not shared.
-        shared_username:
-          type: string
-          description: The name of the user the space is shared with, or an empty string if not shared.
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+        shares:
+          type: array
+          description: The users the space is shared with.
+          items:
+            type: string
+            description: The UUID of a shared user.
+        depends_on:
+          type: array
+          description: The IDs of spaces that must already be running before this space can start.
+          items:
+            type: string
+            format: uuid
         has_code_server:
           type: boolean
           description: If the space has a running code server.
@@ -3843,6 +4463,14 @@ components:
         icon_url:
           type: string
           description: The icon URL for the space or an empty string if there's no icon.
+        healthy:
+          type: boolean
+          description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+        stack:
+          type: string
+          description: The stack name this space belongs to, or empty if unstacked.
+        resource_usage:
+          $ref: "#/components/schemas/SpaceResourceUsage"
 
     SpaceInfoList:
       type: object
@@ -3912,6 +4540,15 @@ components:
           type: string
           format: uuid
           description: The ID of a user script to run after the system startup script.
+        depends_on:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The IDs of spaces that must already be running before this space can start.
+        stack:
+          type: string
+          description: The stack name to group this space under, or empty for unstacked.
 
     SpaceVolume:
       type: object
@@ -3940,12 +4577,18 @@ components:
           type: string
           format: uuid
           description: The ID of the template the space was created from.
-        shared_user_id:
-          type: string
-          description: The ID or username of the user the space is shared with (empty if not shared).
-        shared_username:
-          type: string
-          description: The username of the user the space is shared with (empty if not shared).
+        shares:
+          type: array
+          description: The users the space is shared with.
+          items:
+            type: string
+            description: The UUID of a shared user.
+        depends_on:
+          type: array
+          description: The IDs of spaces that must already be running before this space can start.
+          items:
+            type: string
+            format: uuid
         name:
           type: string
           description: The name of the space.
@@ -3971,6 +4614,9 @@ components:
         zone:
           type: string
           description: The zone of the space.
+        stack:
+          type: string
+          description: The stack name this space belongs to, or empty if unstacked.
         is_deployed:
           type: boolean
           description: Flags if the space is deployed.
@@ -4049,6 +4695,83 @@ components:
         is_remote:
           type: boolean
           description: Whether the space is on a remote zone.
+        healthy:
+          type: boolean
+          description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+        resource_usage:
+          $ref: "#/components/schemas/SpaceResourceUsage"
+
+    SpaceResourceUsage:
+      type: object
+      properties:
+        cpu_percent:
+          type: number
+          format: double
+        memory_used_bytes:
+          type: integer
+          format: int64
+        memory_limit_bytes:
+          type: integer
+          format: int64
+        disk_used_bytes:
+          type: integer
+          format: int64
+        disk_limit_bytes:
+          type: integer
+          format: int64
+
+    SpaceActivityUsage:
+      type: object
+      properties:
+        write_count:
+          type: integer
+          format: int32
+        create_count:
+          type: integer
+          format: int32
+        delete_count:
+          type: integer
+          format: int32
+        rename_count:
+          type: integer
+          format: int32
+        distinct_paths:
+          type: integer
+          format: int32
+        last_activity_at:
+          type: string
+          format: date-time
+
+    SpaceUsagePoint:
+      type: object
+      properties:
+        bucket_start:
+          type: string
+          format: date-time
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        resource_usage:
+          $ref: "#/components/schemas/SpaceResourceUsage"
+        activity_usage:
+          $ref: "#/components/schemas/SpaceActivityUsage"
+
+    SpaceUsageHistoryResponse:
+      type: object
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        range:
+          type: string
+          enum: [1h, 7d]
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceUsagePoint"
 
     TemplateInfo:
       type: object
@@ -4079,7 +4802,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -4179,7 +4902,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         active:
           type: boolean
           description: If the template is active.
@@ -4254,6 +4977,38 @@ components:
           items:
             $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
+        health_check_type:
+          type: string
+          enum: [none, tcp, http, program, custom]
+          default: none
+          description: The type of health check to run.
+        health_check_config:
+          type: string
+          description: URL (http), port number (tcp), command (program), or script content (custom).
+        health_check_skip_ssl_verify:
+          type: boolean
+          description: Skip SSL certificate verification (http only).
+        health_check_timeout:
+          type: integer
+          format: uint32
+          default: 10
+          description: Timeout in seconds per check attempt.
+        health_check_interval:
+          type: integer
+          format: uint32
+          default: 30
+          description: Seconds between checks.
+        health_check_max_failures:
+          type: integer
+          format: uint32
+          default: 3
+          description: Max consecutive failures before action.
+        health_check_auto_restart:
+          type: boolean
+          description: Auto-restart the space on failure (false = flag only).
+        disable_user_activity:
+          type: boolean
+          description: Disable filesystem-based user activity collection for spaces created from this template.
 
     TemplateUpdateRequest:
       type: object
@@ -4285,7 +5040,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -4357,6 +5112,38 @@ components:
           items:
             $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
+        health_check_type:
+          type: string
+          enum: [none, tcp, http, program, custom]
+          default: none
+          description: The type of health check to run.
+        health_check_config:
+          type: string
+          description: URL (http), port number (tcp), command (program), or script content (custom).
+        health_check_skip_ssl_verify:
+          type: boolean
+          description: Skip SSL certificate verification (http only).
+        health_check_timeout:
+          type: integer
+          format: uint32
+          default: 10
+          description: Timeout in seconds per check attempt.
+        health_check_interval:
+          type: integer
+          format: uint32
+          default: 30
+          description: Seconds between checks.
+        health_check_max_failures:
+          type: integer
+          format: uint32
+          default: 3
+          description: Max consecutive failures before action.
+        health_check_auto_restart:
+          type: boolean
+          description: Auto-restart the space on failure (false = flag only).
+        disable_user_activity:
+          type: boolean
+          description: Disable filesystem-based user activity collection for spaces created from this template.
 
     TemplateDetails:
       type: object
@@ -4396,7 +5183,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -4474,6 +5261,38 @@ components:
           items:
             $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
+        health_check_type:
+          type: string
+          enum: [none, tcp, http, program, custom]
+          default: none
+          description: The type of health check to run.
+        health_check_config:
+          type: string
+          description: URL (http), port number (tcp), command (program), or script content (custom).
+        health_check_skip_ssl_verify:
+          type: boolean
+          description: Skip SSL certificate verification (http only).
+        health_check_timeout:
+          type: integer
+          format: uint32
+          default: 10
+          description: Timeout in seconds per check attempt.
+        health_check_interval:
+          type: integer
+          format: uint32
+          default: 30
+          description: Seconds between checks.
+        health_check_max_failures:
+          type: integer
+          format: uint32
+          default: 3
+          description: Max consecutive failures before action.
+        health_check_auto_restart:
+          type: boolean
+          description: Auto-restart the space on failure (false = flag only).
+        disable_user_activity:
+          type: boolean
+          description: Disable filesystem-based user activity collection for spaces created from this template.
 
     TemplateDetailsDay:
       type: object
@@ -4489,6 +5308,20 @@ components:
           type: string
           description: The end time of the schedule.
           example: "5:00pm"
+
+    TemplateValidateRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          description: The platform the template targets.
+        job:
+          type: string
+          description: Nomad HCL or local container YAML, depending on platform.
+        volumes:
+          type: string
+          description: YAML volume definition for the selected platform.
 
     TemplateVar:
       type: object
@@ -4929,7 +5762,18 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
+
+    VolumeValidateRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: ["docker", "podman", "nomad", "apple", "container"]
+          description: The platform the volume targets.
+        definition:
+          type: string
+          description: YAML volume definition to validate.
 
     VolumeCreateRequest:
       type: object
@@ -4943,7 +5787,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
         node_id:
           type: string
           description: The ID of the node to assign the volume to.
@@ -4960,7 +5804,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
         node_id:
           type: string
           description: The ID of the node to assign the volume to (only editable when volume is stopped).
@@ -4992,7 +5836,29 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: ["docker", "podman", "nomad", "apple"]
+          enum: ["docker", "podman", "nomad", "apple", "container"]
+
+    SpecValidationResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the submitted specification is valid.
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpecValidationError"
+          description: Validation errors grouped by field.
+
+    SpecValidationError:
+      type: object
+      properties:
+        field:
+          type: string
+          description: The field that failed validation, such as job or volumes.
+        message:
+          type: string
+          description: Human-readable validation message.
 
     SpaceTransferRequest:
       type: object
@@ -5000,6 +5866,16 @@ components:
         user_id:
           type: string
           description: The username, email address, or UUID of the user to transfer or share the space with.
+
+    SpaceShareUpdateRequest:
+      type: object
+      properties:
+        shares:
+          type: array
+          description: The users to share the space with. Core currently allows one share entry.
+          items:
+            type: string
+            description: The username, email address, or UUID of the shared user.
 
     SetCustomFieldRequest:
       type: object
@@ -5053,7 +5929,7 @@ components:
         space:
           type: string
           example: backend-api
-          description: The name of the target space.
+          description: The ID or name of the target space.
         remote_port:
           type: integer
           minimum: 1
@@ -5164,6 +6040,37 @@ components:
           type: string
           example: "port forward not found"
           description: The error message if the operation failed.
+
+    PortApplyRequest:
+      type: object
+      required:
+        - forwards
+      properties:
+        forwards:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/PortForwardRequest"
+          description: The complete list of desired port forwards. Existing forwards not in this list will be stopped.
+
+    PortApplyResponse:
+      type: object
+      properties:
+        applied:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardInfo"
+          description: Forwards that were started.
+        stopped:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardInfo"
+          description: Forwards that were stopped.
+        errors:
+          type: array
+          items:
+            type: string
+          description: Error messages from any failed stop or start operations.
 
     ScriptInfo:
       type: object
@@ -5444,6 +6351,12 @@ components:
   responses:
     bad-request:
       description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/error"
+    conflict:
+      description: Conflict
       content:
         application/json:
           schema:

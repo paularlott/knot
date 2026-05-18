@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
@@ -12,6 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -93,6 +96,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		s.Stack = space.Stack
+
 		// Get the user
 		u, err := db.GetUser(space.UserId)
 		if err != nil {
@@ -103,16 +108,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.Username = u.Username
 		s.UserId = u.Id
 
-		// If shared with another user then lookup the user
-		s.SharedUserId = ""
-		s.SharedUsername = ""
-		if space.SharedWithUserId != "" {
-			u, err = db.GetUser(space.SharedWithUserId)
-			if err == nil {
-				s.SharedUserId = u.Id
-				s.SharedUsername = u.Username
-			}
-		}
+		s.Shares = api_utils.BuildAPIShares(space)
+		s.DependsOn = api_utils.BuildAPIDependsOn(space)
 
 		// Get the space state
 		s.IsDeployed = space.IsDeployed
@@ -148,6 +145,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 			s.HasVSCodeTunnel = state.HasVSCodeTunnel
 			s.VSCodeTunnel = state.VSCodeTunnelName
+			s.ResourceUsage = &apiclient.SpaceResourceUsage{
+				CPUPercent:       state.CPUPercent,
+				MemoryUsedBytes:  state.MemoryUsedBytes,
+				MemoryLimitBytes: state.MemoryLimitBytes,
+				DiskUsedBytes:    state.DiskUsedBytes,
+				DiskLimitBytes:   state.DiskLimitBytes,
+			}
 
 			// If template is manual then force IsDeployed to true as agent is live
 			if template.IsManual() {
@@ -160,6 +164,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.UpdateAvailable = false
 		} else {
 			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
+		}
+
+		// Health status from in-memory store
+		if hs := health.Get(space.Id); hs != nil {
+			s.Healthy = hs.Healthy
+		} else {
+			s.Healthy = true
 		}
 
 		spaceData.Spaces = append(spaceData.Spaces, s)
@@ -211,7 +222,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceDelete,
@@ -247,6 +258,27 @@ func removeBlankAndDuplicates(names []string, primary string) []string {
 		}
 	}
 	return newNames
+}
+
+func resolveSpaceShareUserID(db database.DbDriver, requestedUserId string) (string, error) {
+	if validate.UUID(requestedUserId) {
+		return requestedUserId, nil
+	}
+
+	if strings.Contains(requestedUserId, "@") {
+		targetUser, err := db.GetUserByEmail(requestedUserId)
+		if err != nil || targetUser == nil {
+			return "", fmt.Errorf("user '%s' not found", requestedUserId)
+		}
+		return targetUser.Id, nil
+	}
+
+	targetUser, err := db.GetUserByUsername(requestedUserId)
+	if err != nil || targetUser == nil {
+		return "", fmt.Errorf("user '%s' not found", requestedUserId)
+	}
+
+	return targetUser.Id, nil
 }
 
 func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
@@ -304,10 +336,18 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Default shell to user's preferred shell if not specified
+	shell := request.Shell
+	if shell == "" {
+		shell = user.PreferredShell
+	}
+
 	// Create the space
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, "", request.IconURL, customFields)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, shell, &request.AltNames, "", request.IconURL, customFields)
 	space.NodeId = nodeId
 	space.StartupScriptId = request.StartupScriptId
+	space.DependsOn = request.DependsOn
+	space.Stack = request.Stack
 
 	spaceService := service.GetSpaceService()
 	err = spaceService.CreateSpace(space, user)
@@ -316,7 +356,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceCreate,
@@ -390,7 +430,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
+	if user.Id != space.UserId && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -452,6 +492,12 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	spaceService := service.GetSpaceService()
+	if err := spaceService.ValidateDependenciesRunning(space); err != nil {
+		rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	if err := service.GetContainerService().StartSpace(space, template, user); err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -494,7 +540,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
+	if user.Id != space.UserId && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -554,7 +600,7 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
+	if user.Id != space.UserId && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -635,6 +681,8 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.IconURL = request.IconURL
 	space.CustomFields = customFields
 	space.StartupScriptId = request.StartupScriptId
+	space.DependsOn = request.DependsOn
+	space.Stack = request.Stack
 
 	err = spaceService.UpdateSpace(space, user)
 	if err != nil {
@@ -642,7 +690,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceUpdate,
@@ -711,7 +759,7 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 	// Use the space we already looked up for audit logging
 	spaceName := space.Name
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceUpdate,
@@ -873,28 +921,18 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if request.UserId == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "user_id is required"})
+		return
+	}
+
 	db := database.GetInstance()
 
 	// Resolve user_id to UUID (supports UUID, username, or email)
-	var targetUserId string
-	if validate.UUID(request.UserId) {
-		targetUserId = request.UserId
-	} else if strings.Contains(request.UserId, "@") {
-		// Lookup by email
-		targetUser, err := db.GetUserByEmail(request.UserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
-			return
-		}
-		targetUserId = targetUser.Id
-	} else {
-		// Lookup by username
-		targetUser, err := db.GetUserByUsername(request.UserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
-			return
-		}
-		targetUserId = targetUser.Id
+	targetUserId, err := resolveSpaceShareUserID(db, request.UserId)
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	// Support lookup by both ID and name
@@ -1016,12 +1054,20 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Move the space
+		oldUserId := space.UserId
 		space.Name = name
 		space.UserId = targetUserId
+		space.DependsOn = []string{}
 		space.UpdatedAt = hlc.Now()
-		err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
+		err = db.SaveSpace(space, []string{"Name", "UserId", "DependsOn", "UpdatedAt"})
 		if err != nil {
 			log.WithError(err).Error("HandleSpaceTransfer:")
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		if err := service.GetSpaceService().RemoveDependencyReferences(space.Id, oldUserId); err != nil {
+			log.WithError(err).Error("HandleSpaceTransfer: remove dependency references")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -1029,9 +1075,9 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		service.GetTransport().GossipSpace(space)
 
 		// Publish SSE event with both old and new user IDs
-		sse.PublishSpaceChanged(space.Id, space.UserId, "", user.Id)
+		sse.PublishSpaceChangedWithShares(space.Id, space.UserId, nil, []string{user.Id})
 
-		audit.Log(
+		audit.LogWithRequest(r,
 			user.Username,
 			model.AuditActorTypeUser,
 			model.AuditEventSpaceTransfer,
@@ -1059,7 +1105,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
-	request := apiclient.SpaceTransferRequest{}
+	request := apiclient.SpaceShareUpdateRequest{}
 	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceAddShare:")
@@ -1067,28 +1113,19 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(request.Shares) == 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "at least one share is required"})
+		return
+	}
+
 	db := database.GetInstance()
 
 	// Resolve user_id to UUID (supports UUID, username, or email)
-	var targetUserId string
-	if validate.UUID(request.UserId) {
-		targetUserId = request.UserId
-	} else if strings.Contains(request.UserId, "@") {
-		// Lookup by email
-		targetUser, err := db.GetUserByEmail(request.UserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
-			return
-		}
-		targetUserId = targetUser.Id
-	} else {
-		// Lookup by username
-		targetUser, err := db.GetUserByUsername(request.UserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
-			return
-		}
-		targetUserId = targetUser.Id
+	requestedUserId := request.Shares[0]
+	targetUserId, err := resolveSpaceShareUserID(db, requestedUserId)
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	// Support lookup by both ID and name
@@ -1144,9 +1181,9 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Share the space
-	space.SharedWithUserId = newUser.Id
+	space.SetSingleShare(newUser.Id)
 	space.UpdatedAt = hlc.Now()
-	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
+	err = db.SaveSpace(space, []string{"Shares", "SharedWithUserId", "UpdatedAt"})
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -1157,20 +1194,20 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	service.GetUserService().UpdateSpaceSSHKeys(space, user)
 
 	// Publish SSE event for both owner and shared user
-	sse.PublishSpaceChanged(space.Id, space.UserId, space.SharedWithUserId)
+	sse.PublishSpaceChangedWithShares(space.Id, space.UserId, space.SharedUserIds(), nil)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceShare,
-		fmt.Sprintf("Shared space %s to user %s", space.Name, request.UserId),
+		fmt.Sprintf("Shared space %s to user %s", space.Name, requestedUserId),
 		&map[string]interface{}{
 			"agent":           r.UserAgent(),
 			"IP":              r.RemoteAddr,
 			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
 			"space_id":        space.Id,
 			"space_name":      space.Name,
-			"user_id":         request.UserId,
+			"user_id":         requestedUserId,
 		},
 	)
 
@@ -1183,6 +1220,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
+	targetUserId := r.URL.Query().Get("user_id")
 
 	db := database.GetInstance()
 
@@ -1200,7 +1238,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// If user doesn't own the space or space not shared with the user then 404
-	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -1212,18 +1250,48 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if space.SharedWithUserId == "" {
+	if len(space.SharedUserIds()) == 0 {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "space is not shared"})
 		return
 	}
 
-	// Store the previously shared user ID before clearing
-	previousSharedUserId := space.SharedWithUserId
+	previousSharedUserIds := space.SharedUserIds()
+	if targetUserId == "" {
+		if space.UserId == user.Id {
+			space.SetSingleShare("")
+		} else {
+			targetUserId = user.Id
+		}
+	}
+	if targetUserId != "" {
+		if space.UserId != user.Id && targetUserId != user.Id {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "cannot remove another user's share"})
+			return
+		}
+		if targetUserId != user.Id {
+			targetUserId, err = resolveSpaceShareUserID(db, targetUserId)
+			if err != nil {
+				rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+		}
+		if !space.IsSharedWith(targetUserId) {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "share not found"})
+			return
+		}
+		remainingShares := make([]string, 0, len(space.Shares))
+		for _, shareUserId := range space.SharedUserIds() {
+			if shareUserId != targetUserId {
+				remainingShares = append(remainingShares, shareUserId)
+			}
+		}
+		space.Shares = remainingShares
+		space.SharedWithUserId = ""
+		space.NormalizeShares()
+	}
 
-	// Unshare the space
-	space.SharedWithUserId = ""
 	space.UpdatedAt = hlc.Now()
-	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
+	err = db.SaveSpace(space, []string{"Shares", "SharedWithUserId", "UpdatedAt"})
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceRemoveShare:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -1233,10 +1301,9 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipSpace(space)
 	service.GetUserService().UpdateSpaceSSHKeys(space, user)
 
-	// Publish SSE event with previous shared user ID so they can remove it from their list
-	sse.PublishSpaceChanged(space.Id, space.UserId, "", previousSharedUserId)
+	sse.PublishSpaceChangedWithShares(space.Id, space.UserId, space.SharedUserIds(), previousSharedUserIds)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceStopShare,
@@ -1251,4 +1318,274 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	)
 
 	w.WriteHeader(http.StatusOK)
+}
+
+const stackStartTimeout = 120 * time.Second
+const stackPollInterval = 2 * time.Second
+
+func resolveStackRequest(w http.ResponseWriter, r *http.Request) (*model.User, string, error) {
+	stackName := r.PathValue("stack_name")
+	if stackName == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "stack_name is required"})
+		return nil, "", fmt.Errorf("missing stack_name")
+	}
+	user := r.Context().Value("user").(*model.User)
+	if userId := r.URL.Query().Get("user_id"); userId != "" {
+		if !user.HasPermission(model.PermissionManageSpaces) {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "no permission to manage spaces for other users"})
+			return nil, "", fmt.Errorf("forbidden")
+		}
+		db := database.GetInstance()
+		targetUser, err := db.GetUser(userId)
+		if err != nil || targetUser == nil {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+			return nil, "", fmt.Errorf("user not found")
+		}
+		user = targetUser
+	}
+	return user, stackName, nil
+}
+
+func stackSpaces(stackName, userId string) ([]*model.Space, error) {
+	db := database.GetInstance()
+	all, err := db.GetSpacesForUser(userId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load spaces: %w", err)
+	}
+	var result []*model.Space
+	for _, s := range all {
+		if !s.IsDeleted && s.Stack == stackName {
+			result = append(result, s)
+		}
+	}
+	return result, nil
+}
+
+func startStackTier(tier []*model.Space, user *model.User) error {
+	db := database.GetInstance()
+	type result struct {
+		name string
+		err  error
+	}
+	results := make(chan result, len(tier))
+	for _, s := range tier {
+		go func(space *model.Space) {
+			tmpl, err := db.GetTemplate(space.TemplateId)
+			if err != nil {
+				results <- result{space.Name, fmt.Errorf("template not found for space %q: %w", space.Name, err)}
+				return
+			}
+			if err := service.GetContainerService().StartSpace(space, tmpl, user); err != nil {
+				results <- result{space.Name, fmt.Errorf("failed to start space %q: %w", space.Name, err)}
+				return
+			}
+			deadline := time.Now().Add(stackStartTimeout)
+			for time.Now().Before(deadline) {
+				time.Sleep(stackPollInterval)
+				fresh, err := db.GetSpace(space.Id)
+				if err != nil {
+					results <- result{space.Name, fmt.Errorf("error polling space %q: %w", space.Name, err)}
+					return
+				}
+				if fresh.IsDeployed {
+					results <- result{space.Name, nil}
+					return
+				}
+				if !fresh.IsPending && !fresh.IsDeployed {
+					results <- result{space.Name, fmt.Errorf("space %q failed to start", space.Name)}
+					return
+				}
+			}
+			results <- result{space.Name, fmt.Errorf("timed out waiting for space %q to start", space.Name)}
+		}(s)
+	}
+	for range tier {
+		r := <-results
+		if r.err != nil {
+			return r.err
+		}
+	}
+	return nil
+}
+
+func startStack(stackName string, user *model.User) error {
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		return err
+	}
+	if len(spaces) == 0 {
+		return fmt.Errorf("no spaces found in stack %q", stackName)
+	}
+	db := database.GetInstance()
+	inStack := make(map[string]bool, len(spaces))
+	for _, s := range spaces {
+		inStack[s.Id] = true
+	}
+	started := make(map[string]bool)
+	for len(started) < len(spaces) {
+		fresh := make(map[string]*model.Space, len(spaces))
+		for _, s := range spaces {
+			fs, err := db.GetSpace(s.Id)
+			if err != nil {
+				return fmt.Errorf("failed to refresh space %q: %w", s.Name, err)
+			}
+			fresh[s.Id] = fs
+		}
+		for _, s := range spaces {
+			if fresh[s.Id].IsDeployed {
+				started[s.Id] = true
+			}
+		}
+		if len(started) == len(spaces) {
+			break
+		}
+		var tier []*model.Space
+		for _, s := range spaces {
+			if started[s.Id] {
+				continue
+			}
+			fs := fresh[s.Id]
+			if fs.IsPending {
+				continue
+			}
+			ready := true
+			for _, depId := range s.DependsOn {
+				if inStack[depId] {
+					if !started[depId] {
+						ready = false
+						break
+					}
+				} else {
+					dep, err := db.GetSpace(depId)
+					if err != nil || dep == nil || !dep.IsDeployed {
+						return fmt.Errorf("external dependency %q for space %q is not running", depId, s.Name)
+					}
+				}
+			}
+			if ready {
+				tier = append(tier, s)
+			}
+		}
+		if len(tier) == 0 {
+			anyPending := false
+			for _, s := range spaces {
+				if !started[s.Id] && fresh[s.Id].IsPending {
+					anyPending = true
+					break
+				}
+			}
+			if anyPending {
+				time.Sleep(stackPollInterval)
+				continue
+			}
+			return fmt.Errorf("cannot resolve start order for stack %q: possible dependency cycle or unmet external dependency", stackName)
+		}
+		if err := startStackTier(tier, user); err != nil {
+			return err
+		}
+		for _, s := range tier {
+			started[s.Id] = true
+		}
+	}
+	return nil
+}
+
+func stopStack(stackName string, user *model.User) error {
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		return err
+	}
+	if len(spaces) == 0 {
+		return fmt.Errorf("no spaces found in stack %q", stackName)
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, len(spaces))
+	for i, s := range spaces {
+		if !s.IsDeployed && !s.IsPending {
+			continue
+		}
+		wg.Add(1)
+		go func(idx int, space *model.Space) {
+			defer wg.Done()
+			errs[idx] = service.GetContainerService().StopSpace(space)
+		}(i, s)
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func waitStackStopped(stackName string, user *model.User) error {
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		return err
+	}
+	db := database.GetInstance()
+	deadline := time.Now().Add(stackStartTimeout)
+	for time.Now().Before(deadline) {
+		allStopped := true
+		for _, s := range spaces {
+			fresh, err := db.GetSpace(s.Id)
+			if err != nil {
+				return fmt.Errorf("error polling space %q: %w", s.Name, err)
+			}
+			if fresh.IsDeployed || fresh.IsPending {
+				allStopped = false
+				break
+			}
+		}
+		if allStopped {
+			return nil
+		}
+		time.Sleep(stackPollInterval)
+	}
+	return fmt.Errorf("timed out waiting for stack %q to stop", stackName)
+}
+
+func HandleStackStart(w http.ResponseWriter, r *http.Request) {
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	if err := startStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func HandleStackStop(w http.ResponseWriter, r *http.Request) {
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	if err := stopStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func HandleStackRestart(w http.ResponseWriter, r *http.Request) {
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	if err := stopStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := waitStackStopped(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := startStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
 }

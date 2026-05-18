@@ -101,3 +101,21 @@ func checkPermissionManageSkills(next http.HandlerFunc) http.HandlerFunc {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func checkPermissionStacks(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageStackDefinitions) &&
+			!user.HasPermission(model.PermissionManageOwnStackDefinitions) &&
+			!user.HasPermission(model.PermissionUseStackDefinitions) {
+			showPageForbidden(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(grep:*)",
+      "Bash(npx redoc-cli lint:*)",
+      "Bash(task run-server:*)",
+      "Bash(cat:*)",
+      "Bash(git -C /Users/paul/Code/Source/llmrouter log --oneline -30)",
+      "Bash(git -C /Users/paul/Code/Source/llmrouter show 5953cd2 --stat)",
+      "Bash(git -C /Users/paul/Code/Source/llmrouter show 5953cd2)",
+      "Bash(task: agents:*)",
+      "Bash(go list:*)",
+      "Bash(unzip:*)",
+      "Bash(find:*)",
+      "Bash(go doc:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(task webassets:*)",
+      "Bash(go test:*)",
+      "Bash(git -C /Users/paul/Code/Source/knot diff:*)",
+      "Bash(ssh:*)",
+      "Bash(GOOS=linux GOARCH=amd64 go build:*)",
+      "Bash(wc:*)",
+      "Bash(go mod:*)",
+      "Bash(go vet:*)",
+      "Bash(source:*)",
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(done:*)",
+      "Bash(head:*)",
+      "Bash(go install:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(go run:*)"
+    ]
+  }
+}

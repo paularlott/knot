@@ -6,14 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd/space"
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/portforward"
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/paularlott/cli"
@@ -188,40 +186,7 @@ var agentServerCmd = &cli.Command{
 		}
 
 		// Start the command socket and wait for it to be ready
-		socketReady := agentlink.StartCommandSocket(agentClient)
-
-		// Wire the restore function to break the import cycle
-		portforward.RestoreForwardFunc = func(entry portforward.ForwardEntry) error {
-			request := agentlink.ForwardPortRequest{
-				LocalPort:  entry.LocalPort,
-				Space:      entry.Space,
-				RemotePort: entry.RemotePort,
-				Persistent: false, // already persisted, don't re-save
-				Force:      true,  // skip space validation on restore
-			}
-			var response agentlink.RunCommandResponse
-			if err := agentlink.SendWithResponseMsg(agentlink.CommandForwardPort, &request, &response); err != nil {
-				return err
-			}
-			if !response.Success {
-				return fmt.Errorf("%s", response.Error)
-			}
-			return nil
-		}
-		portforward.WaitForCredentials = func(timeout time.Duration) bool {
-			deadline := time.Now().Add(timeout)
-			for time.Now().Before(deadline) {
-				if agentClient.GetAgentToken() != "" {
-					return true
-				}
-				time.Sleep(250 * time.Millisecond)
-			}
-			return false
-		}
-		go func() {
-			<-socketReady
-			portforward.RestoreForwards()
-		}()
+		agentlink.StartCommandSocket(agentClient)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)

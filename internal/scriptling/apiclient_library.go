@@ -20,11 +20,11 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 	builder := object.NewLibraryBuilder("knot.apiclient", "Knot API transport (embedded)")
 
 	builder.FunctionWithHelp("configure", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return &object.Boolean{Value: true}
+		return object.NewBoolean(true)
 	}, "configure(url, token, insecure=False) - No-op in embedded mode; client is pre-configured")
 
 	builder.FunctionWithHelp("is_configured", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return &object.Boolean{Value: true}
+		return object.NewBoolean(true)
 	}, "is_configured() - Always returns True in embedded mode")
 
 	builder.FunctionWithHelp("get", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {

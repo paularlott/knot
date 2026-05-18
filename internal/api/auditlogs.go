@@ -1,36 +1,54 @@
 package api
 
 import (
+	"encoding/csv"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
-func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
-	startParam := r.URL.Query().Get("start")
-	maxItemsParam := r.URL.Query().Get("max-items")
+func parseAuditLogFilter(r *http.Request) *model.AuditLogFilter {
+	filter := &model.AuditLogFilter{
+		Query:     r.URL.Query().Get("q"),
+		Actor:     r.URL.Query().Get("actor"),
+		ActorType: r.URL.Query().Get("actor_type"),
+		Event:     r.URL.Query().Get("event"),
+	}
 
-	start, err := strconv.Atoi(startParam)
+	if v := r.URL.Query().Get("from"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			filter.From = &t
+		}
+	}
+	if v := r.URL.Query().Get("to"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			filter.To = &t
+		}
+	}
+
+	return filter
+}
+
+func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	start, err := strconv.Atoi(r.URL.Query().Get("start"))
 	if err != nil {
 		start = 0
 	}
 
-	maxItems, err := strconv.Atoi(maxItemsParam)
+	maxItems, err := strconv.Atoi(r.URL.Query().Get("max-items"))
 	if err != nil {
 		maxItems = 10
 	}
 
-	db := database.GetInstance()
-	logs, err := db.GetAuditLogs(start, maxItems)
-	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
+	filter := parseAuditLogFilter(r)
 
-	totalLogs, err := db.GetNumberOfAuditLogs()
+	db := database.GetInstance()
+	logs, totalLogs, err := db.GetAuditLogs(filter, start, maxItems)
 	if err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -58,4 +76,55 @@ func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, auditLogs)
+}
+
+func HandleExportAuditLogs(w http.ResponseWriter, r *http.Request) {
+	filter := parseAuditLogFilter(r)
+
+	db := database.GetInstance()
+	logs, err := db.GetAuditLogsForExport(filter)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	format := r.URL.Query().Get("format")
+	if format == "json" {
+		items := make([]apiclient.AuditLogEntry, len(logs))
+		for i, entry := range logs {
+			if entry.Id == 0 {
+				entry.Id = entry.When.UnixMicro()
+			}
+			items[i] = apiclient.AuditLogEntry{
+				Id:         entry.Id,
+				Zone:       entry.Zone,
+				When:       entry.When,
+				Actor:      entry.Actor,
+				ActorType:  entry.ActorType,
+				Event:      entry.Event,
+				Details:    entry.Details,
+				Properties: entry.Properties,
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", `attachment; filename="audit-logs.json"`)
+		rest.WriteResponse(http.StatusOK, w, r, items)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", `attachment; filename="audit-logs.csv"`)
+	csvWriter := csv.NewWriter(w)
+	_ = csvWriter.Write([]string{"time", "zone", "actor", "actor_type", "event", "details"})
+	for _, entry := range logs {
+		_ = csvWriter.Write([]string{
+			entry.When.UTC().Format(time.RFC3339),
+			entry.Zone,
+			entry.Actor,
+			entry.ActorType,
+			entry.Event,
+			entry.Details,
+		})
+	}
+	csvWriter.Flush()
 }

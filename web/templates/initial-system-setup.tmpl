@@ -13,8 +13,8 @@
   <form action="" method="POST" @submit.prevent="submitData" class="mt-8 space-y-6">
     <div>
       <label for="username" class="form-label">Username</label>
-      <input type="text" name="username" id="username" class="form-field" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
-      <div class="error-message" x-show="!usernameValid" x-cloak>Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+      <input type="text" name="username" id="username" class="form-field" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9, - and .)" x-model="formData.username">
+      <div class="error-message" x-show="!usernameValid" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., max 64 characters.</div>
     </div>
     <div>
       <label for="email" class="form-label">Email</label>

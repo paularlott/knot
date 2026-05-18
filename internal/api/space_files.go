@@ -66,7 +66,7 @@ func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to read files in this space"})
 		return
 	}
@@ -147,7 +147,7 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to write files in this space"})
 		return
 	}

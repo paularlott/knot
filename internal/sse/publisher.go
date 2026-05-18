@@ -147,6 +147,22 @@ func PublishSkillsDeleted(skillId string) {
 	})
 }
 
+// PublishStackDefinitionsChanged notifies clients that a stack definition has changed
+func PublishStackDefinitionsChanged(defId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventStackDefinitionsChanged,
+		Payload: ResourcePayload{Id: defId},
+	})
+}
+
+// PublishStackDefinitionsDeleted notifies clients that a stack definition was deleted
+func PublishStackDefinitionsDeleted(defId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventStackDefinitionsDeleted,
+		Payload: ResourcePayload{Id: defId},
+	})
+}
+
 // PublishSessionsChanged notifies clients that a session has changed
 func PublishSessionsChanged(sessionId string) {
 	GetHub().Broadcast(&Event{
@@ -170,22 +186,28 @@ func PublishAuditLogsChanged() {
 	})
 }
 
-// PublishSpaceChanged notifies clients that a space was created, updated, or state changed
-// Parameters: spaceId, userId, optional sharedWithUserId, optional previousUserId
-func PublishSpaceChanged(spaceId, userId string, optionalIds ...string) {
-	payload := ResourcePayload{
-		Id:     spaceId,
-		UserId: userId,
-	}
-	if len(optionalIds) > 0 {
-		payload.SharedWithUserId = optionalIds[0]
-	}
-	if len(optionalIds) > 1 {
-		payload.PreviousUserId = optionalIds[1]
-	}
+// PublishSpaceChanged notifies clients that a space was created, updated, or state changed.
+func PublishSpaceChanged(spaceId, userId string) {
 	GetHub().Broadcast(&Event{
-		Type:    EventSpaceChanged,
-		Payload: payload,
+		Type: EventSpaceChanged,
+		Payload: ResourcePayload{
+			Id:     spaceId,
+			UserId: userId,
+		},
+	})
+}
+
+// PublishSpaceChangedWithShares includes share membership changes for clients that need to
+// update filtered lists without a full page refresh.
+func PublishSpaceChangedWithShares(spaceId, userId string, sharedWithUserIds []string, previousUserIds []string) {
+	GetHub().Broadcast(&Event{
+		Type: EventSpaceChanged,
+		Payload: ResourcePayload{
+			Id:                spaceId,
+			UserId:            userId,
+			SharedWithUserIds: sharedWithUserIds,
+			PreviousUserIds:   previousUserIds,
+		},
 	})
 }
 

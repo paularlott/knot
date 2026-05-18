@@ -320,7 +320,7 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipScript(script)
 	sse.PublishScriptsChanged(script.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventScriptCreate,
@@ -432,7 +432,7 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipScript(script)
 	sse.PublishScriptsChanged(script.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventScriptUpdate,
@@ -507,7 +507,7 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipScript(script)
 	sse.PublishScriptsDeleted(script.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventScriptDelete,

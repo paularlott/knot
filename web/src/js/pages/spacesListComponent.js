@@ -36,6 +36,8 @@ window.spacesListComponent = function (
     loading: true,
     spaces: [],
     visibleSpaces: 0,
+    refreshHandle: null,
+    uptimeHandle: null,
     // Debounced version of getSpaces for SSE events (500ms debounce)
     debouncedGetSpaces: debounce(function (spaceId) {
       this.getSpaces(spaceId);
@@ -49,6 +51,7 @@ window.spacesListComponent = function (
     },
     ceaseShareConfirm: {
       show: false,
+      targetUserId: "",
       space: {
         space_id: "",
         name: "",
@@ -72,6 +75,11 @@ window.spacesListComponent = function (
         description: "",
         note: "",
       },
+    },
+    spaceUsageModal: {
+      show: false,
+      spaceId: "",
+      spaceName: "",
     },
 
     showingSpecificUser: userId !== forUserId,
@@ -110,6 +118,8 @@ window.spacesListComponent = function (
       .as("spaceFilterSharedWithMeOnly")
       .using(sessionStorage),
     action: "stop", // 'stop' or 'restart'
+    collapsedStacks: {}, // tracks which stacks are collapsed
+    stackBusy: {}, // tracks which stacks have an in-progress action
     templateSelector: {
       show: false,
       templates: [],
@@ -123,6 +133,43 @@ window.spacesListComponent = function (
       templateId: "",
       forUserId: "",
       forUserUsername: "",
+    },
+    shareUserIds(space) {
+      if (!Array.isArray(space?.shares)) {
+        return [];
+      }
+
+      return space.shares.filter(
+        (shareUserId) => typeof shareUserId === "string" && shareUserId.length,
+      );
+    },
+    firstShareUserId(space) {
+      return this.shareUserIds(space)[0] || "";
+    },
+    isSharedWithViewer(space) {
+      return this.shareUserIds(space).includes(this.forUserId);
+    },
+    isSharedWithCurrentUser(space) {
+      return this.shareUserIds(space).includes(userId);
+    },
+    hasShare(space) {
+      return this.shareUserIds(space).length > 0;
+    },
+    hasSpaceAccessForCurrentUser(space) {
+      return space.user_id === userId || this.isSharedWithCurrentUser(space);
+    },
+    shareBadgeText(space) {
+      const shareCount = this.shareUserIds(space).length;
+      if (!shareCount) {
+        return "";
+      }
+      if (this.isSharedWithCurrentUser(space)) {
+        return `Shared By: ${space.username}`;
+      }
+      if (shareCount === 1) {
+        return "Shared";
+      }
+      return `Shared (${shareCount})`;
     },
 
     async init() {
@@ -170,21 +217,28 @@ window.spacesListComponent = function (
       // Subscribe to SSE for real-time updates
       if (window.sseClient) {
         window.sseClient.subscribe("space:changed", (payload) => {
-          // Check if space was unshared or transferred away from the user we're viewing
-          if (
+          const sharedWithUserIds = payload?.shared_with_user_ids || [];
+          const previousUserIds = payload?.previous_user_ids || [];
+          const removedFromCurrentView =
             this.forUserId !== "" &&
-            this.forUserId === payload?.previous_user_id
-          ) {
+            previousUserIds.includes(this.forUserId) &&
+            !sharedWithUserIds.includes(this.forUserId) &&
+            payload?.user_id !== this.forUserId;
+
+          // Check if space was unshared or transferred away from the user we're viewing
+          if (removedFromCurrentView) {
             // Remove the space from the list
             this.spaces = this.spaces.filter((s) => s.space_id !== payload?.id);
             this.searchChanged();
+            return;
           }
           // Check if we should fetch/update the space
           if (
             this.forUserId === "" ||
             this.forUserId === payload?.user_id ||
             payload?.user_id === userId ||
-            this.forUserId === payload?.shared_with_user_id
+            sharedWithUserIds.includes(this.forUserId) ||
+            previousUserIds.includes(this.forUserId)
           ) {
             this.debouncedGetSpaces(payload?.id);
           }
@@ -208,6 +262,28 @@ window.spacesListComponent = function (
         window.sseClient.subscribe("reconnected", () => {
           this.getSpaces();
         });
+      }
+
+      this.refreshHandle = setInterval(() => {
+        this.getSpaces();
+      }, 10000);
+
+      // Refresh uptime displays every 5s
+      this.uptimeHandle = setInterval(() => {
+        this.spaces.forEach((space) => {
+          space.uptime = this.formatTimeDiff(space.started_at);
+        });
+      }, 5000);
+    },
+    destroy() {
+      if (this.refreshHandle) {
+        clearInterval(this.refreshHandle);
+        this.refreshHandle = null;
+      }
+
+      if (this.uptimeHandle) {
+        clearInterval(this.uptimeHandle);
+        this.uptimeHandle = null;
       }
     },
     userSearchReset() {
@@ -261,9 +337,7 @@ window.spacesListComponent = function (
                   (s) => s.space_id === space.space_id,
                 );
                 if (!existing) {
-                  space.is_local = space.zone === "" || zone === space.zone;
-                  space.uptime = this.formatTimeDiff(space.started_at);
-                  space.icon_url_exists = this.imageExists(space.icon_url);
+                  this.applySpaceState(space);
 
                   this.spaces.push(space);
                   spacesAdded = true;
@@ -279,40 +353,7 @@ window.spacesListComponent = function (
                     return;
                   }
 
-                  existing.shared_user_id = space.shared_user_id;
-                  existing.shared_username = space.shared_username;
-                  // Don't update name if space is deleting (backend changes name to ID during deletion)
-                  if (!space.is_deleting) {
-                    existing.name = space.name;
-                  }
-                  existing.description = space.description;
-                  existing.platform = space.platform;
-                  existing.note = space.note;
-                  existing.zone = space.zone;
-                  existing.node_hostname = space.node_hostname;
-                  existing.has_code_server = space.has_code_server;
-                  existing.has_ssh = space.has_ssh;
-                  existing.has_terminal = space.has_terminal;
-                  existing.is_deployed = space.is_deployed;
-                  existing.is_pending = space.is_pending;
-                  existing.is_deleting = space.is_deleting;
-                  existing.update_available = space.update_available;
-                  existing.tcp_ports = space.tcp_ports;
-                  existing.http_ports = space.http_ports;
-                  existing.has_http_vnc = space.has_http_vnc;
-                  existing.has_vscode_tunnel = space.has_vscode_tunnel;
-                  existing.vscode_tunnel_name = space.vscode_tunnel_name;
-                  existing.sshCmd = `ssh -o ProxyCommand='knot forward ssh ${space.name}' -o StrictHostKeyChecking=no ${username}@knot.${space.name}`;
-                  existing.is_local = space.zone === "" || zone === space.zone;
-                  existing.has_state = space.has_state;
-                  existing.started_at = space.started_at;
-                  existing.template_name = space.template_name;
-                  existing.uptime = this.formatTimeDiff(space.started_at);
-
-                  if (existing.icon_url !== space.icon_url) {
-                    existing.icon_url = space.icon_url;
-                    existing.icon_url_exists = this.imageExists(space.icon_url);
-                  }
+                  this.applySpaceState(existing, space);
                 }
               });
 
@@ -355,6 +396,78 @@ window.spacesListComponent = function (
         return false;
       }
     },
+    applySpaceState(target, source = null) {
+      const space = source || target;
+
+      target.shares = space.shares || [];
+      if (!space.is_deleting) {
+        target.name = space.name;
+      }
+      target.description = space.description;
+      target.platform = space.platform;
+      target.note = space.note;
+      target.zone = space.zone;
+      target.node_hostname = space.node_hostname;
+      target.has_code_server = space.has_code_server;
+      target.has_ssh = space.has_ssh;
+      target.has_terminal = space.has_terminal;
+      target.is_deployed = space.is_deployed;
+      target.is_pending = space.is_pending;
+      target.is_deleting = space.is_deleting;
+      target.update_available = space.update_available;
+      target.healthy = space.healthy;
+      target.tcp_ports = space.tcp_ports;
+      target.http_ports = space.http_ports;
+      target.has_http_vnc = space.has_http_vnc;
+      target.has_vscode_tunnel = space.has_vscode_tunnel;
+      target.vscode_tunnel_name = space.vscode_tunnel_name;
+      target.sshCmd = `ssh -o ProxyCommand='knot forward ssh ${space.name}' -o StrictHostKeyChecking=no ${username}@knot.${space.name}`;
+      target.is_local = space.zone === "" || zone === space.zone;
+      target.has_state = space.has_state;
+      target.started_at = space.started_at;
+      target.template_name = space.template_name;
+      target.stack = space.stack || "";
+      target.uptime = this.formatTimeDiff(space.started_at);
+      target.resource_usage = space.resource_usage || null;
+
+      if (!source || target.icon_url !== space.icon_url) {
+        target.icon_url = space.icon_url;
+        target.icon_url_exists = this.imageExists(space.icon_url);
+      }
+    },
+    usagePercent(used, limit = 100) {
+      if (!limit) {
+        return 0;
+      }
+
+      return Math.max(0, Math.min(100, (used / limit) * 100));
+    },
+    formatPercent(value) {
+      return `${Number(value || 0).toFixed(1)}%`;
+    },
+    formatBytes(value) {
+      if (!value) {
+        return "0 B";
+      }
+
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let current = value;
+      let unitIndex = 0;
+
+      while (current >= 1024 && unitIndex < units.length - 1) {
+        current /= 1024;
+        unitIndex++;
+      }
+
+      return `${current.toFixed(current >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+    },
+    formatUsage(used, limit) {
+      if (!limit) {
+        return this.formatBytes(used);
+      }
+
+      return `${this.formatBytes(used)} / ${this.formatBytes(limit)}`;
+    },
     async startSpace(spaceId) {
       const self = this;
       await fetch(`/api/spaces/${spaceId}/start`, {
@@ -387,15 +500,13 @@ window.spacesListComponent = function (
                 const space = self.spaces.find((s) => s.space_id === spaceId);
 
                 self.quotaComputeLimit.isShared =
-                  space.shared_user_id !== "" &&
-                  space.shared_user_id === this.forUserId;
+                  self.isSharedWithViewer(space);
                 self.quotaComputeLimit.show = true;
               } else if (data.error === "storage unit quota exceeded") {
                 const space = self.spaces.find((s) => s.space_id === spaceId);
 
                 self.quotaStorageLimit.isShared =
-                  space.shared_user_id !== "" &&
-                  space.shared_user_id === this.forUserId;
+                  self.isSharedWithViewer(space);
                 self.quotaStorageLimit.show = true;
               } else {
                 self.$dispatch("show-alert", {
@@ -518,9 +629,21 @@ window.spacesListComponent = function (
           });
         });
     },
-    async ceaseSharing(spaceId) {
+    openCeaseShareConfirm(space, targetUserId = "") {
+      if (!targetUserId && space?.user_id !== userId) {
+        targetUserId = userId;
+      }
+      this.ceaseShareConfirm.show = true;
+      this.ceaseShareConfirm.space = space;
+      this.ceaseShareConfirm.targetUserId = targetUserId;
+    },
+    async ceaseSharing(spaceId, shareUserId = "") {
       const self = this;
-      await fetch(`/api/spaces/${spaceId}/share`, {
+      const query = shareUserId
+        ? `?user_id=${encodeURIComponent(shareUserId)}`
+        : "";
+
+      await fetch(`/api/spaces/${spaceId}/share${query}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -528,15 +651,36 @@ window.spacesListComponent = function (
       })
         .then((response) => {
           if (response.status === 200) {
+            const leavingOwnShare =
+              self.ceaseShareConfirm.space?.user_id !== userId &&
+              (!shareUserId || shareUserId === userId);
+
+            if (leavingOwnShare) {
+              self.spaces = self.spaces.filter((s) => s.space_id !== spaceId);
+              self.searchChanged();
+            } else {
+              self.getSpaces(spaceId);
+            }
+
             self.$dispatch("show-alert", {
               msg: "Sharing of Space Stopped",
               type: "success",
             });
           } else {
-            self.$dispatch("show-alert", {
-              msg: "Could not stop sharing of space",
-              type: "error",
-            });
+            response
+              .json()
+              .then((data) => {
+                self.$dispatch("show-alert", {
+                  msg: `Could not stop sharing of space: ${data.error}`,
+                  type: "error",
+                });
+              })
+              .catch(() => {
+                self.$dispatch("show-alert", {
+                  msg: "Could not stop sharing of space",
+                  type: "error",
+                });
+              });
           }
         })
         .catch((error) => {
@@ -587,38 +731,49 @@ window.spacesListComponent = function (
     openLogWindow(spaceId) {
       popup.openLogWindow(spaceId);
     },
+    openSpaceUsage(spaceId) {
+      const space = this.spaces.find((item) => item.space_id === spaceId);
+      this.spaceUsageModal.spaceId = spaceId;
+      this.spaceUsageModal.spaceName = space?.name || "Space Usage";
+      this.spaceUsageModal.show = true;
+    },
+    closeSpaceUsage() {
+      this.spaceUsageModal.show = false;
+      this.spaceUsageModal.spaceId = "";
+      this.spaceUsageModal.spaceName = "";
+    },
     searchChanged() {
       const term = this.searchTerm.toLowerCase();
 
-      // For all spaces if name or template name contains the term show; else hide
+      // Collect stack names that match the search term
+      const matchingStacks = term.length
+        ? new Set(
+            this.spaces
+              .filter((s) => s.stack && s.stack.toLowerCase().includes(term))
+              .map((s) => s.stack),
+          )
+        : new Set();
+
       this.visibleSpaces = 0;
       this.spaces.forEach((space) => {
-        if (term.length === 0) {
-          space.searchHide =
-            (this.showLocalOnly && !space.is_local) ||
-            (this.showRunningOnly && !space.is_deployed) ||
-            (this.showSharedOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id === this.forUserId)) ||
-            (this.showSharedWithMeOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id !== this.forUserId));
-        } else {
-          space.searchHide =
-            !(
+        const filterHide =
+          (this.showLocalOnly && !space.is_local) ||
+          (this.showRunningOnly && !space.is_deployed) ||
+          (this.showSharedOnly &&
+            (!this.hasShare(space) || this.isSharedWithViewer(space))) ||
+          (this.showSharedWithMeOnly &&
+            (!this.hasShare(space) || !this.isSharedWithViewer(space)));
+
+        const termHide = term.length
+          ? !(
               space.name.toLowerCase().includes(term) ||
               space.template_name.toLowerCase().includes(term) ||
-              space.zone.toLowerCase().includes(term)
-            ) ||
-            (this.showLocalOnly && !space.is_local) ||
-            (this.showRunningOnly && !space.is_deployed) ||
-            (this.showSharedOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id === this.forUserId)) ||
-            (this.showSharedWithMeOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id !== this.forUserId));
-        }
+              space.zone.toLowerCase().includes(term) ||
+              (space.stack && matchingStacks.has(space.stack))
+            )
+          : false;
+
+        space.searchHide = filterHide || termHide;
 
         if (!space.searchHide) {
           this.visibleSpaces++;
@@ -653,6 +808,9 @@ window.spacesListComponent = function (
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            shares: self.chooseUser.isShare
+              ? [this.chooseUser.toUserId]
+              : undefined,
             user_id: this.chooseUser.toUserId,
           }),
         },
@@ -734,6 +892,114 @@ window.spacesListComponent = function (
         });
     },
 
+    toggleStack(stackName) {
+      this.collapsedStacks[stackName] = !this.collapsedStacks[stackName];
+    },
+    async _stackAction(stackName, action) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+      try {
+        while (true) {
+          try {
+            const res = await fetch(
+              `/api/spaces/stacks/${encodeURIComponent(stackName)}/${action}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: controller.signal,
+              },
+            );
+            if (res.status === 202) {
+              return null;
+            }
+            const data = await res.json().catch(() => ({}));
+            return data.error || `Stack could not be ${action}ed`;
+          } catch (e) {
+            if (e.name === "AbortError") {
+              return `Stack ${action} timed out`;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    async startStack(stackName) {
+      this.stackBusy[stackName] = true;
+      try {
+        const err = await this._stackAction(stackName, "start");
+        if (err) {
+          this.$dispatch("show-alert", { msg: err, type: "error" });
+        } else {
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" started`,
+            type: "success",
+          });
+        }
+      } finally {
+        this.stackBusy[stackName] = false;
+        this.getSpaces();
+      }
+    },
+    async stopStack(stackName) {
+      this.stackBusy[stackName] = true;
+      try {
+        const err = await this._stackAction(stackName, "stop");
+        if (err) {
+          this.$dispatch("show-alert", { msg: err, type: "error" });
+        } else {
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" stopped`,
+            type: "success",
+          });
+        }
+      } finally {
+        this.stackBusy[stackName] = false;
+        this.getSpaces();
+      }
+    },
+    async restartStack(stackName) {
+      this.stackBusy[stackName] = true;
+      try {
+        const err = await this._stackAction(stackName, "restart");
+        if (err) {
+          this.$dispatch("show-alert", { msg: err, type: "error" });
+        } else {
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" restarted`,
+            type: "success",
+          });
+        }
+      } finally {
+        this.stackBusy[stackName] = false;
+        this.getSpaces();
+      }
+    },
+    hasStacks() {
+      return this.spaces.some((s) => s.stack && !s.searchHide);
+    },
+    unstackedVisibleSpaces() {
+      return this.spaces.filter((s) => !s.stack && !s.searchHide);
+    },
+    stackedGroups() {
+      const groups = new Map();
+      for (const space of this.spaces) {
+        if (!space.stack || space.searchHide) continue;
+        if (!groups.has(space.stack)) {
+          groups.set(space.stack, []);
+        }
+        groups.get(space.stack).push(space);
+      }
+
+      return [...groups.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([name, spaces]) => ({
+          name,
+          spaces,
+          count: spaces.length,
+        }));
+    },
     formatTimeDiff(utcTime) {
       // Convert input to Date if not already
       const givenTime = utcTime instanceof Date ? utcTime : new Date(utcTime);
@@ -746,13 +1012,12 @@ window.spacesListComponent = function (
 
       // Format based on magnitude
       if (diffSeconds < 60) {
-        // Less than a minute: show seconds
-        return `${diffSeconds}s`;
+        // Less than a minute: show "<1m"
+        return "<1m";
       } else if (diffSeconds < 3600) {
-        // Less than an hour: show minutes and seconds
+        // Less than an hour: show minutes
         const minutes = Math.floor(diffSeconds / 60);
-        const seconds = diffSeconds % 60;
-        return `${minutes}m ${seconds}s`;
+        return `${minutes}m`;
       } else if (diffSeconds < 86400) {
         // Less than a day: show hours
         const hours = Math.floor(diffSeconds / 3600);

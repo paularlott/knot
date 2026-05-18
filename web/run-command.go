@@ -33,7 +33,7 @@ func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 	// Load the space
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
-	if err != nil || space == nil || (space.UserId != user.Id && space.SharedWithUserId != user.Id) {
+	if err != nil || space == nil || (space.UserId != user.Id && !space.IsSharedWith(user.Id)) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

@@ -45,6 +45,10 @@ func (c *AgentClient) reportState() {
 		var codeServerAlive bool = false
 		var hasVSCodeTunnel bool = false
 		var vscodeTunnelName string = ""
+		cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes := c.collectResourceUsage()
+		activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, lastActivityAtUnix := c.snapshotActivityState()
+		activityBucketStartUnix := time.Now().UTC().Truncate(time.Minute).Unix()
+		activityBucketFinalized := false
 
 		// If sshPort > 0 then check the health of sshd (until confirmed live, then assume it stays live)
 		if c.withSSH && c.sshPort > 0 && sshAlivePort == 0 {
@@ -138,6 +142,11 @@ func (c *AgentClient) reportState() {
 			"Has Terminal", c.withTerminal,
 			"Has VSCode Tunnel", hasVSCodeTunnel,
 			"VSCode Tunnel Name", vscodeTunnelName,
+			"CPU Percent", cpuPercent,
+			"Memory Used", memoryUsedBytes,
+			"Memory Limit", memoryLimitBytes,
+			"Disk Used", diskUsedBytes,
+			"Disk Limit", diskLimitBytes,
 		)
 
 		var newServers []string
@@ -156,7 +165,11 @@ func (c *AgentClient) reportState() {
 					}
 				}
 
-				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName)
+				c.healthMu.RLock()
+				healthy := c.healthy
+				c.healthMu.RUnlock()
+
+				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy, cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes, activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, activityBucketStartUnix, activityBucketFinalized, lastActivityAtUnix)
 				if err != nil {
 					log.Error("failed to send state to server", "server", server.address)
 				} else {

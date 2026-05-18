@@ -80,7 +80,7 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, template_name, description='', shell='bash')",
+        signature: "create(name, template_name, description='', shell='bash', depends_on=None, stack='')",
         description: "Create a new space",
         returns: "str - New space ID",
       },
@@ -120,7 +120,7 @@ const scriptLibraries = [
         signature: "get(name)",
         description: "Get space details as a dict",
         returns:
-          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shared_user_id, shared_username, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at",
+          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at, stack",
       },
       {
         name: "update",
@@ -146,6 +146,36 @@ const scriptLibraries = [
         name: "unshare",
         signature: "unshare(name)",
         description: "Remove space share",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "get_stack",
+        signature: "get_stack(name)",
+        description: "Get the stack name for a space",
+        returns: "str - Stack name (empty string if unstacked)",
+      },
+      {
+        name: "set_stack",
+        signature: "set_stack(name, stack)",
+        description: "Set the stack name for a space (empty string to unstack)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "start_stack",
+        signature: "start_stack(stack_name)",
+        description: "Start all spaces in a stack (requires Pro license)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "stop_stack",
+        signature: "stop_stack(stack_name)",
+        description: "Stop all spaces in a stack (requires Pro license)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "restart_stack",
+        signature: "restart_stack(stack_name)",
+        description: "Restart all spaces in a stack (requires Pro license)",
         returns: "bool - True if successful",
       },
       {
@@ -781,6 +811,55 @@ const scriptLibraries = [
     ],
   },
 
+  {
+    module: "knot.audit",
+    description: "Knot audit log search and filtering functions",
+    functions: [
+      {
+        name: "list",
+        signature: "list(start=0, max_items=10, q='', actor='', actor_type='', event='', from_time='', to_time='')",
+        description: "List audit log entries with optional filtering",
+        returns: "dict - Dict with count (int) and items (list of audit log entry dicts)",
+      },
+      {
+        name: "search",
+        signature: "search(q, start=0, max_items=10, actor='', actor_type='', event='', from_time='', to_time='')",
+        description: "Search audit logs with a text query across actor, event, and details",
+        returns: "dict - Dict with count (int) and items (list of audit log entry dicts)",
+      },
+    ],
+  },
+  {
+    module: "knot.healthcheck",
+    description: "Health check functions for space monitoring (agent-side only)",
+    functions: [
+      {
+        name: "http_head",
+        signature: "http_head(url, skip_ssl_verify=False, timeout=10)",
+        description: "HTTP HEAD check, returns True if status 200, False otherwise",
+        returns: "bool - True if healthy",
+      },
+      {
+        name: "tcp_port",
+        signature: "tcp_port(port, timeout=10)",
+        description: "TCP port check, returns True if port is open",
+        returns: "bool - True if healthy",
+      },
+      {
+        name: "program",
+        signature: "program(command, timeout=10)",
+        description: "Run command, returns True if exit code 0",
+        returns: "bool - True if healthy",
+      },
+      {
+        name: "check_result",
+        signature: "check_result(healthy)",
+        description: "Report health check result and exit. Use with combined checks",
+        returns: "None - Exits immediately with health result",
+      },
+    ],
+  },
+
   // ============================================================================
   // SCRIPTLING LIBRARIES (scriptling.*) - Standalone scriptling libraries
   // ============================================================================
@@ -829,7 +908,7 @@ const scriptLibraries = [
       {
         name: "Client",
         signature:
-          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, top_p=0, remote_servers=[])',
+          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, top_p=0, headers={}, remote_servers=[])',
         description:
           "Create a new AI client instance for making API calls to supported services",
         returns: "OpenAIClient - A client instance",
@@ -890,10 +969,11 @@ const scriptLibraries = [
       },
       {
         name: "estimate_tokens",
-        signature: "estimate_tokens(request, response)",
+        signature: "estimate_tokens(request, response=None)",
         description:
-          "Estimate token counts for request messages and response using character-based heuristic",
-        returns: "tuple - (request_tokens, response_tokens)",
+          "Estimate token counts for request messages and/or response using character-based heuristic",
+        returns:
+          "dict - {'prompt_tokens': int, 'completion_tokens': int, 'total_tokens': int}",
       },
     ],
     classes: [
@@ -903,13 +983,15 @@ const scriptLibraries = [
         methods: [
           {
             name: "completion",
-            signature: "completion(model, messages, **kwargs)",
+            signature:
+              "completion(model, messages, tools=[], temperature=0, top_p=0, max_tokens=0, extra_body={}, timeout=0)",
             description: "Create a chat completion",
             returns: "dict - Response with id, choices, usage",
           },
           {
             name: "completion_stream",
-            signature: "completion_stream(model, messages, **kwargs)",
+            signature:
+              "completion_stream(model, messages, tools=[], temperature=0, top_p=0, max_tokens=0, extra_body={}, timeout=0)",
             description: "Create a streaming chat completion",
             returns: "ChatStream - Stream object with next() method",
             returnType: "ChatStream",
@@ -1129,8 +1211,63 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.grep",
+    description:
+      "Fast file content search with regex or literal patterns (Remote/External environments)",
+    functions: [
+      {
+        name: "pattern",
+        signature:
+          'pattern(regex, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          'Search for a regex pattern in a file or directory. Returns a list of match dicts: {"file": str, "line": int, "text": str}',
+        returns: "list - List of match dicts with file, line, text",
+      },
+      {
+        name: "string",
+        signature:
+          'string(text, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          'Search for a literal string in a file or directory. Returns a list of match dicts: {"file": str, "line": int, "text": str}',
+        returns: "list - List of match dicts with file, line, text",
+      },
+    ],
+  },
+  {
+    module: "scriptling.sed",
+    description:
+      "In-place file content replacement and capture group extraction (Remote/External environments)",
+    functions: [
+      {
+        name: "replace",
+        signature:
+          'replace(old, new, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          "Replace all occurrences of a literal string in a file or directory. Files are modified in-place using atomic temp-file rename",
+        returns: "int - Number of files modified",
+      },
+      {
+        name: "replace_pattern",
+        signature:
+          'replace_pattern(regex, new, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          "Replace all regex matches in a file or directory. Supports capture groups in replacement string (e.g. ${1}, ${name})",
+        returns: "int - Number of files modified",
+      },
+      {
+        name: "extract",
+        signature:
+          'extract(regex, path, *, recursive=False, ignore_case=False, glob="", follow_links=False, max_size=1048576)',
+        description:
+          'Extract regex capture groups from a file or directory. Returns a list of match dicts: {"file": str, "line": int, "text": str, "groups": list}',
+        returns:
+          "list - List of match dicts with file, line, text, groups",
+      },
+    ],
+  },
+  {
     module: "scriptling.console",
-    description: "TUI console for interactive terminal applications with multi-panel layouts (Local environment only)",
+    description: "TUI console for interactive terminal applications with multi-panel layouts (Remote environment only)",
     constants: [
       { name: "PRIMARY", description: "Theme primary color", type: "string" },
       { name: "SECONDARY", description: "Theme secondary color", type: "string" },
@@ -2049,7 +2186,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime",
     description:
-      "Runtime utilities for background function execution (Local/Remote environments)",
+      "Runtime utilities for background function execution (Remote environments)",
     functions: [
       {
         name: "background",
@@ -2084,7 +2221,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.kv",
     description:
-      "Key-value store for runtime state sharing (Local/Remote environments)",
+      "Key-value store for runtime state sharing (Remote environments)",
     constants: [
       {
         name: "default",
@@ -2167,7 +2304,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.sync",
     description:
-      "Concurrency primitives for thread synchronization (Local/Remote environments)",
+      "Concurrency primitives for thread synchronization (Remote environments)",
     classes: [
       {
         name: "Mutex",
@@ -2331,7 +2468,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.sandbox",
     description:
-      "Isolated script execution environments (Local/Remote environments)",
+      "Isolated script execution environments (Remote environments)",
     classes: [
       {
         name: "Sandbox",
@@ -2384,7 +2521,7 @@ const scriptLibraries = [
   {
     module: "scriptling.runtime.http",
     description:
-      "HTTP server route registration and response helpers (Local/Remote environments)",
+      "HTTP server route registration and response helpers (Remote environments)",
     classes: [
       {
         name: "Request",
@@ -2830,7 +2967,7 @@ const scriptLibraries = [
   },
   {
     module: "scriptling.glob",
-    description: "Unix shell-style wildcards for file path matching (Local/Remote environments)",
+    description: "Unix shell-style wildcards for file path matching (Remote environments)",
     functions: [
       {
         name: "glob",
@@ -2851,6 +2988,77 @@ const scriptLibraries = [
         description:
           "Escape special characters (*, ?, [, ]) to treat them as literals",
         returns: "str - Escaped pattern string",
+      },
+    ],
+  },
+  {
+    module: "scriptling.template.html",
+    description:
+      "HTML template rendering with automatic HTML escaping (html/template)",
+    functions: [
+      {
+        name: "Set",
+        signature: "Set()",
+        description: "Create a new HTML template set with auto-escaping",
+        returns: "Set - A template set with add(source) and render([name,] data) methods",
+        returnType: "Set",
+      },
+    ],
+    classes: [
+      {
+        name: "Set",
+        description: "HTML template set",
+        methods: [
+          {
+            name: "add",
+            signature: "add(source)",
+            description:
+              'Add template source, may contain {{define "name"}} blocks',
+            returns: "None",
+          },
+          {
+            name: "render",
+            signature: "render(data) or render(name, data)",
+            description:
+              "Render a template from the set with the given data dict",
+            returns: "string - Rendered output",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.template.text",
+    description: "Text template rendering with no escaping (text/template)",
+    functions: [
+      {
+        name: "Set",
+        signature: "Set()",
+        description: "Create a new text template set (no HTML escaping)",
+        returns: "Set - A template set with add(source) and render([name,] data) methods",
+        returnType: "Set",
+      },
+    ],
+    classes: [
+      {
+        name: "Set",
+        description: "Text template set",
+        methods: [
+          {
+            name: "add",
+            signature: "add(source)",
+            description:
+              'Add template source, may contain {{define "name"}} blocks',
+            returns: "None",
+          },
+          {
+            name: "render",
+            signature: "render(data) or render(name, data)",
+            description:
+              "Render a template from the set with the given data dict",
+            returns: "string - Rendered output",
+          },
+        ],
       },
     ],
   },
@@ -4492,6 +4700,27 @@ const scriptLibraries = [
         signature: "compare_digest(a, b)",
         description: "Constant-time string comparison",
         returns: "bool - True if equal",
+      },
+    ],
+  },
+  {
+    module: "scriptling.secret",
+    description:
+      "Server-configured secret access using aliases from server.secret_providers",
+    functions: [
+      {
+        name: "get",
+        signature: 'get(alias, path, field="")',
+        description:
+          "Resolve a secret through a server-configured provider alias without exposing provider credentials to the script",
+        returns: "str - Secret value",
+      },
+      {
+        name: "list",
+        signature: "list(alias, path)",
+        description:
+          "List keys or items available at a provider-specific path through a server-configured provider alias",
+        returns: "list - Available keys or item names",
       },
     ],
   },

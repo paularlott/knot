@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/specvalidate"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -171,6 +172,14 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.MaxUptimeUnit = request.MaxUptimeUnit
 	template.IconURL = request.IconURL
 	template.Zones = request.Zones
+	template.HealthCheckType = request.HealthCheckType
+	template.HealthCheckConfig = request.HealthCheckConfig
+	template.HealthCheckSkipSSLVerify = request.HealthCheckSkipSSLVerify
+	template.HealthCheckTimeout = request.HealthCheckTimeout
+	template.HealthCheckInterval = request.HealthCheckInterval
+	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
+	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
+	template.DisableUserActivity = request.DisableUserActivity
 
 	// Convert schedule
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
@@ -198,7 +207,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Audit log
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventTemplateUpdate,
@@ -283,6 +292,14 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.IconURL,
 		customFields,
 	)
+	template.HealthCheckType = request.HealthCheckType
+	template.HealthCheckConfig = request.HealthCheckConfig
+	template.HealthCheckSkipSSLVerify = request.HealthCheckSkipSSLVerify
+	template.HealthCheckTimeout = request.HealthCheckTimeout
+	template.HealthCheckInterval = request.HealthCheckInterval
+	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
+	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
+	template.DisableUserActivity = request.DisableUserActivity
 
 	templateService := service.GetTemplateService()
 	err = templateService.CreateTemplate(template, user)
@@ -292,7 +309,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Audit log
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventTemplateCreate,
@@ -311,6 +328,29 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		Status: true,
 		Id:     template.Id,
 	})
+}
+
+func HandleValidateTemplate(w http.ResponseWriter, r *http.Request) {
+	request := apiclient.TemplateValidateRequest{}
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	issues := specvalidate.ValidateTemplateSpec(request.Platform, request.Job, request.Volumes)
+	response := apiclient.ValidationResponse{
+		Valid:  len(issues) == 0,
+		Errors: make([]apiclient.ValidationError, 0, len(issues)),
+	}
+
+	for _, issue := range issues {
+		response.Errors = append(response.Errors, apiclient.ValidationError{
+			Field:   issue.Field,
+			Message: issue.Message,
+		})
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
 func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
@@ -352,7 +392,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Audit log
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventTemplateDelete,

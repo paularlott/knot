@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/logger"
 
-	_ "github.com/go-sql-driver/mysql"
+	gomysql "github.com/go-sql-driver/mysql"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/log"
 )
@@ -75,8 +75,16 @@ func (db *MySQLDriver) realConnect() error {
 	return err
 }
 
+// mysqlLogger routes MySQL driver messages through our logger.
+type mysqlLogger struct{ l logger.Logger }
+
+func (m *mysqlLogger) Print(v ...any) {
+	m.l.Info(fmt.Sprint(v...))
+}
+
 func (db *MySQLDriver) Connect() error {
 	db.logger = log.WithGroup("db")
+	gomysql.SetLogger(&mysqlLogger{l: db.logger}) //nolint:errcheck
 	err := db.realConnect()
 	if err == nil {
 		err := db.initialize()

@@ -2,24 +2,24 @@
 <div x-data="userRolesForm(roleFormModal.isEdit, roleFormModal.roleId)" x-init="initData()">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
-    <section class="form-section">
-      <h4 class="form-section-title">Role Identity</h4>
-      <div class="mt-4">
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
+      <div>
         <label for="name" class="form-label">Name</label>
         <input type="text" name="name" id="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Role name" x-model="formData.name">
         <div x-show="!nameValid" class="error-message" x-cloak>Role name can be a max 64 characters.</div>
       </div>
-    </section>
-    <section class="form-section">
-      <h4 class="form-section-title">Permissions</h4>
-      <p class="form-section-copy">Choose the capabilities this role grants throughout Knot.</p>
-      <label class="flex items-center cursor-pointer mb-4 mt-4">
+    </fieldset>
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Permissions</legend>
+      <div class="description mb-4">Choose the capabilities this role grants throughout Knot.</div>
+      <label class="flex items-center cursor-pointer mb-4">
         <input type="checkbox" class="sr-only peer" id="select-all-permissions" @change="toggleSelectAllPermissions($event)">
         <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
         <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Select All Permissions</span>
       </label>
       <template x-for="(perms, group) in groupedPermissions" :key="group">
-        <div class="mt-6 rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+        <div class="mt-4 first:mt-0 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <div class="font-semibold text-gray-700 dark:text-gray-200 mb-2" x-text="group"></div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <template x-for="(perm, index) in perms" :key="perm.id">
@@ -32,7 +32,7 @@
           </div>
         </div>
       </template>
-    </section>
+    </fieldset>
     <div class="form-actions">
       <button type="button" @click="roleFormModal.show = false" class="form-cancel" x-text="isEdit ? 'Discard' : 'Cancel'"></button>
       <button type="submit" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>

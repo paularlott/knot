@@ -13,6 +13,36 @@
 
 import knot.apiclient as api
 
+
+def _resolve_dependency_ids(depends_on):
+    """Resolve dependency names or IDs to space IDs."""
+    resolved = []
+    for dependency in depends_on or []:
+        space = get(dependency)
+        dependency_id = space.get("id")
+        if not dependency_id:
+            raise Exception(f"Space not found: {dependency}")
+        resolved.append(dependency_id)
+    return resolved
+
+
+def _build_space_update_body(space, **overrides):
+    """Build a full update body preserving existing mutable fields."""
+    body = {
+        "name": space.get("name"),
+        "description": space.get("description", ""),
+        "template_id": space.get("template_id"),
+        "shell": space.get("shell"),
+        "alt_names": space.get("alt_names", []),
+        "icon_url": space.get("icon_url", ""),
+        "custom_fields": space.get("custom_fields", []),
+        "startup_script_id": space.get("startup_script_id", ""),
+        "depends_on": space.get("depends_on", []),
+        "stack": space.get("stack", ""),
+    }
+    body.update(overrides)
+    return body
+
 def list():
     """List all spaces for the current user.
 
@@ -34,7 +64,9 @@ def list():
             "id": space.get("space_id"),
             "name": space.get("name"),
             "description": space.get("description", ""),
-            "is_running": space.get("is_deployed", False)
+            "is_running": space.get("is_deployed", False),
+            "depends_on": space.get("depends_on", []),
+            "stack": space.get("stack", ""),
         })
 
     return result
@@ -55,8 +87,7 @@ def get(name):
         - template_name: Template name
         - user_id: Owner user ID
         - username: Owner username
-        - shared_user_id: Shared user ID (if shared)
-        - shared_username: Shared username (if shared)
+        - shares: List of shared user IDs
         - shell: Default shell
         - platform: Platform (e.g., "linux/amd64")
         - zone: Zone name
@@ -79,8 +110,8 @@ def get(name):
         "template_name": response.get("template_name"),
         "user_id": response.get("user_id"),
         "username": response.get("username"),
-        "shared_user_id": response.get("shared_user_id"),
-        "shared_username": response.get("shared_username"),
+        "shares": response.get("shares", []),
+        "depends_on": response.get("depends_on", []),
         "shell": response.get("shell"),
         "platform": response.get("platform"),
         "zone": response.get("zone"),
@@ -88,11 +119,16 @@ def get(name):
         "is_pending": response.get("is_pending", False),
         "is_deleting": response.get("is_deleting", False),
         "node_hostname": response.get("node_hostname", ""),
-        "created_at": response.get("created_at", "")
+        "created_at": response.get("created_at", ""),
+        "alt_names": response.get("alt_names", []),
+        "icon_url": response.get("icon_url", ""),
+        "custom_fields": response.get("custom_fields", []),
+        "startup_script_id": response.get("startup_script_id", ""),
+        "stack": response.get("stack", ""),
     }
 
 
-def create(name, template_name, description="", shell="bash"):
+def create(name, template_name, description="", shell="bash", depends_on=None, stack=""):
     """Create a new space.
 
     Args:
@@ -100,6 +136,8 @@ def create(name, template_name, description="", shell="bash"):
         template_name: Name of the template to use
         description: Optional description
         shell: Shell to use (default: "bash")
+        depends_on: Optional list of dependency space names or IDs
+        stack: Optional stack name to group this space under
 
     Returns:
         The new space ID
@@ -123,7 +161,9 @@ def create(name, template_name, description="", shell="bash"):
         "name": name,
         "template_id": template_id,
         "description": description,
-        "shell": shell
+        "shell": shell,
+        "depends_on": _resolve_dependency_ids(depends_on),
+        "stack": stack,
     }
 
     response = api.post("/api/spaces", body)
@@ -226,12 +266,7 @@ def set_description(name, description):
     # Get current space data
     space = get(name)
 
-    body = {
-        "name": space.get("name"),
-        "description": description,
-        "template_id": space.get("template_id"),
-        "shell": space.get("shell")
-    }
+    body = _build_space_update_body(space, description=description)
 
     api.put(f"/api/spaces/{name}", body)
     return True
@@ -251,6 +286,57 @@ def get_description(name):
     """
     space = get(name)
     return space.get("description", "")
+
+
+def get_dependencies(name):
+    """Get the dependency space IDs for a space."""
+    space = get(name)
+    return space.get("depends_on", [])
+
+
+def set_dependencies(name, depends_on):
+    """Set the dependency spaces for a space.
+
+    Args:
+        name: Space name or ID
+        depends_on: List of dependency space names or IDs
+    """
+    space = get(name)
+    body = _build_space_update_body(
+        space,
+        depends_on=_resolve_dependency_ids(depends_on),
+    )
+    api.put(f"/api/spaces/{name}", body)
+    return True
+
+
+def get_stack(name):
+    """Get the stack name for a space.
+
+    Args:
+        name: Space name or ID
+
+    Returns:
+        The stack name string (empty string if unstacked)
+    """
+    space = get(name)
+    return space.get("stack", "")
+
+
+def set_stack(name, stack):
+    """Set the stack name for a space.
+
+    Args:
+        name: Space name or ID
+        stack: Stack name (empty string to unstack)
+
+    Returns:
+        True if successful
+    """
+    space = get(name)
+    body = _build_space_update_body(space, stack=stack)
+    api.put(f"/api/spaces/{name}", body)
+    return True
 
 
 def get_field(name, field):
@@ -310,12 +396,12 @@ def transfer(name, user_id):
     return True
 
 
-def share(name, user_id):
-    """Share a space with another user.
+def share(name, user_ids):
+    """Share a space with one or more users.
 
     Args:
         name: Space name or ID
-        user_id: User ID, username, or email to share with
+        user_ids: User ID, username, email, or a list of those values
 
     Returns:
         True if successful
@@ -323,16 +409,19 @@ def share(name, user_id):
     Raises:
         Exception if not configured or on API error
     """
-    body = {"user_id": user_id}
-    api.post(f"/api/spaces/{name}/share", body)
+    if not isinstance(user_ids, list):
+        user_ids = [user_ids]
+    api.post(f"/api/spaces/{name}/share", {"shares": user_ids})
     return True
 
 
-def unshare(name):
+def unshare(name, user_id=None):
     """Remove a space share.
 
     Args:
         name: Space name or ID
+        user_id: Optional user ID, username, or email to remove sharing for.
+                 If omitted, owners stop all sharing and recipients leave.
 
     Returns:
         True if successful
@@ -340,7 +429,10 @@ def unshare(name):
     Raises:
         Exception if not configured or on API error
     """
-    api.delete(f"/api/spaces/{name}/share")
+    path = f"/api/spaces/{name}/share"
+    if user_id:
+        path += f"?user_id={user_id}"
+    api.delete(path)
     return True
 
 
@@ -439,7 +531,7 @@ def write_file(name, file_path, content):
     return True
 
 
-def port_forward(source_space, local_port, remote_space, remote_port):
+def port_forward(source_space, local_port, remote_space, remote_port, persistent=False, force=False):
     """Forward a local port to a remote space port.
 
     Args:
@@ -447,6 +539,8 @@ def port_forward(source_space, local_port, remote_space, remote_port):
         local_port: Local port number
         remote_space: Remote space name or ID
         remote_port: Remote port number
+        persistent: Persist the forward across agent restarts (default False)
+        force: Create the forward even if the target space is not running (default False)
 
     Returns:
         True if successful
@@ -457,7 +551,9 @@ def port_forward(source_space, local_port, remote_space, remote_port):
     body = {
         "local_port": local_port,
         "space": remote_space,
-        "remote_port": remote_port
+        "remote_port": remote_port,
+        "persistent": persistent,
+        "force": force,
     }
     api.post(f"/space-io/{source_space}/port/forward", body)
     return True
@@ -507,3 +603,33 @@ def port_stop(name, local_port):
     body = {"local_port": local_port}
     api.post(f"/space-io/{name}/port/stop", body)
     return True
+
+
+def port_apply(source_space, forwards):
+    """Replace all port forwards with the given list.
+
+    Stops any existing forwards not in the list and starts any new ones.
+    Forwards that already exist with the same local_port, space, and
+    remote_port are left unchanged.
+
+    Args:
+        source_space: Source space name or ID
+        forwards: List of dicts, each containing:
+            - local_port: Local port number
+            - space: Remote space name or ID
+            - remote_port: Remote port number
+            Optional keys:
+            - persistent: bool (default False)
+            - force: bool (default False)
+
+    Returns:
+        A dict containing:
+        - applied: List of forwards that were started
+        - stopped: List of forwards that were stopped
+        - errors: List of error messages (if any)
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    body = {"forwards": forwards}
+    return api.post(f"/space-io/{source_space}/port/apply", body)

@@ -282,6 +282,10 @@ func ApiPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionViewAuditLogs, "No permission to view audit logs")
 }
 
+func ApiPermissionDownloadAuditLogs(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionDownloadAuditLogs, "No permission to download audit logs")
+}
+
 func ApiPermissionViewClusterInfo(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionClusterInfo, "No permission to view cluster info")
 }

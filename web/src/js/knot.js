@@ -32,6 +32,7 @@ import './pages/volumeListComponent.js';
 import './pages/volumeForm.js';
 import './pages/spaceForm.js';
 import './pages/spacesListComponent.js';
+import './pages/spaceUsageComponent.js';
 import './pages/usageComponent.js';
 import './pages/tunnelsListComponent.js';
 import './pages/auditLogComponent.js';
@@ -40,6 +41,8 @@ import './pages/scriptListComponent.js';
 import './pages/scriptForm.js';
 import './pages/skillListComponent.js';
 import './pages/skillForm.js';
+import './pages/stackDefinitionBuilder.js';
+import './pages/stackListComponent.js';
 import './components/chat.js';
 
 import './terminal.js';

@@ -55,6 +55,9 @@ func TestNewSpace(t *testing.T) {
 	if space.VolumeData == nil {
 		t.Error("VolumeData should be initialized")
 	}
+	if len(space.DependsOn) != 0 {
+		t.Errorf("Expected no dependencies, got %d", len(space.DependsOn))
+	}
 }
 
 func TestMaxUptimeReached(t *testing.T) {
@@ -166,5 +169,20 @@ func TestVolumeDataMapValueScan(t *testing.T) {
 	}
 	if scanned["vol1"].Id != "volume-123" {
 		t.Errorf("Expected volume ID 'volume-123', got '%s'", scanned["vol1"].Id)
+	}
+}
+
+func TestNormalizeDependsOn(t *testing.T) {
+	space := &Space{
+		DependsOn: []string{"dep-1", "", "dep-2", "dep-1", "dep-2"},
+	}
+
+	space.NormalizeDependsOn()
+
+	if len(space.DependsOn) != 2 {
+		t.Fatalf("Expected 2 dependencies, got %d", len(space.DependsOn))
+	}
+	if space.DependsOn[0] != "dep-1" || space.DependsOn[1] != "dep-2" {
+		t.Fatalf("Unexpected dependencies: %#v", space.DependsOn)
 	}
 }

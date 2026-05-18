@@ -9,6 +9,12 @@ import "ace-builds/src-noconflict/mode-text";
 import "ace-builds/src-noconflict/theme-github";
 import "ace-builds/src-noconflict/theme-github_dark";
 import "ace-builds/src-noconflict/ext-searchbox";
+import "ace-builds/src-noconflict/ext-language_tools";
+import { setSpecCompleter } from "./aceSpecCompleter.js";
+import {
+  localVolumeSpecCompletions,
+  nomadVolumeSpecCompletions,
+} from "./specCompletions.js";
 
 window.volumeForm = function (isEdit, volumeId) {
   return {
@@ -26,6 +32,8 @@ window.volumeForm = function (isEdit, volumeId) {
     showPlatformWarning: false,
     availableNodes: [],
     loadingNodes: false,
+    specErrors: [],
+    volumeEditor: null,
 
     async initData() {
       focus.Element('input[name="name"]');
@@ -57,9 +65,13 @@ window.volumeForm = function (isEdit, volumeId) {
 
       // Create the volume editor
       const editorVol = ace.edit("vol");
+      this.volumeEditor = editorVol;
       editorVol.session.setValue(this.formData.definition);
       editorVol.session.on("change", () => {
         this.formData.definition = editorVol.getValue();
+        this.specErrors = [];
+        this.volValid = true;
+        editorVol.session.clearAnnotations();
       });
       editorVol.setTheme(
         darkMode ? "ace/theme/github_dark" : "ace/theme/github",
@@ -74,6 +86,15 @@ window.volumeForm = function (isEdit, volumeId) {
         customScrollbar: true,
         useWorker: false,
       });
+
+      this.$watch("formData.platform", () => {
+        this.applyVolumeCompleter();
+        this.specErrors = [];
+        this.volValid = true;
+        this.volumeEditor.session.clearAnnotations();
+      });
+
+      this.applyVolumeCompleter();
 
       // Listen for the theme_change event on the body & change the editor theme
       window.addEventListener("theme-change", (e) => {
@@ -128,6 +149,51 @@ window.volumeForm = function (isEdit, volumeId) {
       this.volValid = validate.required(this.formData.definition);
       return this.volValid;
     },
+    applyVolumeCompleter() {
+      if (!this.volumeEditor) {
+        return;
+      }
+
+      setSpecCompleter(
+        this.volumeEditor,
+        this.formData.platform === "nomad"
+          ? nomadVolumeSpecCompletions
+          : localVolumeSpecCompletions,
+      );
+    },
+    setEditorErrors(messages) {
+      if (!this.volumeEditor) {
+        return;
+      }
+
+      this.volumeEditor.session.setAnnotations(
+        messages.map((message, index) => ({
+          row: index,
+          column: 0,
+          text: message,
+          type: "error",
+        })),
+      );
+    },
+    async validateSpec() {
+      const response = await fetch("/api/volumes/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform: this.formData.platform,
+          definition: this.formData.definition,
+        }),
+      });
+
+      const result = await response.json();
+      this.specErrors = (result.errors || []).map((error) => error.message);
+      this.volValid = this.specErrors.length === 0;
+      this.setEditorErrors(this.specErrors);
+
+      return response.ok && !!result.valid;
+    },
     checkPlatform() {
       return validate.isOneOf(this.formData.platform, [
         "docker",
@@ -145,6 +211,27 @@ window.volumeForm = function (isEdit, volumeId) {
       err = !this.checkVol() || err;
       err = !this.checkPlatform() || err;
       if (err) {
+        this.$dispatch("show-alert", {
+          msg: "Please fix the validation errors before saving",
+          type: "error",
+        });
+        return;
+      }
+
+      try {
+        const specValid = await this.validateSpec();
+        if (!specValid) {
+          this.$dispatch("show-alert", {
+            msg: "Please fix the volume definition errors before saving",
+            type: "error",
+          });
+          return;
+        }
+      } catch (error) {
+        self.$dispatch("show-alert", {
+          msg: `Failed to validate the volume, ${error.message}`,
+          type: "error",
+        });
         return;
       }
 

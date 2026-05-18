@@ -2,7 +2,9 @@ package apiclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
@@ -19,6 +21,8 @@ type SpaceRequest struct {
 	CustomFields    []CustomFieldValue `json:"custom_fields"`
 	SelectedNodeId  string             `json:"selected_node_id,omitempty"`
 	StartupScriptId string             `json:"startup_script_id,omitempty"`
+	DependsOn       []string           `json:"depends_on"`
+	Stack           string             `json:"stack"`
 }
 
 type CreateSpaceResponse struct {
@@ -30,36 +34,43 @@ type SpaceTransferRequest struct {
 	UserId string `json:"user_id"`
 }
 
+type SpaceShareUpdateRequest struct {
+	Shares []string `json:"shares,omitempty"`
+}
+
 type SpaceInfo struct {
-	Id              string            `json:"space_id"`
-	Name            string            `json:"name"`
-	Description     string            `json:"description"`
-	Note            string            `json:"note"`
-	TemplateName    string            `json:"template_name"`
-	TemplateId      string            `json:"template_id"`
-	Zone            string            `json:"zone"`
-	Username        string            `json:"username"`
-	UserId          string            `json:"user_id"`
-	Platform        string            `json:"platform"`
-	SharedUserId    string            `json:"shared_user_id"`
-	SharedUsername  string            `json:"shared_username"`
-	HasCodeServer   bool              `json:"has_code_server"`
-	HasSSH          bool              `json:"has_ssh"`
-	HasHttpVNC      bool              `json:"has_http_vnc"`
-	HasTerminal     bool              `json:"has_terminal"`
-	HasState        bool              `json:"has_state"`
-	IsDeployed      bool              `json:"is_deployed"`
-	IsPending       bool              `json:"is_pending"`
-	IsDeleting      bool              `json:"is_deleting"`
-	TcpPorts        map[string]string `json:"tcp_ports"`
-	HttpPorts       map[string]string `json:"http_ports"`
-	UpdateAvailable bool              `json:"update_available"`
-	IsRemote        bool              `json:"is_remote"`
-	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
-	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
-	StartedAt       time.Time         `json:"started_at"`
-	IconURL         string            `json:"icon_url"`
-	NodeHostname    string            `json:"node_hostname"`
+	Id              string              `json:"space_id"`
+	Name            string              `json:"name"`
+	Description     string              `json:"description"`
+	Note            string              `json:"note"`
+	TemplateName    string              `json:"template_name"`
+	TemplateId      string              `json:"template_id"`
+	Zone            string              `json:"zone"`
+	Username        string              `json:"username"`
+	UserId          string              `json:"user_id"`
+	Platform        string              `json:"platform"`
+	Shares          []string            `json:"shares"`
+	DependsOn       []string            `json:"depends_on"`
+	HasCodeServer   bool                `json:"has_code_server"`
+	HasSSH          bool                `json:"has_ssh"`
+	HasHttpVNC      bool                `json:"has_http_vnc"`
+	HasTerminal     bool                `json:"has_terminal"`
+	HasState        bool                `json:"has_state"`
+	IsDeployed      bool                `json:"is_deployed"`
+	IsPending       bool                `json:"is_pending"`
+	IsDeleting      bool                `json:"is_deleting"`
+	TcpPorts        map[string]string   `json:"tcp_ports"`
+	HttpPorts       map[string]string   `json:"http_ports"`
+	UpdateAvailable bool                `json:"update_available"`
+	IsRemote        bool                `json:"is_remote"`
+	HasVSCodeTunnel bool                `json:"has_vscode_tunnel"`
+	VSCodeTunnel    string              `json:"vscode_tunnel_name"`
+	StartedAt       time.Time           `json:"started_at"`
+	IconURL         string              `json:"icon_url"`
+	Healthy         bool                `json:"healthy"`
+	NodeHostname    string              `json:"node_hostname"`
+	Stack           string              `json:"stack"`
+	ResourceUsage   *SpaceResourceUsage `json:"resource_usage,omitempty"`
 }
 
 type SpaceInfoList struct {
@@ -86,8 +97,8 @@ type SpaceDefinition struct {
 	SpaceId            string                       `json:"space_id"`
 	UserId             string                       `json:"user_id"`
 	TemplateId         string                       `json:"template_id"`
-	SharedUserId       string                       `json:"shared_user_id"`
-	SharedUsername     string                       `json:"shared_username"`
+	Shares             []string                     `json:"shares"`
+	DependsOn          []string                     `json:"depends_on"`
 	Name               string                       `json:"name"`
 	Description        string                       `json:"description"`
 	Note               string                       `json:"note"`
@@ -117,8 +128,42 @@ type SpaceDefinition struct {
 	UpdateAvailable    bool                         `json:"update_available"`
 	HasVSCodeTunnel    bool                         `json:"has_vscode_tunnel"`
 	VSCodeTunnel       string                       `json:"vscode_tunnel_name"`
+	Healthy            bool                         `json:"healthy"`
 	IsRemote           bool                         `json:"is_remote"`
 	NodeHostname       string                       `json:"node_hostname"`
+	Stack              string                       `json:"stack"`
+	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`
+}
+
+type SpaceResourceUsage struct {
+	CPUPercent       float64 `json:"cpu_percent"`
+	MemoryUsedBytes  uint64  `json:"memory_used_bytes"`
+	MemoryLimitBytes uint64  `json:"memory_limit_bytes"`
+	DiskUsedBytes    uint64  `json:"disk_used_bytes"`
+	DiskLimitBytes   uint64  `json:"disk_limit_bytes"`
+}
+
+type SpaceActivityUsage struct {
+	WriteCount     uint32     `json:"write_count"`
+	CreateCount    uint32     `json:"create_count"`
+	DeleteCount    uint32     `json:"delete_count"`
+	RenameCount    uint32     `json:"rename_count"`
+	DistinctPaths  uint32     `json:"distinct_paths"`
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+}
+
+type SpaceUsagePoint struct {
+	BucketStart   time.Time           `json:"bucket_start"`
+	BucketKind    string              `json:"bucket_kind,omitempty"`
+	ResourceUsage *SpaceResourceUsage `json:"resource_usage,omitempty"`
+	ActivityUsage *SpaceActivityUsage `json:"activity_usage,omitempty"`
+}
+
+type SpaceUsageHistoryResponse struct {
+	SpaceId    string            `json:"space_id"`
+	Range      string            `json:"range,omitempty"`
+	BucketKind string            `json:"bucket_kind,omitempty"`
+	Points     []SpaceUsagePoint `json:"points"`
 }
 
 type RunCommandRequest struct {
@@ -157,6 +202,16 @@ type PortForwardInfo struct {
 
 type PortStopRequest struct {
 	LocalPort uint16 `json:"local_port"`
+}
+
+type PortApplyRequest struct {
+	Forwards []PortForwardRequest `json:"forwards"`
+}
+
+type PortApplyResponse struct {
+	Applied []PortForwardInfo `json:"applied"`
+	Stopped []PortForwardInfo `json:"stopped"`
+	Errors  []string          `json:"errors,omitempty"`
 }
 
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
@@ -242,6 +297,38 @@ func (c *ApiClient) RestartSpace(ctx context.Context, spaceId string) (int, erro
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/restart", nil, nil, 200)
 }
 
+func stackAction(c *ApiClient, ctx context.Context, stackName, action string) (int, error) {
+	// Stack operations block synchronously on the server (up to 120s per tier).
+	// Disable the default 10s client timeout for this call.
+	c.httpClient.SetTimeout(0)
+	defer c.httpClient.SetTimeout(10 * time.Second)
+
+	code, err := c.httpClient.PostJSON(ctx, "/api/spaces/stacks/"+stackName+"/"+action, nil, nil, 202)
+	if err != nil {
+		if idx := strings.Index(err.Error(), "{"); idx != -1 {
+			var body struct {
+				Error string `json:"error"`
+			}
+			if jsonErr := json.Unmarshal([]byte(err.Error()[idx:]), &body); jsonErr == nil && body.Error != "" {
+				return code, fmt.Errorf("%s", body.Error)
+			}
+		}
+	}
+	return code, err
+}
+
+func (c *ApiClient) StartStack(ctx context.Context, stackName string) (int, error) {
+	return stackAction(c, ctx, stackName, "start")
+}
+
+func (c *ApiClient) StopStack(ctx context.Context, stackName string) (int, error) {
+	return stackAction(c, ctx, stackName, "stop")
+}
+
+func (c *ApiClient) RestartStack(ctx context.Context, stackName string) (int, error) {
+	return stackAction(c, ctx, stackName, "restart")
+}
+
 func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId string) (int, error) {
 	request := &SpaceTransferRequest{
 		UserId: userId,
@@ -251,8 +338,16 @@ func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId st
 }
 
 func (c *ApiClient) AddShare(ctx context.Context, spaceId string, userId string) (int, error) {
-	request := &SpaceTransferRequest{
-		UserId: userId,
+	request := &SpaceShareUpdateRequest{
+		Shares: []string{userId},
+	}
+
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)
+}
+
+func (c *ApiClient) AddShares(ctx context.Context, spaceId string, shares []string) (int, error) {
+	request := &SpaceShareUpdateRequest{
+		Shares: shares,
 	}
 
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)
@@ -277,6 +372,15 @@ func (c *ApiClient) ListPorts(ctx context.Context, spaceId string) (*PortListRes
 
 func (c *ApiClient) StopPort(ctx context.Context, spaceId string, request *PortStopRequest) (int, error) {
 	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/stop", request, nil, 200)
+}
+
+func (c *ApiClient) ApplyPorts(ctx context.Context, spaceId string, request *PortApplyRequest) (*PortApplyResponse, int, error) {
+	response := &PortApplyResponse{}
+	code, err := c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/apply", request, response, 200)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
 }
 
 func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*SpaceDefinition, error) {

@@ -61,13 +61,18 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/spaces/{space_id}/custom-field/{field_name}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceCustomField)))
 	router.HandleFunc("DELETE /api/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleDeleteSpace)))
 	router.HandleFunc("GET /api/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpace)))
+	router.HandleFunc("GET /api/spaces/{space_id}/usage/current", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceUsageCurrent)))
+	router.HandleFunc("GET /api/spaces/{space_id}/usage/history", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceUsageHistory)))
 	router.HandleFunc("POST /api/spaces/{space_id}/start", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStart)))
 	router.HandleFunc("POST /api/spaces/{space_id}/stop", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStop)))
 	router.HandleFunc("POST /api/spaces/{space_id}/restart", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceRestart)))
 	router.HandleFunc("POST /api/spaces/{user_id}/stop-for-user", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStopUsersSpaces)))
 	router.HandleFunc("POST /api/spaces/{space_id}/transfer", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceTransfer)))
 	router.HandleFunc("POST /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceAddShare)))
-	router.HandleFunc("DELETE /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceRemoveShare)))
+	router.HandleFunc("DELETE /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceRemoveShare)))
+	router.HandleFunc("POST /api/spaces/stacks/{stack_name}/start", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleStackStart)))
+	router.HandleFunc("POST /api/spaces/stacks/{stack_name}/stop", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleStackStop)))
+	router.HandleFunc("POST /api/spaces/stacks/{stack_name}/restart", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleStackRestart)))
 	router.HandleFunc("POST /api/spaces/{space_id}/files/read", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleReadSpaceFile)))
 	router.HandleFunc("POST /api/spaces/{space_id}/files/write", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleWriteSpaceFile)))
 	router.HandleFunc("POST /api/spaces/{space_id}/run-command", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleRunCommand)))
@@ -76,12 +81,14 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))
 	router.HandleFunc("GET /api/templates/{template_id}", middleware.ApiAuth(HandleGetTemplate))
 	router.HandleFunc("GET /api/templates/{template_id}/nodes", middleware.ApiAuth(HandleGetTemplateNodes))
+	router.HandleFunc("POST /api/templates/validate", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleValidateTemplate)))
 	router.HandleFunc("POST /api/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
 
 	// Volumes
 	router.HandleFunc("GET /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumes)))
+	router.HandleFunc("POST /api/volumes/validate", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleValidateVolume)))
 	router.HandleFunc("POST /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleCreateVolume)))
 	router.HandleFunc("GET /api/volumes/nodes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumeNodes)))
 	router.HandleFunc("PUT /api/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleUpdateVolume)))
@@ -117,6 +124,14 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /api/skill/{skill_id}", middleware.ApiAuth(HandleUpdateSkill))
 	router.HandleFunc("DELETE /api/skill/{skill_id}", middleware.ApiAuth(HandleDeleteSkill))
 
+	// Stack Definitions
+	router.HandleFunc("GET /api/stack-definitions", middleware.ApiAuth(HandleGetStackDefinitions))
+	router.HandleFunc("GET /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleGetStackDefinition))
+	router.HandleFunc("POST /api/stack-definitions/validate", middleware.ApiAuth(HandleValidateStackDefinition))
+	router.HandleFunc("POST /api/stack-definitions", middleware.ApiAuth(HandleCreateStackDefinition))
+	router.HandleFunc("PUT /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleUpdateStackDefinition))
+	router.HandleFunc("DELETE /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleDeleteStackDefinition))
+
 	// Tunnels
 	router.HandleFunc("GET /api/tunnels", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnels)))
 	router.HandleFunc("GET /api/tunnels/server-info", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnelServerInfo)))
@@ -124,6 +139,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Audit Logs
 	router.HandleFunc("GET /api/audit-logs", middleware.ApiAuth(middleware.ApiPermissionViewAuditLogs(HandleGetAuditLogs)))
+	router.HandleFunc("GET /api/audit-logs/export", middleware.ApiAuth(middleware.ApiPermissionDownloadAuditLogs(HandleExportAuditLogs)))
 
 	// Cluster Information
 	router.HandleFunc("GET /api/cluster-info", middleware.ApiAuth(middleware.ApiPermissionViewClusterInfo(HandleGetClusterInfo)))

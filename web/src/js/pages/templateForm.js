@@ -5,10 +5,22 @@ import { focus } from "../focus.js";
 import ace from "ace-builds/src-noconflict/ace";
 import "ace-builds/src-noconflict/mode-terraform";
 import "ace-builds/src-noconflict/mode-yaml";
+import "ace-builds/src-noconflict/mode-python";
 import "ace-builds/src-noconflict/mode-text";
 import "ace-builds/src-noconflict/theme-github";
 import "ace-builds/src-noconflict/theme-github_dark";
 import "ace-builds/src-noconflict/ext-searchbox";
+import "ace-builds/src-noconflict/ext-language_tools";
+import "ace-builds/src-noconflict/snippets/python";
+import "./aceEditorCompleter.js";
+import { setSpecCompleter } from "./aceSpecCompleter.js";
+import {
+  containerSpecCompletions,
+  localVolumeSpecCompletions,
+  nomadJobCompletions,
+  nomadVolumeSpecCompletions,
+} from "./specCompletions.js";
+import { scriptLibraries } from "./scriptCompletions.js";
 
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
@@ -40,6 +52,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       auto_start: false,
       is_managed: false,
       icon_url: "",
+      health_check_type: "none",
+      health_check_config: "",
+      health_check_skip_ssl_verify: false,
+      health_check_timeout: 10,
+      health_check_interval: 30,
+      health_check_max_failures: 3,
+      health_check_auto_restart: false,
       schedule: [
         {
           enabled: false,
@@ -82,7 +101,9 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     isEdit: isEdit,
     nameValid: true,
     jobValid: true,
+    jobRequired: false,
     volValid: true,
+    volRequired: false,
     computeUnitsValid: true,
     storageUnitsValid: true,
     uptimeValid: true,
@@ -92,6 +113,12 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     zoneValid: [],
     customFieldValid: [],
     showPlatformWarning: false,
+    specErrors: {
+      job: [],
+      volumes: [],
+    },
+    jobEditor: null,
+    volumeEditor: null,
 
     async initData() {
       focus.Element('input[name="name"]');
@@ -174,6 +201,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.startup_script_id = template.startup_script_id || "";
           this.formData.shutdown_script_id = template.shutdown_script_id || "";
           this.formData.is_managed = template.is_managed || false;
+          this.formData.health_check_type = template.health_check_type || "none";
+          this.formData.health_check_config = template.health_check_config || "";
+          this.formData.health_check_skip_ssl_verify = template.health_check_skip_ssl_verify || false;
+          this.formData.health_check_timeout = template.health_check_timeout || 10;
+          this.formData.health_check_interval = template.health_check_interval || 30;
+          this.formData.health_check_max_failures = template.health_check_max_failures || 3;
+          this.formData.health_check_auto_restart = template.health_check_auto_restart || false;
 
           // Set the zones and mark all as valid
           this.formData.zones = template.zones ? template.zones : [];
@@ -203,14 +237,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
 
       // Create the job editor
       const editor = ace.edit("job");
+      this.jobEditor = editor;
       editor.session.setValue(this.formData.job);
       editor.session.on("change", () => {
         this.formData.job = editor.getValue();
+        this.clearSpecFieldErrors("job");
       });
       editor.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
-      editor.session.setMode(
-        this.isLocalContainer() ? "ace/mode/yaml" : "ace/mode/terraform",
-      );
       editor.setOptions({
         printMargin: false,
         newLineMode: "unix",
@@ -223,14 +256,15 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
 
       // Create the volume editor
       const editorVol = ace.edit("vol");
+      this.volumeEditor = editorVol;
       editorVol.session.setValue(this.formData.volumes);
       editorVol.session.on("change", () => {
         this.formData.volumes = editorVol.getValue();
+        this.clearSpecFieldErrors("volumes");
       });
       editorVol.setTheme(
         darkMode ? "ace/theme/github_dark" : "ace/theme/github",
       );
-      editorVol.session.setMode("ace/mode/yaml");
       editorVol.setOptions({
         printMargin: false,
         newLineMode: "unix",
@@ -261,16 +295,56 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         useWorker: false,
       });
 
-      // Listen for the theme_change event on the body & change the editor theme
+      // Create the health check script editor
+      const editorHC = ace.edit("health_check_script");
+      editorHC.session.setValue(this.formData.health_check_config);
+      editorHC.session.on("change", () => {
+        if (this.formData.health_check_type === "custom") {
+          this.formData.health_check_config = editorHC.getValue();
+        }
+      });
+      editorHC.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
+      editorHC.session.setMode("ace/mode/python");
+      window.AceEditorCompleter.setup(editorHC, scriptLibraries, { debug: false });
+      editorHC.setOptions({
+        printMargin: false,
+        newLineMode: "unix",
+        tabSize: 2,
+        wrap: false,
+        vScrollBarAlwaysVisible: true,
+        customScrollbar: true,
+        useWorker: false,
+        enableBasicAutocompletion: true,
+        enableLiveAutocompletion: true,
+        enableSnippets: true,
+      });
+      this.$watch("formData.health_check_type", (val) => {
+        if (val === "custom") {
+          this.$nextTick(() => editorHC.resize());
+        }
+      });
+
+      this.$watch("formData.platform", () => {
+        this.applySpecEditors();
+        this.specErrors.job = [];
+        this.specErrors.volumes = [];
+        this.jobValid = true;
+        this.volValid = true;
+      });
+
+      this.applySpecEditors();
+
       window.addEventListener("theme-change", (e) => {
         if (e.detail.dark_theme) {
           editor.setTheme("ace/theme/github_dark");
           editorVol.setTheme("ace/theme/github_dark");
           editorDesc.setTheme("ace/theme/github_dark");
+          editorHC.setTheme("ace/theme/github_dark");
         } else {
           editor.setTheme("ace/theme/github");
           editorVol.setTheme("ace/theme/github");
           editorDesc.setTheme("ace/theme/github");
+          editorHC.setTheme("ace/theme/github");
         }
       });
 
@@ -303,9 +377,10 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       return this.nameValid;
     },
     checkJob() {
-      this.jobValid =
-        this.formData.platform === "manual" ||
-        validate.required(this.formData.job);
+      this.jobRequired =
+        this.formData.platform !== "manual" &&
+        !validate.required(this.formData.job);
+      this.jobValid = !this.jobRequired;
       return this.jobValid;
     },
     checkComputeUnits() {
@@ -352,6 +427,96 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       });
       return fieldsValid;
     },
+    applySpecEditors() {
+      if (!this.jobEditor || !this.volumeEditor) {
+        return;
+      }
+
+      this.jobEditor.session.setMode(
+        this.isLocalContainer() ? "ace/mode/yaml" : "ace/mode/terraform",
+      );
+      this.volumeEditor.session.setMode("ace/mode/yaml");
+
+      setSpecCompleter(
+        this.jobEditor,
+        this.isLocalContainer()
+          ? containerSpecCompletions
+          : nomadJobCompletions,
+      );
+      setSpecCompleter(
+        this.volumeEditor,
+        this.isLocalContainer()
+          ? localVolumeSpecCompletions
+          : nomadVolumeSpecCompletions,
+      );
+    },
+    clearSpecFieldErrors(field) {
+      if (field === "job") {
+        this.specErrors.job = [];
+        this.jobValid = !this.jobRequired;
+        if (this.jobEditor) {
+          this.jobEditor.session.clearAnnotations();
+        }
+      }
+
+      if (field === "volumes") {
+        this.specErrors.volumes = [];
+        this.volValid = !this.volRequired;
+        if (this.volumeEditor) {
+          this.volumeEditor.session.clearAnnotations();
+        }
+      }
+    },
+    setEditorErrors(editor, messages) {
+      if (!editor) {
+        return;
+      }
+
+      editor.session.setAnnotations(
+        messages.map((message, index) => ({
+          row: index,
+          column: 0,
+          text: message,
+          type: "error",
+        })),
+      );
+    },
+    async validateSpecs() {
+      if (this.formData.platform === "manual") {
+        this.clearSpecFieldErrors("job");
+        this.clearSpecFieldErrors("volumes");
+        return true;
+      }
+
+      const response = await fetch("/api/templates/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform: this.formData.platform,
+          job: this.formData.job,
+          volumes: this.formData.volumes,
+        }),
+      });
+
+      const result = await response.json();
+      const errors = result.errors || [];
+
+      this.specErrors.job = errors
+        .filter((error) => error.field === "job")
+        .map((error) => error.message);
+      this.specErrors.volumes = errors
+        .filter((error) => error.field === "volumes")
+        .map((error) => error.message);
+
+      this.jobValid = !this.jobRequired && this.specErrors.job.length === 0;
+      this.volValid = !this.volRequired && this.specErrors.volumes.length === 0;
+      this.setEditorErrors(this.jobEditor, this.specErrors.job);
+      this.setEditorErrors(this.volumeEditor, this.specErrors.volumes);
+
+      return response.ok && !!result.valid;
+    },
 
     async submitData(continueEditing = false) {
       let err = false;
@@ -362,6 +527,27 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       err = !this.checkZonesValid() || err;
       err = !this.checkCustomFieldsValid() || err;
       if (err) {
+        this.$dispatch("show-alert", {
+          msg: "Please fix the validation errors before saving",
+          type: "error",
+        });
+        return;
+      }
+
+      try {
+        const specsValid = await this.validateSpecs();
+        if (!specsValid) {
+          this.$dispatch("show-alert", {
+            msg: "Please fix the spec validation errors before saving",
+            type: "error",
+          });
+          return;
+        }
+      } catch (error) {
+        self.$dispatch("show-alert", {
+          msg: `Failed to validate the template, ${error.message}`,
+          type: "error",
+        });
         return;
       }
 
@@ -405,6 +591,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         platform: this.formData.platform,
         icon_url: this.formData.icon_url,
         custom_fields: this.formData.custom_fields,
+        health_check_type: this.formData.platform === "manual" ? "none" : this.formData.health_check_type,
+        health_check_config: this.formData.health_check_type === "none" ? "" : this.formData.health_check_config,
+        health_check_skip_ssl_verify: this.formData.health_check_skip_ssl_verify,
+        health_check_timeout: parseInt(this.formData.health_check_timeout) || 10,
+        health_check_interval: parseInt(this.formData.health_check_interval) || 30,
+        health_check_max_failures: parseInt(this.formData.health_check_max_failures) || 3,
+        health_check_auto_restart: this.formData.health_check_auto_restart,
       };
 
       await fetch(

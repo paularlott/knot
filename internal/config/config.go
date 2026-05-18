@@ -40,6 +40,7 @@ type ServerConfig struct {
 	BadgerDB                  BadgerDBConfig
 	Redis                     RedisConfig
 	Audit                     AuditConfig
+	LogOutput                 LogOutputConfig
 	Docker                    DockerConfig
 	Podman                    PodmanConfig
 	Nomad                     NomadConfig
@@ -118,7 +119,16 @@ type RedisConfig struct {
 }
 
 type AuditConfig struct {
-	Retention int
+	Retention   int
+	Routing     string // "internal" | "external" | "both"
+	AuditStream string // stream label for external log driver, defaults to "audit"
+}
+
+type LogOutputConfig struct {
+	URL     string
+	Format  string
+	Stream  string
+	Headers map[string]string
 }
 
 type DockerConfig struct {
@@ -183,7 +193,13 @@ const CONFIG_DIR = "knot"
 
 func InitCommonConfig(cmd *cli.Command) {
 	logLevel := cmd.GetString("log-level")
-	log.Configure(logLevel, "console", nil)
+
+	httpURL := cmd.GetString("log-output-url")
+	if httpURL != "" {
+		log.ConfigureWithHTTP(logLevel, httpURL, cmd.GetString("log-output-format"), cmd.GetString("log-output-stream"))
+	} else {
+		log.Configure(logLevel, "console", nil)
+	}
 
 	dns.UpdateNameservers(cmd.GetStringSlice("nameservers"))
 }

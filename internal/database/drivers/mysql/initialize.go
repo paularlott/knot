@@ -24,6 +24,7 @@ ssh_public_key TEXT DEFAULT '',
 github_username VARCHAR(255) DEFAULT '',
 roles JSON DEFAULT NULL,
 groups JSON DEFAULT NULL,
+external_auth_providers JSON DEFAULT NULL,
 active TINYINT(1) NOT NULL DEFAULT 1,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 max_spaces INT UNSIGNED NOT NULL DEFAULT 0,
@@ -62,7 +63,8 @@ space_id CHAR(36) PRIMARY KEY,
 parent_space_id CHAR(36) DEFAULT '',
 user_id CHAR(36),
 template_id CHAR(36) DEFAULT '',
-shared_with_user_id CHAR(36) DEFAULT '',
+shares JSON NOT NULL DEFAULT '[]',
+depends_on JSON NOT NULL DEFAULT '[]',
 startup_script_id CHAR(36) DEFAULT '',
 name VARCHAR(64),
 zone VARCHAR(64),
@@ -76,7 +78,9 @@ volume_data TEXT DEFAULT '{}',
 ssh_host_signer TEXT DEFAULT '',
 description TEXT DEFAULT '',
 note TEXT DEFAULT '',
+stack VARCHAR(255) DEFAULT '',
 custom_fields JSON NOT NULL DEFAULT '[]',
+port_forwards JSON NOT NULL DEFAULT '[]',
 is_deployed TINYINT(1) NOT NULL DEFAULT 0,
 is_pending TINYINT(1) NOT NULL DEFAULT 0,
 is_deleting TINYINT(1) NOT NULL DEFAULT 0,
@@ -88,8 +92,39 @@ INDEX user_id (user_id),
 INDEX template_id (template_id),
 UNIQUE INDEX name (user_id, name),
 INDEX parent_space_id (parent_space_id),
-INDEX shared_with_user_id (shared_with_user_id),
 INDEX idx_is_deleted (is_deleted)
+)`)
+	if err != nil {
+		return err
+	}
+
+	db.logger.Debug("creating space usage table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS space_usage (
+space_usage_id VARCHAR(64) PRIMARY KEY,
+space_id CHAR(36) NOT NULL,
+user_id CHAR(36) NOT NULL,
+bucket_kind VARCHAR(16) NOT NULL DEFAULT 'minute',
+bucket_start TIMESTAMP(6) NOT NULL,
+cpu_percent DOUBLE NOT NULL DEFAULT 0,
+memory_used_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+memory_limit_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+disk_used_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+disk_limit_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+activity_write_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_create_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_delete_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_rename_count INT UNSIGNED NOT NULL DEFAULT 0,
+activity_distinct_paths INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_starts INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_stops INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_creates INT UNSIGNED NOT NULL DEFAULT 0,
+activity_space_deletes INT UNSIGNED NOT NULL DEFAULT 0,
+last_activity_at TIMESTAMP(6) DEFAULT NULL,
+created_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX idx_space_usage_space_time (space_id, bucket_kind, bucket_start),
+INDEX idx_space_usage_user_time (user_id, bucket_kind, bucket_start),
+INDEX idx_space_usage_bucket (bucket_kind, bucket_start)
 )`)
 	if err != nil {
 		return err
@@ -127,6 +162,14 @@ compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 max_uptime INT UNSIGNED NOT NULL DEFAULT 0,
 max_uptime_unit VARCHAR(16) DEFAULT 'disabled',
+health_check_type VARCHAR(16) NOT NULL DEFAULT 'none',
+health_check_config TEXT NOT NULL DEFAULT '',
+health_check_skip_ssl_verify TINYINT(1) NOT NULL DEFAULT 0,
+health_check_timeout INT UNSIGNED NOT NULL DEFAULT 10,
+health_check_interval INT UNSIGNED NOT NULL DEFAULT 30,
+health_check_max_failures INT UNSIGNED NOT NULL DEFAULT 3,
+health_check_auto_restart TINYINT(1) NOT NULL DEFAULT 0,
+disable_user_activity TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
@@ -309,6 +352,31 @@ INDEX created_at (created_at)
 		return err
 	}
 
+	db.logger.Debug("creating stack_definitions table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS stack_definitions (
+	stack_definition_id CHAR(36) PRIMARY KEY,
+	user_id CHAR(36) NOT NULL DEFAULT '',
+	name VARCHAR(64) NOT NULL,
+	description TEXT DEFAULT '',
+	groups JSON NOT NULL DEFAULT '[]',
+	zones JSON NOT NULL DEFAULT '[]',
+	active TINYINT(1) NOT NULL DEFAULT 1,
+	is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+	is_managed TINYINT(1) NOT NULL DEFAULT 0,
+	components JSON NOT NULL DEFAULT '[]',
+	created_user_id CHAR(36) DEFAULT '',
+	created_at TIMESTAMP(6),
+	updated_user_id CHAR(36) DEFAULT '',
+	updated_at BIGINT UNSIGNED DEFAULT 0,
+	INDEX user_id (user_id),
+	UNIQUE INDEX user_name (user_id, name),
+	INDEX idx_active (active),
+	INDEX idx_is_deleted (is_deleted)
+	)`)
+	if err != nil {
+		return err
+	}
+
 	db.logger.Debug("creating configs table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS configs (
 name VARCHAR(64) PRIMARY KEY,
@@ -323,6 +391,7 @@ value MEDIUMTEXT
 provider_id VARCHAR(64) NOT NULL,
 provider_uid VARCHAR(255) NOT NULL,
 user_id CHAR(36) NOT NULL,
+refresh_token TEXT,
 PRIMARY KEY (provider_id, provider_uid),
 INDEX user_id (user_id)
 )`)
@@ -359,6 +428,11 @@ INDEX user_id (user_id)
 				if err != nil {
 					goto again
 				}
+			}
+
+			err = db.cleanupExpiredSpaceUsageSamples()
+			if err != nil {
+				goto again
 			}
 		}
 	}()

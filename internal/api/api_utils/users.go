@@ -165,16 +165,12 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 			}
 
 			// If space is shared then get the other users keys
-			if space.SharedWithUserId != "" {
-				var uid string
-
-				if space.UserId == user.Id {
-					uid = space.SharedWithUserId
-				} else {
-					uid = space.UserId
+			for _, sharedUserId := range space.SharedUserIds() {
+				if sharedUserId == user.Id {
+					continue
 				}
 
-				other, err := db.GetUser(uid)
+				other, err := db.GetUser(sharedUserId)
 				if err == nil && other != nil {
 					if other.SSHPublicKey != "" {
 						keys = append(keys, other.SSHPublicKey)

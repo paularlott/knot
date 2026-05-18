@@ -162,6 +162,37 @@ func (c *Cluster) sendToLeafNodes(msgType leafmsg.MessageType, payload interface
 			if len(filteredSkills) > 0 {
 				session.SendMessage(msgType, &filteredSkills)
 			}
+		} else if msgType == leafmsg.MessageGossipStackDefinition {
+			defs := payload.(*[]*model.StackDefinition)
+			filteredDefs := []*model.StackDefinition{}
+			for _, def := range *defs {
+				// Check if stack definition matches user's groups
+				matches := len(def.Groups) == 0
+				if !matches {
+					for _, groupId := range def.Groups {
+						for _, userGroupId := range session.user.Groups {
+							if groupId == userGroupId {
+								matches = true
+								break
+							}
+						}
+						if matches {
+							break
+						}
+					}
+				}
+				// If matches, send as-is; if doesn't match and not already deleted, mark as deleted
+				if matches {
+					filteredDefs = append(filteredDefs, def)
+				} else if !def.IsDeleted {
+					deletedDef := *def
+					deletedDef.IsDeleted = true
+					filteredDefs = append(filteredDefs, &deletedDef)
+				}
+			}
+			if len(filteredDefs) > 0 {
+				session.SendMessage(msgType, &filteredDefs)
+			}
 		} else {
 			session.SendMessage(msgType, payload)
 		}

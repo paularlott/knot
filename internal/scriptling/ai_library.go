@@ -17,7 +17,7 @@ func GetAILibrary(aiClient ai.Client) *object.Library {
 	builder := object.NewLibraryBuilder("knot.ai", "Knot AI client library")
 
 	builder.FunctionWithHelp("get_default_model", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return &object.String{Value: ""}
+		return object.NewString("")
 	}, `get_default_model() - Returns "" in embedded contexts; the server uses its configured default model when "" is passed to completion().`)
 
 	builder.FunctionWithHelp("Client", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {

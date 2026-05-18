@@ -220,3 +220,47 @@ func TestIsAdmin(t *testing.T) {
 		})
 	}
 }
+
+func TestSetOAuthTokensPreservesExistingRefreshToken(t *testing.T) {
+	user := &User{
+		ExternalAuthProviders: map[string]ExternalProvider{
+			"google": {ProviderUID: "123", Username: "alice"},
+		},
+	}
+	key := "0123456789abcdef0123456789abcdef"
+
+	user.SetOAuthTokens("google", "access-1", "refresh-1", key)
+	if got := user.GetOAuthToken("google", key); got != "access-1" {
+		t.Fatalf("GetOAuthToken() = %q, want access-1", got)
+	}
+	if got := user.GetOAuthRefreshToken("google", key); got != "refresh-1" {
+		t.Fatalf("GetOAuthRefreshToken() = %q, want refresh-1", got)
+	}
+
+	user.SetOAuthTokens("google", "access-2", "", key)
+	if got := user.GetOAuthToken("google", key); got != "access-2" {
+		t.Fatalf("GetOAuthToken() after update = %q, want access-2", got)
+	}
+	if got := user.GetOAuthRefreshToken("google", key); got != "refresh-1" {
+		t.Fatalf("GetOAuthRefreshToken() should be preserved, got %q", got)
+	}
+}
+
+func TestClearOAuthTokens(t *testing.T) {
+	user := &User{
+		ExternalAuthProviders: map[string]ExternalProvider{
+			"github": {ProviderUID: "123", Username: "alice"},
+		},
+	}
+	key := "0123456789abcdef0123456789abcdef"
+
+	user.SetOAuthTokens("github", "access", "refresh", key)
+	user.ClearOAuthTokens("github")
+
+	if got := user.GetOAuthToken("github", key); got != "" {
+		t.Fatalf("GetOAuthToken() = %q, want empty", got)
+	}
+	if got := user.GetOAuthRefreshToken("github", key); got != "" {
+		t.Fatalf("GetOAuthRefreshToken() = %q, want empty", got)
+	}
+}

@@ -24,6 +24,9 @@ func NewClient() *DockerClient {
 		log.WithGroup("docker").Error("failed to create docker client", "error", err)
 		return nil
 	}
+	// Container operations can legitimately take a long time while pulling images.
+	// Rely on the caller's context deadline instead of the shared REST default.
+	hc.SetTimeout(0)
 
 	return &DockerClient{
 		httpClient: hc,

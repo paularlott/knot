@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/portforward"
 
 	"github.com/paularlott/knot/internal/log"
@@ -40,15 +42,6 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 		return
 	}
 
-	// Check if port is already forwarded
-	if portforward.IsPortForwarded(portCmd.LocalPort) {
-		msg.WriteMessage(stream, &msg.PortForwardResponse{
-			Success: false,
-			Error:   "Port already forwarded",
-		})
-		return
-	}
-
 	// Get connection info from agent
 	server := agentClient.GetServerURL()
 	token := agentClient.GetAgentToken()
@@ -63,13 +56,67 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 
 	cfg := config.GetAgentConfig()
 
+	// When Force is not set, validate the target space
+	if !portCmd.Force {
+		client, err := apiclient.NewClient(server, token, cfg.TLS.SkipVerify)
+		if err != nil {
+			msg.WriteMessage(stream, &msg.PortForwardResponse{Success: false, Error: "failed to create API client"})
+			return
+		}
+
+		ctx := context.Background()
+		currentSpace, _, err := client.GetSpace(ctx, agentClient.GetSpaceId())
+		if err != nil {
+			msg.WriteMessage(stream, &msg.PortForwardResponse{Success: false, Error: "failed to get current space"})
+			return
+		}
+
+		spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId)
+		if err != nil {
+			msg.WriteMessage(stream, &msg.PortForwardResponse{Success: false, Error: "failed to get spaces"})
+			return
+		}
+
+		var targetSpace *apiclient.SpaceInfo
+		for i := range spaces.Spaces {
+			if spaces.Spaces[i].Name == portCmd.Space {
+				targetSpace = &spaces.Spaces[i]
+				break
+			}
+		}
+
+		if targetSpace == nil {
+			msg.WriteMessage(stream, &msg.PortForwardResponse{Success: false, Error: "target space not found"})
+			return
+		}
+
+		if !targetSpace.IsDeployed || !targetSpace.HasState {
+			msg.WriteMessage(stream, &msg.PortForwardResponse{Success: false, Error: "target space is not running"})
+			return
+		}
+	}
+
+	// Check if port is already forwarded
+	if portforward.IsPortForwarded(portCmd.LocalPort) {
+		msg.WriteMessage(stream, &msg.PortForwardResponse{
+			Success: false,
+			Error:   "Port already forwarded",
+		})
+		return
+	}
+
 	// Create context for this forward
 	forwardCtx, cancel := context.WithCancel(context.Background())
 	portforward.StartForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space, cancel)
 
 	if portCmd.Persistent {
-		if err := portforward.SaveForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space); err != nil {
-			log.WithError(err).Warn("Failed to persist port forward")
+		portforward.MarkPersistent(portCmd.LocalPort)
+		if err := agentClient.AddPortForward(model.PortForwardEntry{
+			LocalPort:  portCmd.LocalPort,
+			Space:      portCmd.Space,
+			RemotePort: portCmd.RemotePort,
+		}); err != nil {
+			log.WithError(err).Warn("Failed to persist port forward to server")
 		}
 	}
 
@@ -136,8 +183,8 @@ func handlePortStopExecution(stream net.Conn, portCmd msg.PortStopRequest, agent
 	}
 
 	portforward.StopForward(portCmd.LocalPort)
-	if err := portforward.RemoveForward(portCmd.LocalPort); err != nil {
-		log.WithError(err).Error("Failed to remove persistent port forward entry")
+	if err := agentClient.RemovePortForward(portCmd.LocalPort); err != nil {
+		log.WithError(err).Error("Failed to remove persistent port forward from server")
 	}
 	msg.WriteMessage(stream, &msg.PortStopResponse{
 		Success: true,

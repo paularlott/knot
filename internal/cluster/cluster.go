@@ -151,8 +151,12 @@ func NewCluster(
         cluster.gossipCluster.HandleFunc(ScriptGossipMsg, cluster.handleScriptGossip)
         cluster.gossipCluster.HandleFuncWithReply(SkillFullSyncMsg, cluster.handleSkillFullSync)
         cluster.gossipCluster.HandleFunc(SkillGossipMsg, cluster.handleSkillGossip)
+        cluster.gossipCluster.HandleFuncWithReply(StackDefinitionFullSyncMsg, cluster.handleStackDefinitionFullSync)
+        cluster.gossipCluster.HandleFunc(StackDefinitionGossipMsg, cluster.handleStackDefinitionGossip)
         cluster.gossipCluster.HandleFuncWithReply(ResponseFullSyncMsg, cluster.handleResponseFullSync)
         cluster.gossipCluster.HandleFunc(ResponseGossipMsg, cluster.handleResponseGossip)
+        cluster.gossipCluster.HandleFuncWithReply(SpaceUsageFullSyncMsg, cluster.handleSpaceUsageFullSync)
+        cluster.gossipCluster.HandleFunc(SpaceUsageGossipMsg, cluster.handleSpaceUsageGossip)
 
         if cluster.sessionGossip {
             cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
@@ -185,7 +189,9 @@ func NewCluster(
             cluster.gossipResourceLocks()
             cluster.gossipScripts()
             cluster.gossipSkills()
+            cluster.gossipStackDefinitions()
             cluster.gossipResponses()
+            cluster.gossipSpaceUsage()
             if cluster.sessionGossip {
                 cluster.gossipSessions()
             }
@@ -370,8 +376,16 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
                         c.logger.WithError(err).Error("failed to sync skills with node")
                     }
 
+                    if err := c.DoStackDefinitionFullSync(node); err != nil {
+                        c.logger.WithError(err).Error("failed to sync stack definitions with node")
+                    }
+
                     if err := c.DoResponseFullSync(node); err != nil {
                         c.logger.WithError(err).Error("failed to sync responses with node")
+                    }
+
+                    if err := c.DoSpaceUsageFullSync(node); err != nil {
+                        c.logger.WithError(err).Error("failed to sync space usage with node")
                     }
 
                     if c.sessionGossip {

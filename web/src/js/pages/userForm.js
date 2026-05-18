@@ -132,7 +132,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       }
     },
     checkUsername() {
-      this.usernameValid = validate.name(this.formData.username);
+      this.usernameValid = validate.username(this.formData.username);
       return this.usernameValid;
     },
     checkEmail() {
@@ -242,6 +242,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,
+        totp_secret: this.formData.totp_secret,
       };
 
       fetch(isEdit ? `/api/users/${userId}` : "/api/users", {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 func (c *AgentClient) SendSpaceNote(note string) error {
@@ -153,6 +154,65 @@ func (c *AgentClient) SendSpaceRestart() error {
 			if err == nil {
 				break
 			}
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func (c *AgentClient) AddPortForward(entry model.PortForwardEntry) error {
+	c.serverListMutex.RLock()
+	defer c.serverListMutex.RUnlock()
+
+	var errs []error
+
+	for _, server := range c.serverList {
+		if server.muxSession != nil && !server.muxSession.IsClosed() {
+			conn, err := server.muxSession.Open()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to open mux session for server %v: %w", server, err))
+				continue
+			}
+
+			err = msg.SendAddPortForward(conn, entry)
+			conn.Close()
+
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to send add port forward to server %v: %w", server, err))
+				continue
+			}
+
+			// Sent to one server, that's enough
+			return nil
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func (c *AgentClient) RemovePortForward(localPort uint16) error {
+	c.serverListMutex.RLock()
+	defer c.serverListMutex.RUnlock()
+
+	var errs []error
+
+	for _, server := range c.serverList {
+		if server.muxSession != nil && !server.muxSession.IsClosed() {
+			conn, err := server.muxSession.Open()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to open mux session for server %v: %w", server, err))
+				continue
+			}
+
+			err = msg.SendRemovePortForward(conn, localPort)
+			conn.Close()
+
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to send remove port forward to server %v: %w", server, err))
+				continue
+			}
+
+			return nil
 		}
 	}
 

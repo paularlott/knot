@@ -4,8 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -58,6 +56,8 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	scriptlingmcp.RegisterToolHelpers(env)
 	extlibs.RegisterTOMLLibrary(env)
 	extlibs.RegisterWebSocketLibrary(env)
+	extlibs.RegisterTemplateHTMLLibrary(env)
+	extlibs.RegisterTemplateTextLibrary(env)
 }
 
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments
@@ -79,7 +79,7 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 	}
 }
 
-// registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob)
+// registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob, scriptling.grep, scriptling.sed)
 // and interactive agent support
 func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterSubprocessLibrary(env)
@@ -91,6 +91,8 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 
 	scriptlingconsole.Register(env) // scriptling.console
+	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
+	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil) // scriptling.glob
@@ -235,79 +237,6 @@ func createServerAIClient(client *apiclient.ApiClient, user *model.User) ai.Clie
 	return serverClient
 }
 
-// buildLocalLibDirs constructs the ordered list of library search directories for local execution,
-// mirroring scriptling-cli behaviour: script dir (or cwd) first, then extra paths, then configured libdir.
-func buildLocalLibDirs(scriptFile string, extraLibPaths []string) []string {
-	var dirs []string
-
-	// Script dir or cwd first
-	if scriptFile != "" {
-		dirs = append(dirs, filepath.Dir(scriptFile))
-	} else {
-		if cwd, err := os.Getwd(); err == nil {
-			dirs = append(dirs, cwd)
-		}
-	}
-
-	// Additional paths from --libpath
-	for _, d := range extraLibPaths {
-		if d != "" {
-			dirs = append(dirs, d)
-		}
-	}
-
-	// Configured libdir last
-	cfg := config.GetServerConfig()
-	if cfg != nil && cfg.LibDir != "" {
-		dirs = append(dirs, cfg.LibDir)
-	}
-
-	return dirs
-}
-
-// NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent.
-// scriptFile is the path to the script being run (used to derive the lib search dir); pass "" for stdin/interactive.
-// extraLibPaths are additional directories to search for libraries (e.g. from --libpath flags).
-// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
-// On-demand loading: script dir → extra paths → libdir → server API
-// Output: Uses stdin/stdout directly with zero buffering
-func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, scriptFile string, extraLibPaths []string) (*scriptling.Scriptling, error) {
-	env := scriptling.New()
-	env.SetOutputWriter(os.Stdout)
-	registerBaseLibraries(env, nil)
-	registerFullSystemLibraries(env)
-	agent.RegisterInteract(env)
-
-	// Create AI client that connects to the server's OpenAI endpoint
-	aiClient := createServerAIClient(client, nil)
-
-	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
-
-	// Set up library loader chain: knot libs → script dir → extra paths → libdir → server API → fetcher
-	var loaders []libloader.LibraryLoader
-
-	// Knot Python libs first
-	loaders = append(loaders, newKnotLibsLoader())
-
-	for _, dir := range buildLocalLibDirs(scriptFile, extraLibPaths) {
-		loaders = append(loaders, libloader.NewFilesystem(dir))
-	}
-
-	// Add server API loader or fetcher loader
-	if client != nil {
-		loaders = append(loaders, newServerLibraryLoader(client))
-	} else if libraryFetcher != nil {
-		loaders = append(loaders, newFetcherLoader())
-	}
-
-	if len(loaders) > 0 {
-		env.SetLibraryLoader(libloader.NewChain(loaders...))
-	}
-
-	extlibs.RegisterSysLibrary(env, argv, os.Stdin)
-	return env, nil
-}
-
 // NewMCPScriptlingEnv creates a scriptling environment for MCP tool execution
 // Libraries: stdlib, requests, secrets, htmlparser, knot.space, knot.ai, knot.mcp, knot.user, knot.group, knot.role, knot.template, knot.vars, knot.volume, knot.permission
 // On-demand loading: Enabled - fetches from server only
@@ -344,8 +273,18 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]objec
 	return env, mcpLib, nil
 }
 
+// NewHealthCheckScriptlingEnv creates a minimal scriptling environment for health check scripts.
+// Registers the knot.healthcheck built-in library only — no system access, no API client.
+func NewHealthCheckScriptlingEnv() (*scriptling.Scriptling, error) {
+	env := scriptling.New()
+	env.EnableOutputCapture()
+	stdlib.RegisterAll(env)
+	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
+	return env, nil
+}
+
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
-// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
+// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, scriptling.grep, scriptling.sed, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
 // Output: Captured and returned for user scripts, discarded for system scripts (startup/shutdown)
@@ -368,7 +307,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 }
 
 // NewRemoteStreamingScriptlingEnv creates a scriptling environment for streaming remote execution
-// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
+// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, scriptling.grep, scriptling.sed, knot.space, knot.ai, knot.mcp
 // Note: scriptling.console and scriptling.ai.agent.interact are registered after env creation in execute_script_stream.go
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
@@ -386,6 +325,8 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 	// scriptling.console intentionally not registered here — registered via registerConsoleStub in execute_script_stream.go
 	// scriptling.ai.agent.interact intentionally not registered here — registered via agent.RegisterInteract in execute_script_stream.go
+	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
+	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil)
@@ -399,27 +340,4 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 		env.SetObjectVar("input", extlibs.NewInputBuiltin(input))
 	}
 	return env, nil
-}
-
-// RunScript executes a script with local environment.
-// scriptFile is the path to the script file on disk (used for lib path resolution); pass "" if not applicable.
-// extraLibPaths are additional directories to search for libraries.
-func RunScript(ctx context.Context, scriptContent string, argv []string, client *apiclient.ApiClient, userId string, scriptFile string, extraLibPaths []string) (string, error) {
-	env, err := NewLocalScriptlingEnv(argv, client, userId, scriptFile, extraLibPaths)
-	if err != nil {
-		return "", err
-	}
-
-	result, err := env.Eval(scriptContent)
-	ExitOnSystemExit(result)
-
-	if err != nil {
-		return "", err
-	}
-
-	if result != nil && result.Inspect() != "None" {
-		return result.Inspect(), nil
-	}
-
-	return "", nil
 }

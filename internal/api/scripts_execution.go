@@ -123,7 +123,7 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 
 	resp := <-respChan
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventScriptExecute,

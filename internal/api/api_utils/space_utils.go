@@ -9,9 +9,26 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/validate"
 )
+
+func BuildAPIShares(space *model.Space) []string {
+	space.NormalizeShares()
+
+	shares := make([]string, len(space.Shares))
+	copy(shares, space.Shares)
+	return shares
+}
+
+func BuildAPIDependsOn(space *model.Space) []string {
+	space.NormalizeDependsOn()
+
+	dependsOn := make([]string, len(space.DependsOn))
+	copy(dependsOn, space.DependsOn)
+	return dependsOn
+}
 
 // GetSpaceDetails returns detailed space information with permission checks
 func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefinition, error) {
@@ -34,7 +51,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	}
 
 	// Check ownership or management permissions
-	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		return nil, fmt.Errorf("No permission to access this space")
 	}
 
@@ -62,15 +79,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		createdAtFormatted = space.CreatedAt.UTC().Format("2 / Jan / 2006 3:04:05pm")
 	}
 
-	// Get shared user info
-	var sharedUserId, sharedUsername string
-	if space.SharedWithUserId != "" {
-		sharedUser, err := db.GetUser(space.SharedWithUserId)
-		if err == nil {
-			sharedUserId = sharedUser.Id
-			sharedUsername = sharedUser.Username
-		}
-	}
+	shares := BuildAPIShares(space)
+	dependsOn := BuildAPIDependsOn(space)
 
 	// Get agent state
 	cfg := config.GetServerConfig()
@@ -118,6 +128,12 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	// Check if remote
 	isRemote := space.Zone != "" && space.Zone != cfg.Zone
 
+	// Health status from in-memory store
+	healthy := true
+	if hs := health.Get(space.Id); hs != nil {
+		healthy = hs.Healthy
+	}
+
 	// Get node hostname if node_id is set
 	var nodeHostname string
 	if space.NodeId != "" {
@@ -135,8 +151,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		SpaceId:            space.Id,
 		UserId:             space.UserId,
 		TemplateId:         space.TemplateId,
-		SharedUserId:       sharedUserId,
-		SharedUsername:     sharedUsername,
+		Shares:             shares,
+		DependsOn:          dependsOn,
 		Name:               space.Name,
 		Description:        space.Description,
 		Note:               space.Note,
@@ -168,6 +184,18 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		VSCodeTunnel:       vscodeTunnel,
 		IsRemote:           isRemote,
 		NodeHostname:       nodeHostname,
+		Healthy:            healthy,
+		Stack:              space.Stack,
+	}
+
+	if state != nil {
+		response.ResourceUsage = &apiclient.SpaceResourceUsage{
+			CPUPercent:       state.CPUPercent,
+			MemoryUsedBytes:  state.MemoryUsedBytes,
+			MemoryLimitBytes: state.MemoryLimitBytes,
+			DiskUsedBytes:    state.DiskUsedBytes,
+			DiskLimitBytes:   state.DiskLimitBytes,
+		}
 	}
 
 	for i, field := range space.CustomFields {

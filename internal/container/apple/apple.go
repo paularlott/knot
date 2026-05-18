@@ -18,6 +18,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const spaceStartupTimeout = 30 * time.Minute
+
 type AppleClient struct {
 	DriverName string
 	logger     logger.Logger
@@ -45,15 +47,32 @@ type jobSpec struct {
 	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
+type volumeSpec struct {
+	Size string `yaml:"size,omitempty"`
+}
+
 type volInfo struct {
-	Volumes map[string]interface{} `yaml:"volumes"`
+	Volumes map[string]volumeSpec `yaml:"volumes"`
 }
 
 type containerInspect struct {
-	ID    string `json:"ID"`
-	State struct {
-		Running bool `json:"Running"`
-	} `json:"State"`
+	ID     string `json:"ID"`
+	Status string `json:"status"`
+}
+
+func normalizeContainerReference(ref string) string {
+	ref = strings.ReplaceAll(ref, "\r\n", "\n")
+	ref = strings.ReplaceAll(ref, "\r", "\n")
+
+	lines := strings.Split(ref, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line != "" {
+			return line
+		}
+	}
+
+	return ""
 }
 
 func NewClient() *AppleClient {
@@ -106,8 +125,8 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
-		// Create context with timeout for container operations
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		// Large image pulls can legitimately take a while; use a long startup window.
+		ctx, cancel := context.WithTimeout(context.Background(), spaceStartupTimeout)
 		defer cancel()
 
 		succeeded := false
@@ -167,7 +186,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		// Check if context has been cancelled before running the command
 		select {
 		case <-ctx.Done():
-			c.logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "container_name", spec.ContainerName)
+			c.logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "container_name", spec.ContainerName, "timeout", spaceStartupTimeout)
 			return
 		default:
 		}
@@ -180,7 +199,11 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 			return
 		}
 
-		containerID := strings.TrimSpace(string(output))
+		containerID := normalizeContainerReference(string(output))
+		if containerID == "" {
+			c.logger.Error("creating container returned empty container reference", "spec_containername", spec.ContainerName, "output", string(output))
+			return
+		}
 		c.logger.Debug("container running,", "spec_containername", spec.ContainerName, "containerid", containerID)
 
 		db := database.GetInstance()
@@ -204,7 +227,12 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 }
 
 func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error {
-	c.logger.Debug("deleting space job,", "space_id", space.Id, "space_containerid", space.ContainerId)
+	containerRef := normalizeContainerReference(space.ContainerId)
+	c.logger.Debug("deleting space job,", "space_id", space.Id, "space_containerid", containerRef)
+
+	if containerRef == "" {
+		return fmt.Errorf("space container reference is empty")
+	}
 
 	db := database.GetInstance()
 
@@ -248,13 +276,17 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		default:
 		}
 
-		c.logger.Debug("stopping container", "space_containerid", space.ContainerId)
-		cmd := exec.CommandContext(ctx, "container", "stop", space.ContainerId)
+		c.logger.Debug("stopping container", "space_containerid", containerRef)
+		cmd := exec.CommandContext(ctx, "container", "stop", containerRef)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			if !strings.Contains(string(output), "not found") {
-				c.logger.Error("stopping container error, output:", "space_containerid", space.ContainerId, "output", string(output))
+			outputStr := string(output)
+			if !strings.Contains(outputStr, "not found") && !strings.Contains(outputStr, "internalError") {
+				c.logger.Error("stopping container error, output:", "space_containerid", containerRef, "output", outputStr)
 				return
+			}
+			if strings.Contains(outputStr, "internalError") {
+				c.logger.Warn("stop returned XPC error, will wait for container to stop", "space_containerid", containerRef)
 			}
 		}
 
@@ -263,37 +295,37 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			// Check if context has been cancelled
 			select {
 			case <-ctx.Done():
-				c.logger.Warn("container stop cancelled due to timeout", "space_containerid", space.ContainerId)
+				c.logger.Warn("container stop cancelled due to timeout", "space_containerid", containerRef)
 				return
 			default:
 			}
 
-			cmd := exec.CommandContext(ctx, "container", "inspect", space.ContainerId)
+			cmd := exec.CommandContext(ctx, "container", "inspect", containerRef)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				if strings.Contains(string(output), "not found") {
 					break
 				}
-				c.logger.Error("inspecting container error", "space_containerid", space.ContainerId)
+				c.logger.Error("inspecting container error", "space_containerid", containerRef)
 				return
 			}
 
 			var inspectData []containerInspect
 			if err := json.Unmarshal(output, &inspectData); err != nil {
-				c.logger.Error("parsing inspect output error", "space_containerid", space.ContainerId)
+				c.logger.Error("parsing inspect output error", "space_containerid", containerRef)
 				return
 			}
 
-			if len(inspectData) > 0 && !inspectData[0].State.Running {
+			if len(inspectData) == 0 || inspectData[0].Status != "running" {
 				break
 			}
 
 			if time.Now().After(timeout) {
-				c.logger.Error("timeout waiting for container to stop", "space_containerid", space.ContainerId)
+				c.logger.Error("timeout waiting for container to stop", "space_containerid", containerRef)
 				return
 			}
 
-			c.logger.Debug("waiting for container to stop", "space_containerid", space.ContainerId)
+			c.logger.Debug("waiting for container to stop", "space_containerid", containerRef)
 			time.Sleep(500 * time.Millisecond)
 		}
 
@@ -305,12 +337,12 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		default:
 		}
 
-		c.logger.Debug("removing container", "space_containerid", space.ContainerId)
-		cmd = exec.CommandContext(ctx, "container", "rm", space.ContainerId)
+		c.logger.Debug("removing container", "space_containerid", containerRef)
+		cmd = exec.CommandContext(ctx, "container", "rm", containerRef)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			if !strings.Contains(string(output), "not found") {
-				c.logger.Error("removing container error, output:", "space_containerid", space.ContainerId, "output", string(output))
+				c.logger.Error("removing container error, output:", "space_containerid", containerRef, "output", string(output))
 				return
 			}
 		}
@@ -389,13 +421,18 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}()
 
-	for volName := range volInfo.Volumes {
+	for volName, spec := range volInfo.Volumes {
 		c.logger.Debug("checking volume", "volname", volName)
 
 		if _, ok := space.VolumeData[volName]; !ok {
 			c.logger.Debug("creating volume", "volname", volName)
 
-			cmd := exec.Command("container", "volume", "create", volName)
+			args := []string{"volume", "create"}
+			if spec.Size != "" {
+				args = append(args, "-s", spec.Size)
+			}
+			args = append(args, volName)
+			cmd := exec.Command("container", args...)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				c.logger.Error("creating volume error, output:", "volname", volName, "output", string(output))
@@ -482,10 +519,15 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 		return fmt.Errorf("volume definition must contain exactly 1 volume")
 	}
 
-	for volName := range volInfo.Volumes {
+	for volName, spec := range volInfo.Volumes {
 		c.logger.Debug("creating volume:", "volname", volName)
 
-		cmd := exec.Command("container", "volume", "create", volName)
+		args := []string{"volume", "create"}
+		if spec.Size != "" {
+			args = append(args, "-s", spec.Size)
+		}
+		args = append(args, volName)
+		cmd := exec.Command("container", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			c.logger.Error("creating volume error, output:", "volname", volName, "output", string(output))
