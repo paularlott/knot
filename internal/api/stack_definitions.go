@@ -161,9 +161,7 @@ func HandleCreateStackDefinition(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		if isPersonal {
-			ownerUserId = user.Id
-		}
+		ownerUserId = user.Id
 	}
 
 	// Convert request spaces to model components
@@ -206,8 +204,10 @@ func HandleCreateStackDefinition(w http.ResponseWriter, r *http.Request) {
 
 	sse.PublishStackDefinitionsChanged(def.Id)
 
-	if transport := service.GetTransport(); transport != nil {
-		transport.GossipStackDefinition(def)
+	if !cfg.LeafNode {
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipStackDefinition(def)
+		}
 	}
 
 	audit.LogWithRequest(r,
@@ -312,8 +312,10 @@ func HandleUpdateStackDefinition(w http.ResponseWriter, r *http.Request) {
 
 	sse.PublishStackDefinitionsChanged(def.Id)
 
-	if transport := service.GetTransport(); transport != nil {
-		transport.GossipStackDefinition(def)
+	if !cfg.LeafNode {
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipStackDefinition(def)
+		}
 	}
 
 	audit.LogWithRequest(r,
@@ -386,8 +388,10 @@ func HandleDeleteStackDefinition(w http.ResponseWriter, r *http.Request) {
 
 	sse.PublishStackDefinitionsDeleted(def.Id)
 
-	if transport := service.GetTransport(); transport != nil {
-		transport.GossipStackDefinition(def)
+	if !cfg.LeafNode {
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipStackDefinition(def)
+		}
 	}
 
 	audit.LogWithRequest(r,
