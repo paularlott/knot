@@ -253,7 +253,12 @@ func HandleUpdateStackDefinition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !cfg.LeafNode {
+	if cfg.LeafNode {
+		if def.IsManaged || def.UserId == "" || def.UserId != user.Id {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit this stack definition"})
+			return
+		}
+	} else {
 		if def.UserId != "" && def.UserId != user.Id && !user.HasPermission(model.PermissionManageStackDefinitions) {
 			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit this stack definition"})
 			return
@@ -358,7 +363,12 @@ func HandleDeleteStackDefinition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !cfg.LeafNode {
+	if cfg.LeafNode {
+		if def.IsManaged || def.UserId == "" || def.UserId != user.Id {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete this stack definition"})
+			return
+		}
+	} else {
 		if def.UserId != "" && def.UserId != user.Id && !user.HasPermission(model.PermissionManageStackDefinitions) {
 			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete this stack definition"})
 			return

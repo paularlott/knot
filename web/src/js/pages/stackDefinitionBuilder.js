@@ -111,7 +111,7 @@ window.stackDefinitionBuilder = function () {
     },
 
     canEditDef(def) {
-      if (this.isLeafNode) return false;
+      if (this.isLeafNode) return !def.is_managed && !!def.user_id && def.user_id === this.currentUserId;
       if (def.user_id && def.user_id === this.currentUserId) return true;
       if (!def.user_id) return this.permissionManageStackDefinitions;
       return false;
