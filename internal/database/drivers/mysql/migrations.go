@@ -13,9 +13,9 @@ var migrations = []string{
 	// 4: migrate legacy single-share values into shares json
 	`UPDATE spaces SET shares = JSON_ARRAY(shared_with_user_id) WHERE shared_with_user_id <> '' AND JSON_LENGTH(shares) = 0`,
 	// 5: drop legacy single-share index
-	`ALTER TABLE spaces DROP INDEX shared_with_user_id`,
+	`ALTER TABLE spaces DROP INDEX IF EXISTS shared_with_user_id`,
 	// 6: drop legacy single-share column
-	`ALTER TABLE spaces DROP COLUMN shared_with_user_id`,
+	`ALTER TABLE spaces DROP COLUMN IF EXISTS shared_with_user_id`,
 	// 7: add space dependency storage
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS depends_on JSON NOT NULL DEFAULT '[]'`,
 	// 8: add health check fields to templates
@@ -41,7 +41,6 @@ var migrations = []string{
 }
 
 func (db *MySQLDriver) runMigrations() error {
-	// Ensure the migration tracking table exists
 	_, err := db.connection.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 version INT UNSIGNED NOT NULL PRIMARY KEY
 )`)
@@ -51,12 +50,6 @@ version INT UNSIGNED NOT NULL PRIMARY KEY
 
 	var current int
 	db.connection.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&current)
-
-	// Fresh install: schema is already up to date, seed the max version to skip all migrations
-	if current == 0 && len(migrations) > 0 {
-		_, err = db.connection.Exec("INSERT INTO schema_migrations (version) VALUES (?)", len(migrations))
-		return err
-	}
 
 	for i, sql := range migrations {
 		version := i + 1
