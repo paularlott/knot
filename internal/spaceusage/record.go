@@ -35,6 +35,7 @@ func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
 
 	db := database.GetInstance()
 	minuteSample := buildSampleFromState(spaceId, userId, model.SpaceUsageBucketMinute, now, state)
+	existingMinuteSample, _ := db.GetSpaceUsageSample(minuteSample.Id)
 	var err error
 	minuteSample, err = saveMergedSample(db, minuteSample)
 	if err != nil {
@@ -43,6 +44,7 @@ func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
 	}
 
 	daySample := buildSampleFromState(spaceId, userId, model.SpaceUsageBucketDay, now, state)
+	applyActivityDelta(daySample, existingMinuteSample, minuteSample)
 	daySample, err = saveMergedSample(db, daySample)
 	if err != nil {
 		log.WithError(err).Error("failed to save daily space usage sample", "space_id", spaceId)
@@ -132,6 +134,41 @@ func mergeLocalSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
 		lastActivityAt := incoming.LastActivityAt.UTC()
 		target.LastActivityAt = &lastActivityAt
 	}
+}
+
+func applyActivityDelta(target, previous, current *model.SpaceUsageSample) {
+	if target == nil || current == nil {
+		return
+	}
+	if previous == nil {
+		target.ActivityWriteCount = current.ActivityWriteCount
+		target.ActivityCreateCount = current.ActivityCreateCount
+		target.ActivityDeleteCount = current.ActivityDeleteCount
+		target.ActivityRenameCount = current.ActivityRenameCount
+		target.ActivitySpaceStarts = current.ActivitySpaceStarts
+		target.ActivitySpaceStops = current.ActivitySpaceStops
+		target.ActivitySpaceCreates = current.ActivitySpaceCreates
+		target.ActivitySpaceDeletes = current.ActivitySpaceDeletes
+		target.ActivityDistinctPaths = current.ActivityDistinctPaths
+		return
+	}
+
+	target.ActivityWriteCount = uint32Delta(previous.ActivityWriteCount, current.ActivityWriteCount)
+	target.ActivityCreateCount = uint32Delta(previous.ActivityCreateCount, current.ActivityCreateCount)
+	target.ActivityDeleteCount = uint32Delta(previous.ActivityDeleteCount, current.ActivityDeleteCount)
+	target.ActivityRenameCount = uint32Delta(previous.ActivityRenameCount, current.ActivityRenameCount)
+	target.ActivitySpaceStarts = uint32Delta(previous.ActivitySpaceStarts, current.ActivitySpaceStarts)
+	target.ActivitySpaceStops = uint32Delta(previous.ActivitySpaceStops, current.ActivitySpaceStops)
+	target.ActivitySpaceCreates = uint32Delta(previous.ActivitySpaceCreates, current.ActivitySpaceCreates)
+	target.ActivitySpaceDeletes = uint32Delta(previous.ActivitySpaceDeletes, current.ActivitySpaceDeletes)
+	target.ActivityDistinctPaths = uint32Delta(previous.ActivityDistinctPaths, current.ActivityDistinctPaths)
+}
+
+func uint32Delta(previous, current uint32) uint32 {
+	if current <= previous {
+		return 0
+	}
+	return current - previous
 }
 
 func sanitizeLastActivityAtForSave(lastActivityAt time.Time) *time.Time {
