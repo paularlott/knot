@@ -35,13 +35,16 @@ func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
 
 	db := database.GetInstance()
 	minuteSample := buildSampleFromState(spaceId, userId, model.SpaceUsageBucketMinute, now, state)
-	if err := saveMergedSample(db, minuteSample); err != nil {
+	var err error
+	minuteSample, err = saveMergedSample(db, minuteSample)
+	if err != nil {
 		log.WithError(err).Error("failed to save minute space usage sample", "space_id", spaceId)
 		return
 	}
 
 	daySample := buildSampleFromState(spaceId, userId, model.SpaceUsageBucketDay, now, state)
-	if err := saveMergedSample(db, daySample); err != nil {
+	daySample, err = saveMergedSample(db, daySample)
+	if err != nil {
 		log.WithError(err).Error("failed to save daily space usage sample", "space_id", spaceId)
 		return
 	}
@@ -77,14 +80,18 @@ func buildSampleFromState(spaceId, userId, bucketKind string, now time.Time, sta
 	return sample
 }
 
-func saveMergedSample(db database.DbDriver, sample *model.SpaceUsageSample) error {
+func saveMergedSample(db database.DbDriver, sample *model.SpaceUsageSample) (*model.SpaceUsageSample, error) {
 	existing, err := db.GetSpaceUsageSample(sample.Id)
 	if err == nil && existing != nil {
 		mergeLocalSpaceUsageSample(existing, sample)
 		sample = existing
 	}
 
-	return db.SaveSpaceUsageSample(sample)
+	if err := db.SaveSpaceUsageSample(sample); err != nil {
+		return nil, err
+	}
+
+	return sample, nil
 }
 
 func mergeLocalSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
