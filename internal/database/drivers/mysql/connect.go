@@ -55,13 +55,21 @@ func (db *MySQLDriver) realConnect() error {
 	}
 
 	var err error
-	db.connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
-		cfg.MySQL.User,
-		cfg.MySQL.Password,
-		host,
-		port,
-		cfg.MySQL.Database,
-	))
+	dsn := gomysql.Config{
+		User:                 cfg.MySQL.User,
+		Passwd:               cfg.MySQL.Password,
+		Net:                  "tcp",
+		Addr:                 fmt.Sprintf("%s:%d", host, port),
+		DBName:               cfg.MySQL.Database,
+		ParseTime:            true,
+		Loc:                  time.UTC,
+		AllowNativePasswords: true,
+		Params: map[string]string{
+			"time_zone": "'+00:00'",
+		},
+	}
+
+	db.connection, err = sql.Open("mysql", dsn.FormatDSN())
 	if err == nil {
 		db.connection.SetConnMaxLifetime(time.Minute * time.Duration(cfg.MySQL.ConnectionMaxLifetime))
 		db.connection.SetMaxOpenConns(cfg.MySQL.ConnectionMaxOpen)

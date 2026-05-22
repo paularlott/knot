@@ -90,7 +90,7 @@
                       </div>
                       <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 lg:hidden">Uptime: <span class="text-gray-700 dark:text-gray-300" x-text="s.is_deployed ? s.uptime : '-'"></span></div>
 
-                      <div x-show="s.resource_usage" x-cloak class="mt-3 max-w-md space-y-2 lg:hidden">
+                      <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="mt-3 max-w-md space-y-2 lg:hidden">
                         <button type="button" class="w-full text-left" @click="openSpaceUsage(s.space_id)">
                           <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                             <span>CPU</span>
@@ -323,7 +323,7 @@
                     <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400" :aria-label="s.name + ': Update Available'"><span class="size-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>Update Available</span>
                   </div>
                   <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Uptime: <span class="text-gray-700 dark:text-gray-300 whitespace-nowrap" x-text="s.is_deployed ? s.uptime : '-'"></span></div>
-                  <div x-show="s.resource_usage" x-cloak class="mt-3 w-40 space-y-2">
+                  <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="mt-3 w-40 space-y-2">
                     <button type="button" class="w-full text-left" @click="openSpaceUsage(s.space_id)">
                       <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                         <span>CPU</span>
@@ -387,7 +387,7 @@
 
                 <!-- More Actions -->
                 <td class="px-4 py-3 text-right">
-                  <div x-data x-show="s.is_local" x-cloak>
+                  <div x-data x-show="s.is_local || hasSpaceAccessForCurrentUser(s)" x-cloak>
                     <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true" >
                         <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
@@ -416,7 +416,7 @@
                         </svg> Edit
                       </button>
 
-                      <button x-show="s.has_state" @click="$refs.panel.close; openSpaceUsage(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <button @click="$refs.panel.close; openSpaceUsage(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7.5 15l3-3 2.25 2.25L16.5 9" />
                         </svg> Usage
@@ -443,8 +443,8 @@
                         </svg><span x-text="s.user_id === '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></span>
                       </button>
 
-                      <hr x-show="(s.is_deployed || s.is_pending) && s.platform != 'manual'" class="my-2" role="separator" />
-                      <div x-data x-show="(s.is_deployed || s.is_pending) && s.platform != 'manual'" x-cloak class="relative inline-flex w-full">
+                      <hr x-show="s.is_local && (s.is_deployed || s.is_pending) && s.platform != 'manual'" class="my-2" role="separator" />
+                      <div x-data x-show="s.is_local && (s.is_deployed || s.is_pending) && s.platform != 'manual'" x-cloak class="relative inline-flex w-full">
                         <!-- Main button -->
                         <button
                           @click="$refs.panel.close; doAction(s.space_id)"
@@ -511,8 +511,8 @@
                       </button>
 
                       {{ if and .permissionTransferSpaces (not .isLeafNode) }}
-                      <hr x-cloak class="my-2" x-show="s.user_id == forUserId && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" role="separator" />
-                      <button x-cloak x-show="s.user_id == forUserId && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = false; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <hr x-cloak class="my-2" x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" role="separator" />
+                      <button x-cloak x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = false; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                         </svg> Transfer To &hellip;

@@ -2,10 +2,10 @@ package cluster
 
 import (
 	"math/rand"
+	"reflect"
 	"time"
 
 	"github.com/paularlott/gossip"
-	"github.com/paularlott/knot/internal/cluster/leafmsg"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 )
@@ -52,10 +52,6 @@ func (c *Cluster) handleSpaceUsageGossip(sender *gossip.Node, packet *gossip.Pac
 		if err := c.mergeSpaceUsageSamples(samples); err != nil {
 			c.logger.WithError(err).Error("Failed to merge space usage samples")
 		}
-
-		if len(c.leafSessions) > 0 {
-			c.sendToLeafNodes(leafmsg.MessageGossipSpaceUsage, &samples)
-		}
 	}()
 
 	return nil
@@ -65,11 +61,6 @@ func (c *Cluster) GossipSpaceUsageSample(sample *model.SpaceUsageSample) {
 	if c.gossipCluster != nil {
 		samples := []*model.SpaceUsageSample{sample}
 		c.gossipCluster.Send(SpaceUsageGossipMsg, &samples)
-	}
-
-	if len(c.leafSessions) > 0 {
-		samples := []*model.SpaceUsageSample{sample}
-		c.sendToLeafNodes(leafmsg.MessageGossipSpaceUsage, &samples)
 	}
 }
 
@@ -103,8 +94,18 @@ func (c *Cluster) mergeSpaceUsageSamples(samples []*model.SpaceUsageSample) erro
 			continue
 		}
 		existing, err := db.GetSpaceUsageSample(sample.Id)
-		if err == nil && existing != nil && !sample.UpdatedAt.After(existing.UpdatedAt) {
-			continue
+		if err == nil && existing != nil {
+			if existing.UpdatedAt.After(sample.UpdatedAt) {
+				continue
+			}
+			if !sample.UpdatedAt.After(existing.UpdatedAt) {
+				merged := *existing
+				mergeIncomingSpaceUsageSnapshot(&merged, sample)
+				if reflect.DeepEqual(existing, &merged) {
+					continue
+				}
+				sample = &merged
+			}
 		}
 
 		if err := db.SaveSpaceUsageSample(sample); err != nil {
@@ -114,8 +115,69 @@ func (c *Cluster) mergeSpaceUsageSamples(samples []*model.SpaceUsageSample) erro
 	return nil
 }
 
+func mergeIncomingSpaceUsageSnapshot(target, incoming *model.SpaceUsageSample) {
+	target.UserId = incoming.UserId
+	target.UpdatedAt = incoming.UpdatedAt
+	target.LastActivityAt = sanitizeClusterLastActivityAt(target.LastActivityAt)
+	incoming.LastActivityAt = sanitizeClusterLastActivityAt(incoming.LastActivityAt)
+
+	target.CPUPercent = maxFloat(target.CPUPercent, incoming.CPUPercent)
+	target.MemoryUsedBytes = maxUint64(target.MemoryUsedBytes, incoming.MemoryUsedBytes)
+	target.MemoryLimitBytes = maxUint64(target.MemoryLimitBytes, incoming.MemoryLimitBytes)
+	target.DiskUsedBytes = maxUint64(target.DiskUsedBytes, incoming.DiskUsedBytes)
+	target.DiskLimitBytes = maxUint64(target.DiskLimitBytes, incoming.DiskLimitBytes)
+	target.ActivityWriteCount = maxUint32(target.ActivityWriteCount, incoming.ActivityWriteCount)
+	target.ActivityCreateCount = maxUint32(target.ActivityCreateCount, incoming.ActivityCreateCount)
+	target.ActivityDeleteCount = maxUint32(target.ActivityDeleteCount, incoming.ActivityDeleteCount)
+	target.ActivityRenameCount = maxUint32(target.ActivityRenameCount, incoming.ActivityRenameCount)
+	target.ActivityDistinctPaths = maxUint32(target.ActivityDistinctPaths, incoming.ActivityDistinctPaths)
+	target.ActivitySpaceStarts = maxUint32(target.ActivitySpaceStarts, incoming.ActivitySpaceStarts)
+	target.ActivitySpaceStops = maxUint32(target.ActivitySpaceStops, incoming.ActivitySpaceStops)
+	target.ActivitySpaceCreates = maxUint32(target.ActivitySpaceCreates, incoming.ActivitySpaceCreates)
+	target.ActivitySpaceDeletes = maxUint32(target.ActivitySpaceDeletes, incoming.ActivitySpaceDeletes)
+
+	if incoming.LastActivityAt != nil && (target.LastActivityAt == nil || incoming.LastActivityAt.After(*target.LastActivityAt)) {
+		lastActivityAt := incoming.LastActivityAt.UTC()
+		target.LastActivityAt = &lastActivityAt
+	}
+}
+
+func sanitizeClusterLastActivityAt(lastActivityAt *time.Time) *time.Time {
+	if lastActivityAt == nil {
+		return nil
+	}
+
+	sanitized := lastActivityAt.UTC()
+	if sanitized.After(time.Now().UTC().Add(5 * time.Minute)) {
+		return nil
+	}
+
+	return &sanitized
+}
+
+func maxFloat(left, right float64) float64 {
+	if right > left {
+		return right
+	}
+	return left
+}
+
+func maxUint64(left, right uint64) uint64 {
+	if right > left {
+		return right
+	}
+	return left
+}
+
+func maxUint32(left, right uint32) uint32 {
+	if right > left {
+		return right
+	}
+	return left
+}
+
 func (c *Cluster) gossipSpaceUsage() {
-	if c.gossipCluster == nil && len(c.leafSessions) == 0 {
+	if c.gossipCluster == nil {
 		return
 	}
 
@@ -141,20 +203,6 @@ func (c *Cluster) gossipSpaceUsage() {
 		if batchSize > 0 {
 			clusterSamples := samples[:batchSize]
 			c.gossipCluster.Send(SpaceUsageGossipMsg, &clusterSamples)
-		}
-	}
-
-	if len(c.leafSessions) > 0 {
-		batchSize := 0
-		if c.gossipCluster != nil {
-			batchSize = c.gossipCluster.CalcPayloadSize(len(samples))
-		}
-		if batchSize == 0 && len(samples) > 0 {
-			batchSize = 1
-		}
-		if batchSize > 0 {
-			leafSamples := samples[:batchSize]
-			c.sendToLeafNodes(leafmsg.MessageGossipSpaceUsage, &leafSamples)
 		}
 	}
 }

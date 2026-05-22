@@ -2,10 +2,13 @@ package api
 
 import (
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/api/api_utils"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -15,16 +18,33 @@ func HandleGetSpaceUsageCurrent(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
-	space, err := api_utils.GetSpaceDetails(spaceId, user)
+	space, err := api_utils.GetAccessibleSpace(spaceId, user)
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
+	var resourceUsage *apiclient.SpaceResourceUsage
+	isLive := false
+	cfg := config.GetServerConfig()
+	if space.IsDeployed && (space.Zone == "" || space.Zone == cfg.Zone) {
+		if state := agent_server.GetSession(space.Id); state != nil {
+			resourceUsage = &apiclient.SpaceResourceUsage{
+				CPUPercent:       state.CPUPercent,
+				MemoryUsedBytes:  state.MemoryUsedBytes,
+				MemoryLimitBytes: state.MemoryLimitBytes,
+				DiskUsedBytes:    state.DiskUsedBytes,
+				DiskLimitBytes:   state.DiskLimitBytes,
+			}
+			isLive = true
+		}
+	}
+
 	rest.WriteResponse(http.StatusOK, w, r, &apiclient.SpaceUsagePoint{
 		BucketStart:   time.Now().UTC(),
 		BucketKind:    model.SpaceUsageBucketMinute,
-		ResourceUsage: space.ResourceUsage,
+		IsLive:        isLive,
+		ResourceUsage: resourceUsage,
 	})
 }
 
@@ -32,7 +52,7 @@ func HandleGetSpaceUsageHistory(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
-	space, err := api_utils.GetSpaceDetails(spaceId, user)
+	space, err := api_utils.GetAccessibleSpace(spaceId, user)
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -64,34 +84,113 @@ func HandleGetSpaceUsageHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	samples, err := database.GetInstance().GetSpaceUsageSamples(space.SpaceId, bucketKind, from, to)
-	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
 	response := &apiclient.SpaceUsageHistoryResponse{
-		SpaceId:    space.SpaceId,
+		SpaceId:    space.Id,
 		Range:      rangeName,
 		BucketKind: bucketKind,
-		Points:     make([]apiclient.SpaceUsagePoint, 0, len(samples)),
+		Points:     []apiclient.SpaceUsagePoint{},
 	}
 
-	for _, sample := range samples {
-		point := apiclient.SpaceUsagePoint{
-			BucketStart: sample.BucketStart.UTC(),
-			BucketKind:  sample.BucketKind,
-			ResourceUsage: &apiclient.SpaceResourceUsage{
-				CPUPercent:       sample.CPUPercent,
-				MemoryUsedBytes:  sample.MemoryUsedBytes,
-				MemoryLimitBytes: sample.MemoryLimitBytes,
-				DiskUsedBytes:    sample.DiskUsedBytes,
-				DiskLimitBytes:   sample.DiskLimitBytes,
-			},
+	if bucketKind == model.SpaceUsageBucketDay {
+		points, err := buildDailySpaceUsagePoints(space.Id, from, to)
+		if err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+		response.Points = points
+	} else {
+		samples, err := database.GetInstance().GetSpaceUsageSamples(space.Id, bucketKind, from, to)
+		if err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
 		}
 
-		response.Points = append(response.Points, point)
+		response.Points = make([]apiclient.SpaceUsagePoint, 0, len(samples))
+		for _, sample := range samples {
+			response.Points = append(response.Points, pointFromSpaceUsageSample(sample))
+		}
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, response)
+}
+
+func buildDailySpaceUsagePoints(spaceId string, from time.Time, to time.Time) ([]apiclient.SpaceUsagePoint, error) {
+	daySamples, err := database.GetInstance().GetSpaceUsageSamples(spaceId, model.SpaceUsageBucketDay, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	pointsByDay := map[time.Time]*apiclient.SpaceUsagePoint{}
+	for _, sample := range daySamples {
+		point := pointFromSpaceUsageSample(sample)
+		pointCopy := point
+		pointsByDay[point.BucketStart] = &pointCopy
+	}
+
+	minuteFrom := to.Add(-model.SpaceUsageMinuteRetention)
+	if minuteFrom.Before(from) {
+		minuteFrom = from
+	}
+	minuteSamples, err := database.GetInstance().GetSpaceUsageSamples(spaceId, model.SpaceUsageBucketMinute, minuteFrom, to)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sample := range minuteSamples {
+		dayBucket := model.BucketStartForKind(sample.BucketStart.UTC(), model.SpaceUsageBucketDay)
+		point := pointsByDay[dayBucket]
+		if point == nil {
+			point = &apiclient.SpaceUsagePoint{
+				BucketStart:   dayBucket,
+				BucketKind:    model.SpaceUsageBucketDay,
+				ResourceUsage: &apiclient.SpaceResourceUsage{},
+			}
+			pointsByDay[dayBucket] = point
+		}
+		mergeSpaceResourceUsage(point.ResourceUsage, sample)
+	}
+
+	points := make([]apiclient.SpaceUsagePoint, 0, len(pointsByDay))
+	for _, point := range pointsByDay {
+		points = append(points, *point)
+	}
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].BucketStart.Before(points[j].BucketStart)
+	})
+	return points, nil
+}
+
+func pointFromSpaceUsageSample(sample *model.SpaceUsageSample) apiclient.SpaceUsagePoint {
+	return apiclient.SpaceUsagePoint{
+		BucketStart: sample.BucketStart.UTC(),
+		BucketKind:  sample.BucketKind,
+		ResourceUsage: &apiclient.SpaceResourceUsage{
+			CPUPercent:       sample.CPUPercent,
+			MemoryUsedBytes:  sample.MemoryUsedBytes,
+			MemoryLimitBytes: sample.MemoryLimitBytes,
+			DiskUsedBytes:    sample.DiskUsedBytes,
+			DiskLimitBytes:   sample.DiskLimitBytes,
+		},
+	}
+}
+
+func mergeSpaceResourceUsage(target *apiclient.SpaceResourceUsage, sample *model.SpaceUsageSample) {
+	if target == nil {
+		return
+	}
+	if sample.CPUPercent > target.CPUPercent {
+		target.CPUPercent = sample.CPUPercent
+	}
+	if sample.MemoryUsedBytes > target.MemoryUsedBytes {
+		target.MemoryUsedBytes = sample.MemoryUsedBytes
+	}
+	if sample.MemoryLimitBytes > target.MemoryLimitBytes {
+		target.MemoryLimitBytes = sample.MemoryLimitBytes
+	}
+	if sample.DiskUsedBytes > target.DiskUsedBytes {
+		target.DiskUsedBytes = sample.DiskUsedBytes
+	}
+	if sample.DiskLimitBytes > target.DiskLimitBytes {
+		target.DiskLimitBytes = sample.DiskLimitBytes
+	}
 }

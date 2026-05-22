@@ -30,8 +30,28 @@ func BuildAPIDependsOn(space *model.Space) []string {
 	return dependsOn
 }
 
-// GetSpaceDetails returns detailed space information with permission checks
-func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefinition, error) {
+func GetLatestSpaceResourceUsage(spaceId string) *apiclient.SpaceResourceUsage {
+	if spaceId == "" {
+		return nil
+	}
+
+	now := time.Now().UTC()
+	samples, err := database.GetInstance().GetSpaceUsageSamples(spaceId, model.SpaceUsageBucketMinute, now.Add(-model.SpaceUsageMinuteRetention), now)
+	if err != nil || len(samples) == 0 {
+		return nil
+	}
+
+	sample := samples[len(samples)-1]
+	return &apiclient.SpaceResourceUsage{
+		CPUPercent:       sample.CPUPercent,
+		MemoryUsedBytes:  sample.MemoryUsedBytes,
+		MemoryLimitBytes: sample.MemoryLimitBytes,
+		DiskUsedBytes:    sample.DiskUsedBytes,
+		DiskLimitBytes:   sample.DiskLimitBytes,
+	}
+}
+
+func GetAccessibleSpace(spaceId string, user *model.User) (*model.Space, error) {
 	if spaceId == "" {
 		return nil, fmt.Errorf("space_id is required")
 	}
@@ -50,10 +70,21 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
-	// Check ownership or management permissions
 	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		return nil, fmt.Errorf("No permission to access this space")
 	}
+
+	return space, nil
+}
+
+// GetSpaceDetails returns detailed space information with permission checks
+func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefinition, error) {
+	space, err := GetAccessibleSpace(spaceId, user)
+	if err != nil {
+		return nil, err
+	}
+
+	db := database.GetInstance()
 
 	// Get template for additional info
 	template, err := db.GetTemplate(space.TemplateId)
@@ -196,6 +227,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 			DiskUsedBytes:    state.DiskUsedBytes,
 			DiskLimitBytes:   state.DiskLimitBytes,
 		}
+	} else {
+		response.ResourceUsage = GetLatestSpaceResourceUsage(space.Id)
 	}
 
 	for i, field := range space.CustomFields {

@@ -155,6 +155,7 @@ type SpaceActivityUsage struct {
 type SpaceUsagePoint struct {
 	BucketStart   time.Time           `json:"bucket_start"`
 	BucketKind    string              `json:"bucket_kind,omitempty"`
+	IsLive        bool                `json:"is_live,omitempty"`
 	ResourceUsage *SpaceResourceUsage `json:"resource_usage,omitempty"`
 	ActivityUsage *SpaceActivityUsage `json:"activity_usage,omitempty"`
 }

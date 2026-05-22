@@ -128,6 +128,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.HasVSCodeTunnel = false
 			s.VSCodeTunnel = ""
 			s.HasState = false
+			s.ResourceUsage = api_utils.GetLatestSpaceResourceUsage(space.Id)
 		} else {
 			s.HasCodeServer = state.HasCodeServer
 			s.HasSSH = state.SSHPort > 0

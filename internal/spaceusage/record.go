@@ -71,8 +71,7 @@ func buildSampleFromState(spaceId, userId, bucketKind string, now time.Time, sta
 	sample.ActivityRenameCount = state.ActivityRenameCount
 	sample.ActivityDistinctPaths = state.ActivityDistinctPaths
 	if state.LastActivityAtUnix > 0 {
-		lastActivityAt := time.Unix(state.LastActivityAtUnix, 0).UTC()
-		sample.LastActivityAt = &lastActivityAt
+		sample.LastActivityAt = sanitizeLastActivityAtForSave(time.Unix(state.LastActivityAtUnix, 0).UTC())
 	}
 	sample.UpdatedAt = hlc.Now()
 	return sample
@@ -81,16 +80,18 @@ func buildSampleFromState(spaceId, userId, bucketKind string, now time.Time, sta
 func saveMergedSample(db database.DbDriver, sample *model.SpaceUsageSample) error {
 	existing, err := db.GetSpaceUsageSample(sample.Id)
 	if err == nil && existing != nil {
-		mergeSpaceUsageSample(existing, sample)
+		mergeLocalSpaceUsageSample(existing, sample)
 		sample = existing
 	}
 
 	return db.SaveSpaceUsageSample(sample)
 }
 
-func mergeSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
+func mergeLocalSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
 	target.UserId = incoming.UserId
 	target.UpdatedAt = incoming.UpdatedAt
+	target.LastActivityAt = sanitizeLastActivityAtForRead(target.LastActivityAt)
+	incoming.LastActivityAt = sanitizeLastActivityAtForRead(incoming.LastActivityAt)
 
 	target.CPUPercent = maxFloat(target.CPUPercent, incoming.CPUPercent)
 	target.MemoryUsedBytes = maxUint64(target.MemoryUsedBytes, incoming.MemoryUsedBytes)
@@ -98,8 +99,7 @@ func mergeSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
 	target.DiskUsedBytes = maxUint64(target.DiskUsedBytes, incoming.DiskUsedBytes)
 	target.DiskLimitBytes = maxUint64(target.DiskLimitBytes, incoming.DiskLimitBytes)
 
-	switch target.BucketKind {
-	case model.SpaceUsageBucketDay:
+	if target.BucketKind == model.SpaceUsageBucketDay {
 		target.ActivityWriteCount += incoming.ActivityWriteCount
 		target.ActivityCreateCount += incoming.ActivityCreateCount
 		target.ActivityDeleteCount += incoming.ActivityDeleteCount
@@ -108,7 +108,8 @@ func mergeSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
 		target.ActivitySpaceStops += incoming.ActivitySpaceStops
 		target.ActivitySpaceCreates += incoming.ActivitySpaceCreates
 		target.ActivitySpaceDeletes += incoming.ActivitySpaceDeletes
-	default:
+		target.ActivityDistinctPaths += incoming.ActivityDistinctPaths
+	} else {
 		target.ActivityWriteCount = maxUint32(target.ActivityWriteCount, incoming.ActivityWriteCount)
 		target.ActivityCreateCount = maxUint32(target.ActivityCreateCount, incoming.ActivityCreateCount)
 		target.ActivityDeleteCount = maxUint32(target.ActivityDeleteCount, incoming.ActivityDeleteCount)
@@ -117,14 +118,28 @@ func mergeSpaceUsageSample(target, incoming *model.SpaceUsageSample) {
 		target.ActivitySpaceStops = maxUint32(target.ActivitySpaceStops, incoming.ActivitySpaceStops)
 		target.ActivitySpaceCreates = maxUint32(target.ActivitySpaceCreates, incoming.ActivitySpaceCreates)
 		target.ActivitySpaceDeletes = maxUint32(target.ActivitySpaceDeletes, incoming.ActivitySpaceDeletes)
+		target.ActivityDistinctPaths = maxUint32(target.ActivityDistinctPaths, incoming.ActivityDistinctPaths)
 	}
-
-	target.ActivityDistinctPaths = maxUint32(target.ActivityDistinctPaths, incoming.ActivityDistinctPaths)
 
 	if incoming.LastActivityAt != nil && (target.LastActivityAt == nil || incoming.LastActivityAt.After(*target.LastActivityAt)) {
 		lastActivityAt := incoming.LastActivityAt.UTC()
 		target.LastActivityAt = &lastActivityAt
 	}
+}
+
+func sanitizeLastActivityAtForSave(lastActivityAt time.Time) *time.Time {
+	sanitized := lastActivityAt.UTC()
+	if sanitized.After(time.Now().UTC().Add(5 * time.Minute)) {
+		return nil
+	}
+	return &sanitized
+}
+
+func sanitizeLastActivityAtForRead(lastActivityAt *time.Time) *time.Time {
+	if lastActivityAt == nil {
+		return nil
+	}
+	return sanitizeLastActivityAtForSave(*lastActivityAt)
 }
 
 func maxFloat(left, right float64) float64 {

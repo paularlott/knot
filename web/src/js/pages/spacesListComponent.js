@@ -428,7 +428,7 @@ window.spacesListComponent = function (
       target.template_name = space.template_name;
       target.stack = space.stack || "";
       target.uptime = this.formatTimeDiff(space.started_at);
-      target.resource_usage = space.resource_usage || null;
+      target.resource_usage = space.is_deployed ? space.resource_usage || null : null;
 
       if (!source || target.icon_url !== space.icon_url) {
         target.icon_url = space.icon_url;

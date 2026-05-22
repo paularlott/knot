@@ -262,9 +262,6 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				case leafmsg.MessageGossipResponse:
 					// Agent responses - not handled by leaf nodes
 
-				case leafmsg.MessageGossipSpaceUsage:
-					c.handleLeafGossipSpaceUsage(msg)
-
 				case leafmsg.MessageFullSyncEnd:
 					c.logger.Info("leaf full sync complete")
 					fullSyncDone = true
@@ -423,19 +420,6 @@ func (c *Cluster) handleLeafGossipStackDefinition(msg *leafmsg.Message) {
 
 	if err := c.mergeStackDefinitions(defs); err != nil {
 		c.logger.WithError(err).Error("error while merging stack definitions from leaf:")
-		return
-	}
-}
-
-func (c *Cluster) handleLeafGossipSpaceUsage(msg *leafmsg.Message) {
-	samples := []*model.SpaceUsageSample{}
-	if err := msg.UnmarshalPayload(&samples); err != nil {
-		c.logger.WithError(err).Error("error while unmarshalling leaf space usage message:")
-		return
-	}
-
-	if err := c.mergeSpaceUsageSamples(samples); err != nil {
-		c.logger.WithError(err).Error("error while merging space usage from leaf:")
 		return
 	}
 }

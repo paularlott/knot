@@ -9,6 +9,7 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
     spaceName: initialSpaceName,
     selectedRange: "1h",
     current: {
+      is_live: false,
       resource_usage: {
         cpu_percent: 0,
         memory_used_bytes: 0,
@@ -54,6 +55,10 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
       }
 
       this.current = await response.json();
+    },
+
+    showCurrentCards() {
+      return !!(this.current?.is_live && this.current?.resource_usage);
     },
 
     async refreshHistory() {

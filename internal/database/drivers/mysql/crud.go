@@ -37,7 +37,7 @@ func (db *MySQLDriver) create(tableName string, obj interface{}) error {
 				if timePtr == nil {
 					values = append(values, nil)
 				} else {
-					values = append(values, timePtr.Format("2006-01-02 15:04:05"))
+					values = append(values, formatDatabaseTime(timePtr, "2006-01-02 15:04:05"))
 				}
 			} else {
 				values = append(values, val.Field(i).Interface())
@@ -86,7 +86,7 @@ func (db *MySQLDriver) update(tableName string, obj interface{}, fieldsToUpdate 
 					if timePtr == nil {
 						values = append(values, nil)
 					} else {
-						values = append(values, timePtr.Format("2006-01-02 15:04:05.000000"))
+						values = append(values, formatDatabaseTime(timePtr, "2006-01-02 15:04:05.000000"))
 					}
 				} else {
 					fieldValue := val.Field(i).Interface()
@@ -235,7 +235,7 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 			fieldValue := obj.FieldByName(field)
 			if fieldValue.Type() == reflect.TypeOf(time.Time{}) {
 				timeBytes := *(tempValues[i].(*[]uint8))
-				parsedTime, err := time.Parse("2006-01-02 15:04:05", string(timeBytes))
+				parsedTime, err := parseDatabaseTimeBytes(timeBytes)
 				if err != nil {
 					return err
 				}
@@ -245,7 +245,7 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 				if len(timeBytes) == 0 {
 					fieldValue.Set(reflect.Zero(fieldValue.Type()))
 				} else {
-					parsedTime, err := time.Parse("2006-01-02 15:04:05", string(timeBytes))
+					parsedTime, err := parseDatabaseTimeBytes(timeBytes)
 					if err != nil {
 						return err
 					}
@@ -263,4 +263,29 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 	}
 
 	return nil
+}
+
+func formatDatabaseTime(value *time.Time, layout string) string {
+	return value.UTC().Format(layout)
+}
+
+func parseDatabaseTimeBytes(timeBytes []byte) (time.Time, error) {
+	timeStr := string(timeBytes)
+	layouts := []string{
+		"2006-01-02 15:04:05.999999",
+		"2006-01-02 15:04:05",
+		time.RFC3339Nano,
+		time.RFC3339,
+	}
+
+	var parseErr error
+	for _, layout := range layouts {
+		parsedTime, err := time.Parse(layout, timeStr)
+		if err == nil {
+			return parsedTime.UTC(), nil
+		}
+		parseErr = err
+	}
+
+	return time.Time{}, parseErr
 }
