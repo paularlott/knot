@@ -7,6 +7,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { AttachAddon } from '@xterm/addon-attach';
 
 window.initializeTerminal = function(options) {
+  const terminalElement = document.getElementById("terminal");
   const terminal = new Terminal({
     allowProposedApi: true,
     useStyle: true,
@@ -38,9 +39,27 @@ window.initializeTerminal = function(options) {
 
   terminal.unicode.activeVersion = "11";
 
-  terminal.open(document.getElementById("terminal"));
+  terminal.open(terminalElement);
 
-  fitAddon.fit();
+  let fitScheduled = false;
+
+  function fitTerminal() {
+    fitScheduled = false;
+    fitAddon.fit();
+  }
+
+  function scheduleFit(delay = 0) {
+    if (fitScheduled) {
+      return;
+    }
+
+    fitScheduled = true;
+    window.setTimeout(() => {
+      window.requestAnimationFrame(fitTerminal);
+    }, delay);
+  }
+
+  scheduleFit();
 
   ws.onclose = () => {
     terminal.write('\r\n\nconnection terminated, refresh to restart\n')
@@ -63,7 +82,7 @@ window.initializeTerminal = function(options) {
 
     // Do an initial resize or the terminal won't wrap correctly
     setTimeout(() => {
-      fitAddon.fit();
+      fitTerminal();
 
       const send = new TextEncoder().encode(`\x01${JSON.stringify({cols: terminal.cols, rows: terminal.rows})}`);
       ws.send(send);
@@ -80,26 +99,41 @@ window.initializeTerminal = function(options) {
       document.title = title;
     });
 
-    window.onresize = () => {
-      fitAddon.fit();
-    };
+    window.addEventListener('resize', () => {
+      scheduleFit();
+    });
   };
 
   function updateViewportHeight() {
-    let vh = window.visualViewport.height;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    if (!window.visualViewport) {
+      return;
+    }
 
-    window.setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 100);
+    const vh = window.visualViewport.height;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    document.documentElement.style.setProperty('--viewport-offset-top', `${window.visualViewport.offsetTop}px`);
+
+    scheduleFit(100);
   }
 
-  // Initial set
-  updateViewportHeight();
+  if (window.visualViewport) {
+    updateViewportHeight();
+    window.visualViewport.addEventListener('resize', updateViewportHeight);
+    window.visualViewport.addEventListener('scroll', updateViewportHeight);
+  }
 
-  // Listen for changes
-  window.visualViewport.addEventListener('resize', updateViewportHeight);
-  window.visualViewport.addEventListener('scroll', updateViewportHeight);
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(() => {
+      scheduleFit();
+    });
+  }
+
+  if (window.ResizeObserver) {
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleFit();
+    });
+    resizeObserver.observe(terminalElement);
+  }
 
   return terminal;
 }
