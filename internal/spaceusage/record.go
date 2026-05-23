@@ -13,9 +13,13 @@ import (
 )
 
 var (
-	lastWriteMu           sync.Mutex
-	lastSpaceMinuteBucket = map[string]int64{}
+	lastWriteMu            sync.Mutex
+	lastSpaceMinuteBucket  = map[string]int64{}
+	lastSpaceFlushAt       = map[string]time.Time{}
+	lastRolledMinuteBucket = map[string]int64{}
 )
+
+const spaceUsageFlushInterval = 15 * time.Second
 
 func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
 	if state == nil || spaceId == "" || userId == "" {
@@ -25,39 +29,58 @@ func RecordFromAgentState(spaceId, userId string, state *msg.AgentState) {
 	now := time.Now().UTC()
 	minuteBucketStart := model.BucketStartForKind(now, model.SpaceUsageBucketMinute).Unix()
 
+	var rollupBucket int64
 	lastWriteMu.Lock()
-	if lastSpaceMinuteBucket[spaceId] == minuteBucketStart {
-		lastWriteMu.Unlock()
-		return
+	if previousBucket := lastSpaceMinuteBucket[spaceId]; previousBucket > 0 && previousBucket != minuteBucketStart && lastRolledMinuteBucket[spaceId] != previousBucket {
+		rollupBucket = previousBucket
+		lastRolledMinuteBucket[spaceId] = previousBucket
 	}
+	lastFlush := lastSpaceFlushAt[spaceId]
+	shouldFlush := lastSpaceMinuteBucket[spaceId] != minuteBucketStart || lastFlush.IsZero() || now.Sub(lastFlush) >= spaceUsageFlushInterval
 	lastSpaceMinuteBucket[spaceId] = minuteBucketStart
+	if shouldFlush {
+		lastSpaceFlushAt[spaceId] = now
+	}
 	lastWriteMu.Unlock()
 
 	db := database.GetInstance()
-	minuteSample := buildSampleFromState(spaceId, userId, model.SpaceUsageBucketMinute, now, state)
-	var err error
-	minuteSample, err = saveMergedSample(db, minuteSample)
-	if err != nil {
-		log.WithError(err).Error("failed to save minute space usage sample", "space_id", spaceId)
-		return
+
+	var minuteSample *model.SpaceUsageSample
+	if shouldFlush {
+		var err error
+		minuteSample = buildSampleFromState(spaceId, userId, model.SpaceUsageBucketMinute, now, state)
+		minuteSample, err = saveMergedSample(db, minuteSample)
+		if err != nil {
+			log.WithError(err).Error("failed to save minute space usage sample", "space_id", spaceId)
+			return
+		}
 	}
 
-	daySample := buildSampleFromState(spaceId, userId, model.SpaceUsageBucketDay, now, state)
-	daySample, err = saveMergedSample(db, daySample)
-	if err != nil {
-		log.WithError(err).Error("failed to save daily space usage sample", "space_id", spaceId)
-		return
+	var daySample *model.SpaceUsageSample
+	if rollupBucket > 0 {
+		var err error
+		daySample, err = rollupMinuteIntoDay(db, spaceId, userId, rollupBucket)
+		if err != nil {
+			log.WithError(err).Error("failed to roll up daily space usage sample", "space_id", spaceId)
+			return
+		}
 	}
 
 	if transport := service.GetTransport(); transport != nil {
-		transport.GossipSpaceUsageSample(minuteSample)
-		transport.GossipSpaceUsageSample(daySample)
+		if minuteSample != nil {
+			transport.GossipSpaceUsageSample(minuteSample)
+		}
+		if daySample != nil {
+			transport.GossipSpaceUsageSample(daySample)
+		}
 	}
 }
 
 func ForgetSpace(spaceId string) {
 	lastWriteMu.Lock()
 	delete(lastSpaceMinuteBucket, spaceId)
+	delete(lastSpaceFlushAt, spaceId)
+	delete(lastRolledMinuteBucket, spaceId)
 	lastWriteMu.Unlock()
 }
 
@@ -70,6 +93,25 @@ func buildSampleFromState(spaceId, userId, bucketKind string, now time.Time, sta
 	sample.DiskLimitBytes = state.DiskLimitBytes
 	sample.UpdatedAt = hlc.Now()
 	return sample
+}
+
+func rollupMinuteIntoDay(db database.DbDriver, spaceId, userId string, minuteBucketStartUnix int64) (*model.SpaceUsageSample, error) {
+	minuteBucketStart := time.Unix(minuteBucketStartUnix, 0).UTC()
+	minuteSampleId := model.SpaceUsageSampleIdForKind(spaceId, model.SpaceUsageBucketMinute, minuteBucketStart)
+	minuteSample, err := db.GetSpaceUsageSample(minuteSampleId)
+	if err != nil || minuteSample == nil {
+		return nil, nil
+	}
+
+	daySample := model.NewSpaceUsageSample(spaceId, userId, model.SpaceUsageBucketDay, minuteBucketStart)
+	daySample.CPUPercent = minuteSample.CPUPercent
+	daySample.MemoryUsedBytes = minuteSample.MemoryUsedBytes
+	daySample.MemoryLimitBytes = minuteSample.MemoryLimitBytes
+	daySample.DiskUsedBytes = minuteSample.DiskUsedBytes
+	daySample.DiskLimitBytes = minuteSample.DiskLimitBytes
+	daySample.UpdatedAt = hlc.Now()
+
+	return saveMergedSample(db, daySample)
 }
 
 func saveMergedSample(db database.DbDriver, sample *model.SpaceUsageSample) (*model.SpaceUsageSample, error) {
