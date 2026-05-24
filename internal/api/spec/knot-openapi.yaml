@@ -4626,6 +4626,9 @@ components:
         is_deleting:
           type: boolean
           description: If the space is being deleted.
+        has_ever_started:
+          type: boolean
+          description: Whether the space has ever successfully started before.
         alt_names:
           type: array
           items:
@@ -4695,6 +4698,12 @@ components:
         is_remote:
           type: boolean
           description: Whether the space is on a remote zone.
+        node_id:
+          type: string
+          description: The ID of the node assigned to host the space, or empty when not applicable.
+        node_hostname:
+          type: string
+          description: The hostname of the node assigned to host the space.
         healthy:
           type: boolean
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.

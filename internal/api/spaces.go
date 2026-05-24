@@ -685,6 +685,28 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.DependsOn = request.DependsOn
 	space.Stack = request.Stack
 
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	if template.IsLocalContainer() {
+		if space.ContainerId != "" {
+			if request.SelectedNodeId != "" && request.SelectedNodeId != space.NodeId {
+				rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "space node cannot be changed after the space has been started"})
+				return
+			}
+		} else {
+			nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
+			if err != nil {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+			space.NodeId = nodeId
+		}
+	}
+
 	err = spaceService.UpdateSpace(space, user)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})

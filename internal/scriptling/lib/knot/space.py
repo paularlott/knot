@@ -36,6 +36,7 @@ def _build_space_update_body(space, **overrides):
         "alt_names": space.get("alt_names", []),
         "icon_url": space.get("icon_url", ""),
         "custom_fields": space.get("custom_fields", []),
+        "selected_node_id": space.get("node_id", ""),
         "startup_script_id": space.get("startup_script_id", ""),
         "depends_on": space.get("depends_on", []),
         "stack": space.get("stack", ""),
@@ -94,6 +95,8 @@ def get(name):
         - is_running: Boolean indicating if space is running
         - is_pending: Boolean indicating if space is pending
         - is_deleting: Boolean indicating if space is being deleted
+        - has_ever_started: Whether the space has ever successfully started
+        - node_id: ID of the node assigned to host the space
         - node_hostname: Hostname of the node running the space
         - created_at: Creation timestamp
 
@@ -118,6 +121,8 @@ def get(name):
         "is_running": response.get("is_deployed", False),
         "is_pending": response.get("is_pending", False),
         "is_deleting": response.get("is_deleting", False),
+        "has_ever_started": response.get("has_ever_started", False),
+        "node_id": response.get("node_id", ""),
         "node_hostname": response.get("node_hostname", ""),
         "created_at": response.get("created_at", ""),
         "alt_names": response.get("alt_names", []),
@@ -128,7 +133,7 @@ def get(name):
     }
 
 
-def create(name, template_name, description="", shell="bash", depends_on=None, stack=""):
+def create(name, template_name, description="", shell="bash", depends_on=None, stack="", selected_node_id=""):
     """Create a new space.
 
     Args:
@@ -138,6 +143,7 @@ def create(name, template_name, description="", shell="bash", depends_on=None, s
         shell: Shell to use (default: "bash")
         depends_on: Optional list of dependency space names or IDs
         stack: Optional stack name to group this space under
+        selected_node_id: Optional node ID to assign, or empty string for auto-select
 
     Returns:
         The new space ID
@@ -162,6 +168,7 @@ def create(name, template_name, description="", shell="bash", depends_on=None, s
         "template_id": template_id,
         "description": description,
         "shell": shell,
+        "selected_node_id": selected_node_id,
         "depends_on": _resolve_dependency_ids(depends_on),
         "stack": stack,
     }

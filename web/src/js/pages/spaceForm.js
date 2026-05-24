@@ -47,6 +47,9 @@ window.spaceForm = function (
       custom_fields: [],
       created_at: "",
       created_at_formatted: "",
+      is_deployed: false,
+      is_pending: false,
+      has_ever_started: false,
       selected_node_id: "",
       startup_script_id: "",
       depends_on: [],
@@ -74,6 +77,34 @@ window.spaceForm = function (
     quotaStorageLimitShow: false,
     availableNodes: [],
     loadingNodes: false,
+
+    canEditNodeSelection() {
+      return !this.isManual && !this.formData.has_ever_started;
+    },
+
+    assignedNodeUnavailable() {
+      return (
+        this.formData.selected_node_id !== "" &&
+        !this.availableNodes.some(
+          (node) => node.node_id === this.formData.selected_node_id,
+        )
+      );
+    },
+
+    showNodeSelection() {
+      return (
+        this.canEditNodeSelection() &&
+        (this.availableNodes.length > 1 || this.assignedNodeUnavailable())
+      );
+    },
+
+    showAdvancedSection() {
+      return (
+        this.showNodeSelection() ||
+        (!this.isManual && this.canSetSpaceStartupScript) ||
+        (!this.isEdit && !this.isManual)
+      );
+    },
 
     async loadDependencyOptions(ownerId) {
       if (!this.canSetSpaceDependencies) {
@@ -287,6 +318,10 @@ window.spaceForm = function (
           this.formData.custom_fields = space.custom_fields;
           this.formData.created_at = space.created_at;
           this.formData.created_at_formatted = space.created_at_formatted;
+          this.formData.is_deployed = space.is_deployed;
+          this.formData.is_pending = space.is_pending;
+          this.formData.has_ever_started = space.has_ever_started;
+          this.formData.selected_node_id = space.node_id || "";
           this.formData.startup_script_id = space.startup_script_id || "";
           this.formData.depends_on = space.depends_on || [];
           this.dependencyTargetZone = space.zone || "";
@@ -366,14 +401,13 @@ window.spaceForm = function (
 
       // Fetch available nodes for local container templates
       if (
-        !isEdit &&
         this.template &&
         this.template.platform !== "manual" &&
         this.template.platform !== "nomad"
       ) {
         this.loadingNodes = true;
         const nodesResponse = await fetch(
-          "/api/templates/" + templateId + "/nodes",
+          "/api/templates/" + this.formData.template_id + "/nodes",
           {
             headers: {
               "Content-Type": "application/json",
@@ -383,7 +417,7 @@ window.spaceForm = function (
         if (nodesResponse.status === 200) {
           const nodes = await nodesResponse.json();
           this.availableNodes = nodes || [];
-          if (this.availableNodes.length === 1) {
+          if (!this.formData.selected_node_id && this.availableNodes.length === 1) {
             this.formData.selected_node_id = this.availableNodes[0].node_id;
           }
         } else {

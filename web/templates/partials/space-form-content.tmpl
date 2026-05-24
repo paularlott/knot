@@ -92,18 +92,21 @@
         </div>
       </div>
     </fieldset>
-    <fieldset x-show="(!spaceFormModal.isEdit && availableNodes.length > 1) || (!isManual && canSetSpaceStartupScript) || (!spaceFormModal.isEdit && !isManual)" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <fieldset x-show="showAdvancedSection()" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Advanced</legend>
       <div class="flex flex-col gap-6">
-        <div x-show="!spaceFormModal.isEdit && availableNodes.length > 1" x-cloak>
+        <div x-show="showNodeSelection()" x-cloak>
           <label for="node" class="form-label">Node</label>
-          <select class="form-field" name="node" id="node" x-model="formData.selected_node_id">
+          <select class="form-field" name="node" id="node"
+            :value="formData.selected_node_id"
+            @change="formData.selected_node_id = $event.target.value">
             <option value="">Auto-select</option>
             <template x-for="node in availableNodes" :key="node.node_id">
-              <option :value="node.node_id" x-text="formatNodeLabel(node)"></option>
+              <option :value="node.node_id" :selected="node.node_id === formData.selected_node_id" x-text="formatNodeLabel(node)"></option>
             </template>
           </select>
-          <div class="description">The node where this space will run. Auto-select chooses the node with the least load.</div>
+          <div class="description" x-show="!assignedNodeUnavailable()">The node where this space will run. Auto-select chooses the node with the least load.</div>
+          <div class="description" x-show="assignedNodeUnavailable()" x-cloak>The assigned node is no longer available. Choose a live node or use Auto-select to reassign this space.</div>
         </div>
         <div x-show="!isManual && canSetSpaceStartupScript" x-cloak x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
           <label for="startup_script_id" class="form-label">User Startup Script</label>

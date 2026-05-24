@@ -111,6 +111,7 @@ type SpaceDefinition struct {
 	IsDeployed         bool                         `json:"is_deployed"`
 	IsPending          bool                         `json:"is_pending"`
 	IsDeleting         bool                         `json:"is_deleting"`
+	HasEverStarted     bool                         `json:"has_ever_started"`
 	VolumeData         map[string]model.SpaceVolume `json:"volume_data"`
 	StartedAt          time.Time                    `json:"started_at"`
 	CreatedAt          time.Time                    `json:"created_at"`
@@ -130,6 +131,7 @@ type SpaceDefinition struct {
 	VSCodeTunnel       string                       `json:"vscode_tunnel_name"`
 	Healthy            bool                         `json:"healthy"`
 	IsRemote           bool                         `json:"is_remote"`
+	NodeId             string                       `json:"node_id"`
 	NodeHostname       string                       `json:"node_hostname"`
 	Stack              string                       `json:"stack"`
 	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`
