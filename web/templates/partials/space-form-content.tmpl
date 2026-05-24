@@ -10,6 +10,15 @@
           <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
+        <div>
+          <label class="form-label">Description</label>
+          <div class="short-editor">
+            <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
+              <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
+            </div>
+          </div>
+          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
+        </div>
         <div x-data="autocompleterStack()" data-parent-var-group="formData" data-parent-variable="stack" @refresh-stack-autocompleter.window="refresh()" class="relative">
           <label for="stack" class="form-label">Stack</label>
           <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
@@ -22,15 +31,6 @@
               </template>
             </ul>
           </div>
-        </div>
-        <div>
-          <label class="form-label">Description</label>
-          <div class="short-editor">
-            <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
-              <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
-            </div>
-          </div>
-          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
         </div>
       </div>
     </fieldset>
@@ -80,6 +80,11 @@
             </div>
           </template>
         </div>
+      </div>
+    </fieldset>
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Configuration</legend>
+      <div class="flex flex-col gap-6">
         <div>
           <label for="shell" class="form-label">Terminal Shell</label>
           <select class="form-field" name="shell" id="shell" x-model="formData.shell">
@@ -90,11 +95,6 @@
           </select>
           <div class="description">The shell that will be used when you open a web terminal in this space.</div>
         </div>
-      </div>
-    </fieldset>
-    <fieldset x-show="showAdvancedSection()" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Advanced</legend>
-      <div class="flex flex-col gap-6">
         <div x-show="showNodeSelection()" x-cloak>
           <label for="node" class="form-label">Node</label>
           <select class="form-field" name="node" id="node"
@@ -123,13 +123,6 @@
             </div>
           </div>
           <div class="description">Optional user script to run after system startup script</div>
-        </div>
-        <div x-cloak x-show="!spaceFormModal.isEdit && !isManual">
-          <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" x-model="startOnCreate" :checked="startOnCreate">
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Start Space on Create</span>
-          </label>
         </div>
       </div>
     </fieldset>
@@ -171,6 +164,17 @@
             <input type="text" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
           </div>
         </template>
+      </div>
+    </fieldset>
+    <fieldset x-show="!spaceFormModal.isEdit && !isManual" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Launch</legend>
+      <div class="space-y-4">
+        <div class="description">Choose whether the new space should be started immediately after it is created.</div>
+        <label class="flex items-center cursor-pointer">
+          <input type="checkbox" class="sr-only peer" value="1" x-model="startOnCreate" :checked="startOnCreate">
+          <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Start Space on Create</span>
+        </label>
       </div>
     </fieldset>
     <div x-show="spaceFormModal.isEdit && formData.created_at_formatted" x-cloak class="text-xs text-gray-400 dark:text-gray-500">

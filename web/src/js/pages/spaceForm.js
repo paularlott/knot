@@ -77,6 +77,7 @@ window.spaceForm = function (
     quotaStorageLimitShow: false,
     availableNodes: [],
     loadingNodes: false,
+    keepNodeSelectionVisible: false,
 
     canEditNodeSelection() {
       return !this.isManual && !this.formData.has_ever_started;
@@ -92,17 +93,18 @@ window.spaceForm = function (
     },
 
     showNodeSelection() {
-      return (
-        this.canEditNodeSelection() &&
-        (this.availableNodes.length > 1 || this.assignedNodeUnavailable())
-      );
-    },
+      if (!this.canEditNodeSelection()) {
+        return false;
+      }
 
-    showAdvancedSection() {
+      if (!this.isEdit) {
+        return this.availableNodes.length > 1;
+      }
+
       return (
-        this.showNodeSelection() ||
-        (!this.isManual && this.canSetSpaceStartupScript) ||
-        (!this.isEdit && !this.isManual)
+        this.keepNodeSelectionVisible ||
+        this.availableNodes.length > 1 ||
+        this.assignedNodeUnavailable()
       );
     },
 
@@ -417,6 +419,13 @@ window.spaceForm = function (
         if (nodesResponse.status === 200) {
           const nodes = await nodesResponse.json();
           this.availableNodes = nodes || [];
+          if (
+            this.isEdit &&
+            this.canEditNodeSelection() &&
+            (this.availableNodes.length > 1 || this.assignedNodeUnavailable())
+          ) {
+            this.keepNodeSelectionVisible = true;
+          }
           if (!this.formData.selected_node_id && this.availableNodes.length === 1) {
             this.formData.selected_node_id = this.availableNodes[0].node_id;
           }

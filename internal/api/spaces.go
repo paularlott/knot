@@ -698,12 +698,16 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
-			if err != nil {
-				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-				return
+			// Preserve the existing assignment for ordinary edits; only revalidate
+			// when the user explicitly changes the target node (including Auto-select).
+			if request.SelectedNodeId != space.NodeId {
+				nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
+				if err != nil {
+					rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+					return
+				}
+				space.NodeId = nodeId
 			}
-			space.NodeId = nodeId
 		}
 	}
 
