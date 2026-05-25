@@ -48,6 +48,7 @@ type Template struct {
 	WithCodeServer           bool                   `json:"with_code_server" db:"with_code_server"`
 	WithSSH                  bool                   `json:"with_ssh" db:"with_ssh"`
 	WithRunCommand           bool                   `json:"with_run_command" db:"with_run_command"`
+	AllowNodeMigration       bool                   `json:"allow_node_migration" db:"allow_node_migration"`
 	StartupScriptId          string                 `json:"startup_script_id" db:"startup_script_id"`
 	ShutdownScriptId         string                 `json:"shutdown_script_id" db:"shutdown_script_id"`
 	ComputeUnits             uint32                 `json:"compute_units" db:"compute_units"`
@@ -99,6 +100,7 @@ func NewTemplate(
 	withCodeServer bool,
 	withSSH bool,
 	withRunCommand bool,
+	allowNodeMigration bool,
 	startupScriptId string,
 	shutdownScriptId string,
 	computeUnits uint32,
@@ -119,32 +121,33 @@ func NewTemplate(
 	}
 
 	template := &Template{
-		Id:               id.String(),
-		Name:             name,
-		Description:      description,
-		Job:              job,
-		Volumes:          volumes,
-		Groups:           groups,
-		Zones:            zones,
-		CreatedUserId:    userId,
-		Platform:         platform,
-		WithTerminal:     withTerminal,
-		WithVSCodeTunnel: withVSCodeTunnel,
-		WithCodeServer:   withCodeServer,
-		WithSSH:          withSSH,
-		WithRunCommand:   withRunCommand,
-		StartupScriptId:  startupScriptId,
-		ShutdownScriptId: shutdownScriptId,
-		ComputeUnits:     computeUnits,
-		StorageUnits:     storageUnits,
-		CreatedAt:        time.Now().UTC(),
-		UpdatedUserId:    userId,
-		UpdatedAt:        hlc.Now(),
-		IconURL:          iconURL,
-		Active:           active,
-		MaxUptime:        maxUptime,
-		MaxUptimeUnit:    maxUptimeUnit,
-		CustomFields:     customFields,
+		Id:                 id.String(),
+		Name:               name,
+		Description:        description,
+		Job:                job,
+		Volumes:            volumes,
+		Groups:             groups,
+		Zones:              zones,
+		CreatedUserId:      userId,
+		Platform:           platform,
+		WithTerminal:       withTerminal,
+		WithVSCodeTunnel:   withVSCodeTunnel,
+		WithCodeServer:     withCodeServer,
+		WithSSH:            withSSH,
+		WithRunCommand:     withRunCommand,
+		AllowNodeMigration: allowNodeMigration,
+		StartupScriptId:    startupScriptId,
+		ShutdownScriptId:   shutdownScriptId,
+		ComputeUnits:       computeUnits,
+		StorageUnits:       storageUnits,
+		CreatedAt:          time.Now().UTC(),
+		UpdatedUserId:      userId,
+		UpdatedAt:          hlc.Now(),
+		IconURL:            iconURL,
+		Active:             active,
+		MaxUptime:          maxUptime,
+		MaxUptimeUnit:      maxUptimeUnit,
+		CustomFields:       customFields,
 	}
 	template.UpdateHash()
 
@@ -165,7 +168,7 @@ func (template *Template) GetVolumes(space *Space, user *User, variables map[str
 }
 
 func (template *Template) UpdateHash() {
-	hash := md5.Sum([]byte(template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.WithRunCommand, template.CustomFields)))
+	hash := md5.Sum([]byte(template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.WithRunCommand, template.AllowNodeMigration, template.CustomFields)))
 	template.Hash = hex.EncodeToString(hash[:])
 }
 

@@ -27,6 +27,7 @@ func TestNewTemplate(t *testing.T) {
 		true,
 		true,
 		false,
+		true,
 		"startup-script-id",
 		"shutdown-script-id",
 		100,
@@ -59,6 +60,9 @@ func TestNewTemplate(t *testing.T) {
 	}
 	if !template.WithSSH {
 		t.Error("WithSSH should be true")
+	}
+	if !template.AllowNodeMigration {
+		t.Error("AllowNodeMigration should be true")
 	}
 	if template.ComputeUnits != 100 {
 		t.Errorf("Expected compute units 100, got %d", template.ComputeUnits)

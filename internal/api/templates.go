@@ -75,6 +75,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Groups = template.Groups
 		templateData.Platform = template.Platform
 		templateData.IsManaged = template.IsManaged
+		templateData.AllowNodeMigration = template.AllowNodeMigration
 		templateData.ComputeUnits = template.ComputeUnits
 		templateData.StorageUnits = template.StorageUnits
 		templateData.ScheduleEnabled = template.ScheduleEnabled
@@ -129,6 +130,10 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes = ""
 		request.ScheduleEnabled = false
 		request.MaxUptimeUnit = "disabled"
+		request.AllowNodeMigration = false
+	}
+	if request.Platform == model.PlatformNomad {
+		request.AllowNodeMigration = false
 	}
 
 	// Support lookup by both ID and name
@@ -161,6 +166,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.WithCodeServer = request.WithCodeServer
 	template.WithSSH = request.WithSSH
 	template.WithRunCommand = request.WithRunCommand
+	template.AllowNodeMigration = request.AllowNodeMigration
 	template.StartupScriptId = request.StartupScriptId
 	template.ShutdownScriptId = request.ShutdownScriptId
 	template.ComputeUnits = request.ComputeUnits
@@ -237,6 +243,10 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes = ""
 		request.ScheduleEnabled = false
 		request.MaxUptimeUnit = "disabled"
+		request.AllowNodeMigration = false
+	}
+	if request.Platform == model.PlatformNomad {
+		request.AllowNodeMigration = false
 	}
 
 	user := r.Context().Value("user").(*model.User)
@@ -278,6 +288,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.WithCodeServer,
 		request.WithSSH,
 		request.WithRunCommand,
+		request.AllowNodeMigration,
 		request.StartupScriptId,
 		request.ShutdownScriptId,
 		request.ComputeUnits,

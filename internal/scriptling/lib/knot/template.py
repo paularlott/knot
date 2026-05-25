@@ -30,7 +30,8 @@ def get(template_id):
 def create(name, job="", description="", platform="", volumes="", active=True,
            compute_units=0, storage_units=0, with_terminal=False,
            with_vscode_tunnel=False, with_code_server=False, with_ssh=False,
-           with_run_command=False, schedule_enabled=False, icon_url="",
+           with_run_command=False, allow_node_migration=False,
+           schedule_enabled=False, icon_url="",
            groups=None, zones=None, disable_user_activity=False):
     """Create a new template."""
     body = {
@@ -47,6 +48,7 @@ def create(name, job="", description="", platform="", volumes="", active=True,
         "with_code_server": with_code_server,
         "with_ssh": with_ssh,
         "with_run_command": with_run_command,
+        "allow_node_migration": allow_node_migration,
         "schedule_enabled": schedule_enabled,
         "icon_url": icon_url,
         "groups": groups or [],
@@ -63,7 +65,8 @@ def create(name, job="", description="", platform="", volumes="", active=True,
 def update(template_id, name=None, job=None, description=None, platform=None,
            volumes=None, active=None, compute_units=None, storage_units=None,
            with_terminal=None, with_vscode_tunnel=None, with_code_server=None,
-           with_ssh=None, with_run_command=None, schedule_enabled=None,
+           with_ssh=None, with_run_command=None, allow_node_migration=None,
+           schedule_enabled=None,
            icon_url=None, groups=None, zones=None, disable_user_activity=None):
     """Update template properties."""
     current = api.get(f"/api/templates/{template_id}")
@@ -82,6 +85,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "with_code_server": with_code_server if with_code_server is not None else current.get("with_code_server", False),
         "with_ssh": with_ssh if with_ssh is not None else current.get("with_ssh", False),
         "with_run_command": with_run_command if with_run_command is not None else current.get("with_run_command", False),
+        "allow_node_migration": allow_node_migration if allow_node_migration is not None else current.get("allow_node_migration", False),
         "schedule_enabled": schedule_enabled if schedule_enabled is not None else current.get("schedule_enabled", False),
         "icon_url": icon_url if icon_url is not None else current.get("icon_url", ""),
         "groups": groups if groups is not None else current.get("groups", []),
@@ -157,6 +161,7 @@ def _parse_template(response):
         "with_code_server": response.get("with_code_server", False),
         "with_ssh": response.get("with_ssh", False),
         "with_run_command": response.get("with_run_command", False),
+        "allow_node_migration": response.get("allow_node_migration", False),
         "schedule_enabled": response.get("schedule_enabled", False),
         "auto_start": response.get("auto_start", False),
         "max_uptime": response.get("max_uptime", 0),

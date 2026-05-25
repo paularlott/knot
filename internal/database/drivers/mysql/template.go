@@ -29,18 +29,16 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template, updateFields []str
 
 	// Update
 	if doUpdate {
-		err = db.update("templates", template, updateFields)
+		err = db.updateWithExecutor(tx, "templates", template, updateFields)
 	} else {
-		err = db.create("templates", template)
+		err = db.createWithExecutor(tx, "templates", template)
 	}
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	tx.Commit()
-
-	return nil
+	return tx.Commit()
 }
 
 func (db *MySQLDriver) DeleteTemplate(template *model.Template) error {

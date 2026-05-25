@@ -23,6 +23,7 @@ type TemplateCreateRequest struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
 	ScheduleEnabled          bool                 `json:"schedule_enabled"`
@@ -58,6 +59,7 @@ type TemplateUpdateRequest struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
 	ScheduleEnabled          bool                 `json:"schedule_enabled"`
@@ -86,24 +88,25 @@ type TemplateCreateResponse struct {
 }
 
 type TemplateInfo struct {
-	Id              string               `json:"template_id"`
-	Name            string               `json:"name"`
-	Description     string               `json:"description"`
-	Usage           int                  `json:"usage"`
-	Deployed        int                  `json:"deployed"`
-	Groups          []string             `json:"groups"`
-	Platform        string               `json:"platform"`
-	Active          bool                 `json:"active"`
-	IsManaged       bool                 `json:"is_managed"`
-	ScheduleEnabled bool                 `json:"schedule_enabled"`
-	AutoStart       bool                 `json:"auto_start"`
-	ComputeUnits    uint32               `json:"compute_units"`
-	StorageUnits    uint32               `json:"storage_units"`
-	Schedule        []TemplateDetailsDay `json:"schedule"`
-	Zones           []string             `json:"zones"`
-	MaxUptime       uint32               `json:"max_uptime"`
-	MaxUptimeUnit   string               `json:"max_uptime_unit"`
-	IconURL         string               `json:"icon_url"`
+	Id                 string               `json:"template_id"`
+	Name               string               `json:"name"`
+	Description        string               `json:"description"`
+	Usage              int                  `json:"usage"`
+	Deployed           int                  `json:"deployed"`
+	Groups             []string             `json:"groups"`
+	Platform           string               `json:"platform"`
+	Active             bool                 `json:"active"`
+	IsManaged          bool                 `json:"is_managed"`
+	AllowNodeMigration bool                 `json:"allow_node_migration"`
+	ScheduleEnabled    bool                 `json:"schedule_enabled"`
+	AutoStart          bool                 `json:"auto_start"`
+	ComputeUnits       uint32               `json:"compute_units"`
+	StorageUnits       uint32               `json:"storage_units"`
+	Schedule           []TemplateDetailsDay `json:"schedule"`
+	Zones              []string             `json:"zones"`
+	MaxUptime          uint32               `json:"max_uptime"`
+	MaxUptimeUnit      string               `json:"max_uptime_unit"`
+	IconURL            string               `json:"icon_url"`
 }
 
 type TemplateList struct {
@@ -135,6 +138,7 @@ type TemplateDetails struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
 	ComputeUnits             uint32               `json:"compute_units"`

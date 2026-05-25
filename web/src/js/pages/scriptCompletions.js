@@ -650,13 +650,13 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, job, ...)",
+        signature: "create(name, job, ..., allow_node_migration=False)",
         description: "Create a new template",
         returns: "str - ID of the newly created template",
       },
       {
         name: "update",
-        signature: "update(template_id, ...)",
+        signature: "update(template_id, ..., allow_node_migration=None)",
         description: "Update template properties",
         returns: "bool - True if successfully updated",
       },

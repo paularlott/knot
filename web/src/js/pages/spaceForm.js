@@ -59,6 +59,7 @@ window.spaceForm = function (
     template_id: templateId,
     template: {
       custom_fields: [],
+      allow_node_migration: false,
     },
     isManual: false,
     loading: true,
@@ -80,7 +81,17 @@ window.spaceForm = function (
     keepNodeSelectionVisible: false,
 
     canEditNodeSelection() {
-      return !this.isManual && !this.formData.has_ever_started;
+      return (
+        !this.isManual &&
+        (
+          !this.formData.has_ever_started ||
+          (
+            this.template.allow_node_migration &&
+            !this.formData.is_deployed &&
+            !this.formData.is_pending
+          )
+        )
+      );
     },
 
     assignedNodeUnavailable() {
@@ -368,7 +379,11 @@ window.spaceForm = function (
         this.template = await templatesResponse.json();
       } else {
         // Set a default template to prevent null reference errors
-        this.template = { platform: "manual", custom_fields: [] };
+        this.template = {
+          platform: "manual",
+          custom_fields: [],
+          allow_node_migration: false,
+        };
       }
 
       // Initialize custom fields array immediately to prevent Alpine errors
@@ -422,7 +437,11 @@ window.spaceForm = function (
           if (
             this.isEdit &&
             this.canEditNodeSelection() &&
-            (this.availableNodes.length > 1 || this.assignedNodeUnavailable())
+            (
+              this.template.allow_node_migration ||
+              this.availableNodes.length > 1 ||
+              this.assignedNodeUnavailable()
+            )
           ) {
             this.keepNodeSelectionVisible = true;
           }

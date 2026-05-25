@@ -4818,6 +4818,9 @@ components:
         active:
           type: boolean
           description: If the template is active.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         compute_units:
           type: integer
           format: uint32
@@ -4927,6 +4930,9 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         startup_script_id:
           type: string
           format: uuid
@@ -5062,6 +5068,9 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         startup_script_id:
           type: string
           format: uuid
@@ -5211,6 +5220,9 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         startup_script_id:
           type: string
           format: uuid

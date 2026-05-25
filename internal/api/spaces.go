@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/gossip"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
@@ -23,6 +24,35 @@ import (
 
 	"github.com/paularlott/knot/internal/log"
 )
+
+func markSpaceStopped(space *model.Space) error {
+	db := database.GetInstance()
+
+	space.IsPending = false
+	space.IsDeployed = false
+	space.UpdatedAt = hlc.Now()
+
+	if err := db.SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"}); err != nil {
+		return err
+	}
+
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
+	sse.PublishSpaceChanged(space.Id, space.UserId)
+
+	return nil
+}
+
+func assignedNodeOffline(nodeId string) bool {
+	transport := service.GetTransport()
+	if transport == nil {
+		return true
+	}
+
+	node := transport.GetNodeByIDString(nodeId)
+	return node == nil || node.GetObservedState() != gossip.NodeAlive
+}
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
@@ -57,13 +87,16 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	for _, space := range spaces {
 		var templateName string
+		var templatePlatform string
 
 		// Lookup the template
 		template, templateErr := db.GetTemplate(space.TemplateId)
 		if templateErr != nil {
 			templateName = "Unknown"
+			templatePlatform = "unknown"
 		} else {
 			templateName = template.Name
+			templatePlatform = template.Platform
 		}
 
 		s := apiclient.SpaceInfo{}
@@ -76,7 +109,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.TemplateId = space.TemplateId
 		s.Zone = space.Zone
 		s.IsRemote = space.Zone != "" && space.Zone != cfg.Zone
-		s.Platform = template.Platform
+		s.Platform = templatePlatform
 		s.IconURL = space.IconURL
 
 		// Get node hostname if node_id is set
@@ -155,13 +188,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// If template is manual then force IsDeployed to true as agent is live
-			if template.IsManual() {
+			if template != nil && template.IsManual() {
 				s.IsDeployed = true
 			}
 		}
 
 		// Check if the template has been updated
-		if template.IsManual() || template.Hash == "" {
+		if template == nil || template.IsManual() || template.Hash == "" {
 			s.UpdateAvailable = false
 		} else {
 			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
@@ -533,11 +566,30 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 
 	// Check if request should be forwarded to another node
 	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
+		if assignedNodeOffline(nodeId) {
+			if err := markSpaceStopped(space); err != nil {
+				log.WithError(err).Error("HandleSpaceStop: failed to mark offline-hosted space as stopped")
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		if err := service.ForwardToNode(w, r, nodeId); err != nil {
 			// If forwarding fails, allow stop to proceed (node might be dead)
 			log.WithError(err).Warn("failed to forward stop request, proceeding locally")
+			if assignedNodeOffline(nodeId) {
+				if err := markSpaceStopped(space); err != nil {
+					log.WithError(err).Error("HandleSpaceStop: failed to mark offline-hosted space as stopped after forward failure")
+					rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+		} else {
+			return
 		}
-		return
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
@@ -692,22 +744,19 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if template.IsLocalContainer() {
-		if space.ContainerId != "" {
-			if request.SelectedNodeId != "" && request.SelectedNodeId != space.NodeId {
-				rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "space node cannot be changed after the space has been started"})
+		canChangeNode := space.ContainerId == "" ||
+			(template.AllowNodeMigration && !space.IsDeployed && !space.IsPending)
+		if request.SelectedNodeId != space.NodeId {
+			if !canChangeNode {
+				rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "space node cannot be changed for this space"})
 				return
 			}
-		} else {
-			// Preserve the existing assignment for ordinary edits; only revalidate
-			// when the user explicitly changes the target node (including Auto-select).
-			if request.SelectedNodeId != space.NodeId {
-				nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
-				if err != nil {
-					rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-				space.NodeId = nodeId
+			nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
+			if err != nil {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+				return
 			}
+			space.NodeId = nodeId
 		}
 	}
 
