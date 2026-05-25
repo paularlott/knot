@@ -1118,10 +1118,11 @@ var ServerCmd = &cli.Command{
 			cfg.Cluster.Peers,
 			cfg.Origin.Server,
 			cfg.Origin.Token,
+			func() {
+				// Check for local spaces that are pending state changes and setup watches
+				service.GetContainerService().CleanupOnBoot()
+			},
 		)
-
-		// Check for local spaces that are pending state changes and setup watches
-		service.GetContainerService().CleanupOnBoot()
 
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)

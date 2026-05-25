@@ -307,7 +307,7 @@ func (c *Cluster) manageElection() {
 	}
 }
 
-func (c *Cluster) Start(peers []string, originServer string, originToken string) {
+func (c *Cluster) Start(peers []string, originServer string, originToken string, onInitialSyncComplete func()) {
 	if c.gossipCluster != nil {
 		c.logger.Info("starting gossip cluster")
 		c.gossipCluster.Start()
@@ -403,13 +403,23 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 				}
 
 				c.logger.Info("full state sync complete")
+				if onInitialSyncComplete != nil {
+					onInitialSyncComplete()
+				}
 			}()
+		} else if onInitialSyncComplete != nil {
+			onInitialSyncComplete()
 		}
 
 		// Start the leader election process
 		c.election.Start()
 	} else if originServer != "" && originToken != "" {
 		c.runLeafClient(originServer, originToken)
+		if onInitialSyncComplete != nil {
+			onInitialSyncComplete()
+		}
+	} else if onInitialSyncComplete != nil {
+		onInitialSyncComplete()
 	}
 }
 
