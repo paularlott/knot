@@ -112,6 +112,11 @@ type containerInspectResponse struct {
 	} `json:"State"`
 }
 
+type containerListResponse struct {
+	ID    string   `json:"Id"`
+	Names []string `json:"Names"`
+}
+
 // ---- helpers ----
 
 func contains(slice []string, item string) bool {
@@ -708,4 +713,103 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	c.Logger.Debug("volumes deleted")
 	return nil
+}
+
+func (c *DockerClient) CleanupSpaceArtifacts(space *model.Space) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if space.ContainerId != "" {
+		c.Logger.Debug("cleaning migrated space container", "space_id", space.Id, "container_id", space.ContainerId)
+		if err := c.containerStop(ctx, space.ContainerId); err != nil {
+			return err
+		}
+
+		deadline := time.Now().Add(30 * time.Second)
+		for {
+			inspect, code, err := c.containerInspect(ctx, space.ContainerId)
+			if err != nil {
+				if code == http.StatusNotFound {
+					break
+				}
+				return err
+			}
+			if inspect.State != nil && !inspect.State.Running {
+				break
+			}
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timeout waiting for migrated container to stop")
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		if err := c.containerRemove(ctx, space.ContainerId); err != nil {
+			return err
+		}
+	}
+
+	for volName := range space.VolumeData {
+		c.Logger.Debug("cleaning migrated space volume", "space_id", space.Id, "volume", volName)
+		if err := c.volumeRemove(ctx, volName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *DockerClient) ListRunningSpaceRuntimeRefs() (map[string]bool, error) {
+	var response []containerListResponse
+	code, err := c.httpClient.GetJSON(context.Background(), "/v1.41/containers/json", &response)
+	if err != nil {
+		return nil, fmt.Errorf("container list failed (HTTP %d): %w", code, err)
+	}
+
+	refs := make(map[string]bool)
+	for _, container := range response {
+		if container.ID != "" {
+			refs[container.ID] = true
+		}
+		for _, name := range container.Names {
+			name = strings.TrimPrefix(name, "/")
+			if name != "" {
+				refs[name] = true
+			}
+		}
+	}
+
+	return refs, nil
+}
+
+func (c *DockerClient) StopSpaceRuntime(space *model.Space) error {
+	if space.ContainerId == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if err := c.containerStop(ctx, space.ContainerId); err != nil {
+		return err
+	}
+
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		inspect, code, err := c.containerInspect(ctx, space.ContainerId)
+		if err != nil {
+			if code == http.StatusNotFound {
+				break
+			}
+			return err
+		}
+		if inspect.State != nil && !inspect.State.Running {
+			break
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for container to stop")
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return c.containerRemove(ctx, space.ContainerId)
 }

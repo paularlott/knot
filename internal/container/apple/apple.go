@@ -60,6 +60,13 @@ type containerInspect struct {
 	Status string `json:"status"`
 }
 
+type appleListContainer struct {
+	Status        string `json:"status"`
+	Configuration struct {
+		ID string `json:"id"`
+	} `json:"configuration"`
+}
+
 func normalizeContainerReference(ref string) string {
 	ref = strings.ReplaceAll(ref, "\r\n", "\n")
 	ref = strings.ReplaceAll(ref, "\r", "\n")
@@ -499,6 +506,172 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	c.logger.Debug("volumes deleted")
 
 	return nil
+}
+
+func isIgnorableAppleCleanupOutput(output string) bool {
+	return strings.Contains(output, "not found") ||
+		strings.Contains(output, "no volume") ||
+		strings.Contains(output, "does not exist") ||
+		strings.Contains(output, "No such")
+}
+
+func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
+	containerRef := normalizeContainerReference(space.ContainerId)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if containerRef != "" {
+		c.logger.Debug("cleaning migrated space container", "space_id", space.Id, "space_containerid", containerRef)
+
+		cmd := exec.CommandContext(ctx, "container", "stop", containerRef)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			outputStr := string(output)
+			if !strings.Contains(outputStr, "not found") && !strings.Contains(outputStr, "internalError") && !strings.Contains(outputStr, "No such") {
+				return err
+			}
+		}
+
+		timeout := time.Now().Add(30 * time.Second)
+		for {
+			cmd := exec.CommandContext(ctx, "container", "inspect", containerRef)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				if strings.Contains(string(output), "not found") {
+					break
+				}
+				return err
+			}
+
+			var inspectData []containerInspect
+			if err := json.Unmarshal(output, &inspectData); err != nil {
+				return err
+			}
+
+			if len(inspectData) == 0 || inspectData[0].Status != "running" {
+				break
+			}
+
+			if time.Now().After(timeout) {
+				return fmt.Errorf("timeout waiting for migrated container to stop")
+			}
+
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		cmd = exec.CommandContext(ctx, "container", "rm", containerRef)
+		output, err = cmd.CombinedOutput()
+		if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
+			return err
+		}
+	}
+
+	for volName := range space.VolumeData {
+		c.logger.Debug("cleaning migrated space volume", "space_id", space.Id, "volname", volName)
+		cmd := exec.CommandContext(ctx, "container", "volume", "rm", volName)
+		output, err := cmd.CombinedOutput()
+		if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *AppleClient) StopSpaceRuntime(space *model.Space) error {
+	containerRef := normalizeContainerReference(space.ContainerId)
+	if containerRef == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "container", "stop", containerRef)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		outputStr := string(output)
+		if !isIgnorableAppleCleanupOutput(outputStr) && !strings.Contains(outputStr, "internalError") {
+			return err
+		}
+	}
+
+	timeout := time.Now().Add(30 * time.Second)
+	for {
+		cmd := exec.CommandContext(ctx, "container", "inspect", containerRef)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			if isIgnorableAppleCleanupOutput(string(output)) {
+				break
+			}
+			return err
+		}
+
+		var inspectData []containerInspect
+		if err := json.Unmarshal(output, &inspectData); err != nil {
+			return err
+		}
+
+		if len(inspectData) == 0 || inspectData[0].Status != "running" {
+			break
+		}
+
+		if time.Now().After(timeout) {
+			return fmt.Errorf("timeout waiting for container to stop")
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	cmd = exec.CommandContext(ctx, "container", "rm", containerRef)
+	output, err = cmd.CombinedOutput()
+	if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
+		return err
+	}
+
+	return nil
+}
+
+func (c *AppleClient) ListRunningSpaceRuntimeRefs() (map[string]bool, error) {
+	cmd := exec.Command("container", "ls", "--format", "json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	refs := make(map[string]bool)
+
+	var listResponse []appleListContainer
+	if err := json.Unmarshal(output, &listResponse); err == nil {
+		for _, container := range listResponse {
+			if container.Status != "running" {
+				continue
+			}
+			if container.Configuration.ID != "" {
+				refs[container.Configuration.ID] = true
+			}
+		}
+		return refs, nil
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var item appleListContainer
+		if err := json.Unmarshal([]byte(line), &item); err == nil {
+			if item.Status != "running" {
+				continue
+			}
+			if item.Configuration.ID != "" {
+				refs[item.Configuration.ID] = true
+			}
+		}
+	}
+
+	return refs, nil
 }
 
 func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {

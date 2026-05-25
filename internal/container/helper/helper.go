@@ -26,6 +26,17 @@ import (
 type Helper struct {
 }
 
+func normalizeNomadNamespace(namespace string) string {
+	if namespace == "" {
+		return "default"
+	}
+	return namespace
+}
+
+func nomadRuntimeKey(space *model.Space) string {
+	return normalizeNomadNamespace(space.NomadNamespace) + "\x00" + space.ContainerId
+}
+
 func NewContainerHelper() *Helper {
 	return &Helper{}
 }
@@ -52,6 +63,20 @@ func (h *Helper) createClient(platform string) (container.ContainerManager, erro
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
+}
+
+func (h *Helper) CleanupMigratedSpaceArtifacts(space *model.Space, template *model.Template) error {
+	if template == nil || !template.IsLocalContainer() {
+		return nil
+	}
+
+	containerClient, err := h.createClient(template.Platform)
+	if err != nil {
+		log.WithError(err).Error("CleanupMigratedSpaceArtifacts: failed to create container client")
+		return err
+	}
+
+	return containerClient.CleanupSpaceArtifacts(space)
 }
 
 func (h *Helper) CreateVolume(volume *model.Volume) error {
@@ -422,42 +447,99 @@ func (h *Helper) CleanupOnBoot() {
 	if err != nil {
 		logger.WithError(err).Fatal("failed to get spaces")
 	} else {
+		templateCache := make(map[string]*model.Template)
+		runtimeRefCache := make(map[string]map[string]bool)
 		for _, space := range spaces {
 			// If space is deleted or not in this zone then ignore it
 			if space.IsDeleted || space.Zone != cfg.Zone {
 				continue
 			}
 
+			template, ok := templateCache[space.TemplateId]
+			if !ok {
+				template, err = db.GetTemplate(space.TemplateId)
+				if err != nil {
+					logger.WithError(err).Error("failed to get template from space")
+					continue
+				}
+				templateCache[space.TemplateId] = template
+			}
+
 			// If the space is deleting then ask it to delete again
 			if space.IsDeleting {
 				logger.Info("found space  pending delete, restarting delete...", "space_name", space.Name)
 				h.DeleteSpace(space)
-			} else if space.IsPending {
-				// If starting then ask for start
-				if !space.IsDeployed {
-					logger.Info("found space  pending start, starting...", "space_name", space.Name)
+				continue
+			}
 
-					user, err := db.GetUser(space.UserId)
-					if err != nil {
-						logger.WithError(err).Error("failed to get user from space, stopping the space...")
-						space.IsDeployed = true
-						h.StopSpace(space)
-						continue
-					}
+			if template.IsManual() {
+				continue
+			}
 
-					template, err := db.GetTemplate(space.TemplateId)
-					if err != nil {
-						logger.WithError(err).Error("failed to get template from space, stopping the space...")
-						space.IsDeployed = true
-						h.StopSpace(space)
-						continue
-					}
+			containerClient, err := h.createClient(template.Platform)
+			if err != nil {
+				logger.WithError(err).Error("failed to create container client for boot cleanup", "space_name", space.Name)
+				continue
+			}
 
-					h.StartSpace(space, template, user)
-				} else {
-					logger.Info("found space  pending stop, stopping...", "space_name", space.Name)
-					h.StopSpace(space)
+			runtimeKey := template.Platform
+			if template.Platform == model.PlatformContainer {
+				runtimeKey = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+			}
+			if template.Platform == model.PlatformNomad {
+				runtimeKey = template.Platform + ":" + normalizeNomadNamespace(space.NomadNamespace)
+			}
+
+			refs, ok := runtimeRefCache[runtimeKey]
+			if !ok {
+				switch client := containerClient.(type) {
+				case *docker.DockerClient:
+					refs, err = client.ListRunningSpaceRuntimeRefs()
+				case *podman.PodmanClient:
+					refs, err = client.ListRunningSpaceRuntimeRefs()
+				case *apple.AppleClient:
+					refs, err = client.ListRunningSpaceRuntimeRefs()
+				case *nomad.NomadClient:
+					refs, err = client.ListRunningSpaceRuntimeRefs([]string{space.NomadNamespace})
+				default:
+					err = fmt.Errorf("unsupported container client type for boot cleanup")
 				}
+				if err != nil {
+					logger.WithError(err).Error("failed to list running runtimes for boot cleanup", "space_name", space.Name)
+					continue
+				}
+				runtimeRefCache[runtimeKey] = refs
+			}
+
+			running := false
+			switch template.Platform {
+			case model.PlatformNomad:
+				running = refs[nomadRuntimeKey(space)]
+			default:
+				running = refs[space.ContainerId]
+			}
+
+			if !space.IsDeployed && running {
+				logger.Info("found runtime running for stopped space, stopping runtime...", "space_name", space.Name)
+				if err := containerClient.StopSpaceRuntime(space); err != nil {
+					logger.WithError(err).Error("failed to stop stale runtime for space", "space_name", space.Name)
+				}
+				continue
+			}
+
+			if space.IsDeployed != running || space.IsPending {
+				logger.Info("reconciling space runtime state", "space_name", space.Name, "db_is_deployed", space.IsDeployed, "runtime_running", running, "db_is_pending", space.IsPending)
+				space.IsDeployed = running
+				space.IsPending = false
+				space.UpdatedAt = hlc.Now()
+				if err := db.SaveSpace(space, []string{"IsDeployed", "IsPending", "UpdatedAt"}); err != nil {
+					logger.WithError(err).Error("failed to reconcile space state", "space_name", space.Name)
+					continue
+				}
+				if transport := service.GetTransport(); transport != nil {
+					transport.GossipSpace(space)
+				}
+				sse.PublishSpaceChanged(space.Id, space.UserId)
 			}
 		}
 	}

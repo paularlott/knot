@@ -196,7 +196,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		IsDeployed:         space.IsDeployed,
 		IsPending:          space.IsPending,
 		IsDeleting:         space.IsDeleting,
-		HasEverStarted:     space.ContainerId != "",
+		HasEverStarted:     space.TemplateHash != "",
 		VolumeData:         space.VolumeData,
 		StartedAt:          space.StartedAt.UTC(),
 		CreatedAt:          space.CreatedAt.UTC(),

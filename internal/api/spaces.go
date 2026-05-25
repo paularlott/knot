@@ -743,9 +743,12 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	nodeChanged := false
+
 	if template.IsLocalContainer() {
-		canChangeNode := space.ContainerId == "" ||
+		canChangeNode := space.TemplateHash == "" ||
 			(template.AllowNodeMigration && !space.IsDeployed && !space.IsPending)
+		previousNodeId := space.NodeId
 		if request.SelectedNodeId != space.NodeId {
 			if !canChangeNode {
 				rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "space node cannot be changed for this space"})
@@ -757,6 +760,11 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			space.NodeId = nodeId
+			nodeChanged = previousNodeId != nodeId
+			if nodeChanged && template.AllowNodeMigration && space.TemplateHash != "" {
+				space.ContainerId = ""
+				space.VolumeData = make(model.VolumeDataMap)
+			}
 		}
 	}
 

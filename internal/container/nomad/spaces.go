@@ -262,6 +262,50 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 	return nil
 }
 
+func (client *NomadClient) CleanupSpaceArtifacts(space *model.Space) error {
+	return nil
+}
+
+func (client *NomadClient) StopSpaceRuntime(space *model.Space) error {
+	if space.ContainerId == "" {
+		return nil
+	}
+
+	_, err := client.DeleteJob(space.ContainerId, space.NomadNamespace)
+	return err
+}
+
+func (client *NomadClient) ListRunningSpaceRuntimeRefs(namespaces []string) (map[string]bool, error) {
+	refs := make(map[string]bool)
+	seenNamespaces := make(map[string]bool)
+
+	for _, namespace := range namespaces {
+		if namespace == "" {
+			namespace = "default"
+		}
+		if seenNamespaces[namespace] {
+			continue
+		}
+		seenNamespaces[namespace] = true
+
+		jobs, err := client.ListJobs(context.Background(), namespace)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, job := range jobs {
+			id, _ := job["ID"].(string)
+			status, _ := job["Status"].(string)
+			if id == "" || status != "running" {
+				continue
+			}
+			refs[namespace+"\x00"+id] = true
+		}
+	}
+
+	return refs, nil
+}
+
 func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 	go func() {
 		client.logger.Info("watching job  status for change", "nomad", space.ContainerId)

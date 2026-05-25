@@ -77,3 +77,18 @@ func (client *NomadClient) ReadJob(ctx context.Context, jobId string, namespace 
 
 	return code, response, nil
 }
+
+func (client *NomadClient) ListJobs(ctx context.Context, namespace string) ([]map[string]interface{}, error) {
+	var response []map[string]interface{}
+
+	_, err := client.httpClient.Get(
+		ctx,
+		fmt.Sprintf("/v1/jobs?namespace=%s", namespace),
+		&response,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}

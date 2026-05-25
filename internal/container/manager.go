@@ -10,6 +10,8 @@ type ContainerManager interface {
 	DeleteSpaceJob(space *model.Space, onStopped func()) error
 	CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error
 	DeleteSpaceVolumes(space *model.Space) error
+	CleanupSpaceArtifacts(space *model.Space) error
+	StopSpaceRuntime(space *model.Space) error
 
 	// volume management
 	CreateVolume(vol *model.Volume, variables map[string]interface{}) error

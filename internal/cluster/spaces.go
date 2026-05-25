@@ -4,11 +4,16 @@ import (
 	"math/rand"
 
 	"github.com/paularlott/gossip"
+	"github.com/paularlott/knot/internal/container/helper"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 )
+
+type spaceCleanupTask struct {
+	space *model.Space
+}
 
 func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	c.logger.Debug("Received space full sync request")
@@ -81,13 +86,58 @@ func (c *Cluster) DoSpaceFullSync(node *gossip.Node) error {
 	return nil
 }
 
+func (c *Cluster) enqueueSpaceCleanup(space *model.Space) {
+	if space == nil {
+		return
+	}
+
+	c.spaceCleanupMux.Lock()
+	if c.spaceCleanupBusy[space.Id] {
+		c.spaceCleanupMux.Unlock()
+		return
+	}
+	c.spaceCleanupBusy[space.Id] = true
+	c.spaceCleanupMux.Unlock()
+
+	c.spaceCleanupQ <- &spaceCleanupTask{space: space}
+}
+
+func (c *Cluster) runSpaceCleanupQueue() {
+	for task := range c.spaceCleanupQ {
+		if task == nil || task.space == nil {
+			continue
+		}
+
+		db := database.GetInstance()
+		template, err := db.GetTemplate(task.space.TemplateId)
+		if err != nil {
+			c.logger.Error("Failed to load template during queued space cleanup", "error", err, "name", task.space.Name)
+		} else if template.IsLocalContainer() {
+			if err := helper.NewContainerHelper().CleanupMigratedSpaceArtifacts(task.space, template); err != nil {
+				c.logger.Error("Failed to clean migrated space artifacts", "error", err, "name", task.space.Name)
+			}
+		}
+
+		c.spaceCleanupMux.Lock()
+		delete(c.spaceCleanupBusy, task.space.Id)
+		c.spaceCleanupMux.Unlock()
+	}
+}
+
 // Merges the spaces from a cluster member with the local spaces
 func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 	c.logger.Debug("Merging spaces", "number_spaces", len(spaces))
+	c.spaceMergeMux.Lock()
+	defer c.spaceMergeMux.Unlock()
 
 	// Get the list of spaces in the system
 	db := database.GetInstance()
 	localSpaces, err := db.GetSpaces()
+	if err != nil {
+		return err
+	}
+
+	localNodeId, err := c.GetLocalNodeId()
 	if err != nil {
 		return err
 	}
@@ -103,8 +153,30 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 		if localSpace, ok := localSpacesMap[space.Id]; ok {
 			// If the remote space is newer than the local space then use its data
 			if space.UpdatedAt.After(localSpace.UpdatedAt) {
+				shouldQueueCleanup := localSpace.NodeId != "" && localSpace.NodeId == localNodeId && space.NodeId != localNodeId
+				var cleanupSpace *model.Space
+				if shouldQueueCleanup {
+					cleanupSpace = &model.Space{
+						Id:          localSpace.Id,
+						UserId:      localSpace.UserId,
+						TemplateId:  localSpace.TemplateId,
+						Name:        localSpace.Name,
+						NodeId:      localSpace.NodeId,
+						ContainerId: localSpace.ContainerId,
+						VolumeData:  make(model.VolumeDataMap),
+					}
+					for volumeName, volume := range localSpace.VolumeData {
+						cleanupSpace.VolumeData[volumeName] = volume
+					}
+				}
+
 				if err := db.SaveSpace(space, []string{}); err != nil {
 					c.logger.Error("Failed to update space", "error", err, "name", space.Name)
+					continue
+				}
+
+				if shouldQueueCleanup {
+					c.enqueueSpaceCleanup(cleanupSpace)
 				}
 
 				//  If share user update the SSH keys
