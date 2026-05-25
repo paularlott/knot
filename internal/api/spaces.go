@@ -17,6 +17,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -24,25 +25,6 @@ import (
 
 	"github.com/paularlott/knot/internal/log"
 )
-
-func markSpaceStopped(space *model.Space) error {
-	db := database.GetInstance()
-
-	space.IsPending = false
-	space.IsDeployed = false
-	space.UpdatedAt = hlc.Now()
-
-	if err := db.SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"}); err != nil {
-		return err
-	}
-
-	if transport := service.GetTransport(); transport != nil {
-		transport.GossipSpace(space)
-	}
-	sse.PublishSpaceChanged(space.Id, space.UserId)
-
-	return nil
-}
 
 func assignedNodeOffline(nodeId string) bool {
 	transport := service.GetTransport()
@@ -567,7 +549,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	// Check if request should be forwarded to another node
 	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
 		if assignedNodeOffline(nodeId) {
-			if err := markSpaceStopped(space); err != nil {
+			if err := spaceutil.MarkSpaceStopped(space); err != nil {
 				log.WithError(err).Error("HandleSpaceStop: failed to mark offline-hosted space as stopped")
 				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
@@ -579,7 +561,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 			// If forwarding fails, allow stop to proceed (node might be dead)
 			log.WithError(err).Warn("failed to forward stop request, proceeding locally")
 			if assignedNodeOffline(nodeId) {
-				if err := markSpaceStopped(space); err != nil {
+				if err := spaceutil.MarkSpaceStopped(space); err != nil {
 					log.WithError(err).Error("HandleSpaceStop: failed to mark offline-hosted space as stopped after forward failure")
 					rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 					return

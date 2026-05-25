@@ -114,7 +114,7 @@ func handleAgentConnection(conn net.Conn) {
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
 	sessionMutex.Unlock()
-	defer RemoveSession(registerMsg.SpaceId)
+	defer DisconnectSession(registerMsg.SpaceId)
 
 	// Return the SSH key and GitHub username
 	response.Success = true
@@ -287,6 +287,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.ActivityRenameCount = state.ActivityRenameCount
 				session.ActivityDistinctPaths = state.ActivityDistinctPaths
 				session.LastActivityAtUnix = state.LastActivityAtUnix
+				session.LastStateAt = time.Now().UTC()
 
 				db := database.GetInstance()
 				space, err := db.GetSpace(session.Id)

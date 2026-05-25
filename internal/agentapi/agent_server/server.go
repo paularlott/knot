@@ -9,23 +9,167 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spaceutil"
 
 	"github.com/paularlott/knot/internal/log"
 )
 
 const (
-	AGENT_SCHEDULE_INTERVAL = 1 * time.Minute
+	AGENT_SCHEDULE_INTERVAL       = 1 * time.Minute
+	AGENT_LIVENESS_CHECK_INTERVAL = 10 * time.Second
+	AGENT_LIVENESS_TIMEOUT        = 30 * time.Second
 )
 
 var (
-	sessionMutex = sync.RWMutex{}
-	sessions     = make(map[string]*Session)
+	sessionMutex              = sync.RWMutex{}
+	sessions                  = make(map[string]*Session)
+	disconnectReconcileMutex  = sync.Mutex{}
+	disconnectReconcileActive = make(map[string]bool)
 )
 
 type stopListItem struct {
 	space   *model.Space
 	session *Session
+}
+
+type staleSessionItem struct {
+	spaceId string
+}
+
+func checkStaleSessions() {
+	logger := log.WithGroup("agent")
+	logger.Info("starting stale session checker")
+
+	go func() {
+		ticker := time.NewTicker(AGENT_LIVENESS_CHECK_INTERVAL)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			now := time.Now().UTC()
+			staleSessions := make([]staleSessionItem, 0)
+
+			sessionMutex.RLock()
+			for spaceId, session := range sessions {
+				if session == nil || session.LastStateAt.IsZero() {
+					continue
+				}
+				if now.Sub(session.LastStateAt) > AGENT_LIVENESS_TIMEOUT {
+					staleSessions = append(staleSessions, staleSessionItem{spaceId: spaceId})
+				}
+			}
+			sessionMutex.RUnlock()
+
+			if len(staleSessions) == 0 {
+				continue
+			}
+
+			db := database.GetInstance()
+			for _, stale := range staleSessions {
+				ExpireSession(stale.spaceId)
+
+				space, err := db.GetSpace(stale.spaceId)
+				if err != nil || space == nil || space.IsDeleted || !space.IsDeployed {
+					continue
+				}
+
+				template, err := db.GetTemplate(space.TemplateId)
+				if err != nil || template == nil || template.IsManual() {
+					if err == nil && template != nil && template.IsManual() {
+						if err := spaceutil.MarkSpaceStopped(space); err != nil {
+							logger.WithError(err).Error("failed to mark stale manual space stopped", "space_id", space.Id)
+						}
+					}
+					continue
+				}
+
+				refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
+				if err != nil {
+					logger.WithError(err).Error("failed to list runtime refs for stale session", "space_id", space.Id)
+					continue
+				}
+
+				if spaceutil.RuntimeRefRunning(space, template, refs) {
+					logger.Info("stale agent session with live runtime, stopping via provider", "space_id", space.Id, "space_name", space.Name)
+					if err := service.GetContainerService().StopSpace(space); err != nil {
+						logger.WithError(err).Error("failed to stop stale live runtime", "space_id", space.Id)
+					}
+					continue
+				}
+
+				logger.Info("stale agent session with missing runtime, marking stopped", "space_id", space.Id, "space_name", space.Name)
+				if err := spaceutil.MarkSpaceStopped(space); err != nil {
+					logger.WithError(err).Error("failed to mark stale missing runtime stopped", "space_id", space.Id)
+				}
+			}
+		}
+	}()
+}
+
+func queueDisconnectedSpaceReconcile(spaceId string) {
+	if spaceId == "" {
+		return
+	}
+
+	disconnectReconcileMutex.Lock()
+	if disconnectReconcileActive[spaceId] {
+		disconnectReconcileMutex.Unlock()
+		return
+	}
+	disconnectReconcileActive[spaceId] = true
+	disconnectReconcileMutex.Unlock()
+
+	go func() {
+		defer func() {
+			disconnectReconcileMutex.Lock()
+			delete(disconnectReconcileActive, spaceId)
+			disconnectReconcileMutex.Unlock()
+		}()
+
+		time.Sleep(AGENT_LIVENESS_TIMEOUT)
+
+		if GetSession(spaceId) != nil {
+			return
+		}
+
+		db := database.GetInstance()
+		space, err := db.GetSpace(spaceId)
+		if err != nil || space == nil || space.IsDeleted || !space.IsDeployed || space.IsPending {
+			return
+		}
+
+		template, err := db.GetTemplate(space.TemplateId)
+		if err != nil || template == nil {
+			return
+		}
+
+		if template.IsManual() {
+			if err := spaceutil.MarkSpaceStopped(space); err != nil {
+				log.WithError(err).Error("failed to mark disconnected manual space stopped", "space_id", space.Id)
+			}
+			return
+		}
+
+		refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
+		if err != nil {
+			log.WithError(err).Error("failed to list runtime refs for disconnected space", "space_id", space.Id)
+			return
+		}
+
+		if spaceutil.RuntimeRefRunning(space, template, refs) {
+			log.Info("disconnected space still has live runtime, stopping via provider", "space_id", space.Id, "space_name", space.Name)
+			if err := service.GetContainerService().StopSpace(space); err != nil {
+				log.WithError(err).Error("failed to stop disconnected live runtime", "space_id", space.Id)
+			}
+			return
+		}
+
+		log.Info("disconnected space runtime missing, marking stopped", "space_id", space.Id, "space_name", space.Name)
+		if err := spaceutil.MarkSpaceStopped(space); err != nil {
+			log.WithError(err).Error("failed to mark disconnected missing runtime stopped", "space_id", space.Id)
+		}
+	}()
 }
 
 // Periodically check to see if the space has a schedule which requires it be stopped
@@ -135,6 +279,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 
 	// Start the session garbage collector & schedule checker
 	checkSchedules()
+	checkStaleSessions()
 
 	logger.Info("listening for agents on", "listen", listen)
 
@@ -168,22 +313,51 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 	}()
 }
 
-// removeSession removes a session associated with the given spaceId.
-// It locks the sessionMutex to ensure thread safety, checks if a session
-// exists for the provided spaceId, and if so, closes the MuxSession if it is not nil.
-// Finally, it deletes the session from the sessions map and unlocks the sessionMutex.
-//
-// Parameters:
-//   - spaceId: The identifier for the space whose session is to be removed.
-func RemoveSession(spaceId string) {
+func removeSession(spaceId string, markUnhealthy bool, queueReconcile bool) {
+	var removed bool
 	sessionMutex.Lock()
 	if session, ok := sessions[spaceId]; ok {
 		if session.MuxSession != nil {
 			session.MuxSession.Close()
 		}
+		removed = true
 	}
 	delete(sessions, spaceId)
 	sessionMutex.Unlock()
+
+	if removed {
+		if markUnhealthy || queueReconcile {
+			db := database.GetInstance()
+			space, err := db.GetSpace(spaceId)
+			if err == nil && space != nil {
+				if space.IsPending || space.IsDeleting || space.IsDeleted || !space.IsDeployed {
+					markUnhealthy = false
+					queueReconcile = false
+				}
+			}
+		}
+
+		if markUnhealthy {
+			health.Set(spaceId, false, 0)
+		} else {
+			health.Delete(spaceId)
+		}
+		if queueReconcile {
+			queueDisconnectedSpaceReconcile(spaceId)
+		}
+	}
+}
+
+func RemoveSession(spaceId string) {
+	removeSession(spaceId, false, false)
+}
+
+func DisconnectSession(spaceId string) {
+	removeSession(spaceId, true, true)
+}
+
+func ExpireSession(spaceId string) {
+	removeSession(spaceId, true, false)
 }
 
 // GetSession retrieves the agent session associated with the given spaceId.

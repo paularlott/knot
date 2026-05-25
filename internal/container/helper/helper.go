@@ -18,23 +18,13 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
 
 	"github.com/paularlott/knot/internal/log"
 )
 
 type Helper struct {
-}
-
-func normalizeNomadNamespace(namespace string) string {
-	if namespace == "" {
-		return "default"
-	}
-	return namespace
-}
-
-func nomadRuntimeKey(space *model.Space) string {
-	return normalizeNomadNamespace(space.NomadNamespace) + "\x00" + space.ContainerId
 }
 
 func NewContainerHelper() *Helper {
@@ -53,13 +43,25 @@ func (h *Helper) createClient(platform string) (container.ContainerManager, erro
 
 	switch platform {
 	case model.PlatformDocker:
-		return docker.NewClient(), nil
+		client := docker.NewClient()
+		if client == nil {
+			return nil, fmt.Errorf("failed to create docker client")
+		}
+		return client, nil
 	case model.PlatformPodman:
-		return podman.NewClient(), nil
+		client := podman.NewClient()
+		if client == nil {
+			return nil, fmt.Errorf("failed to create podman client")
+		}
+		return client, nil
 	case model.PlatformNomad:
 		return nomad.NewClient()
 	case model.PlatformApple:
-		return apple.NewClient(), nil
+		client := apple.NewClient()
+		if client == nil {
+			return nil, fmt.Errorf("failed to create apple client")
+		}
+		return client, nil
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
@@ -77,6 +79,10 @@ func (h *Helper) CleanupMigratedSpaceArtifacts(space *model.Space, template *mod
 	}
 
 	return containerClient.CleanupSpaceArtifacts(space)
+}
+
+func (h *Helper) ListRunningSpaceRuntimeRefs(template *model.Template, spaces []*model.Space) (map[string]bool, error) {
+	return spaceutil.ListRunningRuntimeRefs(template, spaces)
 }
 
 func (h *Helper) CreateVolume(volume *model.Volume) error {
@@ -487,23 +493,12 @@ func (h *Helper) CleanupOnBoot() {
 				runtimeKey = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
 			}
 			if template.Platform == model.PlatformNomad {
-				runtimeKey = template.Platform + ":" + normalizeNomadNamespace(space.NomadNamespace)
+				runtimeKey = template.Platform + ":" + spaceutil.NormalizeNomadNamespace(space.NomadNamespace)
 			}
 
 			refs, ok := runtimeRefCache[runtimeKey]
 			if !ok {
-				switch client := containerClient.(type) {
-				case *docker.DockerClient:
-					refs, err = client.ListRunningSpaceRuntimeRefs()
-				case *podman.PodmanClient:
-					refs, err = client.ListRunningSpaceRuntimeRefs()
-				case *apple.AppleClient:
-					refs, err = client.ListRunningSpaceRuntimeRefs()
-				case *nomad.NomadClient:
-					refs, err = client.ListRunningSpaceRuntimeRefs([]string{space.NomadNamespace})
-				default:
-					err = fmt.Errorf("unsupported container client type for boot cleanup")
-				}
+				refs, err = h.ListRunningSpaceRuntimeRefs(template, []*model.Space{space})
 				if err != nil {
 					logger.WithError(err).Error("failed to list running runtimes for boot cleanup", "space_name", space.Name)
 					continue
@@ -511,13 +506,7 @@ func (h *Helper) CleanupOnBoot() {
 				runtimeRefCache[runtimeKey] = refs
 			}
 
-			running := false
-			switch template.Platform {
-			case model.PlatformNomad:
-				running = refs[nomadRuntimeKey(space)]
-			default:
-				running = refs[space.ContainerId]
-			}
+			running := spaceutil.RuntimeRefRunning(space, template, refs)
 
 			if !space.IsDeployed && running {
 				logger.Info("found runtime running for stopped space, stopping runtime...", "space_name", space.Name)

@@ -2,6 +2,7 @@ package agent_server
 
 import (
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
@@ -34,6 +35,7 @@ type Session struct {
 	ActivityRenameCount   uint32
 	ActivityDistinctPaths uint32
 	LastActivityAtUnix    int64
+	LastStateAt           time.Time
 	MuxSession            *yamux.Session
 	logger                logger.Logger
 
@@ -58,6 +60,7 @@ func NewSession(spaceId string, version string) *Session {
 		HasTerminal:       false,
 		TcpPorts:          make(map[string]string, 0),
 		HttpPorts:         make(map[string]string, 0),
+		LastStateAt:       time.Now().UTC(),
 		MuxSession:        nil,
 		LogHistoryMutex:   &sync.RWMutex{},
 		LogHistory:        make([]*msg.LogMessage, 0),
