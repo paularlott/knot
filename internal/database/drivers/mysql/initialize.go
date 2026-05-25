@@ -10,7 +10,7 @@ import (
 
 func (db *MySQLDriver) initialize() error {
 
-	db.logger.Debug("creating users table")
+	db.logger.Debug("ensuring users table exists")
 	_, err := db.connection.Exec(`CREATE TABLE IF NOT EXISTS users (
 user_id CHAR(36) PRIMARY KEY,
 username VARCHAR(64) UNIQUE,
@@ -41,7 +41,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating API tokens table")
+	db.logger.Debug("ensuring API tokens table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
 token_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
@@ -57,7 +57,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating spaces table")
+	db.logger.Debug("ensuring spaces table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS spaces (
 space_id CHAR(36) PRIMARY KEY,
 parent_space_id CHAR(36) DEFAULT '',
@@ -98,7 +98,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating space usage table")
+	db.logger.Debug("ensuring space usage table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS space_usage (
 space_usage_id VARCHAR(64) PRIMARY KEY,
 space_id CHAR(36) NOT NULL,
@@ -130,7 +130,7 @@ INDEX idx_space_usage_bucket (bucket_kind, bucket_start)
 		return err
 	}
 
-	db.logger.Debug("creating templates table")
+	db.logger.Debug("ensuring templates table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templates (
 template_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -181,7 +181,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating groups table")
+	db.logger.Debug("ensuring groups table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS groups (
 group_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -200,7 +200,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating template variables table")
+	db.logger.Debug("ensuring template variables table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templatevars (
 templatevar_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -221,7 +221,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating volumes table")
+	db.logger.Debug("ensuring volumes table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS volumes (
 volume_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -242,7 +242,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating scripts table")
+	db.logger.Debug("ensuring scripts table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS scripts (
 script_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36) DEFAULT '',
@@ -271,7 +271,7 @@ INDEX name_user (name, user_id)
 		return err
 	}
 
-	db.logger.Debug("creating skills table")
+	db.logger.Debug("ensuring skills table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS skills (
 skill_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36) DEFAULT '',
@@ -296,7 +296,7 @@ INDEX name_user (name, user_id)
 		return err
 	}
 
-	db.logger.Debug("creating roles table")
+	db.logger.Debug("ensuring roles table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS roles (
 role_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -312,7 +312,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating responses table")
+	db.logger.Debug("ensuring responses table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS responses (
 response_id CHAR(36) PRIMARY KEY,
 status VARCHAR(32) NOT NULL DEFAULT 'pending',
@@ -335,7 +335,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	db.logger.Debug("creating audit_log table")
+	db.logger.Debug("ensuring audit_logs table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 audit_log_id bigint(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
 created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
@@ -353,7 +353,7 @@ INDEX created_at (created_at)
 		return err
 	}
 
-	db.logger.Debug("creating stack_definitions table")
+	db.logger.Debug("ensuring stack_definitions table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS stack_definitions (
 	stack_definition_id CHAR(36) PRIMARY KEY,
 	user_id CHAR(36) NOT NULL DEFAULT '',
@@ -378,7 +378,7 @@ INDEX created_at (created_at)
 		return err
 	}
 
-	db.logger.Debug("creating configs table")
+	db.logger.Debug("ensuring configs table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS configs (
 name VARCHAR(64) PRIMARY KEY,
 value MEDIUMTEXT
@@ -387,7 +387,7 @@ value MEDIUMTEXT
 		return err
 	}
 
-	db.logger.Debug("creating user_providers table")
+	db.logger.Debug("ensuring user_providers table exists")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS user_providers (
 provider_id VARCHAR(64) NOT NULL,
 provider_uid VARCHAR(255) NOT NULL,
@@ -400,7 +400,7 @@ INDEX user_id (user_id)
 		return err
 	}
 
-	db.logger.Debug("MySQL is initialized")
+	db.logger.Debug("MySQL schema ensured")
 
 	// Run schema migrations for existing databases
 	if err := db.runMigrations(); err != nil {
@@ -408,7 +408,7 @@ INDEX user_id (user_id)
 	}
 
 	// Add a task to clean up expired data
-	db.logger.Debug("starting database GC")
+	db.logger.Debug("starting database garbage collection")
 	cfg := config.GetServerConfig()
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
