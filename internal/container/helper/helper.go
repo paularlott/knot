@@ -486,6 +486,27 @@ func (h *Helper) CleanupOnBoot() {
 			continue
 		}
 
+		if template.IsLocalContainer() {
+			resolved := template.Platform
+			if resolved == model.PlatformContainer {
+				resolved = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+			}
+			if resolved == "" {
+				continue
+			}
+			available := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+			found := false
+			for _, rt := range available {
+				if rt == resolved {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+
 		containerClient, err := h.createClient(template.Platform)
 		if err != nil {
 			logger.WithError(err).Error("failed to create container client for boot cleanup", "space_name", space.Name)
