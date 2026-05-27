@@ -34,10 +34,6 @@ type stopListItem struct {
 	session *Session
 }
 
-type staleSessionItem struct {
-	spaceId string
-}
-
 func checkStaleSessions() {
 	logger := log.WithGroup("agent")
 	logger.Info("starting stale session checker")
@@ -48,7 +44,7 @@ func checkStaleSessions() {
 
 		for range ticker.C {
 			now := time.Now().UTC()
-			staleSessions := make([]staleSessionItem, 0)
+			staleSessions := make([]string, 0)
 
 			sessionMutex.RLock()
 			for spaceId, session := range sessions {
@@ -56,7 +52,7 @@ func checkStaleSessions() {
 					continue
 				}
 				if now.Sub(session.LastStateAt) > AGENT_LIVENESS_TIMEOUT {
-					staleSessions = append(staleSessions, staleSessionItem{spaceId: spaceId})
+					staleSessions = append(staleSessions, spaceId)
 				}
 			}
 			sessionMutex.RUnlock()
@@ -66,10 +62,10 @@ func checkStaleSessions() {
 			}
 
 			db := database.GetInstance()
-			for _, stale := range staleSessions {
-				ExpireSession(stale.spaceId)
+			for _, spaceId := range staleSessions {
+				ExpireSession(spaceId)
 
-				space, err := db.GetSpace(stale.spaceId)
+				space, err := db.GetSpace(spaceId)
 				if err != nil || space == nil || space.IsDeleted || !space.IsDeployed {
 					continue
 				}
@@ -272,6 +268,11 @@ func checkSchedules() {
 			}
 		}
 	}()
+}
+
+func QueueSpaceReconcile(spaceId string) {
+	queueDisconnectedSpaceReconcile(spaceId)
+	health.Set(spaceId, false, 0)
 }
 
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
