@@ -36,4 +36,5 @@ const (
 	ResponseGossipMsg
 	SpaceUsageFullSyncMsg
 	SpaceUsageGossipMsg
+	SpaceMigrationStartMsg
 )

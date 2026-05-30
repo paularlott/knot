@@ -80,6 +80,12 @@ func checkStaleSessions() {
 					continue
 				}
 
+				if template.IsLocalContainer() {
+					if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil && space.NodeId != "" && space.NodeId != nodeIdCfg.Value {
+						continue
+					}
+				}
+
 				refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
 				if err != nil {
 					logger.WithError(err).Error("failed to list runtime refs for stale session", "space_id", space.Id)
@@ -145,6 +151,12 @@ func queueDisconnectedSpaceReconcile(spaceId string) {
 				log.WithError(err).Error("failed to mark disconnected manual space stopped", "space_id", space.Id)
 			}
 			return
+		}
+
+		if template.IsLocalContainer() {
+			if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil && space.NodeId != "" && space.NodeId != nodeIdCfg.Value {
+				return
+			}
 		}
 
 		refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})

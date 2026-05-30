@@ -452,6 +452,12 @@ func (h *Helper) CleanupOnBoot() {
 
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
+
+	var localNodeId string
+	if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil {
+		localNodeId = nodeIdCfg.Value
+	}
+
 	spaces, err := db.GetSpaces()
 	if err != nil {
 		logger.WithError(err).Fatal("failed to get spaces")
@@ -487,6 +493,10 @@ func (h *Helper) CleanupOnBoot() {
 		}
 
 		if template.IsLocalContainer() {
+			if space.NodeId != "" && space.NodeId != localNodeId {
+				continue
+			}
+
 			resolved := template.Platform
 			if resolved == model.PlatformContainer {
 				resolved = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
