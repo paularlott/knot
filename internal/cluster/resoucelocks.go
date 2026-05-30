@@ -67,7 +67,7 @@ func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip
 }
 
 func (c *Cluster) handleResourceLockGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received resource lock gossip request")
+	c.logger.Trace("Received resource lock gossip request")
 
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()

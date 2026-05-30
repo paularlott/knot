@@ -34,7 +34,7 @@ func (c *Cluster) handleGroupFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received group gossip request")
+	c.logger.Trace("Received group gossip request")
 
 	groups := []*model.Group{}
 	if err := packet.Unmarshal(&groups); err != nil {

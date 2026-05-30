@@ -33,7 +33,7 @@ func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received token gossip request")
+	c.logger.Trace("Received token gossip request")
 
 	tokens := []*model.Token{}
 	if err := packet.Unmarshal(&tokens); err != nil {

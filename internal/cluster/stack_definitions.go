@@ -31,7 +31,7 @@ func (c *Cluster) handleStackDefinitionFullSync(sender *gossip.Node, packet *gos
 }
 
 func (c *Cluster) handleStackDefinitionGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received stack definition gossip request")
+	c.logger.Trace("Received stack definition gossip request")
 
 	defs := []*model.StackDefinition{}
 	if err := packet.Unmarshal(&defs); err != nil {

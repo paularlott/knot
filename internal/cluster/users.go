@@ -36,7 +36,7 @@ func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet)
 }
 
 func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received user gossip request")
+	c.logger.Trace("Received user gossip request")
 
 	users := []*model.User{}
 	if err := packet.Unmarshal(&users); err != nil {

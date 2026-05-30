@@ -33,7 +33,7 @@ func (c *Cluster) handleResponseFullSync(sender *gossip.Node, packet *gossip.Pac
 }
 
 func (c *Cluster) handleResponseGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received response gossip request")
+	c.logger.Trace("Received response gossip request")
 
 	responses := []*model.Response{}
 	if err := packet.Unmarshal(&responses); err != nil {

@@ -39,7 +39,7 @@ func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received space gossip request")
+	c.logger.Trace("Received space gossip request")
 
 	spaces := []*model.Space{}
 	if err := packet.Unmarshal(&spaces); err != nil {

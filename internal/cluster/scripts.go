@@ -31,7 +31,7 @@ func (c *Cluster) handleScriptFullSync(sender *gossip.Node, packet *gossip.Packe
 }
 
 func (c *Cluster) handleScriptGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received script gossip request")
+	c.logger.Trace("Received script gossip request")
 
 	scripts := []*model.Script{}
 	if err := packet.Unmarshal(&scripts); err != nil {

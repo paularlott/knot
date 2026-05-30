@@ -40,7 +40,7 @@ func (c *Cluster) handleSpaceUsageFullSync(sender *gossip.Node, packet *gossip.P
 }
 
 func (c *Cluster) handleSpaceUsageGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received space usage gossip request")
+	c.logger.Trace("Received space usage gossip request")
 
 	samples := []*model.SpaceUsageSample{}
 	if err := packet.Unmarshal(&samples); err != nil {

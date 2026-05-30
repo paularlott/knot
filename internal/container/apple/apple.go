@@ -509,10 +509,21 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 }
 
 func isIgnorableAppleCleanupOutput(output string) bool {
+	output = strings.ToLower(output)
 	return strings.Contains(output, "not found") ||
 		strings.Contains(output, "no volume") ||
 		strings.Contains(output, "does not exist") ||
-		strings.Contains(output, "No such")
+		strings.Contains(output, "no such") ||
+		strings.Contains(output, "not exist") ||
+		strings.Contains(output, "unable to find")
+}
+
+func appleCleanupError(action, ref string, err error, output []byte) error {
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		return fmt.Errorf("%s %s failed: %w", action, ref, err)
+	}
+	return fmt.Errorf("%s %s failed: %w: %s", action, ref, err, outputStr)
 }
 
 func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
@@ -527,8 +538,8 @@ func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			outputStr := string(output)
-			if !strings.Contains(outputStr, "not found") && !strings.Contains(outputStr, "internalError") && !strings.Contains(outputStr, "No such") {
-				return err
+			if !isIgnorableAppleCleanupOutput(outputStr) && !strings.Contains(strings.ToLower(outputStr), "internalerror") {
+				return appleCleanupError("stop migrated space container", containerRef, err, output)
 			}
 		}
 
@@ -537,10 +548,10 @@ func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
 			cmd := exec.CommandContext(ctx, "container", "inspect", containerRef)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				if strings.Contains(string(output), "not found") {
+				if isIgnorableAppleCleanupOutput(string(output)) {
 					break
 				}
-				return err
+				return appleCleanupError("inspect migrated space container", containerRef, err, output)
 			}
 
 			var inspectData []containerInspect
@@ -562,7 +573,7 @@ func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
 		cmd = exec.CommandContext(ctx, "container", "rm", containerRef)
 		output, err = cmd.CombinedOutput()
 		if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
-			return err
+			return appleCleanupError("remove migrated space container", containerRef, err, output)
 		}
 	}
 
@@ -571,7 +582,7 @@ func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
 		cmd := exec.CommandContext(ctx, "container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
 		if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
-			return err
+			return appleCleanupError("remove migrated space volume", volName, err, output)
 		}
 	}
 

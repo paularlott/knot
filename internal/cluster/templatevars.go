@@ -34,7 +34,7 @@ func (c *Cluster) handleTemplateVarFullSync(sender *gossip.Node, packet *gossip.
 }
 
 func (c *Cluster) handleTemplateVarGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received template var gossip request")
+	c.logger.Trace("Received template var gossip request")
 
 	templateVars := []*model.TemplateVar{}
 	if err := packet.Unmarshal(&templateVars); err != nil {

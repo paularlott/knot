@@ -34,7 +34,7 @@ func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packe
 }
 
 func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received volume gossip request")
+	c.logger.Trace("Received volume gossip request")
 
 	volumes := []*model.Volume{}
 	if err := packet.Unmarshal(&volumes); err != nil {

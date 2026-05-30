@@ -34,7 +34,7 @@ func (c *Cluster) handleRoleFullSync(sender *gossip.Node, packet *gossip.Packet)
 }
 
 func (c *Cluster) handleRoleGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received role gossip request")
+	c.logger.Trace("Received role gossip request")
 
 	roles := []*model.Role{}
 	if err := packet.Unmarshal(&roles); err != nil {

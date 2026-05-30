@@ -31,7 +31,7 @@ func (c *Cluster) handleSkillFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleSkillGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received skill gossip request")
+	c.logger.Trace("Received skill gossip request")
 
 	skills := []*model.Skill{}
 	if err := packet.Unmarshal(&skills); err != nil {
