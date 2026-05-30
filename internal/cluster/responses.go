@@ -58,14 +58,14 @@ func (c *Cluster) handleResponseGossip(sender *gossip.Node, packet *gossip.Packe
 
 func (c *Cluster) GossipResponse(response *model.Response) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping response")
+		c.logger.Trace("Gossipping response")
 
 		responses := []*model.Response{response}
 		c.gossipCluster.Send(ResponseGossipMsg, &responses)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating response on leaf nodes")
+		c.logger.Trace("Updating response on leaf nodes")
 
 		responses := []*model.Response{response}
 		c.sendToLeafNodes(leafmsg.MessageGossipResponse, &responses)

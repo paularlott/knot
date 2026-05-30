@@ -55,7 +55,7 @@ func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) 
 
 func (c *Cluster) GossipSpace(space *model.Space) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping space")
+		c.logger.Trace("Gossipping space")
 
 		spaces := []*model.Space{space}
 		c.gossipCluster.Send(SpaceGossipMsg, &spaces)
@@ -242,7 +242,7 @@ func (c *Cluster) gossipSpaces() {
 		return // No keys to send in this batch
 	}
 
-	c.logger.Debug("Gossipping spaces", "batch_size", batchSize, "total", len(spaces))
+	c.logger.Trace("Gossipping spaces", "batch_size", batchSize, "total", len(spaces))
 
 	// Shuffle the spaces
 	rand.Shuffle(len(spaces), func(i, j int) {

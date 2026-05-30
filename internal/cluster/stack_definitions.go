@@ -53,14 +53,14 @@ func (c *Cluster) handleStackDefinitionGossip(sender *gossip.Node, packet *gossi
 
 func (c *Cluster) GossipStackDefinition(stackDef *model.StackDefinition) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping stack definition")
+		c.logger.Trace("Gossipping stack definition")
 
 		defs := []*model.StackDefinition{stackDef}
 		c.gossipCluster.Send(StackDefinitionGossipMsg, &defs)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating stack definition on leaf nodes")
+		c.logger.Trace("Updating stack definition on leaf nodes")
 
 		defs := []*model.StackDefinition{stackDef}
 		c.sendToLeafNodes(leafmsg.MessageGossipStackDefinition, &defs)
@@ -156,7 +156,7 @@ func (c *Cluster) gossipStackDefinitions() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(defs))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping stack definitions", "batch_size", batchSize, "total", len(defs))
+			c.logger.Trace("Gossipping stack definitions", "batch_size", batchSize, "total", len(defs))
 			clusterDefs := defs[:batchSize]
 			c.gossipCluster.Send(StackDefinitionGossipMsg, &clusterDefs)
 		}

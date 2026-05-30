@@ -201,7 +201,7 @@ func (c *Cluster) gossipSpaceUsage() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(samples))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping space usage", "batch_size", batchSize, "total", len(samples))
+			c.logger.Trace("Gossipping space usage", "batch_size", batchSize, "total", len(samples))
 			clusterSamples := samples[:batchSize]
 			c.gossipCluster.Send(SpaceUsageGossipMsg, &clusterSamples)
 		}

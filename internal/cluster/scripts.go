@@ -53,14 +53,14 @@ func (c *Cluster) handleScriptGossip(sender *gossip.Node, packet *gossip.Packet)
 
 func (c *Cluster) GossipScript(script *model.Script) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping script")
+		c.logger.Trace("Gossipping script")
 
 		scripts := []*model.Script{script}
 		c.gossipCluster.Send(ScriptGossipMsg, &scripts)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating script on leaf nodes")
+		c.logger.Trace("Updating script on leaf nodes")
 
 		scripts := []*model.Script{script}
 		c.sendToLeafNodes(leafmsg.MessageGossipScript, &scripts)

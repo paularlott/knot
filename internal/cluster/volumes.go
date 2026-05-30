@@ -50,7 +50,7 @@ func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet)
 
 func (c *Cluster) GossipVolume(volume *model.Volume) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping volume")
+		c.logger.Trace("Gossipping volume")
 
 		volumes := []*model.Volume{volume}
 		c.gossipCluster.Send(VolumeGossipMsg, &volumes)
@@ -153,7 +153,7 @@ func (c *Cluster) gossipVolumes() {
 		return // No keys to send in this batch
 	}
 
-	c.logger.Debug("Gossipping volumes", "batch_size", batchSize, "total", len(volumes))
+	c.logger.Trace("Gossipping volumes", "batch_size", batchSize, "total", len(volumes))
 
 	// Shuffle the volumes
 	rand.Shuffle(len(volumes), func(i, j int) {

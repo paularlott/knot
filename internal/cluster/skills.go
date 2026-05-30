@@ -53,14 +53,14 @@ func (c *Cluster) handleSkillGossip(sender *gossip.Node, packet *gossip.Packet) 
 
 func (c *Cluster) GossipSkill(skill *model.Skill) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping skill")
+		c.logger.Trace("Gossipping skill")
 
 		skills := []*model.Skill{skill}
 		c.gossipCluster.Send(SkillGossipMsg, &skills)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating skill on leaf nodes")
+		c.logger.Trace("Updating skill on leaf nodes")
 
 		skills := []*model.Skill{skill}
 		c.sendToLeafNodes(leafmsg.MessageGossipSkill, &skills)

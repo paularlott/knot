@@ -28,7 +28,7 @@ func (c *Cluster) handleAuditLogGossip(sender *gossip.Node, packet *gossip.Packe
 
 func (c *Cluster) GossipAuditLog(entry *model.AuditLogEntry) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("gossipping audit log")
+		c.logger.Trace("gossipping audit log")
 
 		entries := []*model.AuditLogEntry{entry}
 		c.gossipCluster.Send(AuditLogGossipMsg, &entries)

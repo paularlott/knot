@@ -69,7 +69,7 @@ func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) e
 
 func (c *Cluster) GossipUser(user *model.User) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping user")
+		c.logger.Trace("Gossipping user")
 
 		users := []*model.User{user}
 		c.gossipCluster.Send(UserGossipMsg, &users)
@@ -190,7 +190,7 @@ func (c *Cluster) gossipUsers() {
 			return // No keys to send in this batch
 		}
 
-		c.logger.Debug("Gossipping users", "batch_size", batchSize, "total", len(users))
+		c.logger.Trace("Gossipping users", "batch_size", batchSize, "total", len(users))
 
 		// Get the 1st number of users up to the batch size & broadcast
 		clusterUsers := users[:batchSize]

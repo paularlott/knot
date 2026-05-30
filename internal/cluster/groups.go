@@ -59,14 +59,14 @@ func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) 
 
 func (c *Cluster) GossipGroup(group *model.Group) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping group")
+		c.logger.Trace("Gossipping group")
 
 		groups := []*model.Group{group}
 		c.gossipCluster.Send(GroupGossipMsg, &groups)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating group on leaf nodes")
+		c.logger.Trace("Updating group on leaf nodes")
 
 		groups := []*model.Group{group}
 		c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)

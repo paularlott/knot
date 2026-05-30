@@ -59,14 +59,14 @@ func (c *Cluster) handleRoleGossip(sender *gossip.Node, packet *gossip.Packet) e
 
 func (c *Cluster) GossipRole(role *model.Role) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping role")
+		c.logger.Trace("Gossipping role")
 
 		roles := []*model.Role{role}
 		c.gossipCluster.Send(RoleGossipMsg, &roles)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating role on leaf nodes")
+		c.logger.Trace("Updating role on leaf nodes")
 
 		roles := []*model.Role{role}
 		c.sendToLeafNodes(leafmsg.MessageGossipRole, &roles)

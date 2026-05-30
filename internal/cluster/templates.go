@@ -62,14 +62,14 @@ func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packe
 
 func (c *Cluster) GossipTemplate(template *model.Template) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping template")
+		c.logger.Trace("Gossipping template")
 
 		templates := []*model.Template{template}
 		c.gossipCluster.Send(TemplateGossipMsg, &templates)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating template on leaf nodes")
+		c.logger.Trace("Updating template on leaf nodes")
 
 		templates := []*model.Template{template}
 		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, &templates)
@@ -212,7 +212,7 @@ func (c *Cluster) gossipTemplates() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(templates))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping templates", "batch_size", batchSize, "total", len(templates))
+			c.logger.Trace("Gossipping templates", "batch_size", batchSize, "total", len(templates))
 			clusterTemplates := templates[:batchSize]
 			c.gossipCluster.Send(TemplateGossipMsg, &clusterTemplates)
 		}
