@@ -19,7 +19,9 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 
 	// Merge the keys into a single string
 	for _, key := range keys {
-		combinedKeys += key + "\n"
+		for _, sshKey := range SplitSSHPublicKeys(key) {
+			combinedKeys += sshKey + "\n"
+		}
 	}
 
 	// If the github username is not empty, then download the keys from github

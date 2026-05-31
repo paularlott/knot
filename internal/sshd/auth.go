@@ -33,7 +33,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	if len(keys) > 0 {
 		log.Debug("Adding key")
 		for _, key := range keys {
-			authKeys = append(authKeys, key)
+			authKeys = append(authKeys, util.SplitSSHPublicKeys(key)...)
 		}
 	}
 

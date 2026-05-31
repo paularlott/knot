@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -158,7 +159,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 
 			// Add the given users keys
 			if user.SSHPublicKey != "" {
-				keys = append(keys, user.SSHPublicKey)
+				keys = append(keys, util.SplitSSHPublicKeys(user.SSHPublicKey)...)
 			}
 			if user.GitHubUsername != "" {
 				usernames = append(usernames, user.GitHubUsername)
@@ -173,7 +174,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 				other, err := db.GetUser(sharedUserId)
 				if err == nil && other != nil {
 					if other.SSHPublicKey != "" {
-						keys = append(keys, other.SSHPublicKey)
+						keys = append(keys, util.SplitSSHPublicKeys(other.SSHPublicKey)...)
 					}
 					if other.GitHubUsername != "" {
 						usernames = append(usernames, other.GitHubUsername)
