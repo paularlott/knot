@@ -494,10 +494,6 @@ func (h *Helper) CleanupOnBoot() {
 
 		if template.IsLocalContainer() {
 			if space.NodeId != "" && space.NodeId != localNodeId {
-				if space.ContainerId != "" || len(space.VolumeData) > 0 {
-					logger.Info("found migrated space with local artifacts, enqueuing cleanup...", "space_name", space.Name, "space_id", space.Id)
-					service.GetTransport().EnqueueSpaceCleanup(space)
-				}
 				continue
 			}
 
