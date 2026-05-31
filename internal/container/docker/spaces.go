@@ -15,6 +15,7 @@ import (
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -334,6 +335,9 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	}
 	if !contains(spec.CapAdd, "CAP_AUDIT_WRITE") {
 		spec.CapAdd = append(spec.CapAdd, "CAP_AUDIT_WRITE")
+	}
+	if err := container.ValidateManagedVolumeBinds(spec.Volumes, space.VolumeData); err != nil {
+		return err
 	}
 
 	// Build request structs

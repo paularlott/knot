@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
+	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
@@ -113,6 +114,9 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 
 	if spec.ContainerName == "" {
 		spec.ContainerName = fmt.Sprintf("%s-%s", user.Username, space.Name)
+	}
+	if err := container.ValidateManagedVolumeBinds(spec.Volumes, space.VolumeData); err != nil {
+		return err
 	}
 
 	db := database.GetInstance()
