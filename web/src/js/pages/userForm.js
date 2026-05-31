@@ -15,6 +15,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       service_password: "",
       preferred_shell: "",
       ssh_public_key: "",
+      ssh_private_key: "",
       github_username: "",
       timezone: "",
       active: true,
@@ -37,6 +38,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     passwordValid: true,
     confirmPasswordValid: true,
     servicePasswordValid: true,
+    privateKeyValid: true,
     shellValid: true,
     tzValid: true,
     maxSpacesValid: true,
@@ -47,6 +49,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     showTOTP: false,
     resetConfirmShow: false,
     unlinkConfirm: { show: false, providerID: '', providerName: '' },
+    originalSSHPrivateKey: "",
 
     async initUsers() {
       focus.Element('input[name="username"]');
@@ -82,6 +85,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           this.formData.email = user.email;
           this.formData.preferred_shell = user.preferred_shell;
           this.formData.ssh_public_key = user.ssh_public_key;
+          this.formData.ssh_private_key = user.ssh_private_key;
+          this.originalSSHPrivateKey = user.ssh_private_key;
           this.formData.github_username = user.github_username;
           this.formData.active = user.active;
           this.formData.max_spaces = user.max_spaces;
@@ -197,6 +202,12 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       this.servicePasswordValid = this.formData.service_password.length <= 255;
       return this.servicePasswordValid;
     },
+    checkPrivateKey() {
+      this.privateKeyValid =
+        this.formData.ssh_private_key.length <= 64 * 1024 &&
+        validate.sshPrivateKey(this.formData.ssh_private_key);
+      return this.privateKeyValid;
+    },
     checkGithubUsername() {
       this.githubUsernameValid = this.formData.github_username.length <= 255;
       return this.githubUsernameValid;
@@ -214,11 +225,16 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         err = !this.checkPassword() || err;
         err = !this.checkConfirmPassword() || err;
       }
-      err = !this.checkMaxSpaces() || err;
-      err = !this.checkComputeUnits() || err;
-      err = !this.checkStorageUnits() || err;
-      err = !this.checkMaxTunnels() || err;
-      err = !this.checkServicePassword() || err;
+      if (!isProfile) {
+        err = !this.checkMaxSpaces() || err;
+        err = !this.checkComputeUnits() || err;
+        err = !this.checkStorageUnits() || err;
+        err = !this.checkMaxTunnels() || err;
+      }
+      if (isProfile) {
+        err = !this.checkServicePassword() || err;
+        err = !this.checkPrivateKey() || err;
+      }
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
       err = !this.checkGithubUsername() || err;
@@ -230,9 +246,10 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         username: this.formData.username,
         email: this.formData.email,
         password: this.formData.password,
-        service_password: this.formData.service_password,
+        service_password: isProfile ? this.formData.service_password : "",
         preferred_shell: this.formData.preferred_shell,
         ssh_public_key: this.formData.ssh_public_key,
+        ssh_private_key: "",
         github_username: this.formData.github_username,
         active: this.formData.active,
         max_spaces: parseInt(this.formData.max_spaces),
@@ -254,15 +271,51 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch("show-alert", {
-              msg: `${entity} updated`,
-              type: "success",
-            });
+            const finishSuccess = () => {
+              self.$dispatch("show-alert", {
+                msg: `${entity} updated`,
+                type: "success",
+              });
+              if (isProfile) {
+                window.location.href = "/";
+              } else {
+                self.$dispatch("close-user-form");
+              }
+            };
+
             if (isProfile) {
-              window.location.href = "/";
-            } else {
-              self.$dispatch("close-user-form");
+              if (self.formData.ssh_private_key !== self.originalSSHPrivateKey) {
+                fetch("/api/users/whoami/ssh-private-key", {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    ssh_private_key: self.formData.ssh_private_key,
+                  }),
+                })
+                  .then((keyResponse) => {
+                    if (keyResponse.status === 200) {
+                      finishSuccess();
+                    } else {
+                      keyResponse.json().then((d) => {
+                        self.$dispatch("show-alert", {
+                          msg: `Failed to update SSH private key, ${d.error}`,
+                          type: "error",
+                        });
+                      });
+                    }
+                  })
+                  .catch((error) => {
+                    self.$dispatch("show-alert", {
+                      msg: `Error!<br />${error.message}`,
+                      type: "error",
+                    });
+                  });
+                return;
+              }
             }
+            finishSuccess();
           } else if (response.status === 201) {
             self.$dispatch("show-alert", {
               msg: `${entity} created`,

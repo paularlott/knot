@@ -406,7 +406,7 @@ paths:
           application/json:
             schema:
               type: object
-              $ref: "#/components/schemas/userRequest"
+              $ref: "#/components/schemas/CreateUserRequest"
       responses:
         "201":
           description: User created successfully
@@ -535,7 +535,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/userRequest"
+              $ref: "#/components/schemas/UpdateUserRequest"
       responses:
         "200":
           description: User updated successfully
@@ -700,6 +700,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /api/users/whoami/ssh-public-key:
+    put:
+      tags:
+        - Users
+      summary: Update Own SSH Public Keys
+      description: Update the current user's SSH public keys. Multiple public keys should be provided one per line.
+      operationId: updateOwnSSHPublicKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOwnSSHPublicKeyRequest"
+      responses:
+        "200":
+          description: SSH public keys updated successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /api/users/whoami/ssh-private-key:
+    put:
+      tags:
+        - Users
+      summary: Update Own SSH Private Key
+      description: Update the current user's SSH private key. The key is written to `~/.ssh/id_ed25519` or `~/.ssh/id_rsa` in SSH-enabled spaces depending on key format.
+      operationId: updateOwnSSHPrivateKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOwnSSHPrivateKeyRequest"
+      responses:
+        "200":
+          description: SSH private key updated successfully
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -5451,7 +5495,7 @@ components:
           type: string
           description: The ID of the created token.
 
-    userRequest:
+    CreateUserRequest:
       type: object
       properties:
         email:
@@ -5469,11 +5513,6 @@ components:
           maxLength: 255
           example: password
           description: The password of the user
-        service_password:
-          type: string
-          maxLength: 255
-          example: password
-          description: Option service password of the user, if empty a default one will be generated
         preferred_shell:
           type: string
           enum: [bash, zsh, fish, sh]
@@ -5483,7 +5522,7 @@ components:
           description: The timezone of the user
         ssh_public_key:
           type: string
-          description: The SSH key for the user
+          description: The SSH public keys for the user, one key per line.
         github_username:
           type: string
           maxLength: 255
@@ -5529,6 +5568,80 @@ components:
         - password
         - email
         - roles
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          maxLength: 255
+          example: user1@example.com
+          description: The email address of the user
+        username:
+          type: string
+          maxLength: 64
+          example: user1
+          description: The username of the user
+        password:
+          type: string
+          maxLength: 255
+          example: password
+          description: The password of the user. Leave empty to keep the current password.
+        service_password:
+          type: string
+          maxLength: 255
+          example: password
+          description: Optional service password. Only the owning user can update this value; leave empty to keep the current value.
+        preferred_shell:
+          type: string
+          enum: [bash, zsh, fish, sh]
+          description: The preferred shell of the user
+        timezone:
+          type: string
+          description: The timezone of the user
+        ssh_public_key:
+          type: string
+          description: The SSH public keys for the user, one key per line.
+        github_username:
+          type: string
+          maxLength: 255
+          description: The GitHub username of the user
+        active:
+          type: boolean
+          description: Whether the user is active
+        roles:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the roles assigned to the user.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the groups assigned to the user.
+        max_spaces:
+          type: integer
+          format: uint32
+          description: The maximum number of spaces the user can have, 0 for unlimited.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
+        max_tunnels:
+          type: integer
+          format: uint32
+          description: The maximum number of tunnels the user can have.
+        totp_secret:
+          type: string
+          description: The TOTP secret for the user.
 
     UserInfo:
       type: object
@@ -5602,6 +5715,24 @@ components:
           format: uint32
           description: The number of tunnels the user has active.
 
+    UpdateOwnSSHPublicKeyRequest:
+      type: object
+      properties:
+        ssh_public_key:
+          type: string
+          description: The SSH public keys for the current user, one key per line.
+        github_username:
+          type: string
+          maxLength: 255
+          description: The GitHub username used to load public SSH keys for the current user.
+
+    UpdateOwnSSHPrivateKeyRequest:
+      type: object
+      properties:
+        ssh_private_key:
+          type: string
+          description: The SSH private key for the current user. Empty removes the managed key from spaces.
+
     UserQuota:
       type: object
       properties:
@@ -5655,7 +5786,7 @@ components:
         service_password:
           type: string
           example: password
-          description: Option service password of the user, if empty a default one will be generated
+          description: Optional service password. Only populated for the current user.
         roles:
           type: array
           items:
@@ -5691,7 +5822,10 @@ components:
           description: The GitHub username of the user
         ssh_public_key:
           type: string
-          description: The SSH key for the user
+          description: The SSH public keys for the user, one key per line.
+        ssh_private_key:
+          type: string
+          description: The SSH private key for the current user. Only populated for the current user.
         preferred_shell:
           type: string
           enum: [bash, zsh, fish, sh]

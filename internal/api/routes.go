@@ -17,6 +17,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/users", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSpaces(HandleGetUsers)))
 	router.HandleFunc("POST /api/users", middleware.ApiAuth(middleware.ApiPermissionManageUsers(HandleCreateUser)))
 	router.HandleFunc("GET /api/users/whoami", middleware.ApiAuth(HandleWhoAmI))
+	router.HandleFunc("PUT /api/users/whoami/ssh-public-key", middleware.ApiAuth(HandleUpdateOwnSSHPublicKey))
+	router.HandleFunc("PUT /api/users/whoami/ssh-private-key", middleware.ApiAuth(HandleUpdateOwnSSHPrivateKey))
 	router.HandleFunc("GET /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUser)))
 	router.HandleFunc("PUT /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleUpdateUser)))
 	router.HandleFunc("DELETE /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleDeleteUser)))

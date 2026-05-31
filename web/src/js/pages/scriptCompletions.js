@@ -366,14 +366,27 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(username, email, password, ...)",
+        signature: "create(username, email, password, ..., ssh_public_key='')",
         description: "Create a new user",
         returns: "str - ID of the newly created user",
       },
       {
         name: "update",
-        signature: "update(user_id, ...)",
+        signature: "update(user_id, ..., ssh_public_key=None)",
         description: "Update user properties",
+        returns: "bool - True if successfully updated",
+      },
+      {
+        name: "set_ssh_public_key",
+        signature: "set_ssh_public_key(ssh_public_key, github_username=None)",
+        description:
+          "Set SSH public keys for the current user. Use one public key per line",
+        returns: "bool - True if successfully updated",
+      },
+      {
+        name: "set_ssh_private_key",
+        signature: "set_ssh_private_key(ssh_private_key)",
+        description: "Set the SSH private key for the current user",
         returns: "bool - True if successfully updated",
       },
       {

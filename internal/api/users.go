@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
@@ -15,15 +16,51 @@ import (
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/crypt"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 )
+
+func encryptSSHPrivateKey(privateKey string) (string, error) {
+	privateKey = strings.TrimSpace(privateKey)
+	if privateKey == "" {
+		return "", nil
+	}
+
+	cfg := config.GetServerConfig()
+	encrypted := crypt.EncryptB64Safe(cfg.EncryptionKey, privateKey)
+	if encrypted == "" {
+		return "", fmt.Errorf("invalid encryption key")
+	}
+
+	return encrypted, nil
+}
+
+func decryptSSHPrivateKey(privateKey string) string {
+	privateKey = crypt.DecryptB64Safe(config.GetServerConfig().EncryptionKey, privateKey)
+	if !validate.SSHPrivateKey(privateKey) {
+		return ""
+	}
+
+	return strings.TrimSpace(privateKey)
+}
+
+type createUserRequest struct {
+	apiclient.CreateUserRequest
+	ServicePassword string `json:"service_password"`
+	SSHPrivateKey   string `json:"ssh_private_key"`
+}
+
+type updateUserRequest struct {
+	apiclient.UpdateUserRequest
+	SSHPrivateKey string `json:"ssh_private_key"`
+}
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	newUserId := ""
 
 	db := database.GetInstance()
-	request := apiclient.CreateUserRequest{}
+	request := createUserRequest{}
 
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
@@ -44,6 +81,14 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validate.MaxLength(request.SSHPublicKey, 16*1024) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
+		return
+	}
+	if !validate.SSHPublicKeys(request.SSHPublicKey) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid SSH public key format"})
+		return
+	}
+	if request.SSHPrivateKey != "" || request.ServicePassword != "" {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "SSH private key and service password can only be set by the owning user"})
 		return
 	}
 	if !validate.OneOf(request.Timezone, util.Timezones) {
@@ -90,9 +135,6 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create the user
 	userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
-	if request.ServicePassword != "" {
-		userNew.ServicePassword = request.ServicePassword
-	}
 	err = db.SaveUser(userNew, nil)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -158,13 +200,6 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the users quota
-	quota, err := database.GetUserQuota(user)
-	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
 	// Get the users usage
 	cfg := config.GetServerConfig()
 	usage, err := database.GetUserUsage(user.Id, cfg.Zone)
@@ -174,24 +209,24 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build a json array of data to return to the client
+	current := activeUser != nil && user.Id == activeUser.Id
 	userData := apiclient.UserResponse{
 		Id:                         user.Id,
 		Username:                   user.Username,
 		Email:                      user.Email,
-		ServicePassword:            user.ServicePassword,
 		Roles:                      user.Roles,
 		Groups:                     user.Groups,
 		Active:                     user.Active,
-		MaxSpaces:                  quota.MaxSpaces,
-		ComputeUnits:               quota.ComputeUnits,
-		StorageUnits:               quota.StorageUnits,
-		MaxTunnels:                 quota.MaxTunnels,
+		MaxSpaces:                  user.MaxSpaces,
+		ComputeUnits:               user.ComputeUnits,
+		StorageUnits:               user.StorageUnits,
+		MaxTunnels:                 user.MaxTunnels,
 		SSHPublicKey:               user.SSHPublicKey,
 		GitHubUsername:             user.GitHubUsername,
 		PreferredShell:             user.PreferredShell,
 		TOTPSecret:                 user.TOTPSecret,
 		Timezone:                   user.Timezone,
-		Current:                    activeUser != nil && user.Id == activeUser.Id,
+		Current:                    current,
 		LastLoginAt:                nil,
 		CreatedAt:                  user.CreatedAt.UTC(),
 		UpdatedAt:                  user.UpdatedAt.Time().UTC(),
@@ -201,6 +236,11 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		UsedComputeUnits:           usage.ComputeUnits,
 		UsedStorageUnits:           usage.StorageUnits,
 		UsedTunnels:                tunnel_server.CountUserTunnels(user.Id),
+	}
+
+	if current {
+		userData.ServicePassword = user.ServicePassword
+		userData.SSHPrivateKey = decryptSSHPrivateKey(user.SSHPrivateKey)
 	}
 
 	if user.LastLoginAt != nil {
@@ -228,6 +268,7 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		StorageUnits:    user.StorageUnits,
 		MaxTunnels:      user.MaxTunnels,
 		SSHPublicKey:    user.SSHPublicKey,
+		SSHPrivateKey:   decryptSSHPrivateKey(user.SSHPrivateKey),
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
 		Timezone:        user.Timezone,
@@ -243,6 +284,84 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, &userData)
+}
+
+func HandleUpdateOwnSSHPublicKey(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	request := apiclient.UpdateOwnSSHPublicKeyRequest{}
+
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.MaxLength(request.SSHPublicKey, 16*1024) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
+		return
+	}
+	if !validate.SSHPublicKeys(request.SSHPublicKey) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid SSH public key format"})
+		return
+	}
+	if !validate.MaxLength(request.GitHubUsername, 255) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
+		return
+	}
+
+	db := database.GetInstance()
+	user.SSHPublicKey = request.SSHPublicKey
+	user.GitHubUsername = request.GitHubUsername
+	user.UpdatedAt = hlc.Now()
+
+	if err := db.SaveUser(user, []string{"SSHPublicKey", "GitHubUsername", "UpdatedAt"}); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	service.GetTransport().GossipUser(user)
+	sse.PublishUsersChanged(user.Id)
+	go service.GetUserService().UpdateUserSpaces(user)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleUpdateOwnSSHPrivateKey(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	request := apiclient.UpdateOwnSSHPrivateKeyRequest{}
+
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.MaxLength(request.SSHPrivateKey, 64*1024) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH private key too long"})
+		return
+	}
+	if !validate.SSHPrivateKey(request.SSHPrivateKey) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid SSH private key format"})
+		return
+	}
+
+	db := database.GetInstance()
+	sshPrivateKey, err := encryptSSHPrivateKey(request.SSHPrivateKey)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Invalid encryption key"})
+		return
+	}
+	user.SSHPrivateKey = sshPrivateKey
+	user.UpdatedAt = hlc.Now()
+
+	if err := db.SaveUser(user, []string{"SSHPrivateKey", "UpdatedAt"}); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	service.GetTransport().GossipUser(user)
+	sse.PublishUsersChanged(user.Id)
+	go service.GetUserService().UpdateUserSpaces(user)
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +456,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	userId := r.PathValue("user_id")
 
-	request := apiclient.UpdateUserRequest{}
+	request := updateUserRequest{}
 	db := database.GetInstance()
 
 	err := rest.DecodeRequestBody(w, r, &request)
@@ -361,6 +480,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validate.MaxLength(request.SSHPublicKey, 16*1024) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
+		return
+	}
+	if !validate.SSHPublicKeys(request.SSHPublicKey) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid SSH public key format"})
 		return
 	}
 	if !validate.OneOf(request.Timezone, util.Timezones) {
@@ -392,11 +515,36 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	user.Timezone = request.Timezone
 	user.TOTPSecret = request.TOTPSecret
 
-	if request.ServicePassword != "" {
-		user.ServicePassword = request.ServicePassword
-	}
-
 	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
+
+	if activeUser.Id == user.Id {
+		if request.SSHPrivateKey != "" {
+			if !validate.MaxLength(request.SSHPrivateKey, 64*1024) {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH private key too long"})
+				return
+			}
+			if !validate.SSHPrivateKey(request.SSHPrivateKey) {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid SSH private key format"})
+				return
+			}
+
+			sshPrivateKey, err := encryptSSHPrivateKey(request.SSHPrivateKey)
+			if err != nil {
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Invalid encryption key"})
+				return
+			}
+			user.SSHPrivateKey = sshPrivateKey
+			saveFields = append(saveFields, "SSHPrivateKey")
+		}
+
+		if request.ServicePassword != "" {
+			user.ServicePassword = request.ServicePassword
+			saveFields = append(saveFields, "ServicePassword")
+		}
+	} else if request.SSHPrivateKey != "" || request.ServicePassword != "" {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "SSH private key and service password can only be updated by the owning user"})
+		return
+	}
 
 	if activeUser.HasPermission(model.PermissionManageUsers) {
 		user.Username = request.Username
@@ -442,10 +590,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.UpdatedAt = hlc.Now()
-
-	if request.ServicePassword != "" {
-		saveFields = append(saveFields, "ServicePassword")
-	}
 
 	// Update the user password
 	if len(request.Password) > 0 {

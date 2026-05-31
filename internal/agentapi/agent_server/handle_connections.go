@@ -130,6 +130,7 @@ func handleAgentConnection(conn net.Conn) {
 	if user.SSHPublicKey != "" {
 		response.SSHKeys = append(response.SSHKeys, util.SplitSSHPublicKeys(user.SSHPublicKey)...)
 	}
+	response.SSHPrivateKey = util.DecryptSSHPrivateKey(config.GetServerConfig().EncryptionKey, user.SSHPrivateKey)
 	if user.GitHubUsername != "" {
 		response.GitHubUsernames = append(response.GitHubUsernames, user.GitHubUsername)
 	}

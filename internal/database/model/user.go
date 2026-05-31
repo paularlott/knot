@@ -28,6 +28,7 @@ type User struct {
 	TOTPSecret            string                      `json:"totp_secret" db:"totp_secret" msgpack:"totp_secret"`
 	ServicePassword       string                      `json:"service_password" db:"service_password" msgpack:"service_password"`
 	SSHPublicKey          string                      `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
+	SSHPrivateKey         string                      `json:"ssh_private_key" db:"ssh_private_key" msgpack:"ssh_private_key"`
 	GitHubUsername        string                      `json:"github_username" db:"github_username" msgpack:"github_username"`
 	ExternalAuthProviders map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
 	Roles                 []string                    `json:"roles" db:"roles,json" msgpack:"roles"`
@@ -192,6 +193,14 @@ func (u *User) GetOAuthRefreshToken(providerID, encryptionKey string) string {
 }
 
 // ClearOAuthTokens removes the stored tokens for the given provider.
+func (u *User) SetSSHPrivateKeyEncrypted(privateKey string, encryptionKey string) {
+	u.SSHPrivateKey = crypt.EncryptB64Safe(encryptionKey, privateKey)
+}
+
+func (u *User) GetSSHPrivateKeyDecrypted(encryptionKey string) string {
+	return crypt.DecryptB64Safe(encryptionKey, u.SSHPrivateKey)
+}
+
 func (u *User) ClearOAuthTokens(providerID string) {
 	if ep, ok := u.ExternalAuthProviders[providerID]; ok {
 		ep.Token = ""

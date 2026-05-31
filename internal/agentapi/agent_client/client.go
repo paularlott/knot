@@ -27,6 +27,7 @@ type AgentClient struct {
 	firstRegistration      bool
 	keysMutex              sync.Mutex
 	lastPublicSSHKeys      []string
+	lastPrivateSSHKey      string
 	lastGitHubUsernames    []string
 	sshPort                int
 	usingInternalSSH       bool
