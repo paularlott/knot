@@ -1223,8 +1223,8 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	}
 	spaceId = space.Id // Use the resolved ID for subsequent operations
 
-	// If user doesn't own the space then 404
-	if space.UserId != user.Id {
+	// If user doesn't own the space and doesn't have manage permission then 404
+	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -1319,8 +1319,8 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	}
 	spaceId = space.Id // Use the resolved ID for subsequent operations
 
-	// If user doesn't own the space or space not shared with the user then 404
-	if space.UserId != user.Id && !space.IsSharedWith(user.Id) {
+	// If user doesn't own the space, space not shared with the user, and user doesn't have manage permission then 404
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
