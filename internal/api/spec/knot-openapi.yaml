@@ -4947,7 +4947,7 @@ components:
           description: A HCL formatted job Nomad job specification
         volumes:
           type: string
-          description: A YAML formatted string describing the volumes to be created
+          description: A YAML formatted string describing managed volumes and paths to create before spaces start. Paths under `paths` support `~` for the server user's home directory, absolute paths, and paths relative to the agent working directory.
         groups:
           type: array
           items:
@@ -5085,7 +5085,7 @@ components:
           description: A HCL formatted job Nomad job specification
         volumes:
           type: string
-          description: A YAML formatted string describing the volumes to be created
+          description: A YAML formatted string describing managed volumes and paths to create before spaces start. Paths under `paths` support `~` for the server user's home directory, absolute paths, and paths relative to the agent working directory.
         groups:
           type: array
           items:
@@ -5225,7 +5225,7 @@ components:
           description: The HCL formatted job Nomad job specification
         volumes:
           type: string
-          description: A YAML formatted string describing the volumes to be created
+          description: A YAML formatted string describing managed volumes and paths to create before spaces start. Paths under `paths` support `~` for the server user's home directory, absolute paths, and paths relative to the agent working directory.
         usage:
           type: integer
           description: The number of spaces currently using the template.

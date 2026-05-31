@@ -7,6 +7,7 @@ import (
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -18,13 +19,16 @@ const jobMonitorTimeout = 30 * time.Minute
 func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 	db := database.GetInstance()
 
-	// Get the volume definitions
 	volumes, err := template.GetVolumes(space, user, variables)
 	if err != nil {
 		return err
 	}
+	storage, err := model.LoadManagedPathsFromYaml(template.Volumes, template, space, user, variables)
+	if err != nil {
+		return err
+	}
 
-	if len(volumes.Volumes) == 0 && len(space.VolumeData) == 0 {
+	if len(volumes.Volumes) == 0 && len(storage.Paths) == 0 && len(space.VolumeData) == 0 {
 		client.logger.Debug("no volumes to create")
 		return nil
 	}
@@ -111,8 +115,39 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		}
 	}
 
+	requiredPaths := make(map[string]bool)
+	for _, path := range storage.Paths {
+		client.logger.Debug("checking path", "path", path)
+		requiredPaths[path] = true
+		data, ok := space.VolumeData[path]
+		if !ok || data.Type != container.ManagedPathType {
+			client.logger.Debug("creating path", "path", path)
+			resolved, err := container.CreateManagedPath(path)
+			if err != nil {
+				return err
+			}
+			space.VolumeData[path] = model.SpaceVolume{
+				Id:        resolved,
+				Namespace: "_path",
+				Type:      container.ManagedPathType,
+			}
+		}
+	}
+
 	// Find the volumes deployed in the space but no longer in the template definition and remove them
-	for _, volume := range space.VolumeData {
+	for key, volume := range space.VolumeData {
+		if volume.Type == container.ManagedPathType {
+			if requiredPaths[key] {
+				continue
+			}
+			client.logger.Debug("deleting path", "path", key)
+			if err := container.DeleteManagedPath(volume.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, key)
+			continue
+		}
+
 		// Check if the volume is defined in the template
 		if _, ok := volById[volume.Id]; !ok {
 			// Delete the volume
@@ -157,7 +192,16 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	}()
 
 	// For all volumes in the space delete them
-	for _, volume := range space.VolumeData {
+	for key, volume := range space.VolumeData {
+		if volume.Type == container.ManagedPathType {
+			client.logger.Debug("deleting path", "path", key)
+			if err := container.DeleteManagedPath(volume.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, key)
+			continue
+		}
+
 		var err error
 		if volume.Type == "host" {
 			var id string
@@ -263,6 +307,16 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 }
 
 func (client *NomadClient) CleanupSpaceArtifacts(space *model.Space) error {
+	for key, volume := range space.VolumeData {
+		if volume.Type != container.ManagedPathType {
+			continue
+		}
+		client.logger.Debug("cleaning migrated space path", "space_id", space.Id, "path", key)
+		if err := container.DeleteManagedPath(volume.Id); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

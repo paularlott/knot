@@ -23,16 +23,16 @@ require (
 	github.com/paularlott/cli v0.8.4
 	github.com/paularlott/gossip v0.12.6
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.16.1
+	github.com/paularlott/mcp v0.16.2
 	github.com/paularlott/scriptling v0.8.1
 	github.com/pkg/sftp v1.13.10
-	github.com/redis/go-redis/v9 v9.19.0
+	github.com/redis/go-redis/v9 v9.20.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.52.0
-	golang.org/x/exp v0.0.0-20260527015227-08cc5374adb3
+	golang.org/x/exp v0.0.0-20260529124908-c761662dc8c9
 	golang.org/x/net v0.55.0
 	golang.org/x/term v0.43.0
 	golang.org/x/time v0.15.0
@@ -69,9 +69,9 @@ require (
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.43.0 // indirect
-	go.opentelemetry.io/otel/metric v1.43.0 // indirect
-	go.opentelemetry.io/otel/trace v1.43.0 // indirect
+	go.opentelemetry.io/otel v1.44.0 // indirect
+	go.opentelemetry.io/otel/metric v1.44.0 // indirect
+	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/image v0.41.0 // indirect
 	golang.org/x/mod v0.36.0 // indirect

@@ -17,10 +17,10 @@ export const containerSpecCompletions = [
   },
   {
     caption: "volumes",
-    value: 'volumes:\n  - "/data:/workspace"',
+    value: 'volumes:\n  - "workspace:/workspace"',
     meta: "container",
     score: 980,
-    docHTML: docs("volumes", "Host path or named volume bindings."),
+    docHTML: docs("volumes", "Host path, managed path, or named volume bindings."),
   },
   {
     caption: "environment",
@@ -124,6 +124,13 @@ export const localVolumeSpecCompletions = [
     docHTML: docs("volumes", "Map of named local container volumes."),
   },
   {
+    caption: "paths",
+    value: "paths:\n  - workspace\n  - ~/knot-workspace\n",
+    meta: "path",
+    score: 995,
+    docHTML: docs("paths", "List of managed host paths to create for local containers."),
+  },
+  {
     caption: "workspace",
     value: "workspace:\n",
     meta: "volume",
@@ -205,6 +212,13 @@ export const nomadVolumeSpecCompletions = [
     meta: "volume",
     score: 1000,
     docHTML: docs("volumes", "List of Nomad CSI or host volumes."),
+  },
+  {
+    caption: "paths",
+    value: "paths:\n  - /storage/${{ .space.id }}/data\n",
+    meta: "path",
+    score: 995,
+    docHTML: docs("paths", "List of managed host paths to create before Nomad jobs start."),
   },
   {
     caption: "csi volume",

@@ -27,3 +27,24 @@ func ValidateManagedVolumeBinds(binds []string, volumeData model.VolumeDataMap) 
 
 	return nil
 }
+
+func ResolveManagedPathBinds(binds []string, volumeData model.VolumeDataMap) []string {
+	resolved := make([]string, 0, len(binds))
+	for _, bind := range binds {
+		parts := strings.SplitN(bind, ":", 2)
+		if len(parts) != 2 {
+			resolved = append(resolved, bind)
+			continue
+		}
+
+		source := strings.TrimSpace(parts[0])
+		if data, ok := volumeData[source]; ok && data.Type == ManagedPathType {
+			resolved = append(resolved, data.Id+":"+parts[1])
+			continue
+		}
+
+		resolved = append(resolved, bind)
+	}
+
+	return resolved
+}

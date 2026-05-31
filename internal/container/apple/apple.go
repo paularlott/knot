@@ -48,14 +48,6 @@ type jobSpec struct {
 	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
-type volumeSpec struct {
-	Size string `yaml:"size,omitempty"`
-}
-
-type volInfo struct {
-	Volumes map[string]volumeSpec `yaml:"volumes"`
-}
-
 type containerInspect struct {
 	ID     string `json:"ID"`
 	Status string `json:"status"`
@@ -118,6 +110,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 	if err := container.ValidateManagedVolumeBinds(spec.Volumes, space.VolumeData); err != nil {
 		return err
 	}
+	spec.Volumes = container.ResolveManagedPathBinds(spec.Volumes, space.VolumeData)
 
 	db := database.GetInstance()
 	space.IsPending = true
@@ -382,18 +375,12 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 }
 
 func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
-	volumes, err := model.ResolveVariables(template.Volumes, template, space, user, variables)
+	volInfo, err := model.LoadLocalStorageFromYaml(template.Volumes, template, space, user, variables)
 	if err != nil {
 		return err
 	}
 
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
-	if err != nil {
-		return err
-	}
-
-	if len(volInfo.Volumes) == 0 && len(space.VolumeData) == 0 {
+	if len(volInfo.Volumes) == 0 && len(volInfo.Paths) == 0 && len(space.VolumeData) == 0 {
 		c.logger.Debug("no volumes to create")
 		return nil
 	}
@@ -457,7 +444,38 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}
 
-	for volName := range space.VolumeData {
+	requiredPaths := make(map[string]bool)
+	for _, path := range volInfo.Paths {
+		c.logger.Debug("checking path", "path", path)
+		requiredPaths[path] = true
+		data, ok := space.VolumeData[path]
+		if !ok || data.Type != container.ManagedPathType {
+			c.logger.Debug("creating path", "path", path)
+			resolved, err := container.CreateManagedPath(path)
+			if err != nil {
+				return err
+			}
+			space.VolumeData[path] = model.SpaceVolume{
+				Id:        resolved,
+				Namespace: "_path",
+				Type:      container.ManagedPathType,
+			}
+		}
+	}
+
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			if requiredPaths[volName] {
+				continue
+			}
+			c.logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		if _, ok := volInfo.Volumes[volName]; !ok {
 			c.logger.Debug("deleting volume", "volname", volName)
 
@@ -494,7 +512,16 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
-	for volName := range space.VolumeData {
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		c.logger.Debug("deleting volume", "volname", volName)
 
 		cmd := exec.Command("container", "volume", "rm", volName)
@@ -581,7 +608,15 @@ func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
 		}
 	}
 
-	for volName := range space.VolumeData {
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.logger.Debug("cleaning migrated space path", "space_id", space.Id, "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			continue
+		}
+
 		c.logger.Debug("cleaning migrated space volume", "space_id", space.Id, "volname", volName)
 		cmd := exec.CommandContext(ctx, "container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
@@ -692,13 +727,7 @@ func (c *AppleClient) ListRunningSpaceRuntimeRefs() (map[string]bool, error) {
 func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
 	c.logger.Debug("creating volume")
 
-	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
-	if err != nil {
-		return err
-	}
-
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
+	volInfo, err := model.LoadLocalStorageFromYaml(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
 		return err
 	}
@@ -731,13 +760,7 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
 	c.logger.Debug("deleting volume")
 
-	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
-	if err != nil {
-		return err
-	}
-
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
+	volInfo, err := model.LoadLocalStorageFromYaml(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
 		return err
 	}

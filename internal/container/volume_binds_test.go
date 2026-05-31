@@ -9,7 +9,8 @@ import (
 
 func TestValidateManagedVolumeBinds(t *testing.T) {
 	volumeData := model.VolumeDataMap{
-		"volume-space": model.SpaceVolume{Id: "volume-space", Namespace: "_docker"},
+		"volume-space": {Id: "volume-space", Namespace: "_docker"},
+		"workspace":    {Id: "/tmp/knot-workspace", Namespace: "_path", Type: ManagedPathType},
 	}
 
 	tests := []struct {
@@ -24,6 +25,10 @@ func TestValidateManagedVolumeBinds(t *testing.T) {
 		{
 			name:  "declared named volume",
 			binds: []string{"volume-space:/home"},
+		},
+		{
+			name:  "declared managed path",
+			binds: []string{"workspace:/workspace"},
 		},
 		{
 			name:    "undeclared named volume",
@@ -45,5 +50,28 @@ func TestValidateManagedVolumeBinds(t *testing.T) {
 				t.Fatalf("ValidateManagedVolumeBinds() error = %v, want containing %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestResolveManagedPathBinds(t *testing.T) {
+	volumeData := model.VolumeDataMap{
+		"workspace": {Id: "/tmp/knot-workspace", Namespace: "_path", Type: ManagedPathType},
+		"cache":     {Id: "cache", Namespace: "_docker"},
+	}
+
+	got := ResolveManagedPathBinds([]string{
+		"workspace:/workspace",
+		"cache:/cache",
+		"/host/path:/host",
+	}, volumeData)
+
+	want := []string{
+		"/tmp/knot-workspace:/workspace",
+		"cache:/cache",
+		"/host/path:/host",
+	}
+
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("ResolveManagedPathBinds() = %#v, want %#v", got, want)
 	}
 }

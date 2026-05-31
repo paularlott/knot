@@ -53,14 +53,6 @@ type jobSpec struct {
 	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
-type volumeSpec struct {
-	Size string `yaml:"size,omitempty"`
-}
-
-type volInfo struct {
-	Volumes map[string]volumeSpec `yaml:"volumes"`
-}
-
 // ---- Docker REST API request/response types ----
 
 type portBinding struct {
@@ -339,6 +331,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	if err := container.ValidateManagedVolumeBinds(spec.Volumes, space.VolumeData); err != nil {
 		return err
 	}
+	spec.Volumes = container.ResolveManagedPathBinds(spec.Volumes, space.VolumeData)
 
 	// Build request structs
 	exposedPorts := map[string]struct{}{}
@@ -620,17 +613,12 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 }
 
 func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
-	volumes, err := model.ResolveVariables(template.Volumes, template, space, user, variables)
+	vi, err := model.LoadLocalStorageFromYaml(template.Volumes, template, space, user, variables)
 	if err != nil {
 		return err
 	}
 
-	var vi volInfo
-	if err = yaml.Unmarshal([]byte(volumes), &vi); err != nil {
-		return err
-	}
-
-	if len(vi.Volumes) == 0 && len(space.VolumeData) == 0 {
+	if len(vi.Volumes) == 0 && len(vi.Paths) == 0 && len(space.VolumeData) == 0 {
 		c.Logger.Debug("no volumes to create")
 		return nil
 	}
@@ -676,7 +664,34 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		}
 	}
 
-	for volName := range space.VolumeData {
+	requiredPaths := make(map[string]bool)
+	for _, path := range vi.Paths {
+		c.Logger.Debug("checking path", "path", path)
+		requiredPaths[path] = true
+		data, ok := space.VolumeData[path]
+		if !ok || data.Type != container.ManagedPathType {
+			c.Logger.Debug("creating path", "path", path)
+			resolved, err := container.CreateManagedPath(path)
+			if err != nil {
+				return err
+			}
+			space.VolumeData[path] = model.SpaceVolume{Id: resolved, Namespace: "_path", Type: container.ManagedPathType}
+		}
+	}
+
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			if requiredPaths[volName] {
+				continue
+			}
+			c.Logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		if _, ok := vi.Volumes[volName]; !ok {
 			c.Logger.Debug("deleting volume", "name", volName)
 			if err := c.volumeRemove(context.Background(), volName); err != nil {
@@ -707,7 +722,16 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
-	for volName := range space.VolumeData {
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.Logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		c.Logger.Debug("deleting volume", "name", volName)
 		if err := c.volumeRemove(context.Background(), volName); err != nil {
 			return err
@@ -752,7 +776,15 @@ func (c *DockerClient) CleanupSpaceArtifacts(space *model.Space) error {
 		}
 	}
 
-	for volName := range space.VolumeData {
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.Logger.Debug("cleaning migrated space path", "space_id", space.Id, "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			continue
+		}
+
 		c.Logger.Debug("cleaning migrated space volume", "space_id", space.Id, "volume", volName)
 		if err := c.volumeRemove(ctx, volName); err != nil {
 			return err

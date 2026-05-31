@@ -29,6 +29,23 @@ volumes:
 	}
 }
 
+func TestValidateTemplateSpecLocalContainerPathsOnly(t *testing.T) {
+	issues := ValidateTemplateSpec(model.PlatformContainer, `
+image: registry-1.docker.io/library/nginx:latest
+volumes:
+  - "workspace:/workspace"
+`, `
+paths:
+  - workspace
+  - ~/knot-test
+  - /storage/${{ .space.id }}/data
+`)
+
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got %+v", issues)
+	}
+}
+
 func TestValidateTemplateSpecLocalContainerInvalid(t *testing.T) {
 	issues := ValidateTemplateSpec(model.PlatformDocker, `
 ports:
@@ -69,6 +86,46 @@ func TestValidateTemplateSpecNomadUsesParser(t *testing.T) {
 	}
 }
 
+func TestValidateTemplateSpecNomadAllowsVolumesAndPaths(t *testing.T) {
+	issues := ValidateTemplateSpecWithNomadParser(
+		model.PlatformNomad,
+		`job "example" {}`,
+		`
+volumes:
+  - name: data
+    type: csi
+    plugin_id: hostpath
+paths:
+  - /storage/${{ .space.id }}/data
+`,
+		func(job string) error {
+			return nil
+		},
+	)
+
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got %+v", issues)
+	}
+}
+
+func TestValidateTemplateSpecNomadAllowsPathsOnly(t *testing.T) {
+	issues := ValidateTemplateSpecWithNomadParser(
+		model.PlatformNomad,
+		`job "example" {}`,
+		`
+paths:
+  - /storage/${{ .space.id }}/data
+`,
+		func(job string) error {
+			return nil
+		},
+	)
+
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got %+v", issues)
+	}
+}
+
 func TestValidateVolumeSpecLocalRequiresSingleVolume(t *testing.T) {
 	issues := ValidateVolumeSpec(model.PlatformContainer, `
 volumes:
@@ -90,6 +147,17 @@ volumes:
 
 	if len(issues) != 0 {
 		t.Fatalf("expected no issues, got %+v", issues)
+	}
+}
+
+func TestValidateVolumeSpecLocalRejectsPaths(t *testing.T) {
+	issues := ValidateVolumeSpec(model.PlatformContainer, `
+paths:
+  - workspace
+`)
+
+	if len(issues) == 0 {
+		t.Fatal("expected paths to be rejected for standalone volume definitions")
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"net/url"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"gopkg.in/yaml.v3"
 )
 
 type volumeCreateRequest struct {
@@ -42,13 +41,8 @@ func (c *DockerClient) volumeRemove(ctx context.Context, name string) error {
 func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
 	c.Logger.Debug("creating volume")
 
-	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
+	vi, err := model.LoadLocalStorageFromYaml(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
-		return err
-	}
-
-	var vi volInfo
-	if err = yaml.Unmarshal([]byte(volumes), &vi); err != nil {
 		return err
 	}
 
@@ -70,13 +64,8 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]inte
 func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
 	c.Logger.Debug("deleting volume")
 
-	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
+	vi, err := model.LoadLocalStorageFromYaml(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
-		return err
-	}
-
-	var vi volInfo
-	if err = yaml.Unmarshal([]byte(volumes), &vi); err != nil {
 		return err
 	}
 
