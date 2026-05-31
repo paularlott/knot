@@ -546,6 +546,12 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 
 	spaceId = space.Id // Use the resolved ID for subsequent operations
 
+	// If user doesn't have permission to manage spaces and not their space then fail
+	if user.Id != space.UserId && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
 	// Check if request should be forwarded to another node
 	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
 		if assignedNodeOffline(nodeId) {
@@ -558,26 +564,17 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := service.ForwardToNode(w, r, nodeId); err != nil {
-			// If forwarding fails, allow stop to proceed (node might be dead)
-			log.WithError(err).Warn("failed to forward stop request, proceeding locally")
-			if assignedNodeOffline(nodeId) {
-				if err := spaceutil.MarkSpaceStopped(space); err != nil {
-					log.WithError(err).Error("HandleSpaceStop: failed to mark offline-hosted space as stopped after forward failure")
-					rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-				w.WriteHeader(http.StatusOK)
+			log.WithError(err).Warn("failed to forward stop request, marking remote-hosted space as stopped")
+			if err := spaceutil.MarkSpaceStopped(space); err != nil {
+				log.WithError(err).Error("HandleSpaceStop: failed to mark remote-hosted space as stopped after forward failure")
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
+			w.WriteHeader(http.StatusOK)
+			return
 		} else {
 			return
 		}
-	}
-
-	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
-		return
 	}
 
 	// If the space is not running or changing state then fail
