@@ -3,6 +3,7 @@ package nomad
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -130,6 +131,17 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 				Id:        resolved,
 				Namespace: "_path",
 				Type:      container.ManagedPathType,
+			}
+		} else {
+			resolved, err := container.ResolveManagedPath(path)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				client.logger.Debug("recreating missing path", "path", path)
+				if err := os.MkdirAll(resolved, 0755); err != nil {
+					return err
+				}
 			}
 		}
 	}

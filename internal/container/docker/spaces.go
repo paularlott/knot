@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -676,6 +677,17 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 				return err
 			}
 			space.VolumeData[path] = model.SpaceVolume{Id: resolved, Namespace: "_path", Type: container.ManagedPathType}
+		} else {
+			resolved, err := container.ResolveManagedPath(path)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				c.Logger.Debug("recreating missing path", "path", path)
+				if err := os.MkdirAll(resolved, 0755); err != nil {
+					return err
+				}
+			}
 		}
 	}
 

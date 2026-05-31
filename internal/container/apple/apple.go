@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -459,6 +460,17 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 				Id:        resolved,
 				Namespace: "_path",
 				Type:      container.ManagedPathType,
+			}
+		} else {
+			resolved, err := container.ResolveManagedPath(path)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				c.logger.Debug("recreating missing path", "path", path)
+				if err := os.MkdirAll(resolved, 0755); err != nil {
+					return err
+				}
 			}
 		}
 	}
