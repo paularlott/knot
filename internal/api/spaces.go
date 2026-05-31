@@ -723,6 +723,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nodeChanged := false
+	var cleanupSpace *model.Space
 
 	if template.IsLocalContainer() {
 		canChangeNode := space.TemplateHash == "" ||
@@ -741,6 +742,18 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 			space.NodeId = nodeId
 			nodeChanged = previousNodeId != nodeId
 			if nodeChanged && template.AllowNodeMigration && space.TemplateHash != "" {
+				cleanupSpace = &model.Space{
+					Id:          space.Id,
+					UserId:      space.UserId,
+					TemplateId:  space.TemplateId,
+					Name:        space.Name,
+					NodeId:      previousNodeId,
+					ContainerId: space.ContainerId,
+					VolumeData:  make(model.VolumeDataMap),
+				}
+				for volumeName, volume := range space.VolumeData {
+					cleanupSpace.VolumeData[volumeName] = volume
+				}
 				space.ContainerId = ""
 				space.VolumeData = make(model.VolumeDataMap)
 			}
@@ -766,6 +779,12 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 			"space_name":      space.Name,
 		},
 	)
+
+	if cleanupSpace != nil && template.IsLocalContainer() {
+		if shouldForward, _ := service.ShouldForwardToNode(cleanupSpace.NodeId); !shouldForward {
+			service.GetTransport().EnqueueSpaceCleanup(cleanupSpace)
+		}
+	}
 
 	// API-specific logic for updating shell on deployed spaces
 	template, templateErr := db.GetTemplate(space.TemplateId)

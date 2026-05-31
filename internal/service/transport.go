@@ -29,6 +29,7 @@ type Transport interface {
 
 	Nodes() []*gossip.Node
 	GetNodeByIDString(id string) *gossip.Node
+	EnqueueSpaceCleanup(space *model.Space)
 }
 
 var (

@@ -86,7 +86,7 @@ func (c *Cluster) DoSpaceFullSync(node *gossip.Node) error {
 	return nil
 }
 
-func (c *Cluster) enqueueSpaceCleanup(space *model.Space) {
+func (c *Cluster) EnqueueSpaceCleanup(space *model.Space) {
 	if space == nil {
 		return
 	}
@@ -176,7 +176,7 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 				}
 
 				if shouldQueueCleanup {
-					c.enqueueSpaceCleanup(cleanupSpace)
+					c.EnqueueSpaceCleanup(cleanupSpace)
 				}
 
 				//  If share user update the SSH keys
