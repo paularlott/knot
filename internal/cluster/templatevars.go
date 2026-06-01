@@ -138,7 +138,7 @@ func (c *Cluster) DoTemplateVarFullSync(node *gossip.Node) error {
 
 // Merges the template vars from a cluster member with the local template vars
 func (c *Cluster) mergeTemplateVars(templateVars []*model.TemplateVar) error {
-	c.logger.Debug("Merging template vars", "number_template_vars", len(templateVars))
+	c.logger.Trace("Merging template vars", "number_template_vars", len(templateVars))
 
 	// Get the list of templates in the system
 	db := database.GetInstance()

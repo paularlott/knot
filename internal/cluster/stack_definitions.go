@@ -89,7 +89,7 @@ func (c *Cluster) DoStackDefinitionFullSync(node *gossip.Node) error {
 }
 
 func (c *Cluster) mergeStackDefinitions(defs []*model.StackDefinition) error {
-	c.logger.Debug("Merging stack definitions", "number_definitions", len(defs))
+	c.logger.Trace("Merging stack definitions", "number_definitions", len(defs))
 
 	db := database.GetInstance()
 	localDefs, err := db.GetStackDefinitions()

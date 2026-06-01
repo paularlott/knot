@@ -89,7 +89,7 @@ func (c *Cluster) DoSkillFullSync(node *gossip.Node) error {
 }
 
 func (c *Cluster) mergeSkills(skills []*model.Skill) error {
-	c.logger.Debug("Merging skills", "number_skills", len(skills))
+	c.logger.Trace("Merging skills", "number_skills", len(skills))
 
 	db := database.GetInstance()
 	localSkills, err := db.GetSkills()
@@ -156,7 +156,7 @@ func (c *Cluster) gossipSkills() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(skills))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping skills", "batch_size", batchSize, "total", len(skills))
+			c.logger.Trace("Gossipping skills", "batch_size", batchSize, "total", len(skills))
 			clusterSkills := skills[:batchSize]
 			c.gossipCluster.Send(SkillGossipMsg, &clusterSkills)
 		}
@@ -168,7 +168,7 @@ func (c *Cluster) gossipSkills() {
 		})
 		batchSize := c.CalcLeafPayloadSize(len(activeSkills))
 		if batchSize > 0 {
-			c.logger.Debug("Skills to leaf nodes", "batch_size", batchSize, "total", len(activeSkills))
+			c.logger.Trace("Skills to leaf nodes", "batch_size", batchSize, "total", len(activeSkills))
 			leafSkills := activeSkills[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipSkill, &leafSkills)
 		}

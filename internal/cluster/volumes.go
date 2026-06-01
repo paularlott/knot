@@ -83,7 +83,7 @@ func (c *Cluster) DoVolumeFullSync(node *gossip.Node) error {
 
 // Merges the volumes from a cluster member with the local volumes
 func (c *Cluster) mergeVolumes(volumes []*model.Volume) error {
-	c.logger.Debug("Merging volumes", "number_volumes", len(volumes))
+	c.logger.Trace("Merging volumes", "number_volumes", len(volumes))
 
 	// Get the list of volumes in the system
 	db := database.GetInstance()

@@ -99,7 +99,7 @@ func (c *Cluster) DoRoleFullSync(node *gossip.Node) error {
 
 // Merges the roles from a cluster member with the local roles
 func (c *Cluster) mergeRoles(roles []*model.Role) error {
-	c.logger.Debug("Merging roles", "number_roles", len(roles))
+	c.logger.Trace("Merging roles", "number_roles", len(roles))
 
 	// Get the list of roles in the system
 	db := database.GetInstance()
@@ -170,7 +170,7 @@ func (c *Cluster) gossipRoles() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(roles))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping roles", "batch_size", batchSize, "total", len(roles))
+			c.logger.Trace("Gossipping roles", "batch_size", batchSize, "total", len(roles))
 			clusterRoles := roles[:batchSize]
 			c.gossipCluster.Send(RoleGossipMsg, &clusterRoles)
 		}
@@ -179,7 +179,7 @@ func (c *Cluster) gossipRoles() {
 	if len(c.leafSessions) > 0 {
 		batchSize := c.CalcLeafPayloadSize(len(roles))
 		if batchSize > 0 {
-			c.logger.Debug("Roles to leaf nodes", "batch_size", batchSize, "total", len(roles))
+			c.logger.Trace("Roles to leaf nodes", "batch_size", batchSize, "total", len(roles))
 			leafRoles := roles[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipRole, &leafRoles)
 		}

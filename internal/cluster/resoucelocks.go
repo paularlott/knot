@@ -130,7 +130,7 @@ func (c *Cluster) DoResourceLockFullSync(node *gossip.Node) error {
 
 // Merges the resource locks from a cluster member with the local resource locks
 func (c *Cluster) mergeResourceLocks(resourceLocks []*ResourceLock) error {
-	c.logger.Debug("Merging resource locks", "number_resource_locks", len(resourceLocks))
+	c.logger.Trace("Merging resource locks", "number_resource_locks", len(resourceLocks))
 
 	c.resourceLocksMux.Lock()
 	defer c.resourceLocksMux.Unlock()

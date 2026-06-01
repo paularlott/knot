@@ -81,7 +81,7 @@ func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 
 // Merges the tokens from a cluster member with the local tokens
 func (c *Cluster) mergeTokens(tokens []*model.Token) error {
-	c.logger.Debug("Merging tokens", "number_tokens", len(tokens))
+	c.logger.Trace("Merging tokens", "number_tokens", len(tokens))
 
 	// Get the list of tokens in the system
 	db := database.GetInstance()

@@ -98,7 +98,7 @@ func (c *Cluster) DoResponseFullSync(node *gossip.Node) error {
 
 // Merges the responses from a cluster member with the local responses
 func (c *Cluster) mergeResponses(responses []*model.Response) error {
-	c.logger.Debug("Merging responses", "number_responses", len(responses))
+	c.logger.Trace("Merging responses", "number_responses", len(responses))
 
 	// Get the list of responses in the system
 	db := database.GetInstance()
@@ -165,7 +165,7 @@ func (c *Cluster) gossipResponses() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(responses))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping responses", "batch_size", batchSize, "total", len(responses))
+			c.logger.Trace("Gossipping responses", "batch_size", batchSize, "total", len(responses))
 			clusterResponses := responses[:batchSize]
 			c.gossipCluster.Send(ResponseGossipMsg, &clusterResponses)
 		}
@@ -174,7 +174,7 @@ func (c *Cluster) gossipResponses() {
 	if len(c.leafSessions) > 0 {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(responses))
 		if batchSize > 0 {
-			c.logger.Debug("Responses to leaf nodes", "batch_size", batchSize, "total", len(responses))
+			c.logger.Trace("Responses to leaf nodes", "batch_size", batchSize, "total", len(responses))
 			leafResponses := responses[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipResponse, &leafResponses)
 		}

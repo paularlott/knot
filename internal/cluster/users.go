@@ -113,7 +113,7 @@ func (c *Cluster) DoUserFullSync(node *gossip.Node) error {
 
 // Merges the users from a cluster member with the local users
 func (c *Cluster) mergeUsers(users []*model.User) error {
-	c.logger.Debug("Merging users", "number_users", len(users))
+	c.logger.Trace("Merging users", "number_users", len(users))
 
 	// Get the list of users in the system
 	db := database.GetInstance()

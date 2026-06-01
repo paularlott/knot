@@ -126,7 +126,7 @@ func (c *Cluster) runSpaceCleanupQueue() {
 
 // Merges the spaces from a cluster member with the local spaces
 func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
-	c.logger.Debug("Merging spaces", "number_spaces", len(spaces))
+	c.logger.Trace("Merging spaces", "number_spaces", len(spaces))
 	c.spaceMergeMux.Lock()
 	defer c.spaceMergeMux.Unlock()
 

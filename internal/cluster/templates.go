@@ -102,7 +102,7 @@ func (c *Cluster) DoTemplateFullSync(node *gossip.Node) error {
 
 // Merges the templates from a cluster member with the local templates
 func (c *Cluster) mergeTemplates(templates []*model.Template) error {
-	c.logger.Debug("Merging templates", "number_templates", len(templates))
+	c.logger.Trace("Merging templates", "number_templates", len(templates))
 
 	// Get the list of templates in the system
 	db := database.GetInstance()

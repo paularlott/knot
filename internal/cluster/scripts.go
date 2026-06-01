@@ -89,7 +89,7 @@ func (c *Cluster) DoScriptFullSync(node *gossip.Node) error {
 }
 
 func (c *Cluster) mergeScripts(scripts []*model.Script) error {
-	c.logger.Debug("Merging scripts", "number_scripts", len(scripts))
+	c.logger.Trace("Merging scripts", "number_scripts", len(scripts))
 
 	db := database.GetInstance()
 	localScripts, err := db.GetScripts()
@@ -156,7 +156,7 @@ func (c *Cluster) gossipScripts() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(scripts))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping scripts", "batch_size", batchSize, "total", len(scripts))
+			c.logger.Trace("Gossipping scripts", "batch_size", batchSize, "total", len(scripts))
 			clusterScripts := scripts[:batchSize]
 			c.gossipCluster.Send(ScriptGossipMsg, &clusterScripts)
 		}
@@ -168,7 +168,7 @@ func (c *Cluster) gossipScripts() {
 		})
 		batchSize := c.CalcLeafPayloadSize(len(activeScripts))
 		if batchSize > 0 {
-			c.logger.Debug("Scripts to leaf nodes", "batch_size", batchSize, "total", len(activeScripts))
+			c.logger.Trace("Scripts to leaf nodes", "batch_size", batchSize, "total", len(activeScripts))
 			leafScripts := activeScripts[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipScript, &leafScripts)
 		}
