@@ -25,6 +25,7 @@ const (
 	LeafNodeZone = "<leaf-node>"
 
 	HealthCheckNone    = "none"
+	HealthCheckAgent   = "agent"
 	HealthCheckTCP     = "tcp"
 	HealthCheckHTTP    = "http"
 	HealthCheckProgram = "program"

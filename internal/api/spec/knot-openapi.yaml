@@ -5038,7 +5038,7 @@ components:
           description: The custom fields for the template.
         health_check_type:
           type: string
-          enum: [none, tcp, http, program, custom]
+          enum: [none, agent, tcp, http, program, custom]
           default: none
           description: The type of health check to run.
         health_check_config:
@@ -5176,7 +5176,7 @@ components:
           description: The custom fields for the template.
         health_check_type:
           type: string
-          enum: [none, tcp, http, program, custom]
+          enum: [none, agent, tcp, http, program, custom]
           default: none
           description: The type of health check to run.
         health_check_config:
@@ -5328,7 +5328,7 @@ components:
           description: The custom fields for the template.
         health_check_type:
           type: string
-          enum: [none, tcp, http, program, custom]
+          enum: [none, agent, tcp, http, program, custom]
           default: none
           description: The type of health check to run.
         health_check_config:

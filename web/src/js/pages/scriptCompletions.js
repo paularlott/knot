@@ -663,14 +663,14 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, job, ..., allow_node_migration=False)",
-        description: "Create a new template",
+        signature: "create(name, job, ..., health_check_type='none')",
+        description: "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom",
         returns: "str - ID of the newly created template",
       },
       {
         name: "update",
-        signature: "update(template_id, ..., allow_node_migration=None)",
-        description: "Update template properties",
+        signature: "update(template_id, ..., health_check_type=None)",
+        description: "Update template properties, including health_check_type and health_check_auto_restart",
         returns: "bool - True if successfully updated",
       },
       {

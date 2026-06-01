@@ -598,7 +598,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         icon_url: this.formData.icon_url,
         custom_fields: this.formData.custom_fields,
         health_check_type: this.formData.platform === "manual" ? "none" : this.formData.health_check_type,
-        health_check_config: this.formData.health_check_type === "none" ? "" : this.formData.health_check_config,
+        health_check_config: ["none", "agent"].includes(this.formData.health_check_type) ? "" : this.formData.health_check_config,
         health_check_skip_ssl_verify: this.formData.health_check_skip_ssl_verify,
         health_check_timeout: parseInt(this.formData.health_check_timeout) || 10,
         health_check_interval: parseInt(this.formData.health_check_interval) || 30,

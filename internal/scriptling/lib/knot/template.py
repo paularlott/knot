@@ -34,7 +34,10 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            with_vscode_tunnel=False, with_code_server=False, with_ssh=False,
            with_run_command=False, allow_node_migration=False,
            schedule_enabled=False, icon_url="",
-           groups=None, zones=None, paths=None, disable_user_activity=False):
+           groups=None, zones=None, paths=None, disable_user_activity=False,
+           health_check_type="none", health_check_config="", health_check_skip_ssl_verify=False,
+           health_check_timeout=10, health_check_interval=30, health_check_max_failures=3,
+           health_check_auto_restart=False):
     """Create a new template."""
     volumes = _with_paths(volumes, paths)
     body = {
@@ -59,6 +62,13 @@ def create(name, job="", description="", platform="", volumes="", active=True,
         "schedule": [],
         "custom_fields": [],
         "disable_user_activity": disable_user_activity,
+        "health_check_type": health_check_type,
+        "health_check_config": "" if health_check_type in ("none", "agent") else health_check_config,
+        "health_check_skip_ssl_verify": health_check_skip_ssl_verify,
+        "health_check_timeout": health_check_timeout,
+        "health_check_interval": health_check_interval,
+        "health_check_max_failures": health_check_max_failures,
+        "health_check_auto_restart": health_check_auto_restart,
     }
 
     response = api.post("/api/templates", body)
@@ -70,7 +80,10 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            with_terminal=None, with_vscode_tunnel=None, with_code_server=None,
            with_ssh=None, with_run_command=None, allow_node_migration=None,
            schedule_enabled=None,
-           icon_url=None, groups=None, zones=None, paths=None, disable_user_activity=None):
+           icon_url=None, groups=None, zones=None, paths=None, disable_user_activity=None,
+           health_check_type=None, health_check_config=None, health_check_skip_ssl_verify=None,
+           health_check_timeout=None, health_check_interval=None, health_check_max_failures=None,
+           health_check_auto_restart=None):
     """Update template properties."""
     current = api.get(f"/api/templates/{template_id}")
     volumes_value = volumes if volumes is not None else current.get("volumes", "")
@@ -103,7 +116,16 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "max_uptime": current.get("max_uptime", 0),
         "max_uptime_unit": current.get("max_uptime_unit", "hours"),
         "disable_user_activity": disable_user_activity if disable_user_activity is not None else current.get("disable_user_activity", False),
+        "health_check_type": health_check_type if health_check_type is not None else current.get("health_check_type", "none"),
+        "health_check_config": health_check_config if health_check_config is not None else current.get("health_check_config", ""),
+        "health_check_skip_ssl_verify": health_check_skip_ssl_verify if health_check_skip_ssl_verify is not None else current.get("health_check_skip_ssl_verify", False),
+        "health_check_timeout": health_check_timeout if health_check_timeout is not None else current.get("health_check_timeout", 10),
+        "health_check_interval": health_check_interval if health_check_interval is not None else current.get("health_check_interval", 30),
+        "health_check_max_failures": health_check_max_failures if health_check_max_failures is not None else current.get("health_check_max_failures", 3),
+        "health_check_auto_restart": health_check_auto_restart if health_check_auto_restart is not None else current.get("health_check_auto_restart", False),
     }
+    if body["health_check_type"] in ("none", "agent"):
+        body["health_check_config"] = ""
 
     api.put(f"/api/templates/{template_id}", body)
     return True

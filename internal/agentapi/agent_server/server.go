@@ -86,6 +86,14 @@ func checkStaleSessions() {
 					}
 				}
 
+				if shouldRestartOnAgentLoss(template) {
+					logger.Info("stale agent health check failed, restarting space", "space_id", space.Id, "space_name", space.Name)
+					if err := service.GetContainerService().RestartSpace(space); err != nil {
+						logger.WithError(err).Error("failed to restart stale agent space", "space_id", space.Id)
+					}
+					continue
+				}
+
 				refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
 				if err != nil {
 					logger.WithError(err).Error("failed to list runtime refs for stale session", "space_id", space.Id)
@@ -157,6 +165,14 @@ func queueDisconnectedSpaceReconcile(spaceId string) {
 			if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil && space.NodeId != "" && space.NodeId != nodeIdCfg.Value {
 				return
 			}
+		}
+
+		if shouldRestartOnAgentLoss(template) {
+			log.Info("disconnected agent health check failed, restarting space", "space_id", space.Id, "space_name", space.Name)
+			if err := service.GetContainerService().RestartSpace(space); err != nil {
+				log.WithError(err).Error("failed to restart disconnected agent space", "space_id", space.Id)
+			}
+			return
 		}
 
 		refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
@@ -285,6 +301,13 @@ func checkSchedules() {
 func QueueSpaceReconcile(spaceId string) {
 	queueDisconnectedSpaceReconcile(spaceId)
 	health.Set(spaceId, false, 0)
+}
+
+func shouldRestartOnAgentLoss(template *model.Template) bool {
+	return template != nil &&
+		template.HealthCheckType == model.HealthCheckAgent &&
+		template.HealthCheckAutoRestart &&
+		(template.IsLocalContainer() || template.Platform == model.PlatformNomad)
 }
 
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
