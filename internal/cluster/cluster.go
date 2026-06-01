@@ -72,6 +72,7 @@ func NewCluster(
 
 	gossipConfig := gossip.DefaultConfig()
 	gossipConfig.Resolver = dns.GetDefaultResolver()
+	gossipConfig.DeadNodeTimeout = 10 * time.Second
 	cluster.config = gossipConfig
 
 	if advertiseAddr != "" {
