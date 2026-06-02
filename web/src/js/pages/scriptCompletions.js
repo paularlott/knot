@@ -5217,6 +5217,30 @@ const scriptLibraries = [
             description: "Write byte data to file",
             returns: "None",
           },
+          {
+            name: "copy",
+            signature: "copy(target)",
+            description: "Copy a file or directory tree to a target path",
+            returns: "Path - New Path pointing to the target",
+          },
+          {
+            name: "rename",
+            signature: "rename(target)",
+            description: "Rename or move a file or directory",
+            returns: "Path - New Path pointing to the target",
+          },
+          {
+            name: "iterdir",
+            signature: "iterdir()",
+            description: "List directory contents as Path objects",
+            returns: "list[Path] - Directory contents",
+          },
+          {
+            name: "glob",
+            signature: "glob(pattern)",
+            description: "Match a shell-style wildcard pattern (*, ?, **) within a directory",
+            returns: "list[Path] - Matching Path objects",
+          },
         ],
         properties: [
           {
