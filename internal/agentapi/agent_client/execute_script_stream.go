@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/scriptling/extlibs/agent"
+	"github.com/paularlott/scriptling/object"
 )
 
 func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamMessage) {
@@ -96,12 +97,14 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 	agent.RegisterInteract(env)
 
 	result, err := env.EvalWithContext(ctx, execMsg.Content)
-	exitCode, output, evalErr := service.HandleScriptResult(result, err, "")
 
-	if evalErr != nil {
-		log.WithError(evalErr).Error("script execution failed")
-	} else if output != "" {
-		fmt.Fprintln(sw, output)
+	exitCode := 0
+	if ex, ok := object.AsException(result); ok && ex.IsSystemExit() {
+		exitCode = ex.GetExitCode()
+	} else if err != nil {
+		exitCode = 1
+		fmt.Fprintln(sw, err)
+		log.WithError(err).Error("script execution failed")
 	}
 
 	if err := WriteFrame(stream, FrameControl, []byte(fmt.Sprintf("exit:%d", exitCode))); err != nil {

@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
 	"github.com/paularlott/knot/agent/cmd/port"
-	"github.com/paularlott/knot/agent/cmd/scripts"
+	command_runscript "github.com/paularlott/knot/agent/cmd/runscript"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
@@ -75,7 +75,7 @@ The agent connects environments to the knot server.`,
 			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,
 			port.PortCmd,
-			scripts.ScriptsCmd,
+			command_runscript.RunScriptCmd,
 			cli.GenerateCompletionCommand(),
 		},
 		PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/cli/tui"
+	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util/rest"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
@@ -56,8 +57,10 @@ Type /exit to end the session.`,
 		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		alias := cmd.GetString("alias")
-		cfg := config.GetServerAddr(alias, cmd)
+		cfg := cmdutil.GetServerAddr(cmd)
+		if cfg == nil {
+			return fmt.Errorf("no server configured")
+		}
 
 		client, err := rest.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
