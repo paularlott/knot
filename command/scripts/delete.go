@@ -1,4 +1,4 @@
-package scripts
+package command_scripts
 
 import (
 	"context"
@@ -12,18 +12,24 @@ var deleteCmd = &cli.Command{
 	Name:        "delete",
 	Usage:       "Delete a script",
 	Description: "Delete a script by name.",
-	MinArgs:     1,
-	MaxArgs:     1,
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "name",
+			Usage:    "Name of the script",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}
 
-		args := cmd.GetArgs()
-		script, err := client.GetScriptDetailsByName(ctx, args[0])
+		scriptName := cmd.GetStringArg("name")
+		script, err := resolveScript(ctx, cmd, client, scriptName)
 		if err != nil {
-			return fmt.Errorf("error getting script: %w", err)
+			return err
 		}
 
 		err = client.DeleteScript(ctx, script.Id)
@@ -31,7 +37,7 @@ var deleteCmd = &cli.Command{
 			return fmt.Errorf("error deleting script: %w", err)
 		}
 
-		fmt.Printf("Script %s deleted\n", args[0])
+		fmt.Printf("Script %s deleted\n", scriptName)
 		return nil
 	},
 }
