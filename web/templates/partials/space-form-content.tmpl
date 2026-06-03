@@ -10,53 +10,7 @@
           <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
-        <div>
-          <label class="form-label">Description</label>
-          <div class="short-editor">
-            <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
-              <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
-            </div>
-          </div>
-          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
-        </div>
-        <div x-data="autocompleterStack()" data-parent-var-group="formData" data-parent-variable="stack" @refresh-stack-autocompleter.window="refresh()" class="relative">
-          <label for="stack" class="form-label">Stack</label>
-          <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
-          <div class="description">Group spaces together under a stack name. Leave empty for unstacked.</div>
-          <div x-show="showList" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible, 'divide-y divide-gray-100 dark:divide-gray-600': filteredOptions.length > 0}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-            <p x-show="filteredOptions.length === 0" class="px-2 py-1 text-sm text-gray-400 dark:text-gray-500">No stacks found</p>
-            <ul x-show="filteredOptions.length > 0" class="list-none" role="listbox" :id="_listboxId">
-              <template x-for="(option, index) in filteredOptions" :key="option">
-                <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1" x-text="option"></li>
-              </template>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </fieldset>
-    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Appearance</legend>
-      <div class="space-y-6">
-        <div x-data="autocompleterIcon(iconList)" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
-          <label for="icon_url" class="form-label">Icon</label>
-          <div class="flex items-center">
-            <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
-            <div class="relative w-full max-w-sm">
-              <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
-              <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
-                <ul class="list-none" role="listbox" :id="_listboxId">
-                  <template x-for="(option, index) in filteredOptions" :key="index">
-                    <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
-                      <img x-show="option.url.length" :src="option.url" alt="Icon" class="size-10 mr-2">
-                      <div x-text="option.description + ' (' + option.source + ')'"></div>
-                    </li>
-                  </template>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div>
+<div>
           <div class="flex items-center mb-1">
             <label class="form-label mb-0 mr-2">Additional Space Names</label>
             <button type="button" x-on:click="addAltName()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
@@ -79,6 +33,47 @@
               <div x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
             </div>
           </template>
+        </div>
+        <div>
+          <label class="form-label">Description</label>
+          <div class="short-editor">
+            <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
+              <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
+            </div>
+          </div>
+          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
+        </div>
+        <div x-data="autocompleterIcon(iconList)" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
+          <label for="icon_url" class="form-label">Icon</label>
+          <div class="flex items-center">
+            <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
+            <div class="relative w-full max-w-sm">
+              <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+              <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+                <ul class="list-none" role="listbox" :id="_listboxId">
+                  <template x-for="(option, index) in filteredOptions" :key="index">
+                    <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
+                      <img x-show="option.url.length" :src="option.url" alt="Icon" class="size-10 mr-2">
+                      <div x-text="option.description + ' (' + option.source + ')'"></div>
+                    </li>
+                  </template>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div x-data="autocompleterStack()" data-parent-var-group="formData" data-parent-variable="stack" @refresh-stack-autocompleter.window="refresh()" class="relative">
+          <label for="stack" class="form-label">Stack</label>
+          <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
+          <div class="description">Group spaces together under a stack name. Leave empty for unstacked.</div>
+          <div x-show="showList" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible, 'divide-y divide-gray-100 dark:divide-gray-600': filteredOptions.length > 0}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <p x-show="filteredOptions.length === 0" class="px-2 py-1 text-sm text-gray-400 dark:text-gray-500">No stacks found</p>
+            <ul x-show="filteredOptions.length > 0" class="list-none" role="listbox" :id="_listboxId">
+              <template x-for="(option, index) in filteredOptions" :key="option">
+                <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1" x-text="option"></li>
+              </template>
+            </ul>
+          </div>
         </div>
       </div>
     </fieldset>
