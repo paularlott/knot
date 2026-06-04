@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
@@ -94,6 +95,19 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 		return err
 	}
 
+	// Validate ports
+	for _, port := range template.Ports {
+		if port.Name == "" || strings.ContainsAny(port.Name, "=,") {
+			return fmt.Errorf("port name is required and must not contain '=' or ','")
+		}
+		if port.Port < 1 || port.Port > 65535 {
+			return fmt.Errorf("port number must be between 1 and 65535")
+		}
+		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" {
+			return fmt.Errorf("port protocol must be one of tcp, http, https")
+		}
+	}
+
 	// Validate groups exist
 	if err := s.validateGroups(template.Groups); err != nil {
 		return err
@@ -136,6 +150,19 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 	// Validate input
 	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
 		return err
+	}
+
+	// Validate ports
+	for _, port := range template.Ports {
+		if port.Name == "" || strings.ContainsAny(port.Name, "=,") {
+			return fmt.Errorf("port name is required and must not contain '=' or ','")
+		}
+		if port.Port < 1 || port.Port > 65535 {
+			return fmt.Errorf("port number must be between 1 and 65535")
+		}
+		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" {
+			return fmt.Errorf("port protocol must be one of tcp, http, https")
+		}
 	}
 
 	// Validate groups exist

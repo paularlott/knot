@@ -120,7 +120,7 @@ const scriptLibraries = [
         signature: "get(name)",
         description: "Get space details as a dict",
         returns:
-          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, has_ever_started, node_id, node_hostname, created_at, stack",
+          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, has_ever_started, node_id, node_hostname, created_at, alt_names, stack",
       },
       {
         name: "update",
@@ -663,14 +663,14 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, job, ..., health_check_type='none')",
-        description: "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom",
+        signature: "create(name, job, ..., health_check_type='none', ports=None)",
+        description: "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects.",
         returns: "str - ID of the newly created template",
       },
       {
         name: "update",
-        signature: "update(template_id, ..., health_check_type=None)",
-        description: "Update template properties, including health_check_type and health_check_auto_restart",
+        signature: "update(template_id, ..., health_check_type=None, ports=None)",
+        description: "Update template properties, including health_check_type, health_check_auto_restart, and ports",
         returns: "bool - True if successfully updated",
       },
       {

@@ -44,6 +44,7 @@ window.spaceForm = function (
       shell: preferredShell,
       user_id: forUserId,
       alt_names: [],
+      http_ports: {},
       custom_fields: [],
       created_at: "",
       created_at_formatted: "",
@@ -57,6 +58,7 @@ window.spaceForm = function (
     },
     stackSuggestions: [],
     template_id: templateId,
+    templatePorts: [],
     template: {
       custom_fields: [],
       allow_node_migration: false,
@@ -339,28 +341,8 @@ window.spaceForm = function (
           this.formData.depends_on = space.depends_on || [];
           this.dependencyTargetZone = space.zone || "";
           this.formData.stack = space.stack || "";
-
-          // Refresh the autocompleter to show the selected script
-          this.$nextTick(() => {
-            this.$dispatch("refresh-autocompleter");
-          });
-
-          if (space.user_id !== userId) {
-            this.formData.user_id = space.user_id;
-            this.forUsername = space.username;
-          } else {
-            this.formData.user_id = "";
-            this.forUsername = "";
-          }
-
-          await this.loadDependencyOptions(space.user_id);
-
-          // Set the alt names and mark all as valid
-          this.formData.alt_names = space.alt_names ? space.alt_names : [];
-          this.altNameValid = [];
-          for (let i = 0; i < this.formData.alt_names.length; i++) {
-            this.altNameValid.push(true);
-          }
+          this.formData.http_ports = space.http_ports || {};
+          this._pendingAltNames = space.alt_names || [];
         }
       } else {
         this.dependencyTargetZone = "";
@@ -377,6 +359,7 @@ window.spaceForm = function (
       );
       if (templatesResponse.status === 200) {
         this.template = await templatesResponse.json();
+        this.templatePorts = this.template.ports || [];
       } else {
         // Set a default template to prevent null reference errors
         this.template = {
@@ -384,6 +367,23 @@ window.spaceForm = function (
           custom_fields: [],
           allow_node_migration: false,
         };
+        this.templatePorts = [];
+      }
+
+      // Now that templatePorts are loaded, set the alt names
+      const altSource = isEdit ? this._pendingAltNames : null;
+      if (altSource) {
+        const firstPort = (this.templatePorts.length > 0) ? this.templatePorts[0].port : 0;
+        this.formData.alt_names = altSource.map(a => {
+          const entry = typeof a === 'string' ? { name: a, port: firstPort } : a;
+          if (!entry.port) entry.port = firstPort;
+          return entry;
+        });
+        this.altNameValid = [];
+        for (let i = 0; i < this.formData.alt_names.length; i++) {
+          this.altNameValid.push(true);
+        }
+        this._pendingAltNames = null;
       }
 
       // Initialize custom fields array immediately to prevent Alpine errors
@@ -481,7 +481,8 @@ window.spaceForm = function (
     },
     addAltName() {
       this.altNameValid.push(true);
-      this.formData.alt_names.push("");
+      const firstPort = (this.templatePorts && this.templatePorts.length > 0) ? this.templatePorts[0].port : 0;
+      this.formData.alt_names.push({ name: "", port: firstPort });
     },
     removeAltName(index) {
       this.formData.alt_names.splice(index, 1);
@@ -494,15 +495,15 @@ window.spaceForm = function (
     checkAltName(index) {
       if (index >= 0 && index < this.formData.alt_names.length) {
         let isValid =
-          validate.name(this.formData.alt_names[index]) &&
-          this.formData.alt_names[index] !== this.formData.name;
+          validate.name(this.formData.alt_names[index].name) &&
+          this.formData.alt_names[index].name !== this.formData.name;
 
         // If valid then check for duplicate extra name
         if (isValid) {
           for (let i = 0; i < this.formData.alt_names.length; i++) {
             if (
               i !== index &&
-              this.formData.alt_names[i] === this.formData.alt_names[index]
+              this.formData.alt_names[i].name === this.formData.alt_names[index].name
             ) {
               isValid = false;
               break;
@@ -531,7 +532,7 @@ window.spaceForm = function (
 
       // Remove the blank alt names
       for (let i = this.formData.alt_names.length - 1; i >= 0; i--) {
-        if (this.formData.alt_names[i] === "") {
+        if (this.formData.alt_names[i].name === "") {
           this.formData.alt_names.splice(i, 1);
           this.altNameValid.splice(i, 1);
         }

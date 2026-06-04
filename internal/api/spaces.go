@@ -93,6 +93,11 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.IsRemote = space.Zone != "" && space.Zone != cfg.Zone
 		s.Platform = templatePlatform
 		s.IconURL = space.IconURL
+		if space.AltNames != nil {
+			s.AltNames = space.AltNames
+		} else {
+			s.AltNames = []model.AltNameEntry{}
+		}
 
 		// Get node hostname if node_id is set
 		if space.NodeId != "" {
@@ -264,12 +269,12 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func removeBlankAndDuplicates(names []string, primary string) []string {
+func removeBlankAndDuplicates(names []model.AltNameEntry, primary string) []model.AltNameEntry {
 	encountered := map[string]bool{}
-	var newNames []string
+	var newNames []model.AltNameEntry
 	for _, name := range names {
-		if name != "" && name != primary && !encountered[name] {
-			encountered[name] = true
+		if name.Name != "" && name.Name != primary && !encountered[name.Name] {
+			encountered[name.Name] = true
 			newNames = append(newNames, name)
 		}
 	}

@@ -4515,6 +4515,11 @@ components:
           description: The stack name this space belongs to, or empty if unstacked.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
+        alt_names:
+          type: array
+          description: A list of alternative names for the space that can be used in URLs.
+          items:
+            $ref: "#/components/schemas/AltNameEntry"
 
     SpaceInfoList:
       type: object
@@ -4566,7 +4571,7 @@ components:
         alt_names:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AltNameEntry"
           description: The alternative names for the space.
         icon_url:
           type: string
@@ -4676,7 +4681,7 @@ components:
         alt_names:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AltNameEntry"
           description: The alternative names for the space.
         update_available:
           type: boolean
@@ -4753,6 +4758,18 @@ components:
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
+
+    AltNameEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The alternative name for the space.
+        port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: The HTTP port number this alt name routes to.
 
     SpaceResourceUsage:
       type: object
@@ -4906,6 +4923,11 @@ components:
           type: string
           format: uri
           description: The URL of the icon for the template, empty string if there's no icon.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateList:
       type: object
@@ -4918,6 +4940,22 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TemplateInfo"
+
+    TemplatePort:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The display name of the port.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: The port number.
+        protocol:
+          type: string
+          enum: [tcp, http, https]
+          description: The protocol for this port.
 
     CustomFieldDef:
       type: object
@@ -5068,6 +5106,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateUpdateRequest:
       type: object
@@ -5206,6 +5249,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateDetails:
       type: object
@@ -5358,6 +5406,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateDetailsDay:
       type: object

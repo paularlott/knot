@@ -153,7 +153,11 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 
 		args := []string{"run", "-d", "--name", spec.ContainerName}
 
-		for _, env := range spec.Environment {
+		// Inject port env vars from template, overwriting any existing values
+	spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
+	spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
+
+	for _, env := range spec.Environment {
 			args = append(args, "-e", env)
 		}
 

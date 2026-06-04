@@ -71,6 +71,7 @@ type Template struct {
 	HealthCheckMaxFailures   uint32                 `json:"health_check_max_failures" db:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
 	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
+	Ports                    []TemplatePort         `json:"ports" db:"ports,json"`
 	CreatedUserId            string                 `json:"created_user_id" db:"created_user_id"`
 	CreatedAt                time.Time              `json:"created_at" db:"created_at"`
 	UpdatedUserId            string                 `json:"updated_user_id" db:"updated_user_id"`
@@ -86,6 +87,12 @@ type TemplateScheduleDays struct {
 type TemplateCustomField struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+type TemplatePort struct {
+	Name     string `json:"name"`
+	Port     uint16 `json:"port"`
+	Protocol string `json:"protocol"`
 }
 
 func NewTemplate(
