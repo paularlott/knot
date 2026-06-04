@@ -52,13 +52,18 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 			if transport := service.GetTransport(); transport != nil {
 				transport.GossipToken(token)
 			}
-		} else {
-			// Get session from cookie
-			session := middleware.GetSessionFromCookie(r)
-			if session == nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
+	} else {
+		// Get session from cookie
+		session, err := middleware.GetSessionFromCookie(r)
+		if err != nil {
+			logger.Error("failed to get session", "error", err)
+			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if session == nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 			if session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
@@ -124,7 +129,12 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 				select {
 				case <-ticker.C:
 					// Check if session is still valid
-					session := middleware.GetSessionFromCookie(r)
+					session, err := middleware.GetSessionFromCookie(r)
+					if err != nil {
+						// Transient error (e.g. Redis blip), don't log the user out
+						logger.Error("failed to check session validity", "error", err)
+						continue
+					}
 					if session == nil || session.IsDeleted || session.ExpiresAfter.Before(time.Now().UTC()) {
 						// Session invalid, notify client
 						fmt.Fprintf(w, "event: message\ndata: {\"type\":\"auth:required\"}\n\n")

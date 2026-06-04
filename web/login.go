@@ -22,7 +22,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	if !middleware.HasUsers && cfg.Origin.Server == "" && cfg.Origin.Token == "" {
 		http.Redirect(w, r, "/initial-system-setup", http.StatusSeeOther)
 	} else {
-		session := middleware.GetSessionFromCookie(r)
+		session, _ := middleware.GetSessionFromCookie(r)
 
 		// If session present then redirect to dashboard
 		if session != nil {

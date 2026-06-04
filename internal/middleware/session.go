@@ -8,23 +8,23 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 )
 
-func GetSessionFromCookie(r *http.Request) *model.Session {
-	var session *model.Session = nil
-
+func GetSessionFromCookie(r *http.Request) (*model.Session, error) {
 	// Get the cookie value
 	cookie, err := r.Cookie(model.WebSessionCookie)
 	if err == nil {
 		db := database.GetSessionStorage()
-		session, _ = db.GetSession(cookie.Value)
-	} else {
-		key := r.Header.Get(model.WebSessionCookie)
-		if key != "" {
-			db := database.GetSessionStorage()
-			session, _ = db.GetSession(key)
-		}
+		session, err := db.GetSession(cookie.Value)
+		return session, err
 	}
 
-	return session
+	key := r.Header.Get(model.WebSessionCookie)
+	if key != "" {
+		db := database.GetSessionStorage()
+		session, err := db.GetSession(key)
+		return session, err
+	}
+
+	return nil, nil
 }
 
 func DeleteSessionCookie(w http.ResponseWriter) {

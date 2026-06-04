@@ -163,14 +163,23 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					// Add the token to the context
 					ctx = context.WithValue(r.Context(), "access_token", token)
 				}
-			} else {
-				// Get the session
-				session := GetSessionFromCookie(r)
-				if session == nil {
-					logger.Debug("session not found")
-					returnUnauthorized(w, r)
-					return
-				}
+		} else {
+			// Get the session
+			session, err := GetSessionFromCookie(r)
+			if err != nil {
+				logger.Error("failed to get session", "error", err)
+				rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
+					Error string `json:"error"`
+				}{
+					Error: "Session storage temporarily unavailable",
+				})
+				return
+			}
+			if session == nil {
+				logger.Debug("session not found")
+				returnUnauthorized(w, r)
+				return
+			}
 				if session.ExpiresAfter.Before(time.Now().UTC()) {
 					logger.Debug("session expired", "session_id", session.Id, "expires", session.ExpiresAfter)
 					returnUnauthorized(w, r)
@@ -400,8 +409,8 @@ func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 // pass through with no user in context.
 func OptionalWebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session := GetSessionFromCookie(r)
-		if session != nil && !session.IsDeleted && session.ExpiresAfter.After(time.Now().UTC()) {
+		session, err := GetSessionFromCookie(r)
+		if err == nil && session != nil && !session.IsDeleted && session.ExpiresAfter.After(time.Now().UTC()) {
 			db := database.GetInstance()
 			user, err := db.GetUser(session.UserId)
 			if err == nil && user.Active && !user.IsDeleted {
@@ -418,7 +427,12 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		logger := log.WithGroup("auth")
 
 		// If no session then redirect to login
-		session := GetSessionFromCookie(r)
+		session, err := GetSessionFromCookie(r)
+		if err != nil {
+			logger.Error("failed to get session", "error", err, "path", r.URL.Path)
+			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		if session == nil {
 			logger.Debug("session not found", "path", r.URL.Path)
 			DeleteSessionCookie(w)
@@ -440,7 +454,6 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		// Get the user from the session
 		db := database.GetInstance()
-		var err error
 		user, err := db.GetUser(session.UserId)
 		if err != nil || !user.Active || user.IsDeleted {
 			DeleteSessionCookie(w)
