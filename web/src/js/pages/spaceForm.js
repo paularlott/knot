@@ -58,6 +58,7 @@ window.spaceForm = function (
     },
     stackSuggestions: [],
     template_id: templateId,
+    templatePorts: [],
     template: {
       custom_fields: [],
       allow_node_migration: false,
@@ -341,18 +342,7 @@ window.spaceForm = function (
           this.dependencyTargetZone = space.zone || "";
           this.formData.stack = space.stack || "";
           this.formData.http_ports = space.http_ports || {};
-
-          // Set the alt names and mark all as valid
-          const firstPort = Object.keys(space.http_ports || {})[0] || "";
-          this.formData.alt_names = (space.alt_names || []).map(a => {
-            const entry = typeof a === 'string' ? { name: a, port: '' } : a;
-            if (!entry.port) entry.port = firstPort;
-            return entry;
-          });
-          this.altNameValid = [];
-          for (let i = 0; i < this.formData.alt_names.length; i++) {
-            this.altNameValid.push(true);
-          }
+          this._pendingAltNames = space.alt_names || [];
         }
       } else {
         this.dependencyTargetZone = "";
@@ -369,6 +359,7 @@ window.spaceForm = function (
       );
       if (templatesResponse.status === 200) {
         this.template = await templatesResponse.json();
+        this.templatePorts = this.template.ports || [];
       } else {
         // Set a default template to prevent null reference errors
         this.template = {
@@ -376,6 +367,23 @@ window.spaceForm = function (
           custom_fields: [],
           allow_node_migration: false,
         };
+        this.templatePorts = [];
+      }
+
+      // Now that templatePorts are loaded, set the alt names
+      const altSource = isEdit ? this._pendingAltNames : null;
+      if (altSource) {
+        const firstPort = (this.templatePorts.length > 0) ? this.templatePorts[0].port : 0;
+        this.formData.alt_names = altSource.map(a => {
+          const entry = typeof a === 'string' ? { name: a, port: firstPort } : a;
+          if (!entry.port) entry.port = firstPort;
+          return entry;
+        });
+        this.altNameValid = [];
+        for (let i = 0; i < this.formData.alt_names.length; i++) {
+          this.altNameValid.push(true);
+        }
+        this._pendingAltNames = null;
       }
 
       // Initialize custom fields array immediately to prevent Alpine errors
@@ -473,7 +481,7 @@ window.spaceForm = function (
     },
     addAltName() {
       this.altNameValid.push(true);
-      const firstPort = Object.keys(this.formData.http_ports)[0] || "";
+      const firstPort = (this.templatePorts && this.templatePorts.length > 0) ? this.templatePorts[0].port : 0;
       this.formData.alt_names.push({ name: "", port: firstPort });
     },
     removeAltName(index) {

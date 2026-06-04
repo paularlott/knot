@@ -3,6 +3,8 @@ package apiclient
 import (
 	"context"
 	"fmt"
+
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 type CustomFieldDef struct {
@@ -44,6 +46,7 @@ type TemplateCreateRequest struct {
 	HealthCheckMaxFailures   uint32               `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
+	Ports                    []model.TemplatePort `json:"ports"`
 }
 
 type TemplateUpdateRequest struct {
@@ -80,6 +83,7 @@ type TemplateUpdateRequest struct {
 	HealthCheckMaxFailures   uint32               `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
+	Ports                    []model.TemplatePort `json:"ports"`
 }
 
 type TemplateCreateResponse struct {
@@ -107,6 +111,7 @@ type TemplateInfo struct {
 	MaxUptime          uint32               `json:"max_uptime"`
 	MaxUptimeUnit      string               `json:"max_uptime_unit"`
 	IconURL            string               `json:"icon_url"`
+	Ports              []model.TemplatePort `json:"ports"`
 }
 
 type TemplateList struct {
@@ -159,6 +164,7 @@ type TemplateDetails struct {
 	HealthCheckMaxFailures   uint32               `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
+	Ports                    []model.TemplatePort `json:"ports"`
 }
 
 func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {

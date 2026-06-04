@@ -20,7 +20,7 @@ type SpaceCustomField struct {
 
 type AltNameEntry struct {
 	Name string `json:"name"`
-	Port string `json:"port"`
+	Port uint16 `json:"port"`
 }
 
 // Value implements the driver.Valuer interface.

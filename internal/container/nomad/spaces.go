@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -255,6 +256,12 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		return err
 	}
 
+	// Inject port env vars from template into all task groups
+	portEnvs := container.BuildPortEnvVars(template)
+	if len(portEnvs) > 0 {
+		injectNomadEnvVars(jobJSON, portEnvs)
+	}
+
 	// Save the namespace and job ID to the space
 	namespace, ok := jobJSON["Namespace"].(string)
 	if !ok {
@@ -434,4 +441,38 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 			onDone()
 		}
 	}()
+}
+
+func injectNomadEnvVars(jobJSON map[string]interface{}, envVars []string) {
+	taskGroups, ok := jobJSON["TaskGroups"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, tg := range taskGroups {
+		tgMap, ok := tg.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		tasks, ok := tgMap["Tasks"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, t := range tasks {
+			taskMap, ok := t.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			env, ok := taskMap["Env"].(map[string]interface{})
+			if !ok {
+				env = make(map[string]interface{})
+			}
+			for _, ev := range envVars {
+				parts := strings.SplitN(ev, "=", 2)
+				if len(parts) == 2 {
+					env[parts[0]] = parts[1]
+				}
+			}
+			taskMap["Env"] = env
+		}
+	}
 }

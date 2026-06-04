@@ -712,20 +712,18 @@ window.spacesListComponent = function (
     getHttpPortEntries(space) {
       const entries = [];
       if (space.http_ports) {
-        const httpPorts = Object.entries(space.http_ports);
-        const firstPort = httpPorts.length > 0 ? httpPorts[0][0] : null;
-
         for (const [key, value] of Object.entries(space.http_ports)) {
           entries.push({ key, value, name: space.name, label: key == value ? key : value + ' (' + key + ')' });
         }
         if (space.alt_names) {
           for (const altName of space.alt_names) {
             const altNameStr = typeof altName === 'string' ? altName : altName.name;
-            const altPort = typeof altName === 'string' ? '' : (altName.port || '');
-            const port = altPort || firstPort;
-            if (!port) continue;
-            const portValue = space.http_ports[port] || port;
-            entries.push({ key: port, value: portValue, name: altNameStr, label: altNameStr + ' (' + (port == portValue ? port : portValue + ':' + port) + ')' });
+            const altPort = typeof altName === 'string' ? '' : (altName.port || 0);
+            const portStr = String(altPort);
+            if (altPort > 0 && space.http_ports[portStr]) {
+              const portValue = space.http_ports[portStr];
+              entries.push({ key: portStr, value: portValue, name: altNameStr, label: altNameStr + ' (' + portValue + ')' });
+            }
           }
         }
       }

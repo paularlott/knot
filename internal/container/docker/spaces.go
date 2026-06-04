@@ -374,6 +374,10 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		}
 	}
 
+	// Inject port env vars from template, overwriting any existing values
+	spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
+	spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
+
 	createReq := containerCreateRequest{
 		Image:        spec.Image,
 		Hostname:     spec.Hostname,

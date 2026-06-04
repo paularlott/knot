@@ -2,6 +2,7 @@ package driver_mysql
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
@@ -19,7 +20,13 @@ func (db *MySQLDriver) getAltNames(id string) ([]model.AltNameEntry, error) {
 	}
 
 	for _, space := range spaces {
-		entries = append(entries, model.AltNameEntry{Name: space.Name, Port: space.Description})
+		var port uint16
+		if space.Description != "" {
+			if p, err := strconv.ParseUint(space.Description, 10, 16); err == nil {
+				port = uint16(p)
+			}
+		}
+		entries = append(entries, model.AltNameEntry{Name: space.Name, Port: port})
 	}
 	return entries, nil
 }
@@ -123,7 +130,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 				if altName.Name == name.Name {
 					found = true
 
-					_, err = tx.Exec("UPDATE spaces SET description=?, zone=?, updated_at=? WHERE parent_space_id = ? AND name = ?", name.Port, space.Zone, space.UpdatedAt, space.Id, name.Name)
+					_, err = tx.Exec("UPDATE spaces SET description=?, zone=?, updated_at=? WHERE parent_space_id = ? AND name = ?", strconv.FormatUint(uint64(name.Port), 10), space.Zone, space.UpdatedAt, space.Id, name.Name)
 					if err != nil {
 						tx.Rollback()
 						return err
@@ -139,7 +146,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 					return err
 				}
 
-				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, description, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name.Name, name.Port, space.Zone, space.CreatedAt, space.UpdatedAt)
+				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, description, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name.Name, strconv.FormatUint(uint64(name.Port), 10), space.Zone, space.CreatedAt, space.UpdatedAt)
 				if err != nil {
 					tx.Rollback()
 					return err

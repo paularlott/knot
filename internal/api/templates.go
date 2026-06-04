@@ -85,6 +85,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.MaxUptime = template.MaxUptime
 		templateData.MaxUptimeUnit = template.MaxUptimeUnit
 		templateData.IconURL = template.IconURL
+		templateData.Ports = template.Ports
 
 		// If schedule is enabled then return the schedule
 		if template.ScheduleEnabled {
@@ -186,6 +187,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
+	template.Ports = request.Ports
 
 	// Convert schedule
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
@@ -311,6 +313,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
+	template.Ports = request.Ports
 
 	templateService := service.GetTemplateService()
 	err = templateService.CreateTemplate(template, user)

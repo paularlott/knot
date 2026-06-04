@@ -10,7 +10,7 @@
           <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
-<div>
+<div x-show="templatePorts.some(p => p.protocol === 'http' || p.protocol === 'https')" x-cloak>
           <div class="flex items-center mb-1">
             <label class="form-label mb-0 mr-2">Additional Space Names</label>
             <button type="button" x-on:click="addAltName()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
@@ -24,9 +24,9 @@
             <div class="mb-2">
               <div class="flex items-center gap-2">
                 <input type="text" class="form-field grow" x-model="formData.alt_names[index].name" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" placeholder="Additional space name" aria-label="Additional space name">
-                <select class="form-field w-32" x-model="formData.alt_names[index].port" aria-label="Port">
-                  <template x-for="[portKey, portName] in Object.entries(formData.http_ports)" :key="portKey">
-                    <option :value="portKey" x-text="portKey == portName ? portKey : portName + ' (' + portKey + ')'"></option>
+                <select class="form-field w-32" x-model.number="formData.alt_names[index].port" aria-label="Port">
+                  <template x-for="tp in templatePorts" :key="tp.port">
+                    <option :value="tp.port" :selected="formData.alt_names[index].port === tp.port" x-text="tp.name || tp.port"></option>
                   </template>
                 </select>
                 <button type="button" x-on:click="removeAltName(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">

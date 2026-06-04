@@ -35,6 +35,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       groups: [],
       zones: [],
       custom_fields: [],
+      ports: [],
       platform: "nomad",
       with_terminal: false,
       with_vscode_tunnel: false,
@@ -201,6 +202,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.max_uptime_unit = template.max_uptime_unit;
           this.formData.icon_url = template.icon_url;
           this.formData.custom_fields = template.custom_fields;
+          this.formData.ports = template.ports || [];
           this.formData.startup_script_id = template.startup_script_id || "";
           this.formData.shutdown_script_id = template.shutdown_script_id || "";
           this.formData.is_managed = template.is_managed || false;
@@ -597,6 +599,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         platform: this.formData.platform,
         icon_url: this.formData.icon_url,
         custom_fields: this.formData.custom_fields,
+        ports: this.formData.ports,
         health_check_type: this.formData.platform === "manual" ? "none" : this.formData.health_check_type,
         health_check_config: ["none", "agent"].includes(this.formData.health_check_type) ? "" : this.formData.health_check_config,
         health_check_skip_ssl_verify: this.formData.health_check_skip_ssl_verify,
@@ -734,6 +737,26 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         }
 
         this.customFieldValid[index] = isValid;
+        return isValid;
+      } else {
+        return false;
+      }
+    },
+    addPort() {
+      this.formData.ports.push({ name: "", port: 0, protocol: "http" });
+    },
+    removePort(index) {
+      this.formData.ports.splice(index, 1);
+    },
+    checkPort(index) {
+      if (index >= 0 && index < this.formData.ports.length) {
+        const name = this.formData.ports[index].name;
+        const port = this.formData.ports[index].port;
+        const isValid =
+          name.length > 0 &&
+          !name.includes('=') &&
+          !name.includes(',') &&
+          validate.isNumber(port, 1, 65535);
         return isValid;
       } else {
         return false;

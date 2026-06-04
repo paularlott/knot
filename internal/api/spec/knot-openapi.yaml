@@ -4766,7 +4766,9 @@ components:
           type: string
           description: The alternative name for the space.
         port:
-          type: string
+          type: integer
+          minimum: 0
+          maximum: 65535
           description: The HTTP port number this alt name routes to.
 
     SpaceResourceUsage:
@@ -4921,6 +4923,11 @@ components:
           type: string
           format: uri
           description: The URL of the icon for the template, empty string if there's no icon.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateList:
       type: object
@@ -4933,6 +4940,22 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TemplateInfo"
+
+    TemplatePort:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The display name of the port.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: The port number.
+        protocol:
+          type: string
+          enum: [tcp, http, https]
+          description: The protocol for this port.
 
     CustomFieldDef:
       type: object
@@ -5083,6 +5106,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateUpdateRequest:
       type: object
@@ -5221,6 +5249,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateDetails:
       type: object
@@ -5373,6 +5406,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateDetailsDay:
       type: object
