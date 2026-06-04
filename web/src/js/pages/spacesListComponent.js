@@ -418,6 +418,7 @@ window.spacesListComponent = function (
       target.healthy = space.healthy;
       target.tcp_ports = space.tcp_ports;
       target.http_ports = space.http_ports;
+      target.alt_names = space.alt_names || [];
       target.has_http_vnc = space.has_http_vnc;
       target.has_vscode_tunnel = space.has_vscode_tunnel;
       target.vscode_tunnel_name = space.vscode_tunnel_name;
@@ -707,6 +708,28 @@ window.spacesListComponent = function (
         spaceName,
         port,
       );
+    },
+    getHttpPortEntries(space) {
+      const entries = [];
+      if (space.http_ports) {
+        const httpPorts = Object.entries(space.http_ports);
+        const firstPort = httpPorts.length > 0 ? httpPorts[0][0] : null;
+
+        for (const [key, value] of Object.entries(space.http_ports)) {
+          entries.push({ key, value, name: space.name, label: key == value ? key : value + ' (' + key + ')' });
+        }
+        if (space.alt_names) {
+          for (const altName of space.alt_names) {
+            const altNameStr = typeof altName === 'string' ? altName : altName.name;
+            const altPort = typeof altName === 'string' ? '' : (altName.port || '');
+            const port = altPort || firstPort;
+            if (!port) continue;
+            const portValue = space.http_ports[port] || port;
+            entries.push({ key: port, value: portValue, name: altNameStr, label: altNameStr + ' (' + (port == portValue ? port : portValue + ':' + port) + ')' });
+          }
+        }
+      }
+      return entries;
     },
     openWindowForVNC(spaceUsername, spaceId, spaceName) {
       popup.openVNC(

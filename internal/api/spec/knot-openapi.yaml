@@ -4515,6 +4515,11 @@ components:
           description: The stack name this space belongs to, or empty if unstacked.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
+        alt_names:
+          type: array
+          description: A list of alternative names for the space that can be used in URLs.
+          items:
+            $ref: "#/components/schemas/AltNameEntry"
 
     SpaceInfoList:
       type: object
@@ -4566,7 +4571,7 @@ components:
         alt_names:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AltNameEntry"
           description: The alternative names for the space.
         icon_url:
           type: string
@@ -4676,7 +4681,7 @@ components:
         alt_names:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AltNameEntry"
           description: The alternative names for the space.
         update_available:
           type: boolean
@@ -4753,6 +4758,16 @@ components:
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
+
+    AltNameEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The alternative name for the space.
+        port:
+          type: string
+          description: The HTTP port number this alt name routes to.
 
     SpaceResourceUsage:
       type: object

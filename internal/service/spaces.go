@@ -368,7 +368,7 @@ func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 }
 
 // validateSpaceInput validates common space input fields
-func (s *SpaceService) validateSpaceInput(name, description, shell string, altNames []string) error {
+func (s *SpaceService) validateSpaceInput(name, description, shell string, altNames []model.AltNameEntry) error {
 	if !validate.Name(name) {
 		return fmt.Errorf("invalid name given for space")
 	}
@@ -382,7 +382,7 @@ func (s *SpaceService) validateSpaceInput(name, description, shell string, altNa
 	}
 
 	for _, altName := range altNames {
-		if !validate.Name(altName) {
+		if !validate.Name(altName.Name) {
 			return fmt.Errorf("invalid alt name given for space")
 		}
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewSpace(t *testing.T) {
-	altNames := []string{"alt1", "alt2"}
+	altNames := []AltNameEntry{{Name: "alt1", Port: ""}, {Name: "alt2", Port: ""}}
 	customFields := []SpaceCustomField{
 		{Name: "field1", Value: "value1"},
 	}

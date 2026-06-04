@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 var CreateCmd = &cli.Command{
@@ -78,7 +79,7 @@ var CreateCmd = &cli.Command{
 			TemplateId:  templateId,
 			Shell:       shell,
 			UserId:      "",
-			AltNames:    []string{},
+			AltNames:    []model.AltNameEntry{},
 		}
 
 		_, _, err = client.CreateSpace(context.Background(), space)
