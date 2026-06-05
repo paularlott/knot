@@ -2590,6 +2590,31 @@ const scriptLibraries = [
   },
 
   {
+    module: "scriptling.net.resolve",
+    description: "DNS resolution for IP, SRV, and srv+http URLs (all environments)",
+    functions: [
+      {
+        name: "lookup_ip",
+        signature: "lookup_ip(host)",
+        description: "Resolve a hostname to a list of IP address strings",
+        returns: "list[str] - List of IP addresses",
+      },
+      {
+        name: "lookup_srv",
+        signature: "lookup_srv(service)",
+        description: "Resolve an SRV record to a list of address dicts with ip and port",
+        returns: "list[dict] - List of {ip: str, port: int}",
+      },
+      {
+        name: "resolve_srv_http",
+        signature: "resolve_srv_http(uri)",
+        description: "Resolve a srv+http(s):// URI to a concrete URL with the SRV-resolved port",
+        returns: "str - Resolved URL",
+      },
+    ],
+  },
+
+  {
     module: "scriptling.ai.agent",
     description:
       "Agentic AI loop with automatic tool execution (all environments)",
@@ -3684,6 +3709,69 @@ const scriptLibraries = [
             returns: "string - Rendered output",
           },
         ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.provision.file",
+    description: "File provisioning — create, update, and remove files and directories (all environments except MCP)",
+    constants: [
+      {
+        name: "CREATED",
+        value: '"created"',
+        description: "Status returned when a file or directory was newly created",
+      },
+      {
+        name: "UPDATED",
+        value: '"updated"',
+        description: "Status returned when a file existed but content differed",
+      },
+      {
+        name: "UNCHANGED",
+        value: '"unchanged"',
+        description: "Status returned when a file existed with identical content",
+      },
+      {
+        name: "REMOVED",
+        value: '"removed"',
+        description: "Status returned when a file or directory was deleted",
+      },
+      {
+        name: "ABSENT",
+        value: '"absent"',
+        description: "Status returned when a file or directory did not exist",
+      },
+      {
+        name: "EXISTS",
+        value: '"exists"',
+        description: "Status returned when a directory already existed",
+      },
+    ],
+    functions: [
+      {
+        name: "ensure",
+        signature: "ensure(path, content, mode=0o644)",
+        description:
+          "Ensure a file exists with the given content. Creates parent dirs if needed.",
+        returns: "str - file.CREATED, file.UPDATED, or file.UNCHANGED",
+      },
+      {
+        name: "absent",
+        signature: "absent(path)",
+        description: "Remove a file if it exists",
+        returns: "str - file.REMOVED or file.ABSENT",
+      },
+      {
+        name: "ensure_directory",
+        signature: "ensure_directory(path, mode=0o755)",
+        description: "Ensure a directory exists, creating parent dirs if needed",
+        returns: "str - file.CREATED or file.EXISTS",
+      },
+      {
+        name: "absent_directory",
+        signature: "absent_directory(path)",
+        description: "Remove an empty directory if it exists",
+        returns: "str - file.REMOVED or file.ABSENT",
       },
     ],
   },
