@@ -76,6 +76,8 @@ github.com/paularlott/mcp v0.16.2 h1:tsCJpzjdzq7wb4Ir31Lzx0xpDuh/gl2I2ilA+kO7muQ
 github.com/paularlott/mcp v0.16.2/go.mod h1:ii8GUsjmU7Z950w8CVrjin3juzLdM4noXYZxGjkzV18=
 github.com/paularlott/scriptling v0.9.2 h1:SqXol1q50bOAd9OEa22ftEo1Bo6VvmrVw0l4EG9SmTw=
 github.com/paularlott/scriptling v0.9.2/go.mod h1:yo+j0sU7WAoQofMy8hmixklGRkpdfjXQE6+zxwiBN4k=
+github.com/paularlott/scriptling v0.9.3 h1:S4AxeqClMblwydzJpsWi21EqB3+p2QPS4w0Mfx73ib4=
+github.com/paularlott/scriptling v0.9.3/go.mod h1:yo+j0sU7WAoQofMy8hmixklGRkpdfjXQE6+zxwiBN4k=
 github.com/paularlott/snapshotkv v0.3.0 h1:FUxebbnUJJtnJwjd+W8obyD78WX/opvZkSvY6Cc+5xg=
 github.com/paularlott/snapshotkv v0.3.0/go.mod h1:X2ONJRnGTRUV2j8tIdO187y0QLm4n7bnCbdnV/mTWUQ=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
@@ -132,6 +134,8 @@ golang.org/x/crypto v0.52.0 h1:RMs7fP2rXdep0CftQlK8Uf+kibLm7qkCcradZWYz988=
 golang.org/x/crypto v0.52.0/go.mod h1:1QgfPxDqh0T2M/elOJtp9RvuR95kVjir0e6/BvEmGbc=
 golang.org/x/exp v0.0.0-20260529124908-c761662dc8c9 h1:4d4PbuBNwaxMXkXI8yiIYjydtMU+04RHeuSxJdgKftM=
 golang.org/x/exp v0.0.0-20260529124908-c761662dc8c9/go.mod h1:d2fgXJLVs4dYDHUk5lwMIfzRzSrWCfGZb0ZqeLa/Vcw=
+golang.org/x/exp v0.0.0-20260603202125-055de637280b h1:v1uXiEBHo8QA0LiGCo7UgHMzHT4Kdfpl2zmtH5vaP1Q=
+golang.org/x/exp v0.0.0-20260603202125-055de637280b/go.mod h1:d2fgXJLVs4dYDHUk5lwMIfzRzSrWCfGZb0ZqeLa/Vcw=
 golang.org/x/image v0.41.0 h1:8wS72eGJMJaBxK6okTzd4WaXumUlTVlb753MlsSvTCo=
 golang.org/x/image v0.41.0/go.mod h1:uIc348UZMSvS5Z65CVZ7iDPaNobNFEPeJ4kbqTOszmA=
 golang.org/x/mod v0.36.0 h1:JJjpVx6myfUsUdAzZuOSTTmRE0PfZeNWzzvKrP7amb4=

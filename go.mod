@@ -24,7 +24,7 @@ require (
 	github.com/paularlott/gossip v0.12.6
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.16.2
-	github.com/paularlott/scriptling v0.9.2
+	github.com/paularlott/scriptling v0.9.3
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.20.0
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -32,7 +32,7 @@ require (
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.52.0
-	golang.org/x/exp v0.0.0-20260529124908-c761662dc8c9
+	golang.org/x/exp v0.0.0-20260603202125-055de637280b
 	golang.org/x/net v0.55.0
 	golang.org/x/term v0.43.0
 	golang.org/x/time v0.15.0
