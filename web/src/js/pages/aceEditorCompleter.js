@@ -83,10 +83,33 @@
   }
 
   /**
+   * Scans the document for import aliases and returns a map of alias -> module name.
+   * Recognizes patterns like:
+   *   import scriptling.provision.file as pf
+   *   import scriptling.provision.file as pf, scriptling.ai as ai
+   */
+  function buildImportAliasMap(session, currentRow) {
+    var aliases = {};
+    for (var row = 0; row <= currentRow; row++) {
+      var lineText = session.getLine(row);
+      var importLine = lineText.match(/^\s*import\s+(.+)$/i);
+      if (!importLine) continue;
+      var statements = importLine[1].split(",");
+      for (var i = 0; i < statements.length; i++) {
+        var asMatch = statements[i].trim().match(/^([a-z_][a-z0-9_.]*)\s+as\s+([a-z_][a-z0-9_]*)$/i);
+        if (asMatch) {
+          aliases[asMatch[2].toLowerCase()] = asMatch[1];
+        }
+      }
+    }
+    return aliases;
+  }
+
+  /**
    * Finds the type of a variable by scanning the document for its assignment.
    * Looks for patterns like: client = sl.ai.new_client(...)
    */
-  function findVariableType(session, varName, currentRow) {
+  function findVariableType(session, varName, currentRow, importAliases) {
     if (debugMode) {
       console.log(
         "ACE Completer: Looking for variable type:",
@@ -107,7 +130,15 @@
       const match = lineText.match(assignmentPattern);
 
       if (match) {
-        const funcCall = match[1];
+        var funcCall = match[1];
+        if (importAliases) {
+          var callParts = funcCall.split(".");
+          var callFirst = callParts[0].toLowerCase();
+          if (importAliases[callFirst]) {
+            callParts[0] = importAliases[callFirst];
+            funcCall = callParts.join(".");
+          }
+        }
         if (debugMode) {
           console.log(
             "ACE Completer: Found assignment:",
@@ -178,7 +209,10 @@
         }
 
         const completionResults = [];
-        const dotMatch = line.match(/([a-z_][a-z0-9_]*)\.\s*([a-z_]*)$/i);
+        const dotMatch = line.match(
+          /([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*)\.\s*([a-z_]*)$/i
+        );
+        var importAliases = dotMatch ? buildImportAliasMap(session, pos.row) : {};
 
         registeredCompletions.forEach(function (lib) {
           // Import completions (import sl. or from sl.)
@@ -201,20 +235,23 @@
             }
           }
 
-          // Module function completions (e.g., ai.get_models())
+          // Module function/constant completions (e.g., ai.get_models(), file.CREATED)
           if (dotMatch) {
-            const objectName = dotMatch[1].toLowerCase();
-            const methodPrefix = (dotMatch[2] || "").toLowerCase();
+            const objectPath = dotMatch[1].toLowerCase();
+            const memberPrefix = (dotMatch[2] || "").toLowerCase();
             const parts = lib.module.split(".");
             const moduleAlias = parts[parts.length - 1].toLowerCase();
 
+            var resolvedPath = importAliases[objectPath] || dotMatch[1];
+            var resolvedPathLower = resolvedPath.toLowerCase();
+
             if (
-              moduleAlias === objectName ||
-              lib.module.toLowerCase() === objectName
+              lib.module.toLowerCase() === resolvedPathLower ||
+              moduleAlias === resolvedPathLower
             ) {
               if (lib.functions) {
                 lib.functions.forEach(function (func) {
-                  if (func.name.toLowerCase().startsWith(methodPrefix)) {
+                  if (func.name.toLowerCase().startsWith(memberPrefix)) {
                     completionResults.push({
                       caption: func.name,
                       value: func.signature || func.name + "()",
@@ -230,14 +267,65 @@
                   }
                 });
               }
+              if (lib.constants) {
+                lib.constants.forEach(function (constant) {
+                  if (constant.name.toLowerCase().startsWith(memberPrefix)) {
+                    var constDoc =
+                      "<b>" + constant.name + "</b>";
+                    if (constant.value !== undefined) {
+                      constDoc += "<br/><code>" + constant.value + "</code>";
+                    }
+                    if (constant.description) {
+                      constDoc += "<br/>" + constant.description;
+                    }
+                    completionResults.push({
+                      caption: constant.name,
+                      value: constant.name,
+                      score: 890,
+                      meta: "constant",
+                      docHTML: constDoc,
+                    });
+                  }
+                });
+              }
+            }
+
+            // Sub-module completions (e.g., scriptling.provision. -> file)
+            if (
+              !lib.module.toLowerCase().startsWith(resolvedPathLower + ".") &&
+              resolvedPathLower !== lib.module.toLowerCase()
+            ) {
+              // Not applicable
+            } else if (
+              resolvedPathLower !== lib.module.toLowerCase() &&
+              lib.module.toLowerCase().startsWith(resolvedPathLower + ".")
+            ) {
+              var remainder = lib.module.substring(resolvedPathLower.length + 1);
+              var nextSegment = remainder.split(".")[0];
+              if (
+                nextSegment &&
+                nextSegment.toLowerCase().startsWith(memberPrefix)
+              ) {
+                completionResults.push({
+                  caption: nextSegment,
+                  value: nextSegment,
+                  score: 880,
+                  meta: "module",
+                  docHTML:
+                    "<b>" +
+                    lib.module +
+                    "</b><br/>" +
+                    lib.description,
+                });
+              }
             }
           }
 
           // Class method completions based on variable type inference
           if (lib.classes && dotMatch) {
-            const varName = dotMatch[1];
-            const methodPrefix = (dotMatch[2] || "").toLowerCase();
-            const varType = findVariableType(session, varName, pos.row);
+            var varName = dotMatch[1];
+            var methodPrefix = (dotMatch[2] || "").toLowerCase();
+            var varType = findVariableType(session, varName, pos.row, importAliases);
 
             if (varType) {
               lib.classes.forEach(function (cls) {

@@ -979,6 +979,13 @@ const scriptLibraries = [
         returns:
           "dict - {'prompt_tokens': int, 'completion_tokens': int, 'total_tokens': int}",
       },
+      {
+        name: "cosine_similarity",
+        signature: "cosine_similarity(a, b)",
+        description:
+          "Compute cosine similarity between two vectors. Primarily used to compare embedding vectors from client.embedding()",
+        returns: "float - Cosine similarity score from -1.0 to 1.0",
+      },
     ],
     classes: [
       {
@@ -1885,6 +1892,13 @@ const scriptLibraries = [
         description: "Build a Slack keyboard",
         returns: "Keyboard - Button keyboard",
       },
+      {
+        name: "open_dm",
+        signature: "open_dm(client, user_id)",
+        description:
+          "Open or retrieve a DM channel with a user",
+        returns: "str - Channel ID",
+      },
     ],
   },
   {
@@ -2319,7 +2333,7 @@ const scriptLibraries = [
     constants: [
       {
         name: "MSG_USER",
-        value: "64",
+        value: "128",
         description: "Starting message type for user-defined messages",
       },
     ],
@@ -2372,6 +2386,12 @@ const scriptLibraries = [
             name: "send_to",
             signature: "send_to(node_id, message_type, data, reliable=False)",
             description: "Send a message to a specific node",
+            returns: "None",
+          },
+          {
+            name: "send_tagged",
+            signature: "send_tagged(tag, message_type, data, reliable=False)",
+            description: "Broadcast a tagged message to nodes matching a tag",
             returns: "None",
           },
           {
@@ -2448,6 +2468,37 @@ const scriptLibraries = [
             signature: "num_nodes()",
             description: "Get total number of known nodes",
             returns: "int - Node count",
+          },
+          {
+            name: "num_alive",
+            signature: "num_alive()",
+            description: "Get number of alive nodes",
+            returns: "int - Alive node count",
+          },
+          {
+            name: "num_suspect",
+            signature: "num_suspect()",
+            description: "Get number of suspect nodes",
+            returns: "int - Suspect node count",
+          },
+          {
+            name: "num_dead",
+            signature: "num_dead()",
+            description: "Get number of dead nodes",
+            returns: "int - Dead node count",
+          },
+          {
+            name: "is_local",
+            signature: "is_local(node_id)",
+            description: "Check if a node ID refers to the local node",
+            returns: "bool - True if the node is local",
+          },
+          {
+            name: "candidates",
+            signature: "candidates()",
+            description:
+              "Get a random subset of nodes suitable for gossiping to",
+            returns: "list - List of node dicts",
           },
           {
             name: "node_id",
@@ -2581,7 +2632,7 @@ const scriptLibraries = [
             name: "on_event",
             signature: "on_event(event_type, handler)",
             description:
-              "Register handler for election events. Event types: elected, deposed. Handler receives (node_id, state)",
+              "Register handler for election events. Event types: elected, lost, became_leader, stepped_down. Handler receives (node_id, state)",
             returns: "None",
           },
         ],
