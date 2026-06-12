@@ -7,7 +7,7 @@ import (
 )
 
 func (c *Cluster) handleAuditLogGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("received audit log gossip request")
+	c.logger.Trace("received audit log gossip request")
 
 	logs := []*model.AuditLogEntry{}
 	if err := packet.Unmarshal(&logs); err != nil {
@@ -28,7 +28,7 @@ func (c *Cluster) handleAuditLogGossip(sender *gossip.Node, packet *gossip.Packe
 
 func (c *Cluster) GossipAuditLog(entry *model.AuditLogEntry) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("gossipping audit log")
+		c.logger.Trace("gossipping audit log")
 
 		entries := []*model.AuditLogEntry{entry}
 		c.gossipCluster.Send(AuditLogGossipMsg, &entries)

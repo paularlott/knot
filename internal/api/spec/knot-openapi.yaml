@@ -406,7 +406,7 @@ paths:
           application/json:
             schema:
               type: object
-              $ref: "#/components/schemas/userRequest"
+              $ref: "#/components/schemas/CreateUserRequest"
       responses:
         "201":
           description: User created successfully
@@ -535,7 +535,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/userRequest"
+              $ref: "#/components/schemas/UpdateUserRequest"
       responses:
         "200":
           description: User updated successfully
@@ -700,6 +700,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /api/users/whoami/ssh-public-key:
+    put:
+      tags:
+        - Users
+      summary: Update Own SSH Public Keys
+      description: Update the current user's SSH public keys. Multiple public keys should be provided one per line.
+      operationId: updateOwnSSHPublicKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOwnSSHPublicKeyRequest"
+      responses:
+        "200":
+          description: SSH public keys updated successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /api/users/whoami/ssh-private-key:
+    put:
+      tags:
+        - Users
+      summary: Update Own SSH Private Key
+      description: Update the current user's SSH private key. The key is written to `~/.ssh/id_ed25519` or `~/.ssh/id_rsa` in SSH-enabled spaces depending on key format.
+      operationId: updateOwnSSHPrivateKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOwnSSHPrivateKeyRequest"
+      responses:
+        "200":
+          description: SSH private key updated successfully
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -4471,6 +4515,11 @@ components:
           description: The stack name this space belongs to, or empty if unstacked.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
+        alt_names:
+          type: array
+          description: A list of alternative names for the space that can be used in URLs.
+          items:
+            $ref: "#/components/schemas/AltNameEntry"
 
     SpaceInfoList:
       type: object
@@ -4522,7 +4571,7 @@ components:
         alt_names:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AltNameEntry"
           description: The alternative names for the space.
         icon_url:
           type: string
@@ -4626,10 +4675,13 @@ components:
         is_deleting:
           type: boolean
           description: If the space is being deleted.
+        has_ever_started:
+          type: boolean
+          description: Whether the space has ever successfully started before.
         alt_names:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AltNameEntry"
           description: The alternative names for the space.
         update_available:
           type: boolean
@@ -4695,11 +4747,29 @@ components:
         is_remote:
           type: boolean
           description: Whether the space is on a remote zone.
+        node_id:
+          type: string
+          description: The ID of the node assigned to host the space, or empty when not applicable.
+        node_hostname:
+          type: string
+          description: The hostname of the node assigned to host the space.
         healthy:
           type: boolean
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
+
+    AltNameEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The alternative name for the space.
+        port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: The HTTP port number this alt name routes to.
 
     SpaceResourceUsage:
       type: object
@@ -4809,6 +4879,9 @@ components:
         active:
           type: boolean
           description: If the template is active.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         compute_units:
           type: integer
           format: uint32
@@ -4850,6 +4923,11 @@ components:
           type: string
           format: uri
           description: The URL of the icon for the template, empty string if there's no icon.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateList:
       type: object
@@ -4862,6 +4940,22 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TemplateInfo"
+
+    TemplatePort:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The display name of the port.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: The port number.
+        protocol:
+          type: string
+          enum: [tcp, http, https]
+          description: The protocol for this port.
 
     CustomFieldDef:
       type: object
@@ -4891,7 +4985,7 @@ components:
           description: A HCL formatted job Nomad job specification
         volumes:
           type: string
-          description: A YAML formatted string describing the volumes to be created
+          description: A YAML formatted string describing managed volumes and paths to create before spaces start. Paths under `paths` support `~` for the server user's home directory, absolute paths, and paths relative to the agent working directory.
         groups:
           type: array
           items:
@@ -4918,6 +5012,9 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         startup_script_id:
           type: string
           format: uuid
@@ -4979,7 +5076,7 @@ components:
           description: The custom fields for the template.
         health_check_type:
           type: string
-          enum: [none, tcp, http, program, custom]
+          enum: [none, agent, tcp, http, program, custom]
           default: none
           description: The type of health check to run.
         health_check_config:
@@ -5009,6 +5106,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateUpdateRequest:
       type: object
@@ -5026,7 +5128,7 @@ components:
           description: A HCL formatted job Nomad job specification
         volumes:
           type: string
-          description: A YAML formatted string describing the volumes to be created
+          description: A YAML formatted string describing managed volumes and paths to create before spaces start. Paths under `paths` support `~` for the server user's home directory, absolute paths, and paths relative to the agent working directory.
         groups:
           type: array
           items:
@@ -5053,6 +5155,9 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         startup_script_id:
           type: string
           format: uuid
@@ -5114,7 +5219,7 @@ components:
           description: The custom fields for the template.
         health_check_type:
           type: string
-          enum: [none, tcp, http, program, custom]
+          enum: [none, agent, tcp, http, program, custom]
           default: none
           description: The type of health check to run.
         health_check_config:
@@ -5144,6 +5249,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateDetails:
       type: object
@@ -5163,7 +5273,7 @@ components:
           description: The HCL formatted job Nomad job specification
         volumes:
           type: string
-          description: A YAML formatted string describing the volumes to be created
+          description: A YAML formatted string describing managed volumes and paths to create before spaces start. Paths under `paths` support `~` for the server user's home directory, absolute paths, and paths relative to the agent working directory.
         usage:
           type: integer
           description: The number of spaces currently using the template.
@@ -5202,6 +5312,9 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        allow_node_migration:
+          type: boolean
+          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
         startup_script_id:
           type: string
           format: uuid
@@ -5263,7 +5376,7 @@ components:
           description: The custom fields for the template.
         health_check_type:
           type: string
-          enum: [none, tcp, http, program, custom]
+          enum: [none, agent, tcp, http, program, custom]
           default: none
           description: The type of health check to run.
         health_check_config:
@@ -5293,6 +5406,11 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePort"
+          description: The ports defined by this template.
 
     TemplateDetailsDay:
       type: object
@@ -5430,7 +5548,7 @@ components:
           type: string
           description: The ID of the created token.
 
-    userRequest:
+    CreateUserRequest:
       type: object
       properties:
         email:
@@ -5448,11 +5566,6 @@ components:
           maxLength: 255
           example: password
           description: The password of the user
-        service_password:
-          type: string
-          maxLength: 255
-          example: password
-          description: Option service password of the user, if empty a default one will be generated
         preferred_shell:
           type: string
           enum: [bash, zsh, fish, sh]
@@ -5462,7 +5575,7 @@ components:
           description: The timezone of the user
         ssh_public_key:
           type: string
-          description: The SSH key for the user
+          description: The SSH public keys for the user, one key per line.
         github_username:
           type: string
           maxLength: 255
@@ -5508,6 +5621,80 @@ components:
         - password
         - email
         - roles
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          maxLength: 255
+          example: user1@example.com
+          description: The email address of the user
+        username:
+          type: string
+          maxLength: 64
+          example: user1
+          description: The username of the user
+        password:
+          type: string
+          maxLength: 255
+          example: password
+          description: The password of the user. Leave empty to keep the current password.
+        service_password:
+          type: string
+          maxLength: 255
+          example: password
+          description: Optional service password. Only the owning user can update this value; leave empty to keep the current value.
+        preferred_shell:
+          type: string
+          enum: [bash, zsh, fish, sh]
+          description: The preferred shell of the user
+        timezone:
+          type: string
+          description: The timezone of the user
+        ssh_public_key:
+          type: string
+          description: The SSH public keys for the user, one key per line.
+        github_username:
+          type: string
+          maxLength: 255
+          description: The GitHub username of the user
+        active:
+          type: boolean
+          description: Whether the user is active
+        roles:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the roles assigned to the user.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the groups assigned to the user.
+        max_spaces:
+          type: integer
+          format: uint32
+          description: The maximum number of spaces the user can have, 0 for unlimited.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
+        max_tunnels:
+          type: integer
+          format: uint32
+          description: The maximum number of tunnels the user can have.
+        totp_secret:
+          type: string
+          description: The TOTP secret for the user.
 
     UserInfo:
       type: object
@@ -5581,6 +5768,24 @@ components:
           format: uint32
           description: The number of tunnels the user has active.
 
+    UpdateOwnSSHPublicKeyRequest:
+      type: object
+      properties:
+        ssh_public_key:
+          type: string
+          description: The SSH public keys for the current user, one key per line.
+        github_username:
+          type: string
+          maxLength: 255
+          description: The GitHub username used to load public SSH keys for the current user.
+
+    UpdateOwnSSHPrivateKeyRequest:
+      type: object
+      properties:
+        ssh_private_key:
+          type: string
+          description: The SSH private key for the current user. Empty removes the managed key from spaces.
+
     UserQuota:
       type: object
       properties:
@@ -5634,7 +5839,7 @@ components:
         service_password:
           type: string
           example: password
-          description: Option service password of the user, if empty a default one will be generated
+          description: Optional service password. Only populated for the current user.
         roles:
           type: array
           items:
@@ -5670,7 +5875,10 @@ components:
           description: The GitHub username of the user
         ssh_public_key:
           type: string
-          description: The SSH key for the user
+          description: The SSH public keys for the user, one key per line.
+        ssh_private_key:
+          type: string
+          description: The SSH private key for the current user. Only populated for the current user.
         preferred_shell:
           type: string
           enum: [bash, zsh, fish, sh]

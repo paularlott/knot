@@ -40,6 +40,26 @@ export const validate = {
     return string.length <= length;
   },
 
+  sshPrivateKey(key) {
+    const trimmed = key.trim();
+    if (trimmed === "") {
+      return true;
+    }
+
+    const match = trimmed.match(/^-----BEGIN ([A-Z0-9 ]+PRIVATE KEY)-----\s+([\s\S]+?)\s+-----END \1-----$/);
+    if (match === null) {
+      return false;
+    }
+
+    const body = match[2]
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.includes(":"))
+      .join("");
+
+    return body.length >= 64 && /^[A-Za-z0-9+/=]+$/.test(body);
+  },
+
   isOneOf(value, options) {
     return options.includes(value);
   },

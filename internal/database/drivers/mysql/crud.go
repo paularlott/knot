@@ -1,6 +1,7 @@
 package driver_mysql
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,12 @@ import (
 )
 
 func (db *MySQLDriver) create(tableName string, obj interface{}) error {
+	return db.createWithExecutor(db.connection, tableName, obj)
+}
+
+func (db *MySQLDriver) createWithExecutor(executor interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}, tableName string, obj interface{}) error {
 	val := reflect.ValueOf(obj).Elem()
 	typ := val.Type()
 
@@ -52,11 +59,17 @@ func (db *MySQLDriver) create(tableName string, obj interface{}) error {
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "))
 
-	_, err := db.connection.Exec(query, values...)
+	_, err := executor.Exec(query, values...)
 	return err
 }
 
 func (db *MySQLDriver) update(tableName string, obj interface{}, fieldsToUpdate []string) error {
+	return db.updateWithExecutor(db.connection, tableName, obj, fieldsToUpdate)
+}
+
+func (db *MySQLDriver) updateWithExecutor(executor interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}, tableName string, obj interface{}, fieldsToUpdate []string) error {
 	val := reflect.ValueOf(obj).Elem()
 	typ := val.Type()
 
@@ -120,7 +133,7 @@ func (db *MySQLDriver) update(tableName string, obj interface{}, fieldsToUpdate 
 		strings.Join(setClauses, ", "),
 		pkColumn)
 
-	_, err := db.connection.Exec(query, values...)
+	_, err := executor.Exec(query, values...)
 	return err
 }
 

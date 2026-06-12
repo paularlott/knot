@@ -71,6 +71,7 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		WithCodeServer:           template.WithCodeServer,
 		WithSSH:                  template.WithSSH,
 		WithRunCommand:           template.WithRunCommand,
+		AllowNodeMigration:       template.AllowNodeMigration,
 		StartupScriptId:          template.StartupScriptId,
 		ShutdownScriptId:         template.ShutdownScriptId,
 		ScheduleEnabled:          template.ScheduleEnabled,
@@ -91,6 +92,7 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		HealthCheckMaxFailures:   template.HealthCheckMaxFailures,
 		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
 		DisableUserActivity:      template.DisableUserActivity,
+		Ports:                    template.Ports,
 	}
 
 	// Handle schedule

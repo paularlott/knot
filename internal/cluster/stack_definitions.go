@@ -31,7 +31,7 @@ func (c *Cluster) handleStackDefinitionFullSync(sender *gossip.Node, packet *gos
 }
 
 func (c *Cluster) handleStackDefinitionGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received stack definition gossip request")
+	c.logger.Trace("Received stack definition gossip request")
 
 	defs := []*model.StackDefinition{}
 	if err := packet.Unmarshal(&defs); err != nil {
@@ -53,14 +53,14 @@ func (c *Cluster) handleStackDefinitionGossip(sender *gossip.Node, packet *gossi
 
 func (c *Cluster) GossipStackDefinition(stackDef *model.StackDefinition) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping stack definition")
+		c.logger.Trace("Gossipping stack definition")
 
 		defs := []*model.StackDefinition{stackDef}
 		c.gossipCluster.Send(StackDefinitionGossipMsg, &defs)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating stack definition on leaf nodes")
+		c.logger.Trace("Updating stack definition on leaf nodes")
 
 		defs := []*model.StackDefinition{stackDef}
 		c.sendToLeafNodes(leafmsg.MessageGossipStackDefinition, &defs)
@@ -89,7 +89,7 @@ func (c *Cluster) DoStackDefinitionFullSync(node *gossip.Node) error {
 }
 
 func (c *Cluster) mergeStackDefinitions(defs []*model.StackDefinition) error {
-	c.logger.Debug("Merging stack definitions", "number_definitions", len(defs))
+	c.logger.Trace("Merging stack definitions", "number_definitions", len(defs))
 
 	db := database.GetInstance()
 	localDefs, err := db.GetStackDefinitions()
@@ -156,7 +156,7 @@ func (c *Cluster) gossipStackDefinitions() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(defs))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping stack definitions", "batch_size", batchSize, "total", len(defs))
+			c.logger.Trace("Gossipping stack definitions", "batch_size", batchSize, "total", len(defs))
 			clusterDefs := defs[:batchSize]
 			c.gossipCluster.Send(StackDefinitionGossipMsg, &clusterDefs)
 		}

@@ -1,7 +1,14 @@
 package validate
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"strings"
 	"testing"
+
+	gossh "golang.org/x/crypto/ssh"
 )
 
 func TestEmail(t *testing.T) {
@@ -356,6 +363,83 @@ func TestUUID(t *testing.T) {
 			result := UUID(tt.uuid)
 			if result != tt.expected {
 				t.Errorf("UUID(%q) = %v, expected %v", tt.uuid, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSSHPublicKeys(t *testing.T) {
+	publicKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate public key: %v", err)
+	}
+	sshPublicKey, err := gossh.NewPublicKey(publicKey)
+	if err != nil {
+		t.Fatalf("failed to create SSH public key: %v", err)
+	}
+	validKey := strings.TrimSpace(string(gossh.MarshalAuthorizedKey(sshPublicKey)))
+	validKeyWithComment := validKey + " test@host"
+
+	tests := []struct {
+		name     string
+		keys     string
+		expected bool
+	}{
+		{"empty", "", true},
+		{"whitespace only", " \n\t ", true},
+		{"single ed25519", validKeyWithComment, true},
+		{"multiple keys", validKeyWithComment + "\n" + validKey, true},
+		{"with blank lines", "\n" + validKeyWithComment + "\n\n", true},
+		{"invalid key", "not-a-valid-ssh-key", false},
+		{"mixed valid and invalid", validKeyWithComment + "\nnot-valid", false},
+		{"garbage prefix", "garbage " + validKeyWithComment, false},
+		{"garbage suffix", validKeyWithComment + " trailing garbage with spaces", true},
+		{"bad base64", "ssh-ed25519 not-base64 test@host", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SSHPublicKeys(tt.keys)
+			if result != tt.expected {
+				t.Errorf("SSHPublicKeys(%q) = %v, expected %v", tt.keys, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSSHPrivateKey(t *testing.T) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate private key: %v", err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatalf("failed to marshal private key: %v", err)
+	}
+	validKey := string(pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: der,
+	}))
+
+	tests := []struct {
+		name     string
+		key      string
+		expected bool
+	}{
+		{"empty", "", true},
+		{"whitespace only", "  \n  ", true},
+		{"valid", validKey, true},
+		{"with leading whitespace", "  " + validKey, true},
+		{"bad pem body", "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----", false},
+		{"invalid", "not a private key", false},
+		{"random text", "some random text that doesn't start with begin", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SSHPrivateKey(tt.key)
+			if result != tt.expected {
+				t.Errorf("SSHPrivateKey(%q) = %v, expected %v", tt.key, result, tt.expected)
 			}
 		})
 	}

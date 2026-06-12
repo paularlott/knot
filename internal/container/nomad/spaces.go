@@ -3,10 +3,13 @@ package nomad
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -18,13 +21,16 @@ const jobMonitorTimeout = 30 * time.Minute
 func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 	db := database.GetInstance()
 
-	// Get the volume definitions
 	volumes, err := template.GetVolumes(space, user, variables)
 	if err != nil {
 		return err
 	}
+	storage, err := model.LoadManagedPathsFromYaml(template.Volumes, template, space, user, variables)
+	if err != nil {
+		return err
+	}
 
-	if len(volumes.Volumes) == 0 && len(space.VolumeData) == 0 {
+	if len(volumes.Volumes) == 0 && len(storage.Paths) == 0 && len(space.VolumeData) == 0 {
 		client.logger.Debug("no volumes to create")
 		return nil
 	}
@@ -111,8 +117,50 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		}
 	}
 
+	requiredPaths := make(map[string]bool)
+	for _, path := range storage.Paths {
+		client.logger.Debug("checking path", "path", path)
+		requiredPaths[path] = true
+		data, ok := space.VolumeData[path]
+		if !ok || data.Type != container.ManagedPathType {
+			client.logger.Debug("creating path", "path", path)
+			resolved, err := container.CreateManagedPath(path)
+			if err != nil {
+				return err
+			}
+			space.VolumeData[path] = model.SpaceVolume{
+				Id:        resolved,
+				Namespace: "_path",
+				Type:      container.ManagedPathType,
+			}
+		} else {
+			resolved, err := container.ResolveManagedPath(path)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				client.logger.Debug("recreating missing path", "path", path)
+				if err := os.MkdirAll(resolved, 0755); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	// Find the volumes deployed in the space but no longer in the template definition and remove them
-	for _, volume := range space.VolumeData {
+	for key, volume := range space.VolumeData {
+		if volume.Type == container.ManagedPathType {
+			if requiredPaths[key] {
+				continue
+			}
+			client.logger.Debug("deleting path", "path", key)
+			if err := container.DeleteManagedPath(volume.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, key)
+			continue
+		}
+
 		// Check if the volume is defined in the template
 		if _, ok := volById[volume.Id]; !ok {
 			// Delete the volume
@@ -157,7 +205,16 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	}()
 
 	// For all volumes in the space delete them
-	for _, volume := range space.VolumeData {
+	for key, volume := range space.VolumeData {
+		if volume.Type == container.ManagedPathType {
+			client.logger.Debug("deleting path", "path", key)
+			if err := container.DeleteManagedPath(volume.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, key)
+			continue
+		}
+
 		var err error
 		if volume.Type == "host" {
 			var id string
@@ -197,6 +254,12 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	if err != nil {
 		client.logger.Error("creating space job , parse error:", "space_id", space.Id)
 		return err
+	}
+
+	// Inject port env vars from template into all task groups
+	portEnvs := container.BuildPortEnvVars(template)
+	if len(portEnvs) > 0 {
+		injectNomadEnvVars(jobJSON, portEnvs)
 	}
 
 	// Save the namespace and job ID to the space
@@ -262,6 +325,60 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 	return nil
 }
 
+func (client *NomadClient) CleanupSpaceArtifacts(space *model.Space) error {
+	for key, volume := range space.VolumeData {
+		if volume.Type != container.ManagedPathType {
+			continue
+		}
+		client.logger.Debug("cleaning migrated space path", "space_id", space.Id, "path", key)
+		if err := container.DeleteManagedPath(volume.Id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (client *NomadClient) StopSpaceRuntime(space *model.Space) error {
+	if space.ContainerId == "" {
+		return nil
+	}
+
+	_, err := client.DeleteJob(space.ContainerId, space.NomadNamespace)
+	return err
+}
+
+func (client *NomadClient) ListRunningSpaceRuntimeRefs(namespaces []string) (map[string]bool, error) {
+	refs := make(map[string]bool)
+	seenNamespaces := make(map[string]bool)
+
+	for _, namespace := range namespaces {
+		if namespace == "" {
+			namespace = "default"
+		}
+		if seenNamespaces[namespace] {
+			continue
+		}
+		seenNamespaces[namespace] = true
+
+		jobs, err := client.ListJobs(context.Background(), namespace)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, job := range jobs {
+			id, _ := job["ID"].(string)
+			status, _ := job["Status"].(string)
+			if id == "" || status != "running" {
+				continue
+			}
+			refs[namespace+"\x00"+id] = true
+		}
+	}
+
+	return refs, nil
+}
+
 func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 	go func() {
 		client.logger.Info("watching job  status for change", "nomad", space.ContainerId)
@@ -324,4 +441,38 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 			onDone()
 		}
 	}()
+}
+
+func injectNomadEnvVars(jobJSON map[string]interface{}, envVars []string) {
+	taskGroups, ok := jobJSON["TaskGroups"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, tg := range taskGroups {
+		tgMap, ok := tg.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		tasks, ok := tgMap["Tasks"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, t := range tasks {
+			taskMap, ok := t.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			env, ok := taskMap["Env"].(map[string]interface{})
+			if !ok {
+				env = make(map[string]interface{})
+			}
+			for _, ev := range envVars {
+				parts := strings.SplitN(ev, "=", 2)
+				if len(parts) == 2 {
+					env[parts[0]] = parts[1]
+				}
+			}
+			taskMap["Env"] = env
+		}
+	}
 }

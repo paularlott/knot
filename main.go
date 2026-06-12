@@ -6,8 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
-	command_scripts "github.com/paularlott/knot/agent/cmd/scripts"
+	command_scripts "github.com/paularlott/knot/command/scripts"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
@@ -103,6 +104,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			},
 		},
 		Commands: []*cli.Command{
+			agentcmd.AgentCmd,
 			command.ConnectCmd,
 			commands_forward.ForwardCmd,
 			commands_port.PortCmd,

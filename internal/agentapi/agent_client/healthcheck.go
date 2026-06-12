@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/log"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling/object"
 )
@@ -52,7 +52,7 @@ func (c *AgentClient) runHealthCheckTick(logger logger.Logger) {
 	hcAutoRestart := c.healthCheckAutoRestart
 	c.healthCheckMu.RUnlock()
 
-	if hcType == model.HealthCheckNone || hcType == "" {
+	if hcType == model.HealthCheckNone || hcType == model.HealthCheckAgent || hcType == "" {
 		return
 	}
 

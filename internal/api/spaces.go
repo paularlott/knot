@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/gossip"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
@@ -16,6 +17,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -23,6 +25,16 @@ import (
 
 	"github.com/paularlott/knot/internal/log"
 )
+
+func assignedNodeOffline(nodeId string) bool {
+	transport := service.GetTransport()
+	if transport == nil {
+		return true
+	}
+
+	node := transport.GetNodeByIDString(nodeId)
+	return node == nil || node.GetObservedState() != gossip.NodeAlive
+}
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
@@ -57,13 +69,16 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	for _, space := range spaces {
 		var templateName string
+		var templatePlatform string
 
 		// Lookup the template
 		template, templateErr := db.GetTemplate(space.TemplateId)
 		if templateErr != nil {
 			templateName = "Unknown"
+			templatePlatform = "unknown"
 		} else {
 			templateName = template.Name
+			templatePlatform = template.Platform
 		}
 
 		s := apiclient.SpaceInfo{}
@@ -76,8 +91,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.TemplateId = space.TemplateId
 		s.Zone = space.Zone
 		s.IsRemote = space.Zone != "" && space.Zone != cfg.Zone
-		s.Platform = template.Platform
+		s.Platform = templatePlatform
 		s.IconURL = space.IconURL
+		if space.AltNames != nil {
+			s.AltNames = space.AltNames
+		} else {
+			s.AltNames = []model.AltNameEntry{}
+		}
 
 		// Get node hostname if node_id is set
 		if space.NodeId != "" {
@@ -155,13 +175,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// If template is manual then force IsDeployed to true as agent is live
-			if template.IsManual() {
+			if template != nil && template.IsManual() {
 				s.IsDeployed = true
 			}
 		}
 
 		// Check if the template has been updated
-		if template.IsManual() || template.Hash == "" {
+		if template == nil || template.IsManual() || template.Hash == "" {
 			s.UpdateAvailable = false
 		} else {
 			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
@@ -249,12 +269,12 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func removeBlankAndDuplicates(names []string, primary string) []string {
+func removeBlankAndDuplicates(names []model.AltNameEntry, primary string) []model.AltNameEntry {
 	encountered := map[string]bool{}
-	var newNames []string
+	var newNames []model.AltNameEntry
 	for _, name := range names {
-		if name != "" && name != primary && !encountered[name] {
-			encountered[name] = true
+		if name.Name != "" && name.Name != primary && !encountered[name.Name] {
+			encountered[name.Name] = true
 			newNames = append(newNames, name)
 		}
 	}
@@ -531,19 +551,35 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 
 	spaceId = space.Id // Use the resolved ID for subsequent operations
 
-	// Check if request should be forwarded to another node
-	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
-		if err := service.ForwardToNode(w, r, nodeId); err != nil {
-			// If forwarding fails, allow stop to proceed (node might be dead)
-			log.WithError(err).Warn("failed to forward stop request, proceeding locally")
-		}
-		return
-	}
-
 	// If user doesn't have permission to manage spaces and not their space then fail
 	if user.Id != space.UserId && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
+	}
+
+	// Check if request should be forwarded to another node
+	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
+		if assignedNodeOffline(nodeId) {
+			if err := spaceutil.MarkSpaceStopped(space); err != nil {
+				log.WithError(err).Error("HandleSpaceStop: failed to mark offline-hosted space as stopped")
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if err := service.ForwardToNode(w, r, nodeId); err != nil {
+			log.WithError(err).Warn("failed to forward stop request, marking remote-hosted space as stopped")
+			if err := spaceutil.MarkSpaceStopped(space); err != nil {
+				log.WithError(err).Error("HandleSpaceStop: failed to mark remote-hosted space as stopped after forward failure")
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		} else {
+			return
+		}
 	}
 
 	// If the space is not running or changing state then fail
@@ -685,6 +721,50 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.DependsOn = request.DependsOn
 	space.Stack = request.Stack
 
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	nodeChanged := false
+	var cleanupSpace *model.Space
+
+	if template.IsLocalContainer() {
+		canChangeNode := space.TemplateHash == "" ||
+			(template.AllowNodeMigration && !space.IsDeployed && !space.IsPending)
+		previousNodeId := space.NodeId
+		if request.SelectedNodeId != space.NodeId {
+			if !canChangeNode {
+				rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "space node cannot be changed for this space"})
+				return
+			}
+			nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
+			if err != nil {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+			space.NodeId = nodeId
+			nodeChanged = previousNodeId != nodeId
+			if nodeChanged && template.AllowNodeMigration && space.TemplateHash != "" {
+				cleanupSpace = &model.Space{
+					Id:          space.Id,
+					UserId:      space.UserId,
+					TemplateId:  space.TemplateId,
+					Name:        space.Name,
+					NodeId:      previousNodeId,
+					ContainerId: space.ContainerId,
+					VolumeData:  make(model.VolumeDataMap),
+				}
+				for volumeName, volume := range space.VolumeData {
+					cleanupSpace.VolumeData[volumeName] = volume
+				}
+				space.ContainerId = ""
+				space.VolumeData = make(model.VolumeDataMap)
+			}
+		}
+	}
+
 	err = spaceService.UpdateSpace(space, user)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -704,6 +784,12 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 			"space_name":      space.Name,
 		},
 	)
+
+	if cleanupSpace != nil && template.IsLocalContainer() {
+		if shouldForward, _ := service.ShouldForwardToNode(cleanupSpace.NodeId); !shouldForward {
+			service.GetTransport().EnqueueSpaceCleanup(cleanupSpace)
+		}
+	}
 
 	// API-specific logic for updating shell on deployed spaces
 	template, templateErr := db.GetTemplate(space.TemplateId)
@@ -1142,8 +1228,8 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	}
 	spaceId = space.Id // Use the resolved ID for subsequent operations
 
-	// If user doesn't own the space then 404
-	if space.UserId != user.Id {
+	// If user doesn't own the space and doesn't have manage permission then 404
+	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -1238,8 +1324,8 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	}
 	spaceId = space.Id // Use the resolved ID for subsequent operations
 
-	// If user doesn't own the space or space not shared with the user then 404
-	if space.UserId != user.Id && !space.IsSharedWith(user.Id) {
+	// If user doesn't own the space, space not shared with the user, and user doesn't have manage permission then 404
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}

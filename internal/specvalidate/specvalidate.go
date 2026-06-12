@@ -43,14 +43,6 @@ type localContainerSpec struct {
 	CPUs          string              `yaml:"cpus,omitempty"`
 }
 
-type localVolumeEntry struct {
-	Size string `yaml:"size,omitempty"`
-}
-
-type localVolumeSpec struct {
-	Volumes map[string]localVolumeEntry `yaml:"volumes"`
-}
-
 type NomadJobParser func(string) error
 
 func ValidateTemplateSpec(platform, job, volumes string) []Issue {
@@ -198,19 +190,22 @@ func validateLocalVolumeDefinitions(field, volumes string, requireSingle bool) [
 		return nil
 	}
 
-	var spec localVolumeSpec
+	var spec model.LocalStorageSpec
 	if err := decodeYAMLStrict(volumes, &spec); err != nil {
 		return []Issue{{Field: field, Message: err.Error()}}
 	}
 
-	if spec.Volumes == nil {
-		return []Issue{{Field: field, Message: "volume definition must contain a top-level volumes map"}}
+	if spec.Volumes == nil && len(spec.Paths) == 0 {
+		return []Issue{{Field: field, Message: "definition must contain a top-level volumes map or paths list"}}
 	}
 	if requireSingle && len(spec.Volumes) != 1 {
 		return []Issue{{Field: field, Message: "volume definition must contain exactly 1 volume"}}
 	}
-	if len(spec.Volumes) == 0 {
-		return []Issue{{Field: field, Message: "volume definition must contain at least 1 volume"}}
+	if requireSingle && len(spec.Paths) > 0 {
+		return []Issue{{Field: field, Message: "volume definition cannot contain paths"}}
+	}
+	if len(spec.Volumes) == 0 && len(spec.Paths) == 0 {
+		return []Issue{{Field: field, Message: "definition must contain at least 1 volume or path"}}
 	}
 
 	return nil
@@ -228,12 +223,19 @@ func validateNomadVolumes(field, volumes string, requireSingle bool) []Issue {
 	if err != nil {
 		return []Issue{{Field: field, Message: err.Error()}}
 	}
+	storage, err := model.LoadManagedPathsFromYaml(volumes, nil, nil, nil, nil)
+	if err != nil {
+		return []Issue{{Field: field, Message: err.Error()}}
+	}
 
 	if requireSingle && len(definitions.Volumes) != 1 {
 		return []Issue{{Field: field, Message: "volume definition must contain exactly 1 volume"}}
 	}
-	if len(definitions.Volumes) == 0 {
-		return []Issue{{Field: field, Message: "volume definition must contain at least 1 volume"}}
+	if requireSingle && len(storage.Paths) > 0 {
+		return []Issue{{Field: field, Message: "volume definition cannot contain paths"}}
+	}
+	if len(definitions.Volumes) == 0 && len(storage.Paths) == 0 {
+		return []Issue{{Field: field, Message: "definition must contain at least 1 volume or path"}}
 	}
 
 	var issues []Issue

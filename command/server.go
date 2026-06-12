@@ -1113,15 +1113,15 @@ var ServerCmd = &cli.Command{
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
+		// Stop orphaned runtimes and clean up broken space states before joining the cluster
+		service.GetContainerService().CleanupOnBoot()
+
 		// Start the cluster and join the peers
 		cluster.Start(
 			cfg.Cluster.Peers,
 			cfg.Origin.Server,
 			cfg.Origin.Token,
 		)
-
-		// Check for local spaces that are pending state changes and setup watches
-		service.GetContainerService().CleanupOnBoot()
 
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)

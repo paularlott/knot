@@ -57,3 +57,26 @@ func TestNormalizeContainerReference(t *testing.T) {
 		})
 	}
 }
+
+func TestIsIgnorableAppleCleanupOutput(t *testing.T) {
+	tests := []struct {
+		name string
+		out  string
+		want bool
+	}{
+		{name: "not found", out: "volume not found", want: true},
+		{name: "case insensitive no such", out: "No Such volume", want: true},
+		{name: "does not exist", out: "container does not exist", want: true},
+		{name: "unable to find", out: "unable to find volume", want: true},
+		{name: "real failure", out: "volume is in use", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isIgnorableAppleCleanupOutput(tt.out)
+			if got != tt.want {
+				t.Fatalf("isIgnorableAppleCleanupOutput(%q) = %v, want %v", tt.out, got, tt.want)
+			}
+		})
+	}
+}

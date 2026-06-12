@@ -34,7 +34,7 @@ func (c *Cluster) handleTemplateVarFullSync(sender *gossip.Node, packet *gossip.
 }
 
 func (c *Cluster) handleTemplateVarGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received template var gossip request")
+	c.logger.Trace("Received template var gossip request")
 
 	templateVars := []*model.TemplateVar{}
 	if err := packet.Unmarshal(&templateVars); err != nil {
@@ -71,13 +71,13 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 	}
 
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping template var")
+		c.logger.Trace("Gossipping template var")
 		templateVars := []*model.TemplateVar{varToGossip}
 		c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating template var on leaf nodes")
+		c.logger.Trace("Updating template var on leaf nodes")
 
 		// Only allow vars that have empty zones or explicitly mention leaf node zone
 		allowVar := len(templateVar.Zones) == 0
@@ -138,7 +138,7 @@ func (c *Cluster) DoTemplateVarFullSync(node *gossip.Node) error {
 
 // Merges the template vars from a cluster member with the local template vars
 func (c *Cluster) mergeTemplateVars(templateVars []*model.TemplateVar) error {
-	c.logger.Debug("Merging template vars", "number_template_vars", len(templateVars))
+	c.logger.Trace("Merging template vars", "number_template_vars", len(templateVars))
 
 	// Get the list of templates in the system
 	db := database.GetInstance()
@@ -204,7 +204,7 @@ func (c *Cluster) gossipTemplateVars() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(templateVars))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping template vars", "batch_size", batchSize, "total", len(templateVars))
+			c.logger.Trace("Gossipping template vars", "batch_size", batchSize, "total", len(templateVars))
 
 			// Get the 1st number of template vars up to the batch size & broadcast
 			clusterVars := templateVars[:batchSize]

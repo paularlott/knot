@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
+	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
@@ -47,17 +49,16 @@ type jobSpec struct {
 	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
-type volumeSpec struct {
-	Size string `yaml:"size,omitempty"`
-}
-
-type volInfo struct {
-	Volumes map[string]volumeSpec `yaml:"volumes"`
-}
-
 type containerInspect struct {
 	ID     string `json:"ID"`
 	Status string `json:"status"`
+}
+
+type appleListContainer struct {
+	Status        string `json:"status"`
+	Configuration struct {
+		ID string `json:"id"`
+	} `json:"configuration"`
 }
 
 func normalizeContainerReference(ref string) string {
@@ -107,6 +108,10 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 	if spec.ContainerName == "" {
 		spec.ContainerName = fmt.Sprintf("%s-%s", user.Username, space.Name)
 	}
+	if err := container.ValidateManagedVolumeBinds(spec.Volumes, space.VolumeData); err != nil {
+		return err
+	}
+	spec.Volumes = container.ResolveManagedPathBinds(spec.Volumes, space.VolumeData)
 
 	db := database.GetInstance()
 	space.IsPending = true
@@ -148,7 +153,11 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 
 		args := []string{"run", "-d", "--name", spec.ContainerName}
 
-		for _, env := range spec.Environment {
+		// Inject port env vars from template, overwriting any existing values
+	spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
+	spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
+
+	for _, env := range spec.Environment {
 			args = append(args, "-e", env)
 		}
 
@@ -371,18 +380,12 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 }
 
 func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
-	volumes, err := model.ResolveVariables(template.Volumes, template, space, user, variables)
+	volInfo, err := model.LoadLocalStorageFromYaml(template.Volumes, template, space, user, variables)
 	if err != nil {
 		return err
 	}
 
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
-	if err != nil {
-		return err
-	}
-
-	if len(volInfo.Volumes) == 0 && len(space.VolumeData) == 0 {
+	if len(volInfo.Volumes) == 0 && len(volInfo.Paths) == 0 && len(space.VolumeData) == 0 {
 		c.logger.Debug("no volumes to create")
 		return nil
 	}
@@ -446,7 +449,49 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}
 
-	for volName := range space.VolumeData {
+	requiredPaths := make(map[string]bool)
+	for _, path := range volInfo.Paths {
+		c.logger.Debug("checking path", "path", path)
+		requiredPaths[path] = true
+		data, ok := space.VolumeData[path]
+		if !ok || data.Type != container.ManagedPathType {
+			c.logger.Debug("creating path", "path", path)
+			resolved, err := container.CreateManagedPath(path)
+			if err != nil {
+				return err
+			}
+			space.VolumeData[path] = model.SpaceVolume{
+				Id:        resolved,
+				Namespace: "_path",
+				Type:      container.ManagedPathType,
+			}
+		} else {
+			resolved, err := container.ResolveManagedPath(path)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				c.logger.Debug("recreating missing path", "path", path)
+				if err := os.MkdirAll(resolved, 0755); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			if requiredPaths[volName] {
+				continue
+			}
+			c.logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		if _, ok := volInfo.Volumes[volName]; !ok {
 			c.logger.Debug("deleting volume", "volname", volName)
 
@@ -483,7 +528,16 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
-	for volName := range space.VolumeData {
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		c.logger.Debug("deleting volume", "volname", volName)
 
 		cmd := exec.Command("container", "volume", "rm", volName)
@@ -501,16 +555,195 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	return nil
 }
 
-func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
-	c.logger.Debug("creating volume")
+func isIgnorableAppleCleanupOutput(output string) bool {
+	output = strings.ToLower(output)
+	return strings.Contains(output, "not found") ||
+		strings.Contains(output, "no volume") ||
+		strings.Contains(output, "does not exist") ||
+		strings.Contains(output, "no such") ||
+		strings.Contains(output, "not exist") ||
+		strings.Contains(output, "unable to find")
+}
 
-	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
+func appleCleanupError(action, ref string, err error, output []byte) error {
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		return fmt.Errorf("%s %s failed: %w", action, ref, err)
+	}
+	return fmt.Errorf("%s %s failed: %w: %s", action, ref, err, outputStr)
+}
+
+func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
+	containerRef := normalizeContainerReference(space.ContainerId)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if containerRef != "" {
+		c.logger.Debug("cleaning migrated space container", "space_id", space.Id, "space_containerid", containerRef)
+
+		cmd := exec.CommandContext(ctx, "container", "stop", containerRef)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			outputStr := string(output)
+			if !isIgnorableAppleCleanupOutput(outputStr) && !strings.Contains(strings.ToLower(outputStr), "internalerror") {
+				return appleCleanupError("stop migrated space container", containerRef, err, output)
+			}
+		}
+
+		timeout := time.Now().Add(30 * time.Second)
+		for {
+			cmd := exec.CommandContext(ctx, "container", "inspect", containerRef)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				if isIgnorableAppleCleanupOutput(string(output)) {
+					break
+				}
+				return appleCleanupError("inspect migrated space container", containerRef, err, output)
+			}
+
+			var inspectData []containerInspect
+			if err := json.Unmarshal(output, &inspectData); err != nil {
+				return err
+			}
+
+			if len(inspectData) == 0 || inspectData[0].Status != "running" {
+				break
+			}
+
+			if time.Now().After(timeout) {
+				return fmt.Errorf("timeout waiting for migrated container to stop")
+			}
+
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		cmd = exec.CommandContext(ctx, "container", "rm", containerRef)
+		output, err = cmd.CombinedOutput()
+		if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
+			return appleCleanupError("remove migrated space container", containerRef, err, output)
+		}
+	}
+
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.logger.Debug("cleaning migrated space path", "space_id", space.Id, "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			continue
+		}
+
+		c.logger.Debug("cleaning migrated space volume", "space_id", space.Id, "volname", volName)
+		cmd := exec.CommandContext(ctx, "container", "volume", "rm", volName)
+		output, err := cmd.CombinedOutput()
+		if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
+			return appleCleanupError("remove migrated space volume", volName, err, output)
+		}
+	}
+
+	return nil
+}
+
+func (c *AppleClient) StopSpaceRuntime(space *model.Space) error {
+	containerRef := normalizeContainerReference(space.ContainerId)
+	if containerRef == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "container", "stop", containerRef)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
+		outputStr := string(output)
+		if !isIgnorableAppleCleanupOutput(outputStr) && !strings.Contains(outputStr, "internalError") {
+			return err
+		}
+	}
+
+	timeout := time.Now().Add(30 * time.Second)
+	for {
+		cmd := exec.CommandContext(ctx, "container", "inspect", containerRef)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			if isIgnorableAppleCleanupOutput(string(output)) {
+				break
+			}
+			return err
+		}
+
+		var inspectData []containerInspect
+		if err := json.Unmarshal(output, &inspectData); err != nil {
+			return err
+		}
+
+		if len(inspectData) == 0 || inspectData[0].Status != "running" {
+			break
+		}
+
+		if time.Now().After(timeout) {
+			return fmt.Errorf("timeout waiting for container to stop")
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	cmd = exec.CommandContext(ctx, "container", "rm", containerRef)
+	output, err = cmd.CombinedOutput()
+	if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
 		return err
 	}
 
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
+	return nil
+}
+
+func (c *AppleClient) ListRunningSpaceRuntimeRefs() (map[string]bool, error) {
+	cmd := exec.Command("container", "ls", "--format", "json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	refs := make(map[string]bool)
+
+	var listResponse []appleListContainer
+	if err := json.Unmarshal(output, &listResponse); err == nil {
+		for _, container := range listResponse {
+			if container.Status != "running" {
+				continue
+			}
+			if container.Configuration.ID != "" {
+				refs[container.Configuration.ID] = true
+			}
+		}
+		return refs, nil
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var item appleListContainer
+		if err := json.Unmarshal([]byte(line), &item); err == nil {
+			if item.Status != "running" {
+				continue
+			}
+			if item.Configuration.ID != "" {
+				refs[item.Configuration.ID] = true
+			}
+		}
+	}
+
+	return refs, nil
+}
+
+func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
+	c.logger.Debug("creating volume")
+
+	volInfo, err := model.LoadLocalStorageFromYaml(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
 		return err
 	}
@@ -543,13 +776,7 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
 	c.logger.Debug("deleting volume")
 
-	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
-	if err != nil {
-		return err
-	}
-
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
+	volInfo, err := model.LoadLocalStorageFromYaml(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
 		return err
 	}

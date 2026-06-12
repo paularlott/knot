@@ -42,7 +42,7 @@ func (c *Cluster) handleSessionFullSync(sender *gossip.Node, packet *gossip.Pack
 }
 
 func (c *Cluster) handleSessionGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received session gossip request")
+	c.logger.Trace("Received session gossip request")
 
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()
@@ -104,7 +104,7 @@ func (c *Cluster) DoSessionFullSync(node *gossip.Node) error {
 
 // Merges the sessions from a cluster member with the local sessions
 func (c *Cluster) mergeSessions(sessions []*model.Session) error {
-	c.logger.Debug("Merging sessions", "number_sessions", len(sessions))
+	c.logger.Trace("Merging sessions", "number_sessions", len(sessions))
 
 	// Get the list of sessions in the system
 	db := database.GetSessionStorage()

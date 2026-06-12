@@ -21,6 +21,7 @@ type UserResponse struct {
 	StorageUnits               uint32     `json:"storage_units"`
 	MaxTunnels                 uint32     `json:"max_tunnels"`
 	SSHPublicKey               string     `json:"ssh_public_key"`
+	SSHPrivateKey              string     `json:"ssh_private_key"`
 	GitHubUsername             string     `json:"github_username"`
 	PreferredShell             string     `json:"preferred_shell"`
 	Timezone                   string     `json:"timezone"`
@@ -37,7 +38,25 @@ type UserResponse struct {
 	UsedTunnels                uint32     `json:"used_tunnels"`
 }
 
-type userRequest struct {
+type CreateUserRequest struct {
+	Username       string   `json:"username"`
+	Password       string   `json:"password"`
+	Email          string   `json:"email"`
+	Roles          []string `json:"roles"`
+	Groups         []string `json:"groups"`
+	Active         bool     `json:"active"`
+	MaxSpaces      uint32   `json:"max_spaces"`
+	ComputeUnits   uint32   `json:"compute_units"`
+	StorageUnits   uint32   `json:"storage_units"`
+	MaxTunnels     uint32   `json:"max_tunnels"`
+	SSHPublicKey   string   `json:"ssh_public_key"`
+	GitHubUsername string   `json:"github_username"`
+	PreferredShell string   `json:"preferred_shell"`
+	Timezone       string   `json:"timezone"`
+	TOTPSecret     string   `json:"totp_secret"`
+}
+
+type UpdateUserRequest struct {
 	Username        string   `json:"username"`
 	Password        string   `json:"password"`
 	ServicePassword string   `json:"service_password"`
@@ -55,8 +74,6 @@ type userRequest struct {
 	Timezone        string   `json:"timezone"`
 	TOTPSecret      string   `json:"totp_secret"`
 }
-type CreateUserRequest = userRequest
-type UpdateUserRequest = userRequest
 
 type CreateUserResponse struct {
 	Status bool   `json:"status"`
@@ -106,6 +123,15 @@ type UserPermissions struct {
 
 type UserHasPermission struct {
 	HasPermission bool `json:"has_permission"`
+}
+
+type UpdateOwnSSHPublicKeyRequest struct {
+	SSHPublicKey   string `json:"ssh_public_key"`
+	GitHubUsername string `json:"github_username"`
+}
+
+type UpdateOwnSSHPrivateKeyRequest struct {
+	SSHPrivateKey string `json:"ssh_private_key"`
 }
 
 func (c *ApiClient) CreateUser(ctx context.Context, request *CreateUserRequest) (string, int, error) {
@@ -166,6 +192,16 @@ func (c *ApiClient) UpdateUser(ctx context.Context, userId string, user *UpdateU
 	}
 
 	return nil
+}
+
+func (c *ApiClient) UpdateOwnSSHPublicKey(ctx context.Context, request *UpdateOwnSSHPublicKeyRequest) error {
+	_, err := c.httpClient.Put(ctx, "/api/users/whoami/ssh-public-key", request, nil, 200)
+	return err
+}
+
+func (c *ApiClient) UpdateOwnSSHPrivateKey(ctx context.Context, request *UpdateOwnSSHPrivateKeyRequest) error {
+	_, err := c.httpClient.Put(ctx, "/api/users/whoami/ssh-private-key", request, nil, 200)
+	return err
 }
 
 func (c *ApiClient) DeleteUser(ctx context.Context, userId string) error {

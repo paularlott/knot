@@ -10,6 +10,44 @@
           <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
+<div x-show="templatePorts.some(p => p.protocol === 'http' || p.protocol === 'https')" x-cloak>
+          <div class="flex items-center mb-1">
+            <label class="form-label mb-0 mr-2">Additional Space Names</label>
+            <button type="button" x-on:click="addAltName()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span class="sr-only">Add</span>
+            </button>
+          </div>
+          <template x-for="(altName, index) in formData.alt_names" :key="index">
+            <div class="mb-2">
+              <div class="flex items-center gap-2">
+                <input type="text" class="form-field grow" x-model="formData.alt_names[index].name" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" placeholder="Additional space name" aria-label="Additional space name">
+                <select class="form-field w-32" x-model.number="formData.alt_names[index].port" aria-label="Port">
+                  <template x-for="tp in templatePorts" :key="tp.port">
+                    <option :value="tp.port" :selected="formData.alt_names[index].port === tp.port" x-text="tp.name || tp.port"></option>
+                  </template>
+                </select>
+                <button type="button" x-on:click="removeAltName(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg> <span class="sr-only">Remove</span>
+                </button>
+              </div>
+              <div x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+            </div>
+          </template>
+        </div>
+        <div>
+          <label class="form-label">Description</label>
+          <div class="short-editor">
+            <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
+              <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
+            </div>
+          </div>
+          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
+        </div>
         <div x-data="autocompleterStack()" data-parent-var-group="formData" data-parent-variable="stack" @refresh-stack-autocompleter.window="refresh()" class="relative">
           <label for="stack" class="form-label">Stack</label>
           <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
@@ -22,15 +60,6 @@
               </template>
             </ul>
           </div>
-        </div>
-        <div>
-          <label class="form-label">Description</label>
-          <div class="short-editor">
-            <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
-              <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
-            </div>
-          </div>
-          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
         </div>
       </div>
     </fieldset>
@@ -56,30 +85,11 @@
             </div>
           </div>
         </div>
-        <div>
-          <div class="flex items-center mb-1">
-            <label class="form-label mb-0 mr-2">Additional Space Names</label>
-            <button type="button" x-on:click="addAltName()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              <span class="sr-only">Add</span>
-            </button>
-          </div>
-          <template x-for="(name, index) in formData.alt_names" :key="index">
-            <div class="mb-2">
-              <div class="flex items-center">
-                <input type="text" class="form-field mr-2" x-model="formData.alt_names[index]" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" placeholder="Additional space name" aria-label="Additional space name">
-                <button type="button" x-on:click="removeAltName(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                  </svg> <span class="sr-only">Remove</span>
-                </button>
-              </div>
-              <div x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
-            </div>
-          </template>
-        </div>
+      </div>
+    </fieldset>
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Configuration</legend>
+      <div class="flex flex-col gap-6">
         <div>
           <label for="shell" class="form-label">Terminal Shell</label>
           <select class="form-field" name="shell" id="shell" x-model="formData.shell">
@@ -90,20 +100,18 @@
           </select>
           <div class="description">The shell that will be used when you open a web terminal in this space.</div>
         </div>
-      </div>
-    </fieldset>
-    <fieldset x-show="(!spaceFormModal.isEdit && availableNodes.length > 1) || (!isManual && canSetSpaceStartupScript) || (!spaceFormModal.isEdit && !isManual)" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Advanced</legend>
-      <div class="flex flex-col gap-6">
-        <div x-show="!spaceFormModal.isEdit && availableNodes.length > 1" x-cloak>
+        <div x-show="showNodeSelection()" x-cloak>
           <label for="node" class="form-label">Node</label>
-          <select class="form-field" name="node" id="node" x-model="formData.selected_node_id">
+          <select class="form-field" name="node" id="node"
+            :value="formData.selected_node_id"
+            @change="formData.selected_node_id = $event.target.value">
             <option value="">Auto-select</option>
             <template x-for="node in availableNodes" :key="node.node_id">
-              <option :value="node.node_id" x-text="formatNodeLabel(node)"></option>
+              <option :value="node.node_id" :selected="node.node_id === formData.selected_node_id" x-text="formatNodeLabel(node)"></option>
             </template>
           </select>
-          <div class="description">The node where this space will run. Auto-select chooses the node with the least load.</div>
+          <div class="description" x-show="!assignedNodeUnavailable()">The node where this space will run. Auto-select chooses the node with the least load.</div>
+          <div class="description" x-show="assignedNodeUnavailable()" x-cloak>The assigned node is no longer available. Choose a live node or use Auto-select to reassign this space.</div>
         </div>
         <div x-show="!isManual && canSetSpaceStartupScript" x-cloak x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
           <label for="startup_script_id" class="form-label">User Startup Script</label>
@@ -120,13 +128,6 @@
             </div>
           </div>
           <div class="description">Optional user script to run after system startup script</div>
-        </div>
-        <div x-cloak x-show="!spaceFormModal.isEdit && !isManual">
-          <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" x-model="startOnCreate" :checked="startOnCreate">
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Start Space on Create</span>
-          </label>
         </div>
       </div>
     </fieldset>
@@ -168,6 +169,17 @@
             <input type="text" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
           </div>
         </template>
+      </div>
+    </fieldset>
+    <fieldset x-show="!spaceFormModal.isEdit && !isManual" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Launch</legend>
+      <div class="space-y-4">
+        <div class="description">Choose whether the new space should be started immediately after it is created.</div>
+        <label class="flex items-center cursor-pointer">
+          <input type="checkbox" class="sr-only peer" value="1" x-model="startOnCreate" :checked="startOnCreate">
+          <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Start Space on Create</span>
+        </label>
       </div>
     </fieldset>
     <div x-show="spaceFormModal.isEdit && formData.created_at_formatted" x-cloak class="text-xs text-gray-400 dark:text-gray-500">

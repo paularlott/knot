@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/dns"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/logger"
@@ -22,6 +23,8 @@ import (
 	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
 	scriptlingconsole "github.com/paularlott/scriptling/extlibs/console"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
+	scriptlingresolve "github.com/paularlott/scriptling/extlibs/net/resolve"
+	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
@@ -54,6 +57,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+	scriptlingresolve.Register(env, dns.GetDefaultResolver())
 	extlibs.RegisterTOMLLibrary(env)
 	extlibs.RegisterWebSocketLibrary(env)
 	extlibs.RegisterTemplateHTMLLibrary(env)
@@ -96,6 +100,7 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil) // scriptling.glob
+	provisionfile.Register(env)
 }
 
 // newServerLibraryLoader creates a FuncLoader that fetches libraries from the server API
@@ -330,6 +335,7 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil)
+	provisionfile.Register(env)
 
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)

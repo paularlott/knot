@@ -16,6 +16,7 @@ import (
 	"github.com/paularlott/knot/internal/spaceusage"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
+	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/hashicorp/yamux"
@@ -114,7 +115,7 @@ func handleAgentConnection(conn net.Conn) {
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
 	sessionMutex.Unlock()
-	defer RemoveSession(registerMsg.SpaceId)
+	defer DisconnectSession(registerMsg.SpaceId)
 
 	// Return the SSH key and GitHub username
 	response.Success = true
@@ -127,8 +128,9 @@ func handleAgentConnection(conn net.Conn) {
 	response.WithRunCommand = template.WithRunCommand
 
 	if user.SSHPublicKey != "" {
-		response.SSHKeys = append(response.SSHKeys, user.SSHPublicKey)
+		response.SSHKeys = append(response.SSHKeys, util.SplitSSHPublicKeys(user.SSHPublicKey)...)
 	}
+	response.SSHPrivateKey = util.DecryptSSHPrivateKey(config.GetServerConfig().EncryptionKey, user.SSHPrivateKey)
 	if user.GitHubUsername != "" {
 		response.GitHubUsernames = append(response.GitHubUsernames, user.GitHubUsername)
 	}
@@ -138,7 +140,7 @@ func handleAgentConnection(conn net.Conn) {
 		sharedUser, err := db.GetUser(sharedUserId)
 		if err == nil {
 			if sharedUser.SSHPublicKey != "" {
-				response.SSHKeys = append(response.SSHKeys, sharedUser.SSHPublicKey)
+				response.SSHKeys = append(response.SSHKeys, util.SplitSSHPublicKeys(sharedUser.SSHPublicKey)...)
 			}
 			if sharedUser.GitHubUsername != "" {
 				response.GitHubUsernames = append(response.GitHubUsernames, sharedUser.GitHubUsername)
@@ -287,6 +289,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.ActivityRenameCount = state.ActivityRenameCount
 				session.ActivityDistinctPaths = state.ActivityDistinctPaths
 				session.LastActivityAtUnix = state.LastActivityAtUnix
+				session.LastStateAt = time.Now().UTC()
 
 				db := database.GetInstance()
 				space, err := db.GetSpace(session.Id)

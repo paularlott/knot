@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -94,8 +95,10 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 			return fmt.Errorf("Invalid name, must be all lowercase and only contain letters, numbers and dashes")
 		}
 
-		alias := cmd.GetString("alias")
-		cfg := config.GetServerAddr(alias, cmd)
+		cfg := cmdutil.GetServerAddr(cmd)
+		if cfg == nil {
+			return fmt.Errorf("no server configured")
+		}
 		client := tunnel_server.NewTunnelClient(
 			cfg.WsServer,
 			cfg.HttpServer,

@@ -37,7 +37,7 @@ def list(state="", zone=""):
     return result
 
 
-def create(username, email, password, active=True, max_spaces=0, compute_units=0, storage_units=0, max_tunnels=0):
+def create(username, email, password, active=True, max_spaces=0, compute_units=0, storage_units=0, max_tunnels=0, ssh_public_key="", github_username=""):
     """Create a new user."""
     body = {
         "username": username,
@@ -47,21 +47,24 @@ def create(username, email, password, active=True, max_spaces=0, compute_units=0
         "max_spaces": max_spaces,
         "compute_units": compute_units,
         "storage_units": storage_units,
-        "max_tunnels": max_tunnels
+        "max_tunnels": max_tunnels,
+        "ssh_public_key": ssh_public_key,
+        "ssh_private_key": "",
+        "github_username": github_username
     }
 
     response = api.post("/api/users", body)
     return response.get("user_id")
 
 
-def update(user_id, username=None, email=None, password=None, active=None, max_spaces=None):
+def update(user_id, username=None, email=None, password=None, active=None, max_spaces=None, ssh_public_key=None, github_username=None):
     """Update user properties."""
     current = api.get(f"/api/users/{user_id}")
 
     body = {
         "username": username if username is not None else current.get("username"),
         "email": email if email is not None else current.get("email"),
-        "service_password": current.get("service_password", ""),
+        "service_password": "",
         "roles": current.get("roles", []),
         "groups": current.get("groups", []),
         "active": active if active is not None else current.get("active", True),
@@ -69,8 +72,9 @@ def update(user_id, username=None, email=None, password=None, active=None, max_s
         "compute_units": current.get("compute_units", 0),
         "storage_units": current.get("storage_units", 0),
         "max_tunnels": current.get("max_tunnels", 0),
-        "ssh_public_key": current.get("ssh_public_key", ""),
-        "github_username": current.get("github_username", ""),
+        "ssh_public_key": ssh_public_key if ssh_public_key is not None else current.get("ssh_public_key", ""),
+        "ssh_private_key": "",
+        "github_username": github_username if github_username is not None else current.get("github_username", ""),
         "preferred_shell": current.get("preferred_shell", ""),
         "timezone": current.get("timezone", ""),
         "totp_secret": current.get("totp_secret", "")
@@ -80,6 +84,27 @@ def update(user_id, username=None, email=None, password=None, active=None, max_s
         body["password"] = password
 
     api.put(f"/api/users/{user_id}", body)
+    return True
+
+
+def set_ssh_public_key(ssh_public_key, github_username=None):
+    """Set the current user's SSH public keys."""
+    if github_username is None:
+        current = api.get("/api/users/whoami")
+        github_username = current.get("github_username", "")
+
+    api.put("/api/users/whoami/ssh-public-key", {
+        "ssh_public_key": ssh_public_key,
+        "github_username": github_username
+    })
+    return True
+
+
+def set_ssh_private_key(ssh_private_key):
+    """Set the current user's SSH private key."""
+    api.put("/api/users/whoami/ssh-private-key", {
+        "ssh_private_key": ssh_private_key
+    })
     return True
 
 
@@ -131,6 +156,8 @@ def _parse_user(response):
         "max_tunnels": response.get("max_tunnels", 0),
         "preferred_shell": response.get("preferred_shell", ""),
         "timezone": response.get("timezone", ""),
+        "ssh_public_key": response.get("ssh_public_key", ""),
+        "ssh_private_key": response.get("ssh_private_key", ""),
         "github_username": response.get("github_username", ""),
         "number_spaces": response.get("number_spaces", 0),
         "number_spaces_deployed": response.get("number_spaces_deployed", 0),

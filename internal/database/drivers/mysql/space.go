@@ -2,6 +2,7 @@ package driver_mysql
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
@@ -10,18 +11,24 @@ import (
 	"github.com/google/uuid"
 )
 
-func (db *MySQLDriver) getAltNames(id string) ([]string, error) {
-	var altNames []string
+func (db *MySQLDriver) getAltNames(id string) ([]model.AltNameEntry, error) {
+	var entries []model.AltNameEntry
 	var spaces []*model.Space
-	err := db.read("spaces", &spaces, []string{"Name"}, "parent_space_id = ? ORDER BY name ASC", id)
+	err := db.read("spaces", &spaces, []string{"Name", "Description"}, "parent_space_id = ? ORDER BY name ASC", id)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, space := range spaces {
-		altNames = append(altNames, space.Name)
+		var port uint16
+		if space.Description != "" {
+			if p, err := strconv.ParseUint(space.Description, 10, 16); err == nil {
+				port = uint16(p)
+			}
+		}
+		entries = append(entries, model.AltNameEntry{Name: space.Name, Port: port})
 	}
-	return altNames, nil
+	return entries, nil
 }
 
 func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) error {
@@ -102,13 +109,13 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 		for _, altName := range altNames {
 			found := false
 			for _, name := range space.AltNames {
-				if altName == name {
+				if altName.Name == name.Name {
 					found = true
 					break
 				}
 			}
 			if !found {
-				_, err = tx.Exec("DELETE FROM spaces WHERE parent_space_id = ? AND name = ?", space.Id, altName)
+				_, err = tx.Exec("DELETE FROM spaces WHERE parent_space_id = ? AND name = ?", space.Id, altName.Name)
 				if err != nil {
 					tx.Rollback()
 					return err
@@ -116,15 +123,14 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 			}
 		}
 
-		// Add any new alt names
+		// Add or update alt names
 		for _, name := range space.AltNames {
 			found := false
 			for _, altName := range altNames {
-				if altName == name {
+				if altName.Name == name.Name {
 					found = true
 
-					// Update the zone
-					_, err = tx.Exec("UPDATE spaces SET zone=?,updated_at=? WHERE parent_space_id = ? AND name = ?", space.Zone, space.UpdatedAt, space.Id, name)
+					_, err = tx.Exec("UPDATE spaces SET description=?, zone=?, updated_at=? WHERE parent_space_id = ? AND name = ?", strconv.FormatUint(uint64(name.Port), 10), space.Zone, space.UpdatedAt, space.Id, name.Name)
 					if err != nil {
 						tx.Rollback()
 						return err
@@ -140,7 +146,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 					return err
 				}
 
-				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Zone, space.CreatedAt, space.UpdatedAt)
+				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, description, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name.Name, strconv.FormatUint(uint64(name.Port), 10), space.Zone, space.CreatedAt, space.UpdatedAt)
 				if err != nil {
 					tx.Rollback()
 					return err
@@ -207,6 +213,10 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 	for _, space := range spaces {
 		space.NormalizeShares()
 		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return spaces, nil
@@ -242,6 +252,10 @@ func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space,
 	for _, space := range spaces {
 		space.NormalizeShares()
 		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return spaces, nil
@@ -256,6 +270,10 @@ func (db *MySQLDriver) GetSpaces() ([]*model.Space, error) {
 	for _, space := range spaces {
 		space.NormalizeShares()
 		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return spaces, nil

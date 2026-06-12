@@ -33,7 +33,7 @@ func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received token gossip request")
+	c.logger.Trace("Received token gossip request")
 
 	tokens := []*model.Token{}
 	if err := packet.Unmarshal(&tokens); err != nil {
@@ -81,7 +81,7 @@ func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 
 // Merges the tokens from a cluster member with the local tokens
 func (c *Cluster) mergeTokens(tokens []*model.Token) error {
-	c.logger.Debug("Merging tokens", "number_tokens", len(tokens))
+	c.logger.Trace("Merging tokens", "number_tokens", len(tokens))
 
 	// Get the list of tokens in the system
 	db := database.GetInstance()

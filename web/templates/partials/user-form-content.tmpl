@@ -57,8 +57,16 @@
             <div>
               <label for="ssh_key" class="form-label">SSH Public Key</label>
               <textarea id="ssh_key" class="form-field" name="ssh_key" rows="8" placeholder="SSH Public Key" x-model="formData.ssh_public_key"></textarea>
-              <p class="description">If given this key will be added to the spaces to allow you to SSH into the space.</p>
+              <p class="description">If given, these keys will be added to spaces to allow you to SSH into the space. Use one public key per line.</p>
             </div>
+            {{ if .isProfile }}
+              <div>
+                <label for="ssh_private_key" class="form-label">SSH Private Key</label>
+                <textarea id="ssh_private_key" class="form-field font-mono" name="ssh_private_key" rows="8" placeholder="SSH Private Key" x-on:keyup.debounce.500ms="checkPrivateKey()" :class="{'form-field-error': !privateKeyValid}" x-model="formData.ssh_private_key"></textarea>
+                <p class="description">If given, this key will be written to <code>~/.ssh/id_ed25519</code>, <code>~/.ssh/id_rsa</code>, or <code>~/.ssh/id_ecdsa</code> in your SSH-enabled spaces depending on key format.</p>
+                <div x-show="!privateKeyValid" class="error-message" x-cloak>Enter a valid SSH private key.</div>
+              </div>
+            {{ end }}
             <div>
               <label for="password" class="form-label">Password</label>
               <input type="password" id="password" class="form-field" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">

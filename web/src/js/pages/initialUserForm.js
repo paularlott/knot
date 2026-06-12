@@ -53,6 +53,7 @@ window.createInitialUserForm = function() {
         groups: [],
         active: true,
         ssh_public_key: "",
+        ssh_private_key: "",
         github_username: "",
         preferred_shell: "bash",
         timezone: "UTC",

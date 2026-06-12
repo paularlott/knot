@@ -37,7 +37,7 @@ func (c *Cluster) handleTemplateFullSync(sender *gossip.Node, packet *gossip.Pac
 }
 
 func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received template gossip request")
+	c.logger.Trace("Received template gossip request")
 
 	templates := []*model.Template{}
 	if err := packet.Unmarshal(&templates); err != nil {
@@ -62,14 +62,14 @@ func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packe
 
 func (c *Cluster) GossipTemplate(template *model.Template) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping template")
+		c.logger.Trace("Gossipping template")
 
 		templates := []*model.Template{template}
 		c.gossipCluster.Send(TemplateGossipMsg, &templates)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating template on leaf nodes")
+		c.logger.Trace("Updating template on leaf nodes")
 
 		templates := []*model.Template{template}
 		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, &templates)
@@ -102,7 +102,7 @@ func (c *Cluster) DoTemplateFullSync(node *gossip.Node) error {
 
 // Merges the templates from a cluster member with the local templates
 func (c *Cluster) mergeTemplates(templates []*model.Template) error {
-	c.logger.Debug("Merging templates", "number_templates", len(templates))
+	c.logger.Trace("Merging templates", "number_templates", len(templates))
 
 	// Get the list of templates in the system
 	db := database.GetInstance()
@@ -212,7 +212,7 @@ func (c *Cluster) gossipTemplates() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(templates))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping templates", "batch_size", batchSize, "total", len(templates))
+			c.logger.Trace("Gossipping templates", "batch_size", batchSize, "total", len(templates))
 			clusterTemplates := templates[:batchSize]
 			c.gossipCluster.Send(TemplateGossipMsg, &clusterTemplates)
 		}

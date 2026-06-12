@@ -120,7 +120,7 @@ const scriptLibraries = [
         signature: "get(name)",
         description: "Get space details as a dict",
         returns:
-          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at, stack",
+          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, has_ever_started, node_id, node_hostname, created_at, alt_names, stack",
       },
       {
         name: "update",
@@ -366,14 +366,27 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(username, email, password, ...)",
+        signature: "create(username, email, password, ..., ssh_public_key='')",
         description: "Create a new user",
         returns: "str - ID of the newly created user",
       },
       {
         name: "update",
-        signature: "update(user_id, ...)",
+        signature: "update(user_id, ..., ssh_public_key=None)",
         description: "Update user properties",
+        returns: "bool - True if successfully updated",
+      },
+      {
+        name: "set_ssh_public_key",
+        signature: "set_ssh_public_key(ssh_public_key, github_username=None)",
+        description:
+          "Set SSH public keys for the current user. Use one public key per line",
+        returns: "bool - True if successfully updated",
+      },
+      {
+        name: "set_ssh_private_key",
+        signature: "set_ssh_private_key(ssh_private_key)",
+        description: "Set the SSH private key for the current user",
         returns: "bool - True if successfully updated",
       },
       {
@@ -650,14 +663,14 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, job, ...)",
-        description: "Create a new template",
+        signature: "create(name, job, ..., health_check_type='none', ports=None)",
+        description: "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects.",
         returns: "str - ID of the newly created template",
       },
       {
         name: "update",
-        signature: "update(template_id, ...)",
-        description: "Update template properties",
+        signature: "update(template_id, ..., health_check_type=None, ports=None)",
+        description: "Update template properties, including health_check_type, health_check_auto_restart, and ports",
         returns: "bool - True if successfully updated",
       },
       {
@@ -908,7 +921,7 @@ const scriptLibraries = [
       {
         name: "Client",
         signature:
-          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, top_p=0, headers={}, remote_servers=[])',
+          'Client(base_url, *, provider="openai", api_key="", max_tokens=0, temperature=None, top_p=None, headers=None, remote_servers=None, max_retries=3, retry_backoff=1.0, retry_on_rate_limit=True, retry_on_server_error=True)',
         description:
           "Create a new AI client instance for making API calls to supported services",
         returns: "OpenAIClient - A client instance",
@@ -952,20 +965,11 @@ const scriptLibraries = [
       {
         name: "collect_stream",
         signature:
-          "collect_stream(stream, *, chunk_timeout_ms=None, first_chunk_timeout_ms=None, on_event=None)",
+          "collect_stream(stream, *, chunk_timeout=None, first_chunk_timeout=None, on_event=None)",
         description:
           "Consume a ChatStream and aggregate content, reasoning, tool calls, and finish status",
         returns:
           "dict - Aggregated result with content, reasoning, tool_calls, finished",
-      },
-      {
-        name: "tool_round",
-        signature:
-          "tool_round(client, model, messages, registry, *, stream=False, chunk_timeout_ms=None, on_event=None, system_prompt=None, temperature=None, top_p=None, max_tokens=None, timeout_ms=None)",
-        description:
-          "Run one tool-enabled completion round and return the assistant message, tool calls, and tool results",
-        returns:
-          "dict - Result with message, tool_calls, tool_results",
       },
       {
         name: "estimate_tokens",
@@ -974,6 +978,13 @@ const scriptLibraries = [
           "Estimate token counts for request messages and/or response using character-based heuristic",
         returns:
           "dict - {'prompt_tokens': int, 'completion_tokens': int, 'total_tokens': int}",
+      },
+      {
+        name: "cosine_similarity",
+        signature: "cosine_similarity(a, b)",
+        description:
+          "Compute cosine similarity between two vectors. Primarily used to compare embedding vectors from client.embedding()",
+        returns: "float - Cosine similarity score from -1.0 to 1.0",
       },
     ],
     classes: [
@@ -984,14 +995,14 @@ const scriptLibraries = [
           {
             name: "completion",
             signature:
-              "completion(model, messages, tools=[], temperature=0, top_p=0, max_tokens=0, extra_body={}, timeout=0)",
+              "completion(model, messages, *, system_prompt=None, tools=None, temperature=None, top_p=None, max_tokens=None, extra_body=None, timeout=None)",
             description: "Create a chat completion",
             returns: "dict - Response with id, choices, usage",
           },
           {
             name: "completion_stream",
             signature:
-              "completion_stream(model, messages, tools=[], temperature=0, top_p=0, max_tokens=0, extra_body={}, timeout=0)",
+              "completion_stream(model, messages, *, system_prompt=None, tools=None, temperature=None, top_p=None, max_tokens=None, extra_body=None, timeout=None)",
             description: "Create a streaming chat completion",
             returns: "ChatStream - Stream object with next() method",
             returnType: "ChatStream",
@@ -1004,7 +1015,7 @@ const scriptLibraries = [
           },
           {
             name: "response_create",
-            signature: "response_create(model, input, **kwargs)",
+            signature: "response_create(model, input, *, system_prompt=None, background=False, extra_body=None)",
             description: "Create Responses API response",
             returns: "dict - Response object",
           },
@@ -1041,7 +1052,7 @@ const scriptLibraries = [
           },
           {
             name: "response_stream",
-            signature: "response_stream(model, input, **kwargs)",
+            signature: "response_stream(model, input, *, system_prompt=None, extra_body=None)",
             description:
               "Stream a Responses API response, returning a ResponseStream object",
             returns: "ResponseStream - Stream object with next() method",
@@ -1049,10 +1060,35 @@ const scriptLibraries = [
           },
           {
             name: "ask",
-            signature: "ask(model, messages, **kwargs)",
+            signature: "ask(model, messages, *, system_prompt=None, tools=None, temperature=None, top_p=None, max_tokens=None)",
             description:
               "Quick completion that returns text directly without thinking blocks",
             returns: "str - Response text",
+          },
+          {
+            name: "completion_parallel",
+            signature:
+              "completion_parallel(model, messages_list, *, max_parallel=1, system_prompt=None, tools=None, temperature=None, top_p=None, max_tokens=None, extra_body=None, timeout=None)",
+            description:
+              "Run multiple completions in parallel and return all results",
+            returns: "list - List of completion response dicts",
+          },
+          {
+            name: "ask_parallel",
+            signature:
+              "ask_parallel(model, messages_list, *, max_parallel=1, system_prompt=None, tools=None, temperature=None, top_p=None, max_tokens=None, extra_body=None, timeout=None)",
+            description:
+              "Run multiple ask completions in parallel and return text results",
+            returns: "list - List of response text strings",
+          },
+          {
+            name: "Pipeline",
+            signature:
+              "Pipeline(model, *, max_parallel=1, ask=False, system_prompt=None, tools=None, temperature=None, top_p=None, max_tokens=None, extra_body=None, timeout=None)",
+            description:
+              "Create a Pipeline for batched parallel completions",
+            returns: "Pipeline - Pipeline instance",
+            returnType: "Pipeline",
           },
         ],
       },
@@ -1117,6 +1153,31 @@ const scriptLibraries = [
             returns:
               "dict or null - Next chunk, timed_out dict, or null if complete",
           },
+          {
+            name: "retry",
+            signature: "retry()",
+            description:
+              "Retry the last failed stream request. Returns next chunk or None",
+            returns: "dict or null - Next chunk or null if complete",
+          },
+        ],
+      },
+      {
+        name: "Pipeline",
+        description: "Batched parallel completion pipeline",
+        methods: [
+          {
+            name: "add",
+            signature: "add(message)",
+            description: "Add a message or messages list to the pipeline",
+            returns: "None",
+          },
+          {
+            name: "complete",
+            signature: "complete()",
+            description: "Execute all pending completions in parallel and return results",
+            returns: "list - List of completion results",
+          },
         ],
       },
     ],
@@ -1174,6 +1235,20 @@ const scriptLibraries = [
             signature: "execute_discovered(name, arguments)",
             description: "Execute a discovered tool",
             returns: "dict - Tool response",
+          },
+          {
+            name: "call_tools_parallel",
+            signature: "call_tools_parallel(calls)",
+            description:
+              "Execute multiple MCP tool calls in parallel. Calls is a list of dicts with name and arguments",
+            returns: "list - List of tool responses",
+          },
+          {
+            name: "execute_discovered_parallel",
+            signature: "execute_discovered_parallel(calls)",
+            description:
+              "Execute multiple discovered tool calls in parallel. Calls is a list of dicts with name and arguments",
+            returns: "list - List of tool responses",
           },
         ],
       },
@@ -1532,7 +1607,7 @@ const scriptLibraries = [
     functions: [
       {
         name: "search",
-        signature: "search(query, items, max_results=5, threshold=0.5, key='name')",
+        signature: "search(query, items, *, max_results=5, threshold=0.5, key='name')",
         description: "Search for fuzzy matches in a list of items",
         returns: "list - List of match dicts with id, name, score",
       },
@@ -1556,7 +1631,7 @@ const scriptLibraries = [
       },
       {
         name: "minhash",
-        signature: "minhash(text, num_hashes=64)",
+        signature: "minhash(text, *, num_hashes=64)",
         description: "Compute a MinHash signature for text",
         returns: "list - List of 32-bit hash values",
       },
@@ -1633,153 +1708,6 @@ const scriptLibraries = [
           {
             name: "remote_addr",
             description: "Remote address of the connected server",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    module: "scriptling.threads",
-    description: "Threading and concurrency primitives for async operations",
-    functions: [
-      {
-        name: "run",
-        signature: "run(func, *args, **kwargs)",
-        description: "Run function asynchronously in isolated environment",
-        returns: "Promise - Promise with .get() and .wait() methods",
-        returnType: "Promise",
-      },
-    ],
-    classes: [
-      {
-        name: "Atomic",
-        description: "Atomic integer for thread-safe counting",
-        methods: [
-          {
-            name: "add",
-            signature: "add(delta=1)",
-            description: "Atomically add and return new value",
-            returns: "int - New value after addition",
-          },
-          {
-            name: "get",
-            signature: "get()",
-            description: "Atomically read value",
-            returns: "int - Current value",
-          },
-          {
-            name: "set",
-            signature: "set(value)",
-            description: "Atomically set value",
-            returns: "None",
-          },
-        ],
-      },
-      {
-        name: "Shared",
-        description: "Thread-safe shared value container",
-        methods: [
-          {
-            name: "get",
-            signature: "get()",
-            description: "Thread-safe get",
-            returns: "any - Current value",
-          },
-          {
-            name: "set",
-            signature: "set(value)",
-            description: "Thread-safe set",
-            returns: "None",
-          },
-        ],
-      },
-      {
-        name: "WaitGroup",
-        description: "Wait for collection of goroutines to finish",
-        methods: [
-          {
-            name: "add",
-            signature: "add(delta=1)",
-            description: "Add to counter",
-            returns: "None",
-          },
-          {
-            name: "done",
-            signature: "done()",
-            description: "Decrement counter",
-            returns: "None",
-          },
-          {
-            name: "wait",
-            signature: "wait()",
-            description: "Block until counter reaches zero",
-            returns: "None",
-          },
-        ],
-      },
-      {
-        name: "Queue",
-        description: "Thread-safe queue for passing data between goroutines",
-        methods: [
-          {
-            name: "put",
-            signature: "put(item)",
-            description: "Add item (blocks if full)",
-            returns: "None",
-          },
-          {
-            name: "get",
-            signature: "get()",
-            description: "Remove item (blocks if empty)",
-            returns: "any - Retrieved item",
-          },
-          {
-            name: "size",
-            signature: "size()",
-            description: "Get number of items in queue",
-            returns: "int - Queue size",
-          },
-          {
-            name: "close",
-            signature: "close()",
-            description: "Close queue",
-            returns: "None",
-          },
-        ],
-      },
-      {
-        name: "Pool",
-        description: "Worker pool for concurrent processing",
-        methods: [
-          {
-            name: "submit",
-            signature: "submit(data)",
-            description: "Submit data for processing",
-            returns: "None",
-          },
-          {
-            name: "close",
-            signature: "close()",
-            description: "Stop pool and wait for completion",
-            returns: "None",
-          },
-        ],
-      },
-      {
-        name: "Promise",
-        description: "Result from async goroutine execution",
-        methods: [
-          {
-            name: "get",
-            signature: "get()",
-            description: "Wait for and return result",
-            returns: "any - Function return value",
-          },
-          {
-            name: "wait",
-            signature: "wait()",
-            description: "Wait for completion",
-            returns: "None",
           },
         ],
       },
@@ -1964,6 +1892,13 @@ const scriptLibraries = [
         description: "Build a Slack keyboard",
         returns: "Keyboard - Button keyboard",
       },
+      {
+        name: "open_dm",
+        signature: "open_dm(client, user_id)",
+        description:
+          "Open or retrieve a DM channel with a user",
+        returns: "str - Channel ID",
+      },
     ],
   },
   {
@@ -1984,6 +1919,748 @@ const scriptLibraries = [
         signature: "keyboard(rows)",
         description: "Build a console keyboard",
         returns: "Keyboard - Button keyboard",
+      },
+    ],
+  },
+  {
+    module: "scriptling.container",
+    description: "Container runtime management (Docker, Podman, etc.)",
+    functions: [
+      {
+        name: "runtimes",
+        signature: "runtimes()",
+        description: "List available container runtimes",
+        returns: "list - List of runtime name strings",
+      },
+      {
+        name: "Client",
+        signature: 'Client(driver, *, socket="")',
+        description:
+          "Create a container client. Driver can be 'docker' or 'podman'",
+        returns: "ContainerClient - Client instance",
+        returnType: "ContainerClient",
+      },
+    ],
+    classes: [
+      {
+        name: "ContainerClient",
+        description: "Container runtime client for managing containers and images",
+        methods: [
+          {
+            name: "driver",
+            signature: "driver()",
+            description: "Get the container driver name",
+            returns: "str - Driver name (docker or podman)",
+          },
+          {
+            name: "login",
+            signature: "login(server, username, password)",
+            description: "Login to a container registry",
+            returns: "None",
+          },
+          {
+            name: "image_list",
+            signature: "image_list()",
+            description: "List all container images",
+            returns: "list - List of image dicts",
+          },
+          {
+            name: "image_pull",
+            signature: "image_pull(image)",
+            description: "Pull a container image from registry",
+            returns: "None",
+          },
+          {
+            name: "image_remove",
+            signature: "image_remove(image)",
+            description: "Remove a container image",
+            returns: "None",
+          },
+          {
+            name: "exec",
+            signature: 'exec(name_or_id, command, *, env=[], workdir="", user="")',
+            description: "Execute a command in a running container",
+            returns: "dict - Dict with exit_code and output",
+          },
+          {
+            name: "exec_stream",
+            signature: "exec_stream(name_or_id, command, callback, *, env=[], workdir='', user='')",
+            description: "Execute a command with streaming output via callback",
+            returns: "dict - Dict with exit_code",
+          },
+          {
+            name: "run",
+            signature: "run(image, *, name='', ports=[], env=[], volumes=[], command=[], network='', privileged=False)",
+            description: "Run a new container from an image",
+            returns: "str - Container ID",
+          },
+          {
+            name: "stop",
+            signature: "stop(name_or_id)",
+            description: "Stop a running container",
+            returns: "None",
+          },
+          {
+            name: "remove",
+            signature: "remove(name_or_id)",
+            description: "Remove a container",
+            returns: "None",
+          },
+          {
+            name: "inspect",
+            signature: "inspect(name_or_id)",
+            description: "Get container details",
+            returns: "dict - Container details",
+          },
+          {
+            name: "list",
+            signature: "list()",
+            description: "List all containers",
+            returns: "list - List of container dicts",
+          },
+          {
+            name: "volume_create",
+            signature: 'volume_create(name, *, size="")',
+            description: "Create a named volume",
+            returns: "None",
+          },
+          {
+            name: "volume_remove",
+            signature: "volume_remove(name)",
+            description: "Remove a named volume",
+            returns: "None",
+          },
+          {
+            name: "volume_list",
+            signature: "volume_list()",
+            description: "List all volumes",
+            returns: "list - List of volume name strings",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.fs",
+    description: "Binary file operations for low-level byte manipulation",
+    functions: [
+      {
+        name: "read_bytes",
+        signature: "read_bytes(path, offset, length)",
+        description: "Read bytes from a file at a given offset",
+        returns: "str - Byte data as string",
+      },
+      {
+        name: "write_bytes",
+        signature: "write_bytes(path, offset, data, mode=0o644)",
+        description: "Write bytes to a file at a given offset",
+        returns: "None",
+      },
+      {
+        name: "unpack",
+        signature: "unpack(format, data)",
+        description: "Unpack binary data using a format string",
+        returns: "list - List of unpacked values (int or float)",
+      },
+      {
+        name: "pack",
+        signature: "pack(format, values)",
+        description: "Pack values into binary data using a format string",
+        returns: "str - Packed binary data",
+      },
+      {
+        name: "byte_at",
+        signature: "byte_at(data, index)",
+        description: "Get the byte value at a specific index",
+        returns: "int - Byte value (0-255)",
+      },
+      {
+        name: "len",
+        signature: "len(data)",
+        description: "Get the length of byte data",
+        returns: "int - Length in bytes",
+      },
+      {
+        name: "slice",
+        signature: "slice(data, start, end=None)",
+        description: "Slice byte data from start to end",
+        returns: "str - Sliced byte data",
+      },
+    ],
+  },
+  {
+    module: "scriptling.net.websocket",
+    description: "WebSocket client for connecting to WebSocket servers (all environments)",
+    functions: [
+      {
+        name: "connect",
+        signature: "connect(url, timeout=10, headers=None)",
+        description: "Connect to a WebSocket server (ws:// or wss://)",
+        returns: "WebSocketClientConn - Connection object",
+        returnType: "WebSocketClientConn",
+      },
+      {
+        name: "is_text",
+        signature: "is_text(message)",
+        description: "Check if a received message is a text message",
+        returns: "bool - True if text message",
+      },
+      {
+        name: "is_binary",
+        signature: "is_binary(message)",
+        description: "Check if a received message is a binary message",
+        returns: "bool - True if binary message",
+      },
+    ],
+    classes: [
+      {
+        name: "WebSocketClientConn",
+        description: "WebSocket client connection for sending/receiving messages",
+        methods: [
+          {
+            name: "send",
+            signature: "send(message)",
+            description:
+              "Send a text message (str or dict, dicts are JSON-encoded)",
+            returns: "None on success, or error if send fails",
+          },
+          {
+            name: "send_binary",
+            signature: "send_binary(data)",
+            description: "Send binary data (list of byte values 0-255)",
+            returns: "None on success, or error if send fails",
+          },
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description: "Receive a message from the server",
+            returns: "WebSocketMessage or None - Message, or None if timeout/closed",
+          },
+          {
+            name: "connected",
+            signature: "connected()",
+            description: "Check if the connection is still open",
+            returns: "bool - True if connected",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the WebSocket connection",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "remote_addr",
+            description: "Remote address of the connected server",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.net.multicast",
+    description: "UDP multicast group communication (all environments)",
+    functions: [
+      {
+        name: "join",
+        signature: 'join(group_addr, port, interface="", ttl=1)',
+        description: "Join a multicast group",
+        returns: "MulticastGroup - Multicast group instance",
+        returnType: "MulticastGroup",
+      },
+    ],
+    classes: [
+      {
+        name: "MulticastGroup",
+        description: "Multicast group for sending and receiving messages",
+        methods: [
+          {
+            name: "send",
+            signature: "send(message)",
+            description: "Send a message to the multicast group",
+            returns: "None",
+          },
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description: "Receive a message from the multicast group",
+            returns: "dict or None - Dict with data and source, or None if timeout",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Leave the multicast group",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "group_addr",
+            description: "Multicast group address",
+          },
+          {
+            name: "port",
+            description: "Multicast port number",
+          },
+          {
+            name: "local_addr",
+            description: "Local interface address",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.net.unicast",
+    description: "TCP/UDP unicast communication (all environments)",
+    functions: [
+      {
+        name: "connect",
+        signature: 'connect(host, port, protocol="udp", timeout=10)',
+        description: "Connect to a remote host via TCP or UDP",
+        returns: "Connection - Connection object",
+        returnType: "Connection",
+      },
+      {
+        name: "listen",
+        signature: 'listen(host, port=0, protocol="tcp")',
+        description: "Listen for incoming connections (TCP) or datagrams (UDP)",
+        returns: "TCPListener or UDPListener - Listener object",
+      },
+    ],
+    classes: [
+      {
+        name: "Connection",
+        description: "TCP or UDP connection to a remote host",
+        methods: [
+          {
+            name: "send",
+            signature: "send(message)",
+            description: "Send a message",
+            returns: "None",
+          },
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description: "Receive a message",
+            returns: "dict or None - Received message dict, or None if timeout",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the connection",
+            returns: "None",
+          },
+          {
+            name: "connected",
+            signature: "connected()",
+            description: "Check if the connection is still open",
+            returns: "bool - True if connected",
+          },
+        ],
+        properties: [
+          {
+            name: "local_addr",
+            description: "Local address string",
+          },
+          {
+            name: "remote_addr",
+            description: "Remote address string",
+          },
+        ],
+      },
+      {
+        name: "TCPListener",
+        description: "TCP listener for accepting incoming connections",
+        methods: [
+          {
+            name: "accept",
+            signature: "accept(timeout=30)",
+            description: "Accept an incoming connection",
+            returns: "Connection or None - New connection, or None if timeout",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the listener",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "addr",
+            description: "Listener address string",
+          },
+        ],
+      },
+      {
+        name: "UDPListener",
+        description: "UDP listener for receiving datagrams",
+        methods: [
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description: "Receive a datagram",
+            returns: "dict or None - Received message dict, or None if timeout",
+          },
+          {
+            name: "send_to",
+            signature: "send_to(address, message)",
+            description: "Send a datagram to a specific address",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the listener",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "addr",
+            description: "Listener address string",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.net.gossip",
+    description:
+      "Gossip protocol-based cluster membership, messaging, and leader election (all environments)",
+    constants: [
+      {
+        name: "MSG_USER",
+        value: "128",
+        description: "Starting message type for user-defined messages",
+      },
+    ],
+    functions: [
+      {
+        name: "create",
+        signature:
+          'create(bind_addr="127.0.0.1:8000", node_id="", advertise_addr="", encryption_key="", tags=None, compression=False, bearer_token="", app_version="", transport="socket")',
+        description: "Create a gossip cluster node",
+        returns: "Cluster - Cluster instance",
+        returnType: "Cluster",
+      },
+    ],
+    classes: [
+      {
+        name: "Cluster",
+        description: "Gossip cluster node for distributed communication",
+        methods: [
+          {
+            name: "start",
+            signature: "start()",
+            description: "Start the cluster node",
+            returns: "None",
+          },
+          {
+            name: "join",
+            signature: "join(peers)",
+            description: "Join an existing cluster. Peers is a list of addresses",
+            returns: "None",
+          },
+          {
+            name: "leave",
+            signature: "leave()",
+            description: "Leave the cluster gracefully",
+            returns: "None",
+          },
+          {
+            name: "stop",
+            signature: "stop()",
+            description: "Stop the cluster node",
+            returns: "None",
+          },
+          {
+            name: "send",
+            signature: "send(message_type, data, reliable=False)",
+            description: "Broadcast a message to all cluster members",
+            returns: "None",
+          },
+          {
+            name: "send_to",
+            signature: "send_to(node_id, message_type, data, reliable=False)",
+            description: "Send a message to a specific node",
+            returns: "None",
+          },
+          {
+            name: "send_tagged",
+            signature: "send_tagged(tag, message_type, data, reliable=False)",
+            description: "Broadcast a tagged message to nodes matching a tag",
+            returns: "None",
+          },
+          {
+            name: "send_request",
+            signature: "send_request(node_id, message_type, data)",
+            description: "Send a request and wait for a response",
+            returns: "any - Response data",
+          },
+          {
+            name: "handle",
+            signature: "handle(message_type, handler)",
+            description: "Register a handler for a message type",
+            returns: "None",
+          },
+          {
+            name: "handle_with_reply",
+            signature: "handle_with_reply(message_type, handler)",
+            description: "Register a request-response handler for a message type",
+            returns: "None",
+          },
+          {
+            name: "unhandle",
+            signature: "unhandle(message_type)",
+            description: "Remove a message handler",
+            returns: "bool - True if handler was removed",
+          },
+          {
+            name: "create_node_group",
+            signature: "create_node_group(criteria, on_node_added=None, on_node_removed=None)",
+            description:
+              "Create a dynamic node group filtered by metadata criteria. Criteria is a dict of key-value pairs",
+            returns: "NodeGroup - Node group instance",
+            returnType: "NodeGroup",
+          },
+          {
+            name: "create_leader_election",
+            signature: 'create_leader_election(check_interval="1s", leader_timeout="3s", heartbeat_msg_type=65, quorum_percentage=60, metadata_criteria=None)',
+            description: "Create a leader election for the cluster",
+            returns: "LeaderElection - Leader election instance",
+            returnType: "LeaderElection",
+          },
+          {
+            name: "nodes",
+            signature: "nodes()",
+            description: "List all known nodes",
+            returns: "list - List of node dicts",
+          },
+          {
+            name: "alive_nodes",
+            signature: "alive_nodes()",
+            description: "List all alive nodes",
+            returns: "list - List of node dicts",
+          },
+          {
+            name: "nodes_by_tag",
+            signature: "nodes_by_tag(tag)",
+            description: "List nodes with a specific tag",
+            returns: "list - List of node dicts",
+          },
+          {
+            name: "get_node",
+            signature: "get_node(node_id)",
+            description: "Get a specific node by ID",
+            returns: "dict or None - Node dict or None",
+          },
+          {
+            name: "local_node",
+            signature: "local_node()",
+            description: "Get the local node info",
+            returns: "dict - Local node dict",
+          },
+          {
+            name: "num_nodes",
+            signature: "num_nodes()",
+            description: "Get total number of known nodes",
+            returns: "int - Node count",
+          },
+          {
+            name: "num_alive",
+            signature: "num_alive()",
+            description: "Get number of alive nodes",
+            returns: "int - Alive node count",
+          },
+          {
+            name: "num_suspect",
+            signature: "num_suspect()",
+            description: "Get number of suspect nodes",
+            returns: "int - Suspect node count",
+          },
+          {
+            name: "num_dead",
+            signature: "num_dead()",
+            description: "Get number of dead nodes",
+            returns: "int - Dead node count",
+          },
+          {
+            name: "is_local",
+            signature: "is_local(node_id)",
+            description: "Check if a node ID refers to the local node",
+            returns: "bool - True if the node is local",
+          },
+          {
+            name: "candidates",
+            signature: "candidates()",
+            description:
+              "Get a random subset of nodes suitable for gossiping to",
+            returns: "list - List of node dicts",
+          },
+          {
+            name: "node_id",
+            signature: "node_id()",
+            description: "Get the local node ID",
+            returns: "str - Node ID",
+          },
+          {
+            name: "set_metadata",
+            signature: "set_metadata(key, value)",
+            description: "Set metadata on the local node",
+            returns: "None",
+          },
+          {
+            name: "get_metadata",
+            signature: "get_metadata(key)",
+            description: "Get metadata from the local node",
+            returns: "str or None - Metadata value",
+          },
+          {
+            name: "all_metadata",
+            signature: "all_metadata()",
+            description: "Get all metadata from the local node",
+            returns: "dict - All metadata key-value pairs",
+          },
+          {
+            name: "delete_metadata",
+            signature: "delete_metadata(key)",
+            description: "Delete metadata from the local node",
+            returns: "None",
+          },
+          {
+            name: "on_state_change",
+            signature: "on_state_change(handler)",
+            description:
+              "Register handler called when a node's state changes. Handler receives (node_id, state)",
+            returns: "None",
+          },
+          {
+            name: "on_metadata_change",
+            signature: "on_metadata_change(handler)",
+            description:
+              "Register handler called when a node's metadata changes. Handler receives NodeDict",
+            returns: "None",
+          },
+          {
+            name: "on_gossip_interval",
+            signature: "on_gossip_interval(handler)",
+            description: "Register handler called on each gossip interval",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "NodeGroup",
+        description: "Dynamic node group filtered by metadata criteria",
+        methods: [
+          {
+            name: "nodes",
+            signature: "nodes()",
+            description: "List all nodes in the group",
+            returns: "list - List of node dicts",
+          },
+          {
+            name: "contains",
+            signature: "contains(node_id)",
+            description: "Check if a node is in the group",
+            returns: "bool - True if node is in group",
+          },
+          {
+            name: "count",
+            signature: "count()",
+            description: "Get number of nodes in the group",
+            returns: "int - Node count",
+          },
+          {
+            name: "send_to_peers",
+            signature: "send_to_peers(message_type, data, reliable=False)",
+            description: "Send a message to all peers in the group",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the node group",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "LeaderElection",
+        description: "Leader election for a cluster or node group",
+        methods: [
+          {
+            name: "start",
+            signature: "start()",
+            description: "Start participating in leader election",
+            returns: "None",
+          },
+          {
+            name: "stop",
+            signature: "stop()",
+            description: "Stop participating in leader election",
+            returns: "None",
+          },
+          {
+            name: "is_leader",
+            signature: "is_leader()",
+            description: "Check if this node is the current leader",
+            returns: "bool - True if leader",
+          },
+          {
+            name: "has_leader",
+            signature: "has_leader()",
+            description: "Check if a leader has been elected",
+            returns: "bool - True if leader exists",
+          },
+          {
+            name: "get_leader_id",
+            signature: "get_leader_id()",
+            description: "Get the current leader's node ID",
+            returns: "str or None - Leader node ID",
+          },
+          {
+            name: "send_to_peers",
+            signature: "send_to_peers(message_type, data, reliable=False)",
+            description: "Send a message to all peers",
+            returns: "None",
+          },
+          {
+            name: "on_event",
+            signature: "on_event(event_type, handler)",
+            description:
+              "Register handler for election events. Event types: elected, lost, became_leader, stepped_down. Handler receives (node_id, state)",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+  },
+
+  {
+    module: "scriptling.net.resolve",
+    description: "DNS resolution for IP, SRV, and srv+http URLs (all environments)",
+    functions: [
+      {
+        name: "lookup_ip",
+        signature: "lookup_ip(host)",
+        description: "Resolve a hostname to a list of IP address strings",
+        returns: "list[str] - List of IP addresses",
+      },
+      {
+        name: "lookup_srv",
+        signature: "lookup_srv(service)",
+        description: "Resolve an SRV record to a list of address dicts with ip and port",
+        returns: "list[dict] - List of {ip: str, port: int}",
+      },
+      {
+        name: "resolve_srv_http",
+        signature: "resolve_srv_http(uri)",
+        description: "Resolve a srv+http(s):// URI to a concrete URL with the SRV-resolved port",
+        returns: "str - Resolved URL",
       },
     ],
   },
@@ -2064,6 +2741,10 @@ const scriptLibraries = [
             description: "Conversation history list",
           },
           {
+            name: "tool_schemas",
+            description: "Built tool schema list",
+          },
+          {
             name: "memory",
             description: "Optional MemoryStore for persistent memory",
           },
@@ -2075,6 +2756,14 @@ const scriptLibraries = [
             name: "compaction_threshold",
             description: "Percentage of max_tokens for auto-compaction (default 80)",
           },
+          {
+            name: "request_timeout",
+            description: "Request timeout in seconds (default 300)",
+          },
+          {
+            name: "extra_body",
+            description: "Extra body parameters passed to completions",
+          },
         ],
       },
     ],
@@ -2082,7 +2771,7 @@ const scriptLibraries = [
       {
         name: "Agent",
         signature:
-          "Agent(client, *, tools=None, system_prompt='', model='', memory=None, max_tokens=32000, compaction_threshold=80)",
+          "Agent(client, *, tools=None, system_prompt='', model='', memory=None, max_tokens=32000, compaction_threshold=80, request_timeout=300, extra_body=None)",
         description:
           "Create an agentic AI loop with automatic tool execution and optional memory",
         returns: "Agent - Agent instance",
@@ -2639,6 +3328,12 @@ const scriptLibraries = [
         returns: "None",
       },
       {
+        name: "not_found",
+        signature: 'not_found(handler)',
+        description: 'Register a 404 not-found handler (handler is "library.function" string)',
+        returns: "None",
+      },
+      {
         name: "static",
         signature: "static(path, directory)",
         description: "Register a static file serving route",
@@ -2715,6 +3410,12 @@ const scriptLibraries = [
         signature: "load(s)",
         description: "Parse YAML string to object",
         returns: "object - Parsed YAML data",
+      },
+      {
+        name: "safe_dump",
+        signature: "safe_dump(obj)",
+        description: "Serialize object to YAML string (safe)",
+        returns: "str - YAML formatted string",
       },
     ],
   },
@@ -3059,6 +3760,69 @@ const scriptLibraries = [
             returns: "string - Rendered output",
           },
         ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.provision.file",
+    description: "File provisioning — create, update, and remove files and directories (all environments except MCP)",
+    constants: [
+      {
+        name: "CREATED",
+        value: '"created"',
+        description: "Status returned when a file or directory was newly created",
+      },
+      {
+        name: "UPDATED",
+        value: '"updated"',
+        description: "Status returned when a file existed but content differed",
+      },
+      {
+        name: "UNCHANGED",
+        value: '"unchanged"',
+        description: "Status returned when a file existed with identical content",
+      },
+      {
+        name: "REMOVED",
+        value: '"removed"',
+        description: "Status returned when a file or directory was deleted",
+      },
+      {
+        name: "ABSENT",
+        value: '"absent"',
+        description: "Status returned when a file or directory did not exist",
+      },
+      {
+        name: "EXISTS",
+        value: '"exists"',
+        description: "Status returned when a directory already existed",
+      },
+    ],
+    functions: [
+      {
+        name: "ensure",
+        signature: "ensure(path, content, mode=0o644)",
+        description:
+          "Ensure a file exists with the given content. Creates parent dirs if needed.",
+        returns: "str - file.CREATED, file.UPDATED, or file.UNCHANGED",
+      },
+      {
+        name: "absent",
+        signature: "absent(path)",
+        description: "Remove a file if it exists",
+        returns: "str - file.REMOVED or file.ABSENT",
+      },
+      {
+        name: "ensure_directory",
+        signature: "ensure_directory(path, mode=0o755)",
+        description: "Ensure a directory exists, creating parent dirs if needed",
+        returns: "str - file.CREATED or file.EXISTS",
+      },
+      {
+        name: "absent_directory",
+        signature: "absent_directory(path)",
+        description: "Remove an empty directory if it exists",
+        returns: "str - file.REMOVED or file.ABSENT",
       },
     ],
   },
@@ -4332,7 +5096,7 @@ const scriptLibraries = [
       },
       {
         name: "write_file",
-        signature: "write_file(path, content)",
+        signature: "write_file(path, content, mode=0o644)",
         description: "Write string content to file",
         returns: "None",
       },
@@ -4349,14 +5113,20 @@ const scriptLibraries = [
         returns: "None",
       },
       {
+        name: "chmod",
+        signature: "chmod(path, mode)",
+        description: "Change file permissions",
+        returns: "None",
+      },
+      {
         name: "mkdir",
-        signature: "mkdir(path)",
+        signature: "mkdir(path, mode=0o777)",
         description: "Create directory",
         returns: "None",
       },
       {
         name: "makedirs",
-        signature: "makedirs(path)",
+        signature: "makedirs(path, mode=0o777, exist_ok=False)",
         description: "Create directories recursively",
         returns: "None",
       },
@@ -4364,6 +5134,12 @@ const scriptLibraries = [
         name: "rmdir",
         signature: "rmdir(path)",
         description: "Remove empty directory",
+        returns: "None",
+      },
+      {
+        name: "removedirs",
+        signature: "removedirs(name)",
+        description: "Remove empty directories recursively",
         returns: "None",
       },
       {
@@ -4388,6 +5164,16 @@ const scriptLibraries = [
         name: "name",
         value: "'posix' or 'nt'",
         description: "OS name identifier",
+      },
+      {
+        name: "platform",
+        value: "'darwin', 'linux', etc.",
+        description: "Runtime platform (GOOS)",
+      },
+      {
+        name: "environ",
+        value: "dict",
+        description: "All environment variables as dictionary",
       },
     ],
   },
@@ -4473,6 +5259,12 @@ const scriptLibraries = [
         description: "Get file size in bytes",
         returns: "int - File size",
       },
+      {
+        name: "getmtime",
+        signature: "getmtime(path)",
+        description: "Get file modification time",
+        returns: "float - Modification timestamp",
+      },
     ],
   },
   {
@@ -4518,8 +5310,14 @@ const scriptLibraries = [
           },
           {
             name: "mkdir",
-            signature: "mkdir(parents=False)",
+            signature: "mkdir(mode=0o777, parents=False, exist_ok=False)",
             description: "Create directory",
+            returns: "None",
+          },
+          {
+            name: "chmod",
+            signature: "chmod(mode)",
+            description: "Change file permissions",
             returns: "None",
           },
           {
@@ -4545,6 +5343,42 @@ const scriptLibraries = [
             signature: "write_text(data)",
             description: "Write string data to file",
             returns: "None",
+          },
+          {
+            name: "read_bytes",
+            signature: "read_bytes()",
+            description: "Read file contents as bytes",
+            returns: "str - Byte data",
+          },
+          {
+            name: "write_bytes",
+            signature: "write_bytes(data)",
+            description: "Write byte data to file",
+            returns: "None",
+          },
+          {
+            name: "copy",
+            signature: "copy(target)",
+            description: "Copy a file or directory tree to a target path",
+            returns: "Path - New Path pointing to the target",
+          },
+          {
+            name: "rename",
+            signature: "rename(target)",
+            description: "Rename or move a file or directory",
+            returns: "Path - New Path pointing to the target",
+          },
+          {
+            name: "iterdir",
+            signature: "iterdir()",
+            description: "List directory contents as Path objects",
+            returns: "list[Path] - Directory contents",
+          },
+          {
+            name: "glob",
+            signature: "glob(pattern)",
+            description: "Match a shell-style wildcard pattern (*, ?, **) within a directory",
+            returns: "list[Path] - Matching Path objects",
           },
         ],
         properties: [
@@ -4610,6 +5444,13 @@ const scriptLibraries = [
         description: "Send PATCH request",
         returns: "Response - Response object",
         returnType: "Response",
+      },
+      {
+        name: "parallel",
+        signature: "parallel(requests, max_parallel=4)",
+        description:
+          "Execute multiple HTTP requests in parallel. Each request is a dict with method, url, and optional data/headers",
+        returns: "list - List of Response objects",
       },
     ],
     classes: [
@@ -4884,11 +5725,6 @@ const typePatterns = [
     regex: /(\w+)\s*=\s*(\w+\.)*response_stream\s*\(/,
     type: "ResponseStream",
   },
-  // scriptling.threads.run returns Promise
-  {
-    regex: /(\w+)\s*=\s*scriptling\.threads\.run\s*\(/,
-    type: "Promise",
-  },
   // scriptling.runtime.sandbox.create returns Sandbox
   {
     regex: /(\w+)\s*=\s*scriptling\.runtime\.sandbox\.create\s*\(/,
@@ -4903,6 +5739,36 @@ const typePatterns = [
   {
     regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.background\s*\(/,
     type: "Promise",
+  },
+  // scriptling.container.Client returns ContainerClient
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?container\.Client\s*\(/,
+    type: "ContainerClient",
+  },
+  // scriptling.net.websocket.connect returns WebSocketClientConn
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?net\.websocket\.connect\s*\(/,
+    type: "WebSocketClientConn",
+  },
+  // scriptling.net.multicast.join returns MulticastGroup
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?net\.multicast\.join\s*\(/,
+    type: "MulticastGroup",
+  },
+  // scriptling.net.unicast.connect returns Connection
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?net\.unicast\.connect\s*\(/,
+    type: "Connection",
+  },
+  // scriptling.net.gossip.create returns Cluster
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?net\.gossip\.create\s*\(/,
+    type: "Cluster",
+  },
+  // scriptling.ai.Pipeline returns Pipeline
+  {
+    regex: /(\w+)\s*=\s*(\w+\.)*Pipeline\s*\(/,
+    type: "Pipeline",
   },
   // requests.get/post/put/delete/patch returns Response
   {
@@ -5251,6 +6117,7 @@ function getCompletions(editor, session, pos, prefix, callback) {
     "filter",
     "float",
     "hex",
+    "input",
     "int",
     "len",
     "list",

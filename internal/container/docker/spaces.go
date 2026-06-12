@@ -9,12 +9,14 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -50,14 +52,6 @@ type jobSpec struct {
 	DNSSearch     []string    `yaml:"dns_search,omitempty"`
 	Memory        string      `yaml:"memory,omitempty"`
 	CPUs          string      `yaml:"cpus,omitempty"`
-}
-
-type volumeSpec struct {
-	Size string `yaml:"size,omitempty"`
-}
-
-type volInfo struct {
-	Volumes map[string]volumeSpec `yaml:"volumes"`
 }
 
 // ---- Docker REST API request/response types ----
@@ -110,6 +104,11 @@ type containerInspectResponse struct {
 	State *struct {
 		Running bool `json:"Running"`
 	} `json:"State"`
+}
+
+type containerListResponse struct {
+	ID    string   `json:"Id"`
+	Names []string `json:"Names"`
 }
 
 // ---- helpers ----
@@ -330,6 +329,10 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	if !contains(spec.CapAdd, "CAP_AUDIT_WRITE") {
 		spec.CapAdd = append(spec.CapAdd, "CAP_AUDIT_WRITE")
 	}
+	if err := container.ValidateManagedVolumeBinds(spec.Volumes, space.VolumeData); err != nil {
+		return err
+	}
+	spec.Volumes = container.ResolveManagedPathBinds(spec.Volumes, space.VolumeData)
 
 	// Build request structs
 	exposedPorts := map[string]struct{}{}
@@ -370,6 +373,10 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			return err
 		}
 	}
+
+	// Inject port env vars from template, overwriting any existing values
+	spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
+	spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
 
 	createReq := containerCreateRequest{
 		Image:        spec.Image,
@@ -611,17 +618,12 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 }
 
 func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
-	volumes, err := model.ResolveVariables(template.Volumes, template, space, user, variables)
+	vi, err := model.LoadLocalStorageFromYaml(template.Volumes, template, space, user, variables)
 	if err != nil {
 		return err
 	}
 
-	var vi volInfo
-	if err = yaml.Unmarshal([]byte(volumes), &vi); err != nil {
-		return err
-	}
-
-	if len(vi.Volumes) == 0 && len(space.VolumeData) == 0 {
+	if len(vi.Volumes) == 0 && len(vi.Paths) == 0 && len(space.VolumeData) == 0 {
 		c.Logger.Debug("no volumes to create")
 		return nil
 	}
@@ -667,7 +669,45 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		}
 	}
 
-	for volName := range space.VolumeData {
+	requiredPaths := make(map[string]bool)
+	for _, path := range vi.Paths {
+		c.Logger.Debug("checking path", "path", path)
+		requiredPaths[path] = true
+		data, ok := space.VolumeData[path]
+		if !ok || data.Type != container.ManagedPathType {
+			c.Logger.Debug("creating path", "path", path)
+			resolved, err := container.CreateManagedPath(path)
+			if err != nil {
+				return err
+			}
+			space.VolumeData[path] = model.SpaceVolume{Id: resolved, Namespace: "_path", Type: container.ManagedPathType}
+		} else {
+			resolved, err := container.ResolveManagedPath(path)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				c.Logger.Debug("recreating missing path", "path", path)
+				if err := os.MkdirAll(resolved, 0755); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			if requiredPaths[volName] {
+				continue
+			}
+			c.Logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		if _, ok := vi.Volumes[volName]; !ok {
 			c.Logger.Debug("deleting volume", "name", volName)
 			if err := c.volumeRemove(context.Background(), volName); err != nil {
@@ -698,7 +738,16 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
-	for volName := range space.VolumeData {
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.Logger.Debug("deleting path", "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		c.Logger.Debug("deleting volume", "name", volName)
 		if err := c.volumeRemove(context.Background(), volName); err != nil {
 			return err
@@ -708,4 +757,111 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	c.Logger.Debug("volumes deleted")
 	return nil
+}
+
+func (c *DockerClient) CleanupSpaceArtifacts(space *model.Space) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if space.ContainerId != "" {
+		c.Logger.Debug("cleaning migrated space container", "space_id", space.Id, "container_id", space.ContainerId)
+		if err := c.containerStop(ctx, space.ContainerId); err != nil {
+			return err
+		}
+
+		deadline := time.Now().Add(30 * time.Second)
+		for {
+			inspect, code, err := c.containerInspect(ctx, space.ContainerId)
+			if err != nil {
+				if code == http.StatusNotFound {
+					break
+				}
+				return err
+			}
+			if inspect.State != nil && !inspect.State.Running {
+				break
+			}
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timeout waiting for migrated container to stop")
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		if err := c.containerRemove(ctx, space.ContainerId); err != nil {
+			return err
+		}
+	}
+
+	for volName, data := range space.VolumeData {
+		if data.Type == container.ManagedPathType {
+			c.Logger.Debug("cleaning migrated space path", "space_id", space.Id, "path", volName)
+			if err := container.DeleteManagedPath(data.Id); err != nil {
+				return err
+			}
+			continue
+		}
+
+		c.Logger.Debug("cleaning migrated space volume", "space_id", space.Id, "volume", volName)
+		if err := c.volumeRemove(ctx, volName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *DockerClient) ListRunningSpaceRuntimeRefs() (map[string]bool, error) {
+	var response []containerListResponse
+	code, err := c.httpClient.GetJSON(context.Background(), "/v1.41/containers/json", &response)
+	if err != nil {
+		return nil, fmt.Errorf("container list failed (HTTP %d): %w", code, err)
+	}
+
+	refs := make(map[string]bool)
+	for _, container := range response {
+		if container.ID != "" {
+			refs[container.ID] = true
+		}
+		for _, name := range container.Names {
+			name = strings.TrimPrefix(name, "/")
+			if name != "" {
+				refs[name] = true
+			}
+		}
+	}
+
+	return refs, nil
+}
+
+func (c *DockerClient) StopSpaceRuntime(space *model.Space) error {
+	if space.ContainerId == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if err := c.containerStop(ctx, space.ContainerId); err != nil {
+		return err
+	}
+
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		inspect, code, err := c.containerInspect(ctx, space.ContainerId)
+		if err != nil {
+			if code == http.StatusNotFound {
+				break
+			}
+			return err
+		}
+		if inspect.State != nil && !inspect.State.Running {
+			break
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for container to stop")
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return c.containerRemove(ctx, space.ContainerId)
 }

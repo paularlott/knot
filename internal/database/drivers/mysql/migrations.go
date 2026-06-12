@@ -104,6 +104,12 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS max_uptime INT UNSIGNED NOT NULL DEFAULT 0`,
 	// 49
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS max_uptime_unit VARCHAR(16) DEFAULT 'disabled'`,
+	// 50
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS allow_node_migration TINYINT(1) NOT NULL DEFAULT 0`,
+	// 51: add SSH private key storage to users
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS ssh_private_key TEXT DEFAULT ''`,
+	// 52: add ports to templates
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS ports JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

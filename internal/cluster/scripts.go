@@ -31,7 +31,7 @@ func (c *Cluster) handleScriptFullSync(sender *gossip.Node, packet *gossip.Packe
 }
 
 func (c *Cluster) handleScriptGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received script gossip request")
+	c.logger.Trace("Received script gossip request")
 
 	scripts := []*model.Script{}
 	if err := packet.Unmarshal(&scripts); err != nil {
@@ -53,14 +53,14 @@ func (c *Cluster) handleScriptGossip(sender *gossip.Node, packet *gossip.Packet)
 
 func (c *Cluster) GossipScript(script *model.Script) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping script")
+		c.logger.Trace("Gossipping script")
 
 		scripts := []*model.Script{script}
 		c.gossipCluster.Send(ScriptGossipMsg, &scripts)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating script on leaf nodes")
+		c.logger.Trace("Updating script on leaf nodes")
 
 		scripts := []*model.Script{script}
 		c.sendToLeafNodes(leafmsg.MessageGossipScript, &scripts)
@@ -89,7 +89,7 @@ func (c *Cluster) DoScriptFullSync(node *gossip.Node) error {
 }
 
 func (c *Cluster) mergeScripts(scripts []*model.Script) error {
-	c.logger.Debug("Merging scripts", "number_scripts", len(scripts))
+	c.logger.Trace("Merging scripts", "number_scripts", len(scripts))
 
 	db := database.GetInstance()
 	localScripts, err := db.GetScripts()
@@ -156,7 +156,7 @@ func (c *Cluster) gossipScripts() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(scripts))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping scripts", "batch_size", batchSize, "total", len(scripts))
+			c.logger.Trace("Gossipping scripts", "batch_size", batchSize, "total", len(scripts))
 			clusterScripts := scripts[:batchSize]
 			c.gossipCluster.Send(ScriptGossipMsg, &clusterScripts)
 		}
@@ -168,7 +168,7 @@ func (c *Cluster) gossipScripts() {
 		})
 		batchSize := c.CalcLeafPayloadSize(len(activeScripts))
 		if batchSize > 0 {
-			c.logger.Debug("Scripts to leaf nodes", "batch_size", batchSize, "total", len(activeScripts))
+			c.logger.Trace("Scripts to leaf nodes", "batch_size", batchSize, "total", len(activeScripts))
 			leafScripts := activeScripts[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipScript, &leafScripts)
 		}

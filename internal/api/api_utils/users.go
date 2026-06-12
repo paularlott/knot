@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -155,25 +156,34 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 		if agentState.SSHPort > 0 {
 			keys := []string{}
 			usernames := []string{}
-
-			// Add the given users keys
-			if user.SSHPublicKey != "" {
-				keys = append(keys, user.SSHPublicKey)
+			// Add the owning user's keys. The private key is owner-only and is not copied from shared users.
+			owner := user
+			if space.UserId != user.Id {
+				if loadedOwner, err := db.GetUser(space.UserId); err == nil && loadedOwner != nil {
+					owner = loadedOwner
+				} else {
+					log.Debug("Update SSH Keys: Failed to get owning user for space", "space_id", space.Id, "user_id", space.UserId)
+					return
+				}
 			}
-			if user.GitHubUsername != "" {
-				usernames = append(usernames, user.GitHubUsername)
+			sshPrivateKey := util.DecryptSSHPrivateKey(cfg.EncryptionKey, owner.SSHPrivateKey)
+			if owner.SSHPublicKey != "" {
+				keys = append(keys, util.SplitSSHPublicKeys(owner.SSHPublicKey)...)
+			}
+			if owner.GitHubUsername != "" {
+				usernames = append(usernames, owner.GitHubUsername)
 			}
 
 			// If space is shared then get the other users keys
 			for _, sharedUserId := range space.SharedUserIds() {
-				if sharedUserId == user.Id {
+				if sharedUserId == owner.Id {
 					continue
 				}
 
 				other, err := db.GetUser(sharedUserId)
 				if err == nil && other != nil {
 					if other.SSHPublicKey != "" {
-						keys = append(keys, other.SSHPublicKey)
+						keys = append(keys, util.SplitSSHPublicKeys(other.SSHPublicKey)...)
 					}
 					if other.GitHubUsername != "" {
 						usernames = append(usernames, other.GitHubUsername)
@@ -182,7 +192,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 			}
 
 			log.Debug("Sending SSH public key to agent", "sending", space.Id)
-			if err := agentState.SendUpdateAuthorizedKeys(keys, usernames); err != nil {
+			if err := agentState.SendUpdateAuthorizedKeys(keys, sshPrivateKey, usernames); err != nil {
 				log.WithError(err).Debug("Failed to send SSH public key to agent:")
 			}
 		}

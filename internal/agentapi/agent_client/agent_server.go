@@ -168,15 +168,15 @@ func (s *agentServer) ConnectAndServe() {
 
 			log.Info("registered with server", "server", serverAddr, "version", response.Version)
 
-		// Store the agent token and server URL at AgentClient level
-		// Note: All servers in the zone generate identical tokens (deterministic HMAC)
-		// so we only need to store once, on first successful registration
-		s.agentClient.credentialsMutex.Lock()
-		if s.agentClient.agentToken == "" {
-			s.agentClient.agentToken = response.AgentToken
-			s.agentClient.serverURL = response.ServerURL
-		}
-		s.agentClient.credentialsMutex.Unlock()
+			// Store the agent token and server URL at AgentClient level
+			// Note: All servers in the zone generate identical tokens (deterministic HMAC)
+			// so we only need to store once, on first successful registration
+			s.agentClient.credentialsMutex.Lock()
+			if s.agentClient.agentToken == "" {
+				s.agentClient.agentToken = response.AgentToken
+				s.agentClient.serverURL = response.ServerURL
+			}
+			s.agentClient.credentialsMutex.Unlock()
 
 			// If 1st registration then start the ssh server if required
 			s.agentClient.firstRegistrationMutex.Lock()
@@ -236,9 +236,10 @@ func (s *agentServer) ConnectAndServe() {
 
 			// Save the keys and github usernames
 			s.agentClient.lastPublicSSHKeys = response.SSHKeys
+			s.agentClient.lastPrivateSSHKey = response.SSHPrivateKey
 			s.agentClient.lastGitHubUsernames = response.GitHubUsernames
 
-			// Update the authorized keys file & shell
+			// Update the authorized keys file, private key & shell
 			if s.agentClient.usingInternalSSH {
 				if err := sshd.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
 					log.WithError(err).Error("updating internal SSH server keys:")
@@ -247,6 +248,11 @@ func (s *agentServer) ConnectAndServe() {
 			} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
 				if err := util.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
 					log.WithError(err).Error("updating authorized keys:")
+				}
+			}
+			if s.agentClient.withSSH {
+				if err := util.UpdateSSHPrivateKey(response.SSHPrivateKey); err != nil {
+					log.WithError(err).Error("updating SSH private key:")
 				}
 			}
 
@@ -420,8 +426,9 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 		// Test if the keys have changed
 		s.agentClient.keysMutex.Lock()
-		if !reflect.DeepEqual(updateAuthorizedKeys.SSHKeys, s.agentClient.lastPublicSSHKeys) || !reflect.DeepEqual(updateAuthorizedKeys.GitHubUsernames, s.agentClient.lastGitHubUsernames) {
+		if !reflect.DeepEqual(updateAuthorizedKeys.SSHKeys, s.agentClient.lastPublicSSHKeys) || strings.TrimSpace(updateAuthorizedKeys.SSHPrivateKey) != strings.TrimSpace(s.agentClient.lastPrivateSSHKey) || !reflect.DeepEqual(updateAuthorizedKeys.GitHubUsernames, s.agentClient.lastGitHubUsernames) {
 			s.agentClient.lastPublicSSHKeys = updateAuthorizedKeys.SSHKeys
+			s.agentClient.lastPrivateSSHKey = updateAuthorizedKeys.SSHPrivateKey
 			s.agentClient.lastGitHubUsernames = updateAuthorizedKeys.GitHubUsernames
 
 			if s.agentClient.usingInternalSSH {
@@ -431,6 +438,11 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
 				if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
 					log.WithError(err).Error("updating authorized keys:")
+				}
+			}
+			if s.agentClient.withSSH {
+				if err := util.UpdateSSHPrivateKey(updateAuthorizedKeys.SSHPrivateKey); err != nil {
+					log.WithError(err).Error("updating SSH private key:")
 				}
 			}
 		}

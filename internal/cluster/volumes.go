@@ -34,7 +34,7 @@ func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packe
 }
 
 func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received volume gossip request")
+	c.logger.Trace("Received volume gossip request")
 
 	volumes := []*model.Volume{}
 	if err := packet.Unmarshal(&volumes); err != nil {
@@ -50,7 +50,7 @@ func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet)
 
 func (c *Cluster) GossipVolume(volume *model.Volume) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping volume")
+		c.logger.Trace("Gossipping volume")
 
 		volumes := []*model.Volume{volume}
 		c.gossipCluster.Send(VolumeGossipMsg, &volumes)
@@ -83,7 +83,7 @@ func (c *Cluster) DoVolumeFullSync(node *gossip.Node) error {
 
 // Merges the volumes from a cluster member with the local volumes
 func (c *Cluster) mergeVolumes(volumes []*model.Volume) error {
-	c.logger.Debug("Merging volumes", "number_volumes", len(volumes))
+	c.logger.Trace("Merging volumes", "number_volumes", len(volumes))
 
 	// Get the list of volumes in the system
 	db := database.GetInstance()
@@ -153,7 +153,7 @@ func (c *Cluster) gossipVolumes() {
 		return // No keys to send in this batch
 	}
 
-	c.logger.Debug("Gossipping volumes", "batch_size", batchSize, "total", len(volumes))
+	c.logger.Trace("Gossipping volumes", "batch_size", batchSize, "total", len(volumes))
 
 	// Shuffle the volumes
 	rand.Shuffle(len(volumes), func(i, j int) {

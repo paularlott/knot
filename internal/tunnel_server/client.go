@@ -91,7 +91,9 @@ func (c *TunnelClient) ConnectAndServe() error {
 			return fmt.Errorf("failed to get tunnel server info: %w", err)
 		}
 
-		log.Info("https://-- -> ://localhost:", "httpssss", user.Username, "value1", c.tunnelName, "slocalhostd", tunnelServerInfo.Domain, "value3", c.protocol, "value4", c.localPort)
+		tunnelUrl := fmt.Sprintf("https://%s--%s%s", user.Username, c.tunnelName, tunnelServerInfo.Domain)
+		fmt.Printf("Tunnel URL: %s\n", tunnelUrl)
+		fmt.Printf("Forwarding to: %s://localhost:%d\n", c.protocol, c.localPort)
 
 		// Add the tunnel servers to the list
 		c.serverListMutex.Lock()
@@ -136,7 +138,7 @@ func (c *TunnelClient) ConnectAndServe() error {
 			}
 		}()
 	} else {
-		log.Info(": -> localhost:", "sd", c.spaceName, "value1", c.spacePort, "localhostd", c.localPort)
+		fmt.Printf("Forwarding space %s port %d -> localhost:%d\n", c.spaceName, c.spacePort, c.localPort)
 
 		// Add the tunnel servers to the list
 		c.serverListMutex.Lock()

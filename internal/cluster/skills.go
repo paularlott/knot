@@ -31,7 +31,7 @@ func (c *Cluster) handleSkillFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleSkillGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received skill gossip request")
+	c.logger.Trace("Received skill gossip request")
 
 	skills := []*model.Skill{}
 	if err := packet.Unmarshal(&skills); err != nil {
@@ -53,14 +53,14 @@ func (c *Cluster) handleSkillGossip(sender *gossip.Node, packet *gossip.Packet) 
 
 func (c *Cluster) GossipSkill(skill *model.Skill) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping skill")
+		c.logger.Trace("Gossipping skill")
 
 		skills := []*model.Skill{skill}
 		c.gossipCluster.Send(SkillGossipMsg, &skills)
 	}
 
 	if len(c.leafSessions) > 0 {
-		c.logger.Debug("Updating skill on leaf nodes")
+		c.logger.Trace("Updating skill on leaf nodes")
 
 		skills := []*model.Skill{skill}
 		c.sendToLeafNodes(leafmsg.MessageGossipSkill, &skills)
@@ -89,7 +89,7 @@ func (c *Cluster) DoSkillFullSync(node *gossip.Node) error {
 }
 
 func (c *Cluster) mergeSkills(skills []*model.Skill) error {
-	c.logger.Debug("Merging skills", "number_skills", len(skills))
+	c.logger.Trace("Merging skills", "number_skills", len(skills))
 
 	db := database.GetInstance()
 	localSkills, err := db.GetSkills()
@@ -156,7 +156,7 @@ func (c *Cluster) gossipSkills() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(skills))
 		if batchSize > 0 {
-			c.logger.Debug("Gossipping skills", "batch_size", batchSize, "total", len(skills))
+			c.logger.Trace("Gossipping skills", "batch_size", batchSize, "total", len(skills))
 			clusterSkills := skills[:batchSize]
 			c.gossipCluster.Send(SkillGossipMsg, &clusterSkills)
 		}
@@ -168,7 +168,7 @@ func (c *Cluster) gossipSkills() {
 		})
 		batchSize := c.CalcLeafPayloadSize(len(activeSkills))
 		if batchSize > 0 {
-			c.logger.Debug("Skills to leaf nodes", "batch_size", batchSize, "total", len(activeSkills))
+			c.logger.Trace("Skills to leaf nodes", "batch_size", batchSize, "total", len(activeSkills))
 			leafSkills := activeSkills[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipSkill, &leafSkills)
 		}

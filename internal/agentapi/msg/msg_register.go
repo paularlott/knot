@@ -13,6 +13,7 @@ type RegisterResponse struct {
 	Version                  string
 	Success                  bool
 	SSHKeys                  []string
+	SSHPrivateKey            string
 	GitHubUsernames          []string
 	Shell                    string
 	SSHHostSigner            string

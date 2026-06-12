@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
 
 	"github.com/paularlott/knot/internal/log"
@@ -42,16 +43,46 @@ func (h *Helper) createClient(platform string) (container.ContainerManager, erro
 
 	switch platform {
 	case model.PlatformDocker:
-		return docker.NewClient(), nil
+		client := docker.NewClient()
+		if client == nil {
+			return nil, fmt.Errorf("failed to create docker client")
+		}
+		return client, nil
 	case model.PlatformPodman:
-		return podman.NewClient(), nil
+		client := podman.NewClient()
+		if client == nil {
+			return nil, fmt.Errorf("failed to create podman client")
+		}
+		return client, nil
 	case model.PlatformNomad:
 		return nomad.NewClient()
 	case model.PlatformApple:
-		return apple.NewClient(), nil
+		client := apple.NewClient()
+		if client == nil {
+			return nil, fmt.Errorf("failed to create apple client")
+		}
+		return client, nil
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
+}
+
+func (h *Helper) CleanupMigratedSpaceArtifacts(space *model.Space, template *model.Template) error {
+	if template == nil || !template.IsLocalContainer() {
+		return nil
+	}
+
+	containerClient, err := h.createClient(template.Platform)
+	if err != nil {
+		log.WithError(err).Error("CleanupMigratedSpaceArtifacts: failed to create container client")
+		return err
+	}
+
+	return containerClient.CleanupSpaceArtifacts(space)
+}
+
+func (h *Helper) ListRunningSpaceRuntimeRefs(template *model.Template, spaces []*model.Space) (map[string]bool, error) {
+	return spaceutil.ListRunningRuntimeRefs(template, spaces)
 }
 
 func (h *Helper) CreateVolume(volume *model.Volume) error {
@@ -411,54 +442,124 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 	}()
 }
 
-// Clean up spaces in broken states during boot
+// Clean up spaces in broken states during boot.
+// Runs before joining the cluster so only stops orphaned runtimes and
+// handles definitive state transitions (IsDeleting, IsPending stops).
+// Does NOT start stopped spaces — monitoring will catch those after sync.
 func (h *Helper) CleanupOnBoot() {
 	logger := log.WithGroup("server")
 	logger.Info("cleaning spaces...")
 
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
+
+	var localNodeId string
+	if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil {
+		localNodeId = nodeIdCfg.Value
+	}
+
 	spaces, err := db.GetSpaces()
 	if err != nil {
 		logger.WithError(err).Fatal("failed to get spaces")
-	} else {
-		for _, space := range spaces {
-			// If space is deleted or not in this zone then ignore it
-			if space.IsDeleted || space.Zone != cfg.Zone {
+		return
+	}
+
+	templateCache := make(map[string]*model.Template)
+	runtimeRefCache := make(map[string]map[string]bool)
+
+	for _, space := range spaces {
+		if space.IsDeleted || space.Zone != cfg.Zone {
+			continue
+		}
+
+		template, ok := templateCache[space.TemplateId]
+		if !ok {
+			template, err = db.GetTemplate(space.TemplateId)
+			if err != nil {
+				logger.WithError(err).Error("failed to get template from space")
+				continue
+			}
+			templateCache[space.TemplateId] = template
+		}
+
+		if space.IsDeleting {
+			logger.Info("found space pending delete, restarting delete...", "space_name", space.Name)
+			h.DeleteSpace(space)
+			continue
+		}
+
+		if template.IsManual() {
+			continue
+		}
+
+		if template.IsLocalContainer() {
+			if space.NodeId != "" && space.NodeId != localNodeId {
 				continue
 			}
 
-			// If the space is deleting then ask it to delete again
-			if space.IsDeleting {
-				logger.Info("found space  pending delete, restarting delete...", "space_name", space.Name)
-				h.DeleteSpace(space)
-			} else if space.IsPending {
-				// If starting then ask for start
-				if !space.IsDeployed {
-					logger.Info("found space  pending start, starting...", "space_name", space.Name)
-
-					user, err := db.GetUser(space.UserId)
-					if err != nil {
-						logger.WithError(err).Error("failed to get user from space, stopping the space...")
-						space.IsDeployed = true
-						h.StopSpace(space)
-						continue
-					}
-
-					template, err := db.GetTemplate(space.TemplateId)
-					if err != nil {
-						logger.WithError(err).Error("failed to get template from space, stopping the space...")
-						space.IsDeployed = true
-						h.StopSpace(space)
-						continue
-					}
-
-					h.StartSpace(space, template, user)
-				} else {
-					logger.Info("found space  pending stop, stopping...", "space_name", space.Name)
-					h.StopSpace(space)
+			resolved := template.Platform
+			if resolved == model.PlatformContainer {
+				resolved = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+			}
+			if resolved == "" {
+				continue
+			}
+			available := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+			found := false
+			for _, rt := range available {
+				if rt == resolved {
+					found = true
+					break
 				}
 			}
+			if !found {
+				continue
+			}
+		}
+
+		containerClient, err := h.createClient(template.Platform)
+		if err != nil {
+			logger.WithError(err).Error("failed to create container client for boot cleanup", "space_name", space.Name)
+			continue
+		}
+
+		runtimeKey := template.Platform
+		if template.Platform == model.PlatformContainer {
+			runtimeKey = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+		}
+		if template.Platform == model.PlatformNomad {
+			runtimeKey = template.Platform + ":" + spaceutil.NormalizeNomadNamespace(space.NomadNamespace)
+		}
+
+		refs, ok := runtimeRefCache[runtimeKey]
+		if !ok {
+			refs, err = h.ListRunningSpaceRuntimeRefs(template, []*model.Space{space})
+			if err != nil {
+				logger.WithError(err).Error("failed to list running runtimes for boot cleanup", "space_name", space.Name)
+				continue
+			}
+			runtimeRefCache[runtimeKey] = refs
+		}
+
+		running := spaceutil.RuntimeRefRunning(space, template, refs)
+
+		if running && !space.IsDeployed {
+			logger.Info("found orphaned runtime for stopped space, stopping runtime...", "space_name", space.Name)
+			if err := containerClient.StopSpaceRuntime(space); err != nil {
+				logger.WithError(err).Error("failed to stop orphaned runtime for space", "space_name", space.Name)
+			}
+			continue
+		}
+
+		if space.IsPending && space.IsDeployed && running {
+			logger.Info("found space  pending stop with live runtime, stopping...", "space_name", space.Name)
+			h.StopSpace(space)
+			continue
+		}
+
+		if space.IsDeployed && !space.IsPending {
+			logger.Info("queuing reconcile for deployed space", "space_name", space.Name)
+			agent_server.QueueSpaceReconcile(space.Id)
 		}
 	}
 

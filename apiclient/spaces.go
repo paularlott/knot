@@ -16,7 +16,7 @@ type SpaceRequest struct {
 	TemplateId      string             `json:"template_id"`
 	Shell           string             `json:"shell"`
 	UserId          string             `json:"user_id"`
-	AltNames        []string           `json:"alt_names"`
+	AltNames        []model.AltNameEntry `json:"alt_names"`
 	IconURL         string             `json:"icon_url"`
 	CustomFields    []CustomFieldValue `json:"custom_fields"`
 	SelectedNodeId  string             `json:"selected_node_id,omitempty"`
@@ -71,6 +71,7 @@ type SpaceInfo struct {
 	NodeHostname    string              `json:"node_hostname"`
 	Stack           string              `json:"stack"`
 	ResourceUsage   *SpaceResourceUsage `json:"resource_usage,omitempty"`
+	AltNames        []model.AltNameEntry `json:"alt_names"`
 }
 
 type SpaceInfoList struct {
@@ -107,10 +108,11 @@ type SpaceDefinition struct {
 	Platform           string                       `json:"platform"`
 	Shell              string                       `json:"shell"`
 	Zone               string                       `json:"zone"`
-	AltNames           []string                     `json:"alt_names"`
+	AltNames           []model.AltNameEntry         `json:"alt_names"`
 	IsDeployed         bool                         `json:"is_deployed"`
 	IsPending          bool                         `json:"is_pending"`
 	IsDeleting         bool                         `json:"is_deleting"`
+	HasEverStarted     bool                         `json:"has_ever_started"`
 	VolumeData         map[string]model.SpaceVolume `json:"volume_data"`
 	StartedAt          time.Time                    `json:"started_at"`
 	CreatedAt          time.Time                    `json:"created_at"`
@@ -130,6 +132,7 @@ type SpaceDefinition struct {
 	VSCodeTunnel       string                       `json:"vscode_tunnel_name"`
 	Healthy            bool                         `json:"healthy"`
 	IsRemote           bool                         `json:"is_remote"`
+	NodeId             string                       `json:"node_id"`
 	NodeHostname       string                       `json:"node_hostname"`
 	Stack              string                       `json:"stack"`
 	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`

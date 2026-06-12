@@ -1,4 +1,4 @@
-package scripts
+package command_scripts
 
 import (
 	"github.com/paularlott/cli"
@@ -39,10 +39,18 @@ var ScriptsCmd = &cli.Command{
 			DefaultValue: "default",
 			Global:       true,
 		},
+		&cli.BoolFlag{
+			Name:         "global",
+			Aliases:      []string{"g"},
+			Usage:        "Operate on global scripts instead of own scripts.",
+			DefaultValue: false,
+			Global:       true,
+		},
 	},
 	Commands: []*cli.Command{
 		listCmd,
-		showCmd,
+		readCmd,
 		deleteCmd,
+		writeCmd,
 	},
 }

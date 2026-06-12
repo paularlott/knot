@@ -1,8 +1,11 @@
 package validate
 
 import (
+	"bufio"
 	"regexp"
 	"strings"
+
+	gossh "golang.org/x/crypto/ssh"
 )
 
 func Email(email string) bool {
@@ -76,4 +79,43 @@ func IsTime(time string) bool {
 func UUID(uuid string) bool {
 	re := regexp.MustCompile(`^^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 	return re.MatchString(uuid)
+}
+
+func SSHPublicKeys(keys string) bool {
+	if strings.TrimSpace(keys) == "" {
+		return true
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(keys))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if !isValidSSHPublicKeyLine(line) {
+			return false
+		}
+	}
+
+	return scanner.Err() == nil
+}
+
+func isValidSSHPublicKeyLine(line string) bool {
+	_, _, options, rest, err := gossh.ParseAuthorizedKey([]byte(line))
+	return err == nil && len(options) == 0 && len(strings.TrimSpace(string(rest))) == 0
+}
+
+func SSHPrivateKey(key string) bool {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return true
+	}
+
+	_, err := gossh.ParseRawPrivateKey([]byte(trimmed))
+	if err == nil {
+		return true
+	}
+
+	_, err = gossh.ParseRawPrivateKeyWithPassphrase([]byte(trimmed), nil)
+	return err == nil
 }

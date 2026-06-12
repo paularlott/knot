@@ -36,7 +36,7 @@ func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet)
 }
 
 func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	c.logger.Debug("Received user gossip request")
+	c.logger.Trace("Received user gossip request")
 
 	users := []*model.User{}
 	if err := packet.Unmarshal(&users); err != nil {
@@ -69,7 +69,7 @@ func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) e
 
 func (c *Cluster) GossipUser(user *model.User) {
 	if c.gossipCluster != nil {
-		c.logger.Debug("Gossipping user")
+		c.logger.Trace("Gossipping user")
 
 		users := []*model.User{user}
 		c.gossipCluster.Send(UserGossipMsg, &users)
@@ -113,7 +113,7 @@ func (c *Cluster) DoUserFullSync(node *gossip.Node) error {
 
 // Merges the users from a cluster member with the local users
 func (c *Cluster) mergeUsers(users []*model.User) error {
-	c.logger.Debug("Merging users", "number_users", len(users))
+	c.logger.Trace("Merging users", "number_users", len(users))
 
 	// Get the list of users in the system
 	db := database.GetInstance()
@@ -190,7 +190,7 @@ func (c *Cluster) gossipUsers() {
 			return // No keys to send in this batch
 		}
 
-		c.logger.Debug("Gossipping users", "batch_size", batchSize, "total", len(users))
+		c.logger.Trace("Gossipping users", "batch_size", batchSize, "total", len(users))
 
 		// Get the 1st number of users up to the batch size & broadcast
 		clusterUsers := users[:batchSize]

@@ -18,6 +18,25 @@ type SpaceCustomField struct {
 	Value string `json:"value"`
 }
 
+type AltNameEntry struct {
+	Name string `json:"name"`
+	Port uint16 `json:"port"`
+}
+
+// Value implements the driver.Valuer interface.
+func (a AltNameEntry) Value() (driver.Value, error) {
+	return json.Marshal(a)
+}
+
+// Scan implements the sql.Scanner interface.
+func (a *AltNameEntry) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(b, a)
+}
+
 type PortForwardEntry struct {
 	LocalPort  uint16 `json:"local_port"`
 	Space      string `json:"space"`
@@ -109,7 +128,7 @@ type Space struct {
 	IsPending        bool               `json:"is_pending" db:"is_pending" msgpack:"is_pending"` // Flags if the space is pending a state change, starting or stopping
 	IsDeleting       bool               `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"`
 	IsDeleted        bool               `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	AltNames         []string           `json:"alt_names" msgpack:"alt_names"`
+	AltNames         []AltNameEntry      `json:"alt_names" msgpack:"alt_names"`
 	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
 	PortForwards     []PortForwardEntry `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
@@ -117,7 +136,7 @@ type Space struct {
 	UpdatedAt        hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
-func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, zone string, iconURL string, customFields []SpaceCustomField) *Space {
+func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]AltNameEntry, zone string, iconURL string, customFields []SpaceCustomField) *Space {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal(err.Error())
