@@ -1,0 +1,10 @@
+description = "Get detailed information about a stack definition."
+keywords = ["stack definition", "get", "details", "blueprint", "application"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name or ID of the stack definition"
+required = true
+

@@ -80,7 +80,8 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, template_name, description='', shell='bash', depends_on=None, stack='')",
+        signature:
+          "create(name, template_name, description='', shell='bash', depends_on=None, stack='', selected_node_id='', alt_names=None, icon_url='', custom_fields=None, startup_script_id='')",
         description: "Create a new space",
         returns: "str - New space ID",
       },
@@ -92,16 +93,22 @@ const scriptLibraries = [
       },
       {
         name: "run_script",
-        signature: "run_script(space_name, script_name, *args)",
+        signature: "run_script(space_name, script_name, args=None)",
         description: "Execute a script in a space",
         returns: "dict - Dict with output (str) and exit_code (int)",
       },
       {
         name: "port_forward",
         signature:
-          "port_forward(source_space, local_port, remote_space, remote_port)",
+          "port_forward(source_space, local_port, remote_space, remote_port, persistent=False, force=False)",
         description: "Forward a local port to a remote space port",
         returns: "bool - True if successful",
+      },
+      {
+        name: "port_apply",
+        signature: "port_apply(source_space, forwards)",
+        description: "Replace all port forwards for a space",
+        returns: "dict - Applied/stopped forwards and errors",
       },
       {
         name: "port_list",
@@ -124,8 +131,9 @@ const scriptLibraries = [
       },
       {
         name: "update",
-        signature: "update(name, description='', shell='')",
-        description: "Update space properties",
+        signature:
+          "update(name, new_name=None, description=None, shell=None, template_name=None, depends_on=None, stack=None, selected_node_id=None, alt_names=None, icon_url=None, custom_fields=None, startup_script_id=None)",
+        description: "Update space properties while preserving fields not passed",
         returns: "bool - True if successful",
       },
       {
@@ -137,15 +145,27 @@ const scriptLibraries = [
       },
       {
         name: "share",
-        signature: "share(name, user_id)",
+        signature: "share(name, user_ids)",
         description:
-          "Share space with another user (user_id can be username, email, or UUID)",
+          "Share space with one or more users (user_ids can be usernames, emails, or UUIDs)",
         returns: "bool - True if successful",
       },
       {
         name: "unshare",
-        signature: "unshare(name)",
-        description: "Remove space share",
+        signature: "unshare(name, user_id=None)",
+        description: "Remove a space share, optionally for a specific user",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "get_dependencies",
+        signature: "get_dependencies(name)",
+        description: "Get dependency space IDs for a space",
+        returns: "list - Dependency space IDs",
+      },
+      {
+        name: "set_dependencies",
+        signature: "set_dependencies(name, depends_on)",
+        description: "Set dependency spaces by name or ID",
         returns: "bool - True if successful",
       },
       {
@@ -161,22 +181,16 @@ const scriptLibraries = [
         returns: "bool - True if successful",
       },
       {
-        name: "start_stack",
-        signature: "start_stack(stack_name)",
-        description: "Start all spaces in a stack (requires Pro license)",
-        returns: "bool - True if successful",
+        name: "usage_current",
+        signature: "usage_current(name)",
+        description: "Get the current resource usage point for a space",
+        returns: "dict - Current usage point",
       },
       {
-        name: "stop_stack",
-        signature: "stop_stack(stack_name)",
-        description: "Stop all spaces in a stack (requires Pro license)",
-        returns: "bool - True if successful",
-      },
-      {
-        name: "restart_stack",
-        signature: "restart_stack(stack_name)",
-        description: "Restart all spaces in a stack (requires Pro license)",
-        returns: "bool - True if successful",
+        name: "usage_history",
+        signature: "usage_history(name, range='1h')",
+        description: "Get historical resource usage for a space",
+        returns: "dict - Usage history response",
       },
       {
         name: "read_file",
@@ -189,6 +203,86 @@ const scriptLibraries = [
         signature: "write_file(space_name, file_path, content)",
         description: "Write content to a file in a running space",
         returns: "bool - True if successful",
+      },
+    ],
+  },
+  {
+    module: "knot.stack",
+    description: "Knot stack definition and stack lifecycle functions",
+    functions: [
+      {
+        name: "list_defs",
+        signature: "list_defs()",
+        description: "List stack definitions visible to the current user",
+        returns: "list - Stack definition summaries",
+      },
+      {
+        name: "get_def",
+        signature: "get_def(name)",
+        description: "Get a stack definition by name or ID",
+        returns: "dict - Stack definition details",
+      },
+      {
+        name: "create_def",
+        signature:
+          "create_def(name, description='', scope='user', active=True, groups=None, zones=None, spaces=None)",
+        description: "Create a new stack definition",
+        returns: "str - New stack definition ID",
+      },
+      {
+        name: "update_def",
+        signature: "update_def(name, **fields)",
+        description: "Update a stack definition while preserving other fields",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "delete_def",
+        signature: "delete_def(name)",
+        description: "Delete a stack definition",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "validate_def",
+        signature:
+          "validate_def(spaces, name='', description='', scope='user', active=True, groups=None, zones=None)",
+        description: "Validate a stack definition without saving",
+        returns: "dict - Validation result with valid and errors",
+      },
+      {
+        name: "create",
+        signature: "create(definition_name, prefix, stack_name=None)",
+        description: "Create spaces from a stack definition",
+        returns: "dict - Created space IDs keyed by component name",
+      },
+      {
+        name: "delete",
+        signature: "delete(stack_name)",
+        description: "Delete all spaces in a stack",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "start",
+        signature: "start(stack_name)",
+        description: "Start all spaces in a stack in dependency order",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "stop",
+        signature: "stop(stack_name)",
+        description: "Stop all spaces in a stack in reverse dependency order",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "restart",
+        signature: "restart(stack_name)",
+        description: "Restart all spaces in a stack",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "list",
+        signature: "list()",
+        description: "List stacks by grouping spaces by stack name",
+        returns: "list - Stack summaries",
       },
     ],
   },
@@ -662,6 +756,19 @@ const scriptLibraries = [
         returns: "dict - Template object",
       },
       {
+        name: "validate",
+        signature: "validate(platform, job='', volumes='')",
+        description: "Validate template job and volume specifications without saving",
+        returns: "dict - Validation result with valid and errors",
+      },
+      {
+        name: "nodes",
+        signature: "nodes(template_id)",
+        description: "List available placement nodes for a local-container template",
+        returns:
+          "list - Node dicts with node_id, hostname, running_spaces, total_spaces",
+      },
+      {
         name: "create",
         signature: "create(name, job, ..., health_check_type='none', ports=None)",
         description: "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects.",
@@ -705,9 +812,15 @@ const scriptLibraries = [
         returns: "dict - Variable object with value",
       },
       {
-        name: "set",
-        signature: "set(var_id, value)",
+        name: "set_value",
+        signature: "set_value(var_id, value=None)",
         description: "Set variable value (updates existing)",
+        returns: "bool - True if successfully updated",
+      },
+      {
+        name: "update",
+        signature: "update(var_id, value=None, zones=None, local=None, protected=None, restricted=None)",
+        description: "Update variable properties",
         returns: "bool - True if successfully updated",
       },
       {
@@ -742,8 +855,20 @@ const scriptLibraries = [
         returns: "dict - Volume object",
       },
       {
+        name: "nodes",
+        signature: "nodes(platform)",
+        description: "List available nodes for a platform",
+        returns: "list - Node dicts with node_id and hostname",
+      },
+      {
+        name: "validate",
+        signature: "validate(platform, definition)",
+        description: "Validate a volume definition without saving",
+        returns: "dict - Validation result with valid and errors",
+      },
+      {
         name: "create",
-        signature: "create(name, definition, platform='')",
+        signature: "create(name, definition, platform='', node_id='')",
         description: "Create a new volume",
         returns: "str - ID of the newly created volume",
       },
@@ -820,6 +945,75 @@ const scriptLibraries = [
         signature: "search(query)",
         description: "Fuzzy search skills by name/description",
         returns: "list - List of matching skill dicts",
+      },
+    ],
+  },
+  {
+    module: "knot.script",
+    description: "Knot script management and execution functions",
+    functions: [
+      {
+        name: "list",
+        signature: "list(owner=None, all_zones=False)",
+        description: "List scripts visible to the current user",
+        returns: "list - Script summaries",
+      },
+      {
+        name: "list_global",
+        signature: "list_global(all_zones=False)",
+        description: "List global scripts available for template editing",
+        returns: "list - Global script summaries",
+      },
+      {
+        name: "get",
+        signature: "get(script_id)",
+        description: "Get script details by UUID",
+        returns: "dict - Script details",
+      },
+      {
+        name: "get_by_name",
+        signature: "get_by_name(name)",
+        description: "Get script details by name, respecting user script shadowing",
+        returns: "dict - Script details",
+      },
+      {
+        name: "get_content",
+        signature: "get_content(name, script_type='script')",
+        description: "Get script content by name and type",
+        returns: "str - Script content",
+      },
+      {
+        name: "create",
+        signature:
+          "create(name, content, description='', owner=None, groups=None, zones=None, active=True, script_type='script', mcp_input_schema_toml='', mcp_keywords=None, discoverable=False)",
+        description: "Create a script. Use owner='current' for an own script.",
+        returns: "str - New script ID",
+      },
+      {
+        name: "update",
+        signature:
+          "update(script_id, name=None, content=None, description=None, groups=None, zones=None, active=None, script_type=None, mcp_input_schema_toml=None, mcp_keywords=None, discoverable=None)",
+        description: "Update a script while preserving fields not passed",
+        returns: "bool - True if successfully updated",
+      },
+      {
+        name: "delete",
+        signature: "delete(script_id)",
+        description: "Delete a script by UUID",
+        returns: "bool - True if successfully deleted",
+      },
+      {
+        name: "execute",
+        signature:
+          "execute(space_name, script_name=None, script_id=None, content=None, args=None)",
+        description: "Execute a named, ID-based, or inline script in a running space",
+        returns: "dict - Output, error, and exit_code",
+      },
+      {
+        name: "execute_content",
+        signature: "execute_content(space_name, content, args=None)",
+        description: "Execute inline script content in a running space",
+        returns: "dict - Output, error, and exit_code",
       },
     ],
   },

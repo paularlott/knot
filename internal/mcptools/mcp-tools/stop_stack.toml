@@ -1,0 +1,10 @@
+description = "Stop all spaces in a stack in reverse dependency order."
+keywords = ["stop", "stack", "shutdown", "application", "dependencies"]
+discoverable = true
+
+[[parameters]]
+name = "stack_name"
+type = "string"
+description = "Name of the stack to stop"
+required = true
+

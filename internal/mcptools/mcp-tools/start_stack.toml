@@ -1,0 +1,10 @@
+description = "Start all spaces in a stack in dependency order."
+keywords = ["start", "stack", "launch", "application", "dependencies"]
+discoverable = true
+
+[[parameters]]
+name = "stack_name"
+type = "string"
+description = "Name of the stack to start"
+required = true
+

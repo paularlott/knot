@@ -1,0 +1,10 @@
+description = "Delete all stopped spaces in a stack. Running spaces must be stopped first."
+keywords = ["delete", "stack", "remove", "cleanup", "application"]
+discoverable = true
+
+[[parameters]]
+name = "stack_name"
+type = "string"
+description = "Name of the stack to delete"
+required = true
+

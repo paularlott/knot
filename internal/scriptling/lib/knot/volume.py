@@ -101,6 +101,14 @@ def nodes(platform):
     } for n in response]
 
 
+def validate(platform, definition):
+    """Validate a volume definition without saving it."""
+    return api.post("/api/volumes/validate", {
+        "platform": platform,
+        "definition": definition
+    })
+
+
 def create(name, definition, platform="", node_id=""):
     """Create a new volume.
 

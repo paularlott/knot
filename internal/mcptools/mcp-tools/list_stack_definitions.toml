@@ -1,0 +1,4 @@
+description = "List available stack definitions that can be used to create stacks."
+keywords = ["stack definitions", "list", "blueprints", "templates", "applications"]
+discoverable = true
+

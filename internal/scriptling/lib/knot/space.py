@@ -14,6 +14,67 @@
 import knot.apiclient as api
 
 
+def _parse_space(space):
+    """Parse a space response into a stable dict."""
+    return {
+        "id": space.get("space_id", space.get("id")),
+        "name": space.get("name"),
+        "description": space.get("description", ""),
+        "note": space.get("note", ""),
+        "template_id": space.get("template_id", ""),
+        "template_name": space.get("template_name", ""),
+        "user_id": space.get("user_id", ""),
+        "username": space.get("username", ""),
+        "shares": space.get("shares", []),
+        "depends_on": space.get("depends_on", []),
+        "shell": space.get("shell", ""),
+        "platform": space.get("platform", ""),
+        "zone": space.get("zone", ""),
+        "is_running": space.get("is_deployed", space.get("is_running", False)),
+        "is_pending": space.get("is_pending", False),
+        "is_deleting": space.get("is_deleting", False),
+        "has_code_server": space.get("has_code_server", False),
+        "has_ssh": space.get("has_ssh", False),
+        "has_terminal": space.get("has_terminal", False),
+        "has_http_vnc": space.get("has_http_vnc", False),
+        "has_vscode_tunnel": space.get("has_vscode_tunnel", False),
+        "vscode_tunnel_name": space.get("vscode_tunnel_name", ""),
+        "tcp_ports": space.get("tcp_ports", {}),
+        "http_ports": space.get("http_ports", {}),
+        "node_id": space.get("node_id", ""),
+        "node_hostname": space.get("node_hostname", ""),
+        "created_at": space.get("created_at", ""),
+        "started_at": space.get("started_at", ""),
+        "alt_names": space.get("alt_names", []),
+        "icon_url": space.get("icon_url", ""),
+        "custom_fields": space.get("custom_fields", []),
+        "startup_script_id": space.get("startup_script_id", ""),
+        "stack": space.get("stack", ""),
+        "healthy": space.get("healthy", True),
+        "resource_usage": space.get("resource_usage"),
+    }
+
+
+def _resolve_template_id(template_name):
+    """Resolve a template name or ID to a template ID."""
+    import knot.template
+
+    template = knot.template.get(template_name)
+    template_id = template.get("id")
+    if not template_id:
+        raise Exception(f"Template not found: {template_name}")
+    return template_id
+
+
+def _current_user_id():
+    """Return the current API user's ID."""
+    user = api.get("/api/users/whoami")
+    user_id = user.get("user_id", user.get("id", ""))
+    if not user_id:
+        raise Exception("Current user ID not available")
+    return user_id
+
+
 def _resolve_dependency_ids(depends_on):
     """Resolve dependency names or IDs to space IDs."""
     resolved = []
@@ -43,6 +104,79 @@ def _build_space_update_body(space, **overrides):
     }
     body.update(overrides)
     return body
+
+
+def list():
+    """List spaces visible to the current user."""
+    response = api.get("/api/spaces", {"user_id": _current_user_id()})
+
+    result = []
+    for space in response.get("spaces", []):
+        result.append(_parse_space(space))
+    return result
+
+
+def get(name):
+    """Get detailed information for a space by name or ID."""
+    response = api.get(f"/api/spaces/{name}")
+    return _parse_space(response)
+
+
+def create(name, template_name, description="", shell="bash", depends_on=None,
+           stack="", selected_node_id="", alt_names=None, icon_url="",
+           custom_fields=None, startup_script_id=""):
+    """Create a new space and return its ID."""
+    body = {
+        "name": name,
+        "description": description,
+        "template_id": _resolve_template_id(template_name),
+        "shell": shell,
+        "alt_names": alt_names or [],
+        "icon_url": icon_url,
+        "custom_fields": custom_fields or [],
+        "selected_node_id": selected_node_id,
+        "startup_script_id": startup_script_id,
+        "depends_on": _resolve_dependency_ids(depends_on),
+        "stack": stack,
+    }
+
+    response = api.post("/api/spaces", body)
+    return response.get("space_id")
+
+
+def update(name, new_name=None, description=None, shell=None, template_name=None,
+           depends_on=None, stack=None, selected_node_id=None, alt_names=None,
+           icon_url=None, custom_fields=None, startup_script_id=None):
+    """Update space properties while preserving fields not explicitly changed."""
+    space = get(name)
+    overrides = {}
+
+    if new_name is not None:
+        overrides["name"] = new_name
+    if description is not None:
+        overrides["description"] = description
+    if shell is not None:
+        overrides["shell"] = shell
+    if template_name is not None:
+        overrides["template_id"] = _resolve_template_id(template_name)
+    if depends_on is not None:
+        overrides["depends_on"] = _resolve_dependency_ids(depends_on)
+    if stack is not None:
+        overrides["stack"] = stack
+    if selected_node_id is not None:
+        overrides["selected_node_id"] = selected_node_id
+    if alt_names is not None:
+        overrides["alt_names"] = alt_names
+    if icon_url is not None:
+        overrides["icon_url"] = icon_url
+    if custom_fields is not None:
+        overrides["custom_fields"] = custom_fields
+    if startup_script_id is not None:
+        overrides["startup_script_id"] = startup_script_id
+
+    body = _build_space_update_body(space, **overrides)
+    api.put(f"/api/spaces/{space.get('id')}", body)
+    return True
 
 
 def delete(name):
@@ -123,6 +257,21 @@ def is_running(name):
     """
     space = get(name)
     return space.get("is_running", False)
+
+
+def usage_current(name):
+    """Get the current resource usage point for a space."""
+    return api.get(f"/api/spaces/{name}/usage/current")
+
+
+def usage_history(name, range="1h"):
+    """Get historical resource usage for a space.
+
+    Args:
+        name: Space name or ID
+        range: "1h" for minute samples or "7d" for daily samples
+    """
+    return api.get(f"/api/spaces/{name}/usage/history", {"range": range})
 
 
 def set_description(name, description):

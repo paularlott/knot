@@ -1,0 +1,4 @@
+description = "List stack instances by grouping spaces with the same stack name."
+keywords = ["stacks", "list", "space groups", "applications", "environments"]
+discoverable = true
+

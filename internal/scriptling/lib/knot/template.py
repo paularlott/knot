@@ -29,6 +29,26 @@ def get(template_id):
     return _parse_template(response)
 
 
+def validate(platform, job="", volumes=""):
+    """Validate template job and volume specifications without saving."""
+    return api.post("/api/templates/validate", {
+        "platform": platform,
+        "job": job,
+        "volumes": volumes,
+    })
+
+
+def nodes(template_id):
+    """List available nodes for a local-container template."""
+    response = api.get(f"/api/templates/{template_id}/nodes")
+    return [{
+        "node_id": n.get("node_id", ""),
+        "hostname": n.get("hostname", ""),
+        "running_spaces": n.get("running_spaces", 0),
+        "total_spaces": n.get("total_spaces", 0),
+    } for n in response]
+
+
 def create(name, job="", description="", platform="", volumes="", active=True,
            compute_units=0, storage_units=0, with_terminal=False,
            with_vscode_tunnel=False, with_code_server=False, with_ssh=False,
@@ -36,9 +56,9 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            schedule_enabled=False, icon_url="",
            groups=None, zones=None, paths=None, disable_user_activity=False,
            health_check_type="none", health_check_config="", health_check_skip_ssl_verify=False,
-            health_check_timeout=10, health_check_interval=30, health_check_max_failures=3,
-            health_check_auto_restart=False, ports=None):
-        """Create a new template."""
+           health_check_timeout=10, health_check_interval=30, health_check_max_failures=3,
+           health_check_auto_restart=False, ports=None):
+    """Create a new template."""
     volumes = _with_paths(volumes, paths)
     body = {
         "name": name,
@@ -241,5 +261,12 @@ def _parse_template(response):
         "schedule": schedule,
         "custom_fields": custom_fields,
         "disable_user_activity": response.get("disable_user_activity", False),
+        "health_check_type": response.get("health_check_type", "none"),
+        "health_check_config": response.get("health_check_config", ""),
+        "health_check_skip_ssl_verify": response.get("health_check_skip_ssl_verify", False),
+        "health_check_timeout": response.get("health_check_timeout", 10),
+        "health_check_interval": response.get("health_check_interval", 30),
+        "health_check_max_failures": response.get("health_check_max_failures", 3),
+        "health_check_auto_restart": response.get("health_check_auto_restart", False),
         "ports": response.get("ports", []),
     }

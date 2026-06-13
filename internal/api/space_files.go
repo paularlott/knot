@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/knot/internal/util/validate"
 )
 
 type ReadFileRequest struct {
@@ -49,11 +50,18 @@ func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Space not found"})
 		return
 	}
+	spaceId = space.Id
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
@@ -130,11 +138,18 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Space not found"})
 		return
 	}
+	spaceId = space.Id
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {

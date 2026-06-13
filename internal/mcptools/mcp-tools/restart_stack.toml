@@ -1,0 +1,10 @@
+description = "Restart all spaces in a stack."
+keywords = ["restart", "stack", "reboot", "application", "reload"]
+discoverable = true
+
+[[parameters]]
+name = "stack_name"
+type = "string"
+description = "Name of the stack to restart"
+required = true
+

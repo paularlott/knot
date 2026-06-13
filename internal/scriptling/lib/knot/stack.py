@@ -12,6 +12,7 @@
 #   knot.stack.create("lamp", "myproject")
 
 import knot.apiclient as api
+import knot.space as space_lib
 
 
 # ── Definition Management ──────────────────────────────────────────────
@@ -250,16 +251,15 @@ def create(definition_name, prefix, stack_name=None):
         for cf in comp.get("custom_fields", []):
             custom_fields.append({"name": cf.get("name"), "value": cf.get("value")})
 
-        body = {
-            "name": space_name,
-            "template_id": template_id,
-            "stack": stack_name,
-            "description": comp.get("description", ""),
-            "custom_fields": custom_fields,
-        }
-
-        response = api.post("/api/spaces", body)
-        space_id = response.get("space_id", "")
+        space_id = space_lib.create(
+            space_name,
+            template_id,
+            description=comp.get("description", ""),
+            shell=comp.get("shell", ""),
+            stack=stack_name,
+            custom_fields=custom_fields,
+            startup_script_id=comp.get("startup_script_id", comp.get("startup_script", "")),
+        )
         space_map[comp_name] = space_id
 
     # Pass 2: Set dependencies
@@ -276,12 +276,8 @@ def create(definition_name, prefix, stack_name=None):
 
         if dep_ids:
             space_id = space_map.get(comp_name, "")
-            space_name = f"{prefix}-{comp_name}"
-            update_body = {
-                "name": space_name,
-                "stack": stack_name,
-                "depends_on": dep_ids,
-            }
+            current = space_lib.get(space_id)
+            update_body = space_lib._build_space_update_body(current, depends_on=dep_ids)
             api.put(f"/api/spaces/{space_id}", update_body)
 
     # Pass 3: Apply port forwards
@@ -323,12 +319,9 @@ def delete(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get("/api/spaces")
-    spaces = response.get("spaces", [])
-
-    for space in spaces:
+    for space in space_lib.list():
         if space.get("stack") == stack_name:
-            api.delete(f"/api/spaces/{space.get('space_id', space.get('id', ''))}")
+            api.delete(f"/api/spaces/{space.get('id', '')}")
 
     return True
 
@@ -392,12 +385,9 @@ def list():
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get("/api/spaces")
-    spaces = response.get("spaces", [])
-
     stacks = {}
     order = []
-    for space in spaces:
+    for space in space_lib.list():
         stack = space.get("stack", "")
         if not stack:
             continue

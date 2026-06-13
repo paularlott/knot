@@ -5,7 +5,7 @@ space_name = tool.get_string("name")
 script_name = tool.get_string("script")
 args = tool.get_list("arguments", [])
 
-result = knot.space.run_script(space_name, script_name, *args)
+result = knot.space.run_script(space_name, script_name, args=args)
 
 tool.return_object({
     "output": result["output"],
