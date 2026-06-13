@@ -188,9 +188,9 @@
       <!-- Modal choose user -->
       <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="chooseUserTitle">
         <!-- Modal Dialog -->
-        <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel overflow-visible">
+        <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel overflow-visible rounded-2xl">
           <!-- Dialog Header -->
-          <div class="ui-modal-header">
+          <div class="ui-modal-header rounded-t-2xl">
             <div x-cloak x-show="!chooseUser.isShare" class="ui-modal-icon-danger">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"></path>
@@ -209,7 +209,7 @@
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="ui-modal-body">
+          <div class="ui-modal-body bg-white dark:bg-gray-900">
             <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
             <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('shareUsers')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" data-parent-variable-username="toUserUsername" @refresh-autocompleter.window="refresh()" class="relative mt-2">
@@ -231,7 +231,7 @@
 
           </div>
           <!-- Dialog Footer -->
-          <div class="ui-modal-footer">
+          <div class="ui-modal-footer rounded-b-2xl">
               <button @click="chooseUser.show = false" type="button" class="ui-button-secondary">Cancel</button>
               <button x-show="!chooseUser.isShare && chooseUser.toUserId != ''" x-cloak @click="transferSpaceTo" type="button" class="ui-button-danger">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >

@@ -77,13 +77,41 @@
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end" x-data x-show="!v.active || v.zone == '{{ .zone }}'" x-cloak>
-                  <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer">
+                  <div class="hidden xl:flex items-center justify-end gap-2" aria-label="Volume actions">
+                    <button x-show="!v.active" x-bind:disabled="v.starting || v.stopping" @click="initiateStart(v.volume_id)" class="row-action-button row-action-success" type="button" :aria-label="(v.starting ? 'Starting volume ' : 'Start volume ') + v.name" title="Start">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
+                      </svg>
+                      <span class="sr-only" x-text="v.starting ? 'Starting' : 'Start'"></span>
+                    </button>
+                    <button x-show="v.active" x-bind:disabled="v.starting || v.stopping" @click="stopConfirm.show = true; stopConfirm.volume = v" class="row-action-button row-action-danger" type="button" :aria-label="(v.stopping ? 'Stopping volume ' : 'Stop volume ') + v.name" title="Stop">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
+                      </svg>
+                      <span class="sr-only" x-text="v.stopping ? 'Stopping' : 'Stop'"></span>
+                    </button>
+                    <button x-bind:disabled="v.active || v.starting || v.stopping" @click="editVolume(v.volume_id)" class="row-action-button" type="button" :aria-label="'Edit volume ' + v.name" title="Edit">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                      </svg>
+                      <span class="sr-only">Edit</span>
+                    </button>
+                    <button x-bind:disabled="v.active || v.starting || v.stopping" @click="deleteConfirm.show = true; deleteConfirm.volume = v" class="row-action-button row-action-danger" type="button" :aria-label="'Delete volume ' + v.name" title="Delete">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                      </svg>
+                      <span class="sr-only">Delete</span>
+                    </button>
+                  </div>
+                  <button @click="$refs.panel.toggle" class="row-action-menu-trigger xl:hidden" type="button" :aria-label="'More actions for volume ' + v.name" aria-haspopup="menu">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true" >
                       <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
                     </svg><span class="sr-only">More</span>
                   </button>
 
-                  <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                  <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap xl:hidden" role="menu" x-cloak>
                     <button x-show="!v.active" x-bind:disabled="v.starting && v.stopping" @click="$refs.panel.close; editVolume(v.volume_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
