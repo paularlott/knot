@@ -77,6 +77,24 @@ func GetAccessibleSpace(spaceId string, user *model.User) (*model.Space, error) 
 	return space, nil
 }
 
+func getNodeHostname(nodeId string, isRemote bool, fallbackHostname string) string {
+	if nodeId == "" {
+		return ""
+	}
+
+	if transport := service.GetTransport(); transport != nil {
+		node := transport.GetNodeByIDString(nodeId)
+		if node != nil {
+			return node.Metadata.GetString("hostname")
+		}
+	}
+
+	if isRemote {
+		return "Offline Remote Node"
+	}
+	return fallbackHostname
+}
+
 // GetSpaceDetails returns detailed space information with permission checks
 func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefinition, error) {
 	space, err := GetAccessibleSpace(spaceId, user)
@@ -165,18 +183,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		healthy = hs.Healthy
 	}
 
-	// Get node hostname if node_id is set
-	var nodeHostname string
-	if space.NodeId != "" {
-		transport := service.GetTransport()
-		node := transport.GetNodeByIDString(space.NodeId)
-		if node != nil {
-			nodeHostname = node.Metadata.GetString("hostname")
-		}
-		if nodeHostname == "" {
-			nodeHostname = "Offline Remote Node"
-		}
-	}
+	nodeHostname := getNodeHostname(space.NodeId, isRemote, cfg.Hostname)
 
 	response := &apiclient.SpaceDefinition{
 		SpaceId:            space.Id,

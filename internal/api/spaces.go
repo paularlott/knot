@@ -437,13 +437,15 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	// Acquire lock after forwarding check
 	transport := service.GetTransport()
-	unlockToken := transport.LockResource(spaceId)
-	if unlockToken == "" {
-		logger.Error("failed to lock space")
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock space"})
-		return
+	if transport != nil {
+		unlockToken := transport.LockResource(spaceId)
+		if unlockToken == "" {
+			logger.Error("failed to lock space")
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock space"})
+			return
+		}
+		defer transport.UnlockResource(spaceId, unlockToken)
 	}
-	defer transport.UnlockResource(spaceId, unlockToken)
 	if err != nil {
 		logger.WithError(err).Error("get space failed")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})

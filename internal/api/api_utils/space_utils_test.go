@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 )
 
 func TestGetSpaceDetailsValidation(t *testing.T) {
@@ -37,6 +38,44 @@ func TestGetSpaceDetailsValidation(t *testing.T) {
 			}
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestGetNodeHostnameWithoutTransport(t *testing.T) {
+	service.SetTransport(nil)
+
+	tests := []struct {
+		name             string
+		nodeId           string
+		isRemote         bool
+		fallbackHostname string
+		want             string
+	}{
+		{
+			name:             "local node falls back to server hostname",
+			nodeId:           "local-node",
+			fallbackHostname: "local-host",
+			want:             "local-host",
+		},
+		{
+			name:     "remote node reports offline",
+			nodeId:   "remote-node",
+			isRemote: true,
+			want:     "Offline Remote Node",
+		},
+		{
+			name: "empty node id stays empty",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getNodeHostname(tt.nodeId, tt.isRemote, tt.fallbackHostname)
+			if got != tt.want {
+				t.Fatalf("getNodeHostname() = %q, want %q", got, tt.want)
 			}
 		})
 	}
