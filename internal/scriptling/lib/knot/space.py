@@ -124,7 +124,7 @@ def get(name):
 
 def create(name, template_name, description="", shell="bash", depends_on=None,
            stack="", selected_node_id="", alt_names=None, icon_url="",
-           custom_fields=None, startup_script_id=""):
+           custom_fields=None, startup_script_id="", start_on_create=False):
     """Create a new space and return its ID."""
     body = {
         "name": name,
@@ -141,7 +141,10 @@ def create(name, template_name, description="", shell="bash", depends_on=None,
     }
 
     response = api.post("/api/spaces", body)
-    return response.get("space_id")
+    space_id = response.get("space_id")
+    if start_on_create:
+        start(space_id)
+    return space_id
 
 
 def update(name, new_name=None, description=None, shell=None, template_name=None,

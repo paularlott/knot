@@ -3,6 +3,7 @@ package scriptling
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -86,8 +87,8 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 
 		var result interface{}
-		statusCode, apiErr := client.PostJSON(ctx, path, body, &result, 200)
-		if apiErr != nil {
+		statusCode, apiErr := client.PostJSON(ctx, path, body, &result, 0)
+		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
 		if statusCode >= 400 {
@@ -116,8 +117,8 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 
 		var result interface{}
-		statusCode, apiErr := client.PutJSON(ctx, path, body, &result, 200)
-		if apiErr != nil {
+		statusCode, apiErr := client.PutJSON(ctx, path, body, &result, 0)
+		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
 		if statusCode >= 400 {
@@ -139,8 +140,8 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 
 		var result interface{}
-		statusCode, apiErr := client.Delete(ctx, path, nil, &result, 200)
-		if apiErr != nil {
+		statusCode, apiErr := client.Delete(ctx, path, nil, &result, 0)
+		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
 		if statusCode >= 400 {

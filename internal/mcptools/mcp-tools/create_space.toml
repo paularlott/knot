@@ -1,4 +1,4 @@
-description = "Create a new development space. Spaces are created in stopped state - use start_space to run them."
+description = "Create a new development space, optionally with custom fields and started immediately."
 keywords = ["create", "space", "new", "environment", "development", "deploy", "instance"]
 
 [[parameters]]
@@ -23,4 +23,16 @@ required = false
 name = "shell"
 type = "string"
 description = "Preferred shell (bash, zsh, fish, sh)"
+required = false
+
+[[parameters]]
+name = "custom_fields"
+type = "array:string"
+description = "Optional custom field values as name=value strings, for example [\"ENV=dev\", \"ROLE=api\"]"
+required = false
+
+[[parameters]]
+name = "start_on_create"
+type = "bool"
+description = "Start the space immediately after it is created"
 required = false
