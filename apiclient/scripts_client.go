@@ -2,6 +2,7 @@ package apiclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"github.com/gorilla/websocket"
 	"golang.org/x/term"
 )
+
+var ErrScriptNotFound = errors.New("script not found")
 
 func (c *ApiClient) GetScripts(ctx context.Context) (*ScriptList, error) {
 	var scripts ScriptList
@@ -38,7 +41,7 @@ func (c *ApiClient) GetScriptByName(ctx context.Context, name string) (string, e
 		return "", err
 	}
 	if statusCode == 404 {
-		return "", fmt.Errorf("script not found: %s", name)
+		return "", fmt.Errorf("%w: %s", ErrScriptNotFound, name)
 	}
 	if statusCode >= 400 {
 		return "", fmt.Errorf("unexpected status code: %d", statusCode)

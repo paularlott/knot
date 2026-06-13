@@ -2,11 +2,13 @@ package runscript
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/scriptling/object"
@@ -22,6 +24,12 @@ var RunScriptCmd = &cli.Command{
 			Name:     "script",
 			Usage:    "Name of script or path to .py file",
 			Required: true,
+		},
+	},
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "no-fail",
+			Usage: "Exit successfully if the named script does not exist.",
 		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
@@ -45,6 +53,9 @@ var RunScriptCmd = &cli.Command{
 		} else {
 			fetched, err := client.GetScriptByName(ctx, scriptArg)
 			if err != nil {
+				if cmd.GetBool("no-fail") && errors.Is(err, apiclient.ErrScriptNotFound) {
+					return nil
+				}
 				return fmt.Errorf("failed to fetch script: %w", err)
 			}
 			content = fetched
