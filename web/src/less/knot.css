@@ -255,7 +255,7 @@
 }
 
 @utility row-action-button {
-  @apply inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-slate-300 dark:hover:bg-slate-700/70 dark:hover:text-white dark:focus-visible:ring-offset-slate-900;
+  @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-slate-300 dark:hover:bg-slate-700/70 dark:hover:text-white dark:focus-visible:ring-offset-slate-900;
 }
 
 @utility row-action-primary {
