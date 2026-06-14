@@ -23,17 +23,17 @@ require (
 	github.com/paularlott/cli v0.8.4
 	github.com/paularlott/gossip v0.12.6
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.16.2
-	github.com/paularlott/scriptling v0.11.0
+	github.com/paularlott/mcp v0.18.1
+	github.com/paularlott/scriptling v0.11.2
 	github.com/pkg/sftp v1.13.10
-	github.com/redis/go-redis/v9 v9.20.0
+	github.com/redis/go-redis/v9 v9.20.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.53.0
-	golang.org/x/exp v0.0.0-20260603202125-055de637280b
-	golang.org/x/net v0.55.0
+	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
+	golang.org/x/net v0.56.0
 	golang.org/x/term v0.44.0
 	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -79,6 +79,6 @@ require (
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/tools v0.46.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

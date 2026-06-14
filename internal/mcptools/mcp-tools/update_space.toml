@@ -1,5 +1,5 @@
-description = "Update properties of an existing space (description, shell, or name)."
-keywords = ["update", "space", "modify", "edit", "configure", "rename"]
+description = "Update properties of an existing space (name, description, shell, or custom fields)."
+keywords = ["update", "space", "modify", "edit", "configure", "rename", "custom", "field"]
 discoverable = true
 
 [[parameters]]
@@ -7,6 +7,12 @@ name = "name"
 type = "string"
 description = "Name of the space to update"
 required = true
+
+[[parameters]]
+name = "new_name"
+type = "string"
+description = "New name for the space"
+required = false
 
 [[parameters]]
 name = "description"
@@ -18,4 +24,10 @@ required = false
 name = "shell"
 type = "string"
 description = "New preferred shell (bash, zsh, fish, sh)"
+required = false
+
+[[parameters]]
+name = "custom_fields"
+type = "array:string"
+description = "Optional custom field values as name=value strings, for example [\"ENV=prod\", \"ROLE=api\"]"
 required = false

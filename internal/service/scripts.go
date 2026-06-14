@@ -97,14 +97,19 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 	}
 
 	response, exitCode, err := scriptlingmcp.RunToolScript(ctx, env, script.Content, mcpParams)
-	if err != nil {
-		return "", err
-	}
+	// When the script called return_error(), response holds the actual error
+	// message and exitCode is non-zero — prefer that over the bare SystemExit err
 	if exitCode != 0 {
 		if response != "" {
 			return "", fmt.Errorf("%s", response)
 		}
+		if err != nil {
+			return "", err
+		}
 		return "", fmt.Errorf("script exited with code %d", exitCode)
+	}
+	if err != nil {
+		return "", err
 	}
 	return response, nil
 }
