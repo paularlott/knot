@@ -39,6 +39,7 @@ func assignedNodeOffline(nodeId string) bool {
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	userId := r.URL.Query().Get("user_id")
+	allZones := r.URL.Query().Get("all_zones") == "true"
 
 	spaceData := &apiclient.SpaceInfoList{
 		Count:  0,
@@ -56,7 +57,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		User:           user,
 		UserId:         userId,
 		IncludeDeleted: false,
-		CheckZone:      false, // API doesn't filter by zone
+		CheckZone:      !allZones,
 	})
 	if err != nil {
 		log.WithError(err).Error("HandleGetSpaces:")
@@ -117,6 +118,15 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.Stack = space.Stack
+
+		// Populate custom field values
+		s.CustomFields = make([]apiclient.CustomFieldValue, len(space.CustomFields))
+		for i, cf := range space.CustomFields {
+			s.CustomFields[i] = apiclient.CustomFieldValue{
+				Name:  cf.Name,
+				Value: cf.Value,
+			}
+		}
 
 		// Get the user
 		u, err := db.GetUser(space.UserId)

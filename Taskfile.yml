@@ -320,7 +320,7 @@ tasks:
       - go test ./...
 
   test-mcptools:
-    desc: Run MCP tool tests (schema sweep + custom field tests)
+    desc: Run MCP tool tests (schema sweep + in-process execution against mock API)
     cmds:
       - go test ./internal/mcptools/... -v
 

@@ -4585,6 +4585,11 @@ components:
           description: A list of alternative names for the space that can be used in URLs.
           items:
             $ref: "#/components/schemas/AltNameEntry"
+        custom_fields:
+          type: array
+          description: The custom field values set on the space.
+          items:
+            $ref: "#/components/schemas/CustomFieldValue"
 
     SpaceInfoList:
       type: object

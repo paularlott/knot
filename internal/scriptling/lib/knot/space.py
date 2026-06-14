@@ -13,6 +13,10 @@
 
 import knot.apiclient as api
 
+# Capture builtin list type before the module-level def list() below shadows it.
+# Used by isinstance(x, _builtin_list) checks elsewhere in this file.
+_builtin_list = list
+
 
 def _parse_space(space):
     """Parse a space response into a stable dict."""
@@ -106,9 +110,18 @@ def _build_space_update_body(space, **overrides):
     return body
 
 
-def list():
-    """List spaces visible to the current user."""
-    response = api.get("/api/spaces", {"user_id": _current_user_id()})
+def list(all_zones=False):
+    """List spaces visible to the current user.
+
+    Args:
+        all_zones: If True, include spaces from all zones. Default False
+            (only spaces in the current server's zone are returned).
+    """
+    params = {"user_id": _current_user_id()}
+    if all_zones:
+        params["all_zones"] = "true"
+
+    response = api.get("/api/spaces", params)
 
     result = []
     for space in response.get("spaces", []):
@@ -436,7 +449,7 @@ def share(name, user_ids):
     Raises:
         Exception if not configured or on API error
     """
-    if not isinstance(user_ids, list):
+    if not isinstance(user_ids, _builtin_list):
         user_ids = [user_ids]
     api.post(f"/api/spaces/{name}/share", {"shares": user_ids})
     return True
