@@ -343,6 +343,7 @@ window.spaceForm = function (
           this.formData.stack = space.stack || "";
           this.formData.http_ports = space.http_ports || {};
           this._pendingAltNames = space.alt_names || [];
+          await this.loadDependencyOptions(this.formData.user_id || userId);
         }
       } else {
         this.dependencyTargetZone = "";
