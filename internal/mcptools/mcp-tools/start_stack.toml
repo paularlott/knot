@@ -1,5 +1,6 @@
 description = "Start all spaces in a stack in dependency order."
 keywords = ["start", "stack", "launch", "application", "dependencies"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

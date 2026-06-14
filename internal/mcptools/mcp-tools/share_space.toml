@@ -1,5 +1,6 @@
 description = "Share a space with another user, granting them access to use it."
 keywords = ["share", "space", "grant", "access", "collaborate", "permissions", "invite"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

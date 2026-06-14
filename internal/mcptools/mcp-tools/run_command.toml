@@ -1,5 +1,6 @@
 description = "Execute a command in a running space and capture its output."
 keywords = ["run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output", "exec"]
+requires_approval = true
 
 [[parameters]]
 name = "name"

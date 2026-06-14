@@ -37,4 +37,5 @@ const (
 	SpaceUsageFullSyncMsg
 	SpaceUsageGossipMsg
 	SpaceMigrationStartMsg
+	ToolApprovalResponseMsg
 )

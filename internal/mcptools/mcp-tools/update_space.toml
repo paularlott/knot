@@ -1,5 +1,6 @@
 description = "Update properties of an existing space (name, description, shell, or custom fields)."
 keywords = ["update", "space", "modify", "edit", "configure", "rename", "custom", "field"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

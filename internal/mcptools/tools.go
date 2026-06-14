@@ -18,9 +18,10 @@ import (
 )
 
 type Tool struct {
-	Name     string
-	Script   string
-	Metadata *toolmetadata.ToolMetadata
+	Name             string
+	Script           string
+	Metadata         *toolmetadata.ToolMetadata
+	RequiresApproval bool
 }
 
 var (
@@ -102,9 +103,10 @@ func LoadTools(toolsPath string, disabledTools []string) error {
 
 		// Register tool
 		registry[toolName] = &Tool{
-			Name:     toolName,
-			Script:   string(scriptData),
-			Metadata: metadata,
+			Name:             toolName,
+			Script:           string(scriptData),
+			Metadata:         metadata,
+			RequiresApproval: ParseRequiresApproval(tomlData),
 		}
 		loaded++
 

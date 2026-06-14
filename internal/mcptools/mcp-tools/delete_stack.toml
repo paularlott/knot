@@ -1,5 +1,6 @@
 description = "Delete all stopped spaces in a stack. Running spaces must be stopped first."
 keywords = ["delete", "stack", "remove", "cleanup", "application"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

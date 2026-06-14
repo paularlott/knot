@@ -98,6 +98,13 @@ paths:
             type: string
             default: "2025-03-10"
           description: API version
+        - name: X-Knot-Web-Chat
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: ["true"]
+          description: Internal browser chat marker. When set to `true` on a streaming request, write-capable tools may emit `tool_approval` comments and wait for browser approval before running.
       requestBody:
         required: true
         content:
@@ -133,11 +140,45 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: Server-Sent Events stream with tool status in comments
+                description: Server-Sent Events stream with tool status and tool approval comments
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
           $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /v1/chat/tool-approvals:
+    post:
+      tags:
+        - OpenAI
+      summary: Respond to Tool Approval
+      description: Approve or deny a pending write-capable tool call emitted by the streaming web chat interface. Approvals are tracked in memory on the originating Knot instance; if this request reaches another instance in the cluster, it is forwarded to the origin over gossip using the `instance_id`.
+      operationId: respondToolApproval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolApprovalRequest"
+      responses:
+        "200":
+          description: Approval response accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolApprovalResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "502":
+          description: Failed to forward the approval response to the originating Knot instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
       security: [BearerAuth: []]
 
   /api/auth/using-totp:
@@ -4079,6 +4120,30 @@ components:
             parameters:
               type: object
               description: JSON Schema for function parameters
+
+    ToolApprovalRequest:
+      type: object
+      required:
+        - request_id
+        - instance_id
+        - approved
+      properties:
+        request_id:
+          type: string
+          description: Approval request ID from the `tool_approval` stream comment
+        instance_id:
+          type: string
+          description: Knot instance ID from the `tool_approval` stream comment
+        approved:
+          type: boolean
+          description: Whether the user approved the pending tool call
+
+    ToolApprovalResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
 
     Usage:
       type: object

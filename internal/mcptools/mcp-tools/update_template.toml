@@ -1,5 +1,6 @@
 description = "Update properties of an existing template. Only provided parameters will be changed."
 keywords = ["update", "template", "modify", "edit", "configure", "change"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

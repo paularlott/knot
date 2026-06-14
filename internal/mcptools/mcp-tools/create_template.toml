@@ -1,5 +1,6 @@
 description = "Create a new space template. Templates define the configuration for spaces including job definition, resources, and access options."
 keywords = ["create", "template", "new", "blueprint", "definition", "space"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

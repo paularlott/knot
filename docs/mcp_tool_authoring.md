@@ -67,6 +67,20 @@ description = "Type of greeting (hello, hi, hey, etc.)"
 required = false
 ```
 
+**Approval for write-capable tools:**
+
+Add `requires_approval = true` at the top level for tools that write, mutate, delete, start, stop, or execute commands. When the tool is called from the web assistant, Knot asks the browser user to approve the action before it runs. External MCP clients connected to `/mcp` are not prompted.
+
+```toml
+requires_approval = true
+
+[[parameters]]
+name = "space"
+type = "string"
+description = "Space to update"
+required = true
+```
+
 **Array parameters:**
 
 ```toml

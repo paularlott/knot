@@ -32,6 +32,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
+	"github.com/paularlott/knot/internal/toolapproval"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -855,6 +856,8 @@ var ServerCmd = &cli.Command{
 		// If AI chat enabled then initialize chat service
 		// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
 		var openAIClient ai.Client
+		approvalManager := toolapproval.NewManager()
+		toolapproval.SetManager(approvalManager)
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
 
@@ -906,6 +909,7 @@ var ServerCmd = &cli.Command{
 			// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
 			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
 			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
+			routes.Handle("POST /v1/chat/tool-approvals", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(approvalManager.HandleResponse)))
 			routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
 			routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
 			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))

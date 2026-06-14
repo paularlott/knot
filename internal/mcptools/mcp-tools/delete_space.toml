@@ -1,5 +1,6 @@
 description = "Permanently delete a space and destroy all its data. This action cannot be undone - use this to completely remove a space."
 keywords = ["delete", "destroy", "remove", "permanently", "cleanup"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

@@ -1,5 +1,6 @@
 description = "Stop a running space to free up resources. The space still exists and can be started again later."
 keywords = ["stop", "shutdown", "halt", "deactivate", "pause"]
+requires_approval = true
 
 [[parameters]]
 name = "name"

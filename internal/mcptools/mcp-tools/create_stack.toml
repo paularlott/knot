@@ -1,5 +1,6 @@
 description = "Create a stack of spaces from a stack definition."
 keywords = ["create", "stack", "application", "environment", "blueprint", "definition"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

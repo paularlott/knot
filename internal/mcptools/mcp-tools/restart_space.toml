@@ -1,5 +1,6 @@
 description = "Restart a running space (stop and start it)."
 keywords = ["restart", "space", "reboot", "reload", "cycle"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

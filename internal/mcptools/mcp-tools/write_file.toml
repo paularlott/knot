@@ -1,5 +1,6 @@
 description = "Write content to a file in a running space."
 keywords = ["write", "file", "create", "save", "edit", "content", "text", "document"]
+requires_approval = true
 
 [[parameters]]
 name = "name"

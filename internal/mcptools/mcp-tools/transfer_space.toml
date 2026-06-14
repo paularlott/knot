@@ -1,5 +1,6 @@
 description = "Transfer space ownership to another user. You will no longer own this space."
 keywords = ["transfer", "space", "ownership", "give", "assign", "handover"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

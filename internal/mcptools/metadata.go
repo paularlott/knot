@@ -19,3 +19,14 @@ func ParseMetadata(tomlContent []byte) (*toolmetadata.ToolMetadata, error) {
 
 	return &metadata, nil
 }
+
+func ParseRequiresApproval(tomlContent []byte) bool {
+	var v struct {
+		RequiresApproval   bool `toml:"requires_approval"`
+		RequiresPermission bool `toml:"requires_permission"`
+	}
+	if err := toml.Unmarshal(tomlContent, &v); err != nil {
+		return false
+	}
+	return v.RequiresApproval || v.RequiresPermission
+}

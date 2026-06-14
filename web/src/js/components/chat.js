@@ -417,7 +417,8 @@ window.chatComponent = function () {
         fragments: {
           thinking: '',
           content: '',
-          toolResults: []
+          toolResults: [],
+          toolApprovals: []
         }
       });
 
@@ -425,7 +426,10 @@ window.chatComponent = function () {
         const messageHistory = this.prepareMessageHistory();
         const response = await fetch('/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Knot-Web-Chat': 'true'
+          },
           body: JSON.stringify({
             messages: messageHistory,
             stream: true,
@@ -520,6 +524,26 @@ window.chatComponent = function () {
                       tool_name: event.tool_name,
                       result: event.result || ''
                     });
+                  } else if (eventType === 'tool_approval') {
+                    if (!assistantMessage.fragments.toolApprovals) {
+                      assistantMessage.fragments.toolApprovals = [];
+                    }
+                    const existing = assistantMessage.fragments.toolApprovals.find(a => a.request_id === event.request_id);
+                    if (!existing) {
+                      assistantMessage.fragments.toolApprovals.push({ ...event, status: 'pending' });
+                      this.userHasScrolled = false;
+                      if (event.expires_at) {
+                        const delay = (event.expires_at * 1000) - Date.now();
+                        if (delay <= 0) {
+                          this.expireToolApproval(assistantMessage.fragments.toolApprovals[assistantMessage.fragments.toolApprovals.length - 1]);
+                        } else {
+                          setTimeout(() => {
+                            const a = assistantMessage.fragments.toolApprovals.find(a => a.request_id === event.request_id);
+                            this.expireToolApproval(a);
+                          }, delay);
+                        }
+                      }
+                    }
                   }
                   this.scrollToBottom();
                 }
@@ -666,6 +690,57 @@ window.chatComponent = function () {
       }
       // Focus the input when generation is stopped
       this.focusInput();
+    },
+
+    async respondToolApproval(approval, approved) {
+      if (!approval || approval.status !== 'pending') return;
+
+      approval.status = approved ? 'approving' : 'denying';
+      delete approval.error;
+      try {
+        const response = await fetch('/v1/chat/tool-approvals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            request_id: approval.request_id,
+            instance_id: approval.instance_id,
+            approved
+          })
+        });
+
+        if (response.status === 404) {
+          approval.status = 'expired';
+          approval.error = 'This approval request is no longer active.';
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to send approval response');
+        }
+
+        this.removeToolApproval(approval);
+      } catch (error) {
+        approval.status = 'pending';
+        approval.error = 'Unable to send response. Try again.';
+      }
+    },
+
+    removeToolApproval(approval) {
+      for (const msg of this.messages) {
+        if (msg.fragments?.toolApprovals) {
+          const idx = msg.fragments.toolApprovals.findIndex(a => a.request_id === approval.request_id);
+          if (idx > -1) {
+            msg.fragments.toolApprovals.splice(idx, 1);
+            return;
+          }
+        }
+      }
+    },
+
+    expireToolApproval(approval) {
+      if (!approval || approval.status !== 'pending') return;
+      approval.status = 'expired';
+      approval.error = 'Timed out waiting for a response.';
     },
 
     scrollToBottom() {

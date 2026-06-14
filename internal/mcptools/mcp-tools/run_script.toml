@@ -1,5 +1,6 @@
 description = "Execute a named script in a running space and capture its output."
 keywords = ["run", "execute", "script", "python", "space", "trigger", "invoke"]
+requires_approval = true
 
 [[parameters]]
 name = "name"

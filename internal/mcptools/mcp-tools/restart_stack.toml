@@ -1,5 +1,6 @@
 description = "Restart all spaces in a stack."
 keywords = ["restart", "stack", "reboot", "application", "reload"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]

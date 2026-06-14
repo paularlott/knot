@@ -1,5 +1,6 @@
 description = "Stop sharing a space, revoking access from the shared user."
 keywords = ["stop", "sharing", "unshare", "revoke", "access", "permissions", "private"]
+requires_approval = true
 discoverable = true
 
 [[parameters]]
