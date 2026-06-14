@@ -525,22 +525,26 @@ window.chatComponent = function () {
                       result: event.result || ''
                     });
                   } else if (eventType === 'tool_approval') {
-                    if (!assistantMessage.fragments.toolApprovals) {
-                      assistantMessage.fragments.toolApprovals = [];
-                    }
-                    const existing = assistantMessage.fragments.toolApprovals.find(a => a.request_id === event.request_id);
-                    if (!existing) {
-                      assistantMessage.fragments.toolApprovals.push({ ...event, status: 'pending' });
-                      this.userHasScrolled = false;
-                      if (event.expires_at) {
-                        const delay = (event.expires_at * 1000) - Date.now();
-                        if (delay <= 0) {
-                          this.expireToolApproval(assistantMessage.fragments.toolApprovals[assistantMessage.fragments.toolApprovals.length - 1]);
-                        } else {
-                          setTimeout(() => {
-                            const a = assistantMessage.fragments.toolApprovals.find(a => a.request_id === event.request_id);
-                            this.expireToolApproval(a);
-                          }, delay);
+                    if (this.isToolAutoApproved(event.tool_name)) {
+                      this.autoApproveTool(event);
+                    } else {
+                      if (!assistantMessage.fragments.toolApprovals) {
+                        assistantMessage.fragments.toolApprovals = [];
+                      }
+                      const existing = assistantMessage.fragments.toolApprovals.find(a => a.request_id === event.request_id);
+                      if (!existing) {
+                        assistantMessage.fragments.toolApprovals.push({ ...event, status: 'pending' });
+                        this.userHasScrolled = false;
+                        if (event.expires_at) {
+                          const delay = (event.expires_at * 1000) - Date.now();
+                          if (delay <= 0) {
+                            this.expireToolApproval(assistantMessage.fragments.toolApprovals[assistantMessage.fragments.toolApprovals.length - 1]);
+                          } else {
+                            setTimeout(() => {
+                              const a = assistantMessage.fragments.toolApprovals.find(a => a.request_id === event.request_id);
+                              this.expireToolApproval(a);
+                            }, delay);
+                          }
                         }
                       }
                     }
@@ -692,7 +696,7 @@ window.chatComponent = function () {
       this.focusInput();
     },
 
-    async respondToolApproval(approval, approved) {
+    async respondToolApproval(approval, approved, alwaysApprove = false) {
       if (!approval || approval.status !== 'pending') return;
 
       approval.status = approved ? 'approving' : 'denying';
@@ -709,8 +713,7 @@ window.chatComponent = function () {
         });
 
         if (response.status === 404) {
-          approval.status = 'expired';
-          approval.error = 'This approval request is no longer active.';
+          this.removeToolApproval(approval);
           return;
         }
 
@@ -718,10 +721,49 @@ window.chatComponent = function () {
           throw new Error('Failed to send approval response');
         }
 
+        if (approved && alwaysApprove) {
+          this.addAlwaysApprovedTool(approval.tool_name);
+        }
+
         this.removeToolApproval(approval);
       } catch (error) {
         approval.status = 'pending';
         approval.error = 'Unable to send response. Try again.';
+      }
+    },
+
+    autoApproveTool(event) {
+      fetch('/v1/chat/tool-approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: event.request_id,
+          instance_id: event.instance_id,
+          approved: true
+        })
+      }).catch(() => {});
+    },
+
+    isToolAutoApproved(toolName) {
+      if (!toolName) return false;
+      try {
+        const tools = JSON.parse(sessionStorage.getItem('knot_auto_approved_tools') || '[]');
+        return tools.includes(toolName);
+      } catch {
+        return false;
+      }
+    },
+
+    addAlwaysApprovedTool(toolName) {
+      if (!toolName) return;
+      try {
+        const tools = JSON.parse(sessionStorage.getItem('knot_auto_approved_tools') || '[]');
+        if (!tools.includes(toolName)) {
+          tools.push(toolName);
+          sessionStorage.setItem('knot_auto_approved_tools', JSON.stringify(tools));
+        }
+      } catch {
+        // sessionStorage not available (private mode etc.) — silently skip
       }
     },
 
@@ -739,8 +781,7 @@ window.chatComponent = function () {
 
     expireToolApproval(approval) {
       if (!approval || approval.status !== 'pending') return;
-      approval.status = 'expired';
-      approval.error = 'Timed out waiting for a response.';
+      this.removeToolApproval(approval);
     },
 
     scrollToBottom() {

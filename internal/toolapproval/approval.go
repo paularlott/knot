@@ -117,7 +117,7 @@ func (m *Manager) Request(ctx context.Context, writer EventWriter, userID, toolN
 		}
 		return nil
 	case <-timer.C:
-		return errors.New("timed out waiting for user approval to run this tool")
+		return errors.New("timed out waiting for user approval to run this tool. Do not retry.")
 	case <-ctx.Done():
 		return ctx.Err()
 	}

@@ -194,6 +194,10 @@
                               class="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed">
                               Approve
                             </button>
+                            <button type="button" @click="respondToolApproval(approval, true, true)" :disabled="approval.status !== 'pending'"
+                              class="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-60 disabled:cursor-not-allowed">
+                              Always Allow
+                            </button>
                             <button type="button" @click="respondToolApproval(approval, false)" :disabled="approval.status !== 'pending'"
                               class="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 disabled:opacity-60 disabled:cursor-not-allowed">
                               Deny
