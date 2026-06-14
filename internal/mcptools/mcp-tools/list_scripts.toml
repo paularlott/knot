@@ -1,0 +1,3 @@
+description = "List active scripts that can be executed in a space via run_script. Returns each script's name and description so callers can pick the right script. Filters to the current zone and the caller's groups; only runnable scripts (not MCP tool definitions) are returned."
+keywords = ["scripts", "list", "available", "runnable", "automation", "run_script"]
+discoverable = true

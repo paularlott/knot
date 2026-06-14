@@ -215,7 +215,7 @@
 
               <!-- Template -->
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template <span class="text-red-500">*</span></label>
                 <div x-data="autocompleterTemplatePicker()" @sync-comp-pickers.window="syncSearch()" class="relative">
                   <input type="search" class="form-field w-full text-sm" placeholder="Search templates..." x-model="search" @focus="handleFocus" @click="handleFocus" @keydown="handleKeydown" @input="handleInput()" @blur="setTimeout(() => showList = false, 200)" aria-autocomplete="list" :aria-controls="'tmpl-listbox-' + _listboxId" :aria-activedescendant="activeDescendant" />
                   <ul x-show="showList && filteredTemplates.length > 0" :id="'tmpl-listbox-' + _listboxId" role="listbox" class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-auto">

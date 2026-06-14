@@ -4,12 +4,27 @@ import json
 
 import knot.apiclient as api
 
-def list():
-    """List all templates."""
+def list(include_inactive=False):
+    """List all templates visible to the current user.
+
+    Args:
+        include_inactive: If True, include inactive templates. Default False
+            (only active templates are returned).
+    """
     response = api.get("/api/templates")
 
     result = []
     for tmpl in response.get("templates", []):
+        if not include_inactive and not tmpl.get("active", False):
+            continue
+
+        custom_fields = []
+        for cf in tmpl.get("custom_fields", []):
+            custom_fields.append({
+                "name": cf.get("name", ""),
+                "description": cf.get("description", ""),
+            })
+
         result.append({
             "id": tmpl.get("template_id"),
             "name": tmpl.get("name"),
@@ -17,7 +32,8 @@ def list():
             "platform": tmpl.get("platform", ""),
             "active": tmpl.get("active", False),
             "usage": tmpl.get("usage", 0),
-            "deployed": tmpl.get("deployed", 0)
+            "deployed": tmpl.get("deployed", 0),
+            "custom_fields": custom_fields,
         })
 
     return result

@@ -13,6 +13,7 @@
 
 import knot.apiclient as api
 import knot.space as space_lib
+import knot.template as template_lib
 
 
 # ── Definition Management ──────────────────────────────────────────────
@@ -212,6 +213,93 @@ def validate_def(spaces, name="", description="", scope="user", active=True,
     }
 
     return api.post("/api/stack-definitions/validate", body)
+
+
+def add_component(stack_definition, template, name, description="", shell="",
+                  startup_script="", depends_on=None):
+    """Add a component (template binding) to an existing stack definition.
+
+    Resolves the template name to an ID, then appends a new component to the
+    definition. Fails if a component with the same name already exists.
+
+    Args:
+        stack_definition: Definition name or ID
+        template: Template name or ID to use for this component
+        name: Component name within the stack (must be unique within the definition)
+        description: Optional component description
+        shell: Optional shell override (bash/zsh/fish/sh)
+        startup_script: Optional startup script ID
+        depends_on: Optional list of other component names this component depends on
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if the template cannot be resolved, the component name is a
+        duplicate, or the API rejects the update
+    """
+    defn = get_def(stack_definition)
+    spaces = defn.get("spaces", [])
+
+    for s in spaces:
+        if s.get("name") == name:
+            raise Exception(
+                "Component '{}' already exists in stack definition '{}'".format(
+                    name, stack_definition)
+            )
+
+    template_obj = template_lib.get(template)
+    template_id = template_obj.get("id") or template
+
+    new_component = {
+        "name": name,
+        "template_id": template_id,
+        "description": description,
+        "shell": shell,
+        "startup_script_id": startup_script,
+        "depends_on": depends_on or [],
+        "custom_fields": [],
+        "port_forwards": [],
+    }
+
+    spaces.append(new_component)
+    update_def(stack_definition, spaces=spaces)
+    return True
+
+
+def remove_component(stack_definition, name):
+    """Remove a component from a stack definition by name.
+
+    Also removes the component from any depends_on lists and port_forward
+    targets of other components in the same definition.
+
+    Args:
+        stack_definition: Definition name or ID
+        name: Component name to remove
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if the component is not found or the API rejects the update
+    """
+    defn = get_def(stack_definition)
+    spaces = defn.get("spaces", [])
+
+    new_spaces = [s for s in spaces if s.get("name") != name]
+
+    if len(new_spaces) == len(spaces):
+        raise Exception(
+            "Component '{}' not found in stack definition '{}'".format(
+                name, stack_definition)
+        )
+
+    for s in new_spaces:
+        s["depends_on"] = [d for d in s.get("depends_on", []) if d != name]
+        s["port_forwards"] = [pf for pf in s.get("port_forwards", []) if pf.get("to_space") != name]
+
+    update_def(stack_definition, spaces=new_spaces)
+    return True
 
 
 # ── Stack Operations ────────────────────────────────────────────────────

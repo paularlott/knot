@@ -112,6 +112,7 @@ type TemplateInfo struct {
 	MaxUptimeUnit      string               `json:"max_uptime_unit"`
 	IconURL            string               `json:"icon_url"`
 	Ports              []model.TemplatePort `json:"ports"`
+	CustomFields       []CustomFieldDef     `json:"custom_fields"`
 }
 
 type TemplateList struct {

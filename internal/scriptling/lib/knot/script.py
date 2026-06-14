@@ -25,12 +25,16 @@ def _parse_script(script):
     }
 
 
-def list(owner=None, all_zones=False):
+def list(owner=None, all_zones=False, include_inactive=False, script_type=None):
     """List scripts visible to the current user.
 
     Args:
         owner: Optional user ID. Use "current" for the current user's scripts.
         all_zones: If True, include scripts from all zones.
+        include_inactive: If True, include inactive scripts. Default False
+            (only active scripts are returned).
+        script_type: Optional script type filter (e.g. "script", "tool").
+            If None, all types are returned.
     """
     params = {}
     if owner:
@@ -41,7 +45,15 @@ def list(owner=None, all_zones=False):
         params["all_zones"] = "true"
 
     response = api.get("/api/scripts", params if params else None)
-    return [_parse_script(script) for script in response.get("scripts", [])]
+    result = []
+    for script in response.get("scripts", []):
+        parsed = _parse_script(script)
+        if not include_inactive and not parsed["active"]:
+            continue
+        if script_type and parsed["script_type"] != script_type:
+            continue
+        result.append(parsed)
+    return result
 
 
 def list_global(all_zones=False):

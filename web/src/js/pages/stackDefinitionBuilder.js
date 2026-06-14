@@ -342,6 +342,11 @@ window.stackDefinitionBuilder = function () {
 
       const form = this.componentEditor.form;
 
+      if (!form.template_id) {
+        this.$dispatch("show-alert", { msg: "A template is required for each space", type: "error" });
+        return;
+      }
+
       // Update name and clean up references if name changed
       const oldName = space.name;
       const newName = form.name;

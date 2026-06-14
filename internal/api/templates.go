@@ -87,6 +87,14 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.IconURL = template.IconURL
 		templateData.Ports = template.Ports
 
+		templateData.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))
+		for i, field := range template.CustomFields {
+			templateData.CustomFields[i] = apiclient.CustomFieldDef{
+				Name:        field.Name,
+				Description: field.Description,
+			}
+		}
+
 		// If schedule is enabled then return the schedule
 		if template.ScheduleEnabled {
 			templateData.Schedule = make([]apiclient.TemplateDetailsDay, 7)

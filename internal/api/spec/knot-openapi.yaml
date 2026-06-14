@@ -4993,6 +4993,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        custom_fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomFieldDef"
+          description: The custom field definitions exposed by the template.
 
     TemplateList:
       type: object
