@@ -35,7 +35,7 @@ execute_tool(name="start_space", arguments={"space_name": "myspace"})
 2. **Platform-First Rule:** Any nomad/docker/podman mention requires skills first.
 
 3. **Template Workflow:**
-   - If a relevant skill is listed in the Available Skills section, retrieve it first: `get_skill(name="<skill-name>")`
+   - If a relevant skill is listed in the Available Skills section, retrieve it first
    - Create: `execute_tool(name="create_template", ...)`
    - NEVER skip skills when they exist - required for proper formatting
 
@@ -61,8 +61,18 @@ execute_tool(name="start_space", arguments={"space_name": "myspace"})
 
 If an "Available Skills" section appears at the end of this prompt, skills are configured for your account. Skills contain step-by-step procedures, platform specs, and workflows.
 
-- Use `get_skill(name="<name>")` when you know the exact skill name (from the list below)
-- Use `get_skill(query="<topic>")` to search by topic when the name is unknown
+Skills are **on-demand** — only their names and descriptions appear in the system prompt. Retrieve the full content before following a procedure:
+
+```
+execute_tool(name="get_skill", arguments={"name": "<skill-name>"})
+```
+
+To search for a skill by topic when you don't know the exact name:
+
+```
+execute_tool(name="get_skill", arguments={"query": "<topic>"})
+```
+
 - Always retrieve a skill's full content before following its procedure
 - For platform tasks (nomad/docker/podman), check the skills list first
 

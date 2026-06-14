@@ -68,7 +68,7 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 
 	// Inject system prompt only if no system message is present
 	user, _ := ctx.Value("user").(*model.User)
-	skillsPrompt := internalmcp.BuildSkillsPrompt(ctx, user)
+	skillsPrompt := internalmcp.BuildSkillsPrompt(user)
 	req.Messages = s.replaceSystemPrompt(req.Messages, skillsPrompt)
 
 	if req.Stream {
@@ -119,9 +119,23 @@ func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.Resp
 	streamWriter.WriteEnd()
 }
 
-// replaceSystemPrompt checks for existing system messages and injects system prompt only if none present
+// replaceSystemPrompt injects the system prompt if none is present and always
+// appends the skills prompt to the system message (whether injected or caller-supplied).
 func (s *Service) replaceSystemPrompt(messages []Message, skillsPrompt string) []Message {
-	if s.systemPrompt == "" || (len(messages) > 0 && messages[0].Role == "system") {
+	if skillsPrompt == "" && (s.systemPrompt == "" || (len(messages) > 0 && messages[0].Role == "system")) {
+		return messages
+	}
+
+	// Caller already provided a system message — append skills to it
+	if len(messages) > 0 && messages[0].Role == "system" {
+		if skillsPrompt != "" {
+			content := messages[0].GetContentAsString() + skillsPrompt
+			messages[0].SetContentAsString(content)
+		}
+		return messages
+	}
+
+	if s.systemPrompt == "" {
 		return messages
 	}
 

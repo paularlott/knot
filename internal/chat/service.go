@@ -58,7 +58,7 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	}
 
 	// Convert messages to OpenAI format, appending skills to system prompt
-	skillsPrompt := internalmcp.BuildSkillsPrompt(ctx, user)
+	skillsPrompt := internalmcp.BuildSkillsPrompt(user)
 	openAIMessages := s.convertMessagesToOpenAI(messages, skillsPrompt)
 
 	// Create request
@@ -113,13 +113,18 @@ func (s *Service) convertMessagesToOpenAI(messages []ChatMessage, skillsPrompt s
 	}
 
 	// Convert all messages (including any system messages from input)
-	for _, msg := range messages {
+	for i, msg := range messages {
 		openAIMessage := mcpopenai.Message{
 			Role:       msg.Role,
 			ToolCalls:  msg.ToolCalls,
 			ToolCallID: msg.ToolCallID,
 		}
-		openAIMessage.SetContentAsString(msg.Content)
+		// Append skills prompt to caller-supplied system message
+		if i == 0 && msg.Role == "system" && skillsPrompt != "" {
+			openAIMessage.SetContentAsString(msg.Content + skillsPrompt)
+		} else {
+			openAIMessage.SetContentAsString(msg.Content)
+		}
 		openAIMessages = append(openAIMessages, openAIMessage)
 	}
 
