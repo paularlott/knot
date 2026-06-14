@@ -11,6 +11,12 @@
 #   volumes = knot.volume.list()
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 def list():
     """List all volumes.
@@ -65,7 +71,7 @@ def get(volume_id):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/api/volumes/{volume_id}")
+    response = api.get(f"/api/volumes/{_enc(volume_id)}")
 
     return {
         "id": response.get("volume_id"),
@@ -93,7 +99,7 @@ def nodes(platform):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/api/volumes/nodes?platform={platform}")
+    response = api.get(f"/api/volumes/nodes?platform={_enc(platform)}")
 
     return [{
         "node_id": n.get("node_id"),
@@ -151,7 +157,7 @@ def update(volume_id, name=None, definition=None, platform=None, node_id=None):
     Raises:
         Exception if not configured or on API error
     """
-    current = api.get(f"/api/volumes/{volume_id}")
+    current = api.get(f"/api/volumes/{_enc(volume_id)}")
 
     body = {
         "name": name if name is not None else current.get("name"),
@@ -160,7 +166,7 @@ def update(volume_id, name=None, definition=None, platform=None, node_id=None):
         "node_id": node_id if node_id is not None else current.get("node_id", "")
     }
 
-    api.put(f"/api/volumes/{volume_id}", body)
+    api.put(f"/api/volumes/{_enc(volume_id)}", body)
     return True
 
 
@@ -176,7 +182,7 @@ def delete(volume_id):
     Raises:
         Exception if not configured or on API error
     """
-    api.delete(f"/api/volumes/{volume_id}")
+    api.delete(f"/api/volumes/{_enc(volume_id)}")
     return True
 
 
@@ -192,7 +198,7 @@ def start(volume_id):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/volumes/{volume_id}/start")
+    api.post(f"/api/volumes/{_enc(volume_id)}/start")
     return True
 
 
@@ -208,7 +214,7 @@ def stop(volume_id):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/volumes/{volume_id}/stop")
+    api.post(f"/api/volumes/{_enc(volume_id)}/stop")
     return True
 
 

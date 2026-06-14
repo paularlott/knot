@@ -43,8 +43,8 @@ const scriptLibraries = [
       },
       {
         name: "list",
-        signature: "list()",
-        description: "List all spaces for current user",
+        signature: "list(all_zones=False)",
+        description: "List spaces visible to the current user. Defaults to the current server's zone; pass all_zones=True to include other zones.",
         returns:
           "list - List of space dicts with name, id, is_running, description",
       },
@@ -247,6 +247,19 @@ const scriptLibraries = [
           "validate_def(spaces, name='', description='', scope='user', active=True, groups=None, zones=None)",
         description: "Validate a stack definition without saving",
         returns: "dict - Validation result with valid and errors",
+      },
+      {
+        name: "add_component",
+        signature:
+          "add_component(stack_definition, template, name, description='', shell='', startup_script='', depends_on=None)",
+        description: "Add a component (template binding) to an existing stack definition. Resolves template name to ID and rejects duplicate component names.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "remove_component",
+        signature: "remove_component(stack_definition, name)",
+        description: "Remove a component from a stack definition by name. Also cleans up depends_on and port_forward references in sibling components.",
+        returns: "bool - True if successful",
       },
       {
         name: "create",
@@ -744,10 +757,10 @@ const scriptLibraries = [
     functions: [
       {
         name: "list",
-        signature: "list()",
-        description: "List all templates",
+        signature: "list(include_inactive=False)",
+        description: "List templates visible to the current user. Defaults to active templates only; pass include_inactive=True to include retired ones.",
         returns:
-          "list - List of template dicts with id, name, description, platform, active, usage, deployed",
+          "list - List of template dicts with id, name, description, platform, active, usage, deployed, custom_fields",
       },
       {
         name: "get",
@@ -954,8 +967,8 @@ const scriptLibraries = [
     functions: [
       {
         name: "list",
-        signature: "list(owner=None, all_zones=False)",
-        description: "List scripts visible to the current user",
+        signature: "list(owner=None, all_zones=False, include_inactive=False, script_type=None)",
+        description: "List scripts visible to the current user. Defaults to active scripts in the current zone; use script_type='script' to filter to runnable scripts (exclude MCP tool definitions).",
         returns: "list - Script summaries",
       },
       {

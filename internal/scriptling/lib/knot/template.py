@@ -3,6 +3,12 @@
 import json
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 def list(include_inactive=False):
     """List all templates visible to the current user.
@@ -41,7 +47,7 @@ def list(include_inactive=False):
 
 def get(template_id):
     """Get template by ID or name."""
-    response = api.get(f"/api/templates/{template_id}")
+    response = api.get(f"/api/templates/{_enc(template_id)}")
     return _parse_template(response)
 
 
@@ -56,7 +62,7 @@ def validate(platform, job="", volumes=""):
 
 def nodes(template_id):
     """List available nodes for a local-container template."""
-    response = api.get(f"/api/templates/{template_id}/nodes")
+    response = api.get(f"/api/templates/{_enc(template_id)}/nodes")
     return [{
         "node_id": n.get("node_id", ""),
         "hostname": n.get("hostname", ""),
@@ -122,7 +128,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            health_check_timeout=None, health_check_interval=None, health_check_max_failures=None,
            health_check_auto_restart=None, ports=None):
     """Update template properties."""
-    current = api.get(f"/api/templates/{template_id}")
+    current = api.get(f"/api/templates/{_enc(template_id)}")
     volumes_value = volumes if volumes is not None else current.get("volumes", "")
     volumes_value = _with_paths(volumes_value, paths)
 
@@ -165,13 +171,13 @@ def update(template_id, name=None, job=None, description=None, platform=None,
     if body["health_check_type"] in ("none", "agent"):
         body["health_check_config"] = ""
 
-    api.put(f"/api/templates/{template_id}", body)
+    api.put(f"/api/templates/{_enc(template_id)}", body)
     return True
 
 
 def delete(template_id):
     """Delete a template."""
-    api.delete(f"/api/templates/{template_id}")
+    api.delete(f"/api/templates/{_enc(template_id)}")
     return True
 
 

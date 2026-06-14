@@ -269,6 +269,77 @@ func TestExecute_GetSpace(t *testing.T) {
 	t.Logf("response: %s", response)
 }
 
+func TestExecute_CreateSpace_NameWithSpace(t *testing.T) {
+	mustLoadTools(t)
+
+	// Regression: template_name="ubuntu apple" used to panic the HTTP client
+	// because the space broke URL parsing. Now the lib URL-encodes path segments.
+	createHandler, createReq := capturingHandler(map[string]interface{}{"space_id": "new-space"})
+	server := mockAPIServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
+		// Note: Go's r.URL.Path is the decoded form, so the handler key uses
+		// the literal space even though the wire URL is "ubuntu%20apple".
+		"GET /api/templates/ubuntu apple": func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"template_id": "tpl-1",
+				"name":        "ubuntu apple",
+			})
+		},
+		"POST /api/spaces": createHandler,
+	})
+	defer server.Close()
+
+	_, err := runTool(t, "create_space", server.URL, map[string]interface{}{
+		"name":          "testin101",
+		"template_name": "ubuntu apple",
+	})
+	if err != nil {
+		t.Fatalf("RunToolScript failed (regression?): %v", err)
+	}
+	// Verify template was resolved by name-with-space via the encoded URL
+	if createReq.Body["template_id"] != "tpl-1" {
+		t.Errorf("template_id = %v, want tpl-1 (template name with space should resolve via encoded URL)", createReq.Body["template_id"])
+	}
+}
+
+// TestExecute_UrlEncoding verifies that urllib.parse.quote is available and
+// works correctly inside the scriptling env. The knot libs depend on this
+// for safely interpolating user-provided values (template names, space names)
+// into URL paths.
+func TestExecute_UrlEncoding(t *testing.T) {
+	mustLoadTools(t)
+
+	server := mockAPIServer(t, nil)
+	defer server.Close()
+
+	client, err := apiclient.NewClient(server.URL, "test-token", false)
+	if err != nil {
+		t.Fatalf("apiclient.NewClient failed: %v", err)
+	}
+	user := &model.User{Id: "u1", Username: "tester", Email: "tester@example.com"}
+	env, _, err := service.NewMCPScriptlingEnv(client, nil, user)
+	if err != nil {
+		t.Fatalf("NewMCPScriptlingEnv failed: %v", err)
+	}
+
+	// Verify urllib.parse.quote produces expected encoded output
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	result, _, err := scriptlingmcp.RunToolScript(ctx, env, `
+import urllib.parse
+import scriptling.mcp.tool as tool
+
+# Spaces and reserved chars get percent-encoded with safe=''
+encoded = urllib.parse.quote("ubuntu apple", safe='')
+tool.return_string(encoded)
+`, nil)
+	if err != nil {
+		t.Fatalf("script execution failed: %v", err)
+	}
+	if strings.TrimSpace(result) != "ubuntu%20apple" {
+		t.Errorf("urllib.parse.quote returned %q, want %q", strings.TrimSpace(result), "ubuntu%20apple")
+	}
+}
+
 // =============================================================================
 // Spaces
 // =============================================================================

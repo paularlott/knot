@@ -1,6 +1,12 @@
 # knot.role - Role management library for Knot server
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 def list():
     """List all roles."""
@@ -18,7 +24,7 @@ def list():
 
 def get(role_id):
     """Get role by ID."""
-    response = api.get(f"/api/roles/{role_id}")
+    response = api.get(f"/api/roles/{_enc(role_id)}")
 
     return {
         "id": response.get("role_id"),
@@ -40,18 +46,18 @@ def create(name, permissions=None):
 
 def update(role_id, name=None, permissions=None):
     """Update role properties."""
-    current = api.get(f"/api/roles/{role_id}")
+    current = api.get(f"/api/roles/{_enc(role_id)}")
 
     body = {
         "name": name if name is not None else current.get("name"),
         "permissions": permissions if permissions is not None else current.get("permissions", [])
     }
 
-    api.put(f"/api/roles/{role_id}", body)
+    api.put(f"/api/roles/{_enc(role_id)}", body)
     return True
 
 
 def delete(role_id):
     """Delete a role."""
-    api.delete(f"/api/roles/{role_id}")
+    api.delete(f"/api/roles/{_enc(role_id)}")
     return True

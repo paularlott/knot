@@ -11,6 +11,12 @@
 #   variables = knot.vars.list()
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 def list():
     """List all template variables.
@@ -63,7 +69,7 @@ def get(var_id):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/api/templatevars/{var_id}")
+    response = api.get(f"/api/templatevars/{_enc(var_id)}")
 
     return {
         "id": response.get("templatevar_id"),
@@ -140,7 +146,7 @@ def update(var_id, value=None, zones=None, local=None, protected=None, restricte
     Raises:
         Exception if not configured or on API error
     """
-    current = api.get(f"/api/templatevars/{var_id}")
+    current = api.get(f"/api/templatevars/{_enc(var_id)}")
 
     body = {
         "name": current.get("name"),
@@ -151,7 +157,7 @@ def update(var_id, value=None, zones=None, local=None, protected=None, restricte
         "restricted": restricted if restricted is not None else current.get("restricted", False)
     }
 
-    api.put(f"/api/templatevars/{var_id}", body)
+    api.put(f"/api/templatevars/{_enc(var_id)}", body)
     return True
 
 
@@ -167,5 +173,5 @@ def delete(var_id):
     Raises:
         Exception if not configured or on API error
     """
-    api.delete(f"/api/templatevars/{var_id}")
+    api.delete(f"/api/templatevars/{_enc(var_id)}")
     return True

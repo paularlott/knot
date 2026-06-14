@@ -14,6 +14,12 @@
 import knot.apiclient as api
 import knot.space as space_lib
 import knot.template as template_lib
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 
 # ── Definition Management ──────────────────────────────────────────────
@@ -69,7 +75,7 @@ def get_def(name):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/api/stack-definitions/{name}")
+    response = api.get(f"/api/stack-definitions/{_enc(name)}")
 
     return {
         "id": response.get("stack_definition_id"),
@@ -152,7 +158,7 @@ def update_def(name, **fields):
         "spaces": fields.get("spaces", defn.get("spaces", [])),
     }
 
-    api.put(f"/api/stack-definitions/{defn.get('id')}", body)
+    api.put(f"/api/stack-definitions/{_enc(defn.get('id'))}", body)
     return True
 
 
@@ -169,7 +175,7 @@ def delete_def(name):
         Exception if not configured or on API error
     """
     defn = get_def(name)
-    api.delete(f"/api/stack-definitions/{defn.get('id')}")
+    api.delete(f"/api/stack-definitions/{_enc(defn.get('id'))}")
     return True
 
 
@@ -366,7 +372,7 @@ def create(definition_name, prefix, stack_name=None):
             space_id = space_map.get(comp_name, "")
             current = space_lib.get(space_id)
             update_body = space_lib._build_space_update_body(current, depends_on=dep_ids)
-            api.put(f"/api/spaces/{space_id}", update_body)
+            api.put(f"/api/spaces/{_enc(space_id)}", update_body)
 
     # Pass 3: Apply port forwards
     for comp in spaces:
@@ -390,7 +396,7 @@ def create(definition_name, prefix, stack_name=None):
             })
 
         if forwards:
-            api.post(f"/space-io/{space_id}/port/apply", {"forwards": forwards})
+            api.post(f"/space-io/{_enc(space_id)}/port/apply", {"forwards": forwards})
 
     return {"spaces": space_map}
 
@@ -409,7 +415,7 @@ def delete(stack_name):
     """
     for space in space_lib.list():
         if space.get("stack") == stack_name:
-            api.delete(f"/api/spaces/{space.get('id', '')}")
+            api.delete(f"/api/spaces/{_enc(space.get('id', ''))}")
 
     return True
 
@@ -426,7 +432,7 @@ def start(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/stacks/{stack_name}/start", {})
+    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/start", {})
     return True
 
 
@@ -442,7 +448,7 @@ def stop(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/stacks/{stack_name}/stop", {})
+    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/stop", {})
     return True
 
 
@@ -458,7 +464,7 @@ def restart(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/stacks/{stack_name}/restart", {})
+    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/restart", {})
     return True
 
 

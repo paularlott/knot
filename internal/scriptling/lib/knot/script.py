@@ -4,6 +4,12 @@
 # running spaces. Requires knot.apiclient to be configured first.
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 
 def _parse_script(script):
@@ -65,17 +71,17 @@ def list_global(all_zones=False):
 
 def get(script_id):
     """Get script details by UUID."""
-    return _parse_script(api.get(f"/api/scripts/{script_id}"))
+    return _parse_script(api.get(f"/api/scripts/{_enc(script_id)}"))
 
 
 def get_by_name(name):
     """Get script details by name, respecting user script shadowing."""
-    return _parse_script(api.get(f"/api/scripts/name/{name}"))
+    return _parse_script(api.get(f"/api/scripts/name/{_enc(name)}"))
 
 
 def get_content(name, script_type="script"):
     """Get script content by name and type."""
-    return api.get(f"/api/scripts/name/{name}/{script_type}")
+    return api.get(f"/api/scripts/name/{_enc(name)}/{_enc(script_type)}")
 
 
 def create(name, content, description="", owner=None, groups=None, zones=None,
@@ -121,13 +127,13 @@ def update(script_id, name=None, content=None, description=None, groups=None,
         "mcp_keywords": mcp_keywords if mcp_keywords is not None else current.get("mcp_keywords", []),
         "discoverable": discoverable if discoverable is not None else current.get("discoverable", False),
     }
-    api.put(f"/api/scripts/{script_id}", body)
+    api.put(f"/api/scripts/{_enc(script_id)}", body)
     return True
 
 
 def delete(script_id):
     """Delete a script by UUID."""
-    api.delete(f"/api/scripts/{script_id}")
+    api.delete(f"/api/scripts/{_enc(script_id)}")
     return True
 
 
@@ -145,7 +151,7 @@ def execute(space_name, script_name=None, script_id=None, content=None, args=Non
     else:
         raise Exception("script_name, script_id, or content is required")
 
-    response = api.post(f"/api/spaces/{space_name}/execute-script", body)
+    response = api.post(f"/api/spaces/{_enc(space_name)}/execute-script", body)
     return {
         "output": response.get("output", ""),
         "error": response.get("error", ""),

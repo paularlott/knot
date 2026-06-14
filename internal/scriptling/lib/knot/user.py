@@ -1,6 +1,12 @@
 # knot.user - User management library for Knot server
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 def get_me():
     """Get current user details."""
@@ -10,7 +16,7 @@ def get_me():
 
 def get(user_id):
     """Get user by ID, username, or email."""
-    response = api.get(f"/api/users/{user_id}")
+    response = api.get(f"/api/users/{_enc(user_id)}")
     return _parse_user(response)
 
 
@@ -59,7 +65,7 @@ def create(username, email, password, active=True, max_spaces=0, compute_units=0
 
 def update(user_id, username=None, email=None, password=None, active=None, max_spaces=None, ssh_public_key=None, github_username=None):
     """Update user properties."""
-    current = api.get(f"/api/users/{user_id}")
+    current = api.get(f"/api/users/{_enc(user_id)}")
 
     body = {
         "username": username if username is not None else current.get("username"),
@@ -83,7 +89,7 @@ def update(user_id, username=None, email=None, password=None, active=None, max_s
     if password is not None:
         body["password"] = password
 
-    api.put(f"/api/users/{user_id}", body)
+    api.put(f"/api/users/{_enc(user_id)}", body)
     return True
 
 
@@ -110,13 +116,13 @@ def set_ssh_private_key(ssh_private_key):
 
 def delete(user_id):
     """Delete a user."""
-    api.delete(f"/api/users/{user_id}")
+    api.delete(f"/api/users/{_enc(user_id)}")
     return True
 
 
 def get_quota(user_id):
     """Get user quota and usage."""
-    response = api.get(f"/api/users/{user_id}/quota")
+    response = api.get(f"/api/users/{_enc(user_id)}/quota")
 
     return {
         "max_spaces": response.get("max_spaces", 0),
@@ -133,13 +139,13 @@ def get_quota(user_id):
 
 def list_permissions(user_id):
     """List all permissions for a user."""
-    response = api.get(f"/api/users/{user_id}/permissions")
+    response = api.get(f"/api/users/{_enc(user_id)}/permissions")
     return response.get("permissions", [])
 
 
 def has_permission(user_id, permission_id):
     """Check if user has a specific permission."""
-    response = api.get(f"/api/users/{user_id}/has-permission", {"permission": str(permission_id)})
+    response = api.get(f"/api/users/{_enc(user_id)}/has-permission", {"permission": str(permission_id)})
     return response.get("has_permission", False)
 
 

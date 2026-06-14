@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"time"
 
@@ -20,6 +21,27 @@ var apiMux *http.ServeMux
 // SetAPIMux stores the API mux for direct calls
 func SetAPIMux(mux *http.ServeMux) {
 	apiMux = mux
+}
+
+// newMuxRequest is a panic-safe wrapper around httptest.NewRequest.
+//
+// httptest.NewRequest panics on malformed paths (e.g. paths containing raw
+// spaces), because it builds an HTTP request-line string and runs it through
+// http.ReadRequest. MuxClient is called from scriptling via the embedded
+// apiclient, and any panic here surfaces as "panic in builtin: ..." to the
+// caller — ugly and confusing. Validate first and return a clean error.
+func newMuxRequest(method, path string, body io.Reader) (*http.Request, error) {
+	if _, err := url.Parse(path); err != nil {
+		return nil, fmt.Errorf("invalid request path %q: %v", path, err)
+	}
+	// url.Parse doesn't catch everything that httptest.NewRequest rejects
+	// (e.g. raw spaces). Validate the path contains no ASCII whitespace.
+	for _, r := range path {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			return nil, fmt.Errorf("invalid request path %q: contains whitespace; URL-encode path segments before calling", path)
+		}
+	}
+	return httptest.NewRequest(method, path, body), nil
 }
 
 // MuxClient calls API handlers directly via mux without HTTP overhead
@@ -88,7 +110,10 @@ func (c *MuxClient) ClearHeaders() RESTClient {
 }
 
 func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) (int, error) {
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req, err := newMuxRequest(http.MethodGet, path, nil)
+	if err != nil {
+		return 0, err
+	}
 	ctx = context.WithValue(ctx, "user", c.user)
 	req = req.WithContext(ctx)
 
@@ -127,7 +152,10 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 		return 0, err
 	}
 
-	req := httptest.NewRequest(method, path, bytes.NewReader(data))
+	req, err := newMuxRequest(method, path, bytes.NewReader(data))
+	if err != nil {
+		return 0, err
+	}
 	ctx = context.WithValue(ctx, "user", c.user)
 	req = req.WithContext(ctx)
 

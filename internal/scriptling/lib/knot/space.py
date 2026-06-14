@@ -12,10 +12,16 @@
 #   knot.space.start("my-space")
 
 import knot.apiclient as api
+import urllib.parse
 
 # Capture builtin list type before the module-level def list() below shadows it.
 # Used by isinstance(x, _builtin_list) checks elsewhere in this file.
 _builtin_list = list
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 
 def _parse_space(space):
@@ -131,7 +137,7 @@ def list(all_zones=False):
 
 def get(name):
     """Get detailed information for a space by name or ID."""
-    response = api.get(f"/api/spaces/{name}")
+    response = api.get(f"/api/spaces/{_enc(name)}")
     return _parse_space(response)
 
 
@@ -191,7 +197,7 @@ def update(name, new_name=None, description=None, shell=None, template_name=None
         overrides["startup_script_id"] = startup_script_id
 
     body = _build_space_update_body(space, **overrides)
-    api.put(f"/api/spaces/{space.get('id')}", body)
+    api.put(f"/api/spaces/{_enc(space.get('id'))}", body)
     return True
 
 
@@ -207,7 +213,7 @@ def delete(name):
     Raises:
         Exception if not configured or on API error
     """
-    api.delete(f"/api/spaces/{name}")
+    api.delete(f"/api/spaces/{_enc(name)}")
     return True
 
 
@@ -223,7 +229,7 @@ def start(name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/{name}/start")
+    api.post(f"/api/spaces/{_enc(name)}/start")
     return True
 
 
@@ -239,7 +245,7 @@ def stop(name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/{name}/stop")
+    api.post(f"/api/spaces/{_enc(name)}/stop")
     return True
 
 
@@ -255,7 +261,7 @@ def restart(name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/{name}/restart")
+    api.post(f"/api/spaces/{_enc(name)}/restart")
     return True
 
 
@@ -277,7 +283,7 @@ def is_running(name):
 
 def usage_current(name):
     """Get the current resource usage point for a space."""
-    return api.get(f"/api/spaces/{name}/usage/current")
+    return api.get(f"/api/spaces/{_enc(name)}/usage/current")
 
 
 def usage_history(name, range="1h"):
@@ -287,7 +293,7 @@ def usage_history(name, range="1h"):
         name: Space name or ID
         range: "1h" for minute samples or "7d" for daily samples
     """
-    return api.get(f"/api/spaces/{name}/usage/history", {"range": range})
+    return api.get(f"/api/spaces/{_enc(name)}/usage/history", {"range": range})
 
 
 def set_description(name, description):
@@ -308,7 +314,7 @@ def set_description(name, description):
 
     body = _build_space_update_body(space, description=description)
 
-    api.put(f"/api/spaces/{name}", body)
+    api.put(f"/api/spaces/{_enc(name)}", body)
     return True
 
 
@@ -346,7 +352,7 @@ def set_dependencies(name, depends_on):
         space,
         depends_on=_resolve_dependency_ids(depends_on),
     )
-    api.put(f"/api/spaces/{name}", body)
+    api.put(f"/api/spaces/{_enc(name)}", body)
     return True
 
 
@@ -375,7 +381,7 @@ def set_stack(name, stack):
     """
     space = get(name)
     body = _build_space_update_body(space, stack=stack)
-    api.put(f"/api/spaces/{name}", body)
+    api.put(f"/api/spaces/{_enc(name)}", body)
     return True
 
 
@@ -392,7 +398,7 @@ def get_field(name, field):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/api/spaces/{name}/custom-field/{field}")
+    response = api.get(f"/api/spaces/{_enc(name)}/custom-field/{_enc(field)}")
     return response.get("value", "")
 
 
@@ -414,7 +420,7 @@ def set_field(name, field, value):
         "name": field,
         "value": value
     }
-    api.put(f"/api/spaces/{name}/custom-field", body)
+    api.put(f"/api/spaces/{_enc(name)}/custom-field", body)
     return True
 
 
@@ -432,7 +438,7 @@ def transfer(name, user_id):
         Exception if not configured or on API error
     """
     body = {"user_id": user_id}
-    api.post(f"/api/spaces/{name}/transfer", body)
+    api.post(f"/api/spaces/{_enc(name)}/transfer", body)
     return True
 
 
@@ -451,7 +457,7 @@ def share(name, user_ids):
     """
     if not isinstance(user_ids, _builtin_list):
         user_ids = [user_ids]
-    api.post(f"/api/spaces/{name}/share", {"shares": user_ids})
+    api.post(f"/api/spaces/{_enc(name)}/share", {"shares": user_ids})
     return True
 
 
@@ -469,7 +475,7 @@ def unshare(name, user_id=None):
     Raises:
         Exception if not configured or on API error
     """
-    path = f"/api/spaces/{name}/share"
+    path = f"/api/spaces/{_enc(name)}/share"
     if user_id:
         path += f"?user_id={user_id}"
     api.delete(path)
@@ -499,7 +505,7 @@ def run(name, command, args=None, timeout=30, workdir=""):
         "workdir": workdir
     }
 
-    response = api.post(f"/api/spaces/{name}/run-command", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/run-command", body)
     return response.get("output", "")
 
 
@@ -524,7 +530,7 @@ def run_script(name, script_name, args=None):
         "arguments": args or []
     }
 
-    response = api.post(f"/api/spaces/{name}/execute-script", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/execute-script", body)
     return {
         "output": response.get("output", ""),
         "exit_code": response.get("exit_code", 0)
@@ -545,7 +551,7 @@ def read_file(name, file_path):
         Exception if not configured or on API error
     """
     body = {"path": file_path}
-    response = api.post(f"/api/spaces/{name}/files/read", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/read", body)
     return response.get("content", "")
 
 
@@ -567,7 +573,7 @@ def write_file(name, file_path, content):
         "path": file_path,
         "content": content
     }
-    api.post(f"/api/spaces/{name}/files/write", body)
+    api.post(f"/api/spaces/{_enc(name)}/files/write", body)
     return True
 
 
@@ -595,7 +601,7 @@ def port_forward(source_space, local_port, remote_space, remote_port, persistent
         "persistent": persistent,
         "force": force,
     }
-    api.post(f"/space-io/{source_space}/port/forward", body)
+    api.post(f"/space-io/{_enc(source_space)}/port/forward", body)
     return True
 
 
@@ -614,7 +620,7 @@ def port_list(name):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/space-io/{name}/port/list")
+    response = api.get(f"/space-io/{_enc(name)}/port/list")
 
     result = []
     for fwd in response.get("forwards", []):
@@ -641,7 +647,7 @@ def port_stop(name, local_port):
         Exception if not configured or on API error
     """
     body = {"local_port": local_port}
-    api.post(f"/space-io/{name}/port/stop", body)
+    api.post(f"/space-io/{_enc(name)}/port/stop", body)
     return True
 
 
@@ -672,4 +678,4 @@ def port_apply(source_space, forwards):
         Exception if not configured or on API error
     """
     body = {"forwards": forwards}
-    return api.post(f"/space-io/{source_space}/port/apply", body)
+    return api.post(f"/space-io/{_enc(source_space)}/port/apply", body)

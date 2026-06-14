@@ -11,6 +11,12 @@
 #   skills = knot.skill.list()
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 def list(owner=None):
     """List all skills the user has access to.
@@ -70,9 +76,9 @@ def get(name_or_id):
     """
     # Try as UUID first
     try:
-        response = api.get(f"/api/skill/{name_or_id}")
+        response = api.get(f"/api/skill/{_enc(name_or_id)}")
     except Exception:
-        response = api.get(f"/api/skill/name/{name_or_id}")
+        response = api.get(f"/api/skill/name/{_enc(name_or_id)}")
 
     return {
         "id": response.get("id"),
@@ -132,9 +138,9 @@ def update(name_or_id, content=None, groups=None, zones=None):
     """
     # Get current skill
     try:
-        current = api.get(f"/api/skill/{name_or_id}")
+        current = api.get(f"/api/skill/{_enc(name_or_id)}")
     except Exception:
-        current = api.get(f"/api/skill/name/{name_or_id}")
+        current = api.get(f"/api/skill/name/{_enc(name_or_id)}")
 
     body = {
         "content": content if content is not None else current.get("content", ""),
@@ -142,7 +148,7 @@ def update(name_or_id, content=None, groups=None, zones=None):
         "zones": zones if zones is not None else current.get("zones", [])
     }
 
-    api.put(f"/api/skill/{current.get('id')}", body)
+    api.put(f"/api/skill/{_enc(current.get('id'))}", body)
     return True
 
 
@@ -160,11 +166,11 @@ def delete(name_or_id):
     """
     # Get skill to find UUID
     try:
-        skill = api.get(f"/api/skill/{name_or_id}")
+        skill = api.get(f"/api/skill/{_enc(name_or_id)}")
     except Exception:
-        skill = api.get(f"/api/skill/name/{name_or_id}")
+        skill = api.get(f"/api/skill/name/{_enc(name_or_id)}")
 
-    api.delete(f"/api/skill/{skill.get('id')}")
+    api.delete(f"/api/skill/{_enc(skill.get('id'))}")
     return True
 
 

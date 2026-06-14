@@ -1,6 +1,12 @@
 # knot.group - Group management library for Knot server
 
 import knot.apiclient as api
+import urllib.parse
+
+
+def _enc(s):
+    """URL-encode a path segment for safe interpolation into a URL."""
+    return urllib.parse.quote(str(s), safe='')
 
 def list():
     """List all groups."""
@@ -21,7 +27,7 @@ def list():
 
 def get(group_id):
     """Get group by ID."""
-    response = api.get(f"/api/groups/{group_id}")
+    response = api.get(f"/api/groups/{_enc(group_id)}")
 
     return {
         "id": response.get("group_id"),
@@ -49,7 +55,7 @@ def create(name, max_spaces=0, compute_units=0, storage_units=0, max_tunnels=0):
 
 def update(group_id, name=None, max_spaces=None, compute_units=None, storage_units=None):
     """Update group properties."""
-    current = api.get(f"/api/groups/{group_id}")
+    current = api.get(f"/api/groups/{_enc(group_id)}")
 
     body = {
         "name": name if name is not None else current.get("name"),
@@ -59,11 +65,11 @@ def update(group_id, name=None, max_spaces=None, compute_units=None, storage_uni
         "max_tunnels": current.get("max_tunnels", 0)
     }
 
-    api.put(f"/api/groups/{group_id}", body)
+    api.put(f"/api/groups/{_enc(group_id)}", body)
     return True
 
 
 def delete(group_id):
     """Delete a group."""
-    api.delete(f"/api/groups/{group_id}")
+    api.delete(f"/api/groups/{_enc(group_id)}")
     return True
