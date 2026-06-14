@@ -54,6 +54,7 @@ execute_tool(name="start_space", arguments={"space_name": "myspace"})
    - One error = stop immediately
    - No retries, no alternate tools
    - Report clearly, wait for user
+   - If a tool is denied by the user or times out waiting for approval, do NOT attempt it again or try a different approach to achieve the same goal — tell the user what was denied and wait for their instruction
 
 7. **Not Found:** If a space/template isn't in tool results, report it (don't guess).
 
