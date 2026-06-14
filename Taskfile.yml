@@ -314,6 +314,16 @@ tasks:
       - web/public_html/css/*
       - web/public_html/js/*
 
+  test:
+    desc: Run all Go tests
+    cmds:
+      - go test ./...
+
+  test-mcptools:
+    desc: Run MCP tool tests (schema sweep + custom field tests)
+    cmds:
+      - go test ./internal/mcptools/... -v
+
   watch:
     desc: Watch for changes in LESS, CSS, JavaScript files and recompile
     cmds:
