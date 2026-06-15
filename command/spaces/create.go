@@ -3,12 +3,36 @@ package command_spaces
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 )
+
+func parseCustomFields(rawFields []string) ([]apiclient.CustomFieldValue, error) {
+	customFields := make([]apiclient.CustomFieldValue, 0, len(rawFields))
+
+	for _, rawField := range rawFields {
+		name, value, ok := strings.Cut(rawField, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid custom field %q, expected name=value", rawField)
+		}
+
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return nil, fmt.Errorf("invalid custom field %q, name is required", rawField)
+		}
+
+		customFields = append(customFields, apiclient.CustomFieldValue{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return customFields, nil
+}
 
 var CreateCmd = &cli.Command{
 	Name:        "create",
@@ -35,6 +59,10 @@ var CreateCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SHELL"},
 			DefaultValue: "bash",
 		},
+		&cli.StringSliceFlag{
+			Name:  "custom-field",
+			Usage: "Custom field as name=value (can be specified multiple times).",
+		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 
@@ -42,6 +70,11 @@ var CreateCmd = &cli.Command{
 		shell := cmd.GetString("shell")
 		if shell != "bash" && shell != "zsh" && shell != "fish" && shell != "sh" {
 			return fmt.Errorf("Invalid shell: %s", shell)
+		}
+
+		customFields, err := parseCustomFields(cmd.GetStringSlice("custom-field"))
+		if err != nil {
+			return err
 		}
 
 		fmt.Println("Creating space: ", cmd.GetStringArg("space"), " from template: ", cmd.GetStringArg("template"))
@@ -74,12 +107,13 @@ var CreateCmd = &cli.Command{
 
 		// Create the template
 		space := &apiclient.SpaceRequest{
-			Name:        cmd.GetStringArg("space"),
-			Description: "",
-			TemplateId:  templateId,
-			Shell:       shell,
-			UserId:      "",
-			AltNames:    []model.AltNameEntry{},
+			Name:         cmd.GetStringArg("space"),
+			Description:  "",
+			TemplateId:   templateId,
+			Shell:        shell,
+			UserId:       "",
+			AltNames:     []model.AltNameEntry{},
+			CustomFields: customFields,
 		}
 
 		_, _, err = client.CreateSpace(context.Background(), space)

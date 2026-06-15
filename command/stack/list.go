@@ -6,14 +6,41 @@ import (
 	"os"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/util"
 )
 
+func stackSpaceStatus(space apiclient.SpaceInfo) string {
+	if space.IsDeployed {
+		if space.IsPending {
+			return "Stopping"
+		}
+		return "Running"
+	}
+	if space.IsDeleting {
+		return "Deleting"
+	}
+	if space.IsPending {
+		return "Starting"
+	}
+	return "Stopped"
+}
+
+func stackSpaceHealth(space apiclient.SpaceInfo) string {
+	if !space.IsDeployed || space.IsPending || space.IsDeleting {
+		return "-"
+	}
+	if space.Healthy {
+		return "Healthy"
+	}
+	return "Unhealthy"
+}
+
 var ListCmd = &cli.Command{
 	Name:        "list",
 	Usage:       "List stacks and their status",
-	Description: "Lists all stacks for the logged in user and the status of their spaces.",
+	Description: "Lists all stacks for the logged in user and the status and health of their spaces.",
 	MaxArgs:     cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
@@ -36,32 +63,20 @@ var ListCmd = &cli.Command{
 
 		// Group spaces by stack, preserving first-seen order.
 		order := []string{}
-		stacks := map[string][]string{}
+		stacks := map[string][][]string{}
 		for _, space := range spaces.Spaces {
 			if space.Stack == "" {
 				continue
 			}
 			if _, seen := stacks[space.Stack]; !seen {
 				order = append(order, space.Stack)
-				stacks[space.Stack] = []string{}
+				stacks[space.Stack] = [][]string{}
 			}
 
-			var status string
-			if space.IsDeployed {
-				if space.IsPending {
-					status = "Stopping"
-				} else {
-					status = "Running"
-				}
-			} else if space.IsDeleting {
-				status = "Deleting"
-			} else if space.IsPending {
-				status = "Starting"
-			} else {
-				status = "Stopped"
-			}
-
-			stacks[space.Stack] = append(stacks[space.Stack], fmt.Sprintf("%s (%s)", space.Name, status))
+			stacks[space.Stack] = append(stacks[space.Stack], []string{
+				fmt.Sprintf("%s (%s)", space.Name, stackSpaceStatus(space)),
+				stackSpaceHealth(space),
+			})
 		}
 
 		if len(order) == 0 {
@@ -69,15 +84,15 @@ var ListCmd = &cli.Command{
 			return nil
 		}
 
-		data := [][]string{{"Stack", "Spaces"}}
+		data := [][]string{{"Stack", "Spaces", "Health"}}
 		for _, name := range order {
 			first := true
 			for _, entry := range stacks[name] {
 				if first {
-					data = append(data, []string{name, entry})
+					data = append(data, []string{name, entry[0], entry[1]})
 					first = false
 				} else {
-					data = append(data, []string{"", entry})
+					data = append(data, []string{"", entry[0], entry[1]})
 				}
 			}
 		}
