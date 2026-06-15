@@ -112,7 +112,9 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 			buffer := make([]byte, 2048)
 			readLength, err := stream.Read(buffer)
 			if err != nil {
-				log.WithError(err).Error("failed to read from terminal:")
+				// Stream (shell) has ended: close the websocket so the client is
+				// notified and its terminal can close, then let the handler exit.
+				conn.Close()
 				return
 			}
 			if err := conn.WriteMessage(websocket.BinaryMessage, buffer[:readLength]); err != nil {

@@ -62,7 +62,15 @@ window.initializeTerminal = function(options) {
   scheduleFit();
 
   ws.onclose = () => {
-    terminal.write('\r\n\nconnection terminated, refresh to restart\n')
+    if (options.logView) {
+      terminal.write('\r\n\nconnection terminated, refresh to restart\n');
+    } else {
+      // Shell exited (server closed the WS): close the terminal popup.
+      terminal.write('\r\n\n[session ended]\r\n');
+      setTimeout(() => {
+        try { window.close(); } catch (e) { /* ignore */ }
+      }, 300);
+    }
   };
 
   ws.onopen = () => {

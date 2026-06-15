@@ -110,7 +110,10 @@ func runTerminal(conn net.Conn, tty *os.File) {
 		for {
 			readLength, err := tty.Read(buffer)
 			if err != nil {
-				log.WithError(err).Error("failed to read from tty:")
+				// PTY (shell) has exited: close the connection so the peer is
+				// notified and the net->tty loop exits to run cleanup. This is a
+				// normal exit, so don't log it as an error.
+				conn.Close()
 				return
 			}
 			if _, err := conn.Write(buffer[:readLength]); err != nil {
