@@ -3824,6 +3824,26 @@ paths:
           $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
+  /api/server-info:
+    get:
+      tags:
+        - Core
+      summary: Server Information
+      description: |
+        Returns server-wide configuration that clients need but that is not
+        user-specific, such as the wildcard domain used to build space web-port
+        dev URLs.
+      responses:
+        "200":
+          description: Server information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerInfoResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
 components:
   securitySchemes:
     BearerAuth:
@@ -4378,6 +4398,18 @@ components:
           type: string
           example: default
           description: The server zone name.
+
+    ServerInfoResponse:
+      type: object
+      properties:
+        version:
+          type: string
+          example: "0.26.0"
+          description: The knot server version string.
+        wildcard_domain:
+          type: string
+          example: "*.knot.example.com"
+          description: The server's wildcard domain used to build space web-port URLs. Empty when not configured.
 
     AuditLogEntry:
       type: object

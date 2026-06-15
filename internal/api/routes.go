@@ -11,6 +11,7 @@ import (
 func ApiRoutes(router *http.ServeMux) {
 	// Core
 	router.HandleFunc("GET /api/ping", middleware.ApiAuth(HandlePing))
+	router.HandleFunc("GET /api/server-info", middleware.ApiAuth(HandleGetServerInfo))
 	router.HandleFunc("POST /api/auth/logout", middleware.ApiAuth(HandleLogout))
 
 	// Users

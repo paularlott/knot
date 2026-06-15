@@ -524,6 +524,19 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "knot.server",
+    description: "Knot server information",
+    functions: [
+      {
+        name: "info",
+        signature: "info()",
+        description: "Get server-wide information",
+        returns:
+          "dict - Server info with version, wildcard_domain",
+      },
+    ],
+  },
+  {
     module: "knot.permission",
     description: "Knot permission constants and functions",
     functions: [
