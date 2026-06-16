@@ -11,18 +11,19 @@ import (
 )
 
 type SpaceRequest struct {
-	Name            string             `json:"name"`
-	Description     string             `json:"description"`
-	TemplateId      string             `json:"template_id"`
-	Shell           string             `json:"shell"`
-	UserId          string             `json:"user_id"`
+	Name            string               `json:"name"`
+	Description     string               `json:"description"`
+	TemplateId      string               `json:"template_id"`
+	Shell           string               `json:"shell"`
+	UserId          string               `json:"user_id"`
 	AltNames        []model.AltNameEntry `json:"alt_names"`
-	IconURL         string             `json:"icon_url"`
-	CustomFields    []CustomFieldValue `json:"custom_fields"`
-	SelectedNodeId  string             `json:"selected_node_id,omitempty"`
-	StartupScriptId string             `json:"startup_script_id,omitempty"`
-	DependsOn       []string           `json:"depends_on"`
-	Stack           string             `json:"stack"`
+	IconURL         string               `json:"icon_url"`
+	CustomFields    []CustomFieldValue   `json:"custom_fields"`
+	SelectedNodeId  string               `json:"selected_node_id,omitempty"`
+	StartupScriptId string               `json:"startup_script_id,omitempty"`
+	DependsOn       []string             `json:"depends_on"`
+	Stack           string               `json:"stack"`
+	StackPrefix     string               `json:"stack_prefix"`
 }
 
 type CreateSpaceResponse struct {
@@ -70,6 +71,7 @@ type SpaceInfo struct {
 	Healthy         bool                 `json:"healthy"`
 	NodeHostname    string               `json:"node_hostname"`
 	Stack           string               `json:"stack"`
+	StackPrefix     string               `json:"stack_prefix"`
 	ResourceUsage   *SpaceResourceUsage  `json:"resource_usage,omitempty"`
 	AltNames        []model.AltNameEntry `json:"alt_names"`
 	CustomFields    []CustomFieldValue   `json:"custom_fields"`
@@ -136,6 +138,7 @@ type SpaceDefinition struct {
 	NodeId             string                       `json:"node_id"`
 	NodeHostname       string                       `json:"node_hostname"`
 	Stack              string                       `json:"stack"`
+	StackPrefix        string                       `json:"stack_prefix"`
 	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`
 }
 

@@ -57,9 +57,9 @@ var CreateCmd = &cli.Command{
 
 		// Resolve template names to IDs for each component
 		type createdSpace struct {
-			key    string
-			id     string
-			space  *apiclient.StackDefSpace
+			key   string
+			id    string
+			space *apiclient.StackDefSpace
 		}
 		spaces := make([]createdSpace, 0, len(def.Spaces))
 
@@ -82,6 +82,7 @@ var CreateCmd = &cli.Command{
 				Name:         spaceName,
 				TemplateId:   templateId,
 				Stack:        stackName,
+				StackPrefix:  prefix,
 				Description:  comp.Description,
 				Shell:        comp.Shell,
 				CustomFields: customFields,

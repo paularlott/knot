@@ -226,6 +226,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		NodeHostname:       nodeHostname,
 		Healthy:            healthy,
 		Stack:              space.Stack,
+		StackPrefix:        space.StackPrefix,
 	}
 
 	if state != nil {

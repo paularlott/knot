@@ -7,7 +7,8 @@
       <div class="space-y-6">
         <div>
           <label for="name" class="form-label">Space Name</label>
-          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name" :disabled="!!formData.stack_prefix" :title="formData.stack_prefix ? 'Remove the space from its stack to rename it' : ''">
+          <div x-show="formData.stack_prefix" class="description" x-cloak>This space belongs to a stack, so its name can't be changed. Remove the stack to rename it.</div>
           <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
 <div x-show="templatePorts.some(p => p.protocol === 'http' || p.protocol === 'https')" x-cloak>

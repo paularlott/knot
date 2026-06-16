@@ -110,6 +110,8 @@ var migrations = []string{
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS ssh_private_key TEXT DEFAULT ''`,
 	// 52: add ports to templates
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS ports JSON NOT NULL DEFAULT '[]'`,
+	// 53: add stack_prefix to spaces
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS stack_prefix VARCHAR(255) DEFAULT ''`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

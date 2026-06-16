@@ -4610,6 +4610,10 @@ components:
         stack:
           type: string
           description: The stack name this space belongs to, or empty if unstacked.
+        stack_prefix:
+          type: string
+          readOnly: true
+          description: The prefix used when the space was created as part of a stack (space names are `prefix-key`), or empty if not part of a stack. Use it to reference sibling containers in templates, e.g. `${{ .space.stack_prefix }}-db`.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
         alt_names:
@@ -4700,6 +4704,9 @@ components:
         stack:
           type: string
           description: The stack name to group this space under, or empty for unstacked.
+        stack_prefix:
+          type: string
+          description: The prefix used when creating the space as part of a stack (space names are `prefix-key`). Set automatically by stack creation; omit for standalone spaces. Read-only after creation — clearing the stack name detaches the space from the stack and clears the prefix.
 
     SpaceVolume:
       type: object
@@ -4768,6 +4775,10 @@ components:
         stack:
           type: string
           description: The stack name this space belongs to, or empty if unstacked.
+        stack_prefix:
+          type: string
+          readOnly: true
+          description: The prefix used when the space was created as part of a stack (space names are `prefix-key`), or empty if not part of a stack. Use it to reference sibling containers in templates, e.g. `${{ .space.stack_prefix }}-db`.
         is_deployed:
           type: boolean
           description: Flags if the space is deployed.

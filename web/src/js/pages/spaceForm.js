@@ -55,6 +55,7 @@ window.spaceForm = function (
       startup_script_id: "",
       depends_on: [],
       stack: "",
+      stack_prefix: "",
     },
     stackSuggestions: [],
     template_id: templateId,
@@ -341,6 +342,7 @@ window.spaceForm = function (
           this.formData.depends_on = space.depends_on || [];
           this.dependencyTargetZone = space.zone || "";
           this.formData.stack = space.stack || "";
+          this.formData.stack_prefix = space.stack_prefix || "";
           this.formData.http_ports = space.http_ports || {};
           this._pendingAltNames = space.alt_names || [];
           await this.loadDependencyOptions(this.formData.user_id || userId);

@@ -118,6 +118,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.Stack = space.Stack
+		s.StackPrefix = space.StackPrefix
 
 		// Populate custom field values
 		s.CustomFields = make([]apiclient.CustomFieldValue, len(space.CustomFields))
@@ -379,6 +380,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn
 	space.Stack = request.Stack
+	space.StackPrefix = request.StackPrefix
 
 	spaceService := service.GetSpaceService()
 	err = spaceService.CreateSpace(space, user)
@@ -763,6 +765,15 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Spaces that belong to a stack have structural names (prefix-key) used for
+	// inter-container hostnames and template references. Prevent renaming while
+	// the space remains in a stack. Clearing the stack name detaches the space
+	// (clearing its prefix) and frees the name for editing.
+	if space.StackPrefix != "" && request.Stack != "" && request.Name != space.Name {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot rename a space that belongs to a stack; remove it from the stack first"})
+		return
+	}
+
 	// Update the space with request data
 	space.Name = request.Name
 	space.Description = request.Description
@@ -774,6 +785,11 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn
 	space.Stack = request.Stack
+	// The prefix is server-managed: preserved while the space stays in a stack,
+	// cleared when the stack name is removed (detaching the space).
+	if request.Stack == "" {
+		space.StackPrefix = ""
+	}
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {

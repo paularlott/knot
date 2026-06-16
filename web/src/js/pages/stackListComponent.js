@@ -205,6 +205,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
             name: spaceName,
             template_id: comp.template_id,
             stack: stackName,
+            stack_prefix: prefix,
             description: comp.description || "",
             shell: comp.shell || "",
             custom_fields: (comp.custom_fields || []).map((cf) => ({

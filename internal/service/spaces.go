@@ -190,7 +190,7 @@ func (s *SpaceService) UpdateSpace(space *model.Space, user *model.User) error {
 
 	// Save to database
 	db := database.GetInstance()
-	if err := db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "NodeId", "Shell", "IconURL", "AltNames", "CustomFields", "StartupScriptId", "DependsOn", "Stack", "ContainerId", "VolumeData", "UpdatedAt"}); err != nil {
+	if err := db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "NodeId", "Shell", "IconURL", "AltNames", "CustomFields", "StartupScriptId", "DependsOn", "Stack", "StackPrefix", "ContainerId", "VolumeData", "UpdatedAt"}); err != nil {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 

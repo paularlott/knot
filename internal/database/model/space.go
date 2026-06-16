@@ -114,6 +114,7 @@ type Space struct {
 	Description      string             `json:"description" db:"description" msgpack:"description"`
 	Note             string             `json:"note" db:"note" msgpack:"note"`
 	Stack            string             `json:"stack" db:"stack" msgpack:"stack"`
+	StackPrefix      string             `json:"stack_prefix" db:"stack_prefix" msgpack:"stack_prefix"`
 	Zone             string             `json:"zone" db:"zone" msgpack:"zone"`
 	NodeId           string             `json:"node_id,omitempty" db:"node_id" msgpack:"node_id,omitempty"`
 	Shell            string             `json:"shell" db:"shell" msgpack:"shell"`
@@ -128,7 +129,7 @@ type Space struct {
 	IsPending        bool               `json:"is_pending" db:"is_pending" msgpack:"is_pending"` // Flags if the space is pending a state change, starting or stopping
 	IsDeleting       bool               `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"`
 	IsDeleted        bool               `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	AltNames         []AltNameEntry      `json:"alt_names" msgpack:"alt_names"`
+	AltNames         []AltNameEntry     `json:"alt_names" msgpack:"alt_names"`
 	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
 	PortForwards     []PortForwardEntry `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
