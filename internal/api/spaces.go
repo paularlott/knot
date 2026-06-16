@@ -720,6 +720,24 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// isSpaceRenameBlocked reports whether renaming the space is blocked because it
+// remains part of a stack. A stacked space has a structural name (prefix-key)
+// used for inter-container hostnames and template references, so it can't be
+// renamed in place. Clearing the stack name detaches the space and frees the name.
+func isSpaceRenameBlocked(existing *model.Space, request *apiclient.SpaceRequest) bool {
+	return existing.StackPrefix != "" && request.Stack != "" && request.Name != existing.Name
+}
+
+// resolvedStackPrefix returns the prefix to persist for a space update. The
+// prefix is server-managed: preserved while the space stays in a stack, and
+// cleared when the stack name is removed (detaching the space).
+func resolvedStackPrefix(existing *model.Space, request *apiclient.SpaceRequest) string {
+	if request.Stack == "" {
+		return ""
+	}
+	return existing.StackPrefix
+}
+
 func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	var user *model.User = nil
 	spaceId := r.PathValue("space_id")
@@ -769,7 +787,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	// inter-container hostnames and template references. Prevent renaming while
 	// the space remains in a stack. Clearing the stack name detaches the space
 	// (clearing its prefix) and frees the name for editing.
-	if space.StackPrefix != "" && request.Stack != "" && request.Name != space.Name {
+	if isSpaceRenameBlocked(space, &request) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot rename a space that belongs to a stack; remove it from the stack first"})
 		return
 	}
@@ -787,9 +805,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.Stack = request.Stack
 	// The prefix is server-managed: preserved while the space stays in a stack,
 	// cleared when the stack name is removed (detaching the space).
-	if request.Stack == "" {
-		space.StackPrefix = ""
-	}
+	space.StackPrefix = resolvedStackPrefix(space, &request)
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
