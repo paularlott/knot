@@ -536,6 +536,20 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceStart,
+		fmt.Sprintf("Started space %s", space.Name),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+		},
+	)
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -613,6 +627,20 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceStop,
+		fmt.Sprintf("Stopped space %s", space.Name),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+		},
+	)
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -672,6 +700,20 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceRestart,
+		fmt.Sprintf("Restarted space %s", space.Name),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+		},
+	)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -961,6 +1003,20 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
+			audit.LogWithRequest(r,
+				user.Username,
+				model.AuditActorTypeUser,
+				model.AuditEventSpaceStop,
+				fmt.Sprintf("Stopped space %s", space.Name),
+				&map[string]interface{}{
+					"agent":           r.UserAgent(),
+					"IP":              r.RemoteAddr,
+					"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+					"space_id":        space.Id,
+					"space_name":      space.Name,
+					"target_user_id":  targetUser.Id,
+				},
+			)
 		}
 	}
 
@@ -1654,6 +1710,18 @@ func HandleStackStart(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventStackStart,
+		fmt.Sprintf("Started stack %s", stackName),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"stack_name":      stackName,
+		},
+	)
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -1666,6 +1734,18 @@ func HandleStackStop(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventStackStop,
+		fmt.Sprintf("Stopped stack %s", stackName),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"stack_name":      stackName,
+		},
+	)
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -1686,5 +1766,17 @@ func HandleStackRestart(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventStackRestart,
+		fmt.Sprintf("Restarted stack %s", stackName),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"stack_name":      stackName,
+		},
+	)
 	w.WriteHeader(http.StatusAccepted)
 }

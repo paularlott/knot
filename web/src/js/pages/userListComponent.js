@@ -30,6 +30,11 @@ window.userListComponent = function() {
         username: '',
       }
     },
+    usageModal: {
+      show: false,
+      userId: '',
+      username: '',
+    },
     users: [],
     roles: [],
     groups: [],
@@ -182,6 +187,11 @@ window.userListComponent = function() {
     },
     userSpaces(userId) {
       window.location.href = `/spaces/${userId}`;
+    },
+    openUsage(userId, username) {
+      this.usageModal.userId = userId;
+      this.usageModal.username = username;
+      this.usageModal.show = true;
     },
     async deleteUser(userId) {
       const self = this;

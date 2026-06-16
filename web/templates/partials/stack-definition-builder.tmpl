@@ -137,7 +137,7 @@
       </div>
 
       <!-- Delete Space Confirmation Modal -->
-      <div x-cloak x-show="deleteCompConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteCompConfirm.show" @keydown.esc.window="deleteCompConfirm.show = false" @click.self="deleteCompConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteCompTitle">
+      <div x-cloak x-show="deleteCompConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteCompConfirm.show" @keydown.esc.window="deleteCompConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteCompTitle">
         <div x-show="deleteCompConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-danger">
@@ -163,7 +163,7 @@
       </div>
 
       <!-- Discard Unsaved Changes Confirmation -->
-      <div x-cloak x-show="discardConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="discardConfirm.show" @keydown.esc.window="discardConfirm.show = false" @click.self="discardConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="discardTitle">
+      <div x-cloak x-show="discardConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="discardConfirm.show" @keydown.esc.window="discardConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="discardTitle">
         <div x-show="discardConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-danger">
@@ -189,7 +189,7 @@
       </div>
 
       <!-- Space Edit Modal -->
-      <div x-cloak x-show="componentEditor.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="componentEditor.show" @keydown.esc.window="if(componentEditor.show) cancelComponentEditor()" @click.self="cancelComponentEditor()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="compEditorTitle">
+      <div x-cloak x-show="componentEditor.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="componentEditor.show" @keydown.esc.window="if(componentEditor.show) cancelComponentEditor()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="compEditorTitle">
         <div x-show="componentEditor.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide max-h-[90vh] flex flex-col">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-info">

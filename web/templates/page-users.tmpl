@@ -170,6 +170,13 @@
                         </svg>
                         <span class="sr-only">View spaces</span>
                       </button>
+                      <button @click="openUsage(u.user_id, u.username)" class="row-action-button row-action-primary" type="button" :aria-label="'Usage for user ' + u.username" title="Usage">
+                        <svg class="size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
+                        </svg>
+                        <span class="sr-only">Usage</span>
+                      </button>
                       <button @click="editUser(u.user_id)" class="row-action-button" type="button" :aria-label="'Edit user ' + u.username" title="Edit">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -197,6 +204,12 @@
                     </button>
 
                     <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap xl:hidden" role="menu" x-cloak>
+                      <button @click="$refs.panel.close; openUsage(u.user_id, u.username)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                        <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
+                        </svg> Usage
+                      </button>
                       <button @click="$refs.panel.close; editUser(u.user_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -233,7 +246,7 @@
       </div>
 
       <!-- Modal delete -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" @click.self="deleteConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
         <!-- Modal Dialog -->
         <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
@@ -268,7 +281,7 @@
       </div>
 
       <!-- Modal stop -->
-      <div x-cloak x-show="stopConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="stopConfirm.show" @keydown.esc.window="stopConfirm.show = false" @click.self="stopConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="stopConfirmTitle">
+      <div x-cloak x-show="stopConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="stopConfirm.show" @keydown.esc.window="stopConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="stopConfirmTitle">
         <!-- Modal Dialog -->
         <div x-show="stopConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
@@ -299,7 +312,7 @@
 
       <!-- Modal create/edit user -->
       <div x-cloak x-show="userFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="userFormModal.show" @keydown.esc.window="userFormModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
-        <div x-show="userFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-2xl max-h-[90vh]">
+        <div x-show="userFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide max-h-[90vh]">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-info">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
@@ -318,6 +331,46 @@
               {{ template "user-form-content" . }}
             </div>
           </template>
+        </div>
+      </div>
+
+      <!-- Modal: User Usage -->
+      <div x-cloak x-show="usageModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="usageModal.show" @keydown.esc.window="usageModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="usageModalTitle">
+        <div x-show="usageModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-2xl max-h-[90vh] flex flex-col">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
+              </svg>
+            </div>
+            <h3 id="usageModalTitle" class="ui-modal-title" x-text="'Usage for ' + usageModal.username"></h3>
+            <button @click="usageModal.show = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ui-modal-body-scroll">
+            <template x-if="usageModal.show">
+              <div x-data="usageComponent(usageModal.userId)" x-effect="usageModal.show || destroy()">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div class="h-72">
+                    <canvas x-ref="spacesChart" aria-label="Space usage chart" role="img">Space usage chart</canvas>
+                  </div>
+                  <div class="h-72">
+                    <canvas x-ref="tunnelsChart" aria-label="Tunnel usage chart" role="img">Tunnel usage chart</canvas>
+                  </div>
+                  <div class="h-72">
+                    <canvas x-ref="computeChart" aria-label="Compute usage chart" role="img">Compute usage chart</canvas>
+                  </div>
+                  <div class="h-72">
+                    <canvas x-ref="storageChart" aria-label="Storage usage chart" role="img">Storage usage chart</canvas>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
         </div>
       </div>
 

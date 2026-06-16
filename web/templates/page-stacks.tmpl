@@ -214,7 +214,7 @@
       </div>
 
       <!-- Delete Definition Modal -->
-      <div x-cloak x-show="deleteDefConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteDefConfirm.show" @keydown.esc.window="deleteDefConfirm.show = false" @click.self="deleteDefConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteDefTitle">
+      <div x-cloak x-show="deleteDefConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteDefConfirm.show" @keydown.esc.window="deleteDefConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteDefTitle">
         <div x-show="deleteDefConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-danger">
@@ -240,7 +240,7 @@
       </div>
 
       <!-- Create Stack Modal -->
-      <div x-cloak x-show="createStackModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="createStackModal.show" @keydown.esc.window="createStackModal.show = false" @click.self="createStackModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="createStackTitle">
+      <div x-cloak x-show="createStackModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="createStackModal.show" @keydown.esc.window="createStackModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="createStackTitle">
         <div x-show="createStackModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-info">

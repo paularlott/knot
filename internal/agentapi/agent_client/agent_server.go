@@ -426,21 +426,28 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 		// Test if the keys have changed
 		s.agentClient.keysMutex.Lock()
-		if !reflect.DeepEqual(updateAuthorizedKeys.SSHKeys, s.agentClient.lastPublicSSHKeys) || strings.TrimSpace(updateAuthorizedKeys.SSHPrivateKey) != strings.TrimSpace(s.agentClient.lastPrivateSSHKey) || !reflect.DeepEqual(updateAuthorizedKeys.GitHubUsernames, s.agentClient.lastGitHubUsernames) {
+
+		authKeysChanged := !reflect.DeepEqual(updateAuthorizedKeys.SSHKeys, s.agentClient.lastPublicSSHKeys) || !reflect.DeepEqual(updateAuthorizedKeys.GitHubUsernames, s.agentClient.lastGitHubUsernames)
+		privateKeyChanged := strings.TrimSpace(updateAuthorizedKeys.SSHPrivateKey) != strings.TrimSpace(s.agentClient.lastPrivateSSHKey)
+
+		if authKeysChanged || privateKeyChanged {
 			s.agentClient.lastPublicSSHKeys = updateAuthorizedKeys.SSHKeys
 			s.agentClient.lastPrivateSSHKey = updateAuthorizedKeys.SSHPrivateKey
 			s.agentClient.lastGitHubUsernames = updateAuthorizedKeys.GitHubUsernames
 
-			if s.agentClient.usingInternalSSH {
-				if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
-					log.WithError(err).Error("updating internal SSH server keys:")
-				}
-			} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
-				if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
-					log.WithError(err).Error("updating authorized keys:")
+			if authKeysChanged {
+				if s.agentClient.usingInternalSSH {
+					if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
+						log.WithError(err).Error("updating internal SSH server keys:")
+					}
+				} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
+					if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
+						log.WithError(err).Error("updating authorized keys:")
+					}
 				}
 			}
-			if s.agentClient.withSSH {
+
+			if privateKeyChanged && s.agentClient.withSSH {
 				if err := util.UpdateSSHPrivateKey(updateAuthorizedKeys.SSHPrivateKey); err != nil {
 					log.WithError(err).Error("updating SSH private key:")
 				}

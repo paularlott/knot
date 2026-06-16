@@ -1,7 +1,7 @@
 {{ define "chat" }}
 {{ if and .aiChatEnabled .permissionUseWebAssistant }}
 <!-- Chat Component -->
-<div x-data="chatComponent()" x-show="isOpen" x-cloak class="fixed bottom-4 left-4 right-4 z-40 pointer-events-none">
+<div x-data="chatComponent()" x-show="isOpen" x-cloak @keydown.esc.window="isLoading && stopGeneration()" class="fixed bottom-4 left-4 right-4 z-40 pointer-events-none">
 
   <div x-show="isOpen" x-transition:enter="transition-all ease-out duration-300"
     x-transition:enter-start="opacity-0 transform translate-y-8 scale-95"

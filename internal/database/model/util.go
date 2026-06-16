@@ -82,6 +82,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 		"space": map[string]interface{}{
 			"id":         "",
 			"name":       "",
+			"stack":      "",
 			"first_boot": false,
 		},
 		"template": map[string]interface{}{
@@ -114,6 +115,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 		data["space"] = map[string]interface{}{
 			"id":         space.Id,
 			"name":       space.Name,
+			"stack":      space.Stack,
 			"first_boot": space.TemplateHash == "",
 		}
 	}

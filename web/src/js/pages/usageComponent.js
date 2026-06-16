@@ -53,7 +53,7 @@ function initSpacesChart(ident, textColor) {
   };
 
   const chart = new Chart(
-    document.getElementById(ident),
+    ident,
     chartConfig
   );
 
@@ -112,7 +112,7 @@ function initTunnelChart(ident, textColor) {
   };
 
   const chart = new Chart(
-    document.getElementById(ident),
+    ident,
     chartConfig
   );
 
@@ -171,7 +171,7 @@ function initComputeChart(ident, textColor) {
   };
 
   const chart = new Chart(
-    document.getElementById(ident),
+    ident,
     chartConfig
   );
 
@@ -230,7 +230,7 @@ function initStorageChart(ident, textColor) {
   };
 
   const chart = new Chart(
-    document.getElementById(ident),
+    ident,
     chartConfig
   );
 
@@ -257,14 +257,25 @@ window.usageComponent = function(userId) {
       used_tunnels: 0,
     },
 
+    get darkMode() {
+      return document.documentElement.classList.contains('dark');
+    },
+
+    destroy() {
+      if (spacesChart) { spacesChart.destroy(); spacesChart = null; }
+      if (tunnelsChart) { tunnelsChart.destroy(); tunnelsChart = null; }
+      if (computeChart) { computeChart.destroy(); computeChart = null; }
+      if (storageChart) { storageChart.destroy(); storageChart = null; }
+    },
+
     async init() {
       // Initialize the graphs
       const textColor = this.darkMode ? '#9ca3af' : '#6b7280'; // dark:text-gray-400 : text-gray-500
 
-      spacesChart = initSpacesChart('spaceUsage', textColor);
-      tunnelsChart = initTunnelChart('tunnelUsage', textColor);
-      computeChart = initComputeChart('computeUsage', textColor);
-      storageChart = initStorageChart('storageUsage', textColor);
+      spacesChart = initSpacesChart(this.$refs.spacesChart, textColor);
+      tunnelsChart = initTunnelChart(this.$refs.tunnelsChart, textColor);
+      computeChart = initComputeChart(this.$refs.computeChart, textColor);
+      storageChart = initStorageChart(this.$refs.storageChart, textColor);
 
       // Track the theme and adjust the label colors
       window.addEventListener('theme-change', (e) => {

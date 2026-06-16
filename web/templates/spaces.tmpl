@@ -248,7 +248,7 @@
       </div>
 
       <!-- Modal -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
         <!-- Modal Dialog -->
         <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
@@ -282,7 +282,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" @click.self="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="ceaseShareTitle" :aria-label="'Stop sharing ' + ceaseShareConfirm.space.name">
+      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="ceaseShareTitle" :aria-label="'Stop sharing ' + ceaseShareConfirm.space.name">
         <!-- Modal Dialog -->
         <div x-show="ceaseShareConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
@@ -314,7 +314,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="quotaComputeLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaComputeLimit.show" @keydown.esc.window="quotaComputeLimit.show = false" @click.self="quotaComputeLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaComputeTitle">
+      <div x-cloak x-show="quotaComputeLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaComputeLimit.show" @keydown.esc.window="quotaComputeLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaComputeTitle">
         <!-- Modal Dialog -->
         <div x-show="quotaComputeLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
@@ -353,7 +353,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="quotaStorageLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaStorageLimit.show" @keydown.esc.window="quotaStorageLimit.show = false" @click.self="quotaStorageLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaStorageTitle">
+      <div x-cloak x-show="quotaStorageLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaStorageLimit.show" @keydown.esc.window="quotaStorageLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaStorageTitle">
         <!-- Modal Dialog -->
         <div x-show="quotaStorageLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
@@ -393,7 +393,7 @@
       </div>
 
 
-      <div x-cloak x-show="badScheduleShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="badScheduleShow" @keydown.esc.window="badScheduleShow = false" @click.self="badScheduleShow = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="badScheduleTitle">
+      <div x-cloak x-show="badScheduleShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="badScheduleShow" @keydown.esc.window="badScheduleShow = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="badScheduleTitle">
         <!-- Modal Dialog -->
         <div x-show="badScheduleShow" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
@@ -457,7 +457,7 @@
       </div>
 
       <!-- Modal: Space Usage -->
-      <div x-cloak x-show="spaceUsageModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceUsageModal.show" @keydown.esc.window="closeSpaceUsage()" @click.self="closeSpaceUsage()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceUsageTitle">
+      <div x-cloak x-show="spaceUsageModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceUsageModal.show" @keydown.esc.window="closeSpaceUsage()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceUsageTitle">
         <div x-show="spaceUsageModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-2xl max-h-[90vh] flex flex-col">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-info">

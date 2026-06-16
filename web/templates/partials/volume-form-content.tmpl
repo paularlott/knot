@@ -75,7 +75,7 @@
       <button type="submit" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
     </div>
   </form>
-  <div x-cloak x-show="showPlatformWarning" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showPlatformWarning" @keydown.esc.window="showPlatformWarning = false" @click.self="showPlatformWarning = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="platformWarningTitle">
+  <div x-cloak x-show="showPlatformWarning" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showPlatformWarning" @keydown.esc.window="showPlatformWarning = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="platformWarningTitle">
     <div x-show="showPlatformWarning" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
       <div class="ui-modal-header">
         <div class="ui-modal-icon">

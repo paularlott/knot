@@ -41,6 +41,9 @@ const (
 	AuditEventSpaceCreate    = "Space Create"
 	AuditEventSpaceUpdate    = "Space Update"
 	AuditEventSpaceDelete    = "Space Delete"
+	AuditEventSpaceStart     = "Space Start"
+	AuditEventSpaceStop      = "Space Stop"
+	AuditEventSpaceRestart   = "Space Restart"
 	AuditEventSpaceTransfer  = "Space Transfer"
 	AuditEventSpaceShare     = "Space Shared"
 	AuditEventSpaceStopShare = "Space Stop Share"
@@ -80,6 +83,11 @@ const (
 	AuditEventStackDefCreate = "Stack Definition Create"
 	AuditEventStackDefUpdate = "Stack Definition Update"
 	AuditEventStackDefDelete = "Stack Definition Delete"
+
+	// Stacks
+	AuditEventStackStart   = "Stack Start"
+	AuditEventStackStop    = "Stack Stop"
+	AuditEventStackRestart = "Stack Restart"
 )
 
 type AuditLogFilter struct {
