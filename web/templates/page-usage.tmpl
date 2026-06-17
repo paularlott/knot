@@ -15,16 +15,16 @@
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 xlg:grid-cols-4">
         <div class="h-72">
-          <canvas id="spaceUsage"></canvas>
+          <canvas id="spaceUsage" x-ref="spacesChart"></canvas>
         </div>
         <div class="h-72">
-          <canvas id="tunnelUsage"></canvas>
+          <canvas id="tunnelUsage" x-ref="tunnelsChart"></canvas>
         </div>
         <div class="h-72">
-          <canvas id="computeUsage"></canvas>
+          <canvas id="computeUsage" x-ref="computeChart"></canvas>
         </div>
         <div class="h-72">
-          <canvas id="storageUsage"></canvas>
+          <canvas id="storageUsage" x-ref="storageChart"></canvas>
         </div>
       </div>
 

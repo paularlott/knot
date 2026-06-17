@@ -1,13 +1,13 @@
 {{ template "layout-base.tmpl" . }}
 
-{{ define "pageTitle" }}Stacks{{ end }}
+{{ define "pageTitle" }}Stack Templates{{ end }}
 
 {{ define "mainContent" }}
 <main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="stackListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .isLeafNode }}, {{ .permissionUseSpaces }})" data-zone="{{ .zone }}">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
-      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Stacks</h1>
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Stack Templates</h1>
     </div>
 
     <form class="app-toolbar col-span-full">
