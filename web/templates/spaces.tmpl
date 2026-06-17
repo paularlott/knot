@@ -82,13 +82,21 @@
         </div>
 
       </div>
-      <div>
-        <button @click.prevent="openTemplateSelector" type="button" class="btn-primary flex items-center mt-1">
+      <div class="flex gap-2 mt-1">
+        <button @click.prevent="openTemplateSelector" type="button" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
           New Space
         </button>
+        {{ if or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
+        <button @click.prevent="openStackDefSelector" type="button" class="btn-primary flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          New Stack
+        </button>
+        {{ end }}
       </div>
     </form>
 
@@ -670,6 +678,90 @@
           </div>
         </div>
       </div>
+
+      {{ if or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
+      <!-- Modal: Stack Template Selector -->
+      <div x-cloak x-show="stackDefSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="stackDefSelector.show" @keydown.esc.window="stackDefSelector.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="stackDefSelectorTitle">
+        <div x-show="stackDefSelector.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3" />
+              </svg>
+            </div>
+            <h3 id="stackDefSelectorTitle" class="ui-modal-title">Select a Stack Template</h3>
+            <button @click="stackDefSelector.show = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ui-modal-body-scroll max-h-[70vh]">
+            <div class="mb-4">
+              <input type="search" class="form-field w-full" placeholder="Search stack templates..." aria-label="Search stack templates" x-model="stackDefSelector.searchTerm" x-on:input="stackDefSearchChanged" x-ref="stackDefSearchInput">
+            </div>
+            <div x-show="stackDefSelector.loading" class="text-center text-sm text-gray-500 dark:text-gray-400 py-8">Loading…</div>
+            <div x-show="!stackDefSelector.loading && stackDefSelector.definitions.filter(d => !d.searchHide).length === 0" class="text-center text-sm text-gray-500 dark:text-gray-400 py-8">No stack templates available.</div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <template x-for="d in stackDefSelector.definitions" :key="d.stack_definition_id">
+                <template x-if="!d.searchHide">
+                  <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors" @click="openCreateStackFromDef(d)">
+                    <div class="flex-grow min-w-0">
+                      <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="d.name"></h4>
+                      <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
+                      <div class="flex flex-wrap gap-2 mt-2 items-center text-xs text-gray-500 dark:text-gray-400">
+                        <span x-text="(d.spaces || []).length + ' space' + ((d.spaces || []).length === 1 ? '' : 's')"></span>
+                        <span x-show="!d.user_id">· Global</span>
+                        <span x-show="d.user_id">· Personal</span>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Create Stack -->
+      <div x-cloak x-show="createStackModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="createStackModal.show" @keydown.esc.window="createStackModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="createStackTitle">
+        <div x-show="createStackModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3" />
+              </svg>
+            </div>
+            <h3 id="createStackTitle" class="ui-modal-title">Create Stack</h3>
+            <button @click="createStackModal.show = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ui-modal-body">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Create spaces from <strong x-text="createStackModal.def?.name || ''"></strong></p>
+            <div class="mb-4">
+              <label for="stackPrefix" class="block text-sm font-medium text-gray-900 dark:text-white mb-1">Prefix</label>
+              <input type="text" id="stackPrefix" class="form-field w-full" placeholder="e.g. myproject" x-model="createStackModal.prefix" @keydown.enter="submitCreateStack()" x-ref="stackPrefixInput">
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Spaces will be named: <span x-text="createStackModal.prefix ? createStackModal.prefix + '-&lt;space&gt;' : '&lt;prefix&gt;-&lt;space&gt;'"></span></p>
+            </div>
+            <div class="mb-4">
+              <label for="stackName" class="block text-sm font-medium text-gray-900 dark:text-white mb-1">Stack Name</label>
+              <input type="text" id="stackName" class="form-field w-full" placeholder="Defaults to prefix" x-model="createStackModal.name" @keydown.enter="submitCreateStack()">
+            </div>
+            <div x-show="createStackModal.error" class="text-sm text-red-600 dark:text-red-400" x-text="createStackModal.error"></div>
+            <div x-show="createStackModal.creating" class="text-sm text-gray-500 dark:text-gray-400">
+              Creating spaces…
+            </div>
+          </div>
+          <div class="ui-modal-footer">
+            <button @click="createStackModal.show = false" type="button" class="btn-secondary" :disabled="createStackModal.creating">Cancel</button>
+            <button @click="submitCreateStack()" type="button" class="btn-primary" :disabled="createStackModal.creating || !createStackModal.prefix">Create</button>
+          </div>
+        </div>
+      </div>
+      {{ end }}
 
     </div>
 

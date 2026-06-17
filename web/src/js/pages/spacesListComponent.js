@@ -131,6 +131,20 @@ window.spacesListComponent = function (
       groups: [],
       searchTerm: "",
     },
+    stackDefSelector: {
+      show: false,
+      definitions: [],
+      searchTerm: "",
+      loading: false,
+    },
+    createStackModal: {
+      show: false,
+      def: null,
+      prefix: "",
+      name: "",
+      error: "",
+      creating: false,
+    },
     spaceFormModal: {
       show: false,
       isEdit: false,
@@ -1225,6 +1239,201 @@ window.spacesListComponent = function (
       this.spaceFormModal.forUserId = this.forUserId;
       this.spaceFormModal.forUserUsername = this.forUsername;
       this.spaceFormModal.show = true;
+    },
+    async openStackDefSelector() {
+      this.stackDefSelector.show = true;
+      this.stackDefSelector.searchTerm = "";
+      await this.getStackDefsForSelector();
+      this.$nextTick(() => {
+        this.$refs.stackDefSearchInput?.focus();
+      });
+    },
+    async getStackDefsForSelector() {
+      this.stackDefSelector.loading = true;
+      try {
+        const res = await fetch("/api/stack-definitions", {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const defs = data.stack_definitions || [];
+        // Filter to active definitions available in the current zone.
+        defs.forEach((d) => {
+          const zones = d.zones || [];
+          d.searchHide = false;
+          if (!d.active) d.searchHide = true;
+          if (zones.length > 0 && zone && !zones.includes(zone)) {
+            d.searchHide = true;
+          }
+        });
+        this.stackDefSelector.definitions = defs;
+        this.stackDefSearchChanged();
+      } finally {
+        this.stackDefSelector.loading = false;
+      }
+    },
+    stackDefSearchChanged() {
+      const term = this.stackDefSelector.searchTerm.toLowerCase();
+      this.stackDefSelector.definitions.forEach((d) => {
+        const zones = d.zones || [];
+        let showRow = d.active;
+        if (zones.length > 0 && zone && !zones.includes(zone)) {
+          showRow = false;
+        }
+        if (term.length > 0) {
+          const haystack = (
+            (d.name || "") +
+            " " +
+            (d.description || "")
+          ).toLowerCase();
+          if (!haystack.includes(term)) showRow = false;
+        }
+        d.searchHide = !showRow;
+      });
+    },
+    openCreateStackFromDef(def) {
+      this.stackDefSelector.show = false;
+      this.createStackModal = {
+        show: true,
+        def: def,
+        prefix: "",
+        name: "",
+        error: "",
+        creating: false,
+      };
+      this.$nextTick(() => {
+        this.$refs.stackPrefixInput?.focus();
+      });
+    },
+    async submitCreateStack() {
+      const modal = this.createStackModal;
+      if (!modal.prefix || !modal.def) return;
+
+      const stackName = modal.name || modal.prefix;
+      const prefix = modal.prefix;
+      const spaces = modal.def.spaces || [];
+
+      if (spaces.length === 0) {
+        modal.error = "This stack template has no spaces.";
+        return;
+      }
+
+      modal.creating = true;
+      modal.error = "";
+
+      const created = [];
+
+      try {
+        // Pass 1: Create all spaces
+        for (const comp of spaces) {
+          const spaceName = prefix + "-" + comp.name;
+          const body = {
+            name: spaceName,
+            template_id: comp.template_id,
+            stack: stackName,
+            stack_prefix: prefix,
+            description: comp.description || "",
+            shell: comp.shell || "",
+            custom_fields: (comp.custom_fields || []).map((cf) => ({
+              name: cf.name,
+              value: cf.value,
+            })),
+          };
+          if (comp.startup_script_id) {
+            body.startup_script_id = comp.startup_script_id;
+          }
+
+          const res = await fetch("/api/spaces", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
+          if (res.status === 401) {
+            window.location.href = "/logout";
+            return;
+          }
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(
+              `Failed to create space "${spaceName}": ${err.error || res.statusText}`,
+            );
+          }
+
+          const data = await res.json();
+          created.push({ key: comp.name, id: data.space_id, comp });
+        }
+
+        // Build key-to-ID map
+        const keyToID = {};
+        for (const s of created) {
+          keyToID[s.key] = s.id;
+        }
+
+        // Pass 2: Set dependencies
+        for (const s of created) {
+          if (!s.comp.depends_on || s.comp.depends_on.length === 0) continue;
+          const depIDs = s.comp.depends_on
+            .map((k) => keyToID[k])
+            .filter(Boolean);
+          if (depIDs.length > 0) {
+            const spaceName = prefix + "-" + s.key;
+            await fetch(`/api/spaces/${s.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: spaceName,
+                stack: stackName,
+                depends_on: depIDs,
+              }),
+            });
+          }
+        }
+
+        // Pass 3: Apply port forwards
+        for (const s of created) {
+          if (!s.comp.port_forwards || s.comp.port_forwards.length === 0)
+            continue;
+          const forwards = [];
+          for (const pf of s.comp.port_forwards) {
+            const targetID = keyToID[pf.to_space];
+            if (!targetID) continue;
+            forwards.push({
+              local_port: pf.local_port,
+              space: targetID,
+              remote_port: pf.remote_port,
+              persistent: true,
+            });
+          }
+          if (forwards.length > 0) {
+            await fetch(`/space-io/${s.id}/port/apply`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ forwards }),
+            });
+          }
+        }
+
+        modal.show = false;
+        this.$dispatch("show-alert", {
+          msg: `Stack "${stackName}" created with ${created.length} space(s)`,
+          type: "success",
+        });
+      } catch (err) {
+        // Cleanup created spaces on failure
+        for (const s of created) {
+          await fetch(`/api/spaces/${s.id}`, { method: "DELETE" }).catch(
+            () => {},
+          );
+        }
+        modal.error = err.message;
+      } finally {
+        modal.creating = false;
+      }
     },
     getDayOfWeek(day) {
       return ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][day];
