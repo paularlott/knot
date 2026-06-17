@@ -76,6 +76,8 @@ github.com/paularlott/mcp v0.18.1 h1:z+JIM6RCQ1bKd6G/I5kwtx+LCI138MMIwdTFHVEOtJg
 github.com/paularlott/mcp v0.18.1/go.mod h1:ii8GUsjmU7Z950w8CVrjin3juzLdM4noXYZxGjkzV18=
 github.com/paularlott/scriptling v0.11.2 h1:DHNN2SLlRqwr+h7XUPfe6cV5+l/u7Qi4pl9CfeFaBbc=
 github.com/paularlott/scriptling v0.11.2/go.mod h1:JctOiZUSduCF9cUPpspeJeGO9XcGzwGmMbhlZ+H8Z5g=
+github.com/paularlott/scriptling v0.11.3 h1:6+nrRjuztR8HGVyj/JNBxnOXED0idyuoiUmCK/lQDd4=
+github.com/paularlott/scriptling v0.11.3/go.mod h1:KeG4BvTA/bi3PtePN0YCqP5aGBo4gt/ng+KXW8pz2sA=
 github.com/paularlott/snapshotkv v0.3.0 h1:FUxebbnUJJtnJwjd+W8obyD78WX/opvZkSvY6Cc+5xg=
 github.com/paularlott/snapshotkv v0.3.0/go.mod h1:X2ONJRnGTRUV2j8tIdO187y0QLm4n7bnCbdnV/mTWUQ=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
@@ -114,6 +116,8 @@ github.com/yeqown/go-qrcode/writer/standard v1.3.0 h1:chdyhEfRtUPgQtuPeaWVGQ/TQx
 github.com/yeqown/go-qrcode/writer/standard v1.3.0/go.mod h1:O4MbzsotGCvy8upYPCR91j81dr5XLT7heuljcNXW+oQ=
 github.com/yeqown/reedsolomon v1.0.0 h1:x1h/Ej/uJnNu8jaX7GLHBWmZKCAWjEJTetkqaabr4B0=
 github.com/yeqown/reedsolomon v1.0.0/go.mod h1:P76zpcn2TCuL0ul1Fso373qHRc69LKwAw/Iy6g1WiiM=
+github.com/yuin/goldmark v1.8.2 h1:kEGpgqJXdgbkhcOgBxkC0X0PmoPG1ZyoZ117rDVp4zE=
+github.com/yuin/goldmark v1.8.2/go.mod h1:ip/1k0VRfGynBgxOz0yCqHrbZXhcjxyuS66Brc7iBKg=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/zeebo/xxh3 v1.1.0 h1:s7DLGDK45Dyfg7++yxI0khrfwq9661w9EN78eP/UZVs=

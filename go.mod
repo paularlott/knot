@@ -24,7 +24,7 @@ require (
 	github.com/paularlott/gossip v0.12.6
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.18.1
-	github.com/paularlott/scriptling v0.11.2
+	github.com/paularlott/scriptling v0.11.3
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.20.1
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -67,6 +67,7 @@ require (
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
+	github.com/yuin/goldmark v1.8.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
