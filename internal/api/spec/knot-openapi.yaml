@@ -2052,6 +2052,49 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/stacks/{stack_name}:
+    delete:
+      summary: Delete a Stack
+      description: >-
+        Delete all spaces in a stack. The server validates that every space in
+        the stack is stoppable (not deployed, pending, or already deleting, and
+        in the current zone) before mutating anything, so the call is
+        all-or-nothing. Returns once each space has been marked as deleting;
+        actual teardown continues asynchronously on the server.
+      operationId: deleteStack
+      tags:
+        - Spaces
+      parameters:
+        - name: stack_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the stack to delete.
+        - name: user_id
+          in: query
+          description: Optional user ID to operate on behalf of (admin only).
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Stack delete operation accepted and processing.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          description: One or more spaces in the stack cannot be deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/spaces/{space_id}/files/read:
     post:
       summary: Read File from Space

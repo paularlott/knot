@@ -49,6 +49,11 @@ window.spacesListComponent = function (
         name: "",
       },
     },
+    deleteStackConfirm: {
+      show: false,
+      stack: "",
+      count: 0,
+    },
     ceaseShareConfirm: {
       show: false,
       targetUserId: "",
@@ -991,6 +996,54 @@ window.spacesListComponent = function (
             msg: `Stack "${stackName}" restarted`,
             type: "success",
           });
+        }
+      } finally {
+        this.stackBusy[stackName] = false;
+        this.getSpaces();
+      }
+    },
+    async deleteStack(stackName) {
+      this.stackBusy[stackName] = true;
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+        try {
+          while (true) {
+            try {
+              const res = await fetch(
+                `/api/stacks/${encodeURIComponent(stackName)}`,
+                {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  signal: controller.signal,
+                },
+              );
+              if (res.status === 202) {
+                this.$dispatch("show-alert", {
+                  msg: `Stack "${stackName}" deleting`,
+                  type: "success",
+                });
+                return;
+              }
+              const data = await res.json().catch(() => ({}));
+              this.$dispatch("show-alert", {
+                msg: data.error || `Stack could not be deleted`,
+                type: "error",
+              });
+              return;
+            } catch (e) {
+              if (e.name === "AbortError") {
+                this.$dispatch("show-alert", {
+                  msg: `Stack "${stackName}" delete timed out`,
+                  type: "error",
+                });
+                return;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+          }
+        } finally {
+          clearTimeout(timer);
         }
       } finally {
         this.stackBusy[stackName] = false;

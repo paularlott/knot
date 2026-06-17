@@ -82,16 +82,13 @@ var DeleteCmd = &cli.Command{
 			}
 		}
 
-		for _, s := range stackSpaces {
-			_, err := client.DeleteSpace(ctx, s.id)
-			if err != nil {
-				fmt.Printf("Error deleting space %q: %v\n", s.name, err)
-			} else {
-				fmt.Printf("  Deleted space %q\n", s.name)
-			}
+		_, err = client.DeleteStack(ctx, name)
+		if err != nil {
+			fmt.Printf("Error deleting stack %q: %v\n", name, err)
+			os.Exit(1)
 		}
 
-		fmt.Printf("Stack %q deleted.\n", name)
+		fmt.Printf("Stack %q deleting.\n", name)
 		return nil
 	},
 }

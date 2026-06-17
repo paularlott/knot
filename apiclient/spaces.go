@@ -337,6 +337,30 @@ func (c *ApiClient) RestartStack(ctx context.Context, stackName string) (int, er
 	return stackAction(c, ctx, stackName, "restart")
 }
 
+// DeleteStack deletes every space in the named stack. The server validates that
+// every space is stoppable before mutating anything, so the call is all-or-
+// nothing. Returns when each space has been marked as deleting (actual teardown
+// continues asynchronously on the server).
+func (c *ApiClient) DeleteStack(ctx context.Context, stackName string) (int, error) {
+	// Stack operations block synchronously on the server (up to 120s per tier).
+	// Disable the default 10s client timeout for this call.
+	c.httpClient.SetTimeout(0)
+	defer c.httpClient.SetTimeout(10 * time.Second)
+
+	code, err := c.httpClient.Delete(ctx, "/api/stacks/"+stackName, nil, nil, 202)
+	if err != nil {
+		if idx := strings.Index(err.Error(), "{"); idx != -1 {
+			var body struct {
+				Error string `json:"error"`
+			}
+			if jsonErr := json.Unmarshal([]byte(err.Error()[idx:]), &body); jsonErr == nil && body.Error != "" {
+				return code, fmt.Errorf("%s", body.Error)
+			}
+		}
+	}
+	return code, err
+}
+
 func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId string) (int, error) {
 	request := &SpaceTransferRequest{
 		UserId: userId,

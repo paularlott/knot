@@ -404,6 +404,9 @@ def create(definition_name, prefix, stack_name=None):
 def delete(stack_name):
     """Delete all spaces in a stack.
 
+    The server validates that every space in the stack is stoppable before
+    mutating anything, so the call is all-or-nothing.
+
     Args:
         stack_name: Stack name
 
@@ -413,10 +416,7 @@ def delete(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    for space in space_lib.list():
-        if space.get("stack") == stack_name:
-            api.delete(f"/api/spaces/{_enc(space.get('id', ''))}")
-
+    api.delete(f"/api/stacks/{_enc(stack_name)}")
     return True
 
 

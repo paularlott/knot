@@ -1812,3 +1812,64 @@ func HandleStackRestart(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusAccepted)
 }
+
+// deleteStack validates that every space in the named stack is stoppable on this
+// zone, then marks each as deleting and triggers the asynchronous container
+// deletion. It does not return until every space has been marked.
+func deleteStack(stackName string, user *model.User) error {
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		return err
+	}
+	if len(spaces) == 0 {
+		return fmt.Errorf("no spaces found in stack %q", stackName)
+	}
+
+	cfg := config.GetServerConfig()
+	db := database.GetInstance()
+
+	// Validate every space up front so we don't partially mutate a stack.
+	for _, space := range spaces {
+		if space.IsDeployed || space.IsPending || space.IsDeleting {
+			return fmt.Errorf("space %q cannot be deleted (stop the stack first)", space.Name)
+		}
+		if space.Zone != "" && space.Zone != cfg.Zone {
+			return fmt.Errorf("space %q is in zone %q and must be deleted from that zone", space.Name, space.Zone)
+		}
+	}
+
+	for _, space := range spaces {
+		space.IsDeleting = true
+		space.UpdatedAt = hlc.Now()
+		if err := db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"}); err != nil {
+			return fmt.Errorf("failed to mark space %q as deleting: %w", space.Name, err)
+		}
+		service.GetTransport().GossipSpace(space)
+		service.GetContainerService().DeleteSpace(space)
+	}
+	return nil
+}
+
+func HandleStackDelete(w http.ResponseWriter, r *http.Request) {
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	if err := deleteStack(stackName, user); err != nil {
+		rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventStackDelete,
+		fmt.Sprintf("Deleted stack %s", stackName),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"stack_name":      stackName,
+		},
+	)
+	w.WriteHeader(http.StatusAccepted)
+}

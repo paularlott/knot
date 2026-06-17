@@ -88,6 +88,7 @@ const (
 	AuditEventStackStart   = "Stack Start"
 	AuditEventStackStop    = "Stack Stop"
 	AuditEventStackRestart = "Stack Restart"
+	AuditEventStackDelete  = "Stack Delete"
 )
 
 type AuditLogFilter struct {

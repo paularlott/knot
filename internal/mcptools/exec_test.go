@@ -709,25 +709,13 @@ func TestExecute_StartStopRestartStack(t *testing.T) {
 func TestExecute_DeleteStack(t *testing.T) {
 	mustLoadTools(t)
 
-	deletedCount := 0
+	deleted := false
 	server := mockAPIServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
 		"GET /api/users/whoami": func(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"user_id": "u1"})
 		},
-		"GET /api/spaces": func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"spaces": []map[string]interface{}{
-					{"space_id": "s1", "name": "myapp-web", "stack": "myapp"},
-					{"space_id": "s2", "name": "myapp-db", "stack": "myapp"},
-					{"space_id": "s3", "name": "other", "stack": "other"},
-				},
-			})
-		},
-		"DELETE /api/spaces/s1": func(w http.ResponseWriter, r *http.Request) {
-			deletedCount++
-		},
-		"DELETE /api/spaces/s2": func(w http.ResponseWriter, r *http.Request) {
-			deletedCount++
+		"DELETE /api/stacks/myapp": func(w http.ResponseWriter, r *http.Request) {
+			deleted = true
 		},
 	})
 	defer server.Close()
@@ -738,8 +726,8 @@ func TestExecute_DeleteStack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToolScript failed: %v", err)
 	}
-	if deletedCount != 2 {
-		t.Errorf("expected 2 DELETE calls for myapp spaces, got %d", deletedCount)
+	if !deleted {
+		t.Errorf("expected DELETE call for stack myapp")
 	}
 }
 
