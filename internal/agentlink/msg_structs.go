@@ -1,5 +1,7 @@
 package agentlink
 
+import "github.com/paularlott/knot/internal/methods"
+
 type ConnectResponse struct {
 	Success bool   `msgpack:"s"`
 	Server  string `msgpack:"sv"`
@@ -56,4 +58,21 @@ type ListPortForwardsResponse struct {
 
 type StopPortForwardRequest struct {
 	LocalPort uint16 `json:"local_port" msgpack:"local_port"`
+}
+
+type RegisterMethodsRequest struct {
+	Registration methods.Registration `json:"registration" msgpack:"registration"`
+}
+
+type RegisterMethodsResponse struct {
+	Success bool   `json:"success" msgpack:"success"`
+	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
+}
+
+// RegisterMethodsFileRequest ships a raw file from the CLI to the agent daemon
+// for processing. Content is the file body. Args is optional and only used by
+// the script variant (passed in as sys.argv).
+type RegisterMethodsFileRequest struct {
+	Content string   `json:"content" msgpack:"content"`
+	Args    []string `json:"args,omitempty" msgpack:"args,omitempty"`
 }

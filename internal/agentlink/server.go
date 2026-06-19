@@ -16,10 +16,19 @@ const (
 )
 
 var (
-	cancelContext context.Context
-	cancelFunc    context.CancelFunc
-	agentClient   *agent_client.AgentClient
+	cancelContext       context.Context
+	cancelFunc          context.CancelFunc
+	agentClient         *agent_client.AgentClient
+	methodsScriptRunner func(content string, args []string) error
 )
+
+// SetMethodsScriptRunner installs the daemon-side script runner used by
+// handleRegisterMethodsScript. The agent daemon calls this at startup with a
+// closure that creates a scriptling env, wires knot.methods.SetMethodsRegistrar
+// to agentClient.RegisterMethods, and evaluates the supplied script content.
+func SetMethodsScriptRunner(fn func(content string, args []string) error) {
+	methodsScriptRunner = fn
+}
 
 func StartCommandSocket(agentClientObj *agent_client.AgentClient) chan struct{} {
 	agentClient = agentClientObj
@@ -118,5 +127,14 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandStopPortForward:
 		handleStopPortForward(conn, msg)
+
+	case CommandRegisterMethods:
+		handleRegisterMethods(conn, msg)
+
+	case CommandRegisterMethodsTOML:
+		handleRegisterMethodsTOML(conn, msg)
+
+	case CommandRegisterMethodsScript:
+		handleRegisterMethodsScript(conn, msg)
 	}
 }

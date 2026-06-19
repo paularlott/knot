@@ -41,6 +41,9 @@ Use tool_search to discover tools by keyword or description.`)
 				provider := NewScriptToolsProvider(user)
 				ctx = mcp.WithToolProviders(ctx, provider)
 			}
+			if user != nil {
+				ctx = mcp.WithToolProviders(ctx, NewMethodToolsProvider(user))
+			}
 
 			// Check for show-all mode (MCP chaining)
 			if mcp.GetShowAllFromRequest(r) {

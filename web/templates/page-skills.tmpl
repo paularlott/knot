@@ -107,21 +107,21 @@
                     <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="s.name"></div>
                     <div class="text-xs text-gray-500 dark:text-gray-400" x-text="s.description"></div>
                   </td>
-                  <td class="px-4 py-3 hidden md:table-cell">
-                    <span x-show="!s.user_id" class="inline-block w-fit bg-purple-100 text-purple-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-purple-400 border border-purple-400">Global</span>
-                    <span x-show="s.user_id" class="inline-block w-fit bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400">User</span>
-                    <span x-show="s.is_managed" class="inline-block w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-400 ml-1" title="Managed by parent server">📡</span>
+                  <td class="px-4 py-3 align-middle hidden md:table-cell">
+                    <span x-show="!s.user_id" class="app-badge-purple">Global</span>
+                    <span x-show="s.user_id" class="app-badge-info">User</span>
+                    <span x-show="s.is_managed" class="app-badge-neutral ml-1" title="Managed by parent server">📡</span>
                   </td>
-                  <td class="px-4 py-3 hidden sm:table-cell">
-                    <span x-show="s.active" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                    <span x-show="!s.active" class="inline-block w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-400">Inactive</span>
+                  <td class="px-4 py-3 align-middle hidden sm:table-cell">
+                    <span x-show="s.active" class="app-badge-success">Active</span>
+                    <span x-show="!s.active" class="app-badge-neutral">Inactive</span>
                   </td>
-                  <td class="px-4 py-3 hidden lg:table-cell" x-show="!isLeafNode">
+                  <td class="px-4 py-3 align-middle hidden lg:table-cell" x-show="!isLeafNode">
                     <template x-if="s.zones && s.zones.length">
                       <div>
                         <div class="flex flex-wrap gap-1">
                           <template x-for="zone in s.zones">
-                            <span class="inline-block bg-cyan-100 text-cyan-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-cyan-300 border border-cyan-300 whitespace-nowrap" x-text="zone"></span>
+                            <span class="app-badge-info" x-text="zone"></span>
                           </template>
                         </div>
                       </div>
@@ -130,12 +130,12 @@
                       <span class="text-xs text-gray-500 dark:text-gray-400">All</span>
                     </template>
                   </td>
-                  <td class="px-4 py-3 hidden xl:table-cell" x-show="!isLeafNode">
+                  <td class="px-4 py-3 align-middle hidden xl:table-cell" x-show="!isLeafNode">
                     <template x-if="s.group_names && s.group_names.length">
                       <div>
                         <div class="flex flex-wrap gap-1">
                           <template x-for="group in s.group_names">
-                            <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                            <span class="app-badge-warning" x-text="group"></span>
                           </template>
                         </div>
                       </div>
@@ -144,7 +144,7 @@
                       <span class="text-xs text-gray-500 dark:text-gray-400">-</span>
                     </template>
                   </td>
-                  <td class="px-4 py-3">
+                  <td class="px-4 py-3 align-middle">
                     <div class="flex items-center justify-end" x-data x-show="canEditSkill(s)">
                       <div class="hidden xl:flex items-center justify-end gap-2" aria-label="Skill actions">
                         <button @click="editSkill(s.skill_id)" class="row-action-button" type="button" :aria-label="(!canActuallyEditSkill(s) ? 'View read-only skill ' : 'Edit skill ') + s.name" :title="!canActuallyEditSkill(s) ? 'View read-only' : 'Edit'">

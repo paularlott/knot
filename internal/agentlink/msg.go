@@ -24,6 +24,9 @@ const (
 	CommandForwardPort
 	CommandListPortForwards
 	CommandStopPortForward
+	CommandRegisterMethods
+	CommandRegisterMethodsTOML
+	CommandRegisterMethodsScript
 )
 
 type CommandMsg struct {

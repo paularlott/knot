@@ -638,12 +638,12 @@
                         </div>
 
                         <div class="flex flex-wrap gap-2 mt-2 items-center">
-                          <span x-show="t.platform == 'docker'" class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400">Docker</span>
-                          <span x-show="t.platform == 'podman'" class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400">Podman</span>
-                          <span x-show="t.platform == 'apple'" class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400">Apple</span>
-                          <span x-show="t.platform == 'container'" class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400">Container</span>
-                          <span x-show="t.platform == 'nomad'" class="inline-block bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md dark:bg-emerald-500/15 dark:text-emerald-400">Nomad</span>
-                          <span x-show="t.platform == 'manual'" class="inline-block bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md dark:bg-amber-500/15 dark:text-amber-400">Manual</span>
+                          <span x-show="t.platform == 'docker'" class="app-badge-info">Docker</span>
+                          <span x-show="t.platform == 'podman'" class="app-badge-info">Podman</span>
+                          <span x-show="t.platform == 'apple'" class="app-badge-info">Apple</span>
+                          <span x-show="t.platform == 'container'" class="app-badge-info">Container</span>
+                          <span x-show="t.platform == 'nomad'" class="app-badge-success">Nomad</span>
+                          <span x-show="t.platform == 'manual'" class="app-badge-warning">Manual</span>
 
                           <span class="text-xs text-gray-500 dark:text-gray-400">
                             <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>

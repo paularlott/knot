@@ -449,6 +449,100 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "knot.methods",
+    description: "Register JSON-RPC space methods from a running space",
+    classes: [
+      {
+        name: "Server",
+        description:
+          "Configure a long-running stdio method server and register its methods",
+        constructorSignature:
+          'Server(command, *, type="stdio", timeout=30, args=None, mode="concurrent")',
+        methods: [
+          {
+            name: "method",
+            signature:
+              'method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None)',
+            description:
+              "Add a method definition. name may be passed positionally or as a kwarg. params and result are schema dicts from knot.methods.schema (or raw JSON Schema dicts).",
+            returns: "bool - True when added",
+          },
+          {
+            name: "register",
+            signature: "register()",
+            description:
+              "Validate and publish the current method registration. Replaces any previous registration from this space.",
+            returns: "bool - True when registered",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "knot.methods.schema",
+    description:
+      "Build JSON Schema fragments for knot.methods Server params and result schemas",
+    functions: [
+      {
+        name: "string",
+        signature:
+          'string(*, description="", default=None, enum=None, format=None, min_length=None, max_length=None, pattern=None, extra=None)',
+        description: "Build a string schema",
+        returns: "dict - JSON Schema fragment",
+      },
+      {
+        name: "integer",
+        signature:
+          "integer(*, description=\"\", default=None, enum=None, minimum=None, maximum=None, extra=None)",
+        description: "Build an integer schema",
+        returns: "dict - JSON Schema fragment",
+      },
+      {
+        name: "number",
+        signature:
+          "number(*, description=\"\", default=None, enum=None, minimum=None, maximum=None, extra=None)",
+        description: "Build a number (float) schema",
+        returns: "dict - JSON Schema fragment",
+      },
+      {
+        name: "boolean",
+        signature:
+          "boolean(*, description=\"\", default=None, enum=None, extra=None)",
+        description: "Build a boolean schema",
+        returns: "dict - JSON Schema fragment",
+      },
+      {
+        name: "null",
+        signature: 'null(*, description="", default=None, enum=None, extra=None)',
+        description: "Build a null schema",
+        returns: "dict - JSON Schema fragment",
+      },
+      {
+        name: "array",
+        signature:
+          "array(items, *, description=\"\", default=None, enum=None, min_items=None, max_items=None, extra=None)",
+        description:
+          "Build an array schema. items is a schema dict from another builder.",
+        returns: "dict - JSON Schema fragment",
+      },
+      {
+        name: "object",
+        signature:
+          "object(**properties, *, description=\"\", default=None, enum=None, additional_properties=None, extra=None)",
+        description:
+          "Build an object schema. Every non-reserved kwarg becomes a property. Wrap a property in optional() to keep it out of required.",
+        returns: "dict - JSON Schema fragment",
+      },
+      {
+        name: "optional",
+        signature: "optional(schema, *, default=None)",
+        description:
+          "Mark an object property as optional. Optionally sets a default value.",
+        returns: "dict - Tagged schema fragment for use inside object(...)",
+      },
+    ],
+  },
+  {
     module: "knot.user",
     description: "Knot user management functions",
     functions: [

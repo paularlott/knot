@@ -9,10 +9,19 @@ type TokenInfo struct {
 	Id           string    `json:"token_id"`
 	Name         string    `json:"name"`
 	ExpiresAfter time.Time `json:"expires_after"`
+	// Scopes restricts which endpoints the token can reach.
+	// nil/empty = unrestricted. Non-empty = limited to the listed scopes.
+	Scopes []string `json:"scopes,omitempty"`
 }
 
 type CreateTokenRequest struct {
-	Name string `json:"name"`
+	Name   string   `json:"name"`
+	Scopes []string `json:"scopes,omitempty"`
+}
+
+type UpdateTokenRequest struct {
+	Name   *string  `json:"name,omitempty"`
+	Scopes *[]string `json:"scopes,omitempty"`
 }
 
 type CreateTokenResponse struct {
@@ -35,9 +44,10 @@ func (c *ApiClient) DeleteToken(ctx context.Context, tokenId string) (int, error
 	return c.httpClient.Delete(ctx, "/api/tokens/"+tokenId, nil, nil, 200)
 }
 
-func (c *ApiClient) CreateToken(ctx context.Context, name string) (string, int, error) {
+func (c *ApiClient) CreateToken(ctx context.Context, name string, scopes []string) (string, int, error) {
 	request := &CreateTokenRequest{
-		Name: name,
+		Name:   name,
+		Scopes: scopes,
 	}
 
 	response := &CreateTokenResponse{}
@@ -48,4 +58,12 @@ func (c *ApiClient) CreateToken(ctx context.Context, name string) (string, int, 
 	}
 
 	return response.TokenID, code, nil
+}
+
+func (c *ApiClient) UpdateToken(ctx context.Context, tokenId string, name *string, scopes *[]string) (int, error) {
+	request := &UpdateTokenRequest{
+		Name:   name,
+		Scopes: scopes,
+	}
+	return c.httpClient.Put(ctx, "/api/tokens/"+tokenId, request, nil, 200)
 }

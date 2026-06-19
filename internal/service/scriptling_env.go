@@ -71,6 +71,11 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 	// knot.ai is always registered - Client() will return error if aiClient is nil
 	env.RegisterLibrary(knotscriptling.GetAILibrary(aiClient))
 
+	// NOTE: knot.methods / knot.methods.schema are intentionally NOT registered
+	// here. They are opt-in via knotscriptling.RegisterMethodLibraries, called
+	// only by daemon-side script execution paths. CLI-side envs (knot
+	// run-script) and server-side MCP tool envs do not get them.
+
 	if client != nil {
 		// Go transport layer - Python libs (knot.space, knot.user, etc.) resolve via import
 		env.RegisterLibrary(knotscriptling.GetApiClientLibrary(client.GetRESTClient(), userId))
@@ -94,7 +99,7 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterRuntimeSyncLibrary(env)         // Concurrency primitives
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 
-	scriptlingconsole.Register(env) // scriptling.console
+	scriptlingconsole.Register(env)       // scriptling.console
 	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
 	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
 	extlibs.RegisterOSLibrary(env, nil)

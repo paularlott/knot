@@ -70,20 +70,20 @@
 
                     <!-- Mobile-only view of key metrics -->
                     <div class="flex flex-wrap gap-2 mt-2 lg:hidden">
-                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-800 dark:bg-gray-700 dark:text-blue-400 md:hidden">
+                      <div class="app-badge-info md:hidden">
                         <span class="mr-1 font-medium">Spaces:</span>
                         <span x-text="u.number_spaces + (u.max_spaces ? ' / ' + u.max_spaces : '')"></span>
-                        <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white" x-text="u.number_spaces_deployed + ' deployed'"></span>
+                        <span x-show="u.number_spaces_deployed > 0" x-cloak class="app-badge-success ml-2 whitespace-nowrap" x-text="u.number_spaces_deployed + ' deployed'"></span>
                       </div>
-                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-purple-50 text-purple-800 dark:bg-gray-700 dark:text-purple-400">
+                      <div class="app-badge-purple">
                         <span class="mr-1 font-medium">Compute:</span>
                         <span x-text="u.used_compute_units + (u.compute_units ? ' / ' + u.compute_units : '')"></span>
                       </div>
-                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 dark:bg-gray-700 dark:text-amber-400">
+                      <div class="app-badge-warning">
                         <span class="mr-1 font-medium">Storage:</span>
                         <span x-text="u.used_storage_units + (u.storage_units ? ' / ' + u.storage_units : '')"></span>
                       </div>
-                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-teal-50 text-teal-800 dark:bg-gray-700 dark:text-teal-400">
+                      <div class="app-badge-success">
                         <span class="mr-1 font-medium">Tunnels:</span>
                         <span x-text="u.used_tunnels + (u.max_tunnels ? ' / ' + u.max_tunnels : '')"></span>
                       </div>
@@ -101,7 +101,7 @@
                 <td class="px-4 py-3 hidden md:table-cell">
                   <div class="flex flex-col gap-1 text-xs">
                     <span x-text="u.number_spaces + (u.max_spaces ? ' / ' + u.max_spaces : '')"></span>
-                    <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white w-fit" x-text="u.number_spaces_deployed + ' deployed'"></span>
+                    <span x-show="u.number_spaces_deployed > 0" x-cloak class="app-badge-success w-fit whitespace-nowrap" x-text="u.number_spaces_deployed + ' deployed'"></span>
                   </div>
                 </td>
 
@@ -137,7 +137,7 @@
                   <template x-if="u.role_names.length">
                     <div class="flex flex-col gap-1">
                       <template x-for="role in u.role_names">
-                        <span class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap" x-text="role"></span>
+                        <span class="app-badge-info whitespace-nowrap w-fit" x-text="role"></span>
                       </template>
                     </div>
                   </template>
@@ -149,7 +149,7 @@
                   <template x-if="u.group_names.length">
                     <div class="flex flex-col gap-2">
                       <template x-for="group in u.group_names">
-                        <span class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                        <span class="app-badge-warning whitespace-nowrap w-fit" x-text="group"></span>
                       </template>
                     </div>
                   </template>

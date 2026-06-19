@@ -31,25 +31,25 @@
                       <div class="xl:hidden">
                         <div class="mt-2 flex flex-wrap gap-1 text-xs">
                           <template x-if="!s.is_local">
-                            <span class="inline-block bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md dark:bg-amber-500/15 dark:text-amber-400 whitespace-nowrap">Remote: <span x-text="s.zone"></span></span>
+                            <span class="app-badge-warning">Remote: <span x-text="s.zone"></span></span>
                           </template>
                           <template x-if="s.is_local && s.platform === 'manual'">
-                            <span class="inline-block bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md dark:bg-amber-500/15 dark:text-amber-400">Manual</span>
+                            <span class="app-badge-warning">Manual</span>
                           </template>
                           <template x-if="s.is_local && s.platform === 'docker'">
-                            <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Docker</span>
+                            <span class="app-badge-info">Docker</span>
                           </template>
                           <template x-if="s.is_local && s.platform === 'podman'">
-                            <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Podman</span>
+                            <span class="app-badge-info">Podman</span>
                           </template>
                           <template x-if="s.is_local && s.platform === 'apple'">
-                            <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Apple</span>
+                            <span class="app-badge-info">Apple</span>
                           </template>
                           <template x-if="s.is_local && s.platform === 'container'">
-                            <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Container</span>
+                            <span class="app-badge-info">Container</span>
                           </template>
                           <template x-if="s.is_local && s.platform === 'nomad'">
-                            <span class="inline-block bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md dark:bg-emerald-500/15 dark:text-emerald-400 whitespace-nowrap">Nomad</span>
+                            <span class="app-badge-success">Nomad</span>
                           </template>
                         </div>
                       </div>
@@ -361,25 +361,25 @@
                 <td class="px-4 py-3 hidden xl:table-cell">
                   <div class="flex flex-wrap gap-1 text-xs">
                     <template x-if="!s.is_local">
-                      <span class="inline-block bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md dark:bg-amber-500/15 dark:text-amber-400 whitespace-nowrap">Remote: <span x-text="s.zone"></span></span>
+                      <span class="app-badge-warning">Remote: <span x-text="s.zone"></span></span>
                     </template>
                     <template x-if="s.is_local && s.platform == 'manual'">
-                      <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Manual</span>
+                      <span class="app-badge-warning">Manual</span>
                     </template>
                     <template x-if="s.is_local && s.platform == 'docker'">
-                      <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Docker</span>
+                      <span class="app-badge-info">Docker</span>
                     </template>
                     <template x-if="s.is_local && s.platform == 'podman'">
-                      <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Podman</span>
+                      <span class="app-badge-info">Podman</span>
                     </template>
                     <template x-if="s.is_local && s.platform === 'apple'">
-                      <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Apple</span>
+                      <span class="app-badge-info">Apple</span>
                     </template>
                     <template x-if="s.is_local && s.platform === 'container'">
-                      <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md dark:bg-indigo-500/15 dark:text-indigo-400 whitespace-nowrap">Container</span>
+                      <span class="app-badge-info">Container</span>
                     </template>
                     <template x-if="s.is_local && s.platform === 'nomad'">
-                      <span class="inline-block bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md dark:bg-emerald-500/15 dark:text-emerald-400 whitespace-nowrap">Nomad</span>
+                      <span class="app-badge-success">Nomad</span>
                     </template>
                   </div>
                   <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">

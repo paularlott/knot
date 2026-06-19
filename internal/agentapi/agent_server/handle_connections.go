@@ -563,6 +563,14 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleRemovePortForward(stream, session)
 			return
 
+		case byte(msg.CmdRegisterMethods):
+			handleRegisterMethods(stream, session)
+			return
+
+		case byte(msg.CmdUnregisterMethods):
+			handleUnregisterMethods(stream, session)
+			return
+
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return

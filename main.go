@@ -8,17 +8,19 @@ import (
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
-	command_scripts "github.com/paularlott/knot/command/scripts"
+	command_methods_agent "github.com/paularlott/knot/agent/cmd/methods"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/command"
 	commands_admin "github.com/paularlott/knot/command/admin"
 	commands_forward "github.com/paularlott/knot/command/forward"
+	command_method "github.com/paularlott/knot/command/method"
 	commands_port "github.com/paularlott/knot/command/port"
+	command_scripts "github.com/paularlott/knot/command/scripts"
 	command_spaces "github.com/paularlott/knot/command/spaces"
-	command_stack "github.com/paularlott/knot/command/stack"
 	command_ssh_config "github.com/paularlott/knot/command/ssh-config"
+	command_stack "github.com/paularlott/knot/command/stack"
 	command_templates "github.com/paularlott/knot/command/templates"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
@@ -106,6 +108,7 @@ It offers both a user-friendly web interface and a command line interface to str
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command.ConnectCmd,
+			command_method.MethodCmd,
 			commands_forward.ForwardCmd,
 			commands_port.PortCmd,
 			command_scripts.ScriptsCmd,
@@ -116,6 +119,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_templates.TemplatesCmd,
 			commands_admin.AdminCmd,
 			command_chat.ChatCmd,
+			command_methods_agent.MethodsCmd,
 			command_tunnel.TunnelCmd,
 			command.ServerCmd,
 			command.PingCmd,

@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
+	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spaceutil"
 
@@ -362,6 +363,8 @@ func removeSession(spaceId string, markUnhealthy bool, queueReconcile bool) {
 	sessionMutex.Unlock()
 
 	if removed {
+		methods.DefaultRegistry().UnregisterSpace(spaceId)
+
 		if markUnhealthy || queueReconcile {
 			db := database.GetInstance()
 			space, err := db.GetSpace(spaceId)

@@ -67,6 +67,11 @@ var RunScriptCmd = &cli.Command{
 			userId = user.Id
 		}
 
+		// knot run-script executes in the CLI process. The knot.methods /
+		// knot.methods.schema libraries are intentionally not registered here:
+		// only daemon-side scripts (startup scripts and `knot methods register
+		// file.py`) can register space methods. Scripts that need to register
+		// methods must be invoked via `knot methods register`.
 		env, err := service.NewRemoteStreamingScriptlingEnv(argv, client, userId, nil, os.Stdout, os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)

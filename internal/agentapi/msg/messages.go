@@ -39,6 +39,9 @@ const (
 	CmdExecuteScriptStream
 	CmdAddPortForward
 	CmdRemovePortForward
+	CmdRegisterMethods
+	CmdCallMethod
+	CmdUnregisterMethods
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

@@ -23,18 +23,16 @@ func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build a json array of token data to return to the client
 	tokenData := []apiclient.TokenInfo{}
-
 	for _, token := range tokens {
 		if token.IsDeleted {
 			continue
 		}
-
 		tokenData = append(tokenData, apiclient.TokenInfo{
 			Id:           token.Id,
 			Name:         token.Name,
 			ExpiresAfter: token.ExpiresAfter,
+			Scopes:       token.Scopes,
 		})
 	}
 
@@ -58,7 +56,6 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete the token
 	token.IsDeleted = true
 	token.UpdatedAt = hlc.Now()
 	err = db.SaveToken(token)
@@ -74,8 +71,6 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
-	var token *model.Token
-
 	user := r.Context().Value("user").(*model.User)
 	request := apiclient.CreateTokenRequest{}
 
@@ -85,14 +80,27 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate
 	if !validate.TokenName(request.Name) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token name"})
 		return
 	}
 
-	// Create the token
-	token = model.NewToken(request.Name, user.Id)
+	// Validate scopes (if provided). nil/empty = unrestricted (backward
+	// compatible). Non-empty = each entry must be a known scope.
+	scopes := request.Scopes
+	if len(scopes) > 0 {
+		for _, s := range scopes {
+			if !model.IsKnownTokenScope(s) {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
+					Error: fmt.Sprintf("Unknown token scope: %s", s),
+				})
+				return
+			}
+		}
+	}
+
+	token := model.NewToken(request.Name, user.Id)
+	token.Scopes = scopes
 	err = database.GetInstance().SaveToken(token)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -102,9 +110,67 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipToken(token)
 	sse.PublishTokensChanged("")
 
-	// Return the Token ID
 	rest.WriteResponse(http.StatusCreated, w, r, apiclient.CreateTokenResponse{
 		Status:  true,
 		TokenID: token.Id,
 	})
+}
+
+// HandleUpdateToken allows changing a token's name and/or scopes without
+// recreating it (the token ID stays the same, so callers don't need to
+// re-credential).
+func HandleUpdateToken(w http.ResponseWriter, r *http.Request) {
+	tokenId := r.PathValue("token_id")
+	if !validate.Required(tokenId) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token ID"})
+		return
+	}
+
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	token, err := db.GetToken(tokenId)
+	if err != nil || token.UserId != user.Id {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", tokenId)})
+		return
+	}
+
+	var request apiclient.UpdateTokenRequest
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if request.Name != nil {
+		if !validate.TokenName(*request.Name) {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token name"})
+			return
+		}
+		token.Name = *request.Name
+	}
+
+	if request.Scopes != nil {
+		// Validate each scope. An empty slice (explicitly provided) clears
+		// scopes → unrestricted. nil (omitted) preserves existing scopes.
+		for _, s := range *request.Scopes {
+			if !model.IsKnownTokenScope(s) {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
+					Error: fmt.Sprintf("Unknown token scope: %s", s),
+				})
+				return
+			}
+		}
+		token.Scopes = *request.Scopes
+	}
+
+	token.UpdatedAt = hlc.Now()
+	if err := db.SaveToken(token); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	service.GetTransport().GossipToken(token)
+	sse.PublishTokensChanged("")
+
+	w.WriteHeader(http.StatusOK)
 }

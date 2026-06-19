@@ -2,6 +2,7 @@ package agentcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,10 +13,13 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
 	"github.com/paularlott/knot/internal/config"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/scriptling/object"
 )
 
 var agentServerCmd = &cli.Command{
@@ -187,6 +191,15 @@ var agentServerCmd = &cli.Command{
 
 		// Start the command socket and wait for it to be ready
 		agentlink.StartCommandSocket(agentClient)
+		agentlink.SetMethodsScriptRunner(buildMethodsScriptRunner(agentClient))
+
+		// Install the methods registrar globally for the lifetime of the daemon.
+		// Any script that runs in the agent (startup scripts, `knot methods
+		// register file.py`) can call knot.methods Server.register(); the call
+		// lands here, in-process, with no further IPC. CLI-side scripts (`knot
+		// run-script`) do not register knot.methods at all, so they cannot reach
+		// this hook.
+		knotscriptling.SetMethodsRegistrar(agentClient.RegisterMethods)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -195,12 +208,45 @@ var agentServerCmd = &cli.Command{
 		<-c
 
 		agentlink.StopCommandSocket()
+		agentlink.SetMethodsScriptRunner(nil)
 		agentClient.Shutdown()
 		fmt.Println("\r")
 		logger.Info("shutdown")
 
 		return nil
 	},
+}
+
+// buildMethodsScriptRunner returns the function the agent daemon uses to
+// evaluate a knot.methods registration script sent over the agentlink socket
+// by `knot methods register file.py`. The script runs in the daemon process
+// so server.register() can call agentClient.RegisterMethods directly without
+// any further IPC. The methods registrar itself is installed once at daemon
+// startup; this function only needs to expose the knot.methods libraries on
+// the per-call env.
+func buildMethodsScriptRunner(agentClient *agent_client.AgentClient) func(content string, args []string) error {
+	return func(content string, args []string) error {
+		if agentClient == nil {
+			return errors.New("agent is not connected")
+		}
+		env, err := service.NewRemoteScriptlingEnv(args, nil, "", nil, true)
+		if err != nil {
+			return fmt.Errorf("failed to create script environment: %w", err)
+		}
+		knotscriptling.RegisterMethodLibraries(env)
+
+		result, err := env.EvalWithContext(context.Background(), content)
+		if err != nil {
+			return err
+		}
+		if ex, ok := object.AsException(result); ok && ex.IsSystemExit() {
+			return fmt.Errorf("script exited with code %d", ex.GetExitCode())
+		}
+		if obj, ok := result.(*object.Error); ok {
+			return errors.New(obj.Message)
+		}
+		return nil
+	}
 }
 
 func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {

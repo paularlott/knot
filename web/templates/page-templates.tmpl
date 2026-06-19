@@ -101,19 +101,19 @@
                         <!-- Mobile-only resource info -->
                         <div class="md:hidden flex flex-col gap-1 mt-2">
                           <div class="flex flex-col gap-1">
-                            <span x-show="t.platform == 'docker'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Docker</span>
-                            <span x-show="t.platform == 'podman'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Podman</span>
-                            <span x-show="t.platform == 'apple'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Apple</span>
-                            <span x-show="t.platform == 'container'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Container</span>
-                            <span x-show="t.platform == 'nomad'" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad</span>
-                            <span x-show="t.platform == 'manual'" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
+                            <span x-show="t.platform == 'docker'" class="app-badge-info w-fit">Docker</span>
+                            <span x-show="t.platform == 'podman'" class="app-badge-info w-fit">Podman</span>
+                            <span x-show="t.platform == 'apple'" class="app-badge-info w-fit">Apple</span>
+                            <span x-show="t.platform == 'container'" class="app-badge-info w-fit">Container</span>
+                            <span x-show="t.platform == 'nomad'" class="app-badge-success w-fit">Nomad</span>
+                            <span x-show="t.platform == 'manual'" class="app-badge-warning w-fit">Manual</span>
                             {{ if .isLeafNode }}
-                            <span x-show="t.is_managed" class="inline-block mt-1 w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-400" title="Managed by parent server">📡</span>
+                            <span x-show="t.is_managed" class="app-badge-neutral mt-1 w-fit" title="Managed by parent server">📡</span>
                             {{ end }}
                           </div>
 
-                          <span x-show="t.active" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                          <span x-show="!t.active" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+                          <span x-show="t.active" class="app-badge-success w-fit">Active</span>
+                          <span x-show="!t.active" class="app-badge-danger w-fit">Inactive</span>
 
                           <div class="text-xs text-gray-500 dark:text-gray-400">
                             <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>
@@ -155,7 +155,7 @@
                               <span class="font-medium">Groups:</span>
                               <div class="flex flex-wrap gap-1 mt-1">
                                 <template x-for="group in t.group_names">
-                                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                                  <span class="app-badge-warning" x-text="group"></span>
                                 </template>
                               </div>
                             </div>
@@ -165,7 +165,7 @@
                               <span class="font-medium">Zones:</span>
                               <div class="flex flex-wrap gap-1 mt-1">
                                 <template x-for="l in t.zones">
-                                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
+                                  <span class="app-badge-warning" x-text="l"></span>
                                 </template>
                               </div>
                             </div>
@@ -191,14 +191,14 @@
                   <!-- Type (desktop only) -->
                   <td class="px-4 py-3 hidden md:table-cell">
                     <div class="flex flex-col gap-1">
-                      <span x-show="t.platform == 'docker'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Docker</span>
-                      <span x-show="t.platform == 'podman'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Podman</span>
-                      <span x-show="t.platform == 'apple'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Apple</span>
-                      <span x-show="t.platform == 'container'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Container</span>
-                      <span x-show="t.platform == 'nomad'" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad</span>
-                      <span x-show="t.platform == 'manual'" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
+                      <span x-show="t.platform == 'docker'" class="app-badge-info w-fit">Docker</span>
+                      <span x-show="t.platform == 'podman'" class="app-badge-info w-fit">Podman</span>
+                      <span x-show="t.platform == 'apple'" class="app-badge-info w-fit">Apple</span>
+                      <span x-show="t.platform == 'container'" class="app-badge-info w-fit">Container</span>
+                      <span x-show="t.platform == 'nomad'" class="app-badge-success w-fit">Nomad</span>
+                      <span x-show="t.platform == 'manual'" class="app-badge-warning w-fit">Manual</span>
                       {{ if .isLeafNode }}
-                      <span x-show="t.is_managed" class="inline-block mt-1 w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-400" title="Managed by parent server">📡</span>
+                      <span x-show="t.is_managed" class="app-badge-neutral mt-1 w-fit" title="Managed by parent server">📡</span>
                       {{ end }}
                     </div>
                   </td>
@@ -206,8 +206,8 @@
                   <!-- Status (desktop only) -->
                   <td class="px-4 py-3 hidden md:table-cell">
                     <div class="flex flex-col gap-1">
-                      <span x-show="t.active" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                      <span x-show="!t.active" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+                      <span x-show="t.active" class="app-badge-success w-fit">Active</span>
+                      <span x-show="!t.active" class="app-badge-danger w-fit">Inactive</span>
 
                       {{ if .permissionManageTemplates }}
                       <div class="flex flex-col gap-1 mt-1">
@@ -266,7 +266,7 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Groups:</div>
                         <div class="flex flex-wrap gap-1">
                           <template x-for="group in t.group_names">
-                            <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                            <span class="app-badge-warning" x-text="group"></span>
                           </template>
                         </div>
                       </div>
@@ -276,7 +276,7 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Zones:</div>
                         <div class="flex flex-wrap gap-1">
                           <template x-for="l in t.zones">
-                          <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
+                          <span class="app-badge-warning" x-text="l"></span>
                           </template>
                         </div>
                       </div>

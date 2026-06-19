@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
+	command_methods "github.com/paularlott/knot/agent/cmd/methods"
 	"github.com/paularlott/knot/agent/cmd/port"
 	command_runscript "github.com/paularlott/knot/agent/cmd/runscript"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
@@ -73,6 +74,7 @@ The agent connects environments to the knot server.`,
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command_chat.ChatCmd,
+			command_methods.MethodsCmd,
 			command_tunnel.TunnelCmd,
 			port.PortCmd,
 			command_runscript.RunScriptCmd,

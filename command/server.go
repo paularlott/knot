@@ -899,10 +899,14 @@ var ServerCmd = &cli.Command{
 
 			// Create script tools provider for OpenAI endpoints
 			scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
-				if user == nil || (!user.HasPermission(model.PermissionExecuteScripts) && !user.HasPermission(model.PermissionExecuteOwnScripts)) {
+				if user == nil {
 					return nil
 				}
-				return internal_mcp.NewScriptToolsProvider(user)
+				var scriptProvider mcp.ToolProvider
+				if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
+					scriptProvider = internal_mcp.NewScriptToolsProvider(user)
+				}
+				return internal_mcp.NewCompositeProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user))
 			}
 
 			openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)

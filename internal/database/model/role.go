@@ -11,41 +11,42 @@ import (
 
 // Permissions
 const (
-	PermissionManageUsers           = iota // Can Manage Users
-	PermissionManageTemplates              // Can Manage Templates
-	PermissionManageSpaces                 // Can Manage Spaces
-	PermissionManageVolumes                // Can Manage Volumes
-	PermissionManageGroups                 // Can Manage Groups
-	PermissionManageRoles                  // Can Manage Roles
-	PermissionManageVariables              // Can Manage Variables
-	PermissionUseSpaces                    // Can Use Spaces
-	PermissionUseTunnels                   // Can Use Tunnels
-	PermissionViewAuditLogs                // Can View Audit Logs
-	PermissionTransferSpaces               // Can Transfer Spaces
-	PermissionShareSpaces                  // Can Share Spaces
-	PermissionClusterInfo                  // Can View Cluster Info
-	PermissionUseVNC                       // Can use VNC
-	PermissionUseWebTerminal               // Can use the web terminal
-	PermissionUseSSH                       // Can use ssh connections
-	PermissionUseCodeServer                // Can use code-server
-	PermissionUseVSCodeTunnel              // Can use VSCode Tunnel
-	PermissionUseLogs                      // Can use the log window
-	PermissionRunCommands                  // Can run commands in spaces
-	PermissionCopyFiles                    // Can copy files to/from spaces
-	PermissionUseMCPServer                 // Can use MCP server
-	PermissionUseWebAssistant              // Can use web-based AI assistant
-	PermissionManageScripts                // Can Manage System/Global Scripts
-	PermissionExecuteScripts               // Can Execute System/Global Scripts
-	PermissionManageOwnScripts             // Can Manage Own Scripts
-	PermissionExecuteOwnScripts            // Can Execute Own Scripts
-	PermissionManageGlobalSkills           // Can Manage Global Skills
-	PermissionManageOwnSkills              // Can Manage Own Skills
-	PermissionSetSpaceDependencies         // Can configure space dependencies in the UI
-	PermissionUseSpaceStartupScript        // Can configure user startup script in the space form UI
-	PermissionDownloadAuditLogs            // Can Download Audit Logs
-	PermissionManageStackDefinitions       // Can create/edit/delete global (system) stack definitions
-	PermissionManageOwnStackDefinitions    // Can create/edit/delete personal stack definitions
-	PermissionUseStackDefinitions          // Can create instances from stack definitions
+	PermissionManageUsers               = iota // Can Manage Users
+	PermissionManageTemplates                  // Can Manage Templates
+	PermissionManageSpaces                     // Can Manage Spaces
+	PermissionManageVolumes                    // Can Manage Volumes
+	PermissionManageGroups                     // Can Manage Groups
+	PermissionManageRoles                      // Can Manage Roles
+	PermissionManageVariables                  // Can Manage Variables
+	PermissionUseSpaces                        // Can Use Spaces
+	PermissionUseTunnels                       // Can Use Tunnels
+	PermissionViewAuditLogs                    // Can View Audit Logs
+	PermissionTransferSpaces                   // Can Transfer Spaces
+	PermissionShareSpaces                      // Can Share Spaces
+	PermissionClusterInfo                      // Can View Cluster Info
+	PermissionUseVNC                           // Can use VNC
+	PermissionUseWebTerminal                   // Can use the web terminal
+	PermissionUseSSH                           // Can use ssh connections
+	PermissionUseCodeServer                    // Can use code-server
+	PermissionUseVSCodeTunnel                  // Can use VSCode Tunnel
+	PermissionUseLogs                          // Can use the log window
+	PermissionRunCommands                      // Can run commands in spaces
+	PermissionCopyFiles                        // Can copy files to/from spaces
+	PermissionUseMCPServer                     // Can use MCP server
+	PermissionUseWebAssistant                  // Can use web-based AI assistant
+	PermissionManageScripts                    // Can Manage System/Global Scripts
+	PermissionExecuteScripts                   // Can Execute System/Global Scripts
+	PermissionManageOwnScripts                 // Can Manage Own Scripts
+	PermissionExecuteOwnScripts                // Can Execute Own Scripts
+	PermissionManageGlobalSkills               // Can Manage Global Skills
+	PermissionManageOwnSkills                  // Can Manage Own Skills
+	PermissionSetSpaceDependencies             // Can configure space dependencies in the UI
+	PermissionUseSpaceStartupScript            // Can configure user startup script in the space form UI
+	PermissionDownloadAuditLogs                // Can Download Audit Logs
+	PermissionManageStackDefinitions           // Can create/edit/delete global (system) stack definitions
+	PermissionManageOwnStackDefinitions        // Can create/edit/delete personal stack definitions
+	PermissionUseStackDefinitions              // Can create instances from stack definitions
+	PermissionUseMethods                       // Can use shared space methods
 )
 
 type PermissionName struct {
@@ -80,9 +81,11 @@ var PermissionNames = []PermissionName{
 	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
 	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
 
-	{PermissionManageStackDefinitions,    "Stacks", "Manage Global Stack Definitions"},
+	{PermissionManageStackDefinitions, "Stacks", "Manage Global Stack Definitions"},
 	{PermissionManageOwnStackDefinitions, "Stacks", "Manage Own Stack Definitions"},
-	{PermissionUseStackDefinitions,       "Stacks", "Use Stack Definitions"},
+	{PermissionUseStackDefinitions, "Stacks", "Use Stack Definitions"},
+
+	{PermissionUseMethods, "Methods", "Use Space Methods Shared by Others"},
 
 	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
 	{PermissionSetSpaceDependencies, "Space Operations", "Set Space Dependencies"},
@@ -167,6 +170,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageStackDefinitions,
 			PermissionManageOwnStackDefinitions,
 			PermissionUseStackDefinitions,
+			PermissionUseMethods,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

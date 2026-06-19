@@ -162,6 +162,10 @@
   @apply app-badge border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300;
 }
 
+@utility app-badge-purple {
+  @apply app-badge border-purple-300 bg-purple-50 text-purple-800 dark:border-purple-500/40 dark:bg-purple-500/10 dark:text-purple-300;
+}
+
 @utility auth-form-panel {
   @apply rounded-2xl border border-white/70 bg-white/75 p-5 shadow-lg ring-1 ring-black/5 backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/35 dark:ring-white/10 sm:p-6;
 }

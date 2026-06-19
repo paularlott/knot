@@ -137,7 +137,7 @@
     <div class="form-actions">
       <button type="button" @click="scriptFormModal.show = false" class="form-cancel" x-text="formData.is_managed ? 'Close' : (isEdit ? 'Discard' : 'Cancel')"></button>
       <div class="flex gap-2" x-show="!formData.is_managed" x-cloak>
-        <button type="button" @click="submitData(true)" class="btn-secondary" :disabled="loading">Save & Edit</button>
+        <button type="button" @click="submitData(true)" class="btn-secondary" :disabled="loading" x-text="isEdit ? 'Save & Edit' : 'Create & Edit'"></button>
         <button type="button" @click="submitData(false)" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
       </div>
     </div>

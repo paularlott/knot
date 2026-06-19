@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/scriptling/extlibs/agent"
 	"github.com/paularlott/scriptling/object"
@@ -92,6 +93,10 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 		stream.Close()
 		return
 	}
+
+	// Daemon-side streaming scripts can register space methods via knot.methods
+	// (same as non-streaming daemon scripts). CLI-side envs do not get these.
+	knotscriptling.RegisterMethodLibraries(env)
 
 	registerConsoleStub(env, stream, controlIn)
 	agent.RegisterInteract(env)

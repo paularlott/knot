@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -224,6 +225,19 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			ctx = context.WithValue(ctx, "api_version", apiVersion)
 		}
 
+		// Enforce token scopes. A token with a non-empty Scopes slice may
+		// only reach endpoints covered by one of its scopes. Session cookies,
+		// agent tokens, and unscoped API tokens bypass this — only scoped
+		// user-issued API tokens are restricted.
+		if token, _ := ctx.Value("access_token").(*model.Token); token != nil && len(token.Scopes) > 0 {
+			if !tokenScopeAllows(token.Scopes, r.URL.Path) {
+				rest.WriteResponse(http.StatusForbidden, w, r.WithContext(ctx), ErrorResponse{
+					Error: "token scopes do not permit this endpoint",
+				})
+				return
+			}
+		}
+
 		// If authenticated, continue
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -402,6 +416,46 @@ func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// TokenScopesRequired wraps a handler with token-scope enforcement. If the
+// request was authenticated via a scoped API token (i.e. the token in context
+// has a non-empty Scopes slice), the request path must be covered by at least
+// one of the token's scopes. Tokens with no scopes (nil/empty — the default
+// for all pre-scopes tokens) are unrestricted. Session cookies and agent
+// tokens bypass this check entirely.
+func TokenScopesRequired(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token, _ := r.Context().Value("access_token").(*model.Token); token != nil && len(token.Scopes) > 0 {
+			if !tokenScopeAllows(token.Scopes, r.URL.Path) {
+				rest.WriteResponse(http.StatusForbidden, w, r, struct {
+					Error string `json:"error"`
+				}{
+					Error: "token scopes do not permit this endpoint",
+				})
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// tokenScopeAllowedPaths maps each known scope to the URL prefix(es) it
+// covers. Add entries here as new scopes are introduced.
+var tokenScopeAllowedPaths = map[string][]string{
+	model.ScopeMethods: {"/api/methods"},
+	model.ScopeMCP:     {"/mcp"},
+}
+
+func tokenScopeAllows(scopes []string, path string) bool {
+	for _, scope := range scopes {
+		for _, prefix := range tokenScopeAllowedPaths[scope] {
+			if strings.HasPrefix(path, prefix) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // OptionalWebAuth injects the authenticated user into the context if a valid

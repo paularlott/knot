@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling"
@@ -81,6 +82,12 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 		}
 		return
 	}
+
+	// Startup scripts (and other daemon-side scripts) can register space
+	// methods via knot.methods. The libraries are opt-in; CLI-side envs
+	// (knot run-script) do not get them. methodsRegistrar is installed once
+	// at daemon startup.
+	knotscriptling.RegisterMethodLibraries(env)
 
 	result, err := env.EvalWithContext(ctx, execMsg.Content)
 	exitCode, output, evalErr := service.HandleScriptResult(result, err, env.GetOutput())

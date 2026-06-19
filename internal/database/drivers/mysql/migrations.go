@@ -112,6 +112,8 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS ports JSON NOT NULL DEFAULT '[]'`,
 	// 53: add stack_prefix to spaces
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS stack_prefix VARCHAR(255) DEFAULT ''`,
+	// 54: add scopes to tokens (NULL = unrestricted / pre-scopes behaviour)
+	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS scopes JSON DEFAULT NULL`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

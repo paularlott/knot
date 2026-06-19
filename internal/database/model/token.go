@@ -11,7 +11,28 @@ import (
 
 const (
 	MaxTokenAge = 14 * 24 * time.Hour // 2 weeks
+
+	// ScopeMethods allows a token to reach /api/methods* endpoints.
+	// Scopes are narrowing: an empty/nil Scopes slice means unrestricted
+	// (the token inherits the user's full authenticated surface, matching
+	// pre-scopes behaviour). A non-empty slice restricts the token to only
+	// the endpoint groups named by the listed scopes.
+	ScopeMethods = "methods"
+	ScopeMCP     = "mcp"
 )
+
+// KnownTokenScopes is the authoritative list of valid scope strings.
+var KnownTokenScopes = []string{ScopeMethods, ScopeMCP}
+
+// IsKnownTokenScope reports whether s is a valid scope string.
+func IsKnownTokenScope(s string) bool {
+	for _, k := range KnownTokenScopes {
+		if k == s {
+			return true
+		}
+	}
+	return false
+}
 
 // Session object
 type Token struct {
@@ -21,6 +42,10 @@ type Token struct {
 	ExpiresAfter time.Time     `json:"expires_after" db:"expires_after"`
 	UpdatedAt    hlc.Timestamp `json:"updated_at" db:"updated_at"`
 	IsDeleted    bool          `json:"is_deleted" db:"is_deleted"`
+	// Scopes restricts which endpoint groups this token can reach.
+	// nil/empty = unrestricted (backward compatible with pre-scopes tokens).
+	// Non-empty = token may only reach endpoints covered by the listed scopes.
+	Scopes []string `json:"scopes,omitempty" db:"scopes,json"`
 }
 
 func NewToken(name string, userId string) *Token {

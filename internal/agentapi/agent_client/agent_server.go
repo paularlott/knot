@@ -279,6 +279,13 @@ func (s *agentServer) ConnectAndServe() {
 
 			s.connectionAttempts = 0
 
+			// Re-publish methods in case the knot server restarted and lost the
+			// in-memory registry. No-op on first connect (nothing published yet)
+			// and harmless to call repeatedly — the registry treats it as a
+			// replace. Runs in a goroutine so a slow server doesn't block the
+			// Accept loop.
+			go s.agentClient.republishMethods()
+
 			// Loop forever waiting for connections on the mux session
 			for {
 				select {
@@ -600,6 +607,15 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 
 		handleExecuteScriptStream(stream, execMsg)
+
+	case byte(msg.CmdCallMethod):
+		var callMsg msg.CallMethodRequest
+		if err := msg.ReadMessage(stream, &callMsg); err != nil {
+			log.WithError(err).Error("reading call method message:")
+			return
+		}
+
+		handleCallMethodExecution(stream, s.agentClient, callMsg)
 
 	default:
 		log.Error("unknown command:", "cmd", cmd)

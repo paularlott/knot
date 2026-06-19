@@ -37,6 +37,11 @@ func ApiRoutes(router *http.ServeMux) {
 	// Permissions
 	router.HandleFunc("GET /api/permissions", middleware.ApiAuth(HandleGetPermissions))
 
+	// Methods — scope enforcement is handled globally inside ApiAuth, so
+	// scoped tokens can't reach any endpoint outside their allowed paths.
+	router.HandleFunc("GET /api/methods", middleware.ApiAuth(HandleGetMethods))
+	router.HandleFunc("POST /api/methods/call", middleware.ApiAuth(HandleCallMethod))
+
 	// Icons
 	router.HandleFunc("GET /api/icons", middleware.ApiAuth(HandleGetIcons))
 
@@ -54,6 +59,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// Tokens
 	router.HandleFunc("GET /api/tokens", middleware.ApiAuth(HandleGetTokens))
 	router.HandleFunc("POST /api/tokens", middleware.ApiAuth(HandleCreateToken))
+	router.HandleFunc("PUT /api/tokens/{token_id}", middleware.ApiAuth(HandleUpdateToken))
 	router.HandleFunc("DELETE /api/tokens/{token_id}", middleware.ApiAuth(HandleDeleteToken))
 
 	// Spaces

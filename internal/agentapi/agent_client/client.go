@@ -7,6 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/methods"
 )
 
 const (
@@ -63,6 +64,15 @@ type AgentClient struct {
 	activityRenameCount   uint32
 	activityDistinctPaths uint32
 	lastActivityAtUnix    int64
+
+	methodMu     sync.RWMutex
+	methodServer *methodServerProcess
+
+	// lastReg is the most recently successful method registration. It's
+	// re-published to the knot servers whenever the agent (re)connects, so a
+	// knot-server restart doesn't lose the space's methods.
+	lastRegMu sync.RWMutex
+	lastReg   *methods.Registration
 }
 
 func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
@@ -159,6 +169,12 @@ func (c *AgentClient) ConnectAndServe() {
 }
 
 func (c *AgentClient) Shutdown() {
+	// Stop the method server process first so the exit goroutine can clean
+	// up (it will try to unregister from the knot server, which races with
+	// the connection close below — that's fine, the server removes the
+	// methods when the session drops anyway).
+	c.stopMethodServer()
+
 	c.serverListMutex.Lock()
 	for _, server := range c.serverList {
 		server.Shutdown()

@@ -151,7 +151,7 @@ var ConnectCmd = &cli.Command{
 
 			client.UseSessionCookie(true).SetAuthToken(response.Token)
 
-			token, _, err = client.CreateToken(context.Background(), hostname)
+			token, _, err = client.CreateToken(context.Background(), hostname, nil)
 			if err != nil || token == "" {
 				fmt.Println("Failed to create token")
 				os.Exit(1)

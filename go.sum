@@ -78,6 +78,8 @@ github.com/paularlott/scriptling v0.11.2 h1:DHNN2SLlRqwr+h7XUPfe6cV5+l/u7Qi4pl9C
 github.com/paularlott/scriptling v0.11.2/go.mod h1:JctOiZUSduCF9cUPpspeJeGO9XcGzwGmMbhlZ+H8Z5g=
 github.com/paularlott/scriptling v0.11.3 h1:6+nrRjuztR8HGVyj/JNBxnOXED0idyuoiUmCK/lQDd4=
 github.com/paularlott/scriptling v0.11.3/go.mod h1:KeG4BvTA/bi3PtePN0YCqP5aGBo4gt/ng+KXW8pz2sA=
+github.com/paularlott/scriptling v0.12.0 h1:4/HcFnIp0Q3n+5iypbs3zUpJ1CIvuU3ZyBgQkbn31No=
+github.com/paularlott/scriptling v0.12.0/go.mod h1:KeG4BvTA/bi3PtePN0YCqP5aGBo4gt/ng+KXW8pz2sA=
 github.com/paularlott/snapshotkv v0.3.0 h1:FUxebbnUJJtnJwjd+W8obyD78WX/opvZkSvY6Cc+5xg=
 github.com/paularlott/snapshotkv v0.3.0/go.mod h1:X2ONJRnGTRUV2j8tIdO187y0QLm4n7bnCbdnV/mTWUQ=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
@@ -138,6 +140,8 @@ golang.org/x/exp v0.0.0-20260611194520-c48552f49976 h1:X8Hz2ImujgbmetVuW+w2YkyZC
 golang.org/x/exp v0.0.0-20260611194520-c48552f49976/go.mod h1:vnf4pv9iKZXY58sQE1L86zmNWJ4159e1RkcWiLCkeEY=
 golang.org/x/image v0.42.0 h1:1gSs6ehNWXLbkHBIPcWztk3D/6aIA/8hauiAYtlodVY=
 golang.org/x/image v0.42.0/go.mod h1:rrpelvGFt+kLPAjPM4HeWPgrl0FtafueU//e5N0qk/Q=
+golang.org/x/image v0.43.0 h1:FLxcP4ec2350nTfOC8ysKtqYSIFbk/QGjw1ZHNP4tsY=
+golang.org/x/image v0.43.0/go.mod h1:rrpelvGFt+kLPAjPM4HeWPgrl0FtafueU//e5N0qk/Q=
 golang.org/x/mod v0.37.0 h1:vF1DjpVEshcIqoEaauuHebaLk1O1forxjxBaVn884JQ=
 golang.org/x/mod v0.37.0/go.mod h1:m8S8VeM9r4dzDwjrKO0a1sZP3YjeMamRRlD+fmR2Q/0=
 golang.org/x/net v0.56.0 h1:Rw8j/hFzGvJUZwNBXnAtf5sVDVt+65SK2C7IxCxZt5o=
