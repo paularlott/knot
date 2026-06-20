@@ -389,6 +389,10 @@ window.autocompleterScript = function() {
         }
       });
       this.$watch(this.dataSource, () => { this.loadOptions(); });
+      // Watch the parent variable so that when form data loads asynchronously
+      // (e.g. editing a space where startup_script_id arrives from the API
+      // after init), the autocomplete displays the selected script's name.
+      this.$watch(`${this.parentVarGroup}.${this.parentVariable}`, () => { this.loadOptions(); });
       this.loadOptions();
     },
     attachScrollListener() {

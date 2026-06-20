@@ -37,13 +37,17 @@ var listCmd = &cli.Command{
 		}
 
 		// No argument — table view (existing behaviour).
-		table := [][]string{{"NAME", "DESCRIPTION", "SCOPE", "MCP"}}
+		table := [][]string{{"NAME", "DESCRIPTION", "SCOPE", "MCP", "PROVIDERS"}}
 		for _, method := range result.Methods {
 			mcp := "No"
 			if method.MCPTool {
 				mcp = "Yes"
 			}
-			table = append(table, []string{method.Name, method.Description, method.Scope, mcp})
+			providers := fmt.Sprintf("%d", method.ProviderCount)
+			if method.ProviderCount > 1 {
+				providers = fmt.Sprintf("%d spaces", method.ProviderCount)
+			}
+			table = append(table, []string{method.Name, method.Description, method.Scope, mcp, providers})
 		}
 		util.PrintTable(table)
 		return nil
@@ -59,12 +63,15 @@ func showMethodDetail(methods []methods.MethodInfo, name string) error {
 		fmt.Printf("Name:          %s\n", m.Name)
 		fmt.Printf("Local Name:    %s\n", m.LocalName)
 		fmt.Printf("Description:   %s\n", m.Description)
-		fmt.Printf("Owner:         %s (space: %s)\n", m.Owner, m.SpaceName)
+		fmt.Printf("Owner:         %s\n", m.Owner)
 		fmt.Printf("Scope:         %s\n", m.Scope)
 		if len(m.Groups) > 0 {
 			fmt.Printf("Groups:        %v\n", m.Groups)
 		}
 		fmt.Printf("MCP Tool:      %s\n", boolStr(m.MCPTool, "Yes", "No"))
+		if m.ProviderCount > 1 {
+			fmt.Printf("Providers:     %d spaces\n", m.ProviderCount)
+		}
 		if len(m.Keywords) > 0 {
 			fmt.Printf("Keywords:      %v\n", m.Keywords)
 		}

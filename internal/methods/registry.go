@@ -146,19 +146,38 @@ func (r *Registry) List(user *model.User) []MethodInfo {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	result := []MethodInfo{}
-	seen := map[string]bool{}
+	// First pass: group visible entries by their visible name so we can
+	// count providers.
+	type visibleGroup struct {
+		first *Entry
+		count int
+	}
+	groups := map[string]*visibleGroup{}
+	var order []string
+
 	for _, entries := range r.entries {
 		for _, entry := range entries {
 			name, ok := visibleName(entry, user)
-			if !ok || seen[name] {
+			if !ok {
 				continue
 			}
-			info := entry.info()
-			info.Name = name
-			result = append(result, info)
-			seen[name] = true
+			g, exists := groups[name]
+			if !exists {
+				g = &visibleGroup{first: entry, count: 0}
+				groups[name] = g
+				order = append(order, name)
+			}
+			g.count++
 		}
+	}
+
+	result := make([]MethodInfo, 0, len(order))
+	for _, name := range order {
+		g := groups[name]
+		info := g.first.info()
+		info.Name = name
+		info.ProviderCount = g.count
+		result = append(result, info)
 	}
 
 	sort.Slice(result, func(i, j int) bool {
@@ -327,19 +346,17 @@ func visibleName(entry *Entry, user *model.User) (string, bool) {
 
 func (e *Entry) info() MethodInfo {
 	return MethodInfo{
-		Name:         e.Name,
-		LocalName:    e.LocalName,
-		Description:  e.Description,
-		Keywords:     e.Keywords,
-		Scope:        e.Scope,
-		Groups:       e.Groups,
-		MCPTool:      e.MCPTool,
-		ParamsSchema: e.ParamsSchema,
-		ResultSchema: e.ResultSchema,
-		SpaceID:      e.SpaceID,
-		SpaceName:    e.SpaceName,
-		OwnerID:      e.OwnerID,
-		Owner:        e.Owner,
+		Name:          e.Name,
+		LocalName:     e.LocalName,
+		Description:   e.Description,
+		Keywords:      e.Keywords,
+		Scope:         e.Scope,
+		Groups:        e.Groups,
+		MCPTool:       e.MCPTool,
+		ParamsSchema:  e.ParamsSchema,
+		ResultSchema:  e.ResultSchema,
+		OwnerID:       e.OwnerID,
+		Owner:         e.Owner,
 	}
 }
 

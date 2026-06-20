@@ -233,7 +233,6 @@ func buildMethodsScriptRunner(agentClient *agent_client.AgentClient) func(conten
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)
 		}
-		knotscriptling.RegisterMethodLibraries(env)
 
 		result, err := env.EvalWithContext(context.Background(), content)
 		if err != nil {

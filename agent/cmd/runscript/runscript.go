@@ -10,6 +10,9 @@ import (
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
+	"github.com/paularlott/knot/internal/agentlink"
+	knotmethods "github.com/paularlott/knot/internal/methods"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/scriptling/object"
 )
@@ -67,11 +70,20 @@ var RunScriptCmd = &cli.Command{
 			userId = user.Id
 		}
 
-		// knot run-script executes in the CLI process. The knot.methods /
-		// knot.methods.schema libraries are intentionally not registered here:
-		// only daemon-side scripts (startup scripts and `knot methods register
-		// file.py`) can register space methods. Scripts that need to register
-		// methods must be invoked via `knot methods register`.
+		// knot run-script executes in the CLI process. Wire the methods
+		// registrar to the agentlink command socket so server.register()
+		// publishes to the daemon (same path as `knot methods register`).
+		knotscriptling.SetMethodsRegistrar(func(reg *knotmethods.Registration) error {
+			var resp agentlink.RegisterMethodsResponse
+			if err := agentlink.SendWithResponseMsg(agentlink.CommandRegisterMethods, agentlink.RegisterMethodsRequest{Registration: *reg}, &resp); err != nil {
+				return err
+			}
+			if !resp.Success {
+				return errors.New(resp.Error)
+			}
+			return nil
+		})
+
 		env, err := service.NewRemoteStreamingScriptlingEnv(argv, client, userId, nil, os.Stdout, os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)

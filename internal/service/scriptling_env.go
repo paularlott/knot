@@ -65,17 +65,22 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterTemplateTextLibrary(env)
 }
 
-// registerKnotLibraries registers all Knot-specific libraries for scriptling environments
-// If mcpLib is provided, it will be registered instead of creating a new one via GetMCPToolsLibrary
-// aiClient may be nil for local/remote environments where no AI client is available
-func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]object.Object, mcpLib *knotscriptling.MCPLibrary, aiClient ai.Client) {
+// registerKnotLibraries registers all Knot-specific libraries for scriptling environments.
+// If mcpLib is provided, it will be registered instead of creating a new one via GetMCPToolsLibrary.
+// aiClient may be nil for local/remote environments where no AI client is available.
+// withMethods controls whether knot.methods / knot.methods.schema are registered —
+// false for MCP tool execution envs (method registration is an agent-side concern).
+func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]object.Object, mcpLib *knotscriptling.MCPLibrary, aiClient ai.Client, withMethods bool) {
 	// knot.ai is always registered - Client() will return error if aiClient is nil
 	env.RegisterLibrary(knotscriptling.GetAILibrary(aiClient))
 
-	// NOTE: knot.methods / knot.methods.schema are intentionally NOT registered
-	// here. They are opt-in via knotscriptling.RegisterMethodLibraries, called
-	// only by daemon-side script execution paths. CLI-side envs (knot
-	// run-script) and server-side MCP tool envs do not get them.
+	// knot.methods and knot.methods.schema are registered in agent/CLI envs
+	// only, not MCP tool execution envs. The methodsRegistrar global gates
+	// whether register() actually succeeds.
+	if withMethods {
+		env.RegisterLibrary(knotscriptling.GetMethodsLibrary())
+		env.RegisterLibrary(knotscriptling.GetMethodsSchemaLibrary())
+	}
 
 	if client != nil {
 		// Go transport layer - Python libs (knot.space, knot.user, etc.) resolve via import
@@ -272,7 +277,7 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]objec
 	var mcpLib *knotscriptling.MCPLibrary
 	if client != nil && user != nil {
 		mcpLib = knotscriptling.GetMCPLibraryInstance(client, mcpParams)
-		registerKnotLibraries(env, client, user.Id, mcpParams, mcpLib, aiClient)
+		registerKnotLibraries(env, client, user.Id, mcpParams, mcpLib, aiClient, false)
 
 		// Set up library loader with knot libs + user context for MuxClient
 		env.SetLibraryLoader(libloader.NewChain(
@@ -310,7 +315,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	registerFullSystemLibraries(env)
 
 	aiClient := createServerAIClient(client, nil)
-	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
+	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
 
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, argv, nil)
@@ -345,7 +350,7 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	provisionfetch.Register(env)
 
 	aiClient := createServerAIClient(client, nil)
-	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
+	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
 
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, argv, input)

@@ -43,19 +43,18 @@ type Registration struct {
 }
 
 type MethodInfo struct {
-	Name         string         `json:"name" msgpack:"name"`
-	LocalName    string         `json:"local_name" msgpack:"local_name"`
-	Description  string         `json:"description" msgpack:"description"`
-	Keywords     []string       `json:"keywords,omitempty" msgpack:"keywords,omitempty"`
-	Scope        string         `json:"scope" msgpack:"scope"`
-	Groups       []string       `json:"groups,omitempty" msgpack:"groups,omitempty"`
-	MCPTool      bool           `json:"mcp_tool" msgpack:"mcp_tool"`
-	ParamsSchema map[string]any `json:"params_schema,omitempty" msgpack:"params_schema,omitempty"`
-	ResultSchema map[string]any `json:"result_schema,omitempty" msgpack:"result_schema,omitempty"`
-	SpaceID      string         `json:"space_id" msgpack:"space_id"`
-	SpaceName    string         `json:"space_name" msgpack:"space_name"`
-	OwnerID      string         `json:"owner_id" msgpack:"owner_id"`
-	Owner        string         `json:"owner" msgpack:"owner"`
+	Name          string         `json:"name" msgpack:"name"`
+	LocalName     string         `json:"local_name" msgpack:"local_name"`
+	Description   string         `json:"description" msgpack:"description"`
+	Keywords      []string       `json:"keywords,omitempty" msgpack:"keywords,omitempty"`
+	Scope         string         `json:"scope" msgpack:"scope"`
+	Groups        []string       `json:"groups,omitempty" msgpack:"groups,omitempty"`
+	MCPTool       bool           `json:"mcp_tool" msgpack:"mcp_tool"`
+	ParamsSchema  map[string]any `json:"params_schema,omitempty" msgpack:"params_schema,omitempty"`
+	ResultSchema  map[string]any `json:"result_schema,omitempty" msgpack:"result_schema,omitempty"`
+	OwnerID       string         `json:"owner_id" msgpack:"owner_id"`
+	Owner         string         `json:"owner" msgpack:"owner"`
+	ProviderCount int            `json:"provider_count" msgpack:"provider_count"`
 }
 
 type JSONRPCRequest struct {
