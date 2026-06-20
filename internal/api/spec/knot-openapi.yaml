@@ -40,6 +40,9 @@ tags:
   - name: Skills
     description: |
       Operations for working with skills (knowledge base content).
+  - name: Methods
+    description: |
+      Operations for discovering and calling space-registered JSON-RPC methods.
   - name: Stack Definitions
     description: |
       Operations for working with stack definitions (reusable space blueprints).
@@ -3679,6 +3682,203 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/methods:
+    get:
+      summary: List Methods
+      description: |
+        List JSON-RPC methods visible to the current caller.
+
+        Returns the effective callable view of the per-zone method registry,
+        not every internal registration. Visibility is based on caller
+        identity, group membership, the live registration state, and method
+        scope (`private` is only visible to the owning user; `shared` is
+        visible to other users with the `use_methods` permission, filtered by
+        the method's group list).
+
+        Owners see their bare canonical method names. Other users see shared
+        bare canonical names under the `user.<owner>.<method>` namespace.
+      tags:
+        - Methods
+      operationId: listMethods
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  methods:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MethodInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/methods/call:
+    post:
+      summary: Call Method
+      description: |
+        Invoke one or more registered JSON-RPC 2.0 methods. The body may be
+        any of:
+
+        - **Single request** — `{"jsonrpc":"2.0","method":"...","params":{},"id":1}`
+        - **Batch** — an array of single requests
+        - **Notification** — a request without an `id`
+
+        Single requests return a single JSON-RPC response object. Batch
+        requests return a JSON array of responses, one per request item that
+        carries an `id`. Notifications produce no response entry; if every
+        item in a batch is a notification the HTTP response is `204 No
+        Content`.
+
+        The server looks up the canonical method name, checks caller
+        permissions, rewrites the method name to the method server's
+        `local_name`, forwards the call to the owning space's method server,
+        and returns the method server's JSON-RPC response. Batches are
+        routed per item; items targeting the same destination space may be
+        grouped onto a single stream.
+
+        Routing/access failures are returned as JSON-RPC errors with
+        HTTP-appropriate status codes: `404` for unknown methods, `403` when
+        the method is not visible to the caller, `502` when the method
+        server itself fails, and `503` when no live method server is
+        available.
+      tags:
+        - Methods
+      operationId: callMethod
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/JSONRPCRequest"
+                - type: array
+                  items:
+                    $ref: "#/components/schemas/JSONRPCRequest"
+                  maxItems: 100
+              description: |
+                A single JSON-RPC 2.0 request, a notification (request
+                without `id`), or a batch (array of requests). Batches are
+                capped at 100 items.
+            examples:
+              single:
+                summary: Single request
+                value:
+                  jsonrpc: "2.0"
+                  method: "notes.search"
+                  params:
+                    query: receipt
+                  id: 1
+              notification:
+                summary: Notification (no response expected)
+                value:
+                  jsonrpc: "2.0"
+                  method: "notes.index"
+                  params:
+                    path: /tmp/notes
+              batch:
+                summary: Batch request
+                value:
+                  - jsonrpc: "2.0"
+                    method: "notes.search"
+                    params:
+                      query: receipt
+                    id: 1
+                  - jsonrpc: "2.0"
+                    method: "notes.search"
+                    params:
+                      query: tax
+                    id: 2
+      responses:
+        "200":
+          description: |
+            Successful call. For a single request the body is a JSON-RPC
+            response object. For a batch the body is an array of JSON-RPC
+            response objects (one per request item carrying an `id`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/JSONRPCResponse"
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/JSONRPCResponse"
+              examples:
+                single:
+                  summary: Single response
+                  value:
+                    jsonrpc: "2.0"
+                    result:
+                      hits:
+                        - receipt-2024-06-01.md
+                    id: 1
+                batch:
+                  summary: Batch response
+                  value:
+                    - jsonrpc: "2.0"
+                      result:
+                        hits: [receipt-2024-06-01.md]
+                      id: 1
+                    - jsonrpc: "2.0"
+                      error:
+                        code: -32601
+                        message: "method not found"
+                      id: 2
+        "204":
+          description: |
+            No Content. Returned when a single notification is sent, or when
+            every item in a batch is a notification.
+        "400":
+          description: |
+            JSON-RPC parse error, missing `method` field, or a batch larger
+            than 100 items. The body is a JSON-RPC error response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSONRPCResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          description: |
+            Method not visible to caller. The body is a JSON-RPC error
+            response with code `-32601`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSONRPCResponse"
+        "404":
+          description: |
+            Method not found. The body is a JSON-RPC error response with
+            code `-32601`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSONRPCResponse"
+        "502":
+          description: |
+            The method server returned an error or failed. The body is a
+            JSON-RPC error response with code `-32000`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSONRPCResponse"
+        "503":
+          description: |
+            No live method server is available for the requested method. The
+            body is a JSON-RPC error response with code `-32000`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSONRPCResponse"
+      security: [BearerAuth: []]
+
   /api/stack-definitions:
     get:
       tags:
@@ -6594,6 +6794,141 @@ components:
           type: array
           items:
             type: string
+
+    MethodInfo:
+      type: object
+      description: |
+        A JSON-RPC method visible to the caller. Returned by
+        `GET /api/methods`.
+
+        The `name` is the effective visible name for the caller: owners see
+        the bare canonical name, while other users see shared bare names
+        under the `user.<owner>.<method>` namespace.
+      properties:
+        name:
+          type: string
+          description: Canonical method name as visible to this caller.
+        local_name:
+          type: string
+          description: |
+            Method name forwarded to the method server. This is metadata
+            for callers; the server rewrites the JSON-RPC `method` field to
+            this value before forwarding.
+        description:
+          type: string
+          description: Human-readable description from the registration.
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Optional search/metadata keywords.
+        scope:
+          type: string
+          enum: [private, shared]
+          description: Visibility scope of the method.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: |
+            Group IDs allowed to discover and call this method. Only
+            applies to `shared` methods. An empty list means all
+            authenticated users in the zone with the `use_methods`
+            permission.
+        mcp_tool:
+          type: boolean
+          description: |
+            `true` when the method is also projected as a discoverable MCP
+            tool.
+        params_schema:
+          type: object
+          additionalProperties: true
+          description: |
+            JSON Schema fragment describing the method's `params`. Pass
+            through to callers; the method server owns runtime validation.
+        result_schema:
+          type: object
+          additionalProperties: true
+          description: |
+            JSON Schema fragment describing the method's result, when
+            supplied.
+        owner_id:
+          type: string
+          format: uuid
+          description: User ID of the owning space's user.
+        owner:
+          type: string
+          description: Username of the owning space's user.
+        provider_count:
+          type: integer
+          description: |
+            Number of distinct spaces currently providing this exact
+            method definition. `1` unless duplicate exact-match
+            registrations exist.
+
+    JSONRPCRequest:
+      type: object
+      description: JSON-RPC 2.0 request object.
+      required:
+        - jsonrpc
+        - method
+      properties:
+        jsonrpc:
+          type: string
+          default: "2.0"
+        method:
+          type: string
+          description: |
+            Canonical JSON-RPC method name as returned by
+            `GET /api/methods`.
+        params:
+          description: |
+            Method parameters. May be an object or an array. Omit when the
+            method takes no parameters.
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items: {}
+        id:
+          description: |
+            Caller-supplied identifier used to match the response. May be a
+            string, number, or `null`. If absent, the request is treated as
+            a notification and produces no response entry.
+
+    JSONRPCResponse:
+      type: object
+      description: JSON-RPC 2.0 response object.
+      properties:
+        jsonrpc:
+          type: string
+          default: "2.0"
+        result:
+          description: Method result. Present on successful responses.
+        error:
+          $ref: "#/components/schemas/JSONRPCError"
+        id:
+          description: |
+            Echo of the request `id`. `null` when the request could not be
+            parsed or matched.
+
+    JSONRPCError:
+      type: object
+      description: JSON-RPC 2.0 error object.
+      properties:
+        code:
+          type: integer
+          description: |
+            JSON-RPC error code. Standard protocol codes are used for
+            parse/invalid-request errors. Routing and transport failures
+            use:
+
+            - `-32601` — method not found or not visible to caller
+            - `-32000` — method server error, transport failure, or no
+              live method server available
+        message:
+          type: string
 
     SkillInfo:
       type: object
