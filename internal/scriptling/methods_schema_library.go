@@ -3,6 +3,7 @@ package scriptling
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/paularlott/scriptling/conversion"
 	"github.com/paularlott/scriptling/errors"
@@ -170,6 +171,7 @@ func buildObject(kwargs object.Kwargs) object.Object {
 
 	schema["properties"] = properties
 	if len(required) > 0 {
+		sort.Strings(required)
 		schema["required"] = required
 	}
 	if !additionalPropsSet {
