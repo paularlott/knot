@@ -21,10 +21,19 @@ type serverState struct {
 // in environments where method registration is not available.
 var methodsRegistrar func(*methods.Registration) error
 
+// methodsUnregisterAll is the agent-side hook that removes ALL methods for the
+// current space, stops the method server, and clears the stashed registration.
+// nil in environments where method registration is not available.
+var methodsUnregisterAll func() error
+
 // SetMethodsRegistrar installs the agent-side registrar. Called by the agent
 // (or by knot run-script) before evaluating user scripts that use knot.methods.
 func SetMethodsRegistrar(registrar func(*methods.Registration) error) {
 	methodsRegistrar = registrar
+}
+
+func SetMethodsUnregisterAll(fn func() error) {
+	methodsUnregisterAll = fn
 }
 
 // RegisterMethodLibraries registers knot.methods and knot.methods.schema on a
@@ -196,6 +205,63 @@ func buildServerClass() *object.Class {
 		}
 		return object.NewBoolean(true)
 	}, `register() - Validate and publish the current method registration`)
+
+	// server.unregister(name=None) - remove all methods, or one method by name.
+	// With no args: calls methodsUnregisterAll (stops the method server, clears
+	// everything). With a name: removes that method from the local registration
+	// and re-publishes the reduced set via methodsRegistrar.
+	cb.MethodWithHelp("unregister", func(self *serverState, ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		// No args — unregister all.
+		if len(args) == 0 {
+			if methodsUnregisterAll == nil {
+				return &object.Error{Message: "method registration is not available in this environment"}
+			}
+			if err := methodsUnregisterAll(); err != nil {
+				return &object.Error{Message: err.Error()}
+			}
+			return object.NewBoolean(true)
+		}
+
+		// One arg — unregister a specific method by name.
+		if methodsRegistrar == nil {
+			return &object.Error{Message: "method registration is not available in this environment"}
+		}
+		name, errObj := args[0].AsString()
+		if errObj != nil {
+			return errors.ParameterError("name", errObj)
+		}
+
+		found := false
+		filtered := self.reg.Methods[:0]
+		for _, m := range self.reg.Methods {
+			if m.Name == name {
+				found = true
+				continue
+			}
+			filtered = append(filtered, m)
+		}
+		if !found {
+			return &object.Error{Message: fmt.Sprintf("method %q is not registered", name)}
+		}
+		self.reg.Methods = filtered
+
+		if len(self.reg.Methods) == 0 {
+			// Removing the last method — use the full unregister path.
+			if methodsUnregisterAll == nil {
+				return &object.Error{Message: "method registration is not available in this environment"}
+			}
+			if err := methodsUnregisterAll(); err != nil {
+				return &object.Error{Message: err.Error()}
+			}
+			return object.NewBoolean(true)
+		}
+
+		// Re-publish the reduced registration.
+		if err := methodsRegistrar(&self.reg); err != nil {
+			return &object.Error{Message: err.Error()}
+		}
+		return object.NewBoolean(true)
+	}, `unregister(name=None) - Remove all methods, or one method by name`)
 
 	return cb.Build()
 }

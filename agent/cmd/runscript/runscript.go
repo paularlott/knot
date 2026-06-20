@@ -83,6 +83,16 @@ var RunScriptCmd = &cli.Command{
 			}
 			return nil
 		})
+		knotscriptling.SetMethodsUnregisterAll(func() error {
+			var resp agentlink.RegisterMethodsResponse
+			if err := agentlink.SendWithResponseMsg(agentlink.CommandUnregisterMethods, nil, &resp); err != nil {
+				return err
+			}
+			if !resp.Success {
+				return errors.New(resp.Error)
+			}
+			return nil
+		})
 
 		env, err := service.NewRemoteStreamingScriptlingEnv(argv, client, userId, nil, os.Stdout, os.Stdin)
 		if err != nil {

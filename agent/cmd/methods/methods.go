@@ -14,9 +14,10 @@ import (
 var MethodsCmd = &cli.Command{
 	Name:        "methods",
 	Usage:       "Manage space methods",
-	Description: "Register JSON-RPC methods for the current space.",
+	Description: "Register and unregister JSON-RPC methods for the current space.",
 	Commands: []*cli.Command{
 		registerCmd,
+		unregisterCmd,
 	},
 }
 
@@ -55,6 +56,23 @@ var registerCmd = &cli.Command{
 			return errors.New(response.Error)
 		}
 		fmt.Println("Methods registered")
+		return nil
+	},
+}
+
+var unregisterCmd = &cli.Command{
+	Name:      "unregister",
+	Usage:     "Remove all registered methods and stop the method server",
+	MaxArgs:   cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		var response agentlink.RegisterMethodsResponse
+		if err := agentlink.SendWithResponseMsg(agentlink.CommandUnregisterMethods, nil, &response); err != nil {
+			return err
+		}
+		if !response.Success {
+			return errors.New(response.Error)
+		}
+		fmt.Println("Methods unregistered")
 		return nil
 	},
 }

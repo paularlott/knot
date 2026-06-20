@@ -474,6 +474,13 @@ const scriptLibraries = [
               "Validate and publish the current method registration. Replaces any previous registration from this space.",
             returns: "bool - True when registered",
           },
+          {
+            name: "unregister",
+            signature: 'unregister(name=None)',
+            description:
+              "Remove all methods (no argument) or one method by name. Removing all methods stops the method server process. Removing the last method also stops the server.",
+            returns: "bool - True when unregistered",
+          },
         ],
       },
     ],

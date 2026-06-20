@@ -200,6 +200,7 @@ var agentServerCmd = &cli.Command{
 		// run-script`) do not register knot.methods at all, so they cannot reach
 		// this hook.
 		knotscriptling.SetMethodsRegistrar(agentClient.RegisterMethods)
+		knotscriptling.SetMethodsUnregisterAll(agentClient.UnregisterAllMethods)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)

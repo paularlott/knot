@@ -136,5 +136,8 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandRegisterMethodsScript:
 		handleRegisterMethodsScript(conn, msg)
+
+	case CommandUnregisterMethods:
+		handleUnregisterMethods(conn, msg)
 	}
 }

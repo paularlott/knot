@@ -86,6 +86,25 @@ func (c *AgentClient) RegisterMethods(reg *methods.Registration) error {
 	return nil
 }
 
+// UnregisterAllMethods removes all methods from the knot server, stops the
+// stdio method server process, and clears the stashed registration so
+// reconnect doesn't republish dead methods. Called by `knot methods
+// unregister` and by the Scriptling server.unregister() (no args).
+func (c *AgentClient) UnregisterAllMethods() error {
+	// Tell the knot server to drop our methods.
+	c.unregisterMethods()
+
+	// Stop the stdio method server process.
+	c.stopMethodServer()
+
+	// Clear the stashed registration so republish on reconnect is a no-op.
+	c.lastRegMu.Lock()
+	c.lastReg = nil
+	c.lastRegMu.Unlock()
+
+	return nil
+}
+
 // unregisterMethods tells all connected knot servers to remove this space's
 // methods from the registry. Called when the stdio method server process
 // exits (the methods are no longer callable). Best-effort: if the agent has

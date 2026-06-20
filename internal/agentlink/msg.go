@@ -27,6 +27,7 @@ const (
 	CommandRegisterMethods
 	CommandRegisterMethodsTOML
 	CommandRegisterMethodsScript
+	CommandUnregisterMethods
 )
 
 type CommandMsg struct {
