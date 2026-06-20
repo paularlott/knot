@@ -96,8 +96,7 @@ func (s *Session) SendCallMethod(call *msg.CallMethodRequest, timeoutSeconds int
 }
 
 // SendNotificationMethod forwards a notification to the agent without waiting
-// for a JSON-RPC response. The agent writes to the method server's stdin and
-// returns immediately. Used for JSON-RPC notifications (requests without id).
+// for a JSON-RPC response.
 func (s *Session) SendNotificationMethod(call *msg.CallMethodRequest) error {
 	conn, err := s.MuxSession.Open()
 	if err != nil {
@@ -112,9 +111,51 @@ func (s *Session) SendNotificationMethod(call *msg.CallMethodRequest) error {
 	if err := msg.WriteMessage(conn, call); err != nil {
 		return err
 	}
-	// Don't wait for a response — the agent knows this is a notification
-	// and won't write one back.
 	return nil
+}
+
+// SendCallMethodBatch sends a sub-batch of calls to the agent in a single
+// yamux stream. The agent processes each item concurrently through the method
+// server and returns all responses in one CallMethodBatchResponse. Used by
+// the server to forward batch items grouped by destination space.
+func (s *Session) SendCallMethodBatch(req *msg.CallMethodBatchRequest, timeoutSeconds int) (*msg.CallMethodBatchResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdCallMethodBatch); err != nil {
+		return nil, err
+	}
+	if err := msg.WriteMessage(conn, req); err != nil {
+		return nil, err
+	}
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 30
+	}
+
+	// Scale the outer read timeout by the number of request items. The agent
+	// processes items sequentially, each allowed up to timeoutSeconds via
+	// CallMethod's internal timeout. Without scaling, a batch of N items each
+	// taking close to the per-call timeout would cause a false outer timeout.
+	// Notifications are excluded — they return immediately.
+	requestItems := 0
+	for _, item := range req.Items {
+		if !item.IsNotification {
+			requestItems++
+		}
+	}
+	if requestItems == 0 {
+		requestItems = 1
+	}
+	totalTimeout := timeoutSeconds * requestItems
+
+	var response msg.CallMethodBatchResponse
+	if err := msg.ReadMessageWithTimeout(conn, &response, time.Duration(totalTimeout)*time.Second); err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 // resolveMethodGroups rewrites each method's Groups slice in place so that it

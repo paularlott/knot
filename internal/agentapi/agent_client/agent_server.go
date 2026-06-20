@@ -617,6 +617,15 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 		handleCallMethodExecution(stream, s.agentClient, callMsg)
 
+	case byte(msg.CmdCallMethodBatch):
+		var batchMsg msg.CallMethodBatchRequest
+		if err := msg.ReadMessage(stream, &batchMsg); err != nil {
+			log.WithError(err).Error("reading call method batch message:")
+			return
+		}
+
+		handleCallMethodBatchExecution(stream, s.agentClient, batchMsg)
+
 	default:
 		log.Error("unknown command:", "cmd", cmd)
 	}

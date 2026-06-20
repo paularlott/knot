@@ -41,6 +41,7 @@ const (
 	CmdRemovePortForward
 	CmdRegisterMethods
 	CmdCallMethod
+	CmdCallMethodBatch
 	CmdUnregisterMethods
 )
 

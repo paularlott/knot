@@ -407,12 +407,34 @@ func (c *AgentClient) SendNotification(req msg.CallMethodRequest) {
 func handleCallMethodExecution(stream net.Conn, agentClient *AgentClient, call msg.CallMethodRequest) {
 	if call.IsNotification {
 		agentClient.SendNotification(call)
-		// Don't write a response back to the knot server — notifications
-		// produce no JSON-RPC response per spec.
 		return
 	}
 	response := agentClient.CallMethod(call)
 	_ = msg.WriteMessage(stream, &msg.CallMethodResponse{Response: response})
+}
+
+// handleCallMethodBatchExecution forwards each item in the batch to the method
+// server sequentially — single requests via CallMethod (which returns a
+// response), notifications via SendNotification (fire-and-forget). Responses
+// are collected in order and sent back as one CallMethodBatchResponse. The
+// agent is a simple forwarder; concurrency comes from multiple concurrent
+// callers (different yamux streams), not from within a single batch.
+func handleCallMethodBatchExecution(stream net.Conn, agentClient *AgentClient, batch msg.CallMethodBatchRequest) {
+	var responses []methods.JSONRPCResponse
+	for _, item := range batch.Items {
+		callReq := msg.CallMethodRequest{
+			Method: item.Method,
+			Params: item.Params,
+			ID:     item.ID,
+		}
+		if item.IsNotification {
+			agentClient.SendNotification(callReq)
+			continue
+		}
+		resp := agentClient.CallMethod(callReq)
+		responses = append(responses, resp)
+	}
+	_ = msg.WriteMessage(stream, &msg.CallMethodBatchResponse{Responses: responses})
 }
 
 // acquire reserves an in-flight slot, blocking until one is available, the
