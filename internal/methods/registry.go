@@ -27,9 +27,10 @@ type Entry struct {
 }
 
 type Registry struct {
-	mu      sync.RWMutex
-	entries map[string][]*Entry
-	bySpace map[string][]*Entry
+	mu       sync.RWMutex
+	entries  map[string][]*Entry
+	bySpace  map[string][]*Entry
+	rrCursor map[string]uint64
 }
 
 var defaultRegistry = NewRegistry()
@@ -40,8 +41,9 @@ func DefaultRegistry() *Registry {
 
 func NewRegistry() *Registry {
 	return &Registry{
-		entries: make(map[string][]*Entry),
-		bySpace: make(map[string][]*Entry),
+		entries:  make(map[string][]*Entry),
+		bySpace:  make(map[string][]*Entry),
+		rrCursor: make(map[string]uint64),
 	}
 }
 
@@ -255,12 +257,38 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 		return nil, "", ErrMethodNotFound
 	}
 
-	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i].inFlight < candidates[j].inFlight
+	selected := r.pickCandidateLocked(methodName, candidates)
+	selected.inFlight++
+	return selected, selected.LocalName, nil
+}
+
+func (r *Registry) pickCandidateLocked(routeName string, candidates []*Entry) *Entry {
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].inFlight != candidates[j].inFlight {
+			return candidates[i].inFlight < candidates[j].inFlight
+		}
+		if candidates[i].SpaceID != candidates[j].SpaceID {
+			return candidates[i].SpaceID < candidates[j].SpaceID
+		}
+		if candidates[i].OwnerID != candidates[j].OwnerID {
+			return candidates[i].OwnerID < candidates[j].OwnerID
+		}
+		return candidates[i].LocalName < candidates[j].LocalName
 	})
 
-	candidates[0].inFlight++
-	return candidates[0], candidates[0].LocalName, nil
+	minInFlight := candidates[0].inFlight
+	tied := candidates[:0]
+	for _, candidate := range candidates {
+		if candidate.inFlight != minInFlight {
+			break
+		}
+		tied = append(tied, candidate)
+	}
+
+	cursor := r.rrCursor[routeName]
+	selected := tied[int(cursor%uint64(len(tied)))]
+	r.rrCursor[routeName] = cursor + 1
+	return selected
 }
 
 func (r *Registry) Done(entry *Entry) {

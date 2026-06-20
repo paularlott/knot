@@ -31,6 +31,27 @@ func testRegistration(name string, scope string) *Registration {
 	}
 }
 
+func testRegistrationWithLocalName(name string, localName string, scope string) *Registration {
+	reg := testRegistration(name, scope)
+	reg.Methods[0].LocalName = localName
+	return reg
+}
+
+func testRegistrationWithNames(names ...string) *Registration {
+	reg := &Registration{
+		Server: ServerConfig{Type: ServerTypeStdio, Command: "./server", Timeout: 30},
+	}
+	for _, name := range names {
+		reg.Methods = append(reg.Methods, MethodDefinition{
+			Name:        name,
+			LocalName:   name,
+			Description: "Test method",
+			Scope:       ScopeShared,
+		})
+	}
+	return reg
+}
+
 func testMCPRegistration(name string) *Registration {
 	reg := testRegistration(name, ScopePrivate)
 	reg.Methods[0].MCPTool = true
@@ -359,5 +380,170 @@ func TestPickUnknownMethodStillReturnsNotFound(t *testing.T) {
 	// different owner. Still 404, not 403 — the named owner doesn't have it.
 	if _, _, err := registry.Pick("user.nobody.notes.search", caller); !errors.Is(err, ErrMethodNotFound) {
 		t.Errorf("unknown owner namespaced: expected ErrMethodNotFound, got %v", err)
+	}
+}
+
+func TestPickRoundRobinsSequentialCallsAcrossDuplicateMethods(t *testing.T) {
+	registry := NewRegistry()
+	owner := testUser("user-1", "paul", nil)
+
+	if err := registry.Register(testSpace("space-1", "worker-1", owner.Id), owner, testRegistration("search", ScopeShared)); err != nil {
+		t.Fatalf("Register() space-1 error = %v", err)
+	}
+	if err := registry.Register(testSpace("space-2", "worker-2", owner.Id), owner, testRegistration("search", ScopeShared)); err != nil {
+		t.Fatalf("Register() space-2 error = %v", err)
+	}
+	if err := registry.Register(testSpace("space-3", "worker-3", owner.Id), owner, testRegistration("search", ScopeShared)); err != nil {
+		t.Fatalf("Register() space-3 error = %v", err)
+	}
+
+	var got []string
+	for i := 0; i < 6; i++ {
+		entry, _, err := registry.Pick("search", owner)
+		if err != nil {
+			t.Fatalf("Pick() %d error = %v", i, err)
+		}
+		got = append(got, entry.SpaceID)
+		registry.Done(entry)
+	}
+
+	want := []string{"space-1", "space-2", "space-3", "space-1", "space-2", "space-3"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("round robin order = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestPickUsesLeastInflightBeforeRoundRobinTieBreak(t *testing.T) {
+	registry := NewRegistry()
+	owner := testUser("user-1", "paul", nil)
+
+	if err := registry.Register(testSpace("space-1", "worker-1", owner.Id), owner, testRegistration("search", ScopeShared)); err != nil {
+		t.Fatalf("Register() space-1 error = %v", err)
+	}
+	if err := registry.Register(testSpace("space-2", "worker-2", owner.Id), owner, testRegistration("search", ScopeShared)); err != nil {
+		t.Fatalf("Register() space-2 error = %v", err)
+	}
+
+	first, _, err := registry.Pick("search", owner)
+	if err != nil {
+		t.Fatalf("Pick() first error = %v", err)
+	}
+	second, _, err := registry.Pick("search", owner)
+	if err != nil {
+		t.Fatalf("Pick() second error = %v", err)
+	}
+	third, _, err := registry.Pick("search", owner)
+	if err != nil {
+		t.Fatalf("Pick() third error = %v", err)
+	}
+	defer registry.Done(first)
+	defer registry.Done(second)
+	defer registry.Done(third)
+
+	if first.SpaceID != "space-1" {
+		t.Fatalf("first pick = %s, want space-1", first.SpaceID)
+	}
+	if second.SpaceID != "space-2" {
+		t.Fatalf("second pick = %s, want space-2", second.SpaceID)
+	}
+	if third.SpaceID != "space-1" {
+		t.Fatalf("third pick = %s, want least-inflight round robin to return space-1, got %s", third.SpaceID, third.SpaceID)
+	}
+}
+
+func TestPickRoundRobinsNamespacedDuplicateMethods(t *testing.T) {
+	registry := NewRegistry()
+	owner := testUser("user-1", "paul", nil)
+
+	if err := registry.Register(testSpace("space-1", "worker-1", owner.Id), owner, testRegistrationWithLocalName("notes.search", "search", ScopeShared)); err != nil {
+		t.Fatalf("Register() space-1 error = %v", err)
+	}
+	if err := registry.Register(testSpace("space-2", "worker-2", owner.Id), owner, testRegistrationWithLocalName("notes.search", "search", ScopeShared)); err != nil {
+		t.Fatalf("Register() space-2 error = %v", err)
+	}
+
+	roleWithMethods()
+	caller := testUser("user-2", "alice", nil)
+	caller.Roles = []string{"role-methods"}
+
+	first, localName, err := registry.Pick("user.paul.notes.search", caller)
+	if err != nil {
+		t.Fatalf("Pick() first error = %v", err)
+	}
+	if localName != "search" {
+		t.Fatalf("first localName = %q, want search", localName)
+	}
+	registry.Done(first)
+
+	second, localName, err := registry.Pick("user.paul.notes.search", caller)
+	if err != nil {
+		t.Fatalf("Pick() second error = %v", err)
+	}
+	if localName != "search" {
+		t.Fatalf("second localName = %q, want search", localName)
+	}
+	registry.Done(second)
+
+	if first.SpaceID != "space-1" || second.SpaceID != "space-2" {
+		t.Fatalf("namespaced round robin picked %s then %s, want space-1 then space-2", first.SpaceID, second.SpaceID)
+	}
+}
+
+func TestRegisterMixedUniqueAndDuplicateMethods(t *testing.T) {
+	registry := NewRegistry()
+	owner := testUser("user-1", "paul", nil)
+
+	if err := registry.Register(
+		testSpace("space-1", "worker-1", owner.Id),
+		owner,
+		testRegistrationWithNames("method-1", "method-2", "method-3", "method-4", "method-5", "method-6", "method-7", "method-8", "method-9", "method-10"),
+	); err != nil {
+		t.Fatalf("Register() space-1 error = %v", err)
+	}
+	if err := registry.Register(
+		testSpace("space-2", "worker-2", owner.Id),
+		owner,
+		testRegistrationWithNames("method-3", "method-7"),
+	); err != nil {
+		t.Fatalf("Register() space-2 duplicate subset error = %v", err)
+	}
+
+	list := registry.List(owner)
+	if len(list) != 10 {
+		t.Fatalf("List() returned %d methods, want 10: %#v", len(list), list)
+	}
+
+	unique, _, err := registry.Pick("method-1", owner)
+	if err != nil {
+		t.Fatalf("Pick() unique error = %v", err)
+	}
+	registry.Done(unique)
+	if unique.SpaceID != "space-1" {
+		t.Fatalf("unique method routed to %s, want space-1", unique.SpaceID)
+	}
+
+	firstDuplicate, _, err := registry.Pick("method-3", owner)
+	if err != nil {
+		t.Fatalf("Pick() first duplicate error = %v", err)
+	}
+	registry.Done(firstDuplicate)
+	secondDuplicate, _, err := registry.Pick("method-3", owner)
+	if err != nil {
+		t.Fatalf("Pick() second duplicate error = %v", err)
+	}
+	registry.Done(secondDuplicate)
+	if firstDuplicate.SpaceID != "space-1" || secondDuplicate.SpaceID != "space-2" {
+		t.Fatalf("duplicate method routed to %s then %s, want space-1 then space-2", firstDuplicate.SpaceID, secondDuplicate.SpaceID)
+	}
+
+	otherDuplicate, _, err := registry.Pick("method-7", owner)
+	if err != nil {
+		t.Fatalf("Pick() other duplicate error = %v", err)
+	}
+	registry.Done(otherDuplicate)
+	if otherDuplicate.SpaceID != "space-1" {
+		t.Fatalf("other duplicate first pick routed to %s, want space-1", otherDuplicate.SpaceID)
 	}
 }

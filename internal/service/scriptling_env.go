@@ -25,6 +25,7 @@ import (
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	scriptlingresolve "github.com/paularlott/scriptling/extlibs/net/resolve"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
+	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
@@ -341,6 +342,7 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil)
 	provisionfile.Register(env)
+	provisionfetch.Register(env)
 
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)

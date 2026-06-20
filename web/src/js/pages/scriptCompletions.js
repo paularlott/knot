@@ -4141,6 +4141,38 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.provision.fetch",
+    description: "Fetch provisioning utilities for downloading files and unpacking zip archives (all environments except MCP)",
+    constants: [
+      {
+        name: "CREATED",
+        value: '"created"',
+        description: "Status returned when a file was newly created",
+      },
+      {
+        name: "UPDATED",
+        value: '"updated"',
+        description: "Status returned when a file existed but content differed",
+      },
+      {
+        name: "UNCHANGED",
+        value: '"unchanged"',
+        description: "Status returned when a file existed with identical content",
+      },
+    ],
+    functions: [
+      {
+        name: "file",
+        signature:
+          "file(url, dest, insecure=False, unpack_zip=False, timeout=30, max_bytes=0, mode=0o644, dir_mode=0o755)",
+        description:
+          "Fetch a file over HTTP/HTTPS and write it to dest. Parent directories are created automatically. When unpack_zip is True, dest is treated as a destination directory and the response body is unpacked as a zip archive.",
+        returns:
+          'dict - {"status": "created|updated|unchanged", "url": str, "path": str, "bytes": int, "unpacked": bool, "files": [str...]}',
+      },
+    ],
+  },
+  {
     module: "html.parser",
     description: "HTML parsing for simple structured data extraction",
     functions: [],
