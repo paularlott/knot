@@ -95,6 +95,28 @@ func (s *Session) SendCallMethod(call *msg.CallMethodRequest, timeoutSeconds int
 	return &response, nil
 }
 
+// SendNotificationMethod forwards a notification to the agent without waiting
+// for a JSON-RPC response. The agent writes to the method server's stdin and
+// returns immediately. Used for JSON-RPC notifications (requests without id).
+func (s *Session) SendNotificationMethod(call *msg.CallMethodRequest) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	call.IsNotification = true
+	if err := msg.WriteCommand(conn, msg.CmdCallMethod); err != nil {
+		return err
+	}
+	if err := msg.WriteMessage(conn, call); err != nil {
+		return err
+	}
+	// Don't wait for a response — the agent knows this is a notification
+	// and won't write one back.
+	return nil
+}
+
 // resolveMethodGroups rewrites each method's Groups slice in place so that it
 // contains group IDs (which is what user.Groups holds and what HasAnyGroup
 // compares against). Entries are matched as either a group name or an

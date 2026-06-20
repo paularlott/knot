@@ -375,7 +375,42 @@ func (c *AgentClient) CallMethod(req msg.CallMethodRequest) methods.JSONRPCRespo
 	}
 }
 
+// SendNotification forwards a JSON-RPC notification (no id) to the method
+// server. Unlike CallMethod it writes to stdin and returns immediately — no
+// response is expected. If the method server happens to write a response
+// anyway (non-standard), the reader goroutine drops it since no pending call
+// was registered for that wire id.
+func (c *AgentClient) SendNotification(req msg.CallMethodRequest) {
+	c.methodMu.RLock()
+	server := c.methodServer
+	c.methodMu.RUnlock()
+	if server == nil {
+		return
+	}
+
+	// Build a true JSON-RPC notification (no id). The method server receives
+	// the same message shape it would for any notification.
+	notification := methods.JSONRPCRequest{
+		JSONRPC: "2.0",
+		Method:  req.Method,
+		Params:  req.Params,
+		// No ID — this is a notification per JSON-RPC 2.0 spec.
+	}
+	data, err := json.Marshal(notification)
+	if err != nil {
+		return
+	}
+	data = append(data, '\n')
+	_ = server.write(data)
+}
+
 func handleCallMethodExecution(stream net.Conn, agentClient *AgentClient, call msg.CallMethodRequest) {
+	if call.IsNotification {
+		agentClient.SendNotification(call)
+		// Don't write a response back to the knot server — notifications
+		// produce no JSON-RPC response per spec.
+		return
+	}
 	response := agentClient.CallMethod(call)
 	_ = msg.WriteMessage(stream, &msg.CallMethodResponse{Response: response})
 }

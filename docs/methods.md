@@ -313,7 +313,7 @@ GET /api/methods
 POST /api/methods/call
 ```
 
-`POST /api/methods/call` accepts a JSON-RPC request:
+`POST /api/methods/call` accepts a JSON-RPC 2.0 request:
 
 ```json
 {
@@ -323,6 +323,57 @@ POST /api/methods/call
   "id": 1
 }
 ```
+
+Returns a JSON-RPC response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": { "results": [ ... ] },
+  "id": 1
+}
+```
+
+### Batch requests
+
+Send a JSON array to call multiple methods in one request. Each item is routed
+independently — items can target different spaces and Knot naturally splits the
+batch by destination agent:
+
+```json
+[
+  {"jsonrpc":"2.0","method":"containers.search","params":{"query":"a"},"id":1},
+  {"jsonrpc":"2.0","method":"user.paul.notes.search","params":{"query":"b"},"id":2}
+]
+```
+
+Returns a JSON array of responses (order is not guaranteed by JSON-RPC 2.0 but
+Knot preserves request order):
+
+```json
+[
+  {"jsonrpc":"2.0","result":{...},"id":1},
+  {"jsonrpc":"2.0","result":{...},"id":2}
+]
+```
+
+### Notifications
+
+A notification is a JSON-RPC request without an `id` field. Knot forwards it
+to the method server but does not return a JSON-RPC response. For a single
+notification, the HTTP response is `204 No Content`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "containers.healthcheck",
+  "params": {}
+}
+```
+
+Notifications can also appear inside a batch — they're forwarded but produce no
+entry in the response array. If all items in a batch are notifications, the
+HTTP response is `204 No Content`.
 
 ## MCP Tools
 

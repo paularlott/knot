@@ -16,9 +16,10 @@ type RegisterMethodsResponse struct {
 }
 
 type CallMethodRequest struct {
-	Method string          `json:"method" msgpack:"method"`
-	Params json.RawMessage `json:"params,omitempty" msgpack:"params,omitempty"`
-	ID     any             `json:"id,omitempty" msgpack:"id,omitempty"`
+	Method        string          `json:"method" msgpack:"method"`
+	Params        json.RawMessage `json:"params,omitempty" msgpack:"params,omitempty"`
+	ID            any             `json:"id,omitempty" msgpack:"id,omitempty"`
+	IsNotification bool           `json:"-" msgpack:"is_notification,omitempty"`
 }
 
 type CallMethodResponse struct {
