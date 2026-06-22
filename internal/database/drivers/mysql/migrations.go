@@ -114,6 +114,10 @@ var migrations = []string{
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS stack_prefix VARCHAR(255) DEFAULT ''`,
 	// 54: add scopes to tokens (NULL = unrestricted / pre-scopes behaviour)
 	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS scopes JSON DEFAULT NULL`,
+	// 55: add pool membership to spaces
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS pool_id CHAR(36) DEFAULT ''`,
+	// 56: add pool_id index to spaces
+	`ALTER TABLE spaces ADD INDEX IF NOT EXISTS pool_id (pool_id)`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

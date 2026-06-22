@@ -87,6 +87,16 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/spaces/{space_id}/files/write", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleWriteSpaceFile)))
 	router.HandleFunc("POST /api/spaces/{space_id}/run-command", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleRunCommand)))
 
+	// Pools
+	router.HandleFunc("GET /api/pools", middleware.ApiAuth(HandleGetPools))
+	router.HandleFunc("POST /api/pools", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleCreatePool)))
+	router.HandleFunc("GET /api/pools/{id_or_name}", middleware.ApiAuth(HandleGetPool))
+	router.HandleFunc("PUT /api/pools/{id_or_name}", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleUpdatePool)))
+	router.HandleFunc("DELETE /api/pools/{id_or_name}", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleDeletePool)))
+	router.HandleFunc("POST /api/pools/{id_or_name}/size", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleSetPoolSize)))
+	router.HandleFunc("POST /api/pools/{id_or_name}/start", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolStart)))
+	router.HandleFunc("POST /api/pools/{id_or_name}/stop", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolStop)))
+
 	// Templates
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))
 	router.HandleFunc("GET /api/templates/{template_id}", middleware.ApiAuth(HandleGetTemplate))

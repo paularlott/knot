@@ -27,6 +27,7 @@ import (
 	"github.com/paularlott/knot/internal/dns"
 	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
@@ -1130,6 +1131,11 @@ var ServerCmd = &cli.Command{
 			cfg.Origin.Server,
 			cfg.Origin.Token,
 		)
+		service.GetPoolService().StartSweep()
+		service.GetPoolService().StartReaper()
+		methods.DefaultRegistry().SetDrainChecker(func(spaceID string) bool {
+			return service.GetPoolService().IsDrained(spaceID)
+		})
 
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)

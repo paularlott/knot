@@ -59,6 +59,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 			continue
 
 		case clientConn := <-connectionChan:
+			s.agentClient.tcpConnectionsTotal.Add(1)
 			// For each connection, open a new stream to the server
 			tunnelStream, err := s.muxSession.OpenStream()
 			if err != nil {

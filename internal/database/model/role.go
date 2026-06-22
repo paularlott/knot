@@ -47,6 +47,7 @@ const (
 	PermissionManageOwnStackDefinitions        // Can create/edit/delete personal stack definitions
 	PermissionUseStackDefinitions              // Can create instances from stack definitions
 	PermissionUseMethods                       // Can use shared space methods
+	PermissionUsePools                         // Can use space pools
 )
 
 type PermissionName struct {
@@ -88,6 +89,7 @@ var PermissionNames = []PermissionName{
 	{PermissionUseMethods, "Methods", "Use Space Methods Shared by Others"},
 
 	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
+	{PermissionUsePools, "Space Operations", "Use Space Pools"},
 	{PermissionSetSpaceDependencies, "Space Operations", "Set Space Dependencies"},
 	{PermissionUseSpaceStartupScript, "Space Operations", "Use User Startup Script"},
 	{PermissionShareSpaces, "Space Operations", "Share Spaces"},
@@ -171,6 +173,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageOwnStackDefinitions,
 			PermissionUseStackDefinitions,
 			PermissionUseMethods,
+			PermissionUsePools,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

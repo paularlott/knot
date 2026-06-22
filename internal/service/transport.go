@@ -21,8 +21,12 @@ type Transport interface {
 	GossipSkill(skill *model.Skill)
 	GossipStackDefinition(stackDef *model.StackDefinition)
 	GossipResponse(response *model.Response)
+	GossipPoolDefinition(pool *model.PoolDefinition)
+	GossipPoolDrain(spaceID string)
+	GossipPoolUndrain(spaceID string)
 	GetAgentEndpoints() []string
 	GetTunnelServers() []string
+	IsLeader() bool
 
 	LockResource(resourceId string) string
 	UnlockResource(resourceId, unlockToken string)

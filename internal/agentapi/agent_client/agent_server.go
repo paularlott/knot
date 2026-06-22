@@ -509,6 +509,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		   			return
 		   		} */
 
+		s.agentClient.tcpConnectionsTotal.Add(1)
 		ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
 
 	case byte(msg.CmdProxyVNC):
@@ -525,8 +526,10 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 		// Check if the port is allowed in the http map
 		if _, ok := s.agentClient.httpPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
+			s.agentClient.httpRequestsTotal.Add(1)
 			ProxyTcp(stream, fmt.Sprintf("%d", httpPort.Port))
 		} else if _, ok := s.agentClient.httpsPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
+			s.agentClient.httpRequestsTotal.Add(1)
 			ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName, true)
 		} else {
 			log.Error("http port  is not allowed", "port", httpPort.Port)

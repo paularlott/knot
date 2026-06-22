@@ -38,4 +38,7 @@ const (
 	SpaceUsageGossipMsg
 	SpaceMigrationStartMsg
 	ToolApprovalResponseMsg
+	PoolDefinitionFullSyncMsg
+	PoolDefinitionGossipMsg
+	PoolDrainMsg
 )

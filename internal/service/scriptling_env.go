@@ -24,8 +24,8 @@ import (
 	scriptlingconsole "github.com/paularlott/scriptling/extlibs/console"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	scriptlingresolve "github.com/paularlott/scriptling/extlibs/net/resolve"
-	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
+	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
@@ -112,6 +112,7 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil) // scriptling.glob
 	provisionfile.Register(env)
+	provisionfetch.Register(env)
 }
 
 // newServerLibraryLoader creates a FuncLoader that fetches libraries from the server API

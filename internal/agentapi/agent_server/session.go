@@ -35,6 +35,12 @@ type Session struct {
 	ActivityRenameCount   uint32
 	ActivityDistinctPaths uint32
 	LastActivityAtUnix    int64
+	MethodCallsTotal      uint64
+	HTTPRequestsTotal     uint64
+	TCPConnectionsTotal   uint64
+	MethodRPS             float64
+	HTTPRPS               float64
+	TCPRPS                float64
 	LastStateAt           time.Time
 	MuxSession            *yamux.Session
 	logger                logger.Logger

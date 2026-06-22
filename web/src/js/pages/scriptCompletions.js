@@ -207,6 +207,62 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "knot.pool",
+    description: "Knot space pool management and utilization functions",
+    functions: [
+      {
+        name: "list",
+        signature: "list()",
+        description: "List visible pools with utilization",
+        returns: "list - List of pool info dicts",
+      },
+      {
+        name: "get",
+        signature: "get(name)",
+        description: "Get pool details, utilization, and member stats by name or ID",
+        returns: "dict - Pool details and utilization",
+      },
+      {
+        name: "create",
+        signature:
+          "create(name, template_id, startup_script_id='', desired_count=1, active=True)",
+        description: "Create a pool with the given number of spaces",
+        returns: "str - New pool ID",
+      },
+      {
+        name: "update",
+        signature:
+          "update(name, desired_count=None, active=None)",
+        description: "Update pool desired count or active state. Name, template, and startup script are immutable.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "delete",
+        signature: "delete(name)",
+        description: "Delete a stopped pool and all its spaces",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "set_size",
+        signature: "set_size(name, desired_count)",
+        description: "Set pool target size. The sweep loop creates, drains, or deletes spaces asynchronously.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "start",
+        signature: "start(name)",
+        description: "Start a stopped pool: starts all member spaces",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "stop",
+        signature: "stop(name)",
+        description: "Stop a running pool: stops all member spaces without deleting them",
+        returns: "bool - True if successful",
+      },
+    ],
+  },
+  {
     module: "knot.stack",
     description: "Knot stack definition and stack lifecycle functions",
     functions: [
@@ -4171,9 +4227,9 @@ const scriptLibraries = [
       {
         name: "file",
         signature:
-          "file(url, dest, insecure=False, unpack_zip=False, timeout=30, max_bytes=0, mode=0o644, dir_mode=0o755)",
+          "file(url, dest, insecure=False, unpack_zip=False, timeout=30, max_bytes=0, mode=0o644, dir_mode=0o755, provides=None)",
         description:
-          "Fetch a file over HTTP/HTTPS and write it to dest. Parent directories are created automatically. When unpack_zip is True, dest is treated as a destination directory and the response body is unpacked as a zip archive.",
+          "Fetch a file over HTTP/HTTPS and write it to dest. Parent directories are created automatically. When unpack_zip is True, dest is treated as a destination directory and the response body is unpacked as a zip archive. When provides is set, all listed paths must exist before fetching; if any are missing, the fetch proceeds normally.",
         returns:
           'dict - {"status": "created|updated|unchanged", "url": str, "path": str, "bytes": int, "unpacked": bool, "files": [str...]}',
       },

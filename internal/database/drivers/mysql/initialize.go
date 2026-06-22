@@ -62,6 +62,7 @@ INDEX idx_is_deleted (is_deleted)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS spaces (
 space_id CHAR(36) PRIMARY KEY,
 parent_space_id CHAR(36) DEFAULT '',
+pool_id CHAR(36) DEFAULT '',
 user_id CHAR(36),
 template_id CHAR(36) DEFAULT '',
 shares JSON NOT NULL DEFAULT '[]',
@@ -91,9 +92,32 @@ started_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 created_at TIMESTAMP(6),
 updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX user_id (user_id),
+INDEX pool_id (pool_id),
 INDEX template_id (template_id),
 UNIQUE INDEX name (user_id, name),
 INDEX parent_space_id (parent_space_id),
+INDEX idx_is_deleted (is_deleted)
+)`)
+	if err != nil {
+		return err
+	}
+
+	db.logger.Debug("ensuring pools table exists")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS pools (
+pool_id CHAR(36) PRIMARY KEY,
+name VARCHAR(64) NOT NULL,
+template_id CHAR(36) NOT NULL,
+startup_script_id CHAR(36) DEFAULT '',
+desired_count INT UNSIGNED NOT NULL DEFAULT 1,
+active TINYINT(1) NOT NULL DEFAULT 1,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+created_user_id CHAR(36),
+created_at TIMESTAMP(6),
+updated_user_id CHAR(36),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+UNIQUE INDEX created_user_name (created_user_id, name),
+INDEX template_id (template_id),
+INDEX idx_active (active),
 INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {

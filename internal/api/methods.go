@@ -178,6 +178,9 @@ func handleBatchCall(w http.ResponseWriter, r *http.Request, rawItems []json.Raw
 			item.errMsg = "method not found"
 			if errors.Is(err, methods.ErrPermission) {
 				item.errMsg = "method not visible to caller"
+			} else if errors.Is(err, methods.ErrMethodDraining) {
+				item.errCode = -32000
+				item.errMsg = "method temporarily unavailable"
 			}
 			items[i] = item
 			continue
@@ -385,14 +388,19 @@ func writeJSONRPCError(w http.ResponseWriter, r *http.Request, code int, message
 func writeRouteError(w http.ResponseWriter, r *http.Request, err error, id any) {
 	status := http.StatusNotFound
 	message := "method not found"
+	code := -32601
 	if errors.Is(err, methods.ErrPermission) {
 		status = http.StatusForbidden
 		message = "method not visible to caller"
+	} else if errors.Is(err, methods.ErrMethodDraining) {
+		status = http.StatusServiceUnavailable
+		message = "method temporarily unavailable"
+		code = -32000
 	}
 	log.Debug("POST /api/methods/call: rejected", "reason", message)
 	_ = rest.WriteResponse(status, w, r, methods.JSONRPCResponse{
 		JSONRPC: "2.0",
-		Error:   &methods.JSONRPCError{Code: -32601, Message: message},
+		Error:   &methods.JSONRPCError{Code: code, Message: message},
 		ID:      id,
 	})
 }

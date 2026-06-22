@@ -167,7 +167,7 @@
                          <!-- Single HTTP Port -->
                          <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1) && !(s.alt_names && s.alt_names.length)">
                            <div x-data>
-                             <button @click="openWindowForPort(s.username, s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                             <button @click="openWindowForPort(s.username, s.space_id, s.pool_name || s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
                                <span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
                              </button>
@@ -270,7 +270,7 @@
                     <!-- Single HTTP Port -->
                     <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1) && !(s.alt_names && s.alt_names.length)">
                       <div x-data>
-                        <button @click="openWindowForPort(s.username, s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                        <button @click="openWindowForPort(s.username, s.space_id, s.pool_name || s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
                           <span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
                         </button>
@@ -391,27 +391,27 @@
                 <td class="px-4 py-3 text-right">
                   <div x-data x-show="s.is_local || hasSpaceAccessForCurrentUser(s)" x-cloak class="flex items-center justify-end gap-2">
                     <div class="hidden xl:flex items-center justify-end gap-2" aria-label="Space actions">
-                      <button x-show="s.is_local && !s.is_deployed && s.platform != 'manual'" x-bind:disabled="s.is_pending" @click="startSpace(s.space_id); s.is_pending = true" class="row-action-button row-action-success" type="button" :aria-label="'Start space ' + s.name" title="Start">
+                      <button x-show="!s.pool_id && s.is_local && !s.is_deployed && s.platform != 'manual'" x-bind:disabled="s.is_pending" @click="startSpace(s.space_id); s.is_pending = true" class="row-action-button row-action-success" type="button" :aria-label="'Start space ' + s.name" title="Start">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                           <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
                         </svg>
                         <span class="sr-only">Start</span>
                       </button>
-                      <button x-show="s.is_local && s.is_deployed && s.platform != 'manual'" @click="setAction('stop'); doAction(s.space_id)" class="row-action-button row-action-danger" type="button" :aria-label="'Stop space ' + s.name" title="Stop">
+                      <button x-show="!s.pool_id && s.is_local && s.is_deployed && s.platform != 'manual'" @click="setAction('stop'); doAction(s.space_id)" class="row-action-button row-action-danger" type="button" :aria-label="'Stop space ' + s.name" title="Stop">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
                         </svg>
                         <span class="sr-only">Stop</span>
                       </button>
-                      <button x-show="s.is_local && s.is_deployed && s.platform != 'manual'" x-bind:disabled="s.is_pending" @click="setAction('restart'); doAction(s.space_id)" class="row-action-button row-action-warning" type="button" :aria-label="'Restart space ' + s.name" title="Restart">
+                      <button x-show="!s.pool_id && s.is_local && s.is_deployed && s.platform != 'manual'" x-bind:disabled="s.is_pending" @click="setAction('restart'); doAction(s.space_id)" class="row-action-button row-action-warning" type="button" :aria-label="'Restart space ' + s.name" title="Restart">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                         </svg>
                         <span class="sr-only">Restart</span>
                       </button>
-                      <button x-show="s.user_id == forUserId && s.is_local" x-bind:disabled="s.is_pending" @click="editSpace(s.space_id)" class="row-action-button" type="button" :aria-label="'Edit space ' + s.name" title="Edit">
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local" x-bind:disabled="s.is_pending" @click="editSpace(s.space_id)" class="row-action-button" type="button" :aria-label="'Edit space ' + s.name" title="Edit">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                         </svg>
@@ -425,7 +425,7 @@
                     </button>
 
                     <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" role="menu" x-cloak>
-                      <button x-show="s.is_local && !s.is_deployed && !s.is_pending && s.platform != 'manual'" @click="$refs.panel.close; startSpace(s.space_id); s.is_pending = true" class="group nav-item text-sm px-4 w-full xl:hidden" role="menuitem">
+                      <button x-show="!s.pool_id && s.is_local && !s.is_deployed && !s.is_pending && s.platform != 'manual'" @click="$refs.panel.close; startSpace(s.space_id); s.is_pending = true" class="group nav-item text-sm px-4 w-full xl:hidden" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                           <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
@@ -433,14 +433,14 @@
                       </button>
 
                       {{ if .permissionUseVSCodeTunnel }}
-                      <button x-show="s.user_id == forUserId && s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_vscode_tunnel && s.vscode_tunnel_name.length" @click="$refs.panel.close; openTerminalTunnel(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_vscode_tunnel && s.vscode_tunnel_name.length" @click="$refs.panel.close; openTerminalTunnel(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
                         </svg> VSCode Tunnel
                       </button>
                       {{ end }}
 
-                      <button x-show="s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close; editSpace(s.space_id)" class="group nav-item text-sm px-4 w-full xl:hidden" role="menuitem">
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close; editSpace(s.space_id)" class="group nav-item text-sm px-4 w-full xl:hidden" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                         </svg> Edit
@@ -461,13 +461,13 @@
                       {{ end }}
 
                        {{ if and (or .permissionShareSpaces .permissionManageSpaces) (not .isLeafNode) }}
-                       <button x-cloak x-show="!hasShare(s) && s.is_local && ({{ .permissionManageSpaces }} || s.user_id === '{{ .user_id }}')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                        <button x-cloak x-show="!s.pool_id && !hasShare(s) && s.is_local && ({{ .permissionManageSpaces }} || s.user_id === '{{ .user_id }}')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                         </svg> Share
                       </button>
                       {{ end }}
-                      <button x-show="hasShare(s) && s.is_local" @click="$refs.panel.close; openCeaseShareConfirm(s)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <button x-show="!s.pool_id && hasShare(s) && s.is_local" @click="$refs.panel.close; openCeaseShareConfirm(s)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                         </svg><span x-text="s.user_id === '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></span>
@@ -519,13 +519,13 @@
                         </button>
                         <!-- Dropdown menu -->
                         <div x-ref="panel2" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" role="menu" x-cloak>
-                          <button @click="$refs.panel2.close(); $refs.panel.close(); setAction('stop'); doAction(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem" type="button">
+                          <button x-show="!s.pool_id" @click="$refs.panel2.close(); $refs.panel.close(); setAction('stop'); doAction(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem" type="button">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                               <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                               <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
                             </svg> Stop
                           </button>
-                          <button @click="$refs.panel2.close(); $refs.panel.close(); setAction('restart'); doAction(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem" type="button">
+                          <button x-show="!s.pool_id" @click="$refs.panel2.close(); $refs.panel.close(); setAction('restart'); doAction(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem" type="button">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                               <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                             </svg> Restart
@@ -533,16 +533,16 @@
                         </div>
                       </div>
 
-                      <hr x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" class="my-2" role="separator" />
-                      <button x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.space = s" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300" role="menuitem">
+                      <hr x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((s.is_deployed && !s.is_pending) || s.platform == 'manual')" class="my-2" role="separator" />
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.space = s" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                         </svg> Delete
                       </button>
 
                       {{ if and .permissionTransferSpaces (not .isLeafNode) }}
-                      <hr x-cloak class="my-2" x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" role="separator" />
-                      <button x-cloak x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = false; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <hr x-cloak class="my-2" x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((s.is_deployed && !s.is_pending) || s.platform == 'manual')" role="separator" />
+                      <button x-cloak x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = false; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                         </svg> Transfer To &hellip;

@@ -3,6 +3,7 @@ package agent_client
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
@@ -64,6 +65,9 @@ type AgentClient struct {
 	activityRenameCount   uint32
 	activityDistinctPaths uint32
 	lastActivityAtUnix    int64
+	methodCallsTotal      atomic.Uint64
+	httpRequestsTotal     atomic.Uint64
+	tcpConnectionsTotal   atomic.Uint64
 
 	methodMu     sync.RWMutex
 	methodServer *methodServerProcess
