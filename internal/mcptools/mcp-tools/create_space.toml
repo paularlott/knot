@@ -1,4 +1,4 @@
-description = "Create a new development space, optionally with custom fields and started immediately."
+description = "Create a new development space, optionally with custom fields and started immediately. Returns the space ID and any HTTP/HTTPS port URLs that will be available once the space starts."
 keywords = ["create", "space", "new", "environment", "development", "deploy", "instance"]
 requires_approval = false
 
