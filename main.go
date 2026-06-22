@@ -17,6 +17,7 @@ import (
 	commands_forward "github.com/paularlott/knot/command/forward"
 	command_method "github.com/paularlott/knot/command/method"
 	commands_port "github.com/paularlott/knot/command/port"
+	command_pool "github.com/paularlott/knot/command/pool"
 	command_scripts "github.com/paularlott/knot/command/scripts"
 	command_spaces "github.com/paularlott/knot/command/spaces"
 	command_ssh_config "github.com/paularlott/knot/command/ssh-config"
@@ -111,6 +112,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_method.MethodCmd,
 			commands_forward.ForwardCmd,
 			commands_port.PortCmd,
+			command_pool.PoolCmd,
 			command_scripts.ScriptsCmd,
 			command_skills.SkillsCmd,
 			command_spaces.SpacesCmd,
