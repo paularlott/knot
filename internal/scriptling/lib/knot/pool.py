@@ -67,13 +67,18 @@ def get(name):
     return _parse_pool(response)
 
 
-def create(name, template_id, startup_script_id="", desired_count=1, active=True):
+def create(name, template_name, startup_script_id="", desired_count=1, active=True):
     """Create a pool with the given number of spaces and return its ID.
 
-    If active is True, spaces are started as they are created. If quota is
-    exhausted before all spaces are created, the pool is created with fewer
-    spaces and the response message field describes the shortfall.
+    Accepts a template name (resolved to ID internally).
+    If active is True, spaces are started as they are created.
     """
+    import knot.template
+    tmpl = knot.template.get(template_name)
+    template_id = tmpl.get("id") if tmpl else None
+    if not template_id:
+        raise Exception(f"Template not found: {template_name}")
+
     response = api.post("/api/pools", {
         "name": name,
         "template_id": template_id,

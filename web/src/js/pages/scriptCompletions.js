@@ -225,7 +225,7 @@ const scriptLibraries = [
       {
         name: "create",
         signature:
-          "create(name, template_id, startup_script_id='', desired_count=1, active=True)",
+          "create(name, template_name, startup_script_id='', desired_count=1, active=True)",
         description: "Create a pool with the given number of spaces",
         returns: "str - New pool ID",
       },

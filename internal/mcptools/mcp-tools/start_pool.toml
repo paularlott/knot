@@ -1,0 +1,9 @@
+description = "Start a stopped pool. Starts all member spaces and creates new ones if needed."
+keywords = ["start", "pool", "activate", "run"]
+requires_approval = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the pool to start"
+required = true

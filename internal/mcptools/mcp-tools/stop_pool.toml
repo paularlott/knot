@@ -1,0 +1,9 @@
+description = "Stop a running pool. Stops all member spaces without deleting them."
+keywords = ["stop", "pool", "shutdown", "halt", "deactivate"]
+requires_approval = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the pool to stop"
+required = true
