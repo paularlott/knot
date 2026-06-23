@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -35,20 +36,17 @@ Use tool_search to discover tools by keyword or description.`)
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
 
-			// Add script tools as request-scoped provider
-			ctx := r.Context()
+			// Add request-scoped tool providers (order preserved: scripts then methods)
+			var providers []mcp.ToolProvider
 			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
-				provider := NewScriptToolsProvider(user)
-				ctx = mcp.WithToolProviders(ctx, provider)
+				providers = append(providers, NewScriptToolsProvider(user))
 			}
 			if user != nil {
-				ctx = mcp.WithToolProviders(ctx, NewMethodToolsProvider(user))
+				providers = append(providers, NewMethodToolsProvider(user))
 			}
 
-			// Check for show-all mode (MCP chaining)
-			if mcp.GetShowAllFromRequest(r) {
-				ctx = mcp.WithShowAllTools(ctx)
-			}
+			// Attach providers and apply show-all mode (X-MCP-Show-All / ?show_all) in one step
+			ctx := mcp.WithShowAllFromRequest(r.Context(), r, providers...)
 
 			// Handle the MCP request
 			server.HandleRequest(w, r.WithContext(ctx))
@@ -109,7 +107,7 @@ Use tool_search to discover tools by keyword or description.`)
 
 			// Test if we can list tools from the remote server (only if native mode)
 			if visibility == "native" {
-				tools := server.ListTools()
+				tools := server.ListToolsWithContext(context.Background())
 				remoteToolCount := 0
 				for _, tool := range tools {
 					if strings.Contains(tool.Name, remoteServer.Namespace+".") {
@@ -125,7 +123,7 @@ Use tool_search to discover tools by keyword or description.`)
 		}
 
 		// Log total tools after registration
-		totalTools := server.ListTools()
+		totalTools := server.ListToolsWithContext(context.Background())
 		log.WithGroup("mcp").Info("Total tools after remote registration", "count", len(totalTools))
 	}
 
