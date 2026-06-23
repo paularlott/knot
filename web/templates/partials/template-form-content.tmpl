@@ -302,8 +302,8 @@
             </div>
           </div>
 
-          <div x-show="formData.health_check_type !== 'none' && formData.health_check_type !== 'agent'" x-cloak class="mt-3 grid grid-cols-3 gap-3">
-            <div x-show="formData.health_check_type !== 'custom'">
+          <div x-show="formData.health_check_type !== 'none'" x-cloak class="mt-3 grid grid-cols-3 gap-3">
+            <div x-show="formData.health_check_type !== 'custom' && formData.health_check_type !== 'agent'">
               <label class="form-label">Timeout (seconds)</label>
               <input type="number" class="form-field" x-model="formData.health_check_timeout" min="1" placeholder="10">
             </div>

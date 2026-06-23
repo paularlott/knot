@@ -172,6 +172,8 @@ func (c *AgentClient) reportState() {
 				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy, cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes, activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, activityBucketStartUnix, activityBucketFinalized, lastActivityAtUnix, c.methodCallsTotal.Load(), c.httpRequestsTotal.Load(), c.tcpConnectionsTotal.Load())
 				if err != nil {
 					log.Error("failed to send state to server", "server", server.address)
+					server.reportingConn.Close()
+					server.reportingConn = nil
 				} else {
 					// Add any new servers to the new servers list
 					for _, reportedServer := range reply.Endpoints {

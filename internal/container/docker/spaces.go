@@ -302,6 +302,23 @@ func (c *DockerClient) containerInspect(ctx context.Context, id string) (*contai
 	return &resp, code, nil
 }
 
+func (c *DockerClient) removeStoppedContainerByName(ctx context.Context, name string) error {
+	inspect, code, err := c.containerInspect(ctx, name)
+	if err != nil {
+		if code == http.StatusNotFound {
+			return nil
+		}
+		return err
+	}
+
+	if inspect != nil && inspect.State != nil && inspect.State.Running {
+		return fmt.Errorf("container %s already exists and is running", name)
+	}
+
+	c.Logger.Info("removing stopped existing container before create", "name", name)
+	return c.containerRemove(ctx, name)
+}
+
 // ---- ContainerManager implementation ----
 
 func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
@@ -464,6 +481,11 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			c.Logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "timeout", spaceStartupTimeout)
 			return
 		default:
+		}
+
+		if err := c.removeStoppedContainerByName(ctx, spec.ContainerName); err != nil {
+			c.Logger.Error("checking existing container error", "name", spec.ContainerName, "error", err)
+			return
 		}
 
 		c.Logger.Debug("creating container", "name", spec.ContainerName)
