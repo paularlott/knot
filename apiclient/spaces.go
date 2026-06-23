@@ -46,6 +46,8 @@ type SpaceInfo struct {
 	Note            string               `json:"note"`
 	TemplateName    string               `json:"template_name"`
 	TemplateId      string               `json:"template_id"`
+	PoolId          string               `json:"pool_id"`
+	PoolName        string               `json:"pool_name"`
 	Zone            string               `json:"zone"`
 	Username        string               `json:"username"`
 	UserId          string               `json:"user_id"`
@@ -107,6 +109,8 @@ type SpaceDefinition struct {
 	Description        string                       `json:"description"`
 	Note               string                       `json:"note"`
 	TemplateName       string                       `json:"template_name"`
+	PoolId             string                       `json:"pool_id"`
+	PoolName           string                       `json:"pool_name"`
 	Username           string                       `json:"username"`
 	Platform           string                       `json:"platform"`
 	Shell              string                       `json:"shell"`

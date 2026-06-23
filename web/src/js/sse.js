@@ -64,7 +64,7 @@ class SSEClient {
    * @param {Object} event - The parsed event data
    */
   handleMessage(event) {
-    // Handle auth errors (redirect to login)
+    // Handle auth errors (explicit logout or session invalidation from cluster)
     if (event.type === 'auth:required') {
       console.log('SSE auth required, redirecting to logout');
       window.location.href = '/logout';

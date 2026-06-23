@@ -1,0 +1,15 @@
+description = "Change the desired number of spaces in a pool. The sweep loop handles creating new spaces or stopping and deleting excess ones."
+keywords = ["pool", "size", "scale", "resize", "replicas", "count"]
+requires_approval = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the pool to resize"
+required = true
+
+[[parameters]]
+name = "desired_count"
+type = "int"
+description = "New target number of spaces (minimum 1)"
+required = true

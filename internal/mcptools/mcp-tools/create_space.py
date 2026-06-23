@@ -1,4 +1,6 @@
+import knot.server
 import knot.space
+import knot.template
 import scriptling.mcp.tool as tool
 
 name = tool.get_string("name")
@@ -45,4 +47,38 @@ message = f"Space '{name}' created successfully with ID: {space_id}"
 if start_on_create:
     message += " and started"
 
-tool.return_string(message)
+urls = []
+try:
+    server_info = knot.server.info()
+    wildcard_domain = server_info.get("wildcard_domain", "")
+    if wildcard_domain:
+        domain = wildcard_domain
+        if domain.startswith("*"):
+            domain = domain[1:]
+        elif not domain.startswith("."):
+            domain = "." + domain
+
+        template = knot.template.get(template_name)
+        space = knot.space.get(name)
+        username = space.get("username", "")
+
+        if username:
+            for port in template.get("ports", []):
+                protocol = port.get("protocol", "")
+                port_number = int(port.get("port", 0))
+                port_name = port.get("name", "")
+                if protocol in ("http", "https") and port_number:
+                    urls.append({
+                        "name": port_name,
+                        "port": port_number,
+                        "protocol": protocol,
+                        "url": f"https://{username.lower()}--{name.lower()}--{port_number}{domain}",
+                    })
+except Exception:
+    pass
+
+result = {"message": message}
+if urls:
+    result["urls"] = urls
+
+tool.return_object(result)

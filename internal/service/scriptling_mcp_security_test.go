@@ -277,3 +277,18 @@ result = "all_system_libs_imported"
 		t.Errorf("Remote environment should be able to import system libraries: %v", err)
 	}
 }
+
+func TestRemoteScriptlingEnv_CanImportProvisionFetch(t *testing.T) {
+	env, err := NewRemoteScriptlingEnv(nil, nil, "", nil, true)
+	if err != nil {
+		t.Fatalf("NewRemoteScriptlingEnv() failed: %v", err)
+	}
+
+	_, err = env.Eval(`
+import scriptling.provision.fetch
+result = "provision_fetch_imported"
+`)
+	if err != nil {
+		t.Errorf("Remote environment should be able to import scriptling.provision.fetch: %v", err)
+	}
+}

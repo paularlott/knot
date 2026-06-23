@@ -369,6 +369,7 @@ func (c *AgentClient) CallMethod(req msg.CallMethodRequest) methods.JSONRPCRespo
 		if resp.JSONRPC == "" {
 			resp.JSONRPC = "2.0"
 		}
+		c.methodCallsTotal.Add(1)
 		return *resp
 	case <-timer.C:
 		server.removePending(wireID)

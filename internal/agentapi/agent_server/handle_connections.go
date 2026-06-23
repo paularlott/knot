@@ -289,7 +289,19 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.ActivityRenameCount = state.ActivityRenameCount
 				session.ActivityDistinctPaths = state.ActivityDistinctPaths
 				session.LastActivityAtUnix = state.LastActivityAtUnix
-				session.LastStateAt = time.Now().UTC()
+				now := time.Now().UTC()
+				if !session.LastStateAt.IsZero() {
+					elapsed := now.Sub(session.LastStateAt).Seconds()
+					if elapsed > 0 {
+						session.MethodRPS = float64(deltaCounter(state.MethodCallsTotal, session.MethodCallsTotal)) / elapsed
+						session.HTTPRPS = float64(deltaCounter(state.HTTPRequestsTotal, session.HTTPRequestsTotal)) / elapsed
+						session.TCPRPS = float64(deltaCounter(state.TCPConnectionsTotal, session.TCPConnectionsTotal)) / elapsed
+					}
+				}
+				session.MethodCallsTotal = state.MethodCallsTotal
+				session.HTTPRequestsTotal = state.HTTPRequestsTotal
+				session.TCPConnectionsTotal = state.TCPConnectionsTotal
+				session.LastStateAt = now
 
 				db := database.GetInstance()
 				space, err := db.GetSpace(session.Id)
@@ -576,6 +588,13 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			return
 		}
 	}
+}
+
+func deltaCounter(current, previous uint64) uint64 {
+	if current < previous {
+		return current
+	}
+	return current - previous
 }
 
 func handleRunCommand(stream net.Conn, session *Session) {

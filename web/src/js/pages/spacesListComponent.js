@@ -24,6 +24,7 @@ window.spacesListComponent = function (
   zone,
   canTransferSpaces,
   canShareSpaces,
+  canUsePools,
 ) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -35,6 +36,10 @@ window.spacesListComponent = function (
   return {
     loading: true,
     spaces: [],
+    pools: [],
+    poolsLoading: true,
+    poolBusy: {},
+    scriptList: [],
     visibleSpaces: 0,
     refreshHandle: null,
     uptimeHandle: null,
@@ -53,6 +58,10 @@ window.spacesListComponent = function (
       show: false,
       stack: "",
       count: 0,
+    },
+    deletePoolConfirm: {
+      show: false,
+      pool: null,
     },
     ceaseShareConfirm: {
       show: false,
@@ -95,6 +104,7 @@ window.spacesListComponent = function (
     canManageSpaces,
     canTransferSpaces,
     canShareSpaces,
+    canUsePools,
     users: [],
     forUsersList: [],
     shareUsers: [],
@@ -124,12 +134,27 @@ window.spacesListComponent = function (
       .using(sessionStorage),
     action: "stop", // 'stop' or 'restart'
     collapsedStacks: {}, // tracks which stacks are collapsed
+    collapsedPools: {}, // tracks which pools are collapsed (default: collapsed)
     stackBusy: {}, // tracks which stacks have an in-progress action
+    poolFormModal: {
+      show: false,
+      isEdit: false,
+      poolId: "",
+      name: "",
+      templateId: "",
+      startupScriptId: "",
+      desiredCount: 1,
+      active: true,
+      error: "",
+      submitting: false,
+    },
+    poolNameValid: true,
     templateSelector: {
       show: false,
       templates: [],
       groups: [],
       searchTerm: "",
+      intent: "space", // "space" or "pool"
     },
     stackDefSelector: {
       show: false,
@@ -227,6 +252,7 @@ window.spacesListComponent = function (
       }
 
       this.getSpaces();
+      this.getPools();
 
       // Listen for space-created event
       window.addEventListener("space-created", (e) => {
@@ -276,6 +302,7 @@ window.spacesListComponent = function (
 
         window.sseClient.subscribe("templates:changed", () => {
           this.getSpaces();
+          this.getPools();
         });
 
         window.sseClient.subscribe("reconnected", () => {
@@ -285,6 +312,7 @@ window.spacesListComponent = function (
 
       this.refreshHandle = setInterval(() => {
         this.getSpaces();
+        this.getPools();
       }, 10000);
 
       // Refresh uptime displays every 5s
@@ -402,6 +430,254 @@ window.spacesListComponent = function (
         .catch(() => {
           // Don't logout on network errors - Safari closes connections aggressively
         });
+    },
+    async loadScriptList() {
+      try {
+        const response = await fetch("/api/scripts", {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.status === 200) {
+          const data = await response.json();
+          this.scriptList = (data.scripts || []).filter(
+            (s) => s.script_type === "script" && s.active,
+          );
+        }
+      } catch (e) {
+        // Non-fatal — autocompleter just won't show suggestions
+      }
+    },
+    async getPools() {
+      await fetch("/api/pools", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((response) => {
+          if (response.status === 200) {
+            response.json().then((data) => {
+              const pools = data.pools || [];
+              pools.forEach((pool) => {
+                pool.searchHide = this.poolHiddenBySearch(pool);
+              });
+              this.pools = pools.sort((a, b) => a.name.localeCompare(b.name));
+              this.poolsLoading = false;
+            });
+          } else if (response.status === 401) {
+            window.location.href = "/logout";
+          } else {
+            this.poolsLoading = false;
+          }
+        })
+        .catch(() => {
+          this.poolsLoading = false;
+        });
+    },
+    poolHiddenBySearch(pool) {
+      const term = this.searchTerm.toLowerCase();
+      if (!term.length) {
+        return false;
+      }
+      return !(
+        (pool.name || "").toLowerCase().includes(term) ||
+        (pool.template_id || "").toLowerCase().includes(term)
+      );
+    },
+    visiblePools() {
+      return this.pools.filter((pool) => !pool.searchHide);
+    },
+    async poolAction(pool, action) {
+      if (!pool?.pool_id || !this.canUsePools) {
+        return;
+      }
+      this.poolBusy[pool.pool_id] = true;
+      try {
+        const response = await fetch(`/api/pools/${pool.pool_id}/${action}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        if (response.status === 200) {
+          const labels = { start: "started", stop: "stopped" };
+          this.$dispatch("show-alert", {
+            msg: `Pool ${labels[action] || action}`,
+            type: "success",
+          });
+          await this.getPools();
+        } else {
+          const data = await response.json().catch(() => ({}));
+          this.$dispatch("show-alert", {
+            msg: data.error || "Pool action failed",
+            type: "error",
+          });
+        }
+      } finally {
+        this.poolBusy[pool.pool_id] = false;
+      }
+    },
+    async setPoolSize(pool, value) {
+      if (!pool?.pool_id || !this.canUsePools) {
+        return;
+      }
+      const desired = Number.parseInt(value, 10);
+      if (!Number.isFinite(desired)) {
+        return;
+      }
+      this.poolBusy[pool.pool_id] = true;
+      try {
+        const response = await fetch(`/api/pools/${pool.pool_id}/size`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ desired_count: desired }),
+        });
+        if (response.status === 200) {
+          this.$dispatch("show-alert", {
+            msg: "Pool size target updated",
+            type: "success",
+          });
+          await this.getPools();
+        } else {
+          const data = await response.json().catch(() => ({}));
+          this.$dispatch("show-alert", {
+            msg: data.error || "Pool size could not be updated",
+            type: "error",
+          });
+        }
+      } finally {
+        this.poolBusy[pool.pool_id] = false;
+      }
+    },
+    async deletePool(pool) {
+      if (!pool?.pool_id || !this.canUsePools) {
+        return;
+      }
+      this.poolBusy[pool.pool_id] = true;
+      try {
+        const response = await fetch(`/api/pools/${pool.pool_id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        if (response.status === 200) {
+          this.$dispatch("show-alert", {
+            msg: "Pool deleting",
+            type: "success",
+          });
+          await this.getPools();
+        } else {
+          const data = await response.json().catch(() => ({}));
+          this.$dispatch("show-alert", {
+            msg: data.error || "Pool could not be deleted",
+            type: "error",
+          });
+        }
+      } finally {
+        this.poolBusy[pool.pool_id] = false;
+      }
+    },
+    checkPoolName() {
+      const name = (this.poolFormModal.name || "").trim();
+      this.poolNameValid = name.length > 0 && name.length <= 64 && /^[a-zA-Z0-9_-]+$/.test(name);
+      return this.poolNameValid;
+    },
+    resetPoolForm() {
+      this.poolFormModal = {
+        show: true,
+        isEdit: false,
+        poolId: "",
+        name: "",
+        templateId: "",
+        startupScriptId: "",
+        desiredCount: 1,
+        active: true,
+        error: "",
+        submitting: false,
+      };
+      this.poolNameValid = true;
+    },
+    async openCreatePool() {
+      this.resetPoolForm();
+      await this.getTemplatesForSelector();
+      this.poolFormModal.templateId =
+        this.templateSelector.templates.find(
+          (template) => template.active && !template.searchHide,
+        )?.template_id || "";
+      this.$nextTick(() => {
+        this.$refs.poolNameInput?.focus();
+      });
+    },
+    async openEditPool(pool) {
+      await this.getTemplatesForSelector();
+      await this.loadScriptList();
+      this.poolFormModal = {
+        show: true,
+        isEdit: true,
+        poolId: pool.pool_id,
+        name: pool.name || "",
+        templateId: pool.template_id || "",
+        startupScriptId: pool.startup_script_id || "",
+        desiredCount: pool.desired_count || 1,
+        active: pool.active === true,
+        error: "",
+        submitting: false,
+      };
+      this.poolNameValid = true;
+      this.$nextTick(() => {
+        this.$refs.poolNameInput?.focus();
+      });
+    },
+    async submitPoolForm() {
+      const modal = this.poolFormModal;
+      modal.error = "";
+      if (!this.checkPoolName()) {
+        modal.error = "Invalid pool name";
+        return;
+      }
+      if (!modal.templateId) {
+        modal.error = "Template is required";
+        return;
+      }
+      modal.submitting = true;
+      try {
+        const body = {
+          name: modal.name.trim(),
+          template_id: modal.templateId,
+          startup_script_id: modal.startupScriptId.trim(),
+          desired_count: Number.parseInt(modal.desiredCount, 10),
+          active: modal.active === true,
+        };
+        const response = await fetch(
+          modal.isEdit ? `/api/pools/${modal.poolId}` : "/api/pools",
+          {
+            method: modal.isEdit ? "PUT" : "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+          },
+        );
+        if (response.status === 200 || response.status === 201) {
+          const data = await response.json().catch(() => ({}));
+          modal.show = false;
+          if (data.message) {
+            this.$dispatch("show-alert", { msg: data.message, type: "warning" });
+          } else {
+            this.$dispatch("show-alert", {
+              msg: modal.isEdit ? "Pool updated" : "Pool created",
+              type: "success",
+            });
+          }
+          await this.getPools();
+        } else {
+          const data = await response.json().catch(() => ({}));
+          modal.error = data.error || "Pool could not be saved";
+        }
+      } finally {
+        modal.submitting = false;
+      }
     },
     async imageExists(url) {
       if (!url.length) {
@@ -730,9 +1006,10 @@ window.spacesListComponent = function (
     },
     getHttpPortEntries(space) {
       const entries = [];
+      const routeName = space.pool_name || space.name;
       if (space.http_ports) {
         for (const [key, value] of Object.entries(space.http_ports)) {
-          entries.push({ key, value, name: space.name, label: key == value ? key : value + ' (' + key + ')' });
+          entries.push({ key, value, name: routeName, label: key == value ? key : value + ' (' + key + ')' });
         }
         if (space.alt_names) {
           for (const altName of space.alt_names) {
@@ -795,6 +1072,9 @@ window.spacesListComponent = function (
         : new Set();
 
       this.visibleSpaces = 0;
+      this.pools.forEach((pool) => {
+        pool.searchHide = this.poolHiddenBySearch(pool);
+      });
       this.spaces.forEach((space) => {
         const filterHide =
           (this.showLocalOnly && !space.is_local) ||
@@ -935,6 +1215,11 @@ window.spacesListComponent = function (
     toggleStack(stackName) {
       this.collapsedStacks[stackName] = !this.collapsedStacks[stackName];
     },
+    togglePool(poolId) {
+      // Pools default to collapsed (undefined = collapsed).
+      // First click expands (set to false), second collapses (set to true).
+      this.collapsedPools[poolId] = this.collapsedPools[poolId] === false ? true : false;
+    },
     async _stackAction(stackName, action) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10 * 60 * 1000);
@@ -1065,15 +1350,27 @@ window.spacesListComponent = function (
       }
     },
     hasStacks() {
-      return this.spaces.some((s) => s.stack && !s.searchHide);
+      return this.spaces.some((s) => s.stack && !s.pool_id && !s.searchHide);
+    },
+    poolSpaceGroups() {
+      // Group pool member spaces by pool_id, matching them to pool definitions
+      const visiblePoolIds = new Set(this.visiblePools().map((p) => p.pool_id));
+      const result = [];
+      for (const pool of this.visiblePools()) {
+        const spaces = this.spaces.filter(
+          (s) => s.pool_id === pool.pool_id && !s.searchHide,
+        );
+        result.push({ pool, spaces });
+      }
+      return result;
     },
     unstackedVisibleSpaces() {
-      return this.spaces.filter((s) => !s.stack && !s.searchHide);
+      return this.spaces.filter((s) => !s.stack && !s.pool_id && !s.searchHide);
     },
     stackedGroups() {
       const groups = new Map();
       for (const space of this.spaces) {
-        if (!space.stack || space.searchHide) continue;
+        if (!space.stack || space.pool_id || space.searchHide) continue;
         if (!groups.has(space.stack)) {
           groups.set(space.stack, []);
         }
@@ -1131,9 +1428,18 @@ window.spacesListComponent = function (
       this.action = act;
     },
     async openTemplateSelector() {
+      this.templateSelector.intent = "space";
       this.templateSelector.show = true;
       await this.getTemplatesForSelector();
       // Focus the search input after modal transition
+      this.$nextTick(() => {
+        this.$refs.templateSearchInput?.focus();
+      });
+    },
+    async openPoolTemplateSelector() {
+      this.templateSelector.intent = "pool";
+      this.templateSelector.show = true;
+      await this.getTemplatesForSelector();
       this.$nextTick(() => {
         this.$refs.templateSearchInput?.focus();
       });
@@ -1229,6 +1535,32 @@ window.spacesListComponent = function (
         }
 
         template.searchHide = !showRow;
+      });
+    },
+    selectTemplate(templateId) {
+      this.templateSelector.show = false;
+      if (this.templateSelector.intent === "pool") {
+        this.openPoolForm(templateId);
+      } else {
+        this.createSpaceFromTemplate(templateId);
+      }
+    },
+    openPoolForm(templateId) {
+      this.loadScriptList();
+      this.poolFormModal = {
+        show: true,
+        isEdit: false,
+        poolId: "",
+        name: "",
+        templateId: templateId || "",
+        startupScriptId: "",
+        desiredCount: 1,
+        active: true,
+        error: "",
+        submitting: false,
+      };
+      this.$nextTick(() => {
+        this.$refs.poolNameInput?.focus();
       });
     },
     createSpaceFromTemplate(templateId) {

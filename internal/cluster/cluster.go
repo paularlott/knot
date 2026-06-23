@@ -166,6 +166,9 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(ResponseGossipMsg, cluster.handleResponseGossip)
 		cluster.gossipCluster.HandleFuncWithReply(SpaceUsageFullSyncMsg, cluster.handleSpaceUsageFullSync)
 		cluster.gossipCluster.HandleFunc(SpaceUsageGossipMsg, cluster.handleSpaceUsageGossip)
+		cluster.gossipCluster.HandleFuncWithReply(PoolDefinitionFullSyncMsg, cluster.handlePoolDefinitionFullSync)
+		cluster.gossipCluster.HandleFunc(PoolDefinitionGossipMsg, cluster.handlePoolDefinitionGossip)
+		cluster.gossipCluster.HandleFunc(PoolDrainMsg, cluster.handlePoolDrain)
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
@@ -201,6 +204,7 @@ func NewCluster(
 			cluster.gossipStackDefinitions()
 			cluster.gossipResponses()
 			cluster.gossipSpaceUsage()
+			cluster.gossipPoolDefinitions()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -395,6 +399,10 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 
 					if err := c.DoSpaceUsageFullSync(node); err != nil {
 						c.logger.WithError(err).Error("failed to sync space usage with node")
+					}
+
+					if err := c.DoPoolDefinitionFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync pool definitions with node")
 					}
 
 					if c.sessionGossip {

@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	ErrMethodNotFound = errors.New("method not found")
-	ErrPermission     = errors.New("method not visible to caller")
+	ErrMethodNotFound   = errors.New("method not found")
+	ErrPermission       = errors.New("method not visible to caller")
+	ErrMethodDraining   = errors.New("method temporarily unavailable")
 )
 
 type Entry struct {
@@ -24,13 +25,15 @@ type Entry struct {
 	Owner     string
 	Server    ServerConfig
 	inFlight  int
+	draining  bool
 }
 
 type Registry struct {
-	mu       sync.RWMutex
-	entries  map[string][]*Entry
-	bySpace  map[string][]*Entry
-	rrCursor map[string]uint64
+	mu           sync.RWMutex
+	entries      map[string][]*Entry
+	bySpace      map[string][]*Entry
+	rrCursor     map[string]uint64
+	drainChecker func(spaceID string) bool
 }
 
 var defaultRegistry = NewRegistry()
@@ -45,6 +48,16 @@ func NewRegistry() *Registry {
 		bySpace:  make(map[string][]*Entry),
 		rrCursor: make(map[string]uint64),
 	}
+}
+
+// SetDrainChecker installs a callback that Register consults to determine
+// whether a space should be draining even if no prior entries exist (e.g.
+// after an unregister/register churn cycle). The PoolService sets this
+// so drain state survives method server restarts.
+func (r *Registry) SetDrainChecker(fn func(spaceID string) bool) {
+	r.mu.Lock()
+	r.drainChecker = fn
+	r.mu.Unlock()
 }
 
 func (r *Registry) Register(space *model.Space, owner *model.User, reg *Registration) error {
@@ -68,6 +81,20 @@ func (r *Registry) Register(space *model.Space, owner *model.User, reg *Registra
 	defer r.mu.Unlock()
 
 	oldEntries := r.bySpace[space.Id]
+	wasDraining := false
+	for _, old := range oldEntries {
+		if old.draining {
+			wasDraining = true
+			break
+		}
+	}
+	// Also consult the external drain checker — covers the case where
+	// UnregisterSpace removed all entries (e.g. method server restart)
+	// but the space is still being drained by the pool sweep.
+	if !wasDraining && r.drainChecker != nil && r.drainChecker(space.Id) {
+		wasDraining = true
+	}
+
 	for _, newEntry := range newEntries {
 		for existingName, entries := range r.entries {
 			for _, existing := range entries {
@@ -93,6 +120,9 @@ func (r *Registry) Register(space *model.Space, owner *model.User, reg *Registra
 	delete(r.bySpace, space.Id)
 
 	for _, newEntry := range newEntries {
+		if wasDraining {
+			newEntry.draining = true
+		}
 		r.entries[newEntry.Name] = append(r.entries[newEntry.Name], newEntry)
 		r.bySpace[space.Id] = append(r.bySpace[space.Id], newEntry)
 	}
@@ -108,6 +138,32 @@ func (r *Registry) UnregisterSpace(spaceID string) {
 		r.removeEntryLocked(entry)
 	}
 	delete(r.bySpace, spaceID)
+}
+
+func (r *Registry) Drain(spaceID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, entry := range r.bySpace[spaceID] {
+		entry.draining = true
+	}
+}
+
+func (r *Registry) Undrain(spaceID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, entry := range r.bySpace[spaceID] {
+		entry.draining = false
+	}
+}
+
+func (r *Registry) InFlightForSpace(spaceID string) int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	total := 0
+	for _, entry := range r.bySpace[spaceID] {
+		total += entry.inFlight
+	}
+	return total
 }
 
 func (r *Registry) removeEntryLocked(entry *Entry) {
@@ -149,8 +205,9 @@ func (r *Registry) List(user *model.User) []MethodInfo {
 	// First pass: group visible entries by their visible name so we can
 	// count providers.
 	type visibleGroup struct {
-		first *Entry
-		count int
+		first    *Entry
+		count    int
+		draining int
 	}
 	groups := map[string]*visibleGroup{}
 	var order []string
@@ -168,15 +225,22 @@ func (r *Registry) List(user *model.User) []MethodInfo {
 				order = append(order, name)
 			}
 			g.count++
+			if entry.draining {
+				g.draining++
+			}
 		}
 	}
 
 	result := make([]MethodInfo, 0, len(order))
 	for _, name := range order {
 		g := groups[name]
+		liveCount := g.count - g.draining
+		if liveCount <= 0 {
+			continue
+		}
 		info := g.first.info()
 		info.Name = name
-		info.ProviderCount = g.count
+		info.ProviderCount = liveCount
 		result = append(result, info)
 	}
 
@@ -195,6 +259,7 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 	defer r.mu.Unlock()
 
 	var candidates []*Entry
+	drainedVisible := 0
 	seen := map[*Entry]bool{}
 	add := func(e *Entry) {
 		if !seen[e] {
@@ -208,6 +273,10 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 	// non-owner's user.<owner>.<bare> form for bare canonical names).
 	for _, entry := range r.entries[methodName] {
 		if name, ok := visibleName(entry, user); ok && name == methodName {
+			if entry.draining {
+				drainedVisible++
+				continue
+			}
 			add(entry)
 		}
 	}
@@ -218,19 +287,18 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 		for _, entries := range r.entries {
 			for _, entry := range entries {
 				if name, ok := visibleName(entry, user); ok && name == methodName {
+					if entry.draining {
+						if !seen[entry] {
+							drainedVisible++
+						}
+						continue
+					}
 					add(entry)
 				}
 			}
 		}
 
 		// Strip "user.<owner>." and try the remainder as a canonical name.
-		// Lets a caller use "user.paul.method.search" against a canonical
-		// "method.search" — visibleName doesn't add the user.<owner>. prefix
-		// to names that already contain a dot, so without this branch the
-		// namespaced call form wouldn't route for dotted canonical names.
-		// We pin the lookup to entries owned by the named user to avoid
-		// accidentally matching the same dotted name registered by a
-		// different owner.
 		if parts := strings.SplitN(methodName, ".", 3); len(parts) == 3 {
 			ownerName, rest := parts[1], parts[2]
 			if rest != "" {
@@ -241,6 +309,12 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 					if _, ok := visibleName(entry, user); !ok {
 						continue
 					}
+					if entry.draining {
+						if !seen[entry] {
+							drainedVisible++
+						}
+						continue
+					}
 					add(entry)
 				}
 			}
@@ -248,6 +322,11 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 	}
 
 	if len(candidates) == 0 {
+		// All visible providers are draining — method exists but temporarily
+		// unavailable.
+		if drainedVisible > 0 {
+			return nil, "", ErrMethodDraining
+		}
 		// Direct form: caller used a canonical name that exists in the
 		// registry but they failed scope/permission/group filtering.
 		if _, exists := r.entries[methodName]; exists {
@@ -259,8 +338,6 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 		// prefix and check whether any entry has that canonical AND is owned
 		// by the named user. If so, the method exists but the caller failed
 		// filtering — return ErrPermission (403), not ErrMethodNotFound (404).
-		// This avoids leaking method existence via a 404-vs-403 oracle while
-		// still returning 404 for genuinely unknown methods.
 		if strings.HasPrefix(methodName, "user.") {
 			if parts := strings.SplitN(methodName, ".", 3); len(parts) == 3 {
 				ownerName, rest := parts[1], parts[2]
@@ -346,17 +423,17 @@ func visibleName(entry *Entry, user *model.User) (string, bool) {
 
 func (e *Entry) info() MethodInfo {
 	return MethodInfo{
-		Name:          e.Name,
-		LocalName:     e.LocalName,
-		Description:   e.Description,
-		Keywords:      e.Keywords,
-		Scope:         e.Scope,
-		Groups:        e.Groups,
-		MCPTool:       e.MCPTool,
-		ParamsSchema:  e.ParamsSchema,
-		ResultSchema:  e.ResultSchema,
-		OwnerID:       e.OwnerID,
-		Owner:         e.Owner,
+		Name:         e.Name,
+		LocalName:    e.LocalName,
+		Description:  e.Description,
+		Keywords:     e.Keywords,
+		Scope:        e.Scope,
+		Groups:       e.Groups,
+		MCPTool:      e.MCPTool,
+		ParamsSchema: e.ParamsSchema,
+		ResultSchema: e.ResultSchema,
+		OwnerID:      e.OwnerID,
+		Owner:        e.Owner,
 	}
 }
 

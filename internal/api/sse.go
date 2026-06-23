@@ -119,38 +119,13 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 		// Create a context that cancels when the client disconnects
 		ctx := r.Context()
 
-		// Start a goroutine to periodically check session validity
-		sessionCheckDone := make(chan struct{})
-		go func() {
-			ticker := time.NewTicker(30 * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					// Check if session is still valid
-					session, err := middleware.GetSessionFromCookie(r)
-					if err != nil {
-						// Transient error (e.g. Redis blip), don't log the user out
-						logger.Error("failed to check session validity", "error", err)
-						continue
-					}
-					if session == nil || session.IsDeleted || session.ExpiresAfter.Before(time.Now().UTC()) {
-						// Session invalid, notify client
-						fmt.Fprintf(w, "event: message\ndata: {\"type\":\"auth:required\"}\n\n")
-						flusher.Flush()
-						return
-					}
-				case <-ctx.Done():
-					return
-				case <-sessionCheckDone:
-					return
-				}
-			}
-		}()
-		defer close(sessionCheckDone)
-
-		// Main event loop
+		// Main event loop. Session validity is enforced by:
+		//   - The API middleware on every polling/API call (returns 401 → client
+		//     redirects to /logout).
+		//   - sse.InvalidateSession when a user explicitly logs out or a cluster
+		//     node deletes the session (sends auth:required via the hub).
+		// A periodic in-SSE session checker was removed because it was a second
+		// source of truth that caused false logouts on transient store issues.
 		keepAlive := time.NewTicker(5 * time.Second)
 		defer keepAlive.Stop()
 		for {
@@ -159,7 +134,6 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 				return
 
 			case <-keepAlive.C:
-				// Send a keep-alive comment every 5 seconds to prevent proxy timeouts
 				_, err := fmt.Fprintf(w, ": keep-alive\n\n")
 				if err != nil {
 					return
@@ -171,7 +145,6 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				// Write the event
 				_, err := fmt.Fprintf(w, "event: message\ndata: %s\n\n", data)
 				if err != nil {
 					logger.Warn("SSE write error", "error", err)

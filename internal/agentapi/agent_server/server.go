@@ -313,6 +313,7 @@ func shouldRestartOnAgentLoss(template *model.Template) bool {
 
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
 	logger := log.WithGroup("agent")
+	service.SetPoolSessionProvider(GetPoolSessionState)
 
 	// Start the session garbage collector & schedule checker
 	checkSchedules()
@@ -411,4 +412,19 @@ func GetSession(spaceId string) *Session {
 	}
 
 	return nil
+}
+
+func GetPoolSessionState(spaceId string) *service.PoolSessionState {
+	session := GetSession(spaceId)
+	if session == nil {
+		return nil
+	}
+	return &service.PoolSessionState{
+		CPUPercent:       session.CPUPercent,
+		MemoryUsedBytes:  session.MemoryUsedBytes,
+		MemoryLimitBytes: session.MemoryLimitBytes,
+		MethodRPS:        session.MethodRPS,
+		HTTPRPS:          session.HTTPRPS,
+		TCPRPS:           session.TCPRPS,
+	}
 }

@@ -69,6 +69,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
 	db := database.GetInstance()
 	for _, space := range spaces {
+
 		var templateName string
 		var templatePlatform string
 
@@ -90,6 +91,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.Note = space.Note
 		s.TemplateName = templateName
 		s.TemplateId = space.TemplateId
+		s.PoolId = space.PoolId
+		s.PoolName = service.PoolNameForSpace(space)
 		s.Zone = space.Zone
 		s.IsRemote = space.Zone != "" && space.Zone != cfg.Zone
 		s.Platform = templatePlatform

@@ -31,6 +31,9 @@ tags:
   - name: Spaces
     description: |
       Endpoints for working with spaces.
+  - name: Pools
+    description: |
+      Endpoints for fixed-size space pools and utilization stats.
   - name: Users
     description: |
       These operations are for working with users.
@@ -4050,6 +4053,226 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/pools:
+    get:
+      tags:
+        - Pools
+      summary: List Pools
+      description: List visible pools with current utilization.
+      operationId: getPools
+      responses:
+        "200":
+          description: List of pools
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      tags:
+        - Pools
+      summary: Create Pool
+      description: Create a fixed-size space pool.
+      operationId: createPool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolRequest"
+      responses:
+        "201":
+          description: Pool created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolCreateResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}:
+    get:
+      tags:
+        - Pools
+      summary: Get Pool
+      description: Get pool definition, utilization, and member details by pool ID or name.
+      operationId: getPool
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Pool ID or name.
+      responses:
+        "200":
+          description: Pool details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - Pools
+      summary: Update Pool
+      description: Update a pool definition.
+      operationId: updatePool
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Pool ID or name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolUpdateRequest"
+      responses:
+        "200":
+          description: Pool updated
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - Pools
+      summary: Delete Pool
+      description: Mark member spaces for deletion then tombstone the pool definition. Pool must be stopped first.
+      operationId: deletePool
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Pool ID or name.
+      responses:
+        "200":
+          description: Pool deleted
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/size:
+    post:
+      tags:
+        - Pools
+      summary: Set Pool Size
+      description: Set desired_count. The leader sweep creates or drains members asynchronously.
+      operationId: setPoolSize
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Pool ID or name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolSetSizeRequest"
+      responses:
+        "200":
+          description: Pool target updated
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/start:
+    post:
+      tags:
+        - Pools
+      summary: Start Pool
+      description: Set active=true so the sweep maintains desired_count.
+      operationId: startPool
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pool started
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/stop:
+    post:
+      tags:
+        - Pools
+      summary: Stop Pool
+      description: Set active=false and stop all member spaces without deleting them.
+      operationId: stopPool
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pool stopping
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
   /api/ping:
     get:
       tags:
@@ -4857,6 +5080,14 @@ components:
           type: string
           readOnly: true
           description: The prefix used when the space was created as part of a stack (space names are `prefix-key`), or empty if not part of a stack. Use it to reference sibling containers in templates, e.g. `${{ .space.stack_prefix }}-db`.
+        pool_id:
+          type: string
+          readOnly: true
+          description: The pool this space belongs to, or empty if not a pool member.
+        pool_name:
+          type: string
+          readOnly: true
+          description: The pool name if this space is a pool member. Used for HTTP/TCP port routing (username--pool_name--port.domain).
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
         alt_names:
@@ -5022,6 +5253,14 @@ components:
           type: string
           readOnly: true
           description: The prefix used when the space was created as part of a stack (space names are `prefix-key`), or empty if not part of a stack. Use it to reference sibling containers in templates, e.g. `${{ .space.stack_prefix }}-db`.
+        pool_id:
+          type: string
+          readOnly: true
+          description: The pool this space belongs to, or empty if not a pool member.
+        pool_name:
+          type: string
+          readOnly: true
+          description: The pool name if this space is a pool member, or empty. Used for HTTP/TCP port routing (username--pool_name--port.domain).
         is_deployed:
           type: boolean
           description: Flags if the space is deployed.
@@ -7051,6 +7290,167 @@ components:
         active:
           type: boolean
           description: If the skill is active
+
+    PoolRequest:
+      type: object
+      required:
+        - name
+        - template_id
+      properties:
+        name:
+          type: string
+          description: Pool name. Used as the future virtual routing endpoint.
+        template_id:
+          type: string
+          format: uuid
+          description: Space template used for pool members.
+        startup_script_id:
+          type: string
+          format: uuid
+          description: Optional startup script for pool members.
+        desired_count:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Runtime target member count.
+        active:
+          type: boolean
+          default: false
+          description: Whether to start the pool on creation. If false or omitted, pool is created stopped.
+
+    PoolSetSizeRequest:
+      type: object
+      required:
+        - desired_count
+      properties:
+        desired_count:
+          type: integer
+          minimum: 1
+          description: New desired member count.
+
+    PoolUpdateRequest:
+      type: object
+      properties:
+        desired_count:
+          type: integer
+          minimum: 1
+          description: New desired member count. Omit to leave unchanged.
+        active:
+          type: boolean
+          description: Set true to start the pool, false to stop it. Omit to leave unchanged.
+
+    PoolUtilization:
+      type: object
+      properties:
+        combined_rps:
+          type: number
+          format: double
+        method_rps:
+          type: number
+          format: double
+        http_rps:
+          type: number
+          format: double
+        tcp_rps:
+          type: number
+          format: double
+        method_inflight:
+          type: integer
+        avg_cpu_percent:
+          type: number
+          format: double
+        avg_memory_percent:
+          type: number
+          format: double
+
+    PoolMemberInfo:
+      type: object
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        state:
+          type: string
+          enum: [alive, starting, stopping, dead]
+        combined_rps:
+          type: number
+          format: double
+        method_rps:
+          type: number
+          format: double
+        http_rps:
+          type: number
+          format: double
+        tcp_rps:
+          type: number
+          format: double
+        method_inflight:
+          type: integer
+        cpu_percent:
+          type: number
+          format: double
+        memory_percent:
+          type: number
+          format: double
+        healthy:
+          type: boolean
+        is_pending:
+          type: boolean
+        is_deleting:
+          type: boolean
+        is_deployed:
+          type: boolean
+
+    PoolInfo:
+      type: object
+      properties:
+        pool_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        template_id:
+          type: string
+          format: uuid
+        startup_script_id:
+          type: string
+          format: uuid
+        desired_count:
+          type: integer
+        alive_members:
+          type: integer
+        active:
+          type: boolean
+        utilization:
+          $ref: "#/components/schemas/PoolUtilization"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolMemberInfo"
+
+    PoolList:
+      type: object
+      properties:
+        count:
+          type: integer
+        pools:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolInfo"
+
+    PoolCreateResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+        pool_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          description: Present when partial quota exhaustion occurred during creation.
 
   responses:
     bad-request:

@@ -56,6 +56,13 @@ type DbDriver interface {
 	GetSpaceUsageSample(id string) (*model.SpaceUsageSample, error)
 	GetSpaceUsageSamples(spaceId string, bucketKind string, from time.Time, to time.Time) ([]*model.SpaceUsageSample, error)
 
+	// Pools
+	SavePoolDefinition(pool *model.PoolDefinition, updateFields []string) error
+	DeletePoolDefinition(pool *model.PoolDefinition) error
+	GetPoolDefinition(id string) (*model.PoolDefinition, error)
+	GetPoolDefinitionByName(userId, name string) (*model.PoolDefinition, error)
+	GetPoolDefinitions() ([]*model.PoolDefinition, error)
+
 	// Templates
 	SaveTemplate(template *model.Template, updateFields []string) error
 	DeleteTemplate(template *model.Template) error

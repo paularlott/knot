@@ -105,6 +105,7 @@ func (v *VolumeDataMap) Scan(value interface{}) error {
 type Space struct {
 	Id               string             `json:"space_id" db:"space_id,pk" msgpack:"space_id"`
 	ParentSpaceId    string             `json:"parent_space_id" db:"parent_space_id" msgpack:"parent_space_id"`
+	PoolId           string             `json:"pool_id" db:"pool_id" msgpack:"pool_id"`
 	UserId           string             `json:"user_id" db:"user_id" msgpack:"user_id"`
 	TemplateId       string             `json:"template_id" db:"template_id" msgpack:"template_id"`
 	Shares           []string           `json:"shares" db:"shares,json" msgpack:"shares"`
@@ -153,6 +154,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 
 	space := &Space{
 		Id:               id.String(),
+		PoolId:           "",
 		UserId:           userId,
 		TemplateId:       templateId,
 		Name:             name,

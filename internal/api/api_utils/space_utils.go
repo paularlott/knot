@@ -227,6 +227,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		Healthy:            healthy,
 		Stack:              space.Stack,
 		StackPrefix:        space.StackPrefix,
+		PoolId:             space.PoolId,
+		PoolName:           service.PoolNameForSpace(space),
 	}
 
 	if state != nil {

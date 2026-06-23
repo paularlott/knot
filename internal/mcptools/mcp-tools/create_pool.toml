@@ -1,0 +1,33 @@
+description = "Create a pool of identical spaces from a template. The pool keeps a target number of spaces running and can serve HTTP/TCP traffic under the pool name."
+keywords = ["create", "pool", "new", "scale", "replicas", "deploy"]
+requires_approval = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the pool. Also used as the routing name for HTTP/TCP ports (username--poolname--port.domain)."
+required = true
+
+[[parameters]]
+name = "template_name"
+type = "string"
+description = "Name of the template to use for pool member spaces"
+required = true
+
+[[parameters]]
+name = "desired_count"
+type = "int"
+description = "Number of spaces to create in the pool"
+required = false
+
+[[parameters]]
+name = "startup_script_name"
+type = "string"
+description = "Name of a startup script to run on each pool member (optional)"
+required = false
+
+[[parameters]]
+name = "active"
+type = "bool"
+description = "Start the pool immediately after creation"
+required = false

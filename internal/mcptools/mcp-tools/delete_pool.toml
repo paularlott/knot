@@ -1,0 +1,9 @@
+description = "Delete a pool and all its member spaces. The pool must be stopped first."
+keywords = ["delete", "pool", "remove", "destroy"]
+requires_approval = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the pool to delete"
+required = true
