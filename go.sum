@@ -72,10 +72,10 @@ github.com/paularlott/gossip v0.12.6 h1:O2fvTZ3ITyYr8h+6wZgG7sG++wotzp4+rR0NN30m
 github.com/paularlott/gossip v0.12.6/go.mod h1:ME1A8VWeCe/YBG7jaDZFjp7h4APG+FWLxJbjNy48Rn0=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
-github.com/paularlott/mcp v0.18.1 h1:z+JIM6RCQ1bKd6G/I5kwtx+LCI138MMIwdTFHVEOtJg=
-github.com/paularlott/mcp v0.18.1/go.mod h1:ii8GUsjmU7Z950w8CVrjin3juzLdM4noXYZxGjkzV18=
-github.com/paularlott/scriptling v0.12.1 h1:U1PhWqeCb2N+RJyxeGgPLCbzLAypBEkdT1SjOp739AA=
-github.com/paularlott/scriptling v0.12.1/go.mod h1:oasLfchnAf25dTaEznB/D40pygr3KsAJfwp4gIrtlFg=
+github.com/paularlott/mcp v0.19.0 h1:4bCGic3c9esJUvTvmT26jMthJ2fTu6O7ApcoM3kW5ew=
+github.com/paularlott/mcp v0.19.0/go.mod h1:ii8GUsjmU7Z950w8CVrjin3juzLdM4noXYZxGjkzV18=
+github.com/paularlott/scriptling v0.12.2 h1:7eVC5sBIJxZxBrk0fCmIj7ilwE6bbfah+q0cuKlOorU=
+github.com/paularlott/scriptling v0.12.2/go.mod h1:B0bQ2m+daziPhWxAo4bKGagfbGgvpIqWlMxgFq0s0zw=
 github.com/paularlott/snapshotkv v0.3.0 h1:FUxebbnUJJtnJwjd+W8obyD78WX/opvZkSvY6Cc+5xg=
 github.com/paularlott/snapshotkv v0.3.0/go.mod h1:X2ONJRnGTRUV2j8tIdO187y0QLm4n7bnCbdnV/mTWUQ=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
@@ -86,8 +86,8 @@ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRI
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 h1:o4JXh1EVt9k/+g42oCprj/FisM4qX9L3sZB3upGN2ZU=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
-github.com/redis/go-redis/v9 v9.20.1 h1:sfCU6A8P3dXbKyWes02uxA2baehGux9dZHfEKtsTB1w=
-github.com/redis/go-redis/v9 v9.20.1/go.mod h1:v/M13XI1PVCDcm01VtPFOADfZtHf8YW3baQf57KlIkA=
+github.com/redis/go-redis/v9 v9.21.0 h1:FPBE4hhbAke+TLmcY3WkpbDffJEomdqPn3HYiqAtL9E=
+github.com/redis/go-redis/v9 v9.21.0/go.mod h1:v/M13XI1PVCDcm01VtPFOADfZtHf8YW3baQf57KlIkA=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/shamaton/msgpack/v3 v3.1.2 h1:d5gWAIyMU4M0WgDjz6IFSCuXJUA2dFwRHBpDclE8CLw=

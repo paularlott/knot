@@ -6,7 +6,7 @@ go 1.26.1
 
 //replace github.com/paularlott/cli => ../cli/
 
-replace github.com/paularlott/mcp => ../mcp
+//replace github.com/paularlott/mcp => ../mcp
 
 //replace github.com/paularlott/scriptling => ../scriptling/
 
@@ -24,9 +24,9 @@ require (
 	github.com/paularlott/gossip v0.12.6
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.19.0
-	github.com/paularlott/scriptling v0.12.1
+	github.com/paularlott/scriptling v0.12.2
 	github.com/pkg/sftp v1.13.10
-	github.com/redis/go-redis/v9 v9.20.1
+	github.com/redis/go-redis/v9 v9.21.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
