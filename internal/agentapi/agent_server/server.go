@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -13,8 +14,10 @@ import (
 	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spaceutil"
+	"github.com/paularlott/knot/internal/sse"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/logger"
 )
 
 const (
@@ -28,6 +31,8 @@ var (
 	sessions                  = make(map[string]*Session)
 	disconnectReconcileMutex  = sync.Mutex{}
 	disconnectReconcileActive = make(map[string]bool)
+	agentLossMutex            = sync.Mutex{}
+	agentLossFailures         = make(map[string]uint32)
 )
 
 type stopListItem struct {
@@ -62,56 +67,11 @@ func checkStaleSessions() {
 				continue
 			}
 
-			db := database.GetInstance()
 			for _, spaceId := range staleSessions {
 				ExpireSession(spaceId)
 
-				space, err := db.GetSpace(spaceId)
-				if err != nil || space == nil || space.IsDeleted || !space.IsDeployed {
-					continue
-				}
-
-				template, err := db.GetTemplate(space.TemplateId)
-				if err != nil || template == nil || template.IsManual() {
-					if err == nil && template != nil && template.IsManual() {
-						if err := spaceutil.MarkSpaceStopped(space); err != nil {
-							logger.WithError(err).Error("failed to mark stale manual space stopped", "space_id", space.Id)
-						}
-					}
-					continue
-				}
-
-				if template.IsLocalContainer() {
-					if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil && space.NodeId != "" && space.NodeId != nodeIdCfg.Value {
-						continue
-					}
-				}
-
-				if shouldRestartOnAgentLoss(template) {
-					logger.Info("stale agent health check failed, restarting space", "space_id", space.Id, "space_name", space.Name)
-					if err := service.GetContainerService().RestartSpace(space); err != nil {
-						logger.WithError(err).Error("failed to restart stale agent space", "space_id", space.Id)
-					}
-					continue
-				}
-
-				refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
-				if err != nil {
-					logger.WithError(err).Error("failed to list runtime refs for stale session", "space_id", space.Id)
-					continue
-				}
-
-				if spaceutil.RuntimeRefRunning(space, template, refs) {
-					logger.Info("stale agent session with live runtime, stopping via provider", "space_id", space.Id, "space_name", space.Name)
-					if err := service.GetContainerService().StopSpace(space); err != nil {
-						logger.WithError(err).Error("failed to stop stale live runtime", "space_id", space.Id)
-					}
-					continue
-				}
-
-				logger.Info("stale agent session with missing runtime, marking stopped", "space_id", space.Id, "space_name", space.Name)
-				if err := spaceutil.MarkSpaceStopped(space); err != nil {
-					logger.WithError(err).Error("failed to mark stale missing runtime stopped", "space_id", space.Id)
+				if result := reconcileAgentLoss(spaceId, "stale", logger); result.retry {
+					queueDisconnectedSpaceReconcileAfter(spaceId, result.retryAfter)
 				}
 			}
 		}
@@ -119,6 +79,10 @@ func checkStaleSessions() {
 }
 
 func queueDisconnectedSpaceReconcile(spaceId string) {
+	queueDisconnectedSpaceReconcileAfter(spaceId, AGENT_LIVENESS_TIMEOUT)
+}
+
+func queueDisconnectedSpaceReconcileAfter(spaceId string, initialDelay time.Duration) {
 	if spaceId == "" {
 		return
 	}
@@ -138,63 +102,121 @@ func queueDisconnectedSpaceReconcile(spaceId string) {
 			disconnectReconcileMutex.Unlock()
 		}()
 
-		time.Sleep(AGENT_LIVENESS_TIMEOUT)
-
-		if GetSession(spaceId) != nil {
-			return
+		if initialDelay <= 0 {
+			initialDelay = AGENT_LIVENESS_TIMEOUT
 		}
+		time.Sleep(initialDelay)
 
-		db := database.GetInstance()
-		space, err := db.GetSpace(spaceId)
-		if err != nil || space == nil || space.IsDeleted || !space.IsDeployed || space.IsPending {
-			return
-		}
-
-		template, err := db.GetTemplate(space.TemplateId)
-		if err != nil || template == nil {
-			return
-		}
-
-		if template.IsManual() {
-			if err := spaceutil.MarkSpaceStopped(space); err != nil {
-				log.WithError(err).Error("failed to mark disconnected manual space stopped", "space_id", space.Id)
-			}
-			return
-		}
-
-		if template.IsLocalContainer() {
-			if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil && space.NodeId != "" && space.NodeId != nodeIdCfg.Value {
+		for {
+			if GetSession(spaceId) != nil {
 				return
 			}
-		}
 
-		if shouldRestartOnAgentLoss(template) {
-			log.Info("disconnected agent health check failed, restarting space", "space_id", space.Id, "space_name", space.Name)
-			if err := service.GetContainerService().RestartSpace(space); err != nil {
-				log.WithError(err).Error("failed to restart disconnected agent space", "space_id", space.Id)
+			result := reconcileAgentLoss(spaceId, "disconnected", log.WithGroup("agent"))
+			if !result.retry {
+				return
 			}
-			return
-		}
-
-		refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
-		if err != nil {
-			log.WithError(err).Error("failed to list runtime refs for disconnected space", "space_id", space.Id)
-			return
-		}
-
-		if spaceutil.RuntimeRefRunning(space, template, refs) {
-			log.Info("disconnected space still has live runtime, stopping via provider", "space_id", space.Id, "space_name", space.Name)
-			if err := service.GetContainerService().StopSpace(space); err != nil {
-				log.WithError(err).Error("failed to stop disconnected live runtime", "space_id", space.Id)
+			if result.retryAfter <= 0 {
+				result.retryAfter = AGENT_LIVENESS_TIMEOUT
 			}
-			return
-		}
-
-		log.Info("disconnected space runtime missing, marking stopped", "space_id", space.Id, "space_name", space.Name)
-		if err := spaceutil.MarkSpaceStopped(space); err != nil {
-			log.WithError(err).Error("failed to mark disconnected missing runtime stopped", "space_id", space.Id)
+			time.Sleep(result.retryAfter)
 		}
 	}()
+}
+
+type agentLossReconcileResult struct {
+	retry      bool
+	retryAfter time.Duration
+}
+
+func reconcileAgentLoss(spaceId, reason string, logger logger.Logger) agentLossReconcileResult {
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceId)
+	if err != nil || space == nil || space.IsDeleted || !space.IsDeployed || space.IsPending {
+		return agentLossReconcileResult{}
+	}
+
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil || template == nil {
+		return agentLossReconcileResult{}
+	}
+
+	if template.IsManual() {
+		if err := spaceutil.MarkSpaceStopped(space); err != nil {
+			logger.WithError(err).Error("failed to mark agent-lost manual space stopped", "space_id", space.Id)
+		}
+		return agentLossReconcileResult{}
+	}
+
+	if template.IsLocalContainer() {
+		if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil && space.NodeId != "" && space.NodeId != nodeIdCfg.Value {
+			return agentLossReconcileResult{}
+		}
+	}
+
+	failures := recordAgentLossFailure(space.Id)
+	health.Set(space.Id, false, failures)
+
+	refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
+	if err != nil {
+		logger.WithError(err).Error("failed to list runtime refs for agent-lost space", "space_id", space.Id)
+		return agentLossReconcileResult{retry: shouldRestartOnAgentLoss(template), retryAfter: agentLossCheckInterval(template)}
+	}
+
+	runtimeRunning := spaceutil.RuntimeRefRunning(space, template, refs)
+	if !runtimeRunning {
+		if shouldRestartOnAgentLoss(template) {
+			logger.Info("agent-lost space runtime missing, restarting space", "space_id", space.Id, "space_name", space.Name, "reason", reason, "failures", failures)
+			clearAgentLossFailures(space.Id)
+			if err := restartAgentLostSpace(space, template, false); err != nil {
+				logger.WithError(err).Error("failed to restart agent-lost missing runtime", "space_id", space.Id)
+			}
+			return agentLossReconcileResult{}
+		}
+
+		logger.Warn("agent session lost and runtime is missing, marking unhealthy", "space_id", space.Id, "space_name", space.Name, "reason", reason, "failures", failures)
+		return agentLossReconcileResult{}
+	}
+
+	if shouldRestartOnAgentLoss(template) && failures >= agentLossMaxFailures(template) {
+		logger.Info("agent health check failure threshold reached, restarting space", "space_id", space.Id, "space_name", space.Name, "reason", reason, "failures", failures)
+		clearAgentLossFailures(space.Id)
+		if err := restartAgentLostSpace(space, template, true); err != nil {
+			logger.WithError(err).Error("failed to restart agent-lost space", "space_id", space.Id)
+		}
+		return agentLossReconcileResult{}
+	}
+
+	logger.Warn("agent session lost, marking unhealthy", "space_id", space.Id, "space_name", space.Name, "reason", reason, "failures", failures, "runtime_running", runtimeRunning, "auto_restart", shouldRestartOnAgentLoss(template))
+	return agentLossReconcileResult{
+		retry:      shouldRestartOnAgentLoss(template),
+		retryAfter: agentLossCheckInterval(template),
+	}
+}
+
+func restartAgentLostSpace(space *model.Space, template *model.Template, runtimeRunning bool) error {
+	if runtimeRunning {
+		return service.GetContainerService().RestartSpace(space)
+	}
+
+	db := database.GetInstance()
+	user, err := db.GetUser(space.UserId)
+	if err != nil {
+		return err
+	}
+
+	space.IsPending = false
+	space.IsDeployed = false
+	space.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"}); err != nil {
+		return err
+	}
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
+	sse.PublishSpaceChanged(space.Id, space.UserId)
+
+	return service.GetContainerService().StartSpace(space, template, user)
 }
 
 // Periodically check to see if the space has a schedule which requires it be stopped
@@ -306,9 +328,39 @@ func QueueSpaceReconcile(spaceId string) {
 
 func shouldRestartOnAgentLoss(template *model.Template) bool {
 	return template != nil &&
-		template.HealthCheckType == model.HealthCheckAgent &&
 		template.HealthCheckAutoRestart &&
+		template.HealthCheckType != "" &&
+		template.HealthCheckType != model.HealthCheckNone &&
 		(template.IsLocalContainer() || template.Platform == model.PlatformNomad)
+}
+
+func agentLossMaxFailures(template *model.Template) uint32 {
+	if template == nil || template.HealthCheckMaxFailures == 0 {
+		return 3
+	}
+	return template.HealthCheckMaxFailures
+}
+
+func agentLossCheckInterval(template *model.Template) time.Duration {
+	if template == nil || template.HealthCheckInterval == 0 {
+		return 30 * time.Second
+	}
+	return time.Duration(template.HealthCheckInterval) * time.Second
+}
+
+func recordAgentLossFailure(spaceId string) uint32 {
+	agentLossMutex.Lock()
+	defer agentLossMutex.Unlock()
+
+	agentLossFailures[spaceId]++
+	return agentLossFailures[spaceId]
+}
+
+func clearAgentLossFailures(spaceId string) {
+	agentLossMutex.Lock()
+	defer agentLossMutex.Unlock()
+
+	delete(agentLossFailures, spaceId)
 }
 
 func ListenAndServe(listen string, tlsConfig *tls.Config) {

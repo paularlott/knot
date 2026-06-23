@@ -76,6 +76,19 @@ func normalizeContainerReference(ref string) string {
 	return ""
 }
 
+func parseAppleContainerInspect(output []byte) ([]containerInspect, error) {
+	var inspectData []containerInspect
+	if err := json.Unmarshal(output, &inspectData); err == nil {
+		return inspectData, nil
+	}
+
+	var inspectItem containerInspect
+	if err := json.Unmarshal(output, &inspectItem); err != nil {
+		return nil, err
+	}
+	return []containerInspect{inspectItem}, nil
+}
+
 func NewClient() *AppleClient {
 	return &AppleClient{
 		DriverName: "apple",
@@ -154,10 +167,10 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		args := []string{"run", "-d", "--name", spec.ContainerName}
 
 		// Inject port env vars from template, overwriting any existing values
-	spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
-	spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
+		spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
+		spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
 
-	for _, env := range spec.Environment {
+		for _, env := range spec.Environment {
 			args = append(args, "-e", env)
 		}
 
@@ -201,6 +214,11 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		}
 
 		c.logger.Debug("running container", "spec_containername", spec.ContainerName)
+		if err := c.removeStoppedContainerByName(ctx, spec.ContainerName); err != nil {
+			c.logger.Error("checking existing container, error:", "spec_containername", spec.ContainerName, "error", err)
+			return
+		}
+
 		cmd := exec.CommandContext(ctx, "container", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -231,6 +249,34 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
+
+	return nil
+}
+
+func (c *AppleClient) removeStoppedContainerByName(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx, "container", "inspect", name)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if isIgnorableAppleCleanupOutput(string(output)) {
+			return nil
+		}
+		return err
+	}
+
+	inspectData, err := parseAppleContainerInspect(output)
+	if err != nil {
+		return err
+	}
+	if len(inspectData) > 0 && inspectData[0].Status == "running" {
+		return fmt.Errorf("container %s already exists and is running", name)
+	}
+
+	c.logger.Info("removing stopped existing container before create", "name", name)
+	cmd = exec.CommandContext(ctx, "container", "rm", name)
+	output, err = cmd.CombinedOutput()
+	if err != nil && !isIgnorableAppleCleanupOutput(string(output)) {
+		return err
+	}
 
 	return nil
 }
@@ -673,8 +719,8 @@ func (c *AppleClient) StopSpaceRuntime(space *model.Space) error {
 			return err
 		}
 
-		var inspectData []containerInspect
-		if err := json.Unmarshal(output, &inspectData); err != nil {
+		inspectData, err := parseAppleContainerInspect(output)
+		if err != nil {
 			return err
 		}
 

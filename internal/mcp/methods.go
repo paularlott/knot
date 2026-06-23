@@ -49,7 +49,7 @@ func (p *methodToolsProvider) GetTools(ctx context.Context) ([]mcplib.MCPTool, e
 	return tools, nil
 }
 
-func (p *methodToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
+func (p *methodToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (*mcplib.ToolResponse, error) {
 	for _, info := range methods.DefaultRegistry().List(p.user) {
 		if !info.MCPTool || methods.MCPToolName(info.Name) != name {
 			continue
@@ -79,7 +79,7 @@ func (p *methodToolsProvider) ExecuteTool(ctx context.Context, name string, para
 		if response.Response.Error != nil {
 			return nil, errors.New(response.Response.Error.Message)
 		}
-		return response.Response.Result, nil
+		return mcplib.NewToolResponseAuto(response.Response.Result), nil
 	}
 	return nil, nil
 }

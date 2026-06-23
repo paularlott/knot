@@ -83,21 +83,7 @@ func (c *AgentClient) runHealthCheckTick(logger logger.Logger) {
 	result := runHealthCheckScript(script)
 
 	healthStateMu.Lock()
-	unhealthy := result != nil && !result.Healthy
-	if unhealthy {
-		state.consecutiveFailures++
-	}
-	failures := state.consecutiveFailures
-	wasUnhealthy := state.wasUnhealthy
-
-	if unhealthy {
-		state.wasUnhealthy = true
-	} else if wasUnhealthy {
-		state.wasUnhealthy = false
-		state.consecutiveFailures = 0
-	} else {
-		state.consecutiveFailures = 0
-	}
+	unhealthy, failures, wasUnhealthy := updateHealthCheckState(state, result)
 	healthStateMu.Unlock()
 
 	if hcMaxFailures == 0 {
@@ -131,6 +117,24 @@ func (c *AgentClient) runHealthCheckTick(logger logger.Logger) {
 			logger.Error("failed to send restart", "space_id", c.spaceId, "error", err)
 		}
 	}
+}
+
+func updateHealthCheckState(state *spaceHealthState, result *knotscriptling.HealthCheckResult) (bool, uint32, bool) {
+	unhealthy := result != nil && !result.Healthy
+	if unhealthy {
+		state.consecutiveFailures++
+	}
+	failures := state.consecutiveFailures
+	wasUnhealthy := state.wasUnhealthy
+
+	if unhealthy {
+		state.wasUnhealthy = true
+	} else if wasUnhealthy {
+		state.wasUnhealthy = false
+		state.consecutiveFailures = 0
+	}
+
+	return unhealthy, failures, wasUnhealthy
 }
 
 func buildHealthCheckScript(hcType, hcConfig string, skipSSL bool, timeout uint32) string {

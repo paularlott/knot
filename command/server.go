@@ -26,8 +26,8 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
 	internal_mcp "github.com/paularlott/knot/internal/mcp"
-	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/methods"
+	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
@@ -907,7 +907,10 @@ var ServerCmd = &cli.Command{
 				if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
 					scriptProvider = internal_mcp.NewScriptToolsProvider(user)
 				}
-				return internal_mcp.NewCompositeProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user))
+				if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user)); mp != nil {
+					return mp
+				}
+				return nil
 			}
 
 			openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)

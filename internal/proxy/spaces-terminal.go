@@ -154,7 +154,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 						log.Error("failed to unmarshal resize message '':", "failed", string(resizeMessage), err)
 						continue
 					}
-					log.Debug("resizing tty to use  x", "resizing", ttySize.Rows, "tty", ttySize.Cols)
+					log.Trace("resizing tty to use  x", "resizing", ttySize.Rows, "tty", ttySize.Cols)
 
 					if err := msg.WriteCommand(stream, msg.MSG_TERMINAL_RESIZE); err != nil {
 						log.WithError(err).Error("error writing command to stream:")

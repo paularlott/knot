@@ -129,7 +129,7 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 }
 
 // ExecuteTool executes a script tool by name
-func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
+func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (*mcp.ToolResponse, error) {
 	// Check if boot-loaded tool requires approval (web chat only — external MCP
 	// clients have no SSE writer on the context so CheckToolApproval is a no-op)
 	if tool, exists := mcptools.GetTool(name); exists {
@@ -144,7 +144,7 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	toolResult, toolErr := mcptools.ExecuteTool(name, params, p.user)
 	if toolErr == nil {
 		// Boot-loaded tool executed successfully
-		return toolResult, nil
+		return mcp.NewToolResponseAuto(toolResult), nil
 	}
 	// Check if tool exists in mcptools (error is "tool not found") vs execution failed
 	if _, exists := mcptools.GetTool(name); exists {
@@ -197,5 +197,5 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 		return nil, err
 	}
 
-	return result, nil
+	return mcp.NewToolResponseAuto(result), nil
 }

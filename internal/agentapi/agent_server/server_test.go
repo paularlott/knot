@@ -40,10 +40,27 @@ func TestShouldRestartOnAgentLoss(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "non-agent health check",
+			name: "tcp auto restart",
 			template: &model.Template{
 				Platform:               model.PlatformDocker,
 				HealthCheckType:        model.HealthCheckTCP,
+				HealthCheckAutoRestart: true,
+			},
+			want: true,
+		},
+		{
+			name: "none health check with auto restart",
+			template: &model.Template{
+				Platform:               model.PlatformDocker,
+				HealthCheckType:        model.HealthCheckNone,
+				HealthCheckAutoRestart: true,
+			},
+			want: false,
+		},
+		{
+			name: "empty health check with auto restart",
+			template: &model.Template{
+				Platform:               model.PlatformDocker,
 				HealthCheckAutoRestart: true,
 			},
 			want: false,
@@ -66,4 +83,39 @@ func TestShouldRestartOnAgentLoss(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAgentLossDefaults(t *testing.T) {
+	if got := agentLossMaxFailures(nil); got != 3 {
+		t.Fatalf("agentLossMaxFailures(nil) = %d, want 3", got)
+	}
+
+	if got := agentLossMaxFailures(&model.Template{HealthCheckMaxFailures: 5}); got != 5 {
+		t.Fatalf("agentLossMaxFailures(template) = %d, want 5", got)
+	}
+
+	if got := agentLossCheckInterval(nil); got.String() != "30s" {
+		t.Fatalf("agentLossCheckInterval(nil) = %s, want 30s", got)
+	}
+
+	if got := agentLossCheckInterval(&model.Template{HealthCheckInterval: 7}); got.String() != "7s" {
+		t.Fatalf("agentLossCheckInterval(template) = %s, want 7s", got)
+	}
+}
+
+func TestAgentLossFailureCounter(t *testing.T) {
+	const spaceId = "space-agent-loss-counter"
+
+	clearAgentLossFailures(spaceId)
+	if got := recordAgentLossFailure(spaceId); got != 1 {
+		t.Fatalf("first failure = %d, want 1", got)
+	}
+	if got := recordAgentLossFailure(spaceId); got != 2 {
+		t.Fatalf("second failure = %d, want 2", got)
+	}
+	clearAgentLossFailures(spaceId)
+	if got := recordAgentLossFailure(spaceId); got != 1 {
+		t.Fatalf("failure after clear = %d, want 1", got)
+	}
+	clearAgentLossFailures(spaceId)
 }

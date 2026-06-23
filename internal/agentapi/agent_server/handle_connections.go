@@ -112,6 +112,7 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create a new session and start listening
 	session = NewSession(registerMsg.SpaceId, registerMsg.Version)
+	clearAgentLossFailures(registerMsg.SpaceId)
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
 	sessionMutex.Unlock()
@@ -302,6 +303,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HTTPRequestsTotal = state.HTTPRequestsTotal
 				session.TCPConnectionsTotal = state.TCPConnectionsTotal
 				session.LastStateAt = now
+				clearAgentLossFailures(session.Id)
 
 				db := database.GetInstance()
 				space, err := db.GetSpace(session.Id)
