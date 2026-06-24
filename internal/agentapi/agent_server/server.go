@@ -455,10 +455,14 @@ func updateAgentHealthConfigForTemplate(template *model.Template) {
 	}
 }
 
-func removeSession(spaceId string, markUnhealthy bool, queueReconcile bool) {
+func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueReconcile bool) {
 	var removed bool
 	sessionMutex.Lock()
 	if session, ok := sessions[spaceId]; ok {
+		if expected != nil && session != expected {
+			sessionMutex.Unlock()
+			return
+		}
 		if session.MuxSession != nil {
 			session.MuxSession.Close()
 		}
@@ -493,15 +497,15 @@ func removeSession(spaceId string, markUnhealthy bool, queueReconcile bool) {
 }
 
 func RemoveSession(spaceId string) {
-	removeSession(spaceId, false, false)
+	removeSession(spaceId, nil, false, false)
 }
 
-func DisconnectSession(spaceId string) {
-	removeSession(spaceId, true, true)
+func DisconnectSession(spaceId string, session *Session) {
+	removeSession(spaceId, session, true, true)
 }
 
 func ExpireSession(spaceId string) {
-	removeSession(spaceId, true, false)
+	removeSession(spaceId, nil, true, false)
 }
 
 // GetSession retrieves the agent session associated with the given spaceId.

@@ -119,3 +119,55 @@ func TestAgentLossFailureCounter(t *testing.T) {
 	}
 	clearAgentLossFailures(spaceId)
 }
+
+func TestDisconnectSessionDoesNotRemoveReplacement(t *testing.T) {
+	const spaceId = "space-replacement"
+
+	oldSession := NewSession(spaceId, "0.0.0")
+	newSession := NewSession(spaceId, "0.0.0")
+
+	sessionMutex.Lock()
+	sessions[spaceId] = newSession
+	sessionMutex.Unlock()
+	defer RemoveSession(spaceId)
+
+	DisconnectSession(spaceId, oldSession)
+
+	if got := GetSession(spaceId); got != newSession {
+		t.Fatalf("replacement session removed by stale disconnect")
+	}
+}
+
+func TestRemoveSessionRemovesExpectedCurrentSession(t *testing.T) {
+	const spaceId = "space-current-remove"
+
+	session := NewSession(spaceId, "0.0.0")
+
+	sessionMutex.Lock()
+	sessions[spaceId] = session
+	sessionMutex.Unlock()
+
+	removeSession(spaceId, session, false, false)
+
+	if got := GetSession(spaceId); got != nil {
+		RemoveSession(spaceId)
+		t.Fatalf("current session still registered after expected remove")
+	}
+}
+
+func TestRemoveSessionWithoutExpectedRemovesBySpaceID(t *testing.T) {
+	const spaceId = "space-remove-by-id"
+
+	session := NewSession(spaceId, "0.0.0")
+
+	sessionMutex.Lock()
+	sessions[spaceId] = session
+	sessionMutex.Unlock()
+
+	RemoveSession(spaceId)
+
+	if got := GetSession(spaceId); got != nil {
+		RemoveSession(spaceId)
+		t.Fatalf("session still registered after remove by id")
+	}
+}
