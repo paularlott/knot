@@ -25,6 +25,7 @@ type AgentClient struct {
 	credentialsMutex       sync.RWMutex
 	serverListMutex        sync.RWMutex
 	serverList             map[string]*agentServer
+	knownServerAddresses   map[string]bool
 	firstRegistrationMutex sync.Mutex
 	firstRegistration      bool
 	keysMutex              sync.Mutex
@@ -84,6 +85,7 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		defaultServerAddress: defaultServerAddress,
 		spaceId:              spaceId,
 		serverList:           make(map[string]*agentServer),
+		knownServerAddresses: make(map[string]bool),
 		firstRegistration:    true,
 		lastPublicSSHKeys:    []string{},
 		lastGitHubUsernames:  []string{},
@@ -158,6 +160,7 @@ func (c *AgentClient) ConnectAndServe() {
 	c.serverListMutex.Lock()
 	connection := NewAgentServer(c.defaultServerAddress, c.spaceId, c)
 	c.serverList[connection.address] = connection
+	c.knownServerAddresses[connection.address] = true
 	connection.ConnectAndServe()
 
 	c.serverListMutex.Unlock()
@@ -184,6 +187,7 @@ func (c *AgentClient) Shutdown() {
 		server.Shutdown()
 	}
 	c.serverList = make(map[string]*agentServer) // Clear the server list
+	c.knownServerAddresses = make(map[string]bool)
 	c.serverListMutex.Unlock()
 }
 

@@ -177,7 +177,7 @@ func (c *AgentClient) reportState() {
 				} else {
 					// Add any new servers to the new servers list
 					for _, reportedServer := range reply.Endpoints {
-						if _, exists := c.serverList[reportedServer]; !exists {
+						if !c.knownServerAddresses[reportedServer] {
 							if !stringInSlice(reportedServer, newServers) {
 								newServers = append(newServers, reportedServer)
 							}
@@ -193,8 +193,12 @@ func (c *AgentClient) reportState() {
 			log.Info("discovered new servers:", "newServers", newServers)
 			c.serverListMutex.Lock()
 			for _, newServer := range newServers {
+				if c.knownServerAddresses[newServer] {
+					continue
+				}
 				connection := NewAgentServer(newServer, c.spaceId, c)
 				c.serverList[connection.address] = connection
+				c.knownServerAddresses[connection.address] = true
 				connection.ConnectAndServe()
 			}
 			c.serverListMutex.Unlock()

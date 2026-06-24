@@ -77,6 +77,7 @@ func (s *agentServer) ConnectAndServe() {
 
 					connection := NewAgentServer(s.agentClient.defaultServerAddress, s.spaceId, s.agentClient)
 					s.agentClient.serverList[s.agentClient.defaultServerAddress] = connection
+					s.agentClient.knownServerAddresses[s.agentClient.defaultServerAddress] = true
 					connection.ConnectAndServe()
 				}
 				s.agentClient.serverListMutex.Unlock()
@@ -167,6 +168,11 @@ func (s *agentServer) ConnectAndServe() {
 			}
 
 			log.Info("registered with server", "server", serverAddr, "version", response.Version)
+			if response.AgentEndpoint != "" {
+				s.agentClient.serverListMutex.Lock()
+				s.agentClient.knownServerAddresses[response.AgentEndpoint] = true
+				s.agentClient.serverListMutex.Unlock()
+			}
 
 			// Store the agent token and server URL at AgentClient level
 			// Note: All servers in the zone generate identical tokens (deterministic HMAC)

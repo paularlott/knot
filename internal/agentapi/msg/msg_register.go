@@ -25,6 +25,7 @@ type RegisterResponse struct {
 	Freeze                   bool
 	AgentToken               string
 	ServerURL                string
+	AgentEndpoint            string
 	HealthCheckType          string
 	HealthCheckConfig        string
 	HealthCheckSkipSSLVerify bool

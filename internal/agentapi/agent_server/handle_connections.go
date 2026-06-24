@@ -159,6 +159,7 @@ func handleAgentConnection(conn net.Conn) {
 	}
 	response.AgentToken = agentToken
 	response.ServerURL = cfg.URL
+	response.AgentEndpoint = cfg.AgentEndpoint
 	response.HealthCheckType = template.HealthCheckType
 	response.HealthCheckConfig = template.HealthCheckConfig
 	response.HealthCheckSkipSSLVerify = template.HealthCheckSkipSSLVerify
