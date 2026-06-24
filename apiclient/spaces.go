@@ -71,6 +71,7 @@ type SpaceInfo struct {
 	StartedAt       time.Time            `json:"started_at"`
 	IconURL         string               `json:"icon_url"`
 	Healthy         bool                 `json:"healthy"`
+	HealthKnown     bool                 `json:"health_known"`
 	NodeHostname    string               `json:"node_hostname"`
 	Stack           string               `json:"stack"`
 	StackPrefix     string               `json:"stack_prefix"`
@@ -138,6 +139,7 @@ type SpaceDefinition struct {
 	HasVSCodeTunnel    bool                         `json:"has_vscode_tunnel"`
 	VSCodeTunnel       string                       `json:"vscode_tunnel_name"`
 	Healthy            bool                         `json:"healthy"`
+	HealthKnown        bool                         `json:"health_known"`
 	IsRemote           bool                         `json:"is_remote"`
 	NodeId             string                       `json:"node_id"`
 	NodeHostname       string                       `json:"node_hostname"`

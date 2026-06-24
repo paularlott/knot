@@ -179,6 +179,28 @@ func (s *Session) SendUpdateShell(shell string) error {
 	return nil
 }
 
+func (s *Session) SendUpdateHealthConfig(config *msg.HealthConfig) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	err = msg.WriteCommand(conn, msg.CmdUpdateHealthConfig)
+	if err != nil {
+		s.logger.WithError(err).Error("writing update health config command:")
+		return err
+	}
+
+	err = msg.WriteMessage(conn, config)
+	if err != nil {
+		s.logger.WithError(err).Error("writing update health config message:")
+		return err
+	}
+
+	return nil
+}
+
 func (s *Session) SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCommandResponse, error) {
 	conn, err := s.MuxSession.Open()
 	if err != nil {

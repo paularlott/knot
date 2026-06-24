@@ -224,15 +224,15 @@ func (s *agentServer) ConnectAndServe() {
 			s.agentClient.firstRegistrationMutex.Unlock()
 
 			// Update health check config on every registration (template may have changed)
-			s.agentClient.healthCheckMu.Lock()
-			s.agentClient.healthCheckType = response.HealthCheckType
-			s.agentClient.healthCheckConfig = response.HealthCheckConfig
-			s.agentClient.healthCheckSkipSSLVerify = response.HealthCheckSkipSSLVerify
-			s.agentClient.healthCheckTimeout = response.HealthCheckTimeout
-			s.agentClient.healthCheckInterval = response.HealthCheckInterval
-			s.agentClient.healthCheckMaxFailures = response.HealthCheckMaxFailures
-			s.agentClient.healthCheckAutoRestart = response.HealthCheckAutoRestart
-			s.agentClient.healthCheckMu.Unlock()
+			s.agentClient.UpdateHealthCheckConfig(msg.HealthConfig{
+				HealthCheckType:          response.HealthCheckType,
+				HealthCheckConfig:        response.HealthCheckConfig,
+				HealthCheckSkipSSLVerify: response.HealthCheckSkipSSLVerify,
+				HealthCheckTimeout:       response.HealthCheckTimeout,
+				HealthCheckInterval:      response.HealthCheckInterval,
+				HealthCheckMaxFailures:   response.HealthCheckMaxFailures,
+				HealthCheckAutoRestart:   response.HealthCheckAutoRestart,
+			})
 
 			// Save the keys and github usernames
 			s.agentClient.lastPublicSSHKeys = response.SSHKeys
@@ -423,6 +423,15 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		if err != nil {
 			log.WithError(err).Error("sending pong:")
 		}
+
+	case byte(msg.CmdUpdateHealthConfig):
+		var healthConfig msg.HealthConfig
+		if err := msg.ReadMessage(stream, &healthConfig); err != nil {
+			log.WithError(err).Error("reading health config message:")
+			return
+		}
+		s.agentClient.UpdateHealthCheckConfig(healthConfig)
+		log.Info("updated health check config", "type", healthConfig.HealthCheckType)
 
 	case byte(msg.CmdUpdateAuthorizedKeys):
 		var updateAuthorizedKeys msg.UpdateAuthorizedKeys

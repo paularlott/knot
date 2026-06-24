@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
+	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -133,6 +134,10 @@ func reconcileAgentLoss(spaceId, reason string, logger logger.Logger) agentLossR
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
 	if err != nil || space == nil || space.IsDeleted || !space.IsDeployed || space.IsPending {
+		return agentLossReconcileResult{}
+	}
+
+	if space.Zone != "" && space.Zone != config.GetServerConfig().Zone {
 		return agentLossReconcileResult{}
 	}
 
@@ -366,6 +371,7 @@ func clearAgentLossFailures(spaceId string) {
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
 	logger := log.WithGroup("agent")
 	service.SetPoolSessionProvider(GetPoolSessionState)
+	service.SetAgentHealthConfigUpdater(updateAgentHealthConfigForTemplate)
 
 	// Start the session garbage collector & schedule checker
 	checkSchedules()
@@ -401,6 +407,52 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			go handleAgentConnection(conn)
 		}
 	}()
+}
+
+func updateAgentHealthConfigForTemplate(template *model.Template) {
+	if template == nil {
+		return
+	}
+
+	db := database.GetInstance()
+	spaces, err := db.GetSpacesByTemplateId(template.Id)
+	if err != nil {
+		log.WithError(err).Error("failed to load spaces for health config update", "template_id", template.Id)
+		return
+	}
+
+	config := &msg.HealthConfig{
+		HealthCheckType:          template.HealthCheckType,
+		HealthCheckConfig:        template.HealthCheckConfig,
+		HealthCheckSkipSSLVerify: template.HealthCheckSkipSSLVerify,
+		HealthCheckTimeout:       template.HealthCheckTimeout,
+		HealthCheckInterval:      template.HealthCheckInterval,
+		HealthCheckMaxFailures:   template.HealthCheckMaxFailures,
+		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
+	}
+
+	logger := log.WithGroup("agent")
+	for _, space := range spaces {
+		if space == nil || space.IsDeleted || !space.IsDeployed || space.IsPending {
+			continue
+		}
+
+		session := GetSession(space.Id)
+		if session == nil {
+			continue
+		}
+
+		if err := session.SendUpdateHealthConfig(config); err != nil {
+			logger.WithError(err).Error("failed to update live agent health config", "space_id", space.Id, "space_name", space.Name)
+			continue
+		}
+
+		clearAgentLossFailures(space.Id)
+		if template.HealthCheckType == "" || template.HealthCheckType == model.HealthCheckNone || template.HealthCheckType == model.HealthCheckAgent {
+			health.Set(space.Id, true, 0)
+			sse.PublishSpaceChanged(space.Id, space.UserId)
+		}
+	}
 }
 
 func removeSession(spaceId string, markUnhealthy bool, queueReconcile bool) {

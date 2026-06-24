@@ -177,9 +177,11 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	// Check if remote
 	isRemote := space.Zone != "" && space.Zone != cfg.Zone
 
-	// Health status from in-memory store
+	// Health status is zone-local because it is derived from local agent
+	// sessions and is intentionally not gossiped as global space state.
 	healthy := true
-	if hs := health.Get(space.Id); hs != nil {
+	healthKnown := !isRemote
+	if hs := health.Get(space.Id); hs != nil && healthKnown {
 		healthy = hs.Healthy
 	}
 
@@ -225,6 +227,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		NodeId:             space.NodeId,
 		NodeHostname:       nodeHostname,
 		Healthy:            healthy,
+		HealthKnown:        healthKnown,
 		Stack:              space.Stack,
 		StackPrefix:        space.StackPrefix,
 		PoolId:             space.PoolId,

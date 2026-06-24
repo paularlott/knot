@@ -15,6 +15,8 @@ import (
 
 type TemplateService struct{}
 
+type AgentHealthConfigUpdater func(template *model.Template)
+
 type TemplateListOptions struct {
 	User                 *model.User
 	IncludeInactive      bool
@@ -24,6 +26,11 @@ type TemplateListOptions struct {
 }
 
 var templateService *TemplateService
+var agentHealthConfigUpdater AgentHealthConfigUpdater
+
+func SetAgentHealthConfigUpdater(updater AgentHealthConfigUpdater) {
+	agentHealthConfigUpdater = updater
+}
 
 func GetTemplateService() *TemplateService {
 	if templateService == nil {
@@ -181,11 +188,29 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 		return fmt.Errorf("failed to save template: %v", err)
 	}
 
+	if agentHealthConfigUpdater != nil && templateHealthConfigChanged(existing, template) {
+		agentHealthConfigUpdater(template)
+	}
+
 	// Gossip the template and notify SSE clients
 	GetTransport().GossipTemplate(template)
 	sse.PublishTemplatesChanged(template.Id)
 
 	return nil
+}
+
+func templateHealthConfigChanged(a, b *model.Template) bool {
+	if a == nil || b == nil {
+		return false
+	}
+
+	return a.HealthCheckType != b.HealthCheckType ||
+		a.HealthCheckConfig != b.HealthCheckConfig ||
+		a.HealthCheckSkipSSLVerify != b.HealthCheckSkipSSLVerify ||
+		a.HealthCheckTimeout != b.HealthCheckTimeout ||
+		a.HealthCheckInterval != b.HealthCheckInterval ||
+		a.HealthCheckMaxFailures != b.HealthCheckMaxFailures ||
+		a.HealthCheckAutoRestart != b.HealthCheckAutoRestart
 }
 
 // DeleteTemplate marks a template as deleted with validation

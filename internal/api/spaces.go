@@ -201,8 +201,10 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
 		}
 
-		// Health status from in-memory store
-		if hs := health.Get(space.Id); hs != nil {
+		// Health status is zone-local because it is derived from local agent
+		// sessions and is intentionally not gossiped as global space state.
+		s.HealthKnown = !s.IsRemote
+		if hs := health.Get(space.Id); hs != nil && s.HealthKnown {
 			s.Healthy = hs.Healthy
 		} else {
 			s.Healthy = true

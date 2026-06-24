@@ -5072,7 +5072,10 @@ components:
           description: The icon URL for the space or an empty string if there's no icon.
         healthy:
           type: boolean
-          description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+          description: Whether the space is currently healthy on this zone. Defaults to true when no health checks are configured or when health is not known locally.
+        health_known:
+          type: boolean
+          description: Whether the healthy field is known by this zone. Remote-zone spaces report false because health is not global state.
         stack:
           type: string
           description: The stack name this space belongs to, or empty if unstacked.
@@ -5350,7 +5353,10 @@ components:
           description: The hostname of the node assigned to host the space.
         healthy:
           type: boolean
-          description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+          description: Whether the space is currently healthy on this zone. Defaults to true when no health checks are configured or when health is not known locally.
+        health_known:
+          type: boolean
+          description: Whether the healthy field is known by this zone. Remote-zone spaces report false because health is not global state.
         resource_usage:
           $ref: "#/components/schemas/SpaceResourceUsage"
 

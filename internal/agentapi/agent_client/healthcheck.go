@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
@@ -26,6 +27,28 @@ var (
 	healthStateMu sync.Mutex
 	healthState   = make(map[string]*spaceHealthState)
 )
+
+func (c *AgentClient) UpdateHealthCheckConfig(config msg.HealthConfig) {
+	c.healthCheckMu.Lock()
+	c.healthCheckType = config.HealthCheckType
+	c.healthCheckConfig = config.HealthCheckConfig
+	c.healthCheckSkipSSLVerify = config.HealthCheckSkipSSLVerify
+	c.healthCheckTimeout = config.HealthCheckTimeout
+	c.healthCheckInterval = config.HealthCheckInterval
+	c.healthCheckMaxFailures = config.HealthCheckMaxFailures
+	c.healthCheckAutoRestart = config.HealthCheckAutoRestart
+	c.healthCheckMu.Unlock()
+
+	healthStateMu.Lock()
+	delete(healthState, c.spaceId)
+	healthStateMu.Unlock()
+
+	if config.HealthCheckType == model.HealthCheckNone || config.HealthCheckType == model.HealthCheckAgent || config.HealthCheckType == "" {
+		c.healthMu.Lock()
+		c.healthy = true
+		c.healthMu.Unlock()
+	}
+}
 
 // RunHealthChecks starts the health check loop for the agent.
 // It runs once per agent process (not per server connection).

@@ -711,6 +711,7 @@ window.spacesListComponent = function (
       target.is_deleting = space.is_deleting;
       target.update_available = space.update_available;
       target.healthy = space.healthy;
+      target.health_known = space.health_known === true;
       target.tcp_ports = space.tcp_ports;
       target.http_ports = space.http_ports;
       target.alt_names = space.alt_names || [];
