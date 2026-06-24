@@ -118,6 +118,14 @@ func handleAgentConnection(conn net.Conn) {
 	sessionMutex.Unlock()
 	defer DisconnectSession(registerMsg.SpaceId, session)
 
+	if shouldMarkHealthyOnRegistration(template) {
+		prev := health.Get(registerMsg.SpaceId)
+		health.Set(registerMsg.SpaceId, true, 0)
+		if prev == nil || !prev.Healthy {
+			sse.PublishSpaceChanged(space.Id, space.UserId)
+		}
+	}
+
 	// Return the SSH key and GitHub username
 	response.Success = true
 	response.Shell = space.Shell
@@ -236,6 +244,13 @@ func handleAgentConnection(conn net.Conn) {
 		// Handle the connection
 		go handleAgentSession(stream, session)
 	}
+}
+
+func shouldMarkHealthyOnRegistration(template *model.Template) bool {
+	return template != nil &&
+		(template.HealthCheckType == "" ||
+			template.HealthCheckType == model.HealthCheckNone ||
+			template.HealthCheckType == model.HealthCheckAgent)
 }
 
 func handleAgentSession(stream net.Conn, session *Session) {

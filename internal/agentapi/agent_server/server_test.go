@@ -171,3 +171,28 @@ func TestRemoveSessionWithoutExpectedRemovesBySpaceID(t *testing.T) {
 		t.Fatalf("session still registered after remove by id")
 	}
 }
+
+func TestShouldMarkHealthyOnRegistration(t *testing.T) {
+	tests := []struct {
+		name     string
+		template *model.Template
+		want     bool
+	}{
+		{name: "nil template", template: nil, want: false},
+		{name: "empty health check", template: &model.Template{}, want: true},
+		{name: "none health check", template: &model.Template{HealthCheckType: model.HealthCheckNone}, want: true},
+		{name: "agent health check", template: &model.Template{HealthCheckType: model.HealthCheckAgent}, want: true},
+		{name: "http health check", template: &model.Template{HealthCheckType: model.HealthCheckHTTP}, want: false},
+		{name: "tcp health check", template: &model.Template{HealthCheckType: model.HealthCheckTCP}, want: false},
+		{name: "program health check", template: &model.Template{HealthCheckType: model.HealthCheckProgram}, want: false},
+		{name: "custom health check", template: &model.Template{HealthCheckType: model.HealthCheckCustom}, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldMarkHealthyOnRegistration(tt.template); got != tt.want {
+				t.Fatalf("shouldMarkHealthyOnRegistration() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
