@@ -51,15 +51,15 @@ func checkStaleSessions() {
 
 		for range ticker.C {
 			now := time.Now().UTC()
-			staleSessions := make([]string, 0)
+			staleSessions := make([]*Session, 0)
 
 			sessionMutex.RLock()
-			for spaceId, session := range sessions {
+			for _, session := range sessions {
 				if session == nil || session.LastStateAt.IsZero() {
 					continue
 				}
 				if now.Sub(session.LastStateAt) > AGENT_LIVENESS_TIMEOUT {
-					staleSessions = append(staleSessions, spaceId)
+					staleSessions = append(staleSessions, session)
 				}
 			}
 			sessionMutex.RUnlock()
@@ -68,15 +68,36 @@ func checkStaleSessions() {
 				continue
 			}
 
-			for _, spaceId := range staleSessions {
-				ExpireSession(spaceId)
+			for _, session := range staleSessions {
+				if !handleStaleSession(session, now, func(s *Session) bool {
+					return s.Ping()
+				}, func(s *Session) {
+					ExpireSession(s.Id, s)
+				}) {
+					logger.Debug("agent state stale but mux ping succeeded", "space_id", session.Id)
+					continue
+				}
 
-				if result := reconcileAgentLoss(spaceId, "stale", logger); result.retry {
-					queueDisconnectedSpaceReconcileAfter(spaceId, result.retryAfter)
+				if result := reconcileAgentLoss(session.Id, "stale", logger); result.retry {
+					queueDisconnectedSpaceReconcileAfter(session.Id, result.retryAfter)
 				}
 			}
 		}
 	}()
+}
+
+func handleStaleSession(session *Session, now time.Time, ping func(*Session) bool, expire func(*Session)) bool {
+	if session == nil {
+		return false
+	}
+
+	if ping(session) {
+		session.LastStateAt = now
+		return false
+	}
+
+	expire(session)
+	return true
 }
 
 func queueDisconnectedSpaceReconcile(spaceId string) {
@@ -504,8 +525,8 @@ func DisconnectSession(spaceId string, session *Session) {
 	removeSession(spaceId, session, true, true)
 }
 
-func ExpireSession(spaceId string) {
-	removeSession(spaceId, nil, true, false)
+func ExpireSession(spaceId string, session *Session) {
+	removeSession(spaceId, session, true, false)
 }
 
 // GetSession retrieves the agent session associated with the given spaceId.

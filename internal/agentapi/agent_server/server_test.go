@@ -2,6 +2,7 @@ package agent_server
 
 import (
 	"testing"
+	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 )
@@ -194,5 +195,50 @@ func TestShouldMarkHealthyOnRegistration(t *testing.T) {
 				t.Fatalf("shouldMarkHealthyOnRegistration() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestHandleStaleSessionKeepsAliveWhenPingSucceeds(t *testing.T) {
+	session := NewSession("space-stale-ping-ok", "0.0.0")
+	oldLastState := time.Now().UTC().Add(-2 * AGENT_LIVENESS_TIMEOUT)
+	now := time.Now().UTC()
+	session.LastStateAt = oldLastState
+	expired := false
+
+	if got := handleStaleSession(session, now, func(*Session) bool {
+		return true
+	}, func(*Session) {
+		expired = true
+	}); got {
+		t.Fatalf("handleStaleSession expired session when ping succeeded")
+	}
+
+	if expired {
+		t.Fatalf("expire callback called when ping succeeded")
+	}
+	if !session.LastStateAt.Equal(now) {
+		t.Fatalf("LastStateAt = %s, want %s", session.LastStateAt, now)
+	}
+}
+
+func TestHandleStaleSessionExpiresWhenPingFails(t *testing.T) {
+	session := NewSession("space-stale-ping-fail", "0.0.0")
+	oldLastState := time.Now().UTC().Add(-2 * AGENT_LIVENESS_TIMEOUT)
+	session.LastStateAt = oldLastState
+	expired := false
+
+	if got := handleStaleSession(session, time.Now().UTC(), func(*Session) bool {
+		return false
+	}, func(*Session) {
+		expired = true
+	}); !got {
+		t.Fatalf("handleStaleSession did not expire session when ping failed")
+	}
+
+	if !expired {
+		t.Fatalf("expire callback was not called when ping failed")
+	}
+	if !session.LastStateAt.Equal(oldLastState) {
+		t.Fatalf("LastStateAt changed after failed ping")
 	}
 }
