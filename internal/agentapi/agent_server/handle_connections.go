@@ -112,7 +112,6 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create a new session and start listening
 	session = NewSession(registerMsg.SpaceId, registerMsg.Version)
-	applyTemplateCapabilitiesToSession(session, template)
 	clearAgentLossFailures(registerMsg.SpaceId)
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
@@ -254,16 +253,6 @@ func shouldMarkHealthyOnRegistration(template *model.Template) bool {
 			template.HealthCheckType == model.HealthCheckAgent)
 }
 
-func applyTemplateCapabilitiesToSession(session *Session, template *model.Template) {
-	if session == nil || template == nil {
-		return
-	}
-
-	// Terminal support is a template capability, and the first agent state report
-	// may lag behind registration during reconnect churn.
-	session.HasTerminal = template.WithTerminal
-}
-
 func handleAgentSession(stream net.Conn, session *Session) {
 	defer stream.Close()
 
@@ -318,8 +307,9 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.ActivityDistinctPaths = state.ActivityDistinctPaths
 				session.LastActivityAtUnix = state.LastActivityAtUnix
 				now := time.Now().UTC()
-				if !session.LastStateAt.IsZero() {
-					elapsed := now.Sub(session.LastStateAt).Seconds()
+				lastStateAt := session.GetLastStateAt()
+				if !lastStateAt.IsZero() {
+					elapsed := now.Sub(lastStateAt).Seconds()
 					if elapsed > 0 {
 						session.MethodRPS = float64(deltaCounter(state.MethodCallsTotal, session.MethodCallsTotal)) / elapsed
 						session.HTTPRPS = float64(deltaCounter(state.HTTPRequestsTotal, session.HTTPRequestsTotal)) / elapsed
@@ -329,7 +319,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.MethodCallsTotal = state.MethodCallsTotal
 				session.HTTPRequestsTotal = state.HTTPRequestsTotal
 				session.TCPConnectionsTotal = state.TCPConnectionsTotal
-				session.LastStateAt = now
+				session.SetLastStateAt(now)
 				clearAgentLossFailures(session.Id)
 
 				db := database.GetInstance()

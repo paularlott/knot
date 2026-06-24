@@ -15,6 +15,12 @@ const (
 	agentStatePingInterval = 2 * time.Second
 	maxConnectionAttempts  = 5   // Maximum number of connection attempts before giving up
 	logChannelBufferSize   = 200 // Size of the log message channel buffer
+
+	// rediscoverCooldown is how long a server that has been given up on is left
+	// alone before the discovery loop is allowed to dial it again. Without it a
+	// genuinely-down server advertised by its peers would be re-dialled every
+	// state ping (~2s), burning five connection attempts each time.
+	rediscoverCooldown = 30 * time.Second
 )
 
 type AgentClient struct {
@@ -26,6 +32,7 @@ type AgentClient struct {
 	serverListMutex        sync.RWMutex
 	serverList             map[string]*agentServer
 	knownServerAddresses   map[string]bool
+	recentlyGaveUp         map[string]time.Time // address -> time the agent gave up on it (rediscovery cooldown)
 	firstRegistrationMutex sync.Mutex
 	firstRegistration      bool
 	keysMutex              sync.Mutex
@@ -86,6 +93,7 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		spaceId:              spaceId,
 		serverList:           make(map[string]*agentServer),
 		knownServerAddresses: make(map[string]bool),
+		recentlyGaveUp:       make(map[string]time.Time),
 		firstRegistration:    true,
 		lastPublicSSHKeys:    []string{},
 		lastGitHubUsernames:  []string{},
@@ -102,6 +110,52 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		logChannel:           make(chan *msg.LogMessage, logChannelBufferSize),
 		healthy:              true,
 	}
+}
+
+// markRediscoverCooldownLocked records that the agent has just given up on the
+// given addresses so the discovery loop leaves them alone for rediscoverCooldown.
+// The caller must hold serverListMutex for writing.
+func (c *AgentClient) markRediscoverCooldownLocked(addresses ...string) {
+	now := time.Now()
+	for _, address := range addresses {
+		c.recentlyGaveUp[address] = now
+	}
+}
+
+// inRediscoverCooldownLocked reports whether the address was given up on
+// recently enough that it should not be re-dialled yet. The caller must hold
+// serverListMutex (read or write).
+func (c *AgentClient) inRediscoverCooldownLocked(address string) bool {
+	gaveUpAt, ok := c.recentlyGaveUp[address]
+	if !ok {
+		return false
+	}
+	return time.Since(gaveUpAt) < rediscoverCooldown
+}
+
+// clearRediscoverCooldownLocked removes any cooldown entry for the address. The
+// caller must hold serverListMutex for writing.
+func (c *AgentClient) clearRediscoverCooldownLocked(address string) {
+	delete(c.recentlyGaveUp, address)
+}
+
+// discoverNewServersLocked filters advertised endpoints down to the ones that
+// should be dialled as new servers: those not already known and not within the
+// post-give-up cooldown. The caller must hold serverListMutex (read or write).
+func (c *AgentClient) discoverNewServersLocked(endpoints []string) []string {
+	var newServers []string
+	for _, reportedServer := range endpoints {
+		if c.knownServerAddresses[reportedServer] {
+			continue
+		}
+		if c.inRediscoverCooldownLocked(reportedServer) {
+			continue
+		}
+		if !stringInSlice(reportedServer, newServers) {
+			newServers = append(newServers, reportedServer)
+		}
+	}
+	return newServers
 }
 
 func (c *AgentClient) ConnectAndServe() {

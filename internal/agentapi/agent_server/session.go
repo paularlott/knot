@@ -42,6 +42,7 @@ type Session struct {
 	HTTPRPS               float64
 	TCPRPS                float64
 	LastStateAt           time.Time
+	lastStateAtMu         sync.Mutex
 	MuxSession            *yamux.Session
 	logger                logger.Logger
 
@@ -73,6 +74,22 @@ func NewSession(spaceId string, version string) *Session {
 		LogListenersMutex: &sync.RWMutex{},
 		LogListeners:      make(map[string]chan *msg.LogMessage),
 	}
+}
+
+// GetLastStateAt returns the time of the last state report. LastStateAt is
+// written by the agent state handler and the stale-session checker from
+// different goroutines, so all access goes through these helpers.
+func (s *Session) GetLastStateAt() time.Time {
+	s.lastStateAtMu.Lock()
+	defer s.lastStateAtMu.Unlock()
+	return s.LastStateAt
+}
+
+// SetLastStateAt records the time of the last state report.
+func (s *Session) SetLastStateAt(t time.Time) {
+	s.lastStateAtMu.Lock()
+	defer s.lastStateAtMu.Unlock()
+	s.LastStateAt = t
 }
 
 func (s *Session) RegisterLogListener() (string, chan *msg.LogMessage) {

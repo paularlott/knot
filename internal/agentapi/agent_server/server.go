@@ -55,10 +55,14 @@ func checkStaleSessions() {
 
 			sessionMutex.RLock()
 			for _, session := range sessions {
-				if session == nil || session.LastStateAt.IsZero() {
+				if session == nil {
 					continue
 				}
-				if now.Sub(session.LastStateAt) > AGENT_LIVENESS_TIMEOUT {
+				lastStateAt := session.GetLastStateAt()
+				if lastStateAt.IsZero() {
+					continue
+				}
+				if now.Sub(lastStateAt) > AGENT_LIVENESS_TIMEOUT {
 					staleSessions = append(staleSessions, session)
 				}
 			}
@@ -92,7 +96,7 @@ func handleStaleSession(session *Session, now time.Time, ping func(*Session) boo
 	}
 
 	if ping(session) {
-		session.LastStateAt = now
+		session.SetLastStateAt(now)
 		return false
 	}
 

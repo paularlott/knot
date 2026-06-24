@@ -39,6 +39,13 @@ type agentServer struct {
 	reportingConn      net.Conn // Connection for reporting state
 	logConn            net.Conn // Connection for logging messages
 	logChannel         chan *msg.LogMessage
+
+	// aliases is the set of addresses this server contributed to the client's
+	// knownServerAddresses set: its dial address plus any canonical endpoint it
+	// advertised at registration (response.AgentEndpoint). When the agent gives
+	// up on this server these are cleared so the server can be rediscovered if
+	// it comes back online. Guarded by agentClient.serverListMutex.
+	aliases map[string]bool
 }
 
 func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentServer {
@@ -52,9 +59,78 @@ func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentSer
 		cancel:             cancel,
 		muxSession:         nil,
 		logChannel:         make(chan *msg.LogMessage, logChannelBufferSize),
+		aliases:            map[string]bool{address: true},
 	}
 	go s.logWorker()
 	return s
+}
+
+// abandonLocked removes this server from the client's serverList and clears
+// every address it contributed to knownServerAddresses. This lets the server
+// be rediscovered from another peer's advertised endpoints if it comes back
+// online — without it a server that's been given up on stays permanently in
+// knownServerAddresses and the discovery filter in reportState() never
+// re-adds it. The caller must hold agentClient.serverListMutex.
+func (s *agentServer) abandonLocked() {
+	delete(s.agentClient.serverList, s.address)
+	aliases := make([]string, 0, len(s.aliases))
+	for alias := range s.aliases {
+		delete(s.agentClient.knownServerAddresses, alias)
+		aliases = append(aliases, alias)
+	}
+	// Hold a rediscovery cooldown for every address this server answered to so
+	// the discovery loop doesn't immediately re-dial a server we just gave up on.
+	s.agentClient.markRediscoverCooldownLocked(aliases...)
+}
+
+// setConn publishes the freshly dialled connection under serverListMutex so
+// the reader goroutines observe it consistently.
+func (s *agentServer) setConn(conn net.Conn) {
+	s.agentClient.serverListMutex.Lock()
+	s.conn = conn
+	s.agentClient.serverListMutex.Unlock()
+}
+
+// setMux publishes a newly established mux session under serverListMutex.
+// Reader goroutines (reportState, the method server, space ops, ...) read
+// s.muxSession while holding serverListMutex. Writing it here without taking
+// the write lock is a data race: after a reconnect those readers can keep
+// observing the previous, closed session and never resume sending state,
+// which presents as "mux ping succeeds but agent state is stale".
+func (s *agentServer) setMux(mux *yamux.Session) {
+	s.agentClient.serverListMutex.Lock()
+	s.muxSession = mux
+	s.agentClient.serverListMutex.Unlock()
+}
+
+// teardownConnectionsLocked closes and clears all per-connection state. The
+// caller must hold serverListMutex.
+func (s *agentServer) teardownConnectionsLocked() {
+	if s.reportingConn != nil {
+		s.reportingConn.Close()
+		s.reportingConn = nil
+	}
+	if s.logConn != nil {
+		s.logConn.Close()
+		s.logConn = nil
+	}
+	if s.muxSession != nil {
+		s.muxSession.Close()
+		s.muxSession = nil
+	}
+	if s.conn != nil {
+		s.conn.Close()
+		s.conn = nil
+	}
+}
+
+// teardownConnections closes and clears all per-connection state under
+// serverListMutex so readers don't race with the teardown and the next
+// reconnect starts from a clean slate.
+func (s *agentServer) teardownConnections() {
+	s.agentClient.serverListMutex.Lock()
+	s.teardownConnectionsLocked()
+	s.agentClient.serverListMutex.Unlock()
 }
 
 func (s *agentServer) ConnectAndServe() {
@@ -67,9 +143,11 @@ func (s *agentServer) ConnectAndServe() {
 			if s.connectionAttempts >= maxConnectionAttempts {
 				log.Error("maximum connection attempts reached for server , giving up", "server", s.address)
 
-				// Remove the server from the list of servers
+				// Remove the server from the list of servers and clear the addresses
+				// it contributed to knownServerAddresses so it can be rediscovered if
+				// it comes back online.
 				s.agentClient.serverListMutex.Lock()
-				delete(s.agentClient.serverList, s.address)
+				s.abandonLocked()
 
 				// If there's no more servers in the list then inject the default server
 				if len(s.agentClient.serverList) == 0 {
@@ -104,6 +182,7 @@ func (s *agentServer) ConnectAndServe() {
 
 			// Open the connection
 			cfg := config.GetAgentConfig()
+			var conn net.Conn
 			if cfg.TLS.UseTLS {
 				dialer := &tls.Dialer{
 					NetDialer: &net.Dialer{
@@ -113,12 +192,12 @@ func (s *agentServer) ConnectAndServe() {
 						InsecureSkipVerify: cfg.TLS.SkipVerify,
 					},
 				}
-				s.conn, err = dialer.Dial("tcp", serverAddr)
+				conn, err = dialer.Dial("tcp", serverAddr)
 			} else {
 				dialer := &net.Dialer{
 					Timeout: 3 * time.Second,
 				}
-				s.conn, err = dialer.Dial("tcp", serverAddr)
+				conn, err = dialer.Dial("tcp", serverAddr)
 			}
 			if err != nil {
 				log.WithError(err).Error("connecting to server:")
@@ -126,6 +205,7 @@ func (s *agentServer) ConnectAndServe() {
 				s.connectionAttempts++
 				continue
 			}
+			s.setConn(conn)
 
 			// Create and send the register message
 			err = msg.WriteMessage(s.conn, &msg.Register{
@@ -171,6 +251,7 @@ func (s *agentServer) ConnectAndServe() {
 			if response.AgentEndpoint != "" {
 				s.agentClient.serverListMutex.Lock()
 				s.agentClient.knownServerAddresses[response.AgentEndpoint] = true
+				s.aliases[response.AgentEndpoint] = true
 				s.agentClient.serverListMutex.Unlock()
 			}
 
@@ -263,7 +344,7 @@ func (s *agentServer) ConnectAndServe() {
 			}
 
 			// Open the mux session
-			s.muxSession, err = yamux.Client(s.conn, &yamux.Config{
+			mux, err := yamux.Client(s.conn, &yamux.Config{
 				AcceptBacklog:          256,
 				EnableKeepAlive:        true,
 				KeepAliveInterval:      30 * time.Second,
@@ -276,12 +357,12 @@ func (s *agentServer) ConnectAndServe() {
 			})
 			if err != nil {
 				log.WithError(err).Error("creating mux session:")
-				s.conn.Close()
-				s.conn = nil
+				s.teardownConnections()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
 			}
+			s.setMux(mux)
 
 			s.connectionAttempts = 0
 
@@ -297,18 +378,7 @@ func (s *agentServer) ConnectAndServe() {
 				select {
 				case <-s.ctx.Done():
 					log.Info("context cancelled, shutting down connection to server:", "server", s.address)
-					if s.reportingConn != nil {
-						s.reportingConn.Close()
-						s.reportingConn = nil
-					}
-					if s.logConn != nil {
-						s.logConn.Close()
-						s.logConn = nil
-					}
-
-					s.muxSession.Close()
-					s.conn.Close()
-					s.conn = nil
+					s.teardownConnections()
 					return
 				default:
 					// Accept a new connection
@@ -317,22 +387,7 @@ func (s *agentServer) ConnectAndServe() {
 						log.WithError(err).Error("accepting connection:")
 
 						// In the case of errors, destroy the session and start over
-						if s.reportingConn != nil {
-							s.reportingConn.Close()
-							s.reportingConn = nil
-						}
-						if s.logConn != nil {
-							s.logConn.Close()
-							s.logConn = nil
-						}
-						if s.muxSession != nil {
-							s.muxSession.Close()
-							s.muxSession = nil
-						}
-						if s.conn != nil {
-							s.conn.Close()
-							s.conn = nil
-						}
+						s.teardownConnections()
 
 						time.Sleep(connectRetryDelay)
 						goto StartConnectionLoop
@@ -349,29 +404,9 @@ func (s *agentServer) ConnectAndServe() {
 func (s *agentServer) Shutdown() {
 	s.cancel() // Cancel the context to stop the connection loop
 
-	// Close the reporting connection if it exists
-	if s.reportingConn != nil {
-		s.reportingConn.Close()
-		s.reportingConn = nil
-	}
-
-	// Close the log connection if it exists
-	if s.logConn != nil {
-		s.logConn.Close()
-		s.logConn = nil
-	}
-
-	// Close the mux session if it exists
-	if s.muxSession != nil {
-		s.muxSession.Close()
-		s.muxSession = nil
-	}
-
-	// Close the main connection if it exists
-	if s.conn != nil {
-		s.conn.Close()
-		s.conn = nil
-	}
+	// Close and clear the connections. Shutdown is called by AgentClient.Shutdown
+	// while it already holds serverListMutex, so use the locked variant.
+	s.teardownConnectionsLocked()
 }
 
 func (s *agentServer) logWorker() {
@@ -384,6 +419,10 @@ func (s *agentServer) logWorker() {
 				continue
 			}
 
+			// muxSession/logConn are mutated by the connection goroutine under
+			// serverListMutex; read them under the same lock so a reconnect is
+			// observed and we don't race the teardown.
+			s.agentClient.serverListMutex.RLock()
 			if s.muxSession != nil && !s.muxSession.IsClosed() {
 				if s.logConn == nil {
 					log.Debug("opening logging connection to", "agent", s.address)
@@ -392,6 +431,7 @@ func (s *agentServer) logWorker() {
 					s.logConn, err = s.muxSession.Open()
 					if err != nil {
 						log.Error("failed to open mux session for server", "server", s.address)
+						s.agentClient.serverListMutex.RUnlock()
 						continue
 					}
 				}
@@ -405,6 +445,7 @@ func (s *agentServer) logWorker() {
 					}
 				}
 			}
+			s.agentClient.serverListMutex.RUnlock()
 		}
 	}
 }

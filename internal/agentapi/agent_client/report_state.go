@@ -149,7 +149,7 @@ func (c *AgentClient) reportState() {
 			"Disk Limit", diskLimitBytes,
 		)
 
-		var newServers []string
+		var reportedEndpoints []string
 
 		// Report the state to all servers
 		c.serverListMutex.RLock()
@@ -175,17 +175,13 @@ func (c *AgentClient) reportState() {
 					server.reportingConn.Close()
 					server.reportingConn = nil
 				} else {
-					// Add any new servers to the new servers list
-					for _, reportedServer := range reply.Endpoints {
-						if !c.knownServerAddresses[reportedServer] {
-							if !stringInSlice(reportedServer, newServers) {
-								newServers = append(newServers, reportedServer)
-							}
-						}
-					}
+					reportedEndpoints = append(reportedEndpoints, reply.Endpoints...)
 				}
 			}
 		}
+		// Filter advertised endpoints to those we should dial (not known, not in
+		// the post-give-up cooldown).
+		newServers := c.discoverNewServersLocked(reportedEndpoints)
 		c.serverListMutex.RUnlock()
 
 		// If we have new servers, update the server list
@@ -196,6 +192,12 @@ func (c *AgentClient) reportState() {
 				if c.knownServerAddresses[newServer] {
 					continue
 				}
+				// Re-check under the write lock in case the address entered the
+				// cooldown between releasing the read lock and acquiring this one.
+				if c.inRediscoverCooldownLocked(newServer) {
+					continue
+				}
+				c.clearRediscoverCooldownLocked(newServer)
 				connection := NewAgentServer(newServer, c.spaceId, c)
 				c.serverList[connection.address] = connection
 				c.knownServerAddresses[connection.address] = true
