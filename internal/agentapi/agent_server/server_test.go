@@ -198,6 +198,27 @@ func TestShouldMarkHealthyOnRegistration(t *testing.T) {
 	}
 }
 
+func TestApplyTemplateCapabilitiesToSessionSeedsTerminal(t *testing.T) {
+	session := NewSession("space-template-capability", "0.0.0")
+
+	applyTemplateCapabilitiesToSession(session, &model.Template{WithTerminal: true})
+
+	if !session.HasTerminal {
+		t.Fatalf("terminal capability was not seeded from template")
+	}
+}
+
+func TestApplyTemplateCapabilitiesToSessionIgnoresNil(t *testing.T) {
+	applyTemplateCapabilitiesToSession(nil, &model.Template{WithTerminal: true})
+
+	session := NewSession("space-template-capability-nil", "0.0.0")
+	applyTemplateCapabilitiesToSession(session, nil)
+
+	if session.HasTerminal {
+		t.Fatalf("nil template should not set terminal capability")
+	}
+}
+
 func TestHandleStaleSessionKeepsAliveWhenPingSucceeds(t *testing.T) {
 	session := NewSession("space-stale-ping-ok", "0.0.0")
 	oldLastState := time.Now().UTC().Add(-2 * AGENT_LIVENESS_TIMEOUT)

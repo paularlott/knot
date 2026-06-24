@@ -112,6 +112,7 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create a new session and start listening
 	session = NewSession(registerMsg.SpaceId, registerMsg.Version)
+	applyTemplateCapabilitiesToSession(session, template)
 	clearAgentLossFailures(registerMsg.SpaceId)
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
@@ -251,6 +252,16 @@ func shouldMarkHealthyOnRegistration(template *model.Template) bool {
 		(template.HealthCheckType == "" ||
 			template.HealthCheckType == model.HealthCheckNone ||
 			template.HealthCheckType == model.HealthCheckAgent)
+}
+
+func applyTemplateCapabilitiesToSession(session *Session, template *model.Template) {
+	if session == nil || template == nil {
+		return
+	}
+
+	// Terminal support is a template capability, and the first agent state report
+	// may lag behind registration during reconnect churn.
+	session.HasTerminal = template.WithTerminal
 }
 
 func handleAgentSession(stream net.Conn, session *Session) {

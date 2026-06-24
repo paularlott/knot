@@ -152,8 +152,9 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 			return
 		}
 
-		// If agent accepting SSH keys then update
-		if agentState.SSHPort > 0 {
+		// If the template supports SSH, send key updates even before the first
+		// state report has populated SSHPort after a reconnect.
+		if shouldSendAgentSSHUpdates(template, agentState) {
 			keys := []string{}
 			usernames := []string{}
 			// Add the owning user's keys. The private key is owner-only and is not copied from shared users.
@@ -197,6 +198,14 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 			}
 		}
 	}
+}
+
+func shouldSendAgentSSHUpdates(template *model.Template, agentState *agent_server.Session) bool {
+	if template == nil || agentState == nil {
+		return false
+	}
+
+	return template.WithSSH || agentState.SSHPort > 0
 }
 
 // For disabled users ensure all spaces are stopped, for enabled users update the SSH key on the agents
