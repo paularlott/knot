@@ -41,4 +41,7 @@ const (
 	PoolDefinitionFullSyncMsg
 	PoolDefinitionGossipMsg
 	PoolDrainMsg
+	EventSinkFullSyncMsg
+	EventSinkGossipMsg
+	EventBroadcastMsg
 )

@@ -136,6 +136,14 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/spaces/{space_id}/execute-script", middleware.ApiAuth(HandleExecuteScript))
 	router.HandleFunc("GET /api/spaces/{space_id}/execute-script-stream", middleware.ApiAuth(HandleExecuteScriptStream))
 
+	// Event Sinks
+	router.HandleFunc("GET /api/event-sinks", middleware.ApiAuth(HandleGetEventSinks))
+	router.HandleFunc("GET /api/event-sinks/{event_sink_id}", middleware.ApiAuth(HandleGetEventSink))
+	router.HandleFunc("POST /api/event-sinks", middleware.ApiAuth(HandleCreateEventSink))
+	router.HandleFunc("PUT /api/event-sinks/{event_sink_id}", middleware.ApiAuth(HandleUpdateEventSink))
+	router.HandleFunc("DELETE /api/event-sinks/{event_sink_id}", middleware.ApiAuth(HandleDeleteEventSink))
+	router.HandleFunc("POST /api/spaces/{space_id}/emit-event", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleEmitEvent)))
+
 	// Skills
 	router.HandleFunc("GET /api/skill", middleware.ApiAuth(HandleGetSkills))
 	router.HandleFunc("GET /api/skill/search", middleware.ApiAuth(HandleSearchSkills))

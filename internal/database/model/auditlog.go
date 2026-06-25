@@ -89,6 +89,14 @@ const (
 	AuditEventStackStop    = "Stack Stop"
 	AuditEventStackRestart = "Stack Restart"
 	AuditEventStackDelete  = "Stack Delete"
+
+	// Event Sinks
+	AuditEventEventSinkCreate         = "Event Sink Create"
+	AuditEventEventSinkUpdate         = "Event Sink Update"
+	AuditEventEventSinkDelete         = "Event Sink Delete"
+	AuditEventEventSinkDeliveryFailed = "Event Sink Delivery Failed"
+	AuditEventEventSinkScriptFailed   = "Event Sink Script Failed"
+	AuditEventEventSinkDropped        = "Event Sink Dropped"
 )
 
 type AuditLogFilter struct {

@@ -221,3 +221,17 @@ func PublishSpaceDeleted(spaceId, userId string) {
 		},
 	})
 }
+
+func PublishEventSinksChanged(sinkId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventEventSinksChanged,
+		Payload: ResourcePayload{Id: sinkId},
+	})
+}
+
+func PublishEventSinksDeleted(sinkId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventEventSinksDeleted,
+		Payload: ResourcePayload{Id: sinkId},
+	})
+}

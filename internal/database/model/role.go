@@ -48,6 +48,8 @@ const (
 	PermissionUseStackDefinitions              // Can create instances from stack definitions
 	PermissionUseMethods                       // Can use shared space methods
 	PermissionUsePools                         // Can use space pools
+	PermissionManageEvents                     // Can Manage Own Event Sinks
+	PermissionManageGlobalEvents               // Can Manage Global Event Sinks
 )
 
 type PermissionName struct {
@@ -78,6 +80,9 @@ var PermissionNames = []PermissionName{
 	{PermissionExecuteScripts, "Scripting", "Execute System Scripts"},
 	{PermissionManageOwnScripts, "Scripting", "Manage Own Scripts"},
 	{PermissionExecuteOwnScripts, "Scripting", "Execute Own Scripts"},
+
+	{PermissionManageEvents, "Events", "Manage Own Event Sinks"},
+	{PermissionManageGlobalEvents, "Events", "Manage Global Event Sinks"},
 
 	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
 	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
@@ -174,6 +179,8 @@ func SetRoleCache(roles []*Role) {
 			PermissionUseStackDefinitions,
 			PermissionUseMethods,
 			PermissionUsePools,
+			PermissionManageEvents,
+			PermissionManageGlobalEvents,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

@@ -415,6 +415,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 		}
 
 		// Delete the space
+		oldSpace := *space
 		space.IsDeleted = true
 		space.Name = space.Id
 		space.DependsOn = []string{}
@@ -424,6 +425,8 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			logger.WithError(err).Error("delete space")
 			return
 		}
+
+		service.CheckSpaceLifecycleEvents(&oldSpace, space)
 
 		if err := service.GetSpaceService().RemoveDependencyReferences(space.Id, space.UserId); err != nil {
 			logger.WithError(err).Error("delete space dependencies")
@@ -605,7 +608,7 @@ func executeScript(space *model.Space, script *model.Script, waitForAgent bool) 
 		return nil
 	}
 
-	log.Debug("executing script", "script_id", script.Id, "space_id", space.Id)
+	log.Trace("executing script", "script_id", script.Id, "space_id", space.Id)
 
 	// Startup and system scripts run without timeout
 	execMsg := &msg.ExecuteScriptMessage{
@@ -627,6 +630,6 @@ func executeScript(space *model.Space, script *model.Script, waitForAgent bool) 
 		return err
 	}
 
-	log.Debug("script completed", "script_id", script.Id, "space_id", space.Id)
+	log.Trace("script completed", "script_id", script.Id, "space_id", space.Id)
 	return nil
 }

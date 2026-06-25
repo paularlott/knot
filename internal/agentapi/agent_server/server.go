@@ -185,7 +185,7 @@ func reconcileAgentLoss(spaceId, reason string, logger logger.Logger) agentLossR
 	}
 
 	failures := recordAgentLossFailure(space.Id)
-	health.Set(space.Id, false, failures)
+	service.SetSpaceHealth(space.Id, false, failures)
 
 	refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
 	if err != nil {
@@ -235,6 +235,7 @@ func restartAgentLostSpace(space *model.Space, template *model.Template, runtime
 		return err
 	}
 
+	oldSpace := *space
 	space.IsPending = false
 	space.IsDeployed = false
 	space.UpdatedAt = hlc.Now()
@@ -245,6 +246,7 @@ func restartAgentLostSpace(space *model.Space, template *model.Template, runtime
 		transport.GossipSpace(space)
 	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
+	service.CheckSpaceLifecycleEvents(&oldSpace, space)
 
 	return service.GetContainerService().StartSpace(space, template, user)
 }
@@ -353,7 +355,7 @@ func checkSchedules() {
 
 func QueueSpaceReconcile(spaceId string) {
 	queueDisconnectedSpaceReconcile(spaceId)
-	health.Set(spaceId, false, 0)
+	service.SetSpaceHealth(spaceId, false, 0)
 }
 
 func shouldRestartOnAgentLoss(template *model.Template) bool {
@@ -474,7 +476,7 @@ func updateAgentHealthConfigForTemplate(template *model.Template) {
 
 		clearAgentLossFailures(space.Id)
 		if template.HealthCheckType == "" || template.HealthCheckType == model.HealthCheckNone || template.HealthCheckType == model.HealthCheckAgent {
-			health.Set(space.Id, true, 0)
+			service.SetSpaceHealth(space.Id, true, 0)
 			sse.PublishSpaceChanged(space.Id, space.UserId)
 		}
 	}
@@ -511,7 +513,7 @@ func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueR
 		}
 
 		if markUnhealthy {
-			health.Set(spaceId, false, 0)
+			service.SetSpaceHealth(spaceId, false, 0)
 		} else {
 			health.Delete(spaceId)
 		}

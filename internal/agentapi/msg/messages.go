@@ -44,6 +44,7 @@ const (
 	CmdCallMethodBatch
 	CmdUnregisterMethods
 	CmdUpdateHealthConfig
+	CmdEvent
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

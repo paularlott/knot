@@ -139,6 +139,8 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
+	CheckSpaceLifecycleEvents(nil, space)
+
 	// Gossip the space and notify SSE clients
 	if transport := GetTransport(); transport != nil {
 		transport.GossipSpace(space)
@@ -343,6 +345,7 @@ func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 	}
 
 	// Mark as deleted
+	oldSpace := *space
 	space.IsDeleted = true
 	space.Name = space.Id
 	space.DependsOn = []string{}
@@ -353,6 +356,8 @@ func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 	if err := db.SaveSpace(space, []string{"IsDeleted", "Name", "DependsOn", "UpdatedAt"}); err != nil {
 		return fmt.Errorf("failed to delete space: %v", err)
 	}
+
+	CheckSpaceLifecycleEvents(&oldSpace, space)
 
 	if err := s.RemoveDependencyReferences(space.Id, space.UserId); err != nil {
 		return fmt.Errorf("failed to clean dependency references: %v", err)

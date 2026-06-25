@@ -386,6 +386,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 		// Job startup can include large image pulls on the client, so keep watching longer.
 		ctx, cancel := context.WithTimeout(context.Background(), jobMonitorTimeout)
 		defer cancel()
+		oldSpace := *space
 
 		for {
 			// Check if context has been cancelled
@@ -436,6 +437,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 		}
 		service.GetTransport().GossipSpace(space)
 		sse.PublishSpaceChanged(space.Id, space.UserId)
+		service.CheckSpaceLifecycleEvents(&oldSpace, space)
 
 		if onDone != nil {
 			onDone()

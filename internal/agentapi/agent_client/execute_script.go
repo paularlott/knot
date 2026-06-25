@@ -22,7 +22,7 @@ func SetAgentClient(client *AgentClient) {
 }
 
 func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
-	log.Debug("executing script", "is_system_call", execMsg.IsSystemCall)
+	log.Trace("executing script", "is_system_call", execMsg.IsSystemCall)
 
 	// Check if user scripts are disabled (system scripts always allowed)
 	if !execMsg.IsSystemCall {

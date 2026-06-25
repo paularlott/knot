@@ -17,7 +17,7 @@ import (
 )
 
 func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamMessage) {
-	log.Debug("executing script stream")
+	log.Trace("executing script stream")
 
 	cfg := config.GetAgentConfig()
 	if cfg.DisableSpaceIO {

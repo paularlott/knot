@@ -1220,6 +1220,84 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "knot.event",
+    description: "Knot event functions",
+    functions: [
+      {
+        name: "emit",
+        signature: "emit(type, payload={})",
+        description: "Emit a custom event from this space. The 'custom.' prefix is added automatically.",
+        returns: "bool - True if event was accepted",
+      },
+      {
+        name: "get_string",
+        signature: "get_string(name, default='')",
+        description: "Get a payload parameter as string (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "get_int",
+        signature: "get_int(name, default=0)",
+        description: "Get a payload parameter as integer (sink scripts only)",
+        returns: "int",
+      },
+      {
+        name: "get_bool",
+        signature: "get_bool(name, default=False)",
+        description: "Get a payload parameter as boolean (sink scripts only)",
+        returns: "bool",
+      },
+      {
+        name: "get_list",
+        signature: "get_list(name, default=[])",
+        description: "Get a payload parameter as list (sink scripts only)",
+        returns: "list",
+      },
+      {
+        name: "get_dict",
+        signature: "get_dict(name, default={})",
+        description: "Get a payload parameter as dict (sink scripts only)",
+        returns: "dict",
+      },
+      {
+        name: "type",
+        signature: "type()",
+        description: "Get the event type string (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "id",
+        signature: "id()",
+        description: "Get the event UUIDv7 id (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "ts",
+        signature: "ts()",
+        description: "Get the event HLC timestamp string (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "space",
+        signature: "space()",
+        description: "Get the source space dict (sink scripts only)",
+        returns: "dict",
+      },
+      {
+        name: "actor",
+        signature: "actor()",
+        description: "Get the actor dict with id, username, kind (sink scripts only)",
+        returns: "dict",
+      },
+      {
+        name: "custom",
+        signature: "custom()",
+        description: "Get custom fields dict (sink scripts only)",
+        returns: "dict",
+      },
+    ],
+  },
+  {
     module: "knot.healthcheck",
     description: "Health check functions for space monitoring (agent-side only)",
     functions: [
@@ -4675,25 +4753,117 @@ const scriptLibraries = [
   },
   {
     module: "hashlib",
-    description: "Cryptographic hashing",
+    description: "Cryptographic hashing (returns hash objects)",
     functions: [
       {
         name: "sha256",
-        signature: "sha256(string)",
-        description: "Compute SHA-256 hash",
-        returns: "str - Hex digest",
+        signature: "sha256(data=None)",
+        description: "Create a SHA-256 hash object",
+        returns: "Hash",
       },
       {
         name: "sha1",
-        signature: "sha1(string)",
-        description: "Compute SHA-1 hash",
-        returns: "str - Hex digest",
+        signature: "sha1(data=None)",
+        description: "Create a SHA-1 hash object",
+        returns: "Hash",
       },
       {
         name: "md5",
-        signature: "md5(string)",
-        description: "Compute MD5 hash",
-        returns: "str - Hex digest",
+        signature: "md5(data=None)",
+        description: "Create an MD5 hash object",
+        returns: "Hash",
+      },
+    ],
+    classes: [
+      {
+        name: "Hash",
+        description:
+          "Hash object with name, digest_size and block_size fields. Call hexdigest() for the result.",
+        methods: [
+          {
+            name: "update",
+            signature: "update(data)",
+            description: "Feed more data into the hash",
+            returns: "None",
+          },
+          {
+            name: "hexdigest",
+            signature: "hexdigest()",
+            description: "Return digest as lowercase hex string",
+            returns: "str",
+          },
+          {
+            name: "digest",
+            signature: "digest()",
+            description: "Return raw digest as a byte string",
+            returns: "str",
+          },
+          {
+            name: "copy",
+            signature: "copy()",
+            description: "Return an independent copy of the hash object",
+            returns: "Hash",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "hmac",
+    description:
+      "Keyed-Hashing for Message Authentication (webhook signature verification)",
+    functions: [
+      {
+        name: "new",
+        signature: "new(key, msg=None, digestmod=None)",
+        description:
+          "Create an HMAC object. digestmod: 'sha256' (default), 'sha1', 'md5', or hashlib.sha256. Strings are used as byte buffers.",
+        returns: "HMAC",
+      },
+      {
+        name: "digest",
+        signature: "digest(key, msg, digestmod)",
+        description: "One-shot HMAC, returns raw digest byte string",
+        returns: "str",
+      },
+      {
+        name: "compare_digest",
+        signature: "compare_digest(a, b)",
+        description: "Constant-time string comparison for signature verification",
+        returns: "bool",
+      },
+    ],
+    classes: [
+      {
+        name: "HMAC",
+        description:
+          "HMAC object with name, digest_size and block_size fields",
+        methods: [
+          {
+            name: "update",
+            signature: "update(data)",
+            description: "Feed more data into the message",
+            returns: "None",
+          },
+          {
+            name: "hexdigest",
+            signature: "hexdigest()",
+            description: "Return MAC as lowercase hex string",
+            returns: "str",
+          },
+          {
+            name: "digest",
+            signature: "digest()",
+            description: "Return raw MAC as a byte string",
+            returns: "str",
+          },
+          {
+            name: "copy",
+            signature: "copy()",
+            description: "Return an independent copy of the HMAC object",
+            returns: "HMAC",
+          },
+        ],
       },
     ],
   },

@@ -80,6 +80,12 @@ type DbDriver interface {
 	GetScriptByNameAndUser(name string, userId string) (*model.Script, error)
 	GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error)
 
+	// Event Sinks
+	SaveEventSink(sink *model.EventSink, updateFields []string) error
+	DeleteEventSink(sink *model.EventSink) error
+	GetEventSink(id string) (*model.EventSink, error)
+	GetEventSinks() ([]*model.EventSink, error)
+
 	// Skills
 	SaveSkill(skill *model.Skill, updateFields []string) error
 	DeleteSkill(skill *model.Skill) error
