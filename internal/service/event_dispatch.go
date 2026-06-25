@@ -575,12 +575,16 @@ func SetSpaceHealth(spaceId string, healthy bool, failures uint32) {
 
 	if healthy {
 		RaiseSystemEvent("space.healthy", space.Id, space.UserId, map[string]interface{}{
+			"space_name": space.Name,
+			"space_id":   space.Id,
 			"previous":   "unhealthy",
 			"current":    "healthy",
 			"checked_at": time.Now().UTC().Format(time.RFC3339Nano),
 		})
 	} else {
 		RaiseSystemEvent("space.unhealthy", space.Id, space.UserId, map[string]interface{}{
+			"space_name":           space.Name,
+			"space_id":             space.Id,
 			"previous":             "healthy",
 			"current":              "unhealthy",
 			"consecutive_failures": failures,
@@ -633,6 +637,24 @@ func (d *EventDispatcher) envelopeToRenderData(env *EventEnvelope) *model.EventR
 	}
 
 	return data
+}
+
+func resolveSpaceURLs(space *model.Space) map[string]string {
+	db := database.GetInstance()
+
+	username := ""
+	if user, err := db.GetUser(space.UserId); err == nil && user != nil {
+		username = user.Username
+	}
+
+	poolName := ""
+	if space.PoolId != "" {
+		if pool, err := db.GetPoolDefinition(space.PoolId); err == nil && pool != nil && !pool.IsDeleted {
+			poolName = pool.Name
+		}
+	}
+
+	return buildPortURLs(space, username, poolName)
 }
 
 func buildPortURLs(space *model.Space, username, poolName string) map[string]string {

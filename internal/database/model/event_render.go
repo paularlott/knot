@@ -32,16 +32,6 @@ const DefaultWebhookBodyTemplate = `{
   "event_id":   "${{ .event.id }}",
   "event_type": "${{ .event.type }}",
   "event_ts":   "${{ .event.ts }}",
-  "space": {
-    "id":   "${{ .space.id }}",
-    "name": "${{ .space.name }}",
-    "urls": ${{ json .space.urls }}
-  },
-  "actor": {
-    "user_id":  "${{ .actor.id }}",
-    "username": "${{ .actor.username }}",
-    "kind":     "${{ .actor.kind }}"
-  },
   "data": ${{ json .event.data }}
 }`
 
