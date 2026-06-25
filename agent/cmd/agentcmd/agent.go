@@ -230,10 +230,11 @@ func buildMethodsScriptRunner(agentClient *agent_client.AgentClient) func(conten
 		if agentClient == nil {
 			return errors.New("agent is not connected")
 		}
-		env, err := service.NewRemoteScriptlingEnv(args, nil, "", nil, true)
+		env, cleanup, err := service.NewRemoteScriptlingEnv(args, nil, "", nil, true)
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)
 		}
+		defer cleanup()
 
 		result, err := env.EvalWithContext(context.Background(), content)
 		if err != nil {

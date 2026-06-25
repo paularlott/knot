@@ -86,12 +86,13 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 	sw := &stdioWriter{w: stream}
 
 	customLogger := NewAgentClientLogger(agentClient, "script")
-	env, err := service.NewRemoteStreamingScriptlingEnv(execMsg.Arguments, client, userId, customLogger, sw, stdinR)
+	env, cleanup, err := service.NewRemoteStreamingScriptlingEnv(execMsg.Arguments, client, userId, customLogger, sw, stdinR)
 	if err != nil {
 		log.WithError(err).Error("failed to create scriptling environment")
 		stream.Close()
 		return
 	}
+	defer cleanup()
 
 	registerConsoleStub(env, stream, controlIn)
 	agent.RegisterInteract(env)

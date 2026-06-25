@@ -29,6 +29,7 @@ import (
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
+	"github.com/paularlott/scriptling/plugin"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
@@ -261,11 +262,21 @@ func createServerAIClient(client *apiclient.ApiClient, user *model.User) ai.Clie
 // The AI client connects to the server's OpenAI-compatible endpoint via createServerAIClient.
 // The MCPServerContext middleware handles per-user tool discovery and execution when
 // requests flow through the endpoint.
-// Returns the environment and the MCP library instance for result retrieval
-func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]object.Object, user *model.User) (*scriptling.Scriptling, *knotscriptling.MCPLibrary, error) {
+// Returns the environment, the MCP library instance for result retrieval, and a cleanup
+// function that must be called (e.g. via defer) once the script has finished executing
+// to release the per-execution plugin scope. The plugin scope is HTTP-only: scripts may
+// load remote HTTP(S) plugin endpoints via scriptling.plugin.load() but cannot spawn
+// local executables, and plugins loaded by one execution are isolated from every other.
+func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]object.Object, user *model.User) (*scriptling.Scriptling, *knotscriptling.MCPLibrary, func(), error) {
 	env := scriptling.New()
 	env.EnableOutputCapture()
 	registerBaseLibraries(env, nil)
+
+	// Register a per-execution plugin scope (HTTP-only) so scripts can call
+	// scriptling.plugin.load() for remote HTTP(S) plugins without leaking
+	// plugins between users/executions or spawning local executables.
+	pluginScope := registerPluginScope(env, plugin.TransportHTTP)
+	cleanup := func() { _ = pluginScope.Close() }
 
 	// Create AI client that connects to the server's OpenAI endpoint
 	aiClient := createServerAIClient(client, user)
@@ -287,17 +298,24 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]objec
 		))
 	}
 
-	return env, mcpLib, nil
+	return env, mcpLib, cleanup, nil
 }
 
 // NewHealthCheckScriptlingEnv creates a minimal scriptling environment for health check scripts.
 // Registers the knot.healthcheck built-in library only — no system access, no API client.
-func NewHealthCheckScriptlingEnv() (*scriptling.Scriptling, error) {
+// Returns the environment and a cleanup function that must be called (e.g. via defer)
+// once the script has finished executing to release the per-execution plugin scope.
+// The plugin scope is HTTP-only: health checks may probe remote HTTP(S) plugin
+// endpoints but cannot spawn local executables.
+func NewHealthCheckScriptlingEnv() (*scriptling.Scriptling, func(), error) {
 	env := scriptling.New()
 	env.EnableOutputCapture()
 	stdlib.RegisterAll(env)
 	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
-	return env, nil
+
+	pluginScope := registerPluginScope(env, plugin.TransportHTTP)
+	cleanup := func() { _ = pluginScope.Close() }
+	return env, cleanup, nil
 }
 
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
@@ -305,7 +323,11 @@ func NewHealthCheckScriptlingEnv() (*scriptling.Scriptling, error) {
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
 // Output: Captured and returned for user scripts, discarded for system scripts (startup/shutdown)
-func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger, isSystemCall bool) (*scriptling.Scriptling, error) {
+// Returns the environment and a cleanup function that must be called (e.g. via defer)
+// once the script has finished executing to release the per-execution plugin scope. The
+// plugin scope allows both HTTP(S) and stdio executable plugins (space-side scripts already
+// have subprocess access) but plugins loaded by one execution are isolated from every other.
+func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger, isSystemCall bool) (*scriptling.Scriptling, func(), error) {
 	env := scriptling.New()
 	if isSystemCall {
 		env.SetOutputWriter(io.Discard)
@@ -318,9 +340,12 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
 
+	pluginScope := registerPluginScope(env, plugin.TransportAll)
+	cleanup := func() { _ = pluginScope.Close() }
+
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, argv, nil)
-	return env, nil
+	return env, cleanup, nil
 }
 
 // NewRemoteStreamingScriptlingEnv creates a scriptling environment for streaming remote execution
@@ -329,7 +354,9 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
 // Output: Connected to provided writer, input from provided reader
-func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger, output io.Writer, input io.Reader) (*scriptling.Scriptling, error) {
+// Returns the environment and a cleanup function that must be called (e.g. via defer)
+// once the script has finished executing to release the per-execution plugin scope.
+func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger, output io.Writer, input io.Reader) (*scriptling.Scriptling, func(), error) {
 	env := scriptling.New()
 	env.SetOutputWriter(output)
 	env.SetInputReader(input)
@@ -353,10 +380,13 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
 
+	pluginScope := registerPluginScope(env, plugin.TransportAll)
+	cleanup := func() { _ = pluginScope.Close() }
+
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, argv, input)
 	if input != nil {
 		env.SetObjectVar("input", extlibs.NewInputBuiltin(input))
 	}
-	return env, nil
+	return env, cleanup, nil
 }

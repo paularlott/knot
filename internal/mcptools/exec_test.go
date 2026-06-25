@@ -87,10 +87,11 @@ func runTool(t *testing.T, toolName string, serverURL string, params map[string]
 	}
 
 	// Create the scriptling env exactly as the MCP server would
-	env, _, err := service.NewMCPScriptlingEnv(client, mcpParams, user)
+	env, _, cleanup, err := service.NewMCPScriptlingEnv(client, mcpParams, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv failed: %v", err)
 	}
+	defer cleanup()
 
 	// Load tool script
 	tool, ok := GetTool(toolName)
@@ -316,10 +317,11 @@ func TestExecute_UrlEncoding(t *testing.T) {
 		t.Fatalf("apiclient.NewClient failed: %v", err)
 	}
 	user := &model.User{Id: "u1", Username: "tester", Email: "tester@example.com"}
-	env, _, err := service.NewMCPScriptlingEnv(client, nil, user)
+	env, _, cleanup, err := service.NewMCPScriptlingEnv(client, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv failed: %v", err)
 	}
+	defer cleanup()
 
 	// Verify urllib.parse.quote produces expected encoded output
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

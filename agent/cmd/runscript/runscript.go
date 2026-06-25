@@ -94,10 +94,11 @@ var RunScriptCmd = &cli.Command{
 			return nil
 		})
 
-		env, err := service.NewRemoteStreamingScriptlingEnv(argv, client, userId, nil, os.Stdout, os.Stdin)
+		env, cleanup, err := service.NewRemoteStreamingScriptlingEnv(argv, client, userId, nil, os.Stdout, os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)
 		}
+		defer cleanup()
 
 		result, err := env.EvalWithContext(ctx, content)
 

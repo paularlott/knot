@@ -62,6 +62,7 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	}
 
 	var env *scriptling.Scriptling
+	var cleanup func()
 	var err error
 
 	// Use custom logger when agent client is available (for space startup and run-script commands)
@@ -69,7 +70,10 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	if agentClient != nil {
 		customLogger = NewAgentClientLogger(agentClient, "script")
 	}
-	env, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger, execMsg.IsSystemCall)
+	env, cleanup, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger, execMsg.IsSystemCall)
+	if cleanup != nil {
+		defer cleanup()
+	}
 
 	if err != nil {
 		response := msg.ExecuteScriptResponse{

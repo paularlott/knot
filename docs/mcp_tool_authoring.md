@@ -391,6 +391,74 @@ Additional context may be provided in future versions:
 - Space context (if applicable)
 - Execution environment details
 
+## Execution Environments & Plugin Scopes
+
+Knot runs scripts in several environments. Each script execution gets its own
+**isolated plugin scope**, so any plugin a script loads via
+`scriptling.plugin.load()` is invisible to other users and other executions —
+plugins cannot leak across boundaries.
+
+| Environment                | Where it runs | Plugin transports allowed        |
+| -------------------------- | ------------- | -------------------------------- |
+| MCP tool (`tool` script)   | knot server   | **HTTP(S) only**                 |
+| Event sink script          | knot server   | **HTTP(S) only**                 |
+| Health check script        | knot server   | **HTTP(S) only**                 |
+| Remote / streaming script  | in a space    | HTTP(S) **and** stdio executables |
+
+Server-side environments are restricted to HTTP(S) plugin endpoints: a script
+may connect to a remote JSON-RPC service, but **cannot spawn local executables**
+on the knot server. Space-side environments already have subprocess access, so
+both transports are available there. Attempting to load a blocked transport
+raises an error.
+
+## Dynamic Plugin Libraries (`scriptling.plugin`)
+
+The `scriptling.plugin` library lets a script discover, load, and call external
+JSON-RPC plugin peers at runtime. A peer is either a stdio executable or an
+HTTP(S) endpoint and is registered under a library name in the `plugin.*`
+namespace.
+
+```python
+import scriptling.plugin
+
+# Connect to a remote HTTP(S) plugin endpoint (works in every environment)
+scriptling.plugin.load("weather", "https://plugins.example.com/jsonrpc", scriptling=True)
+
+# Handshaken (scriptling=True) peers are importable like any library
+import plugin.weather
+report = plugin.weather.forecast("London")
+
+# Or call functions dynamically without importing
+data = scriptling.plugin.call_function("plugin.weather", "forecast", "London")
+
+# Inspect what is available in this scope
+for meta in scriptling.plugin.list():
+    print(meta["name"], meta["version"])
+```
+
+### Function Reference
+
+- `load(name, path, scriptling=False, args=None, insecure_skip_tls=False, headers=None)` — register a JSON-RPC peer.
+  - `name` is normalised into the `plugin.*` namespace (e.g. `"widgets"` → `"plugin.widgets"`).
+  - `path` is a filesystem executable (stdio) or an `http://` / `https://` endpoint.
+  - `scriptling=True` performs the plugin handshake; the peer then becomes an importable `plugin.*` library.
+  - `args` passes command-line arguments to an executable (ignored for HTTP).
+  - `insecure_skip_tls=True` skips certificate verification (dev/self-signed only).
+  - `headers` is a dict of extra HTTP headers sent with every request.
+  - Returns the normalised library name. Subject to the environment's transport policy (see table above).
+- `unload(name)` — close a peer and remove its proxy library.
+- `list()` — metadata for all plugins visible to this scope (name, version, description, transport, functions, classes, constants).
+- `describe(name)` — metadata for a single loaded plugin.
+- `call_function(library, name, *args, **kwargs)` — call a plugin function. Supports function/callback arguments on handshaken peers.
+- `call_method(obj, name, *args, **kwargs)` — call a method on a plugin object returned by a plugin class constructor.
+- `batch_call(library, calls)` — call multiple functions on one plugin in a single JSON-RPC batch. `calls` is a list of `{"name": str, "args": list, "kwargs": dict}`; results come back in order. Callback arguments are not supported in batch mode.
+- `release(obj)` — explicitly release a remote plugin object, freeing its server-side resources. Also runs automatically when the object is garbage collected.
+
+> **Scope lifecycle:** plugins loaded during a single execution are released
+> automatically when that execution finishes. You do not need to call
+> `unload()` for cleanup — it exists for the rare case where a script wants to
+> drop a peer mid-run.
+
 ## TOML Schema Reference
 
 ### Basic Structure

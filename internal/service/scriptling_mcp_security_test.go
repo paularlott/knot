@@ -17,10 +17,11 @@ func TestMCPScriptlingEnv_CannotImportSubprocess(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	// Try to import subprocess - should fail
 	scriptContent := `
@@ -47,10 +48,11 @@ func TestMCPScriptlingEnv_CannotImportOS(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	// Try to import os - should fail
 	scriptContent := `
@@ -77,10 +79,11 @@ func TestMCPScriptlingEnv_CannotImportPathlib(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	// Try to import pathlib - should fail
 	scriptContent := `
@@ -108,10 +111,11 @@ func TestMCPScriptlingEnv_CannotImportThreads(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	// Try to import threads - should fail
 	scriptContent := `
@@ -140,10 +144,11 @@ func TestMCPScriptlingEnv_CannotImportSys(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	// Try to import sys - should fail
 	scriptContent := `
@@ -170,10 +175,11 @@ func TestMCPScriptlingEnv_CanImportSafeLibraries(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	safeImports := []struct {
 		name   string
@@ -258,10 +264,11 @@ result = "wait_for_imported"
 // TestRemoteScriptlingEnv_CanImportSystemLibraries verifies that remote environment
 // CAN import system libraries (contrast with MCP).
 func TestRemoteScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
-	env, err := NewRemoteScriptlingEnv(nil, nil, "", nil, false)
+	env, cleanup, err := NewRemoteScriptlingEnv(nil, nil, "", nil, false)
 	if err != nil {
 		t.Fatalf("NewRemoteScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	// These imports should succeed in remote environment
 	scriptContent := `
@@ -279,10 +286,11 @@ result = "all_system_libs_imported"
 }
 
 func TestRemoteScriptlingEnv_CanImportProvisionFetch(t *testing.T) {
-	env, err := NewRemoteScriptlingEnv(nil, nil, "", nil, true)
+	env, cleanup, err := NewRemoteScriptlingEnv(nil, nil, "", nil, true)
 	if err != nil {
 		t.Fatalf("NewRemoteScriptlingEnv() failed: %v", err)
 	}
+	defer cleanup()
 
 	_, err = env.Eval(`
 import scriptling.provision.fetch
@@ -291,4 +299,49 @@ result = "provision_fetch_imported"
 	if err != nil {
 		t.Errorf("Remote environment should be able to import scriptling.provision.fetch: %v", err)
 	}
+}
+
+// TestMCPScriptlingEnv_PluginScope verifies that the per-execution plugin scope
+// is registered in the MCP environment, that scriptling.plugin is importable,
+// and that the HTTP-only transport restriction blocks loading executables.
+func TestMCPScriptlingEnv_PluginScope(t *testing.T) {
+	user := &model.User{
+		Id:       "test-user",
+		Username: "testuser",
+		Email:    "test@example.com",
+	}
+
+	t.Run("importable_and_list_works", func(t *testing.T) {
+		env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
+		if err != nil {
+			t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
+		}
+		defer cleanup()
+
+		_, err = env.Eval(`
+import scriptling.plugin
+# list() returns a list (empty when no plugins loaded)
+result = scriptling.plugin.list()
+`)
+		if err != nil {
+			t.Errorf("scriptling.plugin should be importable in MCP env: %v", err)
+		}
+	})
+
+	t.Run("executable_plugins_blocked", func(t *testing.T) {
+		env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
+		if err != nil {
+			t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
+		}
+		defer cleanup()
+
+		// Loading a stdio/executable path must be rejected in the HTTP-only scope.
+		_, err = env.Eval(`
+import scriptling.plugin
+scriptling.plugin.load("blocked", "/bin/true")
+`)
+		if err == nil {
+			t.Error("expected error loading executable plugin in HTTP-only MCP scope, got nil")
+		}
+	})
 }

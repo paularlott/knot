@@ -1185,6 +1185,10 @@ var ServerCmd = &cli.Command{
 		// Then shutdown the server cluster
 		cluster.Stop()
 
+		// Close the shared plugin manager, releasing pooled HTTP transports
+		// used by scriptling.plugin scopes.
+		service.ClosePluginManager()
+
 		fmt.Print("\r")
 		logger.Info("shutdown")
 		return nil

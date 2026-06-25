@@ -1741,6 +1741,71 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.plugin",
+    description:
+      "Dynamic plugin loading and control. Each script execution gets an isolated scope; plugins loaded via load() are invisible to other executions/users. Server-side environments (MCP tools, events, health checks) are restricted to HTTP(S) plugins only — loading executables is blocked. Space-side environments allow both HTTP(S) and stdio executable plugins.",
+    functions: [
+      {
+        name: "load",
+        signature:
+          'load(name, path, scriptling=False, args=None, insecure_skip_tls=False, headers=None)',
+        description:
+          'Register a JSON-RPC plugin peer under name. path may be a filesystem executable (stdio) or an http:// / https:// endpoint. When scriptling=True the peer must implement the plugin handshake and an importable plugin.* proxy library is registered. Returns the normalised library name (e.g. "plugin.widgets"). May be blocked by the scope transport policy (e.g. executables are not permitted in HTTP-only environments).',
+        returns: "str - Normalised library name (e.g. plugin.widgets)",
+      },
+      {
+        name: "unload",
+        signature: "unload(name)",
+        description:
+          "Close a loaded plugin peer and remove it (and any proxy library) from the registry",
+        returns: "None",
+      },
+      {
+        name: "list",
+        signature: "list()",
+        description:
+          "Return metadata for all plugins visible to this scope (includes plugins inherited from the parent scope)",
+        returns:
+          "list - List of plugin metadata dicts (name, version, description, transport, functions, classes, constants)",
+      },
+      {
+        name: "describe",
+        signature: "describe(name)",
+        description: "Return metadata for a single loaded plugin",
+        returns:
+          "dict - Plugin metadata (name, version, description, transport, functions, classes, constants)",
+      },
+      {
+        name: "call_function",
+        signature: "call_function(library, name, *args, **kwargs)",
+        description:
+          "Call a function on a loaded plugin by library and function name. Supports callback (function) arguments for handshaken peers",
+        returns: "object - Function return value",
+      },
+      {
+        name: "call_method",
+        signature: "call_method(obj, name, *args, **kwargs)",
+        description:
+          "Call a method on a plugin object (instance returned by a plugin class constructor)",
+        returns: "object - Method return value",
+      },
+      {
+        name: "batch_call",
+        signature: "batch_call(library, calls)",
+        description:
+          'Call multiple functions on one plugin in a single JSON-RPC batch. calls is a list of dicts: {"name": str, "args": list, "kwargs": dict}. Callback arguments are not supported in batch_call',
+        returns: "list - Results in the same order as calls",
+      },
+      {
+        name: "release",
+        signature: "release(obj)",
+        description:
+          "Explicitly release a remote plugin object, freeing its server-side resources. Called automatically via __del__ when the object is garbage collected, but can be called early to release promptly",
+        returns: "None",
+      },
+    ],
+  },
+  {
     module: "scriptling.grep",
     description:
       "Fast file content search with regex or literal patterns (Remote/External environments)",
