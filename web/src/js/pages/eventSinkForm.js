@@ -138,10 +138,11 @@ window.eventSinkForm = function (isEdit, sinkId, isGlobal = false) {
         if (darkMode == null) darkMode = true;
 
         const initBodyEditor = () => {
+          const editorId = this.formData.sink_type === "json-rpc" ? "jsonrpc_body_template" : "body_template";
           if (!this.bodyEditor) {
-            const el = document.getElementById("body_template");
+            const el = document.getElementById(editorId);
             if (!el) return;
-            this.bodyEditor = ace.edit("body_template");
+            this.bodyEditor = ace.edit(editorId);
             this.bodyEditor.session.setValue(this.formData.webhook.body_template);
             this.bodyEditor.session.on("change", () => {
               this.formData.webhook.body_template = this.bodyEditor.getValue();
@@ -172,7 +173,7 @@ window.eventSinkForm = function (isEdit, sinkId, isGlobal = false) {
 
         // The webhook section may be hidden via x-show; ensure the editor
         // container is visible before measuring.
-        if (this.formData.sink_type === "webhook") {
+        if (this.formData.sink_type === "webhook" || this.formData.sink_type === "json-rpc") {
           initBodyEditor();
         }
 
@@ -190,8 +191,13 @@ window.eventSinkForm = function (isEdit, sinkId, isGlobal = false) {
 
     // Initialize the body editor lazily when switching to the webhook type
     ensureBodyEditor() {
-      if (this.formData.sink_type === "webhook") {
+      if (this.formData.sink_type === "webhook" || this.formData.sink_type === "json-rpc") {
         this.$nextTick(() => {
+          const expectedId = this.formData.sink_type === "json-rpc" ? "jsonrpc_body_template" : "body_template";
+          if (this.bodyEditor && this.bodyEditor.container && this.bodyEditor.container.id !== expectedId) {
+            this.bodyEditor.destroy();
+            this.bodyEditor = null;
+          }
           if (!this.bodyEditor) {
             this.initEditors();
           }
@@ -308,6 +314,10 @@ window.eventSinkForm = function (isEdit, sinkId, isGlobal = false) {
           headers: headers,
           body_template: this.formData.webhook.body_template,
           skip_tls_verify: this.formData.webhook.skip_tls_verify,
+        };
+      } else if (this.formData.sink_type === "json-rpc") {
+        submitData.webhook = {
+          body_template: this.formData.webhook.body_template,
         };
       }
 

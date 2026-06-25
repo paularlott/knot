@@ -1125,6 +1125,9 @@ var ServerCmd = &cli.Command{
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
+		// Load event sink cache before boot cleanup can fire lifecycle events
+		service.GetEventDispatcher().ReloadSinks()
+
 		// Stop orphaned runtimes and clean up broken space states before joining the cluster
 		service.GetContainerService().CleanupOnBoot()
 

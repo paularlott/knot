@@ -212,6 +212,12 @@ func HandleCreateEventSink(w http.ResponseWriter, r *http.Request) {
 				webhook.Secret = generateWebhookSecret()
 			}
 		}
+	} else if request.SinkType == "json-rpc" {
+		if request.Webhook != nil {
+			webhook = &model.WebhookConfig{
+				BodyTemplate: request.Webhook.BodyTemplate,
+			}
+		}
 	}
 
 	sink := model.NewEventSink(
@@ -234,6 +240,7 @@ func HandleCreateEventSink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipEventSink(sink)
+	service.GetEventDispatcher().ReloadSinks()
 	sse.PublishEventSinksChanged(sink.Id)
 
 	audit.LogWithRequest(r,
@@ -334,6 +341,14 @@ func HandleUpdateEventSink(w http.ResponseWriter, r *http.Request) {
 		} else {
 			sink.Webhook = nil
 		}
+	} else if request.SinkType == "json-rpc" {
+		if request.Webhook != nil {
+			sink.Webhook = &model.WebhookConfig{
+				BodyTemplate: request.Webhook.BodyTemplate,
+			}
+		} else {
+			sink.Webhook = nil
+		}
 	} else {
 		sink.Webhook = nil
 	}
@@ -348,6 +363,7 @@ func HandleUpdateEventSink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipEventSink(sink)
+	service.GetEventDispatcher().ReloadSinks()
 	sse.PublishEventSinksChanged(sink.Id)
 
 	audit.LogWithRequest(r,
@@ -417,6 +433,7 @@ func HandleDeleteEventSink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipEventSink(sink)
+	service.GetEventDispatcher().ReloadSinks()
 	sse.PublishEventSinksDeleted(sink.Id)
 
 	audit.LogWithRequest(r,

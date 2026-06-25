@@ -155,6 +155,7 @@ func (c *Cluster) mergeEventSinks(sinks []*model.EventSink) error {
 		}
 	}
 
+	service.GetEventDispatcher().ReloadSinks()
 	return nil
 }
 

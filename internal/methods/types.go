@@ -33,6 +33,8 @@ type MethodDefinition struct {
 	Scope        string         `json:"scope,omitempty" toml:"scope" msgpack:"scope,omitempty"`
 	Groups       []string       `json:"groups,omitempty" toml:"groups" msgpack:"groups,omitempty"`
 	MCPTool      bool           `json:"mcp_tool" toml:"mcp_tool" msgpack:"mcp_tool"`
+	Events       []string       `json:"events,omitempty" toml:"events,omitempty" msgpack:"events,omitempty"`
+	EventSinks   []string       `json:"event_sinks,omitempty" toml:"event_sinks,omitempty" msgpack:"event_sinks,omitempty"`
 	ParamsSchema map[string]any `json:"params_schema,omitempty" toml:"params_schema" msgpack:"params_schema,omitempty"`
 	ResultSchema map[string]any `json:"result_schema,omitempty" toml:"result_schema" msgpack:"result_schema,omitempty"`
 }
@@ -50,6 +52,8 @@ type MethodInfo struct {
 	Scope         string         `json:"scope" msgpack:"scope"`
 	Groups        []string       `json:"groups,omitempty" msgpack:"groups,omitempty"`
 	MCPTool       bool           `json:"mcp_tool" msgpack:"mcp_tool"`
+	Events        []string       `json:"events,omitempty" msgpack:"events,omitempty"`
+	EventSinks    []string       `json:"event_sinks,omitempty" msgpack:"event_sinks,omitempty"`
 	ParamsSchema  map[string]any `json:"params_schema,omitempty" msgpack:"params_schema,omitempty"`
 	ResultSchema  map[string]any `json:"result_schema,omitempty" msgpack:"result_schema,omitempty"`
 	OwnerID       string         `json:"owner_id" msgpack:"owner_id"`

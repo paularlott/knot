@@ -621,7 +621,7 @@ func handleEvent(stream net.Conn, session *Session) {
 		return
 	}
 
-	log.Debug("received event from agent", "event_id", eventMsg.EventId, "event_type", eventMsg.EventType, "space_id", session.Id)
+	log.Trace("received event from agent", "event_id", eventMsg.EventId, "event_type", eventMsg.EventType, "space_id", session.Id)
 
 	var payload map[string]interface{}
 	if len(eventMsg.Payload) > 0 {

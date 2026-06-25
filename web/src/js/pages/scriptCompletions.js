@@ -518,9 +518,9 @@ const scriptLibraries = [
           {
             name: "method",
             signature:
-              'method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None)',
+              'method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None, events=[], event_sinks=[])',
             description:
-              "Add a method definition. name may be passed positionally or as a kwarg. params and result are schema dicts from knot.methods.schema (or raw JSON Schema dicts).",
+              "Add a method definition. name may be passed positionally or as a kwarg. params and result are schema dicts from knot.methods.schema (or raw JSON Schema dicts). events subscribes the method to matching event types (e.g. ['space.*']). event_sinks references named JSON-RPC sink formatters (e.g. ['my-formatter']).",
             returns: "bool - True when added",
           },
           {

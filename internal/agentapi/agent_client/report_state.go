@@ -224,22 +224,19 @@ func (c *AgentClient) ReportEvent(event *msg.Event) error {
 	var delivered int
 	for _, server := range c.serverList {
 		if server.muxSession != nil && !server.muxSession.IsClosed() {
-			if server.reportingConn == nil {
-				log.Debug("opening reporting connection to", "agent", server.address)
-				conn, err := server.muxSession.Open()
-				if err != nil {
-					log.Error("failed to open mux session for server", "server", server.address)
-					continue
-				}
-				server.reportingConn = conn
-			}
-
-			if err := msg.SendEvent(server.reportingConn, event); err != nil {
-				log.Error("failed to send event to server", "server", server.address)
-				server.reportingConn.Close()
-				server.reportingConn = nil
+			conn, err := server.muxSession.Open()
+			if err != nil {
+				log.Error("failed to open stream for event", "server", server.address)
 				continue
 			}
+
+			if err := msg.SendEvent(conn, event); err != nil {
+				log.Error("failed to send event to server", "server", server.address)
+				conn.Close()
+				continue
+			}
+
+			conn.Close()
 			delivered++
 		}
 	}

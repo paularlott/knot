@@ -96,6 +96,7 @@
                   <td class="px-4 py-3 align-middle hidden md:table-cell">
                     <span x-show="s.sink_type === 'webhook'" class="app-badge-info">Webhook</span>
                     <span x-show="s.sink_type === 'script'" class="app-badge-neutral">Script</span>
+                    <span x-show="s.sink_type === 'json-rpc'" class="app-badge-success">JSON-RPC</span>
                   </td>
                   <td class="px-4 py-3 align-middle hidden lg:table-cell">
                     <template x-if="s.events && s.events.length">

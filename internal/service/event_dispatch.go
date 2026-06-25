@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/scriptling/conversion"
 	"github.com/paularlott/scriptling/object"
@@ -79,13 +81,25 @@ type deliveryTask struct {
 	sink     *model.EventSink
 }
 
+type JSONRPCSubscription struct {
+	SpaceId    string
+	UserId     string
+	MethodName string
+	LocalName  string
+	Events     []string
+	EventSinks []string
+}
+
 type EventDispatcher struct {
-	mu             sync.RWMutex
-	inFlight       map[string]*InFlightEntry
-	processed      map[string]time.Time
-	queues         map[string]*sinkQueue
-	httpClient     *http.Client
-	insecureClient *http.Client
+	mu               sync.RWMutex
+	inFlight         map[string]*InFlightEntry
+	processed        map[string]time.Time
+	jsonrpcDelivered map[string]time.Time
+	queues           map[string]*sinkQueue
+	sinkCache        []*model.EventSink
+	subscriptions    map[string][]*JSONRPCSubscription
+	httpClient       *http.Client
+	insecureClient   *http.Client
 }
 
 var (
@@ -96,9 +110,11 @@ var (
 func GetEventDispatcher() *EventDispatcher {
 	dispatcherOnce.Do(func() {
 		dispatcher = &EventDispatcher{
-			inFlight:  make(map[string]*InFlightEntry),
-			processed: make(map[string]time.Time),
-			queues:    make(map[string]*sinkQueue),
+			inFlight:         make(map[string]*InFlightEntry),
+			processed:        make(map[string]time.Time),
+			jsonrpcDelivered: make(map[string]time.Time),
+			queues:           make(map[string]*sinkQueue),
+			subscriptions:    make(map[string][]*JSONRPCSubscription),
 			httpClient: &http.Client{
 				Timeout: WebhookTimeout,
 			},
@@ -133,6 +149,7 @@ func (d *EventDispatcher) Dispatch(envelope *EventEnvelope) {
 	}
 
 	d.processEvent(envelope)
+	d.deliverToSubscriptions(envelope)
 }
 
 // ReplayPending is called when this node becomes the zone leader. It scans
@@ -165,6 +182,7 @@ func (d *EventDispatcher) ReplayPending() {
 	for _, entry := range pending {
 		d.mu.Lock()
 		delete(d.processed, entry.EventId)
+		delete(d.jsonrpcDelivered, entry.EventId)
 		d.mu.Unlock()
 
 		envelope := &EventEnvelope{
@@ -193,15 +211,9 @@ func (d *EventDispatcher) processEvent(envelope *EventEnvelope) {
 	d.processed[envelope.EventId] = time.Time{}
 	d.mu.Unlock()
 
-	db := database.GetInstance()
-	sinks, err := db.GetEventSinks()
-	if err != nil {
-		log.Error("failed to load event sinks for dispatch", "error", err)
-		d.mu.Lock()
-		delete(d.processed, envelope.EventId)
-		d.mu.Unlock()
-		return
-	}
+	d.mu.RLock()
+	sinks := d.sinkCache
+	d.mu.RUnlock()
 
 	d.mu.Lock()
 	d.processed[envelope.EventId] = time.Now()
@@ -209,6 +221,9 @@ func (d *EventDispatcher) processEvent(envelope *EventEnvelope) {
 
 	for _, sink := range sinks {
 		if sink.IsDeleted || !sink.Active {
+			continue
+		}
+		if sink.SinkType == "json-rpc" {
 			continue
 		}
 		if !sink.MatchEventType(envelope.EventType) {
@@ -470,6 +485,202 @@ func (d *EventDispatcher) cleanupTombstoned() {
 			delete(d.processed, id)
 		}
 	}
+	for id, ts := range d.jsonrpcDelivered {
+		if now.Sub(ts) > TombstoneRetention {
+			delete(d.jsonrpcDelivered, id)
+		}
+	}
+}
+
+// ReloadSinks refreshes the in-memory sink cache from the database.
+func (d *EventDispatcher) ReloadSinks() {
+	sinks, err := database.GetInstance().GetEventSinks()
+	if err != nil {
+		log.Error("failed to load event sinks into cache", "error", err)
+		return
+	}
+	d.mu.Lock()
+	d.sinkCache = sinks
+	d.mu.Unlock()
+}
+
+// RegisterSubscriptions extracts event subscriptions from method definitions
+// and registers them for json-rpc event delivery. Called when methods are
+// registered by a running session.
+func (d *EventDispatcher) RegisterSubscriptions(spaceId, userId string, methods []methods.MethodDefinition) {
+	var subs []*JSONRPCSubscription
+	for _, m := range methods {
+		if len(m.Events) == 0 {
+			continue
+		}
+		subs = append(subs, &JSONRPCSubscription{
+			SpaceId:    spaceId,
+			UserId:     userId,
+			MethodName: m.Name,
+			LocalName:  m.LocalName,
+			Events:     m.Events,
+			EventSinks: m.EventSinks,
+		})
+	}
+	d.mu.Lock()
+	d.subscriptions[spaceId] = subs
+	d.mu.Unlock()
+
+	log.Debug("registered json-rpc event subscriptions", "space_id", spaceId, "count", len(subs))
+}
+
+// UnregisterSubscriptions removes all subscriptions for a space. Called when
+// a session disconnects or methods are unregistered.
+func (d *EventDispatcher) UnregisterSubscriptions(spaceId string) {
+	d.mu.Lock()
+	delete(d.subscriptions, spaceId)
+	d.mu.Unlock()
+}
+
+// JSONRPCCaller is the callback used to invoke a method on a running session.
+// Set by agent_server.ListenAndServe to avoid a circular dependency.
+type JSONRPCCaller func(spaceId, localMethod string, params json.RawMessage) error
+
+var jsonrpcCaller JSONRPCCaller
+
+func SetJSONRPCCaller(fn JSONRPCCaller) {
+	jsonrpcCaller = fn
+}
+
+func matchEventType(patterns []string, eventType string) bool {
+	for _, pattern := range patterns {
+		if pattern == "*" {
+			return true
+		}
+		if len(pattern) > 2 && pattern[len(pattern)-2:] == ".*" {
+			prefix := pattern[:len(pattern)-1]
+			if len(eventType) >= len(prefix) && eventType[:len(prefix)] == prefix {
+				return true
+			}
+			continue
+		}
+		if pattern == eventType {
+			return true
+		}
+	}
+	return false
+}
+
+// deliverToSubscriptions delivers events to running json-rpc methods that have
+// subscribed via `events` annotations. Runs on the zone leader (same model
+// as webhook/script delivery). `event_sinks` on the subscription provides
+// optional formatting only — the referenced sinks' body templates transform
+// the payload before delivery.
+func (d *EventDispatcher) deliverToSubscriptions(envelope *EventEnvelope) {
+	d.mu.Lock()
+	if _, seen := d.jsonrpcDelivered[envelope.EventId]; seen {
+		d.mu.Unlock()
+		return
+	}
+	d.jsonrpcDelivered[envelope.EventId] = time.Now()
+	d.mu.Unlock()
+
+	if jsonrpcCaller == nil {
+		return
+	}
+
+	d.mu.RLock()
+	var matched []struct {
+		sub       *JSONRPCSubscription
+		template  string
+		hasCustom bool
+	}
+	for _, subs := range d.subscriptions {
+		for _, sub := range subs {
+			if sub.UserId != envelope.UserId {
+				continue
+			}
+
+			if !matchEventType(sub.Events, envelope.EventType) {
+				continue
+			}
+
+			var customTemplate string
+			hasCustom := false
+
+			for _, sinkName := range sub.EventSinks {
+				for _, sink := range d.sinkCache {
+					if sink.Name != sinkName || sink.SinkType != "json-rpc" || !sink.Active || sink.IsDeleted {
+						continue
+					}
+					if sink.UserId != "" && sink.UserId != sub.UserId {
+						continue
+					}
+					if !sink.MatchEventType(envelope.EventType) {
+						continue
+					}
+					if sink.Webhook != nil {
+						customTemplate = sink.Webhook.BodyTemplate
+					}
+					hasCustom = true
+					break
+				}
+				if hasCustom {
+					break
+				}
+			}
+
+			matched = append(matched, struct {
+				sub       *JSONRPCSubscription
+				template  string
+				hasCustom bool
+			}{sub, customTemplate, hasCustom})
+		}
+	}
+	d.mu.RUnlock()
+
+	for _, m := range matched {
+		go d.deliverJSONRPCWithRetry(envelope, m.sub, m.template, m.hasCustom)
+	}
+}
+
+func (d *EventDispatcher) deliverJSONRPCWithRetry(envelope *EventEnvelope, sub *JSONRPCSubscription, template string, hasCustom bool) {
+	renderData := d.envelopeToRenderData(envelope)
+
+	var bodyTemplate string
+	if hasCustom {
+		bodyTemplate = template
+	}
+	params, err := model.RenderEventTemplate(bodyTemplate, renderData)
+	if err != nil {
+		log.Error("json-rpc event template render failed",
+			"event_id", envelope.EventId,
+			"method", sub.MethodName,
+			"space_id", sub.SpaceId,
+			"error", err)
+		return
+	}
+
+	for attempt := uint32(1); attempt <= RetryAttempts; attempt++ {
+		err := jsonrpcCaller(sub.SpaceId, sub.LocalName, params)
+		if err == nil {
+			return
+		}
+
+		log.Warn("json-rpc event delivery attempt failed",
+			"event_id", envelope.EventId,
+			"method", sub.MethodName,
+			"space_id", sub.SpaceId,
+			"attempt", attempt,
+			"error", err)
+
+		if attempt < RetryAttempts {
+			delay := RetryDelay1
+			if attempt == 2 {
+				delay = RetryDelay2
+			}
+			time.Sleep(delay)
+		}
+	}
+
+	logAudit(model.AuditEventEventSinkDeliveryFailed,
+		fmt.Sprintf("JSON-RPC method %s gave up delivering event %s after %d attempts", sub.MethodName, envelope.EventId, RetryAttempts),
+		map[string]interface{}{"method": sub.MethodName, "space_id": sub.SpaceId, "event_id": envelope.EventId})
 }
 
 func RaiseSystemEvent(eventType, spaceId, userId string, payload map[string]interface{}) {

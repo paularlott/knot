@@ -2,6 +2,8 @@ package agent_server
 
 import (
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -399,6 +401,24 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 	logger := log.WithGroup("agent")
 	service.SetPoolSessionProvider(GetPoolSessionState)
 	service.SetAgentHealthConfigUpdater(updateAgentHealthConfigForTemplate)
+	service.SetJSONRPCCaller(func(spaceId, localMethod string, params json.RawMessage) error {
+		session := GetSession(spaceId)
+		if session == nil {
+			return fmt.Errorf("no active session for space %s", spaceId)
+		}
+		call := &msg.CallMethodRequest{
+			Method: localMethod,
+			Params: params,
+		}
+		resp, err := session.SendCallMethod(call, 30)
+		if err != nil {
+			return err
+		}
+		if resp.Response.Error != nil {
+			return fmt.Errorf("method error: %s", resp.Response.Error.Message)
+		}
+		return nil
+	})
 
 	// Start the session garbage collector & schedule checker
 	checkSchedules()
@@ -500,6 +520,7 @@ func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueR
 
 	if removed {
 		methods.DefaultRegistry().UnregisterSpace(spaceId)
+		service.GetEventDispatcher().UnregisterSubscriptions(spaceId)
 
 		if markUnhealthy || queueReconcile {
 			db := database.GetInstance()

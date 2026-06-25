@@ -29,7 +29,7 @@
           <div class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Type</div>
           <div class="flex items-center space-x-4">
             <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <template x-for="type in [{value: 'webhook', label: 'Webhook'}, {value: 'script', label: 'Script'}]" :key="type.value">
+              <template x-for="type in [{value: 'webhook', label: 'Webhook'}, {value: 'script', label: 'Script'}, {value: 'json-rpc', label: 'JSON-RPC'}]" :key="type.value">
                 <label class="relative">
                   <input
                     type="radio"
@@ -144,6 +144,18 @@
             </div>
           </div>
           <div class="description">The script is executed when a matching event fires. Access the event via <code>knot.event</code>.</div>
+        </div>
+
+        <!-- JSON-RPC configuration -->
+        <div x-show="formData.sink_type === 'json-rpc'" x-cloak class="space-y-6">
+          <div class="description">JSON-RPC sinks are named formatters referenced by script methods via <code>event_sinks</code> in their TOML. The body template formats event data before passing it to the method.</div>
+          <div>
+            <label class="form-label">Body Template</label>
+            <div class="mid-editor">
+              <div class="editor-wrap" id="jsonrpc_body_template"></div>
+            </div>
+            <div class="description">Go template for the method payload. Use <code>${{ .event.id }}</code>, <code>${{ .event.type }}</code>, etc. Leave empty for default format.</div>
+          </div>
         </div>
       </div>
     </fieldset>

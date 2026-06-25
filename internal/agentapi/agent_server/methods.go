@@ -9,7 +9,9 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/methods"
+	"github.com/paularlott/knot/internal/service"
 )
+
 func handleRegisterMethods(stream net.Conn, session *Session) {
 	var req msg.RegisterMethodsRequest
 	if err := msg.ReadMessage(stream, &req); err != nil {
@@ -47,6 +49,8 @@ func handleRegisterMethods(stream net.Conn, session *Session) {
 		return
 	}
 
+	service.GetEventDispatcher().RegisterSubscriptions(space.Id, owner.Id, req.Registration.Methods)
+
 	names := make([]string, 0, len(req.Registration.Methods))
 	for _, m := range req.Registration.Methods {
 		names = append(names, m.Name)
@@ -69,6 +73,7 @@ func handleRegisterMethods(stream net.Conn, session *Session) {
 // registrations are removed from the registry.
 func handleUnregisterMethods(stream net.Conn, session *Session) {
 	methods.DefaultRegistry().UnregisterSpace(session.Id)
+	service.GetEventDispatcher().UnregisterSubscriptions(session.Id)
 	log.Info("methods unregistered", "space_id", session.Id)
 }
 
