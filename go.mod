@@ -2,7 +2,7 @@ module github.com/paularlott/knot
 
 go 1.26.1
 
-replace github.com/paularlott/gossip => ../gossip/
+//replace github.com/paularlott/gossip => ../gossip/
 
 //replace github.com/paularlott/cli => ../cli/
 
@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.72
 	github.com/paularlott/cli v0.8.5
-	github.com/paularlott/gossip v0.12.6
+	github.com/paularlott/gossip v0.12.7
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.19.0
 	github.com/paularlott/scriptling v0.14.0
@@ -80,6 +80,6 @@ require (
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
-	golang.org/x/tools v0.46.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
