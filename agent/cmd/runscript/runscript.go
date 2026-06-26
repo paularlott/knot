@@ -11,8 +11,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/agentlink"
-	knotmethods "github.com/paularlott/knot/internal/methods"
-	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/scriptling/object"
 )
@@ -20,16 +18,21 @@ import (
 var RunScriptCmd = &cli.Command{
 	Name:        "run-script",
 	Usage:       "Run a script in this space",
-	Description: "Execute a named script or local script file in this space. Usage: knot run-script <script-name-or-file> [args...]",
+	Description: "Execute a named script or local script file in this space, or start an interactive REPL. Usage: knot run-script <script-name-or-file> [args...] / knot run-script --interactive",
 	MaxArgs:     cli.UnlimitedArgs,
 	Arguments: []cli.Argument{
 		&cli.StringArg{
 			Name:     "script",
-			Usage:    "Name of script or path to .py file",
-			Required: true,
+			Usage:    "Name of script or path to .py file (omit with --interactive)",
+			Required: false,
 		},
 	},
 	Flags: append([]cli.Flag{
+		&cli.BoolFlag{
+			Name:     "interactive",
+			Aliases:  []string{"i"},
+			Usage:    "Start an interactive REPL in this space.",
+		},
 		&cli.BoolFlag{
 			Name:  "no-fail",
 			Usage: "Exit successfully if the named script does not exist.",
@@ -87,6 +90,17 @@ var RunScriptCmd = &cli.Command{
 			return runServe(ctx, cmd, scriptFile, serveClient, serveUserId)
 		}
 
+		// Interactive REPL — no script file required.
+		if cmd.GetBool("interactive") {
+			return runInteractiveMode(ctx, cmd)
+		}
+
+		// Non-interactive eval requires a script name or file.
+		if scriptArg == "" {
+			cmd.ShowHelp()
+			return nil
+		}
+
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
@@ -120,26 +134,7 @@ var RunScriptCmd = &cli.Command{
 		// knot run-script executes in the CLI process. Wire the methods
 		// registrar to the agentlink command socket so server.register()
 		// publishes to the daemon (same path as `knot methods register`).
-		knotscriptling.SetMethodsRegistrar(func(reg *knotmethods.Registration) error {
-			var resp agentlink.RegisterMethodsResponse
-			if err := agentlink.SendWithResponseMsg(agentlink.CommandRegisterMethods, agentlink.RegisterMethodsRequest{Registration: *reg}, &resp); err != nil {
-				return err
-			}
-			if !resp.Success {
-				return errors.New(resp.Error)
-			}
-			return nil
-		})
-		knotscriptling.SetMethodsUnregisterAll(func() error {
-			var resp agentlink.RegisterMethodsResponse
-			if err := agentlink.SendWithResponseMsg(agentlink.CommandUnregisterMethods, nil, &resp); err != nil {
-				return err
-			}
-			if !resp.Success {
-				return errors.New(resp.Error)
-			}
-			return nil
-		})
+		wireMethodsRegistrar()
 
 		env, cleanup, err := service.NewRunScriptEvalEnv(argv, client, userId, agentlink.NewScriptLogger("script"), os.Stdout, os.Stdin)
 		if err != nil {
