@@ -123,8 +123,8 @@
           <div x-show="poolFormModal.error" x-cloak class="text-sm text-red-600 dark:text-red-400" x-text="poolFormModal.error"></div>
           <div>
             <label for="pool-name" class="form-label">Pool Name</label>
-            <input id="pool-name" x-ref="poolNameInput" x-model="poolFormModal.name" class="form-field" type="text" required :disabled="poolFormModal.isEdit" x-on:keyup.debounce.500ms="checkPoolName()">
-            <div x-show="poolFormModal.name && !poolNameValid" class="error-message" x-cloak>Pool name must be 1-64 characters: letters, numbers, hyphens, underscores.</div>
+            <input id="pool-name" x-ref="poolNameInput" :value="poolFormModal.name" @input="poolFormModal.name = sanitizeName($event.target.value)" class="form-field" type="text" required :disabled="poolFormModal.isEdit" x-on:keyup.debounce.500ms="checkPoolName()">
+            <div x-show="poolFormModal.name && !poolNameValid" class="error-message" x-cloak>Pool name must start with a letter and can only contain letters, numbers, and hyphens (max 64 characters).</div>
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span>Template:</span>

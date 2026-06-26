@@ -1,4 +1,4 @@
-import { validate } from "../validators.js";
+import { validate, sanitize } from "../validators.js";
 import { focus } from "../focus.js";
 
 /// wysiwyg editor
@@ -144,6 +144,9 @@ window.volumeForm = function (isEdit, volumeId) {
     checkName() {
       this.nameValid = validate.name(this.formData.name);
       return this.nameValid;
+    },
+    sanitizeName(value) {
+      return sanitize.name(value);
     },
     checkVol() {
       this.volValid = validate.required(this.formData.definition);

@@ -1,5 +1,6 @@
 import Alpine from "alpinejs";
 import { popup } from "../popup.js";
+import { validate, sanitize } from "../validators.js";
 
 // Debounce function to limit rapid calls
 function debounce(func, wait) {
@@ -580,8 +581,11 @@ window.spacesListComponent = function (
     },
     checkPoolName() {
       const name = (this.poolFormModal.name || "").trim();
-      this.poolNameValid = name.length > 0 && name.length <= 64 && /^[a-zA-Z0-9_-]+$/.test(name);
+      this.poolNameValid = validate.name(name);
       return this.poolNameValid;
+    },
+    sanitizeName(value) {
+      return sanitize.name(value);
     },
     resetPoolForm() {
       this.poolFormModal = {
