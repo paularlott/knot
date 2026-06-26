@@ -44,4 +44,6 @@ const (
 	EventSinkFullSyncMsg
 	EventSinkGossipMsg
 	EventBroadcastMsg
+	EventDoneMsg
+	InFlightStateMsg
 )

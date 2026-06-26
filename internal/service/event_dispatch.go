@@ -67,7 +67,6 @@ type InFlightEntry struct {
 	NextAttemptAt time.Time
 	LastError     string
 	Version       hlc.Timestamp
-	VersionNode   string
 	TombstonedAt  time.Time
 }
 
@@ -91,15 +90,16 @@ type JSONRPCSubscription struct {
 }
 
 type EventDispatcher struct {
-	mu               sync.RWMutex
-	inFlight         map[string]*InFlightEntry
-	processed        map[string]time.Time
-	jsonrpcDelivered map[string]time.Time
-	queues           map[string]*sinkQueue
-	sinkCache        []*model.EventSink
-	subscriptions    map[string][]*JSONRPCSubscription
-	httpClient       *http.Client
-	insecureClient   *http.Client
+	mu                sync.RWMutex
+	inFlight          map[string]*InFlightEntry
+	processed         map[string]time.Time
+	jsonrpcDelivered  map[string]time.Time
+	queues            map[string]*sinkQueue
+	sinkCache         []*model.EventSink
+	subscriptions     map[string][]*JSONRPCSubscription
+	pendingDeliveries map[string]int
+	httpClient        *http.Client
+	insecureClient    *http.Client
 }
 
 var (
@@ -110,11 +110,12 @@ var (
 func GetEventDispatcher() *EventDispatcher {
 	dispatcherOnce.Do(func() {
 		dispatcher = &EventDispatcher{
-			inFlight:         make(map[string]*InFlightEntry),
-			processed:        make(map[string]time.Time),
-			jsonrpcDelivered: make(map[string]time.Time),
-			queues:           make(map[string]*sinkQueue),
-			subscriptions:    make(map[string][]*JSONRPCSubscription),
+			inFlight:          make(map[string]*InFlightEntry),
+			processed:         make(map[string]time.Time),
+			jsonrpcDelivered:  make(map[string]time.Time),
+			queues:            make(map[string]*sinkQueue),
+			subscriptions:     make(map[string][]*JSONRPCSubscription),
+			pendingDeliveries: make(map[string]int),
 			httpClient: &http.Client{
 				Timeout: WebhookTimeout,
 			},
@@ -219,6 +220,7 @@ func (d *EventDispatcher) processEvent(envelope *EventEnvelope) {
 	d.processed[envelope.EventId] = time.Now()
 	d.mu.Unlock()
 
+	var matched []*model.EventSink
 	for _, sink := range sinks {
 		if sink.IsDeleted || !sink.Active {
 			continue
@@ -232,8 +234,28 @@ func (d *EventDispatcher) processEvent(envelope *EventEnvelope) {
 		if !d.isVisible(sink, envelope) {
 			continue
 		}
+		matched = append(matched, sink)
+	}
 
-		d.enqueue(sink, envelope)
+	// Reserve the pending count for every matched sink before starting any
+	// delivery. Otherwise a fast delivery could decrement the counter to zero
+	// and fire a premature "done" notification before the remaining sinks are
+	// counted.
+	d.mu.Lock()
+	d.pendingDeliveries[envelope.EventId] += len(matched)
+	d.mu.Unlock()
+
+	for _, sink := range matched {
+		if !d.enqueue(sink, envelope) {
+			// Queue was full and the task dropped; release its reservation.
+			d.decrementPending(envelope.EventId)
+		}
+	}
+
+	if len(matched) == 0 {
+		d.mu.Lock()
+		d.checkEventComplete(envelope.EventId)
+		d.mu.Unlock()
 	}
 }
 
@@ -255,7 +277,10 @@ func (d *EventDispatcher) getQueue(sinkId string) *sinkQueue {
 	return q
 }
 
-func (d *EventDispatcher) enqueue(sink *model.EventSink, envelope *EventEnvelope) {
+// enqueue appends a delivery task and starts a worker. It returns false if the
+// sink queue was full and the task was dropped, so the caller can release the
+// pending-delivery reservation it made for this sink.
+func (d *EventDispatcher) enqueue(sink *model.EventSink, envelope *EventEnvelope) bool {
 	q := d.getQueue(sink.Id)
 	q.mu.Lock()
 	if len(q.queue) >= SinkQueueSize {
@@ -264,12 +289,13 @@ func (d *EventDispatcher) enqueue(sink *model.EventSink, envelope *EventEnvelope
 		logAudit(model.AuditEventEventSinkDropped,
 			fmt.Sprintf("Event sink %s queue full, dropped event %s", sink.Name, envelope.EventId),
 			map[string]interface{}{"sink_id": sink.Id, "event_id": envelope.EventId})
-		return
+		return false
 	}
 	q.queue = append(q.queue, &deliveryTask{envelope: envelope, sink: sink})
 	q.mu.Unlock()
 
 	go d.deliver(sink.Id)
+	return true
 }
 
 func (d *EventDispatcher) deliver(sinkId string) {
@@ -434,11 +460,13 @@ func (d *EventDispatcher) recordInFlight(envelope *EventEnvelope, sinkId string)
 func (d *EventDispatcher) markDone(eventId, sinkId string) {
 	key := inFlightKey(eventId, sinkId)
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	if entry, ok := d.inFlight[key]; ok {
 		entry.Status = "done"
 		entry.TombstonedAt = time.Now().UTC()
+		entry.Version = hlc.Now()
 	}
+	d.mu.Unlock()
+	d.decrementPending(eventId)
 }
 
 func (d *EventDispatcher) markRetry(eventId, sinkId string, attempt uint32, lastError string) {
@@ -449,6 +477,7 @@ func (d *EventDispatcher) markRetry(eventId, sinkId string, attempt uint32, last
 		entry.Status = "retry"
 		entry.Attempts = attempt
 		entry.LastError = lastError
+		entry.Version = hlc.Now()
 	}
 }
 
@@ -458,6 +487,7 @@ func (d *EventDispatcher) markGivenUp(eventId, sinkId string, task *deliveryTask
 	if entry, ok := d.inFlight[key]; ok {
 		entry.Status = "given_up"
 		entry.TombstonedAt = time.Now().UTC()
+		entry.Version = hlc.Now()
 	}
 	d.mu.Unlock()
 
@@ -468,6 +498,8 @@ func (d *EventDispatcher) markGivenUp(eventId, sinkId string, task *deliveryTask
 	logAudit(eventName,
 		fmt.Sprintf("Event sink %s gave up delivering event %s after %d attempts", task.sink.Name, eventId, RetryAttempts),
 		map[string]interface{}{"sink_id": sinkId, "event_id": eventId})
+
+	d.decrementPending(eventId)
 }
 
 func (d *EventDispatcher) cleanupTombstoned() {
@@ -489,6 +521,123 @@ func (d *EventDispatcher) cleanupTombstoned() {
 		if now.Sub(ts) > TombstoneRetention {
 			delete(d.jsonrpcDelivered, id)
 		}
+	}
+	for _, entry := range d.inFlight {
+		if entry.TombstonedAt.IsZero() && entry.Status == "pending" {
+			eventTime := entry.Version.Time()
+			if !eventTime.IsZero() && now.Sub(eventTime) > MaxPendingAge {
+				entry.TombstonedAt = now
+				entry.Status = "expired"
+				entry.Version = hlc.Now()
+			}
+		}
+	}
+}
+
+const MaxPendingAge = 10 * time.Minute
+
+// decrementPending decrements the pending delivery counter for an event.
+// When the counter reaches zero, notifies zone members that the event is done.
+func (d *EventDispatcher) decrementPending(eventId string) {
+	var notify bool
+	d.mu.Lock()
+	d.pendingDeliveries[eventId]--
+	if d.pendingDeliveries[eventId] <= 0 {
+		delete(d.pendingDeliveries, eventId)
+		notify = true
+	}
+	d.mu.Unlock()
+
+	if notify {
+		if transport := GetTransport(); transport != nil {
+			transport.NotifyEventDone(eventId)
+		}
+	}
+}
+
+// checkEventComplete is called after initial dispatch to handle events with
+// zero matching deliveries (immediately complete).
+func (d *EventDispatcher) checkEventComplete(eventId string) {
+	if d.pendingDeliveries[eventId] <= 0 {
+		delete(d.pendingDeliveries, eventId)
+		go func() {
+			if transport := GetTransport(); transport != nil {
+				transport.NotifyEventDone(eventId)
+			}
+		}()
+	}
+}
+
+// MarkEventDone tombstones all in-flight entries for an event. Called by
+// non-leaders on receipt of an EventDoneMsg from the leader.
+func (d *EventDispatcher) MarkEventDone(eventId string) {
+	now := time.Now().UTC()
+	d.mu.Lock()
+	prefix := eventId + ":"
+	for key, entry := range d.inFlight {
+		if strings.HasPrefix(key, prefix) {
+			if entry.TombstonedAt.IsZero() {
+				entry.TombstonedAt = now
+				entry.Status = "done"
+				entry.Version = hlc.Now()
+			}
+		}
+	}
+	d.mu.Unlock()
+}
+
+// MergeInFlight merges incoming in-flight records from gossip. Entries with
+// a newer HLC version overwrite local copies; entries we don't have are added.
+func (d *EventDispatcher) MergeInFlight(entries []*InFlightEntry) {
+	d.mu.Lock()
+	for _, incoming := range entries {
+		key := inFlightKey(incoming.EventId, incoming.SinkId)
+		if local, ok := d.inFlight[key]; ok {
+			if incoming.Version.After(local.Version) {
+				d.inFlight[key] = incoming
+			}
+		} else {
+			d.inFlight[key] = incoming
+		}
+	}
+	d.mu.Unlock()
+}
+
+// GetEntriesForGossip returns all in-flight entries, including tombstoned
+// ones. Used for periodic gossip to zone peers. Tombstones must be gossiped
+// so peers that missed the direct done notification (e.g. they were down)
+// learn the entry is complete and remove it after the retention window;
+// otherwise the record would live on those peers until MaxPendingAge.
+func (d *EventDispatcher) GetEntriesForGossip() []*InFlightEntry {
+	var entries []*InFlightEntry
+
+	d.mu.RLock()
+	for _, entry := range d.inFlight {
+		entries = append(entries, entry)
+	}
+	d.mu.RUnlock()
+
+	return entries
+}
+
+// recordInFlightLocked is recordInFlight without locking (caller holds lock).
+func (d *EventDispatcher) recordInFlightLocked(envelope *EventEnvelope, sinkId string) {
+	key := inFlightKey(envelope.EventId, sinkId)
+	if _, exists := d.inFlight[key]; exists {
+		return
+	}
+	d.inFlight[key] = &InFlightEntry{
+		EventId:   envelope.EventId,
+		EventType: envelope.EventType,
+		SinkId:    sinkId,
+		UserId:    envelope.UserId,
+		SpaceId:   envelope.SpaceId,
+		Payload:   envelope.Payload,
+		ActorId:   envelope.Actor.Id,
+		ActorName: envelope.Actor.Username,
+		ActorKind: envelope.Actor.Kind,
+		Status:    "pending",
+		Version:   hlc.Now(),
 	}
 }
 
@@ -634,12 +783,18 @@ func (d *EventDispatcher) deliverToSubscriptions(envelope *EventEnvelope) {
 	}
 	d.mu.RUnlock()
 
+	d.mu.Lock()
+	d.pendingDeliveries[envelope.EventId] += len(matched)
+	d.mu.Unlock()
+
 	for _, m := range matched {
 		go d.deliverJSONRPCWithRetry(envelope, m.sub, m.template, m.hasCustom)
 	}
 }
 
 func (d *EventDispatcher) deliverJSONRPCWithRetry(envelope *EventEnvelope, sub *JSONRPCSubscription, template string, hasCustom bool) {
+	defer d.decrementPending(envelope.EventId)
+
 	renderData := d.envelopeToRenderData(envelope)
 
 	var bodyTemplate string

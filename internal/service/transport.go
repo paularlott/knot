@@ -26,6 +26,7 @@ type Transport interface {
 	GossipPoolDrain(spaceID string)
 	GossipPoolUndrain(spaceID string)
 	BroadcastEvent(envelope *EventEnvelope)
+	NotifyEventDone(eventId string)
 	GetAgentEndpoints() []string
 	GetTunnelServers() []string
 	IsLeader() bool

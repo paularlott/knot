@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
@@ -234,6 +235,9 @@ func (s *PoolService) Create(pool *model.PoolDefinition, user *model.User) error
 	if _, err := db.GetSpaceByName(user.Id, pool.Name); err == nil {
 		return fmt.Errorf("pool name conflicts with an existing space")
 	}
+
+	// Stamp the owning zone. Only this zone's leader manages the pool's spaces.
+	pool.Zone = config.GetServerConfig().Zone
 
 	requested := pool.DesiredCount
 	if requested < 1 {
@@ -490,8 +494,14 @@ func (s *PoolService) ReapOrphans() error {
 	if err != nil {
 		return err
 	}
+	cfg := config.GetServerConfig()
 	for _, space := range spaces {
 		if space.PoolId == "" || space.IsDeleted || space.IsDeleting {
+			continue
+		}
+		// Each zone reaps only its own pool spaces. The owning pool may be
+		// gone entirely, so we gate on the space's zone rather than the pool's.
+		if space.Zone != "" && space.Zone != cfg.Zone {
 			continue
 		}
 		pool, exists := poolMap[space.PoolId]
@@ -512,7 +522,14 @@ func (s *PoolService) SweepOnce() error {
 	if err != nil {
 		return err
 	}
+	cfg := config.GetServerConfig()
 	for _, pool := range pools {
+		// A pool's spaces are managed only by the leader of its owning zone.
+		// 10 zones => 10 leaders, each reconciling the pools created in its
+		// own zone. Empty zone (legacy/unmigrated) is managed everywhere.
+		if pool.Zone != "" && pool.Zone != cfg.Zone {
+			continue
+		}
 		members := poolMembers(pool, spaces)
 		if pool.IsDeleted {
 			s.reconcileDeletedPool(members)

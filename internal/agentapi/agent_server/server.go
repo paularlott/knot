@@ -504,6 +504,7 @@ func updateAgentHealthConfigForTemplate(template *model.Template) {
 
 func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueReconcile bool) {
 	var removed bool
+	var removedSession *Session
 	sessionMutex.Lock()
 	if session, ok := sessions[spaceId]; ok {
 		if expected != nil && session != expected {
@@ -513,10 +514,18 @@ func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueR
 		if session.MuxSession != nil {
 			session.MuxSession.Close()
 		}
+		removedSession = session
 		removed = true
 	}
 	delete(sessions, spaceId)
 	sessionMutex.Unlock()
+
+	// Unblock any log stream readers so their client WebSockets close (the
+	// terminal already closes via the mux session above). Done outside
+	// sessionMutex to avoid holding it while taking the listener lock.
+	if removedSession != nil {
+		removedSession.CloseLogListeners()
+	}
 
 	if removed {
 		methods.DefaultRegistry().UnregisterSpace(spaceId)

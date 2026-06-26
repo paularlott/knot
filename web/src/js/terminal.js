@@ -61,16 +61,32 @@ window.initializeTerminal = function(options) {
 
   scheduleFit();
 
+  // Tracks whether the stream ever received data from a live agent session.
+  // The server upgrades the WebSocket before checking for a session, so onopen
+  // alone isn't enough — but it only sends data (log history + end-of-history
+  // marker) when a session exists. We use that to distinguish "the space
+  // terminated" (close the popup) from "the space was never running" (leave it
+  // open so the user can refresh once it starts).
+  let connected = false;
+  ws.addEventListener('message', () => { connected = true; });
+
+  function closePopup() {
+    terminal.write('\r\n\n[session ended]\r\n');
+    setTimeout(() => {
+      try { window.close(); } catch (e) { /* ignore */ }
+    }, 300);
+  }
+
   ws.onclose = () => {
-    if (options.logView) {
+    if (options.logView && !connected) {
+      // Never connected — the space likely isn't running. Leave the window
+      // open so the user can refresh once it starts.
       terminal.write('\r\n\nconnection terminated, refresh to restart\n');
-    } else {
-      // Shell exited (server closed the WS): close the terminal popup.
-      terminal.write('\r\n\n[session ended]\r\n');
-      setTimeout(() => {
-        try { window.close(); } catch (e) { /* ignore */ }
-      }, 300);
+      return;
     }
+    // The space terminated (server closed the WS). Close the popup, whether
+    // this is a shell terminal or a log view.
+    closePopup();
   };
 
   ws.onopen = () => {

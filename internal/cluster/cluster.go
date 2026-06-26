@@ -173,6 +173,8 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(EventSinkFullSyncMsg, cluster.handleEventSinkFullSync)
 		cluster.gossipCluster.HandleFunc(EventSinkGossipMsg, cluster.handleEventSinkGossip)
 		cluster.gossipCluster.HandleFunc(EventBroadcastMsg, cluster.handleEventBroadcast)
+		cluster.gossipCluster.HandleFunc(EventDoneMsg, cluster.handleEventDone)
+		cluster.gossipCluster.HandleFunc(InFlightStateMsg, cluster.handleInFlightState)
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
@@ -210,6 +212,7 @@ func NewCluster(
 			cluster.gossipSpaceUsage()
 			cluster.gossipPoolDefinitions()
 			cluster.gossipEventSinks()
+			cluster.gossipInFlight()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -297,6 +300,19 @@ func (c *Cluster) trackClusterEndpoints() {
 	}
 	c.agentEndpoints = endPoints
 	c.tunnelServers = tunnelServers
+}
+
+// sendToZoneMembers sends a gossip message to every alive node in the same zone.
+func (c *Cluster) sendToZoneMembers(msgType gossip.MessageType, data interface{}) {
+	if c.gossipCluster == nil {
+		return
+	}
+	cfg := config.GetServerConfig()
+	for _, node := range c.gossipCluster.AliveNodes() {
+		if node.Metadata.GetString("zone") == cfg.Zone {
+			c.gossipCluster.SendTo(node, msgType, data)
+		}
+	}
 }
 
 func (c *Cluster) manageElection() {

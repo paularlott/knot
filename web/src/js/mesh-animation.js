@@ -3,7 +3,7 @@ class MeshAnimation {
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) return;
 
-    this.ctx = this.canvas.getContext('2d');
+    this.ctx = this.canvas.getContext("2d");
     this.nodes = [];
     this.connections = [];
     this.pulses = [];
@@ -15,12 +15,14 @@ class MeshAnimation {
     this.animate();
 
     // Handle resize
-    window.addEventListener('resize', () => this.handleResize());
+    window.addEventListener("resize", () => this.handleResize());
   }
 
   init() {
     this.resizeCanvas();
-    this.nodeCount = Math.floor((this.canvas.width * this.canvas.height) / 15000); // Sparse mesh
+    this.nodeCount = Math.floor(
+      (this.canvas.width * this.canvas.height) / 15000,
+    ); // Sparse mesh
     this.maxConnections = 3; // Limit connections per node for sparsity
   }
 
@@ -35,12 +37,11 @@ class MeshAnimation {
     this.canvas.width = rect.width * window.devicePixelRatio;
     this.canvas.height = rect.height * window.devicePixelRatio;
     this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    this.canvas.style.width = rect.width + 'px';
-    this.canvas.style.height = rect.height + 'px';
+    this.canvas.style.width = rect.width + "px";
+    this.canvas.style.height = rect.height + "px";
   }
 
   handleResize() {
-    console.log('Canvas resized');
     this.resizeCanvas();
     this.createMesh();
   }
@@ -59,8 +60,8 @@ class MeshAnimation {
     // Create nodes with 3D positions
     for (let i = 0; i < this.nodeCount; i++) {
       this.nodes.push({
-        x: Math.random() * this.canvas.width / window.devicePixelRatio,
-        y: Math.random() * this.canvas.height / window.devicePixelRatio,
+        x: (Math.random() * this.canvas.width) / window.devicePixelRatio,
+        y: (Math.random() * this.canvas.height) / window.devicePixelRatio,
         z: Math.random() * 100 - 50, // 3D depth
         baseZ: Math.random() * 100 - 50,
         vx: (Math.random() - 0.5) * 0.5,
@@ -68,19 +69,23 @@ class MeshAnimation {
         vz: (Math.random() - 0.5) * 0.3,
         pulseTime: 0,
         pulsing: false,
-        connections: []
+        connections: [],
       });
     }
 
     // Create sparse connections
     this.nodes.forEach((node, i) => {
       const nearbyNodes = this.nodes
-        .map((otherNode, j) => ({ node: otherNode, index: j, distance: this.distance3D(node, otherNode) }))
-        .filter(item => item.index !== i && item.distance < 150)
+        .map((otherNode, j) => ({
+          node: otherNode,
+          index: j,
+          distance: this.distance3D(node, otherNode),
+        }))
+        .filter((item) => item.index !== i && item.distance < 150)
         .sort((a, b) => a.distance - b.distance)
         .slice(0, this.maxConnections);
 
-      nearbyNodes.forEach(item => {
+      nearbyNodes.forEach((item) => {
         if (!this.connectionExists(i, item.index)) {
           this.connections.push({ from: i, to: item.index });
           node.connections.push(item.index);
@@ -93,12 +98,18 @@ class MeshAnimation {
   }
 
   distance3D(a, b) {
-    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) + Math.pow(a.z - b.z, 2) * 0.1);
+    return Math.sqrt(
+      Math.pow(a.x - b.x, 2) +
+        Math.pow(a.y - b.y, 2) +
+        Math.pow(a.z - b.z, 2) * 0.1,
+    );
   }
 
   connectionExists(from, to) {
-    return this.connections.some(conn =>
-      (conn.from === from && conn.to === to) || (conn.from === to && conn.to === from)
+    return this.connections.some(
+      (conn) =>
+        (conn.from === from && conn.to === to) ||
+        (conn.from === to && conn.to === from),
     );
   }
 
@@ -108,14 +119,19 @@ class MeshAnimation {
       clearInterval(this.pulseInterval);
     }
 
-    this.pulseInterval = setInterval(() => {
-      if (this.nodes.length > 0 && Math.random() < 0.3) { // 30% chance every interval
-        const randomNode = this.nodes[Math.floor(Math.random() * this.nodes.length)];
-        if (!randomNode.pulsing && randomNode.connections.length > 0) {
-          this.triggerPulse(this.nodes.indexOf(randomNode));
+    this.pulseInterval = setInterval(
+      () => {
+        if (this.nodes.length > 0 && Math.random() < 0.3) {
+          // 30% chance every interval
+          const randomNode =
+            this.nodes[Math.floor(Math.random() * this.nodes.length)];
+          if (!randomNode.pulsing && randomNode.connections.length > 0) {
+            this.triggerPulse(this.nodes.indexOf(randomNode));
+          }
         }
-      }
-    }, 1000 + Math.random() * 2000); // Random interval between 1 - 2 seconds
+      },
+      1000 + Math.random() * 2000,
+    ); // Random interval between 1 - 2 seconds
   }
 
   triggerPulse(nodeIndex) {
@@ -125,15 +141,16 @@ class MeshAnimation {
 
     // Create traveling pulses to connected nodes
     this.connections
-      .filter(conn => conn.from === nodeIndex || conn.to === nodeIndex)
-      .forEach(conn => {
-        if (Math.random() < 0.7) { // 70% chance to send pulse
+      .filter((conn) => conn.from === nodeIndex || conn.to === nodeIndex)
+      .forEach((conn) => {
+        if (Math.random() < 0.7) {
+          // 70% chance to send pulse
           const targetIndex = conn.from === nodeIndex ? conn.to : conn.from;
           this.pulses.push({
             from: nodeIndex,
             to: targetIndex,
             progress: 0,
-            life: 1.0
+            life: 1.0,
           });
         }
       });
@@ -145,7 +162,7 @@ class MeshAnimation {
   }
 
   updateNodes() {
-    this.nodes.forEach(node => {
+    this.nodes.forEach((node) => {
       // Gentle floating movement
       node.x += node.vx;
       node.y += node.vy;
@@ -155,10 +172,14 @@ class MeshAnimation {
       node.z = node.baseZ + Math.sin(Date.now() * 0.001 + node.x * 0.01) * 20;
 
       // Boundary checking with wrapping
-      if (node.x < -50) node.x = this.canvas.width / window.devicePixelRatio + 50;
-      if (node.x > this.canvas.width / window.devicePixelRatio + 50) node.x = -50;
-      if (node.y < -50) node.y = this.canvas.height / window.devicePixelRatio + 50;
-      if (node.y > this.canvas.height / window.devicePixelRatio + 50) node.y = -50;
+      if (node.x < -50)
+        node.x = this.canvas.width / window.devicePixelRatio + 50;
+      if (node.x > this.canvas.width / window.devicePixelRatio + 50)
+        node.x = -50;
+      if (node.y < -50)
+        node.y = this.canvas.height / window.devicePixelRatio + 50;
+      if (node.y > this.canvas.height / window.devicePixelRatio + 50)
+        node.y = -50;
 
       // Update pulse animation
       if (node.pulsing) {
@@ -167,7 +188,7 @@ class MeshAnimation {
     });
 
     // Update traveling pulses
-    this.pulses = this.pulses.filter(pulse => {
+    this.pulses = this.pulses.filter((pulse) => {
       pulse.progress += 0.02;
       pulse.life -= 0.01;
 
@@ -187,14 +208,17 @@ class MeshAnimation {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Draw connections
-    this.connections.forEach(conn => {
+    this.connections.forEach((conn) => {
       const fromNode = this.nodes[conn.from];
       const toNode = this.nodes[conn.to];
 
       // 3D perspective effect
       const fromScale = 1 + fromNode.z * 0.002;
       const toScale = 1 + toNode.z * 0.002;
-      const opacity = Math.max(0.1, 0.3 - Math.abs(fromNode.z + toNode.z) * 0.002);
+      const opacity = Math.max(
+        0.1,
+        0.3 - Math.abs(fromNode.z + toNode.z) * 0.002,
+      );
 
       this.ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
       this.ctx.lineWidth = 0.5;
@@ -205,7 +229,7 @@ class MeshAnimation {
     });
 
     // Draw traveling pulses
-    this.pulses.forEach(pulse => {
+    this.pulses.forEach((pulse) => {
       const fromNode = this.nodes[pulse.from];
       const toNode = this.nodes[pulse.to];
 
@@ -224,7 +248,7 @@ class MeshAnimation {
     });
 
     // Draw nodes
-    this.nodes.forEach(node => {
+    this.nodes.forEach((node) => {
       const scale = 1 + node.z * 0.002;
       const baseOpacity = Math.max(0.2, 0.6 - Math.abs(node.z) * 0.003);
 
@@ -264,16 +288,16 @@ class MeshAnimation {
 let heroMeshAnimation = null;
 
 // Cleanup on page unload
-window.addEventListener('beforeunload', () => {
+window.addEventListener("beforeunload", () => {
   if (heroMeshAnimation) {
     heroMeshAnimation.destroy();
   }
 });
 
 // Initialize everything when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  const heroCanvas = document.getElementById('heroMesh');
+document.addEventListener("DOMContentLoaded", () => {
+  const heroCanvas = document.getElementById("heroMesh");
   if (heroCanvas && MeshAnimation) {
-    heroMeshAnimation = new MeshAnimation('heroMesh');
+    heroMeshAnimation = new MeshAnimation("heroMesh");
   }
 });
