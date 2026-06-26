@@ -30,6 +30,7 @@ import (
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
 	"github.com/paularlott/scriptling/plugin"
+	scriptlingsetup "github.com/paularlott/scriptling/scriptling-cli/setup"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
@@ -46,6 +47,8 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterHTMLParserLibrary(env)
 	extlibs.RegisterWaitForLibrary(env)
 	extlibs.RegisterYAMLLibrary(env)
+	extlibs.RegisterFSLibrary(env, nil)
+	extlibs.RegisterMarkdownLibrary(env)
 	if customLogger != nil {
 		extlibs.RegisterLoggingLibrary(env, customLogger)
 	} else {
@@ -346,6 +349,65 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, argv, nil)
 	return env, cleanup, nil
+}
+
+// NewRunScriptEvalEnv builds the environment for `knot run-script` when it
+// evaluates a script (not serving). It registers the full scriptling CLI
+// library set MINUS the container library (no docker/podman runtime inside a
+// space), then layers knot's own libraries on top — so plain run-script has the
+// same library surface as the scriptling CLI and as run-script's server modes.
+func NewRunScriptEvalEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger, output io.Writer, input io.Reader) (*scriptling.Scriptling, func(), error) {
+	env := scriptling.New()
+	env.SetOutputWriter(output)
+	env.SetInputReader(input)
+
+	log := customLogger
+	if log == nil {
+		log = logger.NewNullLogger()
+	}
+
+	// Full scriptling CLI library set, minus container (no docker/podman).
+	scriptlingsetup.Scriptling(env, nil, false, nil, []string{extlibs.ContainerLibraryName}, nil, log, "", "")
+
+	// setup registers net.resolve with the default resolver; re-register with
+	// knot's configured DNS resolver.
+	scriptlingresolve.Register(env, dns.GetDefaultResolver())
+
+	// Knot-specific libraries (knot.apiclient, knot.event, knot.ai, knot.methods…).
+	aiClient := createServerAIClient(client, nil)
+	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
+	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
+
+	pluginScope := registerPluginScope(env, plugin.TransportAll)
+	cleanup := func() { _ = pluginScope.Close() }
+
+	setupLibraryLoader(env, client)
+	extlibs.RegisterSysLibrary(env, argv, input)
+	if input != nil {
+		env.SetObjectVar("input", extlibs.NewInputBuiltin(input))
+	}
+	return env, cleanup, nil
+}
+
+// RegisterKnotServeLibraries adds knot's libraries to an environment created by
+// the scriptling server runtime (used as the ServerConfig.ExtraLibs hook for
+// `knot run-script` server modes). It registers the Go-backed knot libraries
+// (knot.apiclient transport, knot.ai, knot.mcptools, knot.healthcheck) and
+// chains knot's Python-library loader in front of the server's existing loader
+// so `import knot.space` etc. resolve without losing the server's handler-module
+// loader. knot.methods is intentionally not registered — in server mode the
+// script is the method server itself (via scriptling.runtime.jsonrpc).
+func RegisterKnotServeLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string) {
+	aiClient := createServerAIClient(client, nil)
+	registerKnotLibraries(env, client, userId, nil, nil, aiClient, false)
+	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
+
+	knotLoader := newKnotLibsLoader()
+	if existing := env.GetLibraryLoader(); existing != nil {
+		env.SetLibraryLoader(libloader.NewChain(knotLoader, existing))
+	} else {
+		env.SetLibraryLoader(knotLoader)
+	}
 }
 
 // NewRemoteStreamingScriptlingEnv creates a scriptling environment for streaming remote execution

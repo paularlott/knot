@@ -76,3 +76,12 @@ type RegisterMethodsFileRequest struct {
 	Content string   `json:"content" msgpack:"content"`
 	Args    []string `json:"args,omitempty" msgpack:"args,omitempty"`
 }
+
+// LogRequest carries a single log line from a CLI sub-process (e.g.
+// `knot run-script`) to the agent daemon, which forwards it upstream via the
+// agent client's log channel. Level is a msg.LogLevel byte value.
+type LogRequest struct {
+	Service string `json:"service" msgpack:"service"`
+	Level   byte   `json:"level" msgpack:"level"`
+	Message string `json:"message" msgpack:"message"`
+}

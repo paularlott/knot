@@ -2561,7 +2561,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "scriptling.fs",
+    module: "fs",
     description: "Binary file operations for low-level byte manipulation",
     functions: [
       {
@@ -4187,7 +4187,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "scriptling.glob",
+    module: "glob",
     description: "Unix shell-style wildcards for file path matching (Remote environments)",
     functions: [
       {
@@ -6295,7 +6295,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "wait_for",
+    module: "scriptling.wait_for",
     description: "Wait for resources to become available",
     functions: [
       {
@@ -6333,6 +6333,182 @@ const scriptLibraries = [
         signature: "process_name(name, timeout=30, poll_rate=1)",
         description: "Wait for process to be running",
         returns: "bool - True if process is running",
+      },
+    ],
+  },
+  // ============================================================================
+  // Additional Scriptling + stdlib libraries
+  // ============================================================================
+  {
+    module: "scriptling.runtime.jsonrpc",
+    description:
+      "JSON-RPC server runtime. Register methods/notifications that Knot routes to this script when run as a JSON-RPC method server (knot run-script --json-rpc).",
+    functions: [
+      {
+        name: "method",
+        signature: "method(name, handler)",
+        description:
+          "Register a JSON-RPC method handler. handler is a 'module.function' reference resolved per request.",
+        returns: "None",
+      },
+      {
+        name: "notification",
+        signature: "notification(name, handler)",
+        description:
+          "Register a JSON-RPC notification handler (a request with no id, no response returned).",
+        returns: "None",
+      },
+      {
+        name: "error",
+        signature: "error(code, message, data=None)",
+        description: "Build a JSON-RPC error response to return from a handler.",
+        returns: "dict - JSON-RPC error object",
+      },
+    ],
+  },
+  {
+    module: "scriptling.markdown",
+    description: "Markdown rendering.",
+    functions: [
+      {
+        name: "to_html",
+        signature: "to_html(markdown_string)",
+        description: "Convert a Markdown string to HTML.",
+        returns: "str - HTML",
+      },
+    ],
+  },
+  {
+    module: "contextlib",
+    description: "Utilities for with-statement contexts.",
+    functions: [
+      {
+        name: "suppress",
+        signature: "suppress(*exc_types)",
+        description:
+          "Context manager that suppresses the given exception types within its block.",
+        returns: "context manager",
+      },
+    ],
+  },
+  {
+    module: "difflib",
+    description: "Helpers for comparing sequences.",
+    functions: [
+      {
+        name: "unified_diff",
+        signature: 'unified_diff(a, b, fromfile="", tofile="", n=3)',
+        description: "Produce a unified diff of two sequences of lines.",
+        returns: "list - diff lines",
+      },
+      {
+        name: "ratio",
+        signature: "ratio(a, b)",
+        description: "Return a measure of the sequences' similarity (0.0-1.0).",
+        returns: "float",
+      },
+      {
+        name: "opcodes",
+        signature: "opcodes(a, b)",
+        description: "Return list of (tag, i1, i2, j1, j2) opcodes describing how to turn a into b.",
+        returns: "list",
+      },
+      {
+        name: "get_close_matches",
+        signature: "get_close_matches(word, possibilities, n=3, cutoff=0.6)",
+        description: "Return a list of the best close matches to word.",
+        returns: "list",
+      },
+    ],
+  },
+  {
+    module: "urllib",
+    description: "URL handling — quoting, parsing, and joining.",
+    functions: [
+      {
+        name: "quote",
+        signature: "quote(string, safe='')",
+        description: "Percent-encode a string for use in a URL.",
+        returns: "str",
+      },
+      {
+        name: "quote_plus",
+        signature: "quote_plus(string, safe='')",
+        description: "Like quote(), but also encode spaces as '+'.",
+        returns: "str",
+      },
+      {
+        name: "unquote",
+        signature: "unquote(string)",
+        description: "Decode a percent-encoded string.",
+        returns: "str",
+      },
+      {
+        name: "unquote_plus",
+        signature: "unquote_plus(string)",
+        description: "Like unquote(), but also decode '+' as space.",
+        returns: "str",
+      },
+      {
+        name: "urlparse",
+        signature: "urlparse(urlstring)",
+        description: "Parse a URL into its components.",
+        returns: "tuple - (scheme, netloc, path, params, query, fragment)",
+      },
+      {
+        name: "urlunparse",
+        signature: "urlunparse(components)",
+        description: "Build a URL from its components.",
+        returns: "str",
+      },
+      {
+        name: "urljoin",
+        signature: "urljoin(base, url)",
+        description: "Join a base URL and a possibly relative URL.",
+        returns: "str",
+      },
+      {
+        name: "urlsplit",
+        signature: "urlsplit(urlstring)",
+        description: "Split a URL into components (no params field).",
+        returns: "tuple",
+      },
+      {
+        name: "urlunsplit",
+        signature: "urlunsplit(components)",
+        description: "Build a URL from split components.",
+        returns: "str",
+      },
+      {
+        name: "parse_qs",
+        signature: "parse_qs(qs, keep_blank_values=False)",
+        description: "Parse a query string into a dict of lists.",
+        returns: "dict",
+      },
+      {
+        name: "parse_qsl",
+        signature: "parse_qsl(qs, keep_blank_values=False)",
+        description: "Parse a query string into a list of (name, value) pairs.",
+        returns: "list",
+      },
+    ],
+  },
+  {
+    module: "io",
+    description: "In-memory text and binary streams.",
+    functions: [
+      {
+        name: "StringIO",
+        signature: "StringIO(initial='')",
+        description:
+          "Create an in-memory text stream (read/write/getvalue/seek/tell/truncate/close).",
+        returns: "StringIO",
+      },
+      {
+        name: "BytesIO",
+        signature: "BytesIO(initial=b'')",
+        description: "Create an in-memory binary stream.",
+        returns: "BytesIO",
       },
     ],
   },

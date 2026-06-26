@@ -33,7 +33,7 @@ func main() {
 		Description: `knot is a management tool for developer environments running within a Nomad cluster.
 
 The agent connects environments to the knot server.`,
-		Version: build.Version,
+		Version: build.FullVersion(),
 		ConfigFile: cli_toml.NewConfigFile(&configFile, func() []string {
 			paths := []string{"."}
 

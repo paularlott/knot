@@ -139,5 +139,8 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandUnregisterMethods:
 		handleUnregisterMethods(conn, msg)
+
+	case CommandLog:
+		handleLog(conn, msg)
 	}
 }
