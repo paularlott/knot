@@ -249,6 +249,21 @@ func (c *AgentClient) GetSpaceId() string {
 	return c.spaceId
 }
 
+// HasLiveServerConnection reports whether the agent currently has at least one
+// knot server connection with a live mux session. Method registration can only
+// be published once a session exists (publishMethods fails, without retry, if
+// none is connected), so startup registration waits on this.
+func (c *AgentClient) HasLiveServerConnection() bool {
+	c.serverListMutex.RLock()
+	defer c.serverListMutex.RUnlock()
+	for _, server := range c.serverList {
+		if server.muxSession != nil && !server.muxSession.IsClosed() {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *AgentClient) GetAgentToken() string {
 	c.credentialsMutex.RLock()
 	defer c.credentialsMutex.RUnlock()

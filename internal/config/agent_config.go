@@ -10,6 +10,7 @@ type AgentConfig struct {
 	APIPort              int
 	DisableTerminal      bool
 	DisableSpaceIO       bool
+	MethodsFile          string
 	Port                 PortConfig
 	TLS                  TLSConfig
 }

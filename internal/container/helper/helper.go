@@ -209,13 +209,13 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 
 	// Execute startup script if defined (non-blocking)
 	go func() {
-		// Execute system startup script
-		if err := executeSpaceScript(space, template, user, template.StartupScriptId, true); err != nil {
+		// Execute system startup script (no timeout — runs in the background)
+		if err := executeSpaceScript(space, template, user, template.StartupScriptId, true, 0); err != nil {
 			log.WithError(err).Warn("system startup script failed", "space_id", space.Id)
 		}
 		// Execute user startup script from space definition
 		if space.StartupScriptId != "" {
-			if err := executeSpaceScript(space, template, user, space.StartupScriptId, true); err != nil {
+			if err := executeSpaceScript(space, template, user, space.StartupScriptId, true, 0); err != nil {
 				log.WithError(err).Warn("user startup script failed", "space_id", space.Id)
 			}
 		}
@@ -259,14 +259,14 @@ func (h *Helper) StopSpace(space *model.Space) error {
 		return err
 	}
 
-	// Execute shutdown script (blocking)
-	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+	// Run the shutdown script (bounded by ShutdownScriptTimeout so a hung agent
+	// script can't block the stop) while the agent is still alive, then tear down
+	// the job.
+	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false, ShutdownScriptTimeout); err != nil {
 		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
 
-	// Stop the job
-	err = containerClient.DeleteSpaceJob(space, nil)
-	if err != nil {
+	if err := containerClient.DeleteSpaceJob(space, nil); err != nil {
 		space.IsPending = false
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
@@ -317,17 +317,17 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 		return err
 	}
 
-	// Execute shutdown script if defined (blocking)
-	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+	// Run the shutdown script (bounded by ShutdownScriptTimeout) while the agent
+	// is still alive, then tear down the job; DeleteSpaceJob's callback starts the
+	// container again.
+	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false, ShutdownScriptTimeout); err != nil {
 		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
 
-	// Stop the job
-	err = containerClient.DeleteSpaceJob(space, func() {
+	if err := containerClient.DeleteSpaceJob(space, func() {
 		// Start the container again
 		h.StartSpace(space, template, user)
-	})
-	if err != nil {
+	}); err != nil {
 		space.IsPending = false
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
@@ -387,8 +387,8 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 				if err != nil {
 					logger.WithError(err).Warn("failed to get user for shutdown scripts")
 				} else {
-					// Execute shutdown script (blocking)
-					if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+					// Execute shutdown script (bounded by ShutdownScriptTimeout)
+					if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false, ShutdownScriptTimeout); err != nil {
 						logger.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 					}
 				}
@@ -569,7 +569,13 @@ func (h *Helper) CleanupOnBoot() {
 	logger.Info("finished cleaning spaces...")
 }
 
-func executeSpaceScript(space *model.Space, template *model.Template, user *model.User, scriptId string, waitForAgent bool) error {
+// ShutdownScriptTimeout bounds how long StopSpace/RestartSpace wait for a
+// space's shutdown script to finish before proceeding with teardown, so a hung
+// agent script cannot block the stop indefinitely. Startup scripts pass a zero
+// timeout (they run in the background and may take as long as they need).
+var ShutdownScriptTimeout = 60 * time.Second
+
+func executeSpaceScript(space *model.Space, template *model.Template, user *model.User, scriptId string, waitForAgent bool, timeout time.Duration) error {
 	if scriptId == "" || template.IsManual() {
 		return nil
 	}
@@ -586,10 +592,14 @@ func executeSpaceScript(space *model.Space, template *model.Template, user *mode
 		return nil
 	}
 
-	return executeScript(space, script, waitForAgent)
+	return executeScript(space, script, waitForAgent, timeout)
 }
 
-func executeScript(space *model.Space, script *model.Script, waitForAgent bool) error {
+// executeScript sends a script to the space's agent and waits for the result.
+// A timeout of 0 means wait indefinitely; a positive timeout returns an error
+// if the agent does not respond in time (the agent goroutine's response is
+// absorbed by the buffered response channel, so no goroutine leaks).
+func executeScript(space *model.Space, script *model.Script, waitForAgent bool, timeout time.Duration) error {
 	var session *agent_server.Session
 	if waitForAgent {
 		for i := 0; i < 60; i++ {
@@ -623,7 +633,18 @@ func executeScript(space *model.Space, script *model.Script, waitForAgent bool) 
 		return err
 	}
 
-	resp := <-respChan
+	var resp *msg.ExecuteScriptResponse
+	if timeout > 0 {
+		select {
+		case resp = <-respChan:
+		case <-time.After(timeout):
+			log.Warn("script execution timed out", "script_id", script.Id, "space_id", space.Id, "timeout", timeout)
+			return fmt.Errorf("script execution timed out after %s", timeout)
+		}
+	} else {
+		resp = <-respChan
+	}
+
 	if !resp.Success {
 		err := fmt.Errorf("%s", resp.Error)
 		log.WithError(err).Error("script execution failed", "script_id", script.Id, "space_id", space.Id)

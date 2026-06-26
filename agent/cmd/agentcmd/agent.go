@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd/space"
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/methods"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/syslogd"
@@ -66,6 +69,12 @@ var agentServerCmd = &cli.Command{
 			ConfigPath:   []string{"agent.disable_space_io"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_SPACE_IO"},
 			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:       "methods-file",
+			Usage:      "Path to a .toml or .py file used to register JSON-RPC methods when the agent starts (same as 'knot methods register').",
+			ConfigPath: []string{"agent.methods_file"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_METHODS_FILE"},
 		},
 		&cli.StringSliceFlag{
 			Name:       "tcp-port",
@@ -191,7 +200,8 @@ var agentServerCmd = &cli.Command{
 
 		// Start the command socket and wait for it to be ready
 		agentlink.StartCommandSocket(agentClient)
-		agentlink.SetMethodsScriptRunner(buildMethodsScriptRunner(agentClient))
+		methodsRunner := buildMethodsScriptRunner(agentClient)
+		agentlink.SetMethodsScriptRunner(methodsRunner)
 
 		// Install the methods registrar globally for the lifetime of the daemon.
 		// Any script that runs in the agent (startup scripts, `knot methods
@@ -201,6 +211,34 @@ var agentServerCmd = &cli.Command{
 		// this hook.
 		knotscriptling.SetMethodsRegistrar(agentClient.RegisterMethods)
 		knotscriptling.SetMethodsUnregisterAll(agentClient.UnregisterAllMethods)
+
+		// If a methods file was provided, register it on startup the same way
+		// `knot methods register <file>` does. Run it in the background so a
+		// long-running .py registration script doesn't delay the daemon from
+		// reaching the signal wait below, and so a failure here never stops the
+		// agent from serving the space.
+		if cfg.MethodsFile != "" {
+			methodsFile := cfg.MethodsFile
+			go func() {
+				// Wait for a live server connection before registering — the
+				// initial connect runs asynchronously and publishing fails
+				// (without retry) until a session exists.
+				deadline := time.Now().Add(60 * time.Second)
+				for !agentClient.HasLiveServerConnection() {
+					if time.Now().After(deadline) {
+						logger.Error("timed out waiting for server connection to register methods file", "file", methodsFile)
+						return
+					}
+					time.Sleep(250 * time.Millisecond)
+				}
+
+				if err := registerMethodsFile(agentClient, methodsRunner, methodsFile); err != nil {
+					logger.WithError(err).Error("failed to register methods from file", "file", methodsFile)
+				} else {
+					logger.Info("registered methods from file", "file", methodsFile)
+				}
+			}()
+		}
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -250,6 +288,32 @@ func buildMethodsScriptRunner(agentClient *agent_client.AgentClient) func(conten
 	}
 }
 
+// registerMethodsFile loads a JSON-RPC method registration from a .toml or .py
+// file and registers it with the knot server, mirroring `knot methods register
+// <file>` but running in-process at agent startup. A .toml file is parsed into a
+// Registration and published via agentClient.RegisterMethods; a .py file is run
+// through the daemon's methods script runner so server.register() inside the
+// script publishes directly.
+func registerMethodsFile(agentClient *agent_client.AgentClient, runScript func(content string, args []string) error, path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read methods file: %w", err)
+	}
+
+	switch ext := filepath.Ext(path); ext {
+	case ".toml":
+		reg, err := methods.LoadRawTOML(data)
+		if err != nil {
+			return err
+		}
+		return agentClient.RegisterMethods(reg)
+	case ".py":
+		return runScript(string(data), nil)
+	default:
+		return fmt.Errorf("unsupported methods file extension %q (expected .toml or .py)", ext)
+	}
+}
+
 func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 	agentCfg := &config.AgentConfig{
 		Endpoint:             cmd.GetString("endpoint"),
@@ -261,6 +325,7 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		APIPort:              cmd.GetInt("api-port"),
 		DisableTerminal:      cmd.GetBool("disable-terminal"),
 		DisableSpaceIO:       cmd.GetBool("disable-space-io"),
+		MethodsFile:          cmd.GetString("methods-file"),
 		Port: config.PortConfig{
 			CodeServer: cmd.GetInt("code-server-port"),
 			VNCHttp:    cmd.GetInt("vnc-http-port"),

@@ -7,7 +7,10 @@ type Container interface {
 	CreateVolume(volume *model.Volume) error
 	DeleteVolume(volume *model.Volume) error
 
-	// Spaces
+	// Spaces. StopSpace/RestartSpace run the shutdown script and container
+	// teardown synchronously and return any teardown error. The shutdown script
+	// is bounded by a timeout (helper.ShutdownScriptTimeout) so a hung agent
+	// script cannot block the caller indefinitely.
 	StartSpace(space *model.Space, template *model.Template, user *model.User) error
 	StopSpace(space *model.Space) error
 	RestartSpace(space *model.Space) error

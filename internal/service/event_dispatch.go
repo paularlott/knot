@@ -31,9 +31,14 @@ const (
 	SinkQueueSize      = 100
 	WebhookTimeout     = 10 * time.Second
 	RetryAttempts      = 3
-	RetryDelay1        = 5 * time.Second
-	RetryDelay2        = 15 * time.Second
 	TombstoneRetention = 5 * time.Minute
+)
+
+// Retry back-off between delivery attempts. Vars (not consts) so tests can
+// shrink them; production values are unchanged.
+var (
+	RetryDelay1 = 5 * time.Second
+	RetryDelay2 = 15 * time.Second
 )
 
 type EventEnvelope struct {

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"sync"
+
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/database/model"
 )
@@ -40,13 +42,18 @@ type Transport interface {
 }
 
 var (
-	transport Transport
+	transport   Transport
+	transportMu sync.RWMutex
 )
 
 func SetTransport(t Transport) {
+	transportMu.Lock()
 	transport = t
+	transportMu.Unlock()
 }
 
 func GetTransport() Transport {
+	transportMu.RLock()
+	defer transportMu.RUnlock()
 	return transport
 }
