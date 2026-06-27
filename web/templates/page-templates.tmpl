@@ -15,7 +15,7 @@
         <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-            <input type="search" name="search" id="search" class="form-field grow pr-24" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+            <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
             <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
           </div>
         </div>
@@ -26,15 +26,6 @@
           </svg>
           <span x-show="showAll || showInactive || showLocal" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
         </button>
-
-        <!-- Active filter chips (desktop): surface the funnel's active filters inline; mobile keeps the funnel badge. -->
-        <div x-show="showAll || showInactive || showLocal" x-cloak class="hidden sm:flex items-center gap-2 ml-3 mt-1">
-          <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Filters:</span>
-          {{ template "filterChip" (map "show" "showAll" "label" "All Zones" "click" "showAll=false; searchChanged()") }}
-          {{ template "filterChip" (map "show" "showInactive" "label" "Inactive" "click" "showInactive=false; searchChanged()") }}
-          {{ template "filterChip" (map "show" "showLocal" "label" "Local Only" "click" "showLocal=false; searchChanged()") }}
-          <button type="button" @click="showAll=false; showInactive=false; showLocal=false; searchChanged()" class="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400 cursor-pointer">Clear all</button>
-        </div>
 
         <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap">
 
@@ -76,6 +67,12 @@
       </div>
       {{ end }}
     </form>
+
+    {{ template "filterBar" (map "active" "showAll || showInactive || showLocal") }}
+      {{ template "filterChip" (map "show" "showAll" "label" "All Zones" "click" "showAll=false; searchChanged()") }}
+      {{ template "filterChip" (map "show" "showInactive" "label" "Inactive" "click" "showInactive=false; searchChanged()") }}
+      {{ template "filterChip" (map "show" "showLocal" "label" "Local Only" "click" "showLocal=false; searchChanged()") }}
+    {{ template "filterBarClear" (map "clear" "showAll=false; showInactive=false; showLocal=false; searchChanged()") }}
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 

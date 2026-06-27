@@ -102,6 +102,7 @@ window.spacesListComponent = function (
       userId === forUserId && canManageSpaces
         ? Alpine.$persist(forUserId).as("forUserId").using(sessionStorage)
         : forUserId,
+    forUsername: "",
     canManageSpaces,
     canTransferSpaces,
     canShareSpaces,

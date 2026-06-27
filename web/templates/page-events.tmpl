@@ -15,7 +15,7 @@
         <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-            <input type="search" name="search" id="search" class="form-field grow pr-24" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+            <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
             <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
           </div>
         </div>
@@ -25,14 +25,6 @@
           </svg>
           <span x-show="!showMySinks || showGlobalSinks" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
         </button>
-
-        <!-- Active filter chips (desktop): surface the funnel's active filters inline; mobile keeps the funnel badge. -->
-        <div x-show="!showMySinks || showGlobalSinks" x-cloak class="hidden sm:flex items-center gap-2 ml-3 mt-1">
-          <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Filters:</span>
-          {{ template "filterChip" (map "show" "!showMySinks" "label" "My Event Sinks off" "click" "showMySinks=true; filterChanged()") }}
-          {{ template "filterChip" (map "show" "showGlobalSinks" "label" "Global Event Sinks" "click" "showGlobalSinks=false; filterChanged()") }}
-          <button type="button" @click="showMySinks=true; showGlobalSinks=false; filterChanged()" class="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400 cursor-pointer">Clear all</button>
-        </div>
 
         <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" x-cloak>
           {{ if or .isLeafNode .permissionManageEvents }}
@@ -45,7 +37,7 @@
           </div>
           {{ end }}
           {{ if or .isLeafNode .permissionManageGlobalEvents }}
-          <div class="mb-2">
+          <div class="mb-2 mt-4">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" @change="filterChanged" :checked="showGlobalSinks" x-model="showGlobalSinks">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
@@ -74,6 +66,11 @@
         {{ end }}
       </div>
     </form>
+
+    {{ template "filterBar" (map "active" "!showMySinks || showGlobalSinks") }}
+      {{ template "filterChip" (map "show" "!showMySinks" "label" "My Event Sinks off" "click" "showMySinks=true; filterChanged()") }}
+      {{ template "filterChip" (map "show" "showGlobalSinks" "label" "Global Event Sinks" "click" "showGlobalSinks=false; filterChanged()") }}
+    {{ template "filterBarClear" (map "clear" "showMySinks=true; showGlobalSinks=false; filterChanged()") }}
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       {{ template "loading" . }}

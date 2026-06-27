@@ -1,3 +1,23 @@
 {{ define "filterChip" }}
 <button type="button" x-show="{{ .show }}" x-cloak @click="{{ .click }}" class="app-filter-chip" aria-label="Remove {{ .label }} filter">{{ .label }}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="size-3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
 {{ end }}
+
+{{/*
+  filterBar / filterBarClear wrap the active-filter chips in a constant-height
+  row placed between the toolbar and the table. The outer row always reserves
+  its height (min-h) on sm+ so toggling filters never shifts the table; it is
+  hidden on mobile, where the funnel badge is the indicator. The inner group is
+  only shown when .active is truthy. Place {{ template "filterChip" ... }} calls
+  between filterBar and filterBarClear.
+*/}}
+{{ define "filterBar" }}
+<div class="col-span-full hidden sm:flex flex-wrap items-center gap-2 min-h-9">
+  <div x-show="{{ .active }}" x-cloak class="flex flex-wrap items-center gap-2">
+    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Filtering by:</span>
+{{ end }}
+
+{{ define "filterBarClear" }}
+    <button type="button" @click="{{ .clear }}" class="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400 cursor-pointer">Clear all</button>
+  </div>
+</div>
+{{ end }}
