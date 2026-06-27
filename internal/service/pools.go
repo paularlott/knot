@@ -2,10 +2,12 @@ package service
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
@@ -27,6 +29,7 @@ type PoolService struct {
 	pendingDeletions map[string]time.Time // space ID -> first seen as excess stopped
 	drained          map[string]bool      // space ID -> currently drained by pool sweep
 	rrCounters       map[string]int       // pool ID -> round-robin cursor
+	createMu         sync.Mutex           // serializes member ordinal allocation
 }
 
 type PoolSessionState struct {
@@ -752,6 +755,26 @@ func (s *PoolService) clearPending(spaceID string) {
 // Space helpers
 // ---------------------------------------------------------------------------
 
+// memberOrdinal extracts the 0-based member number encoded in a pool member's
+// name (poolname-N). Returns false if the name doesn't follow the scheme — e.g.
+// a member that was manually renamed. The number lives only in the name; pools
+// are small enough that deriving it on demand is cheaper than persisting it.
+func memberOrdinal(poolName string, space *model.Space) (int, bool) {
+	prefix := poolName + "-"
+	if !strings.HasPrefix(space.Name, prefix) {
+		return 0, false
+	}
+	n, err := strconv.Atoi(space.Name[len(prefix):])
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+// poolMembers returns the pool's non-deleted spaces sorted by member number
+// ascending (un-numbered members last). Ordering is what gives the reconcile
+// loop its "keep the lowest numbers, release the highest, restart the lowest
+// stopped" behaviour: keepers are members[:n] and excess is members[n:].
 func poolMembers(pool *model.PoolDefinition, spaces []*model.Space) []*model.Space {
 	var members []*model.Space
 	for _, space := range spaces {
@@ -759,7 +782,31 @@ func poolMembers(pool *model.PoolDefinition, spaces []*model.Space) []*model.Spa
 			members = append(members, space)
 		}
 	}
+	sort.SliceStable(members, func(i, j int) bool {
+		oi, oki := memberOrdinal(pool.Name, members[i])
+		oj, okj := memberOrdinal(pool.Name, members[j])
+		if oki != okj {
+			return oki // numbered members sort before un-numbered ones
+		}
+		return oi < oj
+	})
 	return members
+}
+
+// nextPoolOrdinal returns the lowest non-negative number not currently used by a
+// member name. A linear scan is fine: pools never hold enough members to matter.
+func nextPoolOrdinal(poolName string, members []*model.Space) int {
+	used := make(map[int]bool, len(members))
+	for _, m := range members {
+		if n, ok := memberOrdinal(poolName, m); ok {
+			used[n] = true
+		}
+	}
+	n := 0
+	for used[n] {
+		n++
+	}
+	return n
 }
 
 func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.User) error {
@@ -768,26 +815,38 @@ func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.Us
 	if err != nil {
 		return err
 	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-	name := pool.Name + "-" + id.String()
-	shell := user.PreferredShell
-	if shell == "" {
-		shell = "zsh"
-	}
-	space := model.NewSpace(name, "Pool member for "+pool.Name, user.Id, pool.TemplateId, shell, &[]model.AltNameEntry{}, "", "", nil)
-	space.PoolId = pool.Id
-	space.StartupScriptId = pool.StartupScriptId
 	nodeId, err := SelectNodeForSpace(template, "")
 	if err != nil {
 		return err
 	}
-	space.NodeId = nodeId
-	if err := GetSpaceService().CreateSpace(space, user); err != nil {
+	shell := user.PreferredShell
+	if shell == "" {
+		shell = "zsh"
+	}
+
+	// Allocate the lowest free ordinal and persist the new member atomically.
+	// createMu serializes allocation so a concurrent Create + sweep on the
+	// leader can't hand the same number to two spaces. The lock is released
+	// before the (potentially slow) StartSpace call — the ordinal is committed
+	// once the space row exists.
+	s.createMu.Lock()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		s.createMu.Unlock()
 		return err
 	}
+	ordinal := nextPoolOrdinal(pool.Name, poolMembers(pool, spaces))
+	name := pool.Name + "-" + strconv.Itoa(ordinal)
+	space := model.NewSpace(name, "Pool member for "+pool.Name, user.Id, pool.TemplateId, shell, &[]model.AltNameEntry{}, "", "", nil)
+	space.PoolId = pool.Id
+	space.StartupScriptId = pool.StartupScriptId
+	space.NodeId = nodeId
+	err = GetSpaceService().CreateSpace(space, user)
+	s.createMu.Unlock()
+	if err != nil {
+		return err
+	}
+
 	if pool.Active {
 		return GetContainerService().StartSpace(space, template, user)
 	}
