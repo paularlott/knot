@@ -356,7 +356,7 @@ window.spacesListComponent = function (
     async getSpaces(spaceId) {
       const url = spaceId
         ? `/api/spaces/${spaceId}`
-        : `/api/spaces?user_id=${this.forUserId}`;
+        : `/api/spaces?user_id=${this.forUserId}${this.showLocalOnly ? "" : "&all_zones=true"}`;
       await fetch(url, {
         headers: {
           "Content-Type": "application/json",
