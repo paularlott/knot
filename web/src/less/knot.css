@@ -47,7 +47,7 @@
 }
 
 @utility form-field {
-  @apply block w-full rounded-2xl border border-slate-300 bg-white/92 px-4 py-3 text-sm text-slate-900 shadow-sm shadow-slate-900/5 transition-[border-color,box-shadow,background-color,color,transform] placeholder:text-slate-500 hover:border-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-800/95 dark:text-slate-100 dark:placeholder:text-slate-400 dark:hover:border-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
+  @apply block w-full rounded-lg border border-slate-300 bg-white/92 px-4 py-2 text-sm text-slate-900 shadow-sm shadow-slate-900/5 transition-[border-color,box-shadow,background-color,color,transform] placeholder:text-slate-500 hover:border-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-800/95 dark:text-slate-100 dark:placeholder:text-slate-400 dark:hover:border-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
 }
 
 @utility form-field-error {
@@ -79,7 +79,7 @@
 }
 
 @utility app-toolbar {
-  @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+  @apply flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between;
 }
 
 @utility app-search-shortcut {

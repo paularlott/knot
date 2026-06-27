@@ -10,7 +10,7 @@
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Variables</h1>
     </div>
 
-    <form class="col-span-full sm:flex justify-between">
+    <form class="app-toolbar col-span-full">
       <div>
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
@@ -19,11 +19,11 @@
         </div>
       </div>
       <div>
-        <button @click.prevent="createVariable" type="button" class="btn-primary flex items-center mt-1">
+        <button @click.prevent="createVariable" type="button" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          New Variable
+          Variable
         </button>
       </div>
     </form>
