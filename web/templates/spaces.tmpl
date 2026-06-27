@@ -6,7 +6,7 @@
 <main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
-    <div class="mb-4 col-span-full xl:mb-2">
+    <div class="col-span-full">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
         {{ if eq .user_id .forUserId }}
           Spaces
@@ -16,13 +16,13 @@
       </h1>
     </div>
 
-    <form class="col-span-full sm:flex justify-between">
+    <form class="app-toolbar col-span-full">
       <div class="flex" x-data>
         <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-            <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-            <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+            <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
           </div>
         </div>
 
@@ -82,19 +82,19 @@
         </div>
 
       </div>
-      <div class="flex gap-2 mt-1">
+      <div class="flex gap-2">
         <button @click.prevent="openTemplateSelector" type="button" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          New Space
+          Space
         </button>
         {{ if or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
         <button @click.prevent="openStackDefSelector" type="button" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          New Stack
+          Stack
         </button>
         {{ end }}
         {{ if .permissionUsePools }}
@@ -102,7 +102,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          New Pool
+          Pool
         </button>
         {{ end }}
       </div>
@@ -171,6 +171,14 @@
         </form>
       </div>
     </div>
+
+    {{ template "filterBar" (map "active" (printf "forUserId !== '%s' || showRunningOnly || !showLocalOnly || showSharedOnly || showSharedWithMeOnly" .user_id)) }}
+      <button type="button" x-show="forUserId !== '{{ .user_id }}'" x-cloak @click="userSearchReset()" class="app-filter-chip" aria-label="Reset user filter"><span x-text="forUserId === '' ? 'All Users' : 'User: ' + (forUsername || '{{ .forUserUsername }}' || 'selected')"></span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="size-3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+      {{ template "filterChip" (map "show" "showRunningOnly" "label" "Running" "click" "showRunningOnly=false; searchChanged()") }}
+      {{ template "filterChip" (map "show" "!showLocalOnly" "label" "All Zones" "click" "showLocalOnly=true; getSpaces()") }}
+      {{ template "filterChip" (map "show" "showSharedOnly" "label" "Shared" "click" "showSharedOnly=false; searchChanged()") }}
+      {{ template "filterChip" (map "show" "showSharedWithMeOnly" "label" "Shared With Me" "click" "showSharedWithMeOnly=false; searchChanged()") }}
+    {{ template "filterBarClear" (map "clear" "showRunningOnly=false; showSharedOnly=false; showSharedWithMeOnly=false; showLocalOnly=true; userSearchReset()") }}
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       {{ template "loading" . }}
@@ -853,13 +861,16 @@
               <template x-for="d in stackDefSelector.definitions" :key="d.stack_definition_id">
                 <template x-if="!d.searchHide">
                   <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors" @click="openCreateStackFromDef(d)">
-                    <div class="flex-grow min-w-0">
-                      <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="d.name"></h4>
-                      <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
-                      <div class="flex flex-wrap gap-2 mt-2 items-center text-xs text-gray-500 dark:text-gray-400">
-                        <span x-text="(d.spaces || []).length + ' space' + ((d.spaces || []).length === 1 ? '' : 's')"></span>
-                        <span x-show="!d.user_id">· Global</span>
-                        <span x-show="d.user_id">· Personal</span>
+                    <div class="flex items-start gap-4">
+                      <img x-show="d.icon_url && d.icon_url_exists" :src="d.icon_url" :alt="d.name + ' icon'" class="size-12 flex-shrink-0" />
+                      <div class="flex-grow min-w-0">
+                        <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="d.name"></h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
+                        <div class="flex flex-wrap gap-2 mt-2 items-center text-xs text-gray-500 dark:text-gray-400">
+                          <span x-text="(d.spaces || []).length + ' space' + ((d.spaces || []).length === 1 ? '' : 's')"></span>
+                          <span x-show="!d.user_id">· Global</span>
+                          <span x-show="d.user_id">· Personal</span>
+                        </div>
                       </div>
                     </div>
                   </div>

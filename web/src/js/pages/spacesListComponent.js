@@ -102,6 +102,7 @@ window.spacesListComponent = function (
       userId === forUserId && canManageSpaces
         ? Alpine.$persist(forUserId).as("forUserId").using(sessionStorage)
         : forUserId,
+    forUsername: "",
     canManageSpaces,
     canTransferSpaces,
     canShareSpaces,
@@ -1606,6 +1607,7 @@ window.spacesListComponent = function (
           if (zones.length > 0 && zone && !zones.includes(zone)) {
             d.searchHide = true;
           }
+          d.icon_url_exists = this.imageExists(d.icon_url);
         });
         this.stackDefSelector.definitions = defs;
         this.stackDefSearchChanged();

@@ -281,7 +281,7 @@ const scriptLibraries = [
       {
         name: "create_def",
         signature:
-          "create_def(name, description='', scope='user', active=True, groups=None, zones=None, spaces=None)",
+          "create_def(name, description='', icon_url='', scope='user', active=True, groups=None, zones=None, spaces=None)",
         description: "Create a new stack definition",
         returns: "str - New stack definition ID",
       },
@@ -300,7 +300,7 @@ const scriptLibraries = [
       {
         name: "validate_def",
         signature:
-          "validate_def(spaces, name='', description='', scope='user', active=True, groups=None, zones=None)",
+          "validate_def(spaces, name='', description='', icon_url='', scope='user', active=True, groups=None, zones=None)",
         description: "Validate a stack definition without saving",
         returns: "dict - Validation result with valid and errors",
       },

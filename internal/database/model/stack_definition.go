@@ -35,6 +35,7 @@ type StackDefinition struct {
 	UserId           string           `json:"user_id" db:"user_id"`
 	Name             string           `json:"name" db:"name"`
 	Description      string           `json:"description" db:"description"`
+	IconURL          string           `json:"icon_url" db:"icon_url"`
 	Groups           []string         `json:"groups" db:"groups,json"`
 	Zones            []string         `json:"zones" db:"zones,json"`
 	Active           bool             `json:"active" db:"active"`
@@ -50,6 +51,7 @@ type StackDefinition struct {
 func NewStackDefinition(
 	name string,
 	description string,
+	iconUrl string,
 	groups []string,
 	zones []string,
 	active bool,
@@ -67,6 +69,7 @@ func NewStackDefinition(
 		UserId:        ownerUserId,
 		Name:          name,
 		Description:   description,
+		IconURL:       iconUrl,
 		Groups:        groups,
 		Zones:         zones,
 		Active:        active,

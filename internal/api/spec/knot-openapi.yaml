@@ -4381,6 +4381,9 @@ components:
           type: string
         description:
           type: string
+        icon_url:
+          type: string
+          description: The icon URL for the stack definition or an empty string if there's no icon.
         active:
           type: boolean
         groups:
@@ -4408,6 +4411,9 @@ components:
           type: string
         description:
           type: string
+        icon_url:
+          type: string
+          description: The icon URL for the stack definition or an empty string if there's no icon.
         active:
           type: boolean
         scope:

@@ -6,7 +6,7 @@
 <main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="eventSinkListComponent('{{ .user_id }}', {{ .permissionManageEvents }}, {{ .permissionManageGlobalEvents }}, {{ .isLeafNode }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
-    <div class="mb-4 col-span-full xl:mb-2">
+    <div class="col-span-full">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Events</h1>
     </div>
 
@@ -15,8 +15,8 @@
         <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-            <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-            <div class="app-search-shortcut">⌘ K</div>
+            <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
           </div>
         </div>
         <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
@@ -37,7 +37,7 @@
           </div>
           {{ end }}
           {{ if or .isLeafNode .permissionManageGlobalEvents }}
-          <div class="mb-2">
+          <div class="mb-2 mt-4">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" @change="filterChanged" :checked="showGlobalSinks" x-model="showGlobalSinks">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
@@ -49,7 +49,7 @@
       </div>
       <div class="flex gap-2">
         {{ if or .isLeafNode .permissionManageEvents }}
-        <button @click.prevent="createSink(false)" class="btn-primary flex items-center mt-1">
+        <button @click.prevent="createSink(false)" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
@@ -57,7 +57,7 @@
         </button>
         {{ end }}
         {{ if or .isLeafNode .permissionManageGlobalEvents }}
-        <button @click.prevent="createSink(true)" class="btn-primary flex items-center mt-1">
+        <button @click.prevent="createSink(true)" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
@@ -66,6 +66,11 @@
         {{ end }}
       </div>
     </form>
+
+    {{ template "filterBar" (map "active" "!showMySinks || showGlobalSinks") }}
+      {{ template "filterChip" (map "show" "!showMySinks" "label" "My Event Sinks off" "click" "showMySinks=true; filterChanged()") }}
+      {{ template "filterChip" (map "show" "showGlobalSinks" "label" "Global Event Sinks" "click" "showGlobalSinks=false; filterChanged()") }}
+    {{ template "filterBarClear" (map "clear" "showMySinks=true; showGlobalSinks=false; filterChanged()") }}
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       {{ template "loading" . }}
