@@ -274,11 +274,93 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/AuditLogs"
+                $ref: "#/components/schemas/AuditLogs"
         "401":
           $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/audit-logs/export:
+    get:
+      tags:
+        - Audit Logs
+      summary: Export Audit Logs
+      description: |
+        Export audit logs as a downloadable file (CSV by default, or JSON).
+
+        Requires the download audit logs permission (distinct from the
+        read-only view permission used by the list endpoint).
+      operationId: exportAuditLogs
+      parameters:
+        - name: q
+          in: query
+          description: Full-text search across actor, event, and details.
+          required: false
+          schema:
+            type: string
+        - name: actor
+          in: query
+          description: Filter by actor name (exact match).
+          required: false
+          schema:
+            type: string
+        - name: actor_type
+          in: query
+          description: Filter by actor type (User, System, MCP).
+          required: false
+          schema:
+            type: string
+        - name: event
+          in: query
+          description: Filter by event type (exact match).
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          description: Start of date range (RFC3339).
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End of date range (RFC3339).
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: format
+          in: query
+          description: "Export format: `json` for a JSON file, otherwise (default) CSV."
+          required: false
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+      responses:
+        "200":
+          description: Audit log export file.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: attachment; filename="audit-logs.csv" or "audit-logs.json"
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
         "500":
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
@@ -1257,6 +1339,24 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /.well-known/oauth-authorization-server:
+    get:
+      tags:
+        - Authorization
+      summary: OAuth Authorization Server Metadata
+      description: Returns the RFC 8414 OAuth 2.0 Authorization Server Metadata for this server.
+      operationId: getAuthorizationServerMetadata
+      responses:
+        "200":
+          description: Authorization server metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthAuthorizationServerMetadata"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: []
+
   /authorize:
     get:
       tags:
@@ -1303,17 +1403,9 @@ paths:
         "302":
           description: Redirect to authorization grant page or redirect URI
         "400":
-          description: Invalid request parameters
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/responses/bad-request"
+          $ref: "#/components/responses/bad-request"
         "401":
-          description: User not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/responses/unauthorized"
+          $ref: "#/components/responses/unauthorized"
       security: []
 
   /token:
@@ -1409,6 +1501,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TokenInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
         "500":
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
@@ -3479,6 +3573,179 @@ paths:
           description: Service Unavailable - Space agent not connected
       security: [BearerAuth: []]
 
+  /api/spaces/{space_id}/emit-event:
+    post:
+      tags:
+        - Event Sinks
+      summary: Emit Custom Event
+      description: Emit a custom event from a space. Requires ownership of, or sharing on, the space, or the manage spaces permission.
+      operationId: emitEvent
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmitEventRequest"
+      responses:
+        "200":
+          description: Event emitted successfully.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/event-sinks:
+    get:
+      tags:
+        - Event Sinks
+      summary: List Event Sinks
+      description: List all event sinks visible to the current user. Webhook secrets are masked in list responses.
+      operationId: listEventSinks
+      responses:
+        "200":
+          description: A list of event sinks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventSinkList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      tags:
+        - Event Sinks
+      summary: Create Event Sink
+      description: Create a new event sink. Set `user_id` to "current" for a personal sink, or empty/omit for a global sink.
+      operationId: createEventSink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventSinkCreateRequest"
+      responses:
+        "201":
+          description: Event sink created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventSinkCreateResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/event-sinks/{event_sink_id}:
+    get:
+      tags:
+        - Event Sinks
+      summary: Get Event Sink
+      description: Get a single event sink by ID. The webhook secret is returned unmasked.
+      operationId: getEventSink
+      parameters:
+        - name: event_sink_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the event sink.
+      responses:
+        "200":
+          description: The event sink details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventSinkDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - Event Sinks
+      summary: Update Event Sink
+      description: Update an existing event sink. The owner (user_id) is immutable. If the webhook secret is empty or matches the existing masked form, the existing secret is preserved.
+      operationId: updateEventSink
+      parameters:
+        - name: event_sink_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the event sink.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventSinkUpdateRequest"
+      responses:
+        "200":
+          description: Event sink updated.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - Event Sinks
+      summary: Delete Event Sink
+      description: Delete an event sink.
+      operationId: deleteEventSink
+      parameters:
+        - name: event_sink_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the event sink.
+      responses:
+        "200":
+          description: Event sink deleted.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/skill:
     get:
       summary: List Skills
@@ -3887,6 +4154,7 @@ paths:
       tags:
         - Stack Definitions
       summary: List Stack Definitions
+      operationId: listStackDefinitions
       description: List all stack definitions visible to the current user.
       parameters:
         - name: user_id
@@ -3922,6 +4190,7 @@ paths:
       tags:
         - Stack Definitions
       summary: Create Stack Definition
+      operationId: createStackDefinition
       description: Create a new stack definition.
       requestBody:
         required: true
@@ -3952,6 +4221,7 @@ paths:
       tags:
         - Stack Definitions
       summary: Validate Stack Definition
+      operationId: validateStackDefinition
       description: |
         Validate a stack definition structure without creating it.
         Checks for required fields, circular dependencies, invalid references,
@@ -3975,14 +4245,15 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
-  /api/stack-definitions/{definition_id}:
+  /api/stack-definitions/{stack_definition_id}:
     get:
       tags:
         - Stack Definitions
       summary: Get Stack Definition
+      operationId: getStackDefinition
       description: Get a stack definition by ID.
       parameters:
-        - name: definition_id
+        - name: stack_definition_id
           in: path
           required: true
           schema:
@@ -4006,9 +4277,10 @@ paths:
       tags:
         - Stack Definitions
       summary: Update Stack Definition
+      operationId: updateStackDefinition
       description: Update an existing stack definition.
       parameters:
-        - name: definition_id
+        - name: stack_definition_id
           in: path
           required: true
           schema:
@@ -4034,9 +4306,10 @@ paths:
       tags:
         - Stack Definitions
       summary: Delete Stack Definition
+      operationId: deleteStackDefinition
       description: Delete a stack definition.
       parameters:
-        - name: definition_id
+        - name: stack_definition_id
           in: path
           required: true
           schema:
@@ -4278,6 +4551,7 @@ paths:
       tags:
         - Core
       summary: Ping
+      operationId: ping
       description: Ping the server and get a health response.
       responses:
         "200":
@@ -4295,6 +4569,7 @@ paths:
       tags:
         - Core
       summary: Server Information
+      operationId: getServerInfo
       description: |
         Returns server-wide configuration that clients need but that is not
         user-specific, such as the wildcard domain used to build space web-port
@@ -4308,6 +4583,82 @@ paths:
                 $ref: "#/components/schemas/ServerInfoResponse"
         "401":
           $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/run-command:
+    post:
+      tags:
+        - Spaces
+      summary: Run Command in Space
+      description: |
+        Execute a command in a space and capture the output.
+
+        This endpoint allows running a shell command within a running space's container.
+        The command is executed synchronously and will wait for completion or timeout.
+
+        **Note:** This is different from `execute-script` which runs named scripts.
+        This endpoint runs arbitrary shell commands directly.
+      operationId: runCommand
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - command
+              properties:
+                command:
+                  type: string
+                  description: The command to execute.
+                args:
+                  type: array
+                  items:
+                    type: string
+                  description: Command arguments.
+                timeout:
+                  type: integer
+                  default: 30
+                  description: Timeout in seconds.
+                workdir:
+                  type: string
+                  description: Working directory for the command.
+            example:
+              command: "ls"
+              args: ["-la", "/tmp"]
+              timeout: 30
+      responses:
+        "200":
+          description: Command executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: True if the command succeeded
+                  output:
+                    type: string
+                    description: The command output (stdout + stderr)
+                  error:
+                    type: string
+                    description: Error message if the command failed
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
 components:
@@ -4368,6 +4719,173 @@ components:
               remote_port:
                 type: integer
           description: Port forward rules
+
+    OAuthAuthorizationServerMetadata:
+      type: object
+      description: RFC 8414 OAuth 2.0 Authorization Server Metadata.
+      properties:
+        issuer:
+          type: string
+          description: The server's issuer URL.
+        authorization_endpoint:
+          type: string
+          description: URL of the OAuth 2.0 authorization endpoint.
+        token_endpoint:
+          type: string
+          description: URL of the OAuth 2.0 token endpoint.
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth 2.0 response_type values (e.g. "code").
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth 2.0 grant types (e.g. "authorization_code", "refresh_token").
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          description: Supported client authentication methods for the token endpoint.
+
+    WebhookConfig:
+      type: object
+      properties:
+        url:
+          type: string
+          description: The webhook target URL.
+        secret:
+          type: string
+          description: HMAC shared secret used to sign webhook deliveries. Masked in list responses; returned plain in a single GET.
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional HTTP headers sent with the webhook.
+        body_template:
+          type: string
+          description: Template for the webhook request body.
+        skip_tls_verify:
+          type: boolean
+          description: Skip TLS certificate verification when delivering the webhook.
+
+    EventSinkInfo:
+      type: object
+      properties:
+        event_sink_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          description: Owner user ID (empty for a global sink).
+        name:
+          type: string
+        description:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+          description: Event-name glob patterns to match (e.g. "*", "foo.*", "foo.bar").
+        sink_type:
+          type: string
+          enum: [webhook, json-rpc, script]
+        webhook:
+          $ref: "#/components/schemas/WebhookConfig"
+        script_id:
+          type: string
+          description: Script ID for sinks of type "script".
+        active:
+          type: boolean
+
+    EventSinkDetails:
+      allOf:
+        - $ref: "#/components/schemas/EventSinkInfo"
+        - description: >-
+            Same shape as EventSinkInfo, but the webhook secret is returned
+            unmasked.
+
+    EventSinkCreateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        user_id:
+          type: string
+          description: Owner of the sink. "current" resolves to the caller; empty/omitted creates a global sink.
+        name:
+          type: string
+        description:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+        sink_type:
+          type: string
+          enum: [webhook, json-rpc, script]
+        webhook:
+          $ref: "#/components/schemas/WebhookConfig"
+        script_id:
+          type: string
+        active:
+          type: boolean
+
+    EventSinkUpdateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+        sink_type:
+          type: string
+          enum: [webhook, json-rpc, script]
+        webhook:
+          $ref: "#/components/schemas/WebhookConfig"
+        script_id:
+          type: string
+        active:
+          type: boolean
+
+    EventSinkList:
+      type: object
+      properties:
+        count:
+          type: integer
+        event_sinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventSinkInfo"
+
+    EventSinkCreateResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+        event_sink_id:
+          type: string
+          format: uuid
+
+    EmitEventRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: The event type/name to emit.
+        payload:
+          type: object
+          additionalProperties: true
+          description: Arbitrary JSON object delivered as the event payload.
 
     StackDefinition:
       type: object
@@ -4664,7 +5182,7 @@ components:
           description: The password of the user
         totp_code:
           type: string
-          example: 123456
+          example: "123456"
           description: The TOTP code for the user, ignored if TOTP is not enabled.
       required:
         - email
@@ -4820,17 +5338,6 @@ components:
             type: integer
           description: The permissions of the role.
 
-    RoleInfo:
-      type: object
-      properties:
-        role_id:
-          type: string
-          format: uuid
-          description: The ID of the role.
-        name:
-          type: string
-          description: The name of the role.
-
     RoleRequest:
       type: object
       properties:
@@ -4886,30 +5393,30 @@ components:
     AuditLogEntry:
       type: object
       properties:
-        Id:
+        audit_log_id:
           type: integer
           format: int64
           description: The ID of the audit log entry.
         zone:
           type: string
           description: The server zone of the audit log entry.
-        Actor:
+        actor:
           type: string
           description: The actor who performed the action.
-        ActorType:
+        actor_type:
           type: string
           description: The type of the actor.
-        Event:
+        event:
           type: string
           description: The event that occurred.
-        When:
+        when:
           type: string
           format: date-time
           description: The time when the event occurred.
-        Details:
+        details:
           type: string
           description: Additional details about the event.
-        Properties:
+        properties:
           type: object
           additionalProperties: true
           description: Additional properties related to the event.
@@ -6548,13 +7055,6 @@ components:
           type: string
           description: The hostname of the node.
 
-    VolumeStartRequest:
-      type: object
-      properties:
-        selected_node_id:
-          type: string
-          description: The ID of the node to start the volume on. If omitted, the server selects automatically.
-
     VolumeInfo:
       type: object
       properties:
@@ -6680,13 +7180,6 @@ components:
           type: string
           description: Human-readable validation message.
 
-    SpaceTransferRequest:
-      type: object
-      properties:
-        user_id:
-          type: string
-          description: The username, email address, or UUID of the user to transfer or share the space with.
-
     SpaceShareUpdateRequest:
       type: object
       properties:
@@ -6786,26 +7279,6 @@ components:
           example: true
           description: True when the forward is persisted for restore after agent restart.
 
-    PortForwardSuccess:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-          description: The status of the operation, true if successful.
-
-    PortForwardError:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-          description: The status of the operation, false if failed.
-        error:
-          type: string
-          example: "target space not found"
-          description: The error message if the operation failed.
-
     PortListSuccess:
       type: object
       properties:
@@ -6819,18 +7292,6 @@ components:
             $ref: "#/components/schemas/PortForwardInfo"
           description: List of active port forwards.
 
-    PortListError:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-          description: The status of the operation, false if failed.
-        error:
-          type: string
-          example: "failed to connect to agent"
-          description: The error message if the operation failed.
-
     PortStopRequest:
       type: object
       properties:
@@ -6840,26 +7301,6 @@ components:
           maximum: 65535
           example: 8080
           description: The local port to stop forwarding.
-
-    PortStopSuccess:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-          description: The status of the operation, true if successful.
-
-    PortStopError:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-          description: The status of the operation, false if failed.
-        error:
-          type: string
-          example: "port forward not found"
-          description: The error message if the operation failed.
 
     PortApplyRequest:
       type: object
@@ -7525,79 +7966,3 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/error"
-
-  /api/spaces/{space_id}/run-command:
-    post:
-      tags:
-        - Spaces
-      summary: Run Command in Space
-      description: |
-        Execute a command in a space and capture the output.
-
-        This endpoint allows running a shell command within a running space's container.
-        The command is executed synchronously and will wait for completion or timeout.
-
-        **Note:** This is different from `execute-script` which runs named scripts.
-        This endpoint runs arbitrary shell commands directly.
-      operationId: runCommand
-      parameters:
-        - name: space_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The ID or name of the space.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - command
-              properties:
-                command:
-                  type: string
-                  description: The command to execute.
-                args:
-                  type: array
-                  items:
-                    type: string
-                  description: Command arguments.
-                timeout:
-                  type: integer
-                  default: 30
-                  description: Timeout in seconds.
-                workdir:
-                  type: string
-                  description: Working directory for the command.
-            example:
-              command: "ls"
-              args: ["-la", "/tmp"]
-              timeout: 30
-      responses:
-        "200":
-          description: Command executed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    description: True if the command succeeded
-                  output:
-                    type: string
-                    description: The command output (stdout + stderr)
-                  error:
-                    type: string
-                    description: Error message if the command failed
-        "400":
-          $ref: "#/components/responses/bad-request"
-        "401":
-          $ref: "#/components/responses/unauthorized"
-        "404":
-          $ref: "#/components/responses/not-found"
-        "500":
-          $ref: "#/components/responses/internal-server-error"
-      security: [BearerAuth: []]
