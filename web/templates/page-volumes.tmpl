@@ -14,8 +14,8 @@
       <div>
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-          <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-          <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+          <input type="search" name="search" id="search" class="form-field grow pr-24" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
         </div>
       </div>
       <div>
