@@ -861,13 +861,16 @@
               <template x-for="d in stackDefSelector.definitions" :key="d.stack_definition_id">
                 <template x-if="!d.searchHide">
                   <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors" @click="openCreateStackFromDef(d)">
-                    <div class="flex-grow min-w-0">
-                      <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="d.name"></h4>
-                      <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
-                      <div class="flex flex-wrap gap-2 mt-2 items-center text-xs text-gray-500 dark:text-gray-400">
-                        <span x-text="(d.spaces || []).length + ' space' + ((d.spaces || []).length === 1 ? '' : 's')"></span>
-                        <span x-show="!d.user_id">· Global</span>
-                        <span x-show="d.user_id">· Personal</span>
+                    <div class="flex items-start gap-4">
+                      <img x-show="d.icon_url && d.icon_url_exists" :src="d.icon_url" :alt="d.name + ' icon'" class="size-12 flex-shrink-0" />
+                      <div class="flex-grow min-w-0">
+                        <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="d.name"></h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
+                        <div class="flex flex-wrap gap-2 mt-2 items-center text-xs text-gray-500 dark:text-gray-400">
+                          <span x-text="(d.spaces || []).length + ' space' + ((d.spaces || []).length === 1 ? '' : 's')"></span>
+                          <span x-show="!d.user_id">· Global</span>
+                          <span x-show="d.user_id">· Personal</span>
+                        </div>
                       </div>
                     </div>
                   </div>

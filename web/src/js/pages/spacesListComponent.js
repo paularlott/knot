@@ -1607,6 +1607,7 @@ window.spacesListComponent = function (
           if (zones.length > 0 && zone && !zones.includes(zone)) {
             d.searchHide = true;
           }
+          d.icon_url_exists = this.imageExists(d.icon_url);
         });
         this.stackDefSelector.definitions = defs;
         this.stackDefSearchChanged();
