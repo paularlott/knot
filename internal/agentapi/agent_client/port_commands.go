@@ -71,7 +71,7 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 			return
 		}
 
-		spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId)
+		spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId, false)
 		if err != nil {
 			msg.WriteMessage(stream, &msg.PortForwardResponse{Success: false, Error: "failed to get spaces"})
 			return

@@ -228,10 +228,14 @@ type PortApplyResponse struct {
 	Errors  []string          `json:"errors,omitempty"`
 }
 
-func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
+func (c *ApiClient) GetSpaces(ctx context.Context, userId string, allZones bool) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
-	code, err := c.httpClient.Get(ctx, "/api/spaces?user_id="+userId, &response)
+	url := "/api/spaces?user_id=" + userId
+	if allZones {
+		url += "&all_zones=true"
+	}
+	code, err := c.httpClient.Get(ctx, url, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -422,7 +426,7 @@ func (c *ApiClient) ApplyPorts(ctx context.Context, spaceId string, request *Por
 }
 
 func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*SpaceDefinition, error) {
-	spaces, _, err := c.GetSpaces(ctx, "")
+	spaces, _, err := c.GetSpaces(ctx, "", false)
 	if err != nil {
 		return nil, err
 	}

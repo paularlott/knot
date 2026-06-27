@@ -44,7 +44,7 @@ var ReadFileCmd = &cli.Command{
 			return fmt.Errorf("Error getting user: %w", err)
 		}
 
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
+		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
 			return fmt.Errorf("Error getting spaces: %w", err)
 		}
@@ -120,7 +120,7 @@ var WriteFileCmd = &cli.Command{
 			return fmt.Errorf("Error getting user: %w", err)
 		}
 
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
+		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
 			return fmt.Errorf("Error getting spaces: %w", err)
 		}

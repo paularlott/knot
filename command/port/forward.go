@@ -69,7 +69,7 @@ var ForwardCmd = &cli.Command{
 			return fmt.Errorf("failed to create API client: %w", err)
 		}
 
-		spaces, _, err := client.GetSpaces(ctx, "")
+		spaces, _, err := client.GetSpaces(ctx, "", false)
 		if err != nil {
 			return fmt.Errorf("failed to get spaces: %w", err)
 		}

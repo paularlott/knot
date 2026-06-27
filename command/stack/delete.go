@@ -45,7 +45,7 @@ var DeleteCmd = &cli.Command{
 			os.Exit(1)
 		}
 
-		spaces, _, err := client.GetSpaces(ctx, user.Id)
+		spaces, _, err := client.GetSpaces(ctx, user.Id, false)
 		if err != nil {
 			fmt.Println("Error getting spaces:", err)
 			os.Exit(1)
