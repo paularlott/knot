@@ -307,6 +307,14 @@ window.spacesListComponent = function (
           this.getPools();
         });
 
+        window.sseClient.subscribe("pool:changed", () => {
+          this.getPools();
+        });
+
+        window.sseClient.subscribe("pool:deleted", () => {
+          this.getPools();
+        });
+
         window.sseClient.subscribe("reconnected", () => {
           this.getSpaces();
         });
@@ -617,15 +625,34 @@ window.spacesListComponent = function (
     async openEditPool(pool) {
       await this.getTemplatesForSelector();
       await this.loadScriptList();
+
+      // Always fetch the latest definition from the server so the form reflects
+      // changes made elsewhere (e.g. on another server) instead of the possibly
+      // stale cached entry from the pool list.
+      let current = pool;
+      try {
+        const response = await fetch(`/api/pools/${pool.pool_id}`, {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.status === 200) {
+          current = await response.json();
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+      } catch (e) {
+        // Fall back to the cached entry if the single-pool fetch fails.
+      }
+
       this.poolFormModal = {
         show: true,
         isEdit: true,
-        poolId: pool.pool_id,
-        name: pool.name || "",
-        templateId: pool.template_id || "",
-        startupScriptId: pool.startup_script_id || "",
-        desiredCount: pool.desired_count || 1,
-        active: pool.active === true,
+        poolId: current.pool_id,
+        name: current.name || "",
+        templateId: current.template_id || "",
+        startupScriptId: current.startup_script_id || "",
+        desiredCount: current.desired_count || 1,
+        active: current.active === true,
         error: "",
         submitting: false,
       };

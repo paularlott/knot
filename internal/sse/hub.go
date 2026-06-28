@@ -42,6 +42,10 @@ const (
 	EventSpaceChanged EventType = "space:changed"
 	EventSpaceDeleted EventType = "space:deleted"
 
+	// Pool events
+	EventPoolChanged EventType = "pool:changed"
+	EventPoolDeleted EventType = "pool:deleted"
+
 	// Authentication events
 	EventAuthRequired EventType = "auth:required"
 )
