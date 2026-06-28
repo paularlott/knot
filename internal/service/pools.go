@@ -99,16 +99,18 @@ func (s *PoolService) ResolveForUser(idOrName string, user *model.User) (*model.
 }
 
 func (s *PoolService) List(user *model.User) ([]apiclient.PoolInfo, error) {
+	if user == nil {
+		return []apiclient.PoolInfo{}, nil
+	}
 	db := database.GetInstance()
-	pools, err := db.GetPoolDefinitions()
+	// Scoped to the user's pools — the query already excludes deleted pools
+	// and pools owned by others.
+	pools, err := db.GetPoolDefinitionsByUser(user.Id)
 	if err != nil {
 		return nil, err
 	}
 	result := []apiclient.PoolInfo{}
 	for _, pool := range pools {
-		if pool.IsDeleted || !s.canRead(pool, user) {
-			continue
-		}
 		info, err := s.Info(pool, user)
 		if err == nil {
 			result = append(result, info)
@@ -118,7 +120,9 @@ func (s *PoolService) List(user *model.User) ([]apiclient.PoolInfo, error) {
 }
 
 func (s *PoolService) Info(pool *model.PoolDefinition, user *model.User) (apiclient.PoolInfo, error) {
-	if pool == nil || pool.IsDeleted || !s.canRead(pool, user) {
+	// Defensive ownership guard: callers resolve pools user-scoped, but keep
+	// this so the public method can't leak another user's pool.
+	if pool == nil || pool.IsDeleted || user == nil || pool.CreatedUserId != user.Id {
 		return apiclient.PoolInfo{}, fmt.Errorf("pool not found")
 	}
 
@@ -297,17 +301,6 @@ func (s *PoolService) savePool(pool *model.PoolDefinition) error {
 		transport.GossipPoolDefinition(pool)
 	}
 	return nil
-}
-
-func (s *PoolService) canRead(pool *model.PoolDefinition, user *model.User) bool {
-	return s.CanRead(pool, user)
-}
-
-func (s *PoolService) CanRead(pool *model.PoolDefinition, user *model.User) bool {
-	if user == nil || pool == nil {
-		return false
-	}
-	return pool.CreatedUserId == user.Id
 }
 
 // ---------------------------------------------------------------------------

@@ -105,3 +105,40 @@ func (db *BadgerDbDriver) GetPoolDefinitions() ([]*model.PoolDefinition, error) 
 	sort.Slice(pools, func(i, j int) bool { return pools[i].Name < pools[j].Name })
 	return pools, err
 }
+
+// GetPoolDefinitionsByUser returns the live pools owned by a user by scanning
+// only that user's PoolsByName keyspace rather than every pool.
+func (db *BadgerDbDriver) GetPoolDefinitionsByUser(userId string) ([]*model.PoolDefinition, error) {
+	var ids []string
+	err := db.connection.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		prefix := []byte(fmt.Sprintf("PoolsByName:%s:", userId))
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			if err := it.Item().Value(func(val []byte) error {
+				ids = append(ids, string(val))
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var pools []*model.PoolDefinition
+	for _, id := range ids {
+		pool, err := db.GetPoolDefinition(id)
+		if err != nil {
+			return nil, err
+		}
+		if pool.IsDeleted {
+			continue
+		}
+		pools = append(pools, pool)
+	}
+	sort.Slice(pools, func(i, j int) bool { return pools[i].Name < pools[j].Name })
+	return pools, nil
+}

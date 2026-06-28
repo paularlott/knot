@@ -1965,13 +1965,15 @@ const scriptLibraries = [
       {
         name: "on_submit",
         signature: "on_submit(fn)",
-        description: "Register handler called when user submits input",
+        description:
+          "Register handler called when user submits input. Handlers run serialized on a single thread (never concurrently)",
         returns: "None",
       },
       {
         name: "on_escape",
         signature: "on_escape(fn)",
-        description: "Register a callback for Esc key",
+        description:
+          "Register a callback for Esc key. Runs serialized with other handlers; cancels the in-flight handler",
         returns: "None",
       },
       {
@@ -3399,11 +3401,25 @@ const scriptLibraries = [
     functions: [
       {
         name: "background",
-        signature: "background(name, handler, *args, **kwargs)",
+        signature: "background(name, handler, *args, shared=False, **kwargs)",
         description:
-          "Run a named handler function in the background. Handler is a 'library.function' string",
+          "Run a named handler function on a goroutine. shared=False (default) runs it in an isolated, parallel copy of the environment; shared=True runs it in the caller's OWN environment (live shared state, serialized by the interpreter lock, args passed live)",
         returns: "Promise or None - Promise for tracking completion, or None on error",
         returnType: "Promise",
+      },
+      {
+        name: "start_server",
+        signature: "start_server(wait=True)",
+        description:
+          "Signal the server to collect registered routes/methods and start listening. Call after all routes are registered. wait=True (default) blocks until the server shuts down; wait=False returns immediately so the script can keep running alongside the server. Scripts that exit without calling start_server() still work unchanged.",
+        returns: "None",
+      },
+      {
+        name: "server_running",
+        signature: "server_running()",
+        description:
+          "Returns True while the server is running, False once the server receives a shutdown signal. Use with start_server(wait=False) to keep the setup script alive: while runtime.server_running(): yield_now()",
+        returns: "bool",
       },
     ],
     classes: [
@@ -6957,6 +6973,7 @@ function getCompletions(editor, session, pos, prefix, callback) {
     "sum",
     "tuple",
     "type",
+    "yield_now",
     "zip",
   ];
   for (const builtin of builtins) {

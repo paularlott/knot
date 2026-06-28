@@ -62,6 +62,7 @@ type DbDriver interface {
 	GetPoolDefinition(id string) (*model.PoolDefinition, error)
 	GetPoolDefinitionByName(userId, name string) (*model.PoolDefinition, error)
 	GetPoolDefinitions() ([]*model.PoolDefinition, error)
+	GetPoolDefinitionsByUser(userId string) ([]*model.PoolDefinition, error)
 
 	// Templates
 	SaveTemplate(template *model.Template, updateFields []string) error
