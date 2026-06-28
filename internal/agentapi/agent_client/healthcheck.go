@@ -182,10 +182,11 @@ func buildHealthCheckScript(hcType, hcConfig string, skipSSL bool, timeout uint3
 }
 
 func runHealthCheckScript(script string) *knotscriptling.HealthCheckResult {
-	env, err := service.NewHealthCheckScriptlingEnv()
+	env, cleanup, err := service.NewHealthCheckScriptlingEnv()
 	if err != nil {
 		return &knotscriptling.HealthCheckResult{Healthy: false}
 	}
+	defer cleanup()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

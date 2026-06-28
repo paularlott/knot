@@ -512,6 +512,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 
 		c.Logger.Debug("container running", "name", spec.ContainerName, "id", containerID)
 
+		oldSpace := *space
 		space.ContainerId = containerID
 		space.IsPending = false
 		space.IsDeployed = true
@@ -525,6 +526,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		}
 		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
+		service.CheckSpaceLifecycleEvents(&oldSpace, space)
 	}()
 
 	return nil
@@ -618,6 +620,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 			return
 		}
 
+		oldSpace := *space
 		space.IsPending = false
 		space.IsDeployed = false
 		space.UpdatedAt = hlc.Now()
@@ -630,6 +633,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 		}
 		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
+		service.CheckSpaceLifecycleEvents(&oldSpace, space)
 
 		if onStopped != nil {
 			onStopped()

@@ -53,3 +53,12 @@ func (db *MySQLDriver) GetPoolDefinitions() ([]*model.PoolDefinition, error) {
 	err := db.read("pools", &pools, nil, "1 = 1 ORDER BY name")
 	return pools, err
 }
+
+// GetPoolDefinitionsByUser returns the live pools owned by a user. Uses the
+// leading column of the created_user_name unique index, so no separate index
+// is required.
+func (db *MySQLDriver) GetPoolDefinitionsByUser(userId string) ([]*model.PoolDefinition, error) {
+	var pools []*model.PoolDefinition
+	err := db.read("pools", &pools, nil, "created_user_id = ? AND is_deleted = 0 ORDER BY name", userId)
+	return pools, err
+}

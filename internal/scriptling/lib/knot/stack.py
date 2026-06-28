@@ -32,6 +32,7 @@ def list_defs():
         - id: Stack definition ID
         - name: Definition name
         - description: Description
+        - icon_url: Icon URL
         - user_id: Owner user ID (empty for global)
         - active: Whether the definition is active
         - spaces: List of space dicts
@@ -47,6 +48,7 @@ def list_defs():
             "id": defn.get("stack_definition_id"),
             "name": defn.get("name"),
             "description": defn.get("description", ""),
+            "icon_url": defn.get("icon_url", ""),
             "user_id": defn.get("user_id", ""),
             "active": defn.get("active", True),
             "spaces": defn.get("spaces", []),
@@ -81,6 +83,7 @@ def get_def(name):
         "id": response.get("stack_definition_id"),
         "name": response.get("name"),
         "description": response.get("description", ""),
+        "icon_url": response.get("icon_url", ""),
         "user_id": response.get("user_id", ""),
         "active": response.get("active", True),
         "groups": response.get("groups", []),
@@ -89,12 +92,13 @@ def get_def(name):
     }
 
 
-def create_def(name, description="", scope="user", active=True, groups=None, zones=None, spaces=None):
+def create_def(name, description="", icon_url="", scope="user", active=True, groups=None, zones=None, spaces=None):
     """Create a new stack definition.
 
     Args:
         name: Unique name for the definition
         description: Optional description
+        icon_url: Optional icon URL
         scope: "user" or "global" (default: "user")
         active: Whether the definition is active (default: True)
         groups: List of group names allowed to create instances (global scope only)
@@ -118,6 +122,7 @@ def create_def(name, description="", scope="user", active=True, groups=None, zon
     body = {
         "name": name,
         "description": description,
+        "icon_url": icon_url,
         "scope": scope,
         "active": active,
         "groups": groups or [],
@@ -137,8 +142,8 @@ def update_def(name, **fields):
 
     Args:
         name: Definition name or ID
-        **fields: Fields to update (name, description, active, groups, zones,
-                  spaces, scope)
+        **fields: Fields to update (name, description, icon_url, active, groups,
+                  zones, spaces, scope)
 
     Returns:
         True if successful
@@ -151,6 +156,7 @@ def update_def(name, **fields):
     body = {
         "name": fields.get("name", defn.get("name")),
         "description": fields.get("description", defn.get("description", "")),
+        "icon_url": fields.get("icon_url", defn.get("icon_url", "")),
         "scope": fields.get("scope", "global" if not defn.get("user_id") else "user"),
         "active": fields.get("active", defn.get("active", True)),
         "groups": fields.get("groups", defn.get("groups", [])),
@@ -179,7 +185,7 @@ def delete_def(name):
     return True
 
 
-def validate_def(spaces, name="", description="", scope="user", active=True,
+def validate_def(spaces, name="", description="", icon_url="", scope="user", active=True,
                  groups=None, zones=None):
     """Validate a stack definition without creating it.
 
@@ -195,6 +201,7 @@ def validate_def(spaces, name="", description="", scope="user", active=True,
             - custom_fields: List of {name, value} dicts
         name: Definition name (recommended, checked if provided)
         description: Optional description
+        icon_url: Optional icon URL
         scope: "user" or "global" (default: "user")
         active: Whether the definition would be active
         groups: List of group IDs
@@ -211,6 +218,7 @@ def validate_def(spaces, name="", description="", scope="user", active=True,
     body = {
         "name": name,
         "description": description,
+        "icon_url": icon_url,
         "scope": scope,
         "active": active,
         "groups": groups or [],

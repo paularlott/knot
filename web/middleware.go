@@ -90,6 +90,18 @@ func checkPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+func checkPermissionManageEvents(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageEvents) && !user.HasPermission(model.PermissionManageGlobalEvents) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func checkPermissionManageSkills(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)

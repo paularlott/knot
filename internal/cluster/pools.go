@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 type PoolDrainRequest struct {
@@ -39,12 +40,22 @@ func (c *Cluster) handlePoolDefinitionGossip(sender *gossip.Node, packet *gossip
 	return c.mergePoolDefinitions(pools)
 }
 
+// GossipPoolDefinition fans a pool definition change out to the cluster and
+// notifies local SSE clients. It is the single choke point for local mutations
+// (Create/SetSize/Start/Stop/Delete/UpdateStartupScript all route through it),
+// so publishing the SSE event here ensures the editing server's other clients
+// refresh immediately; mergePoolDefinitions does the same on receiving servers.
 func (c *Cluster) GossipPoolDefinition(pool *model.PoolDefinition) {
 	if c.gossipCluster == nil || pool == nil {
 		return
 	}
 	pools := []*model.PoolDefinition{pool}
 	c.gossipCluster.Send(PoolDefinitionGossipMsg, &pools)
+	if pool.IsDeleted {
+		sse.PublishPoolDeleted(pool.Id)
+	} else {
+		sse.PublishPoolChanged(pool.Id)
+	}
 }
 
 func (c *Cluster) DoPoolDefinitionFullSync(node *gossip.Node) error {
@@ -80,11 +91,23 @@ func (c *Cluster) mergePoolDefinitions(pools []*model.PoolDefinition) error {
 			if pool.UpdatedAt.After(localPool.UpdatedAt) {
 				if err := db.SavePoolDefinition(pool, nil); err != nil {
 					c.logger.Error("failed to update pool definition", "error", err, "name", pool.Name)
+					continue
+				}
+				if pool.IsDeleted {
+					sse.PublishPoolDeleted(pool.Id)
+				} else {
+					sse.PublishPoolChanged(pool.Id)
 				}
 			}
 		} else {
 			if err := db.SavePoolDefinition(pool, nil); err != nil {
 				c.logger.Error("failed to save pool definition", "error", err, "name", pool.Name)
+				continue
+			}
+			if pool.IsDeleted {
+				sse.PublishPoolDeleted(pool.Id)
+			} else {
+				sse.PublishPoolChanged(pool.Id)
 			}
 		}
 	}

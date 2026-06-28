@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/scriptling/errors"
 	"github.com/paularlott/scriptling/object"
 )
+
 // serverState is the typed receiver for the Server class. It collects the
 // in-progress Registration between calls to method() and register().
 type serverState struct {
@@ -183,9 +184,15 @@ func buildServerClass() *object.Class {
 				return &object.Error{Message: "method() result must be a schema dict"}
 			}
 		}
+		if v := kwargs.Get("events"); v != nil {
+			def.Events = toStringSlice(v)
+		}
+		if v := kwargs.Get("event_sinks"); v != nil {
+			def.EventSinks = toStringSlice(v)
+		}
 		for _, k := range kwargs.Keys() {
 			switch k {
-			case "name", "local_name", "description", "scope", "keywords", "groups", "mcp_tool", "params", "result":
+			case "name", "local_name", "description", "scope", "keywords", "groups", "mcp_tool", "params", "result", "events", "event_sinks":
 			default:
 				return &object.Error{Message: fmt.Sprintf("method() unknown kwarg %q", k)}
 			}
@@ -193,7 +200,7 @@ func buildServerClass() *object.Class {
 
 		self.reg.Methods = append(self.reg.Methods, def)
 		return object.NewBoolean(true)
-	}, `method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None) - Add a method definition`)
+	}, `method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None, events=[], event_sinks=[]) - Add a method definition`)
 
 	// server.register() - validate and publish the collected registration.
 	cb.MethodWithHelp("register", func(self *serverState, ctx context.Context) object.Object {

@@ -2,6 +2,7 @@ package agentlink
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -28,6 +29,7 @@ const (
 	CommandRegisterMethodsTOML
 	CommandRegisterMethodsScript
 	CommandUnregisterMethods
+	CommandLog
 )
 
 type CommandMsg struct {
@@ -85,18 +87,29 @@ func sendMsg(conn net.Conn, commandType CommandType, payload interface{}) error 
 }
 
 func receiveMsg(conn net.Conn) (*CommandMsg, error) {
+	return receiveMsgTimeout(conn, 3*time.Second)
+}
+
+// receiveMsgTimeout reads one length-prefixed command message. A timeout of 0
+// clears the read deadline, allowing persistent connections (such as the log
+// stream) to block until the peer sends or disconnects.
+func receiveMsgTimeout(conn net.Conn, timeout time.Duration) (*CommandMsg, error) {
 	lenBuf := make([]byte, 4)
 
-	deadline := time.Now().Add(3 * time.Second)
-	if err := conn.SetReadDeadline(deadline); err != nil {
-		log.WithError(err).Error("Failed to set read deadline")
-		return nil, err
+	if timeout > 0 {
+		if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+			log.WithError(err).Error("Failed to set read deadline")
+			return nil, err
+		}
+	} else {
+		if err := conn.SetReadDeadline(time.Time{}); err != nil {
+			return nil, err
+		}
 	}
 
 	// Read response length
 	_, err := io.ReadFull(conn, lenBuf)
 	if err != nil {
-		log.WithError(err).Error("Failed to read response length")
 		return nil, err
 	}
 
@@ -107,7 +120,6 @@ func receiveMsg(conn net.Conn) (*CommandMsg, error) {
 	buffer := make([]byte, msgLen)
 	_, err = io.ReadFull(conn, buffer)
 	if err != nil {
-		log.WithError(err).Error("Failed to read response")
 		return nil, err
 	}
 
@@ -121,13 +133,21 @@ func receiveMsg(conn net.Conn) (*CommandMsg, error) {
 	return &msg, nil
 }
 
-func IsAgentRunning() bool {
+// commandSocketFile returns the absolute path of the agent command socket in
+// the user's home directory, or "" if the home directory cannot be resolved.
+func commandSocketFile() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
+		return ""
+	}
+	return home + "/" + commandSocketPath + "/" + commandSocket
+}
+
+func IsAgentRunning() bool {
+	socketPath := commandSocketFile()
+	if socketPath == "" {
 		return false
 	}
-
-	socketPath := home + "/" + commandSocketPath + "/" + commandSocket
 	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
 		return false
 	}
@@ -144,13 +164,11 @@ func IsAgentRunning() bool {
 }
 
 func SendWithResponseMsg(commandType CommandType, payload interface{}, response interface{}) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal("Failed to get home directory", "error", err)
-	}
-
 	// Check socket path exists
-	socketPath := home + "/" + commandSocketPath + "/" + commandSocket
+	socketPath := commandSocketFile()
+	if socketPath == "" {
+		return errors.New("failed to get home directory")
+	}
 	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
 		return err
 	}

@@ -96,6 +96,7 @@ func ListRunningRuntimeRefs(template *model.Template, spaces []*model.Space) (ma
 func MarkSpaceStopped(space *model.Space) error {
 	db := database.GetInstance()
 
+	oldSpace := *space
 	space.IsPending = false
 	space.IsDeployed = false
 	space.UpdatedAt = hlc.Now()
@@ -110,6 +111,7 @@ func MarkSpaceStopped(space *model.Space) error {
 		transport.GossipSpace(space)
 	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
+	service.CheckSpaceLifecycleEvents(&oldSpace, space)
 
 	return nil
 }

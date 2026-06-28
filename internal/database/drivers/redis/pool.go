@@ -77,3 +77,35 @@ func (db *RedisDbDriver) GetPoolDefinitions() ([]*model.PoolDefinition, error) {
 	sort.Slice(pools, func(i, j int) bool { return pools[i].Name < pools[j].Name })
 	return pools, nil
 }
+
+// GetPoolDefinitionsByUser returns the live pools owned by a user by scanning
+// only that user's PoolsByName keyspace rather than every pool.
+func (db *RedisDbDriver) GetPoolDefinitionsByUser(userId string) ([]*model.PoolDefinition, error) {
+	prefix := fmt.Sprintf("%sPoolsByName:%s:", db.prefix, userId)
+	var ids []string
+	iter := db.connection.Scan(context.Background(), 0, prefix+"*", 0).Iterator()
+	for iter.Next(context.Background()) {
+		id, err := db.connection.Get(context.Background(), iter.Val()).Result()
+		if err != nil {
+			return nil, convertRedisError(err)
+		}
+		ids = append(ids, id)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
+	var pools []*model.PoolDefinition
+	for _, id := range ids {
+		pool, err := db.GetPoolDefinition(id)
+		if err != nil {
+			return nil, err
+		}
+		if pool.IsDeleted {
+			continue
+		}
+		pools = append(pools, pool)
+	}
+	sort.Slice(pools, func(i, j int) bool { return pools[i].Name < pools[j].Name })
+	return pools, nil
+}

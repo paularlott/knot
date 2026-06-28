@@ -2,6 +2,8 @@ package agent_server
 
 import (
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -185,7 +187,7 @@ func reconcileAgentLoss(spaceId, reason string, logger logger.Logger) agentLossR
 	}
 
 	failures := recordAgentLossFailure(space.Id)
-	health.Set(space.Id, false, failures)
+	service.SetSpaceHealth(space.Id, false, failures)
 
 	refs, err := spaceutil.ListRunningRuntimeRefs(template, []*model.Space{space})
 	if err != nil {
@@ -235,6 +237,7 @@ func restartAgentLostSpace(space *model.Space, template *model.Template, runtime
 		return err
 	}
 
+	oldSpace := *space
 	space.IsPending = false
 	space.IsDeployed = false
 	space.UpdatedAt = hlc.Now()
@@ -245,6 +248,7 @@ func restartAgentLostSpace(space *model.Space, template *model.Template, runtime
 		transport.GossipSpace(space)
 	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
+	service.CheckSpaceLifecycleEvents(&oldSpace, space)
 
 	return service.GetContainerService().StartSpace(space, template, user)
 }
@@ -353,7 +357,7 @@ func checkSchedules() {
 
 func QueueSpaceReconcile(spaceId string) {
 	queueDisconnectedSpaceReconcile(spaceId)
-	health.Set(spaceId, false, 0)
+	service.SetSpaceHealth(spaceId, false, 0)
 }
 
 func shouldRestartOnAgentLoss(template *model.Template) bool {
@@ -397,6 +401,24 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 	logger := log.WithGroup("agent")
 	service.SetPoolSessionProvider(GetPoolSessionState)
 	service.SetAgentHealthConfigUpdater(updateAgentHealthConfigForTemplate)
+	service.SetJSONRPCCaller(func(spaceId, localMethod string, params json.RawMessage) error {
+		session := GetSession(spaceId)
+		if session == nil {
+			return fmt.Errorf("no active session for space %s", spaceId)
+		}
+		call := &msg.CallMethodRequest{
+			Method: localMethod,
+			Params: params,
+		}
+		resp, err := session.SendCallMethod(call, 30)
+		if err != nil {
+			return err
+		}
+		if resp.Response.Error != nil {
+			return fmt.Errorf("method error: %s", resp.Response.Error.Message)
+		}
+		return nil
+	})
 
 	// Start the session garbage collector & schedule checker
 	checkSchedules()
@@ -474,7 +496,7 @@ func updateAgentHealthConfigForTemplate(template *model.Template) {
 
 		clearAgentLossFailures(space.Id)
 		if template.HealthCheckType == "" || template.HealthCheckType == model.HealthCheckNone || template.HealthCheckType == model.HealthCheckAgent {
-			health.Set(space.Id, true, 0)
+			service.SetSpaceHealth(space.Id, true, 0)
 			sse.PublishSpaceChanged(space.Id, space.UserId)
 		}
 	}
@@ -482,6 +504,7 @@ func updateAgentHealthConfigForTemplate(template *model.Template) {
 
 func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueReconcile bool) {
 	var removed bool
+	var removedSession *Session
 	sessionMutex.Lock()
 	if session, ok := sessions[spaceId]; ok {
 		if expected != nil && session != expected {
@@ -491,13 +514,22 @@ func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueR
 		if session.MuxSession != nil {
 			session.MuxSession.Close()
 		}
+		removedSession = session
 		removed = true
 	}
 	delete(sessions, spaceId)
 	sessionMutex.Unlock()
 
+	// Unblock any log stream readers so their client WebSockets close (the
+	// terminal already closes via the mux session above). Done outside
+	// sessionMutex to avoid holding it while taking the listener lock.
+	if removedSession != nil {
+		removedSession.CloseLogListeners()
+	}
+
 	if removed {
 		methods.DefaultRegistry().UnregisterSpace(spaceId)
+		service.GetEventDispatcher().UnregisterSubscriptions(spaceId)
 
 		if markUnhealthy || queueReconcile {
 			db := database.GetInstance()
@@ -511,7 +543,7 @@ func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueR
 		}
 
 		if markUnhealthy {
-			health.Set(spaceId, false, 0)
+			service.SetSpaceHealth(spaceId, false, 0)
 		} else {
 			health.Delete(spaceId)
 		}

@@ -21,13 +21,10 @@ func HandleGetPools(w http.ResponseWriter, r *http.Request) {
 
 func HandleGetPool(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
+	// ResolveForUser already scopes the pool to the requesting user.
 	pool, err := service.GetPoolService().ResolveForUser(r.PathValue("id_or_name"), user)
 	if err != nil || pool == nil || pool.IsDeleted {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Pool not found"})
-		return
-	}
-	if !service.GetPoolService().CanRead(pool, user) {
-		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Permission denied"})
 		return
 	}
 	info, err := service.GetPoolService().Info(pool, user)

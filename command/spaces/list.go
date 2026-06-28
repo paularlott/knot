@@ -16,12 +16,20 @@ var ListCmd = &cli.Command{
 	Usage:       "List the available spaces and their status",
 	Description: "Lists the available spaces for the logged in user, grouped by stack and pool.",
 	MaxArgs:     cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "all-zones",
+			Usage: "Include spaces from all zones, not just the current server's zone",
+		},
+	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			fmt.Println("Failed to create API client:", err)
 			os.Exit(1)
 		}
+
+		allZones := cmd.GetBool("all-zones")
 
 		// Get the server zone
 		pingResponse, err := client.Ping(context.Background())
@@ -38,7 +46,7 @@ var ListCmd = &cli.Command{
 			return nil
 		}
 
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
+		spaces, _, err := client.GetSpaces(context.Background(), user.Id, allZones)
 		if err != nil {
 			fmt.Println("Error getting spaces: ", err)
 			return nil
@@ -61,7 +69,8 @@ var ListCmd = &cli.Command{
 		seenPool := map[string]bool{}
 
 		for _, space := range spaces.Spaces {
-			if zone != "" && space.Zone != "" && space.Zone != zone {
+			// Filter by zone - only show spaces in the current zone or with no zone (skip if zone is blank)
+			if !allZones && zone != "" && space.Zone != "" && space.Zone != zone {
 				continue
 			}
 

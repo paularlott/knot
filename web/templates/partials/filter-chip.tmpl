@@ -1,0 +1,22 @@
+{{ define "filterChip" }}
+<button type="button" x-show="{{ .show }}" x-cloak @click="{{ .click }}" class="app-filter-chip" aria-label="Remove {{ .label }} filter">{{ .label }}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="size-3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+{{ end }}
+
+{{/*
+  filterBar / filterBarClear wrap the active-filter chips in a row placed
+  between the toolbar and the table. It is a direct grid child of the page's
+  main grid, so x-show + x-collapse are bound to this element itself: when no
+  filters are active the collapse plugin animates the height to 0 and sets
+  display:none, removing the grid row entirely (no reserved gap). It is kept
+  hidden on mobile, where the funnel badge is the indicator. Place
+  {{ template "filterChip" ... }} calls between filterBar and filterBarClear.
+*/}}
+{{ define "filterBar" }}
+<div class="col-span-full hidden sm:flex flex-wrap items-center gap-2" x-show="{{ .active }}" x-collapse.duration.200ms x-cloak>
+    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Filtering by:</span>
+{{ end }}
+
+{{ define "filterBarClear" }}
+    <button type="button" @click="{{ .clear }}" class="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400 cursor-pointer">Clear all</button>
+</div>
+{{ end }}

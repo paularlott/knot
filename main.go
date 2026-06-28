@@ -8,7 +8,6 @@ import (
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
-	command_methods_agent "github.com/paularlott/knot/agent/cmd/methods"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
@@ -119,10 +118,9 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_stack.StackCmd,
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,
-			commands_admin.AdminCmd,
-			command_chat.ChatCmd,
-			command_methods_agent.MethodsCmd,
-			command_tunnel.TunnelCmd,
+		commands_admin.AdminCmd,
+		command_chat.ChatCmd,
+		command_tunnel.TunnelCmd,
 			command.ServerCmd,
 			command.PingCmd,
 			command.ScaffoldCmd,

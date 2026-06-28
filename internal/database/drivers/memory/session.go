@@ -10,8 +10,15 @@ func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
 	db.sessionMutex.Lock()
 	defer db.sessionMutex.Unlock()
 
-	// Test if the session already exists, if not add it
-	if _, ok := db.sessions[session.Id]; !ok {
+	// Upsert: if the session already exists update it in place, otherwise add
+	// it. Updating in place keeps the by-user-id slice consistent (it holds the
+	// same pointer) and, crucially, lets gossiped session refreshes from other
+	// cluster nodes take effect. Dropping those updates (the previous behaviour)
+	// left this node's copy frozen at its original expiry, so once it lapsed any
+	// request routed here returned 401 / redirected to login — random logouts.
+	if existing, ok := db.sessions[session.Id]; ok {
+		*existing = *session
+	} else {
 		db.sessionsByUserId[session.UserId] = append(db.sessionsByUserId[session.UserId], session)
 		db.sessions[session.Id] = session
 	}

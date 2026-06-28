@@ -8,6 +8,13 @@ extends:
   - recommended
 rules:
   no-unused-components: error
+  # Disabled: this API has legitimate non-2xx success responses — the OAuth
+  # /authorize endpoint returns a 302 redirect and the execute-script-stream
+  # endpoint returns a 101 WebSocket upgrade.
+  operation-2xx-response: off
+  # Disabled: several endpoints are unauthenticated (e.g. /api/auth/using-totp)
+  # or WebSocket-style and have no meaningful 4xx response to document.
+  operation-4xx-response: off
 
 openapi:
   htmlTemplate: ./web/redocly-template/index.html

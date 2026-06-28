@@ -2,12 +2,15 @@ package service
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
@@ -26,6 +29,7 @@ type PoolService struct {
 	pendingDeletions map[string]time.Time // space ID -> first seen as excess stopped
 	drained          map[string]bool      // space ID -> currently drained by pool sweep
 	rrCounters       map[string]int       // pool ID -> round-robin cursor
+	createMu         sync.Mutex           // serializes member ordinal allocation
 }
 
 type PoolSessionState struct {
@@ -95,16 +99,18 @@ func (s *PoolService) ResolveForUser(idOrName string, user *model.User) (*model.
 }
 
 func (s *PoolService) List(user *model.User) ([]apiclient.PoolInfo, error) {
+	if user == nil {
+		return []apiclient.PoolInfo{}, nil
+	}
 	db := database.GetInstance()
-	pools, err := db.GetPoolDefinitions()
+	// Scoped to the user's pools — the query already excludes deleted pools
+	// and pools owned by others.
+	pools, err := db.GetPoolDefinitionsByUser(user.Id)
 	if err != nil {
 		return nil, err
 	}
 	result := []apiclient.PoolInfo{}
 	for _, pool := range pools {
-		if pool.IsDeleted || !s.canRead(pool, user) {
-			continue
-		}
 		info, err := s.Info(pool, user)
 		if err == nil {
 			result = append(result, info)
@@ -114,7 +120,9 @@ func (s *PoolService) List(user *model.User) ([]apiclient.PoolInfo, error) {
 }
 
 func (s *PoolService) Info(pool *model.PoolDefinition, user *model.User) (apiclient.PoolInfo, error) {
-	if pool == nil || pool.IsDeleted || !s.canRead(pool, user) {
+	// Defensive ownership guard: callers resolve pools user-scoped, but keep
+	// this so the public method can't leak another user's pool.
+	if pool == nil || pool.IsDeleted || user == nil || pool.CreatedUserId != user.Id {
 		return apiclient.PoolInfo{}, fmt.Errorf("pool not found")
 	}
 
@@ -235,6 +243,9 @@ func (s *PoolService) Create(pool *model.PoolDefinition, user *model.User) error
 		return fmt.Errorf("pool name conflicts with an existing space")
 	}
 
+	// Stamp the owning zone. Only this zone's leader manages the pool's spaces.
+	pool.Zone = config.GetServerConfig().Zone
+
 	requested := pool.DesiredCount
 	if requested < 1 {
 		requested = 1
@@ -290,17 +301,6 @@ func (s *PoolService) savePool(pool *model.PoolDefinition) error {
 		transport.GossipPoolDefinition(pool)
 	}
 	return nil
-}
-
-func (s *PoolService) canRead(pool *model.PoolDefinition, user *model.User) bool {
-	return s.CanRead(pool, user)
-}
-
-func (s *PoolService) CanRead(pool *model.PoolDefinition, user *model.User) bool {
-	if user == nil || pool == nil {
-		return false
-	}
-	return pool.CreatedUserId == user.Id
 }
 
 // ---------------------------------------------------------------------------
@@ -490,8 +490,14 @@ func (s *PoolService) ReapOrphans() error {
 	if err != nil {
 		return err
 	}
+	cfg := config.GetServerConfig()
 	for _, space := range spaces {
 		if space.PoolId == "" || space.IsDeleted || space.IsDeleting {
+			continue
+		}
+		// Each zone reaps only its own pool spaces. The owning pool may be
+		// gone entirely, so we gate on the space's zone rather than the pool's.
+		if space.Zone != "" && space.Zone != cfg.Zone {
 			continue
 		}
 		pool, exists := poolMap[space.PoolId]
@@ -512,7 +518,14 @@ func (s *PoolService) SweepOnce() error {
 	if err != nil {
 		return err
 	}
+	cfg := config.GetServerConfig()
 	for _, pool := range pools {
+		// A pool's spaces are managed only by the leader of its owning zone.
+		// 10 zones => 10 leaders, each reconciling the pools created in its
+		// own zone. Empty zone (legacy/unmigrated) is managed everywhere.
+		if pool.Zone != "" && pool.Zone != cfg.Zone {
+			continue
+		}
 		members := poolMembers(pool, spaces)
 		if pool.IsDeleted {
 			s.reconcileDeletedPool(members)
@@ -735,6 +748,26 @@ func (s *PoolService) clearPending(spaceID string) {
 // Space helpers
 // ---------------------------------------------------------------------------
 
+// memberOrdinal extracts the 0-based member number encoded in a pool member's
+// name (poolname-N). Returns false if the name doesn't follow the scheme — e.g.
+// a member that was manually renamed. The number lives only in the name; pools
+// are small enough that deriving it on demand is cheaper than persisting it.
+func memberOrdinal(poolName string, space *model.Space) (int, bool) {
+	prefix := poolName + "-"
+	if !strings.HasPrefix(space.Name, prefix) {
+		return 0, false
+	}
+	n, err := strconv.Atoi(space.Name[len(prefix):])
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+// poolMembers returns the pool's non-deleted spaces sorted by member number
+// ascending (un-numbered members last). Ordering is what gives the reconcile
+// loop its "keep the lowest numbers, release the highest, restart the lowest
+// stopped" behaviour: keepers are members[:n] and excess is members[n:].
 func poolMembers(pool *model.PoolDefinition, spaces []*model.Space) []*model.Space {
 	var members []*model.Space
 	for _, space := range spaces {
@@ -742,7 +775,31 @@ func poolMembers(pool *model.PoolDefinition, spaces []*model.Space) []*model.Spa
 			members = append(members, space)
 		}
 	}
+	sort.SliceStable(members, func(i, j int) bool {
+		oi, oki := memberOrdinal(pool.Name, members[i])
+		oj, okj := memberOrdinal(pool.Name, members[j])
+		if oki != okj {
+			return oki // numbered members sort before un-numbered ones
+		}
+		return oi < oj
+	})
 	return members
+}
+
+// nextPoolOrdinal returns the lowest non-negative number not currently used by a
+// member name. A linear scan is fine: pools never hold enough members to matter.
+func nextPoolOrdinal(poolName string, members []*model.Space) int {
+	used := make(map[int]bool, len(members))
+	for _, m := range members {
+		if n, ok := memberOrdinal(poolName, m); ok {
+			used[n] = true
+		}
+	}
+	n := 0
+	for used[n] {
+		n++
+	}
+	return n
 }
 
 func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.User) error {
@@ -751,26 +808,38 @@ func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.Us
 	if err != nil {
 		return err
 	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-	name := pool.Name + "-" + id.String()
-	shell := user.PreferredShell
-	if shell == "" {
-		shell = "zsh"
-	}
-	space := model.NewSpace(name, "Pool member for "+pool.Name, user.Id, pool.TemplateId, shell, &[]model.AltNameEntry{}, "", "", nil)
-	space.PoolId = pool.Id
-	space.StartupScriptId = pool.StartupScriptId
 	nodeId, err := SelectNodeForSpace(template, "")
 	if err != nil {
 		return err
 	}
-	space.NodeId = nodeId
-	if err := GetSpaceService().CreateSpace(space, user); err != nil {
+	shell := user.PreferredShell
+	if shell == "" {
+		shell = "zsh"
+	}
+
+	// Allocate the lowest free ordinal and persist the new member atomically.
+	// createMu serializes allocation so a concurrent Create + sweep on the
+	// leader can't hand the same number to two spaces. The lock is released
+	// before the (potentially slow) StartSpace call — the ordinal is committed
+	// once the space row exists.
+	s.createMu.Lock()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		s.createMu.Unlock()
 		return err
 	}
+	ordinal := nextPoolOrdinal(pool.Name, poolMembers(pool, spaces))
+	name := pool.Name + "-" + strconv.Itoa(ordinal)
+	space := model.NewSpace(name, "Pool member for "+pool.Name, user.Id, pool.TemplateId, shell, &[]model.AltNameEntry{}, "", "", nil)
+	space.PoolId = pool.Id
+	space.StartupScriptId = pool.StartupScriptId
+	space.NodeId = nodeId
+	err = GetSpaceService().CreateSpace(space, user)
+	s.createMu.Unlock()
+	if err != nil {
+		return err
+	}
+
 	if pool.Active {
 		return GetContainerService().StartSpace(space, template, user)
 	}

@@ -1,4 +1,4 @@
-import { validate } from "../validators.js";
+import { validate, sanitize } from "../validators.js";
 import { focus } from "../focus.js";
 import ace from "ace-builds/src-noconflict/ace";
 import "ace-builds/src-noconflict/mode-text";
@@ -494,6 +494,9 @@ window.spaceForm = function (
     checkName() {
       this.nameValid = validate.name(this.formData.name);
       return this.nameValid;
+    },
+    sanitizeName(value) {
+      return sanitize.name(value);
     },
     checkAltName(index) {
       if (index >= 0 && index < this.formData.alt_names.length) {

@@ -36,8 +36,8 @@ type agentServer struct {
 	muxSession         *yamux.Session
 	ctx                context.Context
 	cancel             context.CancelFunc
-	reportingConn      net.Conn // Connection for reporting state
-	logConn            net.Conn // Connection for logging messages
+	reportingConn      net.Conn   // Connection for reporting state
+	logConn            net.Conn   // Connection for logging messages
 	logChannel         chan *msg.LogMessage
 
 	// aliases is the set of addresses this server contributed to the client's

@@ -1,3 +1,9 @@
+export const sanitize = {
+  name(value) {
+    return value.replace(/[^a-zA-Z0-9-]/g, "");
+  },
+};
+
 export const validate = {
   email(email) {
     const re = /^([a-z0-9](?:[a-z0-9&'+=_.-]+)?)@([a-z0-9_-]+)(\.[a-z0-9_-]+)*(\.[a-z]{2,})+$/i;

@@ -55,7 +55,7 @@ var ListCmd = &cli.Command{
 			os.Exit(1)
 		}
 
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
+		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
 			fmt.Println("Error getting spaces:", err)
 			os.Exit(1)

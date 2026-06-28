@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	ErrMethodNotFound   = errors.New("method not found")
-	ErrPermission       = errors.New("method not visible to caller")
-	ErrMethodDraining   = errors.New("method temporarily unavailable")
+	ErrMethodNotFound = errors.New("method not found")
+	ErrPermission     = errors.New("method not visible to caller")
+	ErrMethodDraining = errors.New("method temporarily unavailable")
 )
 
 type Entry struct {
@@ -430,6 +430,8 @@ func (e *Entry) info() MethodInfo {
 		Scope:        e.Scope,
 		Groups:       e.Groups,
 		MCPTool:      e.MCPTool,
+		Events:       e.Events,
+		EventSinks:   e.EventSinks,
 		ParamsSchema: e.ParamsSchema,
 		ResultSchema: e.ResultSchema,
 		OwnerID:      e.OwnerID,

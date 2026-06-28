@@ -216,3 +216,33 @@ func stringInSlice(str string, slice []string) bool {
 	}
 	return false
 }
+
+func (c *AgentClient) ReportEvent(event *msg.Event) error {
+	c.serverListMutex.RLock()
+	defer c.serverListMutex.RUnlock()
+
+	var delivered int
+	for _, server := range c.serverList {
+		if server.muxSession != nil && !server.muxSession.IsClosed() {
+			conn, err := server.muxSession.Open()
+			if err != nil {
+				log.Error("failed to open stream for event", "server", server.address)
+				continue
+			}
+
+			if err := msg.SendEvent(conn, event); err != nil {
+				log.Error("failed to send event to server", "server", server.address)
+				conn.Close()
+				continue
+			}
+
+			conn.Close()
+			delivered++
+		}
+	}
+
+	if delivered == 0 {
+		return fmt.Errorf("no servers accepted the event")
+	}
+	return nil
+}

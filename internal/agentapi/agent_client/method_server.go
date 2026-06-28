@@ -182,7 +182,7 @@ func (c *AgentClient) startMethodServer(reg *methods.Registration) error {
 	c.methodServer = server
 	c.methodMu.Unlock()
 
-	go pumpStderr(stderr)
+	go c.pumpStderr(stderr)
 	go server.readLoop(stdout)
 	go func() {
 		err := cmd.Wait()
@@ -630,10 +630,10 @@ func (s *methodServerProcess) closeErrOr(defaultMsg string) error {
 	return errors.New(defaultMsg)
 }
 
-func pumpStderr(stderr io.Reader) {
+func (c *AgentClient) pumpStderr(stderr io.Reader) {
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		log.Info("method server", "line", scanner.Text())
+		_ = c.SendLogMessage("method-server", msg.LogLevelInfo, scanner.Text())
 	}
 }
 

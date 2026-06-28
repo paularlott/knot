@@ -281,7 +281,7 @@ const scriptLibraries = [
       {
         name: "create_def",
         signature:
-          "create_def(name, description='', scope='user', active=True, groups=None, zones=None, spaces=None)",
+          "create_def(name, description='', icon_url='', scope='user', active=True, groups=None, zones=None, spaces=None)",
         description: "Create a new stack definition",
         returns: "str - New stack definition ID",
       },
@@ -300,7 +300,7 @@ const scriptLibraries = [
       {
         name: "validate_def",
         signature:
-          "validate_def(spaces, name='', description='', scope='user', active=True, groups=None, zones=None)",
+          "validate_def(spaces, name='', description='', icon_url='', scope='user', active=True, groups=None, zones=None)",
         description: "Validate a stack definition without saving",
         returns: "dict - Validation result with valid and errors",
       },
@@ -518,9 +518,9 @@ const scriptLibraries = [
           {
             name: "method",
             signature:
-              'method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None)',
+              'method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None, events=[], event_sinks=[])',
             description:
-              "Add a method definition. name may be passed positionally or as a kwarg. params and result are schema dicts from knot.methods.schema (or raw JSON Schema dicts).",
+              "Add a method definition. name may be passed positionally or as a kwarg. params and result are schema dicts from knot.methods.schema (or raw JSON Schema dicts). events subscribes the method to matching event types (e.g. ['space.*']). event_sinks references named JSON-RPC sink formatters (e.g. ['my-formatter']).",
             returns: "bool - True when added",
           },
           {
@@ -1220,6 +1220,84 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "knot.event",
+    description: "Knot event functions",
+    functions: [
+      {
+        name: "emit",
+        signature: "emit(type, payload={})",
+        description: "Emit a custom event from this space. The 'custom.' prefix is added automatically.",
+        returns: "bool - True if event was accepted",
+      },
+      {
+        name: "get_string",
+        signature: "get_string(name, default='')",
+        description: "Get a payload parameter as string (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "get_int",
+        signature: "get_int(name, default=0)",
+        description: "Get a payload parameter as integer (sink scripts only)",
+        returns: "int",
+      },
+      {
+        name: "get_bool",
+        signature: "get_bool(name, default=False)",
+        description: "Get a payload parameter as boolean (sink scripts only)",
+        returns: "bool",
+      },
+      {
+        name: "get_list",
+        signature: "get_list(name, default=[])",
+        description: "Get a payload parameter as list (sink scripts only)",
+        returns: "list",
+      },
+      {
+        name: "get_dict",
+        signature: "get_dict(name, default={})",
+        description: "Get a payload parameter as dict (sink scripts only)",
+        returns: "dict",
+      },
+      {
+        name: "type",
+        signature: "type()",
+        description: "Get the event type string (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "id",
+        signature: "id()",
+        description: "Get the event UUIDv7 id (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "ts",
+        signature: "ts()",
+        description: "Get the event HLC timestamp string (sink scripts only)",
+        returns: "string",
+      },
+      {
+        name: "space",
+        signature: "space()",
+        description: "Get the source space dict (sink scripts only)",
+        returns: "dict",
+      },
+      {
+        name: "actor",
+        signature: "actor()",
+        description: "Get the actor dict with id, username, kind (sink scripts only)",
+        returns: "dict",
+      },
+      {
+        name: "custom",
+        signature: "custom()",
+        description: "Get custom fields dict (sink scripts only)",
+        returns: "dict",
+      },
+    ],
+  },
+  {
     module: "knot.healthcheck",
     description: "Health check functions for space monitoring (agent-side only)",
     functions: [
@@ -1663,6 +1741,71 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.plugin",
+    description:
+      "Dynamic plugin loading and control. Each script execution gets an isolated scope; plugins loaded via load() are invisible to other executions/users. Server-side environments (MCP tools, events, health checks) are restricted to HTTP(S) plugins only — loading executables is blocked. Space-side environments allow both HTTP(S) and stdio executable plugins.",
+    functions: [
+      {
+        name: "load",
+        signature:
+          'load(name, path, scriptling=False, args=None, insecure_skip_tls=False, headers=None)',
+        description:
+          'Register a JSON-RPC plugin peer under name. path may be a filesystem executable (stdio) or an http:// / https:// endpoint. When scriptling=True the peer must implement the plugin handshake and an importable plugin.* proxy library is registered. Returns the normalised library name (e.g. "plugin.widgets"). May be blocked by the scope transport policy (e.g. executables are not permitted in HTTP-only environments).',
+        returns: "str - Normalised library name (e.g. plugin.widgets)",
+      },
+      {
+        name: "unload",
+        signature: "unload(name)",
+        description:
+          "Close a loaded plugin peer and remove it (and any proxy library) from the registry",
+        returns: "None",
+      },
+      {
+        name: "list",
+        signature: "list()",
+        description:
+          "Return metadata for all plugins visible to this scope (includes plugins inherited from the parent scope)",
+        returns:
+          "list - List of plugin metadata dicts (name, version, description, transport, functions, classes, constants)",
+      },
+      {
+        name: "describe",
+        signature: "describe(name)",
+        description: "Return metadata for a single loaded plugin",
+        returns:
+          "dict - Plugin metadata (name, version, description, transport, functions, classes, constants)",
+      },
+      {
+        name: "call_function",
+        signature: "call_function(library, name, *args, **kwargs)",
+        description:
+          "Call a function on a loaded plugin by library and function name. Supports callback (function) arguments for handshaken peers",
+        returns: "object - Function return value",
+      },
+      {
+        name: "call_method",
+        signature: "call_method(obj, name, *args, **kwargs)",
+        description:
+          "Call a method on a plugin object (instance returned by a plugin class constructor)",
+        returns: "object - Method return value",
+      },
+      {
+        name: "batch_call",
+        signature: "batch_call(library, calls)",
+        description:
+          'Call multiple functions on one plugin in a single JSON-RPC batch. calls is a list of dicts: {"name": str, "args": list, "kwargs": dict}. Callback arguments are not supported in batch_call',
+        returns: "list - Results in the same order as calls",
+      },
+      {
+        name: "release",
+        signature: "release(obj)",
+        description:
+          "Explicitly release a remote plugin object, freeing its server-side resources. Called automatically via __del__ when the object is garbage collected, but can be called early to release promptly",
+        returns: "None",
+      },
+    ],
+  },
+  {
     module: "scriptling.grep",
     description:
       "Fast file content search with regex or literal patterns (Remote/External environments)",
@@ -1822,13 +1965,15 @@ const scriptLibraries = [
       {
         name: "on_submit",
         signature: "on_submit(fn)",
-        description: "Register handler called when user submits input",
+        description:
+          "Register handler called when user submits input. Handlers run serialized on a single thread (never concurrently)",
         returns: "None",
       },
       {
         name: "on_escape",
         signature: "on_escape(fn)",
-        description: "Register a callback for Esc key",
+        description:
+          "Register a callback for Esc key. Runs serialized with other handlers; cancels the in-flight handler",
         returns: "None",
       },
       {
@@ -2418,7 +2563,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "scriptling.fs",
+    module: "fs",
     description: "Binary file operations for low-level byte manipulation",
     functions: [
       {
@@ -3256,11 +3401,25 @@ const scriptLibraries = [
     functions: [
       {
         name: "background",
-        signature: "background(name, handler, *args, **kwargs)",
+        signature: "background(name, handler, *args, shared=False, **kwargs)",
         description:
-          "Run a named handler function in the background. Handler is a 'library.function' string",
+          "Run a named handler function on a goroutine. shared=False (default) runs it in an isolated, parallel copy of the environment; shared=True runs it in the caller's OWN environment (live shared state, serialized by the interpreter lock, args passed live)",
         returns: "Promise or None - Promise for tracking completion, or None on error",
         returnType: "Promise",
+      },
+      {
+        name: "start_server",
+        signature: "start_server(wait=True)",
+        description:
+          "Signal the server to collect registered routes/methods and start listening. Call after all routes are registered. wait=True (default) blocks until the server shuts down; wait=False returns immediately so the script can keep running alongside the server. Scripts that exit without calling start_server() still work unchanged.",
+        returns: "None",
+      },
+      {
+        name: "server_running",
+        signature: "server_running()",
+        description:
+          "Returns True while the server is running, False once the server receives a shutdown signal. Use with start_server(wait=False) to keep the setup script alive: while runtime.server_running(): yield_now()",
+        returns: "bool",
       },
     ],
     classes: [
@@ -4044,7 +4203,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "scriptling.glob",
+    module: "glob",
     description: "Unix shell-style wildcards for file path matching (Remote environments)",
     functions: [
       {
@@ -4675,25 +4834,117 @@ const scriptLibraries = [
   },
   {
     module: "hashlib",
-    description: "Cryptographic hashing",
+    description: "Cryptographic hashing (returns hash objects)",
     functions: [
       {
         name: "sha256",
-        signature: "sha256(string)",
-        description: "Compute SHA-256 hash",
-        returns: "str - Hex digest",
+        signature: "sha256(data=None)",
+        description: "Create a SHA-256 hash object",
+        returns: "Hash",
       },
       {
         name: "sha1",
-        signature: "sha1(string)",
-        description: "Compute SHA-1 hash",
-        returns: "str - Hex digest",
+        signature: "sha1(data=None)",
+        description: "Create a SHA-1 hash object",
+        returns: "Hash",
       },
       {
         name: "md5",
-        signature: "md5(string)",
-        description: "Compute MD5 hash",
-        returns: "str - Hex digest",
+        signature: "md5(data=None)",
+        description: "Create an MD5 hash object",
+        returns: "Hash",
+      },
+    ],
+    classes: [
+      {
+        name: "Hash",
+        description:
+          "Hash object with name, digest_size and block_size fields. Call hexdigest() for the result.",
+        methods: [
+          {
+            name: "update",
+            signature: "update(data)",
+            description: "Feed more data into the hash",
+            returns: "None",
+          },
+          {
+            name: "hexdigest",
+            signature: "hexdigest()",
+            description: "Return digest as lowercase hex string",
+            returns: "str",
+          },
+          {
+            name: "digest",
+            signature: "digest()",
+            description: "Return raw digest as a byte string",
+            returns: "str",
+          },
+          {
+            name: "copy",
+            signature: "copy()",
+            description: "Return an independent copy of the hash object",
+            returns: "Hash",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "hmac",
+    description:
+      "Keyed-Hashing for Message Authentication (webhook signature verification)",
+    functions: [
+      {
+        name: "new",
+        signature: "new(key, msg=None, digestmod=None)",
+        description:
+          "Create an HMAC object. digestmod: 'sha256' (default), 'sha1', 'md5', or hashlib.sha256. Strings are used as byte buffers.",
+        returns: "HMAC",
+      },
+      {
+        name: "digest",
+        signature: "digest(key, msg, digestmod)",
+        description: "One-shot HMAC, returns raw digest byte string",
+        returns: "str",
+      },
+      {
+        name: "compare_digest",
+        signature: "compare_digest(a, b)",
+        description: "Constant-time string comparison for signature verification",
+        returns: "bool",
+      },
+    ],
+    classes: [
+      {
+        name: "HMAC",
+        description:
+          "HMAC object with name, digest_size and block_size fields",
+        methods: [
+          {
+            name: "update",
+            signature: "update(data)",
+            description: "Feed more data into the message",
+            returns: "None",
+          },
+          {
+            name: "hexdigest",
+            signature: "hexdigest()",
+            description: "Return MAC as lowercase hex string",
+            returns: "str",
+          },
+          {
+            name: "digest",
+            signature: "digest()",
+            description: "Return raw MAC as a byte string",
+            returns: "str",
+          },
+          {
+            name: "copy",
+            signature: "copy()",
+            description: "Return an independent copy of the HMAC object",
+            returns: "HMAC",
+          },
+        ],
       },
     ],
   },
@@ -6060,7 +6311,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "wait_for",
+    module: "scriptling.wait_for",
     description: "Wait for resources to become available",
     functions: [
       {
@@ -6098,6 +6349,217 @@ const scriptLibraries = [
         signature: "process_name(name, timeout=30, poll_rate=1)",
         description: "Wait for process to be running",
         returns: "bool - True if process is running",
+      },
+    ],
+  },
+  // ============================================================================
+  // Additional Scriptling + stdlib libraries
+  // ============================================================================
+  {
+    module: "scriptling.runtime.plugin",
+    description:
+      "Plugin server runtime (agent variant only). Declare a script as a Scriptling plugin server. When runtime.start_server() is called the server switches from the plain JSON-RPC loop to the full plugin protocol (scriptling.handshake, function.call, etc.) so clients can load the script with scriptling=True and receive auto-generated proxy libraries.",
+    functions: [
+      {
+        name: "serve",
+        signature: "serve(name, version='', description='')",
+        description:
+          "Declare this script as a Scriptling plugin server. Clients import it as plugin.<name>. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+      {
+        name: "register_function",
+        signature: "register_function(name, handler)",
+        description:
+          "Register a function for the plugin server. handler is a 'module.function' reference. The handler receives individual positional arguments (not a raw params blob). Callable arguments from the client are passed as callback objects and can be called normally with cb(args). Callbacks require the stdio transport. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+      {
+        name: "register_constant",
+        signature: "register_constant(name, value)",
+        description:
+          "Register a constant exported by the plugin server. Included in the handshake schema; clients read it as plugin.<name>.CONSTANT_NAME. value must be JSON-serialisable. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+      {
+        name: "register_class",
+        signature: "register_class(handler)",
+        description:
+          "Register a class exported by the plugin server. handler is 'module.ClassName'. The exposed class name is taken from the last segment. Clients instantiate it and call methods; instances are held server-side as remote objects. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+    ],
+  },
+  {
+    module: "scriptling.runtime.jsonrpc",
+    description:
+      "JSON-RPC server runtime. Register methods/notifications that Knot routes to this script when run as a JSON-RPC method server (knot run-script --json-rpc).",
+    functions: [
+      {
+        name: "method",
+        signature: "method(name, handler)",
+        description:
+          "Register a JSON-RPC method handler. handler is a 'module.function' reference resolved per request.",
+        returns: "None",
+      },
+      {
+        name: "notification",
+        signature: "notification(name, handler)",
+        description:
+          "Register a JSON-RPC notification handler (a request with no id, no response returned).",
+        returns: "None",
+      },
+      {
+        name: "error",
+        signature: "error(code, message, data=None)",
+        description: "Build a JSON-RPC error response to return from a handler.",
+        returns: "dict - JSON-RPC error object",
+      },
+    ],
+  },
+  {
+    module: "scriptling.markdown",
+    description: "Markdown rendering.",
+    functions: [
+      {
+        name: "to_html",
+        signature: "to_html(markdown_string)",
+        description: "Convert a Markdown string to HTML.",
+        returns: "str - HTML",
+      },
+    ],
+  },
+  {
+    module: "contextlib",
+    description: "Utilities for with-statement contexts.",
+    functions: [
+      {
+        name: "suppress",
+        signature: "suppress(*exc_types)",
+        description:
+          "Context manager that suppresses the given exception types within its block.",
+        returns: "context manager",
+      },
+    ],
+  },
+  {
+    module: "difflib",
+    description: "Helpers for comparing sequences.",
+    functions: [
+      {
+        name: "unified_diff",
+        signature: 'unified_diff(a, b, fromfile="", tofile="", n=3)',
+        description: "Produce a unified diff of two sequences of lines.",
+        returns: "list - diff lines",
+      },
+      {
+        name: "ratio",
+        signature: "ratio(a, b)",
+        description: "Return a measure of the sequences' similarity (0.0-1.0).",
+        returns: "float",
+      },
+      {
+        name: "opcodes",
+        signature: "opcodes(a, b)",
+        description: "Return list of (tag, i1, i2, j1, j2) opcodes describing how to turn a into b.",
+        returns: "list",
+      },
+      {
+        name: "get_close_matches",
+        signature: "get_close_matches(word, possibilities, n=3, cutoff=0.6)",
+        description: "Return a list of the best close matches to word.",
+        returns: "list",
+      },
+    ],
+  },
+  {
+    module: "urllib",
+    description: "URL handling — quoting, parsing, and joining.",
+    functions: [
+      {
+        name: "quote",
+        signature: "quote(string, safe='')",
+        description: "Percent-encode a string for use in a URL.",
+        returns: "str",
+      },
+      {
+        name: "quote_plus",
+        signature: "quote_plus(string, safe='')",
+        description: "Like quote(), but also encode spaces as '+'.",
+        returns: "str",
+      },
+      {
+        name: "unquote",
+        signature: "unquote(string)",
+        description: "Decode a percent-encoded string.",
+        returns: "str",
+      },
+      {
+        name: "unquote_plus",
+        signature: "unquote_plus(string)",
+        description: "Like unquote(), but also decode '+' as space.",
+        returns: "str",
+      },
+      {
+        name: "urlparse",
+        signature: "urlparse(urlstring)",
+        description: "Parse a URL into its components.",
+        returns: "tuple - (scheme, netloc, path, params, query, fragment)",
+      },
+      {
+        name: "urlunparse",
+        signature: "urlunparse(components)",
+        description: "Build a URL from its components.",
+        returns: "str",
+      },
+      {
+        name: "urljoin",
+        signature: "urljoin(base, url)",
+        description: "Join a base URL and a possibly relative URL.",
+        returns: "str",
+      },
+      {
+        name: "urlsplit",
+        signature: "urlsplit(urlstring)",
+        description: "Split a URL into components (no params field).",
+        returns: "tuple",
+      },
+      {
+        name: "urlunsplit",
+        signature: "urlunsplit(components)",
+        description: "Build a URL from split components.",
+        returns: "str",
+      },
+      {
+        name: "parse_qs",
+        signature: "parse_qs(qs, keep_blank_values=False)",
+        description: "Parse a query string into a dict of lists.",
+        returns: "dict",
+      },
+      {
+        name: "parse_qsl",
+        signature: "parse_qsl(qs, keep_blank_values=False)",
+        description: "Parse a query string into a list of (name, value) pairs.",
+        returns: "list",
+      },
+    ],
+  },
+  {
+    module: "io",
+    description: "In-memory text and binary streams.",
+    functions: [
+      {
+        name: "StringIO",
+        signature: "StringIO(initial='')",
+        description:
+          "Create an in-memory text stream (read/write/getvalue/seek/tell/truncate/close).",
+        returns: "StringIO",
+      },
+      {
+        name: "BytesIO",
+        signature: "BytesIO(initial=b'')",
+        description: "Create an in-memory binary stream.",
+        returns: "BytesIO",
       },
     ],
   },
@@ -6546,6 +7008,7 @@ function getCompletions(editor, session, pos, prefix, callback) {
     "sum",
     "tuple",
     "type",
+    "yield_now",
     "zip",
   ];
   for (const builtin of builtins) {

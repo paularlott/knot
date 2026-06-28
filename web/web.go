@@ -281,6 +281,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	router.HandleFunc("GET /scripts", middleware.WebAuth(checkPermissionManageScripts(HandleSimplePage)))
 
+	router.HandleFunc("GET /events", middleware.WebAuth(checkPermissionManageEvents(HandleSimplePage)))
+
 	router.HandleFunc("GET /skills", middleware.WebAuth(checkPermissionManageSkills(HandleSimplePage)))
 
 	router.HandleFunc("GET /stacks", middleware.WebAuth(checkPermissionStacks(HandleSimplePage)))
@@ -511,12 +513,15 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"hideSupportLinks":                    cfg.UI.HideSupportLinks,
 		"hideAPITokens":                       cfg.UI.HideAPITokens,
 		"useGravatar":                         cfg.UI.EnableGravatar,
+		"adminSectionActive":                  isAdminPath(r.URL.Path, cfg.LeafNode),
 		"permissionManageUsers":               user.HasPermission(model.PermissionManageUsers),
 		"permissionManageGroups":              user.HasPermission(model.PermissionManageGroups),
 		"permissionManageRoles":               user.HasPermission(model.PermissionManageRoles),
 		"permissionManageTemplates":           user.HasPermission(model.PermissionManageTemplates),
 		"permissionManageVariables":           user.HasPermission(model.PermissionManageVariables),
 		"permissionManageScripts":             user.HasPermission(model.PermissionManageScripts),
+		"permissionManageEvents":              user.HasPermission(model.PermissionManageEvents),
+		"permissionManageGlobalEvents":        user.HasPermission(model.PermissionManageGlobalEvents),
 		"permissionExecuteScripts":            user.HasPermission(model.PermissionExecuteScripts),
 		"permissionManageOwnScripts":          user.HasPermission(model.PermissionManageOwnScripts),
 		"permissionExecuteOwnScripts":         user.HasPermission(model.PermissionExecuteOwnScripts),
@@ -561,4 +566,23 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"aiChatStyle":                         cfg.Chat.UIStyle,
 		"requestHost":                         r.Host,
 	}
+}
+
+// isAdminPath reports whether the given request path belongs to one of the
+// administration pages. It is used to auto-expand the "Administration" group in
+// the sidebar so users don't lose their place when navigating between admin
+// pages. Templates and Variables live in the Administration group only on
+// non-leaf deployments; on a leaf node they remain top-level entries, so they
+// are only treated as admin paths when leafNode is false.
+func isAdminPath(path string, leafNode bool) bool {
+	paths := []string{"/users", "/groups", "/roles", "/audit-logs", "/cluster-info"}
+	if !leafNode {
+		paths = append(paths, "/templates", "/variables")
+	}
+	for _, p := range paths {
+		if path == p || strings.HasPrefix(path, p+"/") {
+			return true
+		}
+	}
+	return false
 }

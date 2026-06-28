@@ -234,6 +234,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		c.logger.Debug("container running,", "spec_containername", spec.ContainerName, "containerid", containerID)
 
 		db := database.GetInstance()
+		oldSpace := *space
 		space.ContainerId = containerID
 		space.IsPending = false
 		space.IsDeployed = true
@@ -248,6 +249,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		}
 		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
+		service.CheckSpaceLifecycleEvents(&oldSpace, space)
 	}()
 
 	return nil
@@ -402,6 +404,7 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			}
 		}
 
+		oldSpace := *space
 		space.IsPending = false
 		space.IsDeployed = false
 		space.UpdatedAt = hlc.Now()
@@ -416,6 +419,7 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		}
 		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
+		service.CheckSpaceLifecycleEvents(&oldSpace, space)
 
 		if onStopped != nil {
 			onStopped()

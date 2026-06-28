@@ -54,6 +54,21 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		}
 	}
 
+	// Delete pools owned by the user
+	pools, err := db.GetPoolDefinitionsByUser(toDelete.Id)
+	if err == nil {
+		for _, pool := range pools {
+			log.Debug("delete user: Deleting pool", "pool_id", pool.Id)
+			pool.IsDeleted = true
+			pool.Name = pool.Id
+			pool.UpdatedAt = hlc.Now()
+			db.SavePoolDefinition(pool, []string{"IsDeleted", "Name", "UpdatedAt"})
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipPoolDefinition(pool)
+			}
+		}
+	}
+
 	// Delete the user
 	if !hasError {
 		log.Debug("delete user: Deleting user  from database", "delete", toDelete.Id)

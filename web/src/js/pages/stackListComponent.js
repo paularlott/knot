@@ -98,6 +98,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
                 def.group_names = (def.groups || []).map(
                   (gid) => groupsMap[gid] || gid,
                 );
+                def.icon_url_exists = this.imageExists(def.icon_url);
                 const index = this.definitions.findIndex(
                   (d) => d.stack_definition_id === def.stack_definition_id,
                 );
@@ -132,6 +133,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
                   def.group_names = (def.groups || []).map(
                     (gid) => groupsMap[gid] || gid,
                   );
+                  def.icon_url_exists = this.imageExists(def.icon_url);
                   const index = this.definitions.findIndex(
                     (d) => d.stack_definition_id === def.stack_definition_id,
                   );
@@ -159,6 +161,18 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       if (!this.permissionUseSpaces) return false;
       if (!def.active) return false;
       return true;
+    },
+
+    async imageExists(url) {
+      if (!url || !url.length) {
+        return false;
+      }
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+      } catch {
+        return false;
+      }
     },
 
     canDeleteDef(def) {

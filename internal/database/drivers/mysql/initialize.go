@@ -110,6 +110,7 @@ template_id CHAR(36) NOT NULL,
 startup_script_id CHAR(36) DEFAULT '',
 desired_count INT UNSIGNED NOT NULL DEFAULT 1,
 active TINYINT(1) NOT NULL DEFAULT 1,
+zone VARCHAR(64) DEFAULT '',
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
@@ -386,6 +387,7 @@ INDEX created_at (created_at)
 	user_id CHAR(36) NOT NULL DEFAULT '',
 	name VARCHAR(64) NOT NULL,
 	description TEXT DEFAULT '',
+	icon_url VARCHAR(255) NOT NULL DEFAULT '',
 	groups JSON NOT NULL DEFAULT '[]',
 	zones JSON NOT NULL DEFAULT '[]',
 	active TINYINT(1) NOT NULL DEFAULT 1,
@@ -409,6 +411,30 @@ INDEX created_at (created_at)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS configs (
 name VARCHAR(64) PRIMARY KEY,
 value MEDIUMTEXT
+)`)
+	if err != nil {
+		return err
+	}
+
+	db.logger.Debug("ensuring event_sinks table exists")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS event_sinks (
+event_sink_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36) DEFAULT '',
+name VARCHAR(64),
+description TEXT DEFAULT '',
+events JSON NOT NULL DEFAULT '[]',
+sink_type VARCHAR(16) DEFAULT 'webhook',
+webhook JSON DEFAULT NULL,
+script_id CHAR(36) DEFAULT '',
+active TINYINT(1) NOT NULL DEFAULT 1,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+created_user_id CHAR(36),
+created_at TIMESTAMP(6),
+updated_user_id CHAR(36),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
+INDEX idx_is_deleted (is_deleted),
+INDEX sink_type (sink_type)
 )`)
 	if err != nil {
 		return err

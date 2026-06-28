@@ -259,6 +259,9 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				case leafmsg.MessageGossipStackDefinition:
 					c.handleLeafGossipStackDefinition(msg)
 
+				case leafmsg.MessageGossipEventSink:
+					c.handleLeafGossipEventSink(msg)
+
 				case leafmsg.MessageGossipResponse:
 					// Agent responses - not handled by leaf nodes
 
@@ -420,6 +423,19 @@ func (c *Cluster) handleLeafGossipStackDefinition(msg *leafmsg.Message) {
 
 	if err := c.mergeStackDefinitions(defs); err != nil {
 		c.logger.WithError(err).Error("error while merging stack definitions from leaf:")
+		return
+	}
+}
+
+func (c *Cluster) handleLeafGossipEventSink(msg *leafmsg.Message) {
+	sinks := []*model.EventSink{}
+	if err := msg.UnmarshalPayload(&sinks); err != nil {
+		c.logger.WithError(err).Error("error while unmarshalling leaf event sink message:")
+		return
+	}
+
+	if err := c.mergeEventSinks(sinks); err != nil {
+		c.logger.WithError(err).Error("error while merging event sinks from leaf:")
 		return
 	}
 }

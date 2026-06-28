@@ -4,8 +4,8 @@
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div>
       <label for="name" class="form-label">Name</label>
-      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Volume name" x-model="formData.name">
-      <div x-show="!nameValid" class="error-message" x-cloak>Volume name can be a max 64 characters.</div>
+      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Volume name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)">
+      <div x-show="!nameValid" class="error-message" x-cloak>Volume names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
     </div>
     <div class="mb-4">
       <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	command_event "github.com/paularlott/knot/agent/cmd/agentcmd/event"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
 	command_methods "github.com/paularlott/knot/agent/cmd/methods"
 	"github.com/paularlott/knot/agent/cmd/port"
@@ -32,7 +33,7 @@ func main() {
 		Description: `knot is a management tool for developer environments running within a Nomad cluster.
 
 The agent connects environments to the knot server.`,
-		Version: build.Version,
+		Version: build.FullVersion(),
 		ConfigFile: cli_toml.NewConfigFile(&configFile, func() []string {
 			paths := []string{"."}
 
@@ -74,6 +75,7 @@ The agent connects environments to the knot server.`,
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command_chat.ChatCmd,
+			command_event.EventCmd,
 			command_methods.MethodsCmd,
 			command_tunnel.TunnelCmd,
 			port.PortCmd,

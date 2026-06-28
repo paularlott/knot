@@ -7,7 +7,7 @@
       <div class="space-y-6">
         <div>
           <label for="name" class="form-label">Space Name</label>
-          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name" :disabled="!!formData.stack_prefix" :title="formData.stack_prefix ? 'Remove the space from its stack to rename it' : ''">
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)" :disabled="!!formData.stack_prefix" :title="formData.stack_prefix ? 'Remove the space from its stack to rename it' : ''">
           <div x-show="formData.stack_prefix" class="description" x-cloak>This space belongs to a stack, so its name can't be changed. Remove the stack to rename it.</div>
           <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
@@ -24,7 +24,7 @@
           <template x-for="(altName, index) in formData.alt_names" :key="index">
             <div class="mb-2">
               <div class="flex items-center gap-2">
-                <input type="text" class="form-field grow" x-model="formData.alt_names[index].name" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" placeholder="Additional space name" aria-label="Additional space name">
+                <input type="text" class="form-field grow" :value="formData.alt_names[index].name" @input="formData.alt_names[index].name = sanitizeName($event.target.value)" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" placeholder="Additional space name" aria-label="Additional space name">
                 <select class="form-field w-32" x-model.number="formData.alt_names[index].port" aria-label="Port">
                   <template x-for="tp in templatePorts" :key="tp.port">
                     <option :value="tp.port" :selected="formData.alt_names[index].port === tp.port" x-text="tp.name || tp.port"></option>

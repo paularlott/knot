@@ -64,7 +64,7 @@ var RunCmd = &cli.Command{
 		}
 
 		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
+		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
 			return fmt.Errorf("Error getting spaces: %w", err)
 		}

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"sync"
+
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/database/model"
 )
@@ -19,11 +21,14 @@ type Transport interface {
 	GossipSession(session *model.Session)
 	GossipScript(script *model.Script)
 	GossipSkill(skill *model.Skill)
+	GossipEventSink(sink *model.EventSink)
 	GossipStackDefinition(stackDef *model.StackDefinition)
 	GossipResponse(response *model.Response)
 	GossipPoolDefinition(pool *model.PoolDefinition)
 	GossipPoolDrain(spaceID string)
 	GossipPoolUndrain(spaceID string)
+	BroadcastEvent(envelope *EventEnvelope)
+	NotifyEventDone(eventId string)
 	GetAgentEndpoints() []string
 	GetTunnelServers() []string
 	IsLeader() bool
@@ -37,13 +42,18 @@ type Transport interface {
 }
 
 var (
-	transport Transport
+	transport   Transport
+	transportMu sync.RWMutex
 )
 
 func SetTransport(t Transport) {
+	transportMu.Lock()
 	transport = t
+	transportMu.Unlock()
 }
 
 func GetTransport() Transport {
+	transportMu.RLock()
+	defer transportMu.RUnlock()
 	return transport
 }

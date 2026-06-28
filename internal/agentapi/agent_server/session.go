@@ -118,6 +118,21 @@ func (s *Session) UnregisterLogListener(listenerId string) {
 	delete(s.LogListeners, listenerId)
 }
 
+// CloseLogListeners closes and removes every registered log listener. Called
+// when the session is torn down (e.g. the space terminated) so that streaming
+// log readers unblock on their channel and close the client WebSocket — the
+// same way the terminal closes when the mux session ends. Entries are deleted
+// as they're closed so a concurrent UnregisterLogListener won't double-close.
+func (s *Session) CloseLogListeners() {
+	s.LogListenersMutex.Lock()
+	defer s.LogListenersMutex.Unlock()
+
+	for id, c := range s.LogListeners {
+		close(c)
+		delete(s.LogListeners, id)
+	}
+}
+
 func (s *Session) Ping() bool {
 	// Open a connections over the mux session and write a ping command
 	conn, err := s.MuxSession.Open()

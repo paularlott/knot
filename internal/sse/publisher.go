@@ -221,3 +221,35 @@ func PublishSpaceDeleted(spaceId, userId string) {
 		},
 	})
 }
+
+func PublishEventSinksChanged(sinkId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventEventSinksChanged,
+		Payload: ResourcePayload{Id: sinkId},
+	})
+}
+
+func PublishEventSinksDeleted(sinkId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventEventSinksDeleted,
+		Payload: ResourcePayload{Id: sinkId},
+	})
+}
+
+// PublishPoolChanged notifies clients that a pool was created, updated, or its
+// membership/state changed. Without this, pool changes propagated via gossip
+// never trigger a UI refresh (unlike spaces), so other servers' UIs only update
+// on their slow poll interval.
+func PublishPoolChanged(poolId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventPoolChanged,
+		Payload: ResourcePayload{Id: poolId},
+	})
+}
+
+func PublishPoolDeleted(poolId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventPoolDeleted,
+		Payload: ResourcePayload{Id: poolId},
+	})
+}

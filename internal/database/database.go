@@ -62,6 +62,7 @@ type DbDriver interface {
 	GetPoolDefinition(id string) (*model.PoolDefinition, error)
 	GetPoolDefinitionByName(userId, name string) (*model.PoolDefinition, error)
 	GetPoolDefinitions() ([]*model.PoolDefinition, error)
+	GetPoolDefinitionsByUser(userId string) ([]*model.PoolDefinition, error)
 
 	// Templates
 	SaveTemplate(template *model.Template, updateFields []string) error
@@ -79,6 +80,12 @@ type DbDriver interface {
 	GetScriptsByName(name string) ([]*model.Script, error)
 	GetScriptByNameAndUser(name string, userId string) (*model.Script, error)
 	GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error)
+
+	// Event Sinks
+	SaveEventSink(sink *model.EventSink, updateFields []string) error
+	DeleteEventSink(sink *model.EventSink) error
+	GetEventSink(id string) (*model.EventSink, error)
+	GetEventSinks() ([]*model.EventSink, error)
 
 	// Skills
 	SaveSkill(skill *model.Skill, updateFields []string) error

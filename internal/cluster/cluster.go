@@ -21,6 +21,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/google/uuid"
@@ -169,6 +170,11 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(PoolDefinitionFullSyncMsg, cluster.handlePoolDefinitionFullSync)
 		cluster.gossipCluster.HandleFunc(PoolDefinitionGossipMsg, cluster.handlePoolDefinitionGossip)
 		cluster.gossipCluster.HandleFunc(PoolDrainMsg, cluster.handlePoolDrain)
+		cluster.gossipCluster.HandleFuncWithReply(EventSinkFullSyncMsg, cluster.handleEventSinkFullSync)
+		cluster.gossipCluster.HandleFunc(EventSinkGossipMsg, cluster.handleEventSinkGossip)
+		cluster.gossipCluster.HandleFunc(EventBroadcastMsg, cluster.handleEventBroadcast)
+		cluster.gossipCluster.HandleFunc(EventDoneMsg, cluster.handleEventDone)
+		cluster.gossipCluster.HandleFunc(InFlightStateMsg, cluster.handleInFlightState)
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
@@ -205,6 +211,8 @@ func NewCluster(
 			cluster.gossipResponses()
 			cluster.gossipSpaceUsage()
 			cluster.gossipPoolDefinitions()
+			cluster.gossipEventSinks()
+			cluster.gossipInFlight()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -240,6 +248,11 @@ func NewCluster(
 			"zone": cfg.Zone,
 		}
 		cluster.election = leader.NewLeaderElection(cluster.gossipCluster, electionCfg)
+
+		cluster.election.HandleEventFunc(leader.BecameLeaderEvent, func(_ leader.EventType, _ gossip.NodeID) {
+			cluster.logger.Info("became leader, replaying pending event deliveries")
+			service.GetEventDispatcher().ReplayPending()
+		})
 	}
 
 	if allowLeaf {
@@ -287,6 +300,19 @@ func (c *Cluster) trackClusterEndpoints() {
 	}
 	c.agentEndpoints = endPoints
 	c.tunnelServers = tunnelServers
+}
+
+// sendToZoneMembers sends a gossip message to every alive node in the same zone.
+func (c *Cluster) sendToZoneMembers(msgType gossip.MessageType, data interface{}) {
+	if c.gossipCluster == nil {
+		return
+	}
+	cfg := config.GetServerConfig()
+	for _, node := range c.gossipCluster.AliveNodes() {
+		if node.Metadata.GetString("zone") == cfg.Zone {
+			c.gossipCluster.SendTo(node, msgType, data)
+		}
+	}
 }
 
 func (c *Cluster) manageElection() {
@@ -403,6 +429,10 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 
 					if err := c.DoPoolDefinitionFullSync(node); err != nil {
 						c.logger.WithError(err).Error("failed to sync pool definitions with node")
+					}
+
+					if err := c.DoEventSinkFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync event sinks with node")
 					}
 
 					if c.sessionGossip {

@@ -3,6 +3,7 @@ import '../less/knot.css';
 import Alpine from 'alpinejs';
 import persist from '@alpinejs/persist';
 import AlpineFloatingUI from "@awcodes/alpine-floating-ui";
+import collapse from '@alpinejs/collapse';
 import focus from '@alpinejs/focus';
 
 import {} from './timezones.js';
@@ -39,6 +40,8 @@ import './pages/auditLogComponent.js';
 import './pages/clusterInfoComponent.js';
 import './pages/scriptListComponent.js';
 import './pages/scriptForm.js';
+import './pages/eventSinkListComponent.js';
+import './pages/eventSinkForm.js';
 import './pages/skillListComponent.js';
 import './pages/skillForm.js';
 import './pages/stackDefinitionBuilder.js';
@@ -51,6 +54,7 @@ window.Alpine = Alpine;
 Alpine.plugin(persist);
 Alpine.plugin(AlpineFloatingUI);
 Alpine.plugin(focus);
+Alpine.plugin(collapse);
 Alpine.start();
 
 window.MD5 = function(str) {

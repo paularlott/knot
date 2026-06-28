@@ -207,9 +207,24 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				ctx = context.WithValue(r.Context(), "session", session)
 			}
 
-			// Get the user
+			// Get the user. A load error means the backing store is unreachable,
+			// not that the request is unauthenticated — return 503 (as the session
+			// lookup above does) so the client retries rather than being logged
+			// out on a transient database hiccup. Genuinely deactivated/deleted
+			// users are signed out via session invalidation (RemoveUsersSessions),
+			// which the session.IsDeleted check already enforces.
 			user, err := db.GetUser(userId)
-			if err != nil || !user.Active || user.IsDeleted {
+			if err != nil {
+				logger.Error("failed to load user, treating as transient", "error", err, "user_id", userId)
+				rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
+					Error string `json:"error"`
+				}{
+					Error: "User store temporarily unavailable",
+				})
+				return
+			}
+			if !user.Active || user.IsDeleted {
+				logger.Debug("user inactive or deleted", "user_id", userId)
 				returnUnauthorized(w, r)
 				return
 			}
@@ -510,10 +525,20 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Get the user from the session
+		// Get the user from the session. A load error means the store is
+		// unreachable, not that the user is unauthenticated — return 503 and
+		// keep the session/cookie so a retry works, rather than logging the user
+		// out (and losing in-progress work) on a transient database hiccup.
+		// Deactivated/deleted users are signed out via session invalidation.
 		db := database.GetInstance()
 		user, err := db.GetUser(session.UserId)
-		if err != nil || !user.Active || user.IsDeleted {
+		if err != nil {
+			logger.Error("failed to load user, treating as transient", "error", err, "session_id", session.Id, "path", r.URL.Path)
+			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if !user.Active || user.IsDeleted {
+			logger.Debug("user inactive or deleted", "session_id", session.Id, "user_id", session.UserId, "path", r.URL.Path)
 			DeleteSessionCookie(w)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return

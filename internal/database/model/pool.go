@@ -15,6 +15,7 @@ type PoolDefinition struct {
 	StartupScriptId string        `json:"startup_script_id" db:"startup_script_id" msgpack:"startup_script_id"`
 	DesiredCount    int           `json:"desired_count" db:"desired_count" msgpack:"desired_count"`
 	Active          bool          `json:"active" db:"active" msgpack:"active"`
+	Zone            string        `json:"zone" db:"zone" msgpack:"zone"`
 	IsDeleted       bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	CreatedUserId   string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
 	CreatedAt       time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`

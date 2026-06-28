@@ -1,0 +1,181 @@
+{{ define "event-sink-form-content" }}
+<div x-data="eventSinkForm(sinkFormModal.isEdit, sinkFormModal.sinkId, sinkFormModal.isGlobal)" x-init="initData()">
+  {{ template "loading" . }}
+  <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
+      <div class="space-y-6">
+        <div>
+          <label for="name" class="form-label">Name</label>
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="event_sink_name" x-model="formData.name">
+          <div x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
+        </div>
+        <div>
+          <label for="description" class="form-label">Description</label>
+          <textarea class="form-field" name="description" id="description" rows="2" placeholder="What this event sink does" x-model="formData.description"></textarea>
+        </div>
+        <div>
+          <label for="events" class="form-label">Event Patterns (comma-separated)</label>
+          <input type="text" class="form-field" name="events" id="events" x-model="eventsStr" placeholder="space.created, space.* , *">
+          <div class="description">Glob patterns matching event types. Use <code>*</code> for all events, <code>space.*</code> for system events, or <code>custom.*</code> for custom events.</div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Sink Type</legend>
+      <div class="space-y-6">
+        <div>
+          <div class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Type</div>
+          <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <template x-for="type in [{value: 'webhook', label: 'Webhook'}, {value: 'script', label: 'Script'}, {value: 'json-rpc', label: 'JSON-RPC'}]" :key="type.value">
+                <label class="relative">
+                  <input
+                    type="radio"
+                    name="sink_type"
+                    :value="type.value"
+                    x-model="formData.sink_type"
+                    @change="ensureBodyEditor()"
+                    class="sr-only peer"
+                  >
+                  <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                    peer-checked:bg-blue-600 peer-checked:text-white
+                    peer-focus:ring-2 peer-focus:ring-blue-300
+                    transition-colors duration-200 ease-in-out
+                    text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                    hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                    <span x-text="type.label"></span>
+                  </div>
+                </label>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Webhook configuration -->
+        <div x-show="formData.sink_type === 'webhook'" x-cloak class="space-y-6">
+          <div>
+            <label for="webhook_url" class="form-label">URL</label>
+            <input type="url" class="form-field" name="webhook_url" id="webhook_url" placeholder="https://example.com/webhook" x-model="formData.webhook.url">
+          </div>
+          <div>
+            <label class="flex items-center cursor-pointer">
+              <input type="checkbox" x-model="formData.webhook.skip_tls_verify" class="sr-only peer">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Skip TLS Verification</span>
+            </label>
+            <div class="description">Disable certificate validation when connecting to the webhook URL. Use with caution.</div>
+          </div>
+          <div>
+            <label for="webhook_secret" class="form-label">Secret</label>
+            <div class="relative">
+              <input :type="showSecret ? 'text' : 'password'" class="form-field pr-10" name="webhook_secret" id="webhook_secret" placeholder="HMAC signing secret" x-model="formData.webhook.secret">
+              <button type="button" @click="showSecret = !showSecret" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" :aria-label="showSecret ? 'Hide secret' : 'Show secret'">
+                <svg x-show="!showSecret" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+                <svg x-show="showSecret" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                </svg>
+              </button>
+            </div>
+            <div class="description">Used to sign the webhook payload (HMAC-SHA256). Auto-generated on creation. Clear and save to generate a new one.</div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="form-label mb-0">Headers</label>
+              <button type="button" x-on:click="addHeader()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span class="sr-only">Add Header</span>
+              </button>
+            </div>
+            <template x-if="headerPairs.length === 0">
+              <p class="description">No custom headers. Click + to add one.</p>
+            </template>
+            <template x-for="(pair, index) in headerPairs" :key="index">
+              <div class="mb-2 flex items-center">
+                <input type="text" class="form-field mr-2" x-model="pair.key" placeholder="Header-Name" aria-label="Header name">
+                <input type="text" class="form-field mr-2" x-model="pair.value" placeholder="Header-Value" aria-label="Header value">
+                <button type="button" x-on:click="removeHeader(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg> <span class="sr-only">Remove header</span>
+                </button>
+              </div>
+            </template>
+          </div>
+          <div>
+            <label class="form-label">Body Template</label>
+            <div class="mid-editor">
+              <div class="editor-wrap" id="body_template"></div>
+            </div>
+            <div class="description">Go template rendered into the webhook body. Use <code>${{ .event.id }}</code>, <code>${{ .event.type }}</code>, etc.</div>
+          </div>
+        </div>
+
+        <!-- Script configuration -->
+        <div x-show="formData.sink_type === 'script'" x-cloak>
+          <label for="script_id" class="form-label">Script</label>
+          <div class="relative w-full" @click.away="scriptShowList = false">
+            <input id="script_id" x-model="scriptSearch" class="form-field" type="search"
+                   placeholder="Search scripts..."
+                   role="combobox"
+                   @focus="scriptShowList = true; scriptSelectedIndex = -1"
+                   @blur.debounce.200ms="scriptShowList = false"
+                   @keydown="scriptKeydown($event)"
+                   spellcheck="false" autocomplete="off">
+            <div x-show="scriptShowList && filteredScripts.length" x-cloak
+                 class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 text-base shadow-lg dark:border-slate-700 dark:bg-slate-800">
+              <ul class="list-none" role="listbox">
+                <template x-for="(option, index) in filteredScripts" :key="option.script_id">
+                  <li @mousedown.prevent="scriptSelect(option)"
+                      role="option"
+                      :aria-selected="scriptSelectedIndex === index"
+                      :class="{'bg-blue-100 dark:bg-blue-900': scriptSelectedIndex === index}"
+                      class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
+                    <div x-text="option.name"></div>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </div>
+          <div class="description">The script is executed when a matching event fires. Access the event via <code>knot.event</code>.</div>
+        </div>
+
+        <!-- JSON-RPC configuration -->
+        <div x-show="formData.sink_type === 'json-rpc'" x-cloak class="space-y-6">
+          <div class="description">JSON-RPC sinks are named formatters referenced by script methods via <code>event_sinks</code> in their TOML. The body template formats event data before passing it to the method.</div>
+          <div>
+            <label class="form-label">Body Template</label>
+            <div class="mid-editor">
+              <div class="editor-wrap" id="jsonrpc_body_template"></div>
+            </div>
+            <div class="description">Go template for the method payload. Use <code>${{ .event.id }}</code>, <code>${{ .event.type }}</code>, etc. Leave empty for default format.</div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <div>
+      <label class="flex items-center cursor-pointer mb-2">
+        <input type="checkbox" name="active" id="active" x-model="formData.active" class="sr-only peer">
+        <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+        <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
+      </label>
+      <div class="description">Only active sinks respond to events.</div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" @click="sinkFormModal.show = false" class="form-cancel" x-text="isEdit ? 'Discard' : 'Cancel'"></button>
+      <div class="flex gap-2">
+        <button type="button" @click="submitData(true)" class="btn-secondary" :disabled="loading" x-text="isEdit ? 'Save & Edit' : 'Create & Edit'"></button>
+        <button type="button" @click="submitData(false)" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
+      </div>
+    </div>
+  </form>
+</div>
+{{ end }}

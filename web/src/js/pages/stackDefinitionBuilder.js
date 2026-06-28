@@ -68,6 +68,8 @@ window.stackDefinitionBuilder = function () {
       templates: [],
       scripts: [],
       groups: [],
+      iconList: [],
+      icon_url: '',
       zoneValid: [],
     },
 
@@ -153,6 +155,7 @@ window.stackDefinitionBuilder = function () {
       this.editor.valid = true;
       this.editor.errors = [];
       this.editor.form = { ...blankForm(), scope: isPersonal ? 'user' : 'global' };
+      this.editor.icon_url = '';
       this.editor.zoneValid = [];
       this.loadReferenceData();
 
@@ -163,8 +166,24 @@ window.stackDefinitionBuilder = function () {
       }
     },
 
-    editDefinition(defId) {
-      const def = this.definitions.find(d => d.stack_definition_id === defId);
+    async editDefinition(defId) {
+      // Always fetch the latest definition from the server so the editor reflects
+      // changes made elsewhere (e.g. on another server) instead of the possibly
+      // stale cached entry from the list.
+      let def = this.definitions.find(d => d.stack_definition_id === defId);
+      try {
+        const response = await fetch(`/api/stack-definitions/${defId}`, {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.status === 200) {
+          def = await response.json();
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+      } catch (e) {
+        // Fall back to the cached list entry if the single-def fetch fails.
+      }
       if (!def) return;
 
       this.editor.defId = def.stack_definition_id;
@@ -187,6 +206,7 @@ window.stackDefinitionBuilder = function () {
         zones: [...(def.zones || [])],
         spaces,
       };
+      this.editor.icon_url = def.icon_url || '';
       this.editor.zoneValid = (def.zones || []).map(() => true);
 
       this.editor.active = true;
@@ -240,6 +260,18 @@ window.stackDefinitionBuilder = function () {
         if (res.ok) {
           const data = await res.json();
           this.editor.groups = data.groups || [];
+        }
+      } catch (e) { /* ignore */ }
+
+      try {
+        const res = await fetch('/api/icons');
+        if (res.ok) {
+          const icons = await res.json();
+          this.editor.iconList.length = 0;
+          this.editor.iconList.push(...icons);
+          // Refresh the icon picker so it shows the current selection's name
+          // (loadOptions ran with an empty list during component init).
+          this.$nextTick(() => this.$dispatch('refresh-autocompleter'));
         }
       } catch (e) { /* ignore */ }
     },
@@ -448,6 +480,7 @@ window.stackDefinitionBuilder = function () {
       return {
         name: this.editor.form.name,
         description: this.editor.form.description,
+        icon_url: this.editor.icon_url,
         active: this.editor.form.active,
         scope: this.editor.form.scope,
         groups: this.editor.form.groups,
@@ -568,6 +601,7 @@ window.stackDefinitionBuilder = function () {
       let toml = '';
       toml += `name = ${tomlStr(form.name)}\n`;
       if (form.description) toml += `description = ${tomlStr(form.description)}\n`;
+      if (this.editor.icon_url) toml += `icon_url = ${tomlStr(this.editor.icon_url)}\n`;
       toml += `scope = ${tomlStr(form.scope)}\n`;
 
       // Groups as names
@@ -629,6 +663,7 @@ window.stackDefinitionBuilder = function () {
       const payload = {
         name: this.editor.form.name,
         description: this.editor.form.description,
+        icon_url: this.editor.icon_url,
         scope: this.editor.form.scope,
         groups: this.editor.form.groups,
         zones: this.editor.form.zones.filter(z => z.trim()),

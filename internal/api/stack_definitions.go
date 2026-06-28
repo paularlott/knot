@@ -187,6 +187,7 @@ func HandleCreateStackDefinition(w http.ResponseWriter, r *http.Request) {
 	def := model.NewStackDefinition(
 		request.Name,
 		request.Description,
+		request.IconURL,
 		request.Groups,
 		request.Zones,
 		true,
@@ -302,6 +303,7 @@ func HandleUpdateStackDefinition(w http.ResponseWriter, r *http.Request) {
 
 	def.Name = request.Name
 	def.Description = request.Description
+	def.IconURL = request.IconURL
 	def.Active = request.Active
 	def.Groups = request.Groups
 	def.Zones = request.Zones
@@ -467,6 +469,7 @@ func stackDefToInfo(def *model.StackDefinition) apiclient.StackDefinitionInfo {
 		UserId:      def.UserId,
 		Name:        def.Name,
 		Description: def.Description,
+		IconURL:     def.IconURL,
 		Active:      def.Active,
 		Scope:       scope,
 		Groups:      def.Groups,

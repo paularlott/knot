@@ -52,7 +52,7 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 		}
 
 		// Get target space info
-		spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId)
+		spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId, false)
 		if err != nil {
 			log.WithError(err).Error("Failed to get spaces")
 			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get spaces"})

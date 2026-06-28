@@ -22,6 +22,10 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 	if middleware.HasUsers {
 		var userId string
 		var sessionId string
+		// For cookie-authenticated streams, hold the session so the open stream
+		// can act as a presence heartbeat and keep it from expiring while the
+		// tab is open (see the refresh ticker in the event loop below).
+		var refreshSession *model.Session
 
 		db := database.GetInstance()
 		store := database.GetSessionStorage()
@@ -71,6 +75,7 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 
 			userId = session.UserId
 			sessionId = session.Id
+			refreshSession = session
 
 			// Extend session life
 			session.UpdatedAt = hlc.Now()
@@ -84,17 +89,26 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Verify user exists and is active
+		// Verify user exists and is active. A load error is transient (store
+		// unreachable), not unauthorized — return 503 so the EventSource
+		// reconnects instead of the client treating it as a logout.
 		user, err := db.GetUser(userId)
-		if err != nil || !user.Active || user.IsDeleted {
+		if err != nil {
+			logger.Error("failed to load user for SSE, treating as transient", "error", err, "user_id", userId)
+			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if !user.Active || user.IsDeleted {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// Set SSE headers
+		// Set SSE headers. Note: do NOT set "Connection: keep-alive" — it's a
+		// hop-by-hop header that is forbidden under HTTP/2 (RFC 7540 §8.1.2.2)
+		// and can trigger ERR_HTTP2_PROTOCOL_ERROR; it's also redundant on
+		// HTTP/1.1 where keep-alive is already the default.
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
 
 		// Flush headers immediately
@@ -128,10 +142,35 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 		// source of truth that caused false logouts on transient store issues.
 		keepAlive := time.NewTicker(5 * time.Second)
 		defer keepAlive.Stop()
+
+		// An open stream means the user is present, so periodically extend the
+		// cookie session well within its expiry window. Without this, a user
+		// who reads/edits a page without triggering API calls (e.g. a long
+		// template edit) would have their session lapse and be logged out —
+		// losing in-progress work — on their next request.
+		sessionRefresh := time.NewTicker(model.SessionExpiryDuration / 4)
+		defer sessionRefresh.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
+
+			case <-sessionRefresh.C:
+				if refreshSession != nil {
+					// Re-read so we don't resurrect a session that was logged out
+					// or deleted in another tab, and so we extend the latest copy.
+					current, err := store.GetSession(refreshSession.Id)
+					if err == nil && current != nil && !current.IsDeleted {
+						current.UpdatedAt = hlc.Now()
+						current.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
+						if err := store.SaveSession(current); err != nil {
+							logger.Error("failed to refresh session", "error", err, "session_id", current.Id)
+						} else if transport := service.GetTransport(); transport != nil {
+							transport.GossipSession(current)
+						}
+					}
+				}
 
 			case <-keepAlive.C:
 				_, err := fmt.Fprintf(w, ": keep-alive\n\n")

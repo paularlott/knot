@@ -6,24 +6,24 @@
 <main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="templateVarListComponent()">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
-    <div class="mb-4 col-span-full xl:mb-2">
+    <div class="col-span-full">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Variables</h1>
     </div>
 
-    <form class="col-span-full sm:flex justify-between">
+    <form class="app-toolbar col-span-full">
       <div>
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-          <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-          <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+          <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
         </div>
       </div>
       <div>
-        <button @click.prevent="createVariable" type="button" class="btn-primary flex items-center mt-1">
+        <button @click.prevent="createVariable" type="button" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          New Variable
+          Variable
         </button>
       </div>
     </form>

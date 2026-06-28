@@ -1,6 +1,7 @@
 package agent_server
 
 import (
+	"encoding/json"
 	"net"
 	"strings"
 	"time"
@@ -120,7 +121,7 @@ func handleAgentConnection(conn net.Conn) {
 
 	if shouldMarkHealthyOnRegistration(template) {
 		prev := health.Get(registerMsg.SpaceId)
-		health.Set(registerMsg.SpaceId, true, 0)
+		service.SetSpaceHealth(registerMsg.SpaceId, true, 0)
 		if prev == nil || !prev.Healthy {
 			sse.PublishSpaceChanged(space.Id, space.UserId)
 		}
@@ -331,7 +332,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				// Update health status if changed
 				prev := health.Get(session.Id)
 				if prev == nil || prev.Healthy != state.Healthy {
-					health.Set(session.Id, state.Healthy, 0)
+					service.SetSpaceHealth(session.Id, state.Healthy, 0)
 					stateChanged = true
 				}
 
@@ -602,10 +603,45 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleUnregisterMethods(stream, session)
 			return
 
+		case byte(msg.CmdEvent):
+			handleEvent(stream, session)
+			return
+
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
 		}
+	}
+}
+
+func handleEvent(stream net.Conn, session *Session) {
+	var eventMsg msg.Event
+	if err := msg.ReadMessage(stream, &eventMsg); err != nil {
+		log.WithError(err).Error("reading event message:")
+		return
+	}
+
+	log.Trace("received event from agent", "event_id", eventMsg.EventId, "event_type", eventMsg.EventType, "space_id", session.Id)
+
+	var payload map[string]interface{}
+	if len(eventMsg.Payload) > 0 {
+		if err := json.Unmarshal(eventMsg.Payload, &payload); err != nil {
+			log.WithError(err).Warn("failed to unmarshal event payload")
+			payload = nil
+		}
+	}
+
+	var userId string
+	if space, err := database.GetInstance().GetSpace(session.Id); err == nil {
+		userId = space.UserId
+	}
+
+	service.RaiseCustomEvent(eventMsg.EventId, eventMsg.EventType, session.Id, userId, payload)
+
+	var reply msg.EventReply
+	if err := msg.WriteMessage(stream, &reply); err != nil {
+		log.WithError(err).Error("writing event reply:")
+		return
 	}
 }
 

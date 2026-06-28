@@ -6,7 +6,7 @@
 <main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="stackListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .isLeafNode }}, {{ .permissionUseSpaces }})" data-zone="{{ .zone }}">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
-    <div class="mb-4 col-span-full xl:mb-2">
+    <div class="col-span-full">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Stack Templates</h1>
     </div>
 
@@ -15,8 +15,8 @@
         <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-            <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-            <div class="app-search-shortcut">⌘ K</div>
+            <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
           </div>
         </div>
         <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
@@ -34,7 +34,7 @@
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">My Stacks</span>
             </label>
           </div>
-          <div class="mb-2">
+          <div class="mb-2 mt-4">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" @change="filterChanged" x-model="showGlobalDefs">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
@@ -63,7 +63,7 @@
       </div>
       <div class="flex gap-2">
         {{ if or .isLeafNode .permissionManageOwnStackDefinitions }}
-        <button @click.prevent="createDefinition(true)" class="btn-primary flex items-center mt-1">
+        <button @click.prevent="createDefinition(true)" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
@@ -71,7 +71,7 @@
         </button>
         {{ end }}
         {{ if and .permissionManageStackDefinitions (not .isLeafNode) }}
-        <button @click.prevent="createDefinition(false)" class="btn-primary flex items-center mt-1">
+        <button @click.prevent="createDefinition(false)" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
@@ -80,6 +80,13 @@
         {{ end }}
       </div>
     </form>
+
+    {{ template "filterBar" (map "active" "!showMyDefs || !showGlobalDefs || showAllZones || showInactive") }}
+      {{ template "filterChip" (map "show" "!showMyDefs" "label" "My Stacks off" "click" "showMyDefs=true; filterChanged()") }}
+      {{ template "filterChip" (map "show" "!showGlobalDefs" "label" "Global Stacks off" "click" "showGlobalDefs=true; filterChanged()") }}
+      {{ template "filterChip" (map "show" "showAllZones" "label" "All Zones" "click" "showAllZones=false; showAllZonesChanged()") }}
+      {{ template "filterChip" (map "show" "showInactive" "label" "Inactive" "click" "showInactive=false; showInactiveChanged()") }}
+    {{ template "filterBarClear" (map "clear" "showMyDefs=true; showGlobalDefs=true; showAllZones=false; showInactive=false; showAllZonesChanged()") }}
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       {{ template "loading" . }}
@@ -101,8 +108,13 @@
               <template x-if="!d.searchHide">
                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <td class="px-4 py-3">
-                    <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="d.name"></div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="d.description"></div>
+                    <div class="flex items-center gap-4">
+                      <img x-show="d.icon_url && d.icon_url_exists" :src="d.icon_url" :alt="d.name + ' icon'" class="hidden sm:block size-8" />
+                      <div>
+                        <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="d.name"></div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400" x-text="d.description"></div>
+                      </div>
+                    </div>
                   </td>
                   <td class="px-4 py-3 align-middle hidden md:table-cell">
                     <span x-show="!d.user_id" class="app-badge-purple">Global</span>
