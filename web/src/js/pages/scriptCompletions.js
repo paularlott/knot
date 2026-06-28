@@ -6356,6 +6356,41 @@ const scriptLibraries = [
   // Additional Scriptling + stdlib libraries
   // ============================================================================
   {
+    module: "scriptling.runtime.plugin",
+    description:
+      "Plugin server runtime (agent variant only). Declare a script as a Scriptling plugin server. When runtime.start_server() is called the server switches from the plain JSON-RPC loop to the full plugin protocol (scriptling.handshake, function.call, etc.) so clients can load the script with scriptling=True and receive auto-generated proxy libraries.",
+    functions: [
+      {
+        name: "serve",
+        signature: "serve(name, version='', description='')",
+        description:
+          "Declare this script as a Scriptling plugin server. Clients import it as plugin.<name>. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+      {
+        name: "register_function",
+        signature: "register_function(name, handler)",
+        description:
+          "Register a function for the plugin server. handler is a 'module.function' reference. The handler receives individual positional arguments (not a raw params blob). Callable arguments from the client are passed as callback objects and can be called normally with cb(args). Callbacks require the stdio transport. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+      {
+        name: "register_constant",
+        signature: "register_constant(name, value)",
+        description:
+          "Register a constant exported by the plugin server. Included in the handshake schema; clients read it as plugin.<name>.CONSTANT_NAME. value must be JSON-serialisable. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+      {
+        name: "register_class",
+        signature: "register_class(handler)",
+        description:
+          "Register a class exported by the plugin server. handler is 'module.ClassName'. The exposed class name is taken from the last segment. Clients instantiate it and call methods; instances are held server-side as remote objects. Must be called before runtime.start_server().",
+        returns: "None",
+      },
+    ],
+  },
+  {
     module: "scriptling.runtime.jsonrpc",
     description:
       "JSON-RPC server runtime. Register methods/notifications that Knot routes to this script when run as a JSON-RPC method server (knot run-script --json-rpc).",

@@ -61,7 +61,7 @@ func (s *consoleStub) send(op string, payload interface{}) {
 }
 
 func stubFrom(args []object.Object) *consoleStub {
-	return args[0].(*object.Instance).Fields[nativeStubKey].(*consoleStub)
+	return args[0].(*object.Instance).Field(nativeStubKey).(*consoleStub)
 }
 
 func envFromCtx(ctx context.Context) *object.Environment {
@@ -86,7 +86,7 @@ func newConsoleClass(w io.Writer, inbound <-chan string) *object.Class {
 						prevDone: make(chan struct{}),
 					}
 					close(stub.prevDone)
-					inst.Fields[nativeStubKey] = stub
+					inst.SetField(nativeStubKey, stub)
 					return &object.Null{}
 				},
 			},

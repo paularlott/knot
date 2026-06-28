@@ -166,8 +166,24 @@ window.stackDefinitionBuilder = function () {
       }
     },
 
-    editDefinition(defId) {
-      const def = this.definitions.find(d => d.stack_definition_id === defId);
+    async editDefinition(defId) {
+      // Always fetch the latest definition from the server so the editor reflects
+      // changes made elsewhere (e.g. on another server) instead of the possibly
+      // stale cached entry from the list.
+      let def = this.definitions.find(d => d.stack_definition_id === defId);
+      try {
+        const response = await fetch(`/api/stack-definitions/${defId}`, {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.status === 200) {
+          def = await response.json();
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+      } catch (e) {
+        // Fall back to the cached list entry if the single-def fetch fails.
+      }
       if (!def) return;
 
       this.editor.defId = def.stack_definition_id;

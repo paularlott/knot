@@ -108,6 +108,7 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterRuntimeKVLibrary(env)           // Key-value store
 	extlibs.RegisterRuntimeSyncLibrary(env)         // Concurrency primitives
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
+	extlibs.RegisterRuntimePluginLibrary(env)
 
 	scriptlingconsole.Register(env)       // scriptling.console
 	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
