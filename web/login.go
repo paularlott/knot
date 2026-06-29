@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -78,6 +79,7 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 		session.UpdatedAt = hlc.Now()
 		database.GetSessionStorage().SaveSession(session)
 		service.GetTransport().GossipSession(session)
+		sse.GetHub().InvalidateSession(session.Id)
 	}
 
 	middleware.DeleteSessionCookie(w)
