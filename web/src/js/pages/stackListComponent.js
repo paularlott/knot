@@ -1,6 +1,6 @@
 import Alpine from "alpinejs";
 
-window.stackListComponent = function (userId, zone, permissionManageStackDefinitions, permissionManageOwnStackDefinitions, isLeafNode, permissionUseSpaces) {
+window.stackListComponent = function (userId, zone, permissionManageStackDefinitions, permissionManageOwnStackDefinitions, isLeafNode, permissionUseStackDefinitions) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
@@ -8,8 +8,8 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     }
   });
 
-  const defaultShowMyDefs = true;
-  const defaultShowGlobalDefs = true;
+  const defaultShowMyDefs = permissionManageOwnStackDefinitions || false;
+  const defaultShowGlobalDefs = permissionManageStackDefinitions || permissionUseStackDefinitions || false;
 
   return {
     // Spread in the builder functionality from the separate module
@@ -43,7 +43,9 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     permissionManageStackDefinitions: permissionManageStackDefinitions || false,
     permissionManageOwnStackDefinitions: permissionManageOwnStackDefinitions || false,
     isLeafNode: isLeafNode || false,
-    permissionUseSpaces: permissionUseSpaces || false,
+    permissionUseStackDefinitions: permissionUseStackDefinitions || false,
+    canAccessOwn: permissionManageOwnStackDefinitions || false,
+    canAccessGlobal: permissionManageStackDefinitions || permissionUseStackDefinitions || false,
 
     async init() {
       await this.getDefinitions();
@@ -93,7 +95,9 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
         .then((response) => {
           if (response.status === 200) {
             response.json().then((data) => {
-              const list = defId ? [data] : data.stack_definitions || [];
+              const list = (defId ? [data] : data.stack_definitions || []).filter(
+                (def) => (!def.user_id ? this.canAccessGlobal : this.canAccessOwn),
+              );
               list.forEach((def) => {
                 def.group_names = (def.groups || []).map(
                   (gid) => groupsMap[gid] || gid,
@@ -120,7 +124,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
         .catch(() => {});
 
       // Fetch user definitions
-      if (this.currentUserId && !defId) {
+      if (this.canAccessOwn && this.currentUserId && !defId) {
         await fetch(
           `/api/stack-definitions?user_id=${this.currentUserId}&all_zones=${this.showAllZones}&include_inactive=${this.showInactive}`,
           { headers: { "Content-Type": "application/json" } },
@@ -158,9 +162,9 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     },
 
     canUseDef(def) {
-      if (!this.permissionUseSpaces) return false;
       if (!def.active) return false;
-      return true;
+      if (def.user_id && def.user_id === this.currentUserId) return this.permissionManageOwnStackDefinitions;
+      return this.permissionUseStackDefinitions;
     },
 
     async imageExists(url) {
@@ -370,7 +374,8 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
         const isGlobal = !d.user_id;
         const isMine = d.user_id === this.currentUserId;
         const matchesFilter =
-          (isGlobal && this.showGlobalDefs) || (isMine && this.showMyDefs);
+          (isGlobal && this.canAccessGlobal && this.showGlobalDefs) ||
+          (isMine && this.canAccessOwn && this.showMyDefs);
         if (!matchesFilter) showRow = false;
 
         if (!this.showAllZones && this.currentZone) {

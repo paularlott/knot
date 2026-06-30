@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Spaces{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }}, {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .permissionUseStackDefinitions }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="col-span-full">
@@ -89,7 +89,7 @@
           </svg>
           Space
         </button>
-        {{ if or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
+        {{ if or .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
         <button @click.prevent="openStackDefSelector" type="button" class="btn-primary flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
@@ -834,7 +834,7 @@
         </div>
       </div>
 
-      {{ if or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
+      {{ if or .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
       <!-- Modal: Stack Template Selector -->
       <div x-cloak x-show="stackDefSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="stackDefSelector.show" @keydown.esc.window="stackDefSelector.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="stackDefSelectorTitle">
         <div x-show="stackDefSelector.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl">

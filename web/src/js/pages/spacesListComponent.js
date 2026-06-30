@@ -26,6 +26,9 @@ window.spacesListComponent = function (
   canTransferSpaces,
   canShareSpaces,
   canUsePools,
+  permissionManageStackDefinitions,
+  permissionManageOwnStackDefinitions,
+  permissionUseStackDefinitions,
 ) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -107,6 +110,9 @@ window.spacesListComponent = function (
     canTransferSpaces,
     canShareSpaces,
     canUsePools,
+    permissionManageStackDefinitions: permissionManageStackDefinitions || false,
+    permissionManageOwnStackDefinitions: permissionManageOwnStackDefinitions || false,
+    permissionUseStackDefinitions: permissionUseStackDefinitions || false,
     users: [],
     forUsersList: [],
     shareUsers: [],
@@ -1605,6 +1611,11 @@ window.spacesListComponent = function (
       this.spaceFormModal.forUserUsername = this.forUsername;
       this.spaceFormModal.show = true;
     },
+    canUseDef(def) {
+      if (!def.active) return false;
+      if (def.user_id && def.user_id === userId) return this.permissionManageOwnStackDefinitions;
+      return this.permissionUseStackDefinitions;
+    },
     async openStackDefSelector() {
       this.stackDefSelector.show = true;
       this.stackDefSelector.searchTerm = "";
@@ -1630,7 +1641,7 @@ window.spacesListComponent = function (
         defs.forEach((d) => {
           const zones = d.zones || [];
           d.searchHide = false;
-          if (!d.active) d.searchHide = true;
+          if (!this.canUseDef(d)) d.searchHide = true;
           if (zones.length > 0 && zone && !zones.includes(zone)) {
             d.searchHide = true;
           }
@@ -1646,7 +1657,7 @@ window.spacesListComponent = function (
       const term = this.stackDefSelector.searchTerm.toLowerCase();
       this.stackDefSelector.definitions.forEach((d) => {
         const zones = d.zones || [];
-        let showRow = d.active;
+        let showRow = this.canUseDef(d);
         if (zones.length > 0 && zone && !zones.includes(zone)) {
           showRow = false;
         }
