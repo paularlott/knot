@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Scripts{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="scriptListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageScripts }}, {{ .isLeafNode }})" data-zone="{{ .zone }}">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="scriptListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageScripts }}, {{ .permissionManageOwnScripts }}, {{ .isLeafNode }})" data-zone="{{ .zone }}">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="col-span-full">
@@ -23,7 +23,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
           </svg>
-          <span x-show="!showMyScripts || showGlobalScripts || showAllZones || !showLocalScripts" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
+          <span x-show="(canAccessOwn && !showMyScripts) || (canAccessGlobal && !showGlobalScripts) || showAllZones || !showLocalScripts" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
         </button>
 
         <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" x-cloak>
@@ -85,12 +85,12 @@
       </div>
     </form>
 
-    {{ template "filterBar" (map "active" "!showMyScripts || showGlobalScripts || showAllZones || !showLocalScripts") }}
-      {{ template "filterChip" (map "show" "!showMyScripts" "label" "My Scripts off" "click" "showMyScripts=true; filterChanged()") }}
-      {{ template "filterChip" (map "show" "showGlobalScripts" "label" "Global Scripts" "click" "showGlobalScripts=false; filterChanged()") }}
+    {{ template "filterBar" (map "active" "(canAccessOwn && !showMyScripts) || (canAccessGlobal && !showGlobalScripts) || showAllZones || !showLocalScripts") }}
+      {{ template "filterChip" (map "show" "canAccessOwn && !showMyScripts" "label" "My Scripts off" "click" "showMyScripts=true; filterChanged()") }}
+      {{ template "filterChip" (map "show" "canAccessGlobal && !showGlobalScripts" "label" "Global Scripts off" "click" "showGlobalScripts=true; filterChanged()") }}
       {{ template "filterChip" (map "show" "showAllZones" "label" "All Zones" "click" "showAllZones=false; showAllZonesChanged()") }}
       {{ template "filterChip" (map "show" "!showLocalScripts" "label" "Local Scripts off" "click" "showLocalScripts=true; filterChanged()") }}
-    {{ template "filterBarClear" (map "clear" "showMyScripts=true; showGlobalScripts=false; showLocalScripts=true; showAllZones=false; showAllZonesChanged()") }}
+    {{ template "filterBarClear" (map "clear" "showMyScripts=canAccessOwn; showGlobalScripts=canAccessGlobal; showLocalScripts=true; showAllZones=false; showAllZonesChanged()") }}
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       {{ template "loading" . }}

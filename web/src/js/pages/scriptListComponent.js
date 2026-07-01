@@ -1,6 +1,6 @@
 import Alpine from "alpinejs";
 
-window.scriptListComponent = function (userId, zone, permissionManageScripts, isLeafNode) {
+window.scriptListComponent = function (userId, zone, permissionManageScripts, permissionManageOwnScripts, isLeafNode) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
@@ -8,9 +8,10 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, is
     }
   });
 
-  // Default filters: My Scripts ON, Global Scripts OFF (same for leaf and normal mode)
-  const defaultShowMyScripts = true;
-  const defaultShowGlobalScripts = false;
+  const canAccessOwn = permissionManageOwnScripts || isLeafNode || false;
+  const canAccessGlobal = permissionManageScripts || isLeafNode || false;
+  const defaultShowMyScripts = canAccessOwn;
+  const defaultShowGlobalScripts = canAccessGlobal;
 
   return {
     loading: true,
@@ -47,7 +48,10 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, is
     currentUserId: userId || "",
     currentZone: zone || "",
     permissionManageScripts: permissionManageScripts || false,
+    permissionManageOwnScripts: permissionManageOwnScripts || false,
     isLeafNode: isLeafNode || false,
+    canAccessOwn: canAccessOwn,
+    canAccessGlobal: canAccessGlobal,
 
     async init() {
       await this.getScripts();
@@ -91,7 +95,9 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, is
         .then((response) => {
           if (response.status === 200) {
             response.json().then((data) => {
-              const scriptList = scriptId ? [data] : data.scripts;
+              const scriptList = (scriptId ? [data] : data.scripts).filter(
+                (script) => (!script.user_id ? this.canAccessGlobal : this.canAccessOwn),
+              );
               scriptList.forEach((script) => {
                 script.group_names = (script.groups || []).map(
                   (gid) => groupsMap[gid] || gid,
@@ -128,7 +134,7 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, is
         .catch(() => {});
 
       // Fetch user scripts if user has permission
-      if (this.currentUserId && !scriptId) {
+      if (this.canAccessOwn && this.currentUserId && !scriptId) {
         await fetch(
           `/api/scripts?user_id=${this.currentUserId}&all_zones=${this.showAllZones}`,
           {
@@ -279,7 +285,7 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, is
         // Filter by type - show if it matches any enabled filter
         const isGlobal = !s.user_id;
         const isMine = s.user_id === this.currentUserId;
-        const matchesFilter = (isGlobal && this.showGlobalScripts) || (isMine && this.showMyScripts);
+        const matchesFilter = (isGlobal && this.canAccessGlobal && this.showGlobalScripts) || (isMine && this.canAccessOwn && this.showMyScripts);
         if (!matchesFilter) showRow = false;
 
         // Filter by local/remote in leaf mode (when ON, hide remote scripts)

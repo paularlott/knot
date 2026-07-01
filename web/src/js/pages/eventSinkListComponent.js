@@ -8,9 +8,10 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
     }
   });
 
-  // Default filters: My Sinks ON, Global Sinks OFF (same for leaf and normal mode)
-  const defaultShowMySinks = true;
-  const defaultShowGlobalSinks = false;
+  const canAccessOwn = permissionManageEvents || isLeafNode || false;
+  const canAccessGlobal = permissionManageGlobalEvents || isLeafNode || false;
+  const defaultShowMySinks = canAccessOwn;
+  const defaultShowGlobalSinks = canAccessGlobal;
 
   return {
     loading: true,
@@ -41,6 +42,8 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
     permissionManageEvents: permissionManageEvents || false,
     permissionManageGlobalEvents: permissionManageGlobalEvents || false,
     isLeafNode: isLeafNode || false,
+    canAccessOwn: canAccessOwn,
+    canAccessGlobal: canAccessGlobal,
 
     async init() {
       await this.getEventSinks();
@@ -75,7 +78,9 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
         .then((response) => {
           if (response.status === 200) {
             response.json().then((data) => {
-              const sinkList = sinkId ? [data] : data.event_sinks;
+              const sinkList = (sinkId ? [data] : data.event_sinks).filter(
+                (sink) => (!sink.user_id ? this.canAccessGlobal : sink.user_id === this.currentUserId && this.canAccessOwn),
+              );
               sinkList.forEach((sink) => {
                 const index = this.sinks.findIndex(
                   (s) => s.event_sink_id === sink.event_sink_id,
@@ -189,8 +194,8 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
         const isGlobal = !s.user_id;
         const isMine = s.user_id === this.currentUserId;
         const matchesFilter =
-          (isGlobal && this.showGlobalSinks) ||
-          (isMine && this.showMySinks);
+          (isGlobal && this.canAccessGlobal && this.showGlobalSinks) ||
+          (isMine && this.canAccessOwn && this.showMySinks);
         if (!matchesFilter) showRow = false;
 
         // Search term filtering

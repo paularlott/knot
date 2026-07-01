@@ -143,6 +143,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /api/event-sinks/{event_sink_id}", middleware.ApiAuth(HandleUpdateEventSink))
 	router.HandleFunc("DELETE /api/event-sinks/{event_sink_id}", middleware.ApiAuth(HandleDeleteEventSink))
 	router.HandleFunc("POST /api/spaces/{space_id}/emit-event", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleEmitEvent)))
+	router.HandleFunc("POST /api/events/emit", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleEmitUserEvent)))
 
 	// Skills
 	router.HandleFunc("GET /api/skill", middleware.ApiAuth(HandleGetSkills))

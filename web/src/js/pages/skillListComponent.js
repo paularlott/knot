@@ -1,6 +1,6 @@
 import Alpine from "alpinejs";
 
-window.skillListComponent = function (userId, zone, permissionManageSkills, isLeafNode) {
+window.skillListComponent = function (userId, zone, permissionManageSkills, permissionManageOwnSkills, isLeafNode) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
@@ -8,8 +8,10 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, isLe
     }
   });
 
-  const defaultShowMySkills = true;
-  const defaultShowGlobalSkills = false;
+  const canAccessOwn = permissionManageOwnSkills || isLeafNode || false;
+  const canAccessGlobal = permissionManageSkills || isLeafNode || false;
+  const defaultShowMySkills = canAccessOwn;
+  const defaultShowGlobalSkills = canAccessGlobal;
 
   return {
     loading: true,
@@ -46,7 +48,10 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, isLe
     currentUserId: userId || "",
     currentZone: zone || "",
     permissionManageSkills: permissionManageSkills || false,
+    permissionManageOwnSkills: permissionManageOwnSkills || false,
     isLeafNode: isLeafNode || false,
+    canAccessOwn: canAccessOwn,
+    canAccessGlobal: canAccessGlobal,
 
     async init() {
       await this.getSkills();
@@ -90,7 +95,9 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, isLe
         .then((response) => {
           if (response.status === 200) {
             response.json().then((data) => {
-              const skillList = skillId ? [data] : data.skills;
+              const skillList = (skillId ? [data] : data.skills).filter(
+                (skill) => (!skill.user_id ? this.canAccessGlobal : this.canAccessOwn),
+              );
               skillList.forEach((skill) => {
                 skill.group_names = (skill.groups || []).map(
                   (gid) => groupsMap[gid] || gid,
@@ -126,7 +133,7 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, isLe
         .catch(() => {});
 
       // Fetch user skills if user has permission
-      if (this.currentUserId && !skillId) {
+      if (this.canAccessOwn && this.currentUserId && !skillId) {
         await fetch(
           `/api/skill?user_id=${this.currentUserId}&all_zones=${this.showAllZones}`,
           {
@@ -265,7 +272,7 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, isLe
 
         const isGlobal = !s.user_id;
         const isMine = s.user_id === this.currentUserId;
-        const matchesFilter = (isGlobal && this.showGlobalSkills) || (isMine && this.showMySkills);
+        const matchesFilter = (isGlobal && this.canAccessGlobal && this.showGlobalSkills) || (isMine && this.canAccessOwn && this.showMySkills);
         if (!matchesFilter) showRow = false;
 
         if (this.isLeafNode && this.showLocalSkills && s.is_managed) showRow = false;

@@ -493,3 +493,31 @@ func HandleEmitEvent(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+// HandleEmitUserEvent raises a user-scoped custom event from a server-side
+// script context (e.g. MCP tool execution) where there is no associated space.
+// It is the target of the loopback knot.event.emit() library registered in the
+// MCP scriptling environment.
+func HandleEmitUserEvent(w http.ResponseWriter, r *http.Request) {
+	request := apiclient.EmitEventRequest{}
+	err := rest.DecodeRequestBody(w, r, &request)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if request.Type == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Event type is required"})
+		return
+	}
+
+	user := r.Context().Value("user").(*model.User)
+
+	// MCP tool execution has no space context. Use the nil UUID as the space
+	// id so downstream consumers (gossip, in-flight records, persistence) see
+	// a valid UUID rather than an empty string.
+	const nilSpaceID = "00000000-0000-0000-0000-000000000000"
+	service.RaiseCustomEvent("", request.Type, nilSpaceID, user.Id, request.Payload)
+
+	w.WriteHeader(http.StatusOK)
+}
