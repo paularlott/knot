@@ -55,7 +55,7 @@ window.apiTokensComponent = function () {
     tokenFormModal: { show: false },
     createForm: {
       name: "",
-      fullAccess: false,
+      fullAccess: true,
       scopes: defaultScopeState(),
     },
     nameValid: true,
@@ -86,7 +86,7 @@ window.apiTokensComponent = function () {
           focus.Element('input[name="name"]');
         } else {
           this.createForm.name = "";
-          this.createForm.fullAccess = false;
+          this.createForm.fullAccess = true;
           this.createForm.scopes = defaultScopeState();
           this.nameValid = true;
         }

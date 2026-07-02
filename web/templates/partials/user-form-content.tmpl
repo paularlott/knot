@@ -18,6 +18,19 @@
               <div x-show="!emailValid" class="error-message" x-cloak>Enter a valid email address.</div>
             </div>
             <div>
+              <label for="password" class="form-label">Password</label>
+              <input type="password" id="password" class="form-field" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">
+              {{ if .isProfile }}
+              <p class="description">Leave blank to keep the current password.</p>
+              {{ end }}
+              <div x-show="!passwordValid" class="error-message" x-cloak>Password must be at least 8 characters.</div>
+            </div>
+            <div>
+              <label for="confirm_password" class="form-label">Confirm Password</label>
+              <input type="password" id="confirm_password" class="form-field" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
+              <div x-show="!confirmPasswordValid" class="error-message" x-cloak>Both passwords must match.</div>
+            </div>
+            <div>
               <label for="shell" class="form-label">Preferred Shell</label>
               <select id="shell" class="form-field" name="shell" x-model="formData.preferred_shell">
                 <option value="bash">Bash</option>
@@ -42,11 +55,19 @@
               </div>
               <div x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
             </div>
+            {{ if .isProfile }}
+            <div>
+              <label for="service_password" class="form-label">Service Password</label>
+              <input type="text" id="service_password" class="form-field" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'form-field-error': !servicePasswordValid}" placeholder="Service Password" x-model="formData.service_password">
+              <p class="description">A password made available for initializing services such as databases.</p>
+              <div x-show="!servicePasswordValid" class="error-message" x-cloak>The service password is required.</div>
+            </div>
+            {{ end }}
           </div>
         </fieldset>
 
         <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Authentication</legend>
+          <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Remote Access</legend>
           <div class="space-y-6">
             <div>
               <label for="github_username" class="form-label">GitHub Username</label>
@@ -66,27 +87,6 @@
                 <p class="description">If given, this key will be written to <code>~/.ssh/id_ed25519</code>, <code>~/.ssh/id_rsa</code>, or <code>~/.ssh/id_ecdsa</code> in your SSH-enabled spaces depending on key format.</p>
                 <div x-show="!privateKeyValid" class="error-message" x-cloak>Enter a valid SSH private key.</div>
               </div>
-            {{ end }}
-            <div>
-              <label for="password" class="form-label">Password</label>
-              <input type="password" id="password" class="form-field" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">
-              {{ if .isProfile }}
-              <p class="description">Leave blank to keep the current password.</p>
-              {{ end }}
-              <div x-show="!passwordValid" class="error-message" x-cloak>Password must be at least 8 characters.</div>
-            </div>
-            <div>
-              <label for="confirm_password" class="form-label">Confirm Password</label>
-              <input type="password" id="confirm_password" class="form-field" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
-              <div x-show="!confirmPasswordValid" class="error-message" x-cloak>Both passwords must match.</div>
-            </div>
-            {{ if .isProfile }}
-            <div>
-              <label for="service_password" class="form-label">Service Password</label>
-              <input type="text" id="service_password" class="form-field" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'form-field-error': !servicePasswordValid}" placeholder="Service Password" x-model="formData.service_password">
-              <p class="description">A password made available for initializing services such as databases.</p>
-              <div x-show="!servicePasswordValid" class="error-message" x-cloak>The service password is required.</div>
-            </div>
             {{ end }}
           </div>
         </fieldset>

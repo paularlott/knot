@@ -1,3 +1,21 @@
+// Find the nearest ancestor of `el` that actually scrolls vertically, by
+// computed style. This matches containers whose overflow comes from @apply /
+// plain CSS (e.g. `ui-modal-body-scroll`) and not just the literal
+// `overflow-y-auto` class, so detection stops at the real scroll container for
+// the input (a modal body) instead of falling through to a page-level <main>
+// whose box may not contain a fixed-position input.
+function autocompleteScrollContainer(el) {
+  let node = el && el.parentElement;
+  while (node && node !== document.body && node !== document.documentElement) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 const autocompleterBase = () => ({
   search: '',
   showList: false,
@@ -198,7 +216,7 @@ window.autocompleterSpace = function() {
       const dropdown = this.$refs.dropdown;
       if (!input || !dropdown) return;
 
-      const scrollContainer = input.closest('.overflow-y-auto');
+      const scrollContainer = autocompleteScrollContainer(input);
       if (scrollContainer) {
         const containerRect = scrollContainer.getBoundingClientRect();
         const inputRect = input.getBoundingClientRect();
@@ -317,7 +335,7 @@ window.autocompleterIcon = function(dataSource) {
       const dropdown = this.$refs.dropdown;
       if (!input || !dropdown) return;
 
-      const scrollContainer = input.closest('.overflow-y-auto');
+      const scrollContainer = autocompleteScrollContainer(input);
       if (scrollContainer) {
         const containerRect = scrollContainer.getBoundingClientRect();
         const inputRect = input.getBoundingClientRect();
@@ -409,7 +427,7 @@ window.autocompleterScript = function() {
       const dropdown = this.$refs.dropdown;
       if (!input || !dropdown) return;
 
-      const scrollContainer = input.closest('.overflow-y-auto');
+      const scrollContainer = autocompleteScrollContainer(input);
       if (scrollContainer) {
         const containerRect = scrollContainer.getBoundingClientRect();
         const inputRect = input.getBoundingClientRect();
@@ -506,7 +524,7 @@ window.autocompleterStack = function() {
       const dropdown = this.$refs.dropdown;
       if (!input || !dropdown) return;
 
-      const scrollContainer = input.closest('.overflow-y-auto');
+      const scrollContainer = autocompleteScrollContainer(input);
       if (scrollContainer) {
         const containerRect = scrollContainer.getBoundingClientRect();
         const inputRect = input.getBoundingClientRect();
