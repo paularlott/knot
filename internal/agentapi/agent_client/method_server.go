@@ -1,17 +1,16 @@
 package agent_client
 
 import (
-	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"os/exec"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/paularlott/jsonrpc"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/methods"
@@ -21,45 +20,29 @@ const (
 	defaultMethodTimeoutSeconds = 30
 )
 
-// methodServerProcess owns the long-running stdio method server. Requests are
-// written to stdin and responses are read from stdout by a dedicated reader
-// goroutine. Concurrent mode allows many requests to be in flight at once;
-// serial mode allows one. Responses are correlated with callers by an internal
-// wire id so the caller's original JSON-RPC id never has to be unique.
+// methodServerProcess owns the long-running stdio method server. The JSON-RPC
+// framing, response correlation, subprocess lifecycle and reaping are handled
+// by the jsonrpc package (NewProcessTransport + Client); this struct holds the
+// client, the per-server concurrency policy and the closed signal used to bail
+// out of serial-mode acquire promptly when the process dies.
 type methodServerProcess struct {
 	reg *methods.Registration
 
-	cmd   *exec.Cmd
-	stdin io.WriteCloser
-
-	// writeLock serializes writes to stdin. It is held only for the duration of
-	// a single Write call, never across the round trip.
-	writeLock sync.Mutex
+	// client talks JSON-RPC over the subprocess's stdin/stdout. It is nil when
+	// the server has no backing process (e.g. a unit-test harness that wires a
+	// transport directly).
+	client    *jsonrpc.Client
+	transport *jsonrpc.StreamTransport
 
 	// semaphore caps the number of in-flight requests. nil means unlimited
 	// (concurrent mode). A buffered channel of size 1 enforces serial mode.
 	semaphore chan struct{}
 
-	// pending maps the internal wire id to the waiting caller.
-	pendingMu sync.Mutex
-	pending   map[int64]*pendingCall
-
-	nextID atomic.Int64
-
-	// readerDone is closed when the stdout reader goroutine exits.
-	readerDone chan struct{}
-	// closed is closed once the process is shutting down or the reader has
-	// exited. Pending and future callers fail with closeErr.
+	// closed is signalled once the subprocess has exited (via the jsonrpc
+	// OnExit hook) or the server has been shut down, so serial-mode acquire
+	// can fail fast instead of waiting for the per-call timeout.
 	closed    chan struct{}
 	closeOnce sync.Once
-	closeMu   sync.Mutex
-	closeErr  error
-}
-
-// pendingCall is a single in-flight method call waiting for a response.
-type pendingCall struct {
-	callerID   any
-	responseCh chan *methods.JSONRPCResponse
 }
 
 func (c *AgentClient) RegisterMethods(reg *methods.Registration) error {
@@ -146,74 +129,62 @@ func (c *AgentClient) republishMethods() {
 func (c *AgentClient) startMethodServer(reg *methods.Registration) error {
 	c.stopMethodServer()
 
-	args := reg.Server.Args
-	cmd := exec.Command(reg.Server.Command, args...)
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
+	// stderr is forwarded to the knot server as log lines, one SendLogMessage
+	// per newline-delimited chunk (matching the previous pumpStderr behaviour).
+	logWriter := &stderrLogWriter{c: c}
 
 	server := &methodServerProcess{
-		reg:        reg,
-		cmd:        cmd,
-		stdin:      stdin,
-		pending:    make(map[int64]*pendingCall),
-		readerDone: make(chan struct{}),
-		closed:     make(chan struct{}),
+		reg:    reg,
+		closed: make(chan struct{}),
 	}
 	if reg.Server.Mode == methods.ModeSerial {
 		server.semaphore = make(chan struct{}, 1)
 	}
 
-	c.methodMu.Lock()
-	c.methodServer = server
-	c.methodMu.Unlock()
+	// onExit runs once when the subprocess exits — whether it crashes
+	// mid-session or is shut down by Close. It mirrors the cmd.Wait goroutine
+	// the previous implementation ran: flush any trailing stderr, fail any
+	// queued callers, drop the knot-server registrations for the dead process
+	// and clear the stashed registration so a reconnect doesn't republish
+	// methods whose backing process has gone.
+	onExit := func(waitErr error) {
+		logWriter.flush()
+		server.markClosed()
 
-	go c.pumpStderr(stderr)
-	go server.readLoop(stdout)
-	go func() {
-		err := cmd.Wait()
-		server.shutdown()
-
-		// Clear the method server reference so CallMethod returns
-		// "no method server available" instead of routing to a dead process.
 		c.methodMu.Lock()
 		if c.methodServer == server {
 			c.methodServer = nil
 		}
 		c.methodMu.Unlock()
 
-		// Tell the knot server to remove our methods from the registry.
-		// Without this, the methods stay discoverable even though the
-		// backing process is dead — callers would get "no method server
-		// available" on every call until the session drops.
 		c.unregisterMethods()
 
-		// Clear the stashed registration so a subsequent server reconnect
-		// doesn't republish methods whose backing process has exited.
 		c.lastRegMu.Lock()
 		c.lastReg = nil
 		c.lastRegMu.Unlock()
 
-		if err != nil {
-			log.WithError(err).Warn("method server exited")
+		if waitErr != nil {
+			log.WithError(waitErr).Warn("method server exited")
 		} else {
 			log.Info("method server exited")
 		}
-	}()
+	}
+
+	transport, err := jsonrpc.NewProcessTransport(
+		reg.Server.Command, reg.Server.Args,
+		jsonrpc.WithStderr(logWriter),
+		jsonrpc.WithOnExit(onExit),
+	)
+	if err != nil {
+		return err
+	}
+
+	server.client = jsonrpc.NewClient(transport)
+	server.transport = transport
+
+	c.methodMu.Lock()
+	c.methodServer = server
+	c.methodMu.Unlock()
 
 	return nil
 }
@@ -227,10 +198,12 @@ func (c *AgentClient) stopMethodServer() {
 	if server == nil {
 		return
 	}
-	server.shutdown()
-	if server.cmd != nil && server.cmd.Process != nil {
-		_ = server.stdin.Close()
-		_ = server.cmd.Process.Kill()
+	server.markClosed()
+	if server.client != nil {
+		// Close closes stdin (signalling the child to exit), waits up to the
+		// jsonrpc shutdown timeout, then kills if needed. The OnExit hook
+		// above runs as the child is reaped.
+		_ = server.client.Close()
 	}
 }
 
@@ -289,139 +262,70 @@ func (c *AgentClient) publishMethods(reg *methods.Registration) error {
 
 // CallMethod forwards a JSON-RPC call to the method server. In concurrent mode
 // many calls may be in flight at once; in serial mode calls queue one at a
-// time. The caller's id is preserved on the returned response.
+// time. The caller's original id is preserved on the returned response — the
+// jsonrpc client generates its own wire ids, so they never need to be unique.
 func (c *AgentClient) CallMethod(req msg.CallMethodRequest) methods.JSONRPCResponse {
 	c.methodMu.RLock()
 	server := c.methodServer
 	c.methodMu.RUnlock()
-	if server == nil {
-		return methods.JSONRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &methods.JSONRPCError{Code: -32000, Message: "no method server available"},
-			ID:      req.ID,
-		}
+	if server == nil || server.client == nil {
+		return methodError(req.ID, -32000, "no method server available")
 	}
 
 	timeout := server.reg.Server.Timeout
 	if timeout <= 0 {
 		timeout = defaultMethodTimeoutSeconds
 	}
-	timer := time.NewTimer(time.Duration(timeout) * time.Second)
-	defer timer.Stop()
 
-	// Acquire a concurrency slot. For serial mode this blocks until the prior
-	// call finishes. For concurrent mode semaphore is nil and this is a no-op.
-	release, acquireErr := server.acquire(timer.C)
+	// One deadline gates both the serial-slot acquire and the call itself, so
+	// the total time can never exceed the configured per-call timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+
+	release, acquireErr := server.acquire(ctx)
 	if acquireErr != nil {
-		return methods.JSONRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &methods.JSONRPCError{Code: -32000, Message: acquireErr.Error()},
-			ID:      req.ID,
-		}
+		return methodError(req.ID, -32000, acquireErr.Error())
 	}
 	defer release()
 
-	wireID, call, ok := server.registerPending(req.ID)
-	if !ok {
-		return methods.JSONRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &methods.JSONRPCError{Code: -32000, Message: "method server unavailable"},
-			ID:      req.ID,
-		}
-	}
-
-	wireReq := methods.JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  req.Method,
-		Params:  req.Params,
-		ID:      wireID,
-	}
-	data, err := json.Marshal(wireReq)
-	if err != nil {
-		server.removePending(wireID)
-		return methods.JSONRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &methods.JSONRPCError{Code: -32603, Message: err.Error()},
-			ID:      req.ID,
-		}
-	}
-	data = append(data, '\n')
-
-	if err := server.write(data); err != nil {
-		server.removePending(wireID)
-		return methods.JSONRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &methods.JSONRPCError{Code: -32000, Message: err.Error()},
-			ID:      req.ID,
-		}
-	}
-
-	select {
-	case resp := <-call.responseCh:
-		if resp == nil {
-			return methods.JSONRPCResponse{
-				JSONRPC: "2.0",
-				Error:   &methods.JSONRPCError{Code: -32000, Message: "method server closed before responding"},
-				ID:      req.ID,
-			}
-		}
-		resp.ID = req.ID
-		if resp.JSONRPC == "" {
-			resp.JSONRPC = "2.0"
-		}
+	var rawResult json.RawMessage
+	err := server.client.Call(ctx, req.Method, req.Params, &rawResult)
+	if err == nil {
 		c.methodCallsTotal.Add(1)
-		return *resp
-	case <-timer.C:
-		server.removePending(wireID)
 		return methods.JSONRPCResponse{
 			JSONRPC: "2.0",
-			Error:   &methods.JSONRPCError{Code: -32000, Message: "method server timeout"},
-			ID:      req.ID,
-		}
-	case <-server.closed:
-		server.removePending(wireID)
-		server.closeMu.Lock()
-		err := server.closeErr
-		server.closeMu.Unlock()
-		msg := "method server unavailable"
-		if err != nil {
-			msg = err.Error()
-		}
-		return methods.JSONRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &methods.JSONRPCError{Code: -32000, Message: msg},
+			Result:  toJSONResult(rawResult),
 			ID:      req.ID,
 		}
 	}
+
+	// A JSON-RPC error response from the method server is a completed
+	// round-trip — preserve its code/message and count it.
+	var rpcErr *jsonrpc.Error
+	if errors.As(err, &rpcErr) {
+		c.methodCallsTotal.Add(1)
+		return methods.JSONRPCResponse{
+			JSONRPC: "2.0",
+			Error:   &methods.JSONRPCError{Code: rpcErr.Code, Message: rpcErr.Message},
+			ID:      req.ID,
+		}
+	}
+
+	// Transport-level failure (process exited, write error, timeout). Surface
+	// as a generic server error; this is not a completed round-trip.
+	return methodError(req.ID, -32000, err.Error())
 }
 
 // SendNotification forwards a JSON-RPC notification (no id) to the method
-// server. Unlike CallMethod it writes to stdin and returns immediately — no
-// response is expected. If the method server happens to write a response
-// anyway (non-standard), the reader goroutine drops it since no pending call
-// was registered for that wire id.
+// server. It returns immediately — no response is expected.
 func (c *AgentClient) SendNotification(req msg.CallMethodRequest) {
 	c.methodMu.RLock()
 	server := c.methodServer
 	c.methodMu.RUnlock()
-	if server == nil {
+	if server == nil || server.client == nil {
 		return
 	}
-
-	// Build a true JSON-RPC notification (no id). The method server receives
-	// the same message shape it would for any notification.
-	notification := methods.JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  req.Method,
-		Params:  req.Params,
-		// No ID — this is a notification per JSON-RPC 2.0 spec.
-	}
-	data, err := json.Marshal(notification)
-	if err != nil {
-		return
-	}
-	data = append(data, '\n')
-	_ = server.write(data)
+	_ = server.client.Notify(context.Background(), req.Method, req.Params)
 }
 
 func handleCallMethodExecution(stream net.Conn, agentClient *AgentClient, call msg.CallMethodRequest) {
@@ -457,10 +361,11 @@ func handleCallMethodBatchExecution(stream net.Conn, agentClient *AgentClient, b
 	_ = msg.WriteMessage(stream, &msg.CallMethodBatchResponse{Responses: responses})
 }
 
-// acquire reserves an in-flight slot, blocking until one is available, the
-// timeout fires, or the server is closed. The returned release func must be
-// called when the caller is done with the slot.
-func (s *methodServerProcess) acquire(timeout <-chan time.Time) (func(), error) {
+// acquire reserves an in-flight slot, bailing out when ctx is cancelled (which
+// also carries the per-call timeout) or the process has exited. The returned
+// release func must be called when the caller is done with the slot. In
+// concurrent mode semaphore is nil and this is a no-op.
+func (s *methodServerProcess) acquire(ctx context.Context) (func(), error) {
 	if s.semaphore == nil {
 		return func() {}, nil
 	}
@@ -469,180 +374,85 @@ func (s *methodServerProcess) acquire(timeout <-chan time.Time) (func(), error) 
 		return func() {
 			<-s.semaphore
 		}, nil
-	case <-timeout:
-		return nil, fmt.Errorf("method server timeout")
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case <-s.closed:
-		return nil, s.closeErrOr("method server unavailable")
+		return nil, errors.New("method server unavailable")
 	}
 }
 
-func (s *methodServerProcess) registerPending(callerID any) (int64, *pendingCall, bool) {
-	if s.isClosed() {
-		return 0, nil, false
-	}
-	wireID := s.nextID.Add(1)
-	call := &pendingCall{
-		callerID:   callerID,
-		responseCh: make(chan *methods.JSONRPCResponse, 1),
-	}
-	s.pendingMu.Lock()
-	if s.isClosedLocked() {
-		s.pendingMu.Unlock()
-		return 0, nil, false
-	}
-	s.pending[wireID] = call
-	s.pendingMu.Unlock()
-	return wireID, call, true
+func (s *methodServerProcess) markClosed() {
+	s.closeOnce.Do(func() { close(s.closed) })
 }
 
-func (s *methodServerProcess) removePending(wireID int64) {
-	s.pendingMu.Lock()
-	delete(s.pending, wireID)
-	s.pendingMu.Unlock()
-}
-
-// write writes one framed JSON-RPC request to stdin. It is safe to call
-// concurrently; only the write itself is serialized.
-func (s *methodServerProcess) write(data []byte) error {
-	s.writeLock.Lock()
-	defer s.writeLock.Unlock()
-	if s.isClosed() {
-		return s.closeErrOr("method server unavailable")
-	}
-	if _, err := s.stdin.Write(data); err != nil {
-		s.shutdownWith(fmt.Errorf("method server stdin write failed: %w", err))
-		return err
-	}
-	return nil
-}
-
-// readLoop owns stdout. It decodes JSON-RPC responses one at a time and
-// dispatches them to the waiting caller by wire id. When stdout closes or
-// decoding fails, the loop marks the server shut down and fails every pending
-// caller.
-func (s *methodServerProcess) readLoop(stdout io.Reader) {
-	defer close(s.readerDone)
-	decoder := json.NewDecoder(stdout)
-	for {
-		var resp methods.JSONRPCResponse
-		if err := decoder.Decode(&resp); err != nil {
-			if err != io.EOF && !isClosedErr(err) {
-				log.WithError(err).Warn("method server stdout decode error")
-			}
-			s.shutdownWith(fmt.Errorf("method server stdout closed: %w", err))
-			return
-		}
-		wireID, ok := extractWireID(resp.ID)
-		if !ok {
-			continue
-		}
-		s.pendingMu.Lock()
-		call, found := s.pending[wireID]
-		if found {
-			delete(s.pending, wireID)
-		}
-		s.pendingMu.Unlock()
-		if !found {
-			continue
-		}
-		select {
-		case call.responseCh <- &resp:
-		case <-s.closed:
-		}
-	}
-}
-
-func extractWireID(id any) (int64, bool) {
-	switch v := id.(type) {
-	case float64:
-		return int64(v), true
-	case int:
-		return int64(v), true
-	case int64:
-		return v, true
-	case json.Number:
-		n, err := v.Int64()
-		if err != nil {
-			return 0, false
-		}
-		return n, true
-	}
-	return 0, false
-}
-
-// shutdown marks the server closed without overwriting an existing error.
-// Subsequent calls are no-ops.
+// shutdown is used by tests to fail a wired-up (pipe) server. For a real
+// process, closing the client drives the child down and the OnExit hook
+// performs the full cleanup.
 func (s *methodServerProcess) shutdown() {
-	s.shutdownWith(nil)
+	s.markClosed()
+	if s.client != nil {
+		_ = s.client.Close()
+	}
 }
 
-func (s *methodServerProcess) shutdownWith(err error) {
-	s.closeOnce.Do(func() {
-		if err != nil {
-			s.closeMu.Lock()
-			s.closeErr = err
-			s.closeMu.Unlock()
+// methodError is a small helper for the JSON-RPC error responses CallMethod
+// returns for non-round-trip failures.
+func methodError(id any, code int, message string) methods.JSONRPCResponse {
+	return methods.JSONRPCResponse{
+		JSONRPC: "2.0",
+		Error:   &methods.JSONRPCError{Code: code, Message: message},
+		ID:      id,
+	}
+}
+
+// toJSONResult decodes a raw JSON-RPC result into the any that
+// methods.JSONRPCResponse.Result carries. Absent/null results yield nil. This
+// matches the previous behaviour, which decoded the subprocess response into a
+// methods.JSONRPCResponse directly.
+func toJSONResult(raw json.RawMessage) any {
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil
+	}
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil
+	}
+	return v
+}
+
+// stderrLogWriter is an io.Writer fed to jsonrpc.WithStderr. It buffers child
+// stderr bytes and emits one SendLogMessage per newline-delimited line, the
+// same shape the previous pumpStderr produced. flush emits any trailing
+// partial line and is called from the OnExit hook once the child has exited.
+type stderrLogWriter struct {
+	c   *AgentClient
+	mu  sync.Mutex
+	buf []byte
+}
+
+func (w *stderrLogWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.buf = append(w.buf, p...)
+	for {
+		i := bytes.IndexByte(w.buf, '\n')
+		if i < 0 {
+			break
 		}
-		close(s.closed)
-	})
-	s.failPending()
+		line := string(w.buf[:i])
+		w.buf = w.buf[i+1:]
+		_ = w.c.SendLogMessage("method-server", msg.LogLevelInfo, line)
+	}
+	return len(p), nil
 }
 
-// failPending delivers a nil response (interpreted as "server closed") to
-// every waiting caller. It is safe to call multiple times.
-func (s *methodServerProcess) failPending() {
-	s.pendingMu.Lock()
-	pending := s.pending
-	s.pending = make(map[int64]*pendingCall)
-	s.pendingMu.Unlock()
-	for _, call := range pending {
-		select {
-		case call.responseCh <- nil:
-		default:
-		}
+func (w *stderrLogWriter) flush() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if len(bytes.TrimSpace(w.buf)) == 0 {
+		w.buf = nil
+		return
 	}
-}
-
-func (s *methodServerProcess) isClosed() bool {
-	select {
-	case <-s.closed:
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *methodServerProcess) isClosedLocked() bool {
-	select {
-	case <-s.closed:
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *methodServerProcess) closeErrOr(defaultMsg string) error {
-	s.closeMu.Lock()
-	defer s.closeMu.Unlock()
-	if s.closeErr != nil {
-		return s.closeErr
-	}
-	return errors.New(defaultMsg)
-}
-
-func (c *AgentClient) pumpStderr(stderr io.Reader) {
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		_ = c.SendLogMessage("method-server", msg.LogLevelInfo, scanner.Text())
-	}
-}
-
-func isClosedErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err == io.EOF || err == io.ErrUnexpectedEOF {
-		return true
-	}
-	return false
+	_ = w.c.SendLogMessage("method-server", msg.LogLevelInfo, string(w.buf))
+	w.buf = nil
 }

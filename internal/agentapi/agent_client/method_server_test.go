@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/paularlott/jsonrpc"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/methods"
 )
@@ -52,15 +53,16 @@ func newFakeMethodServer(t *testing.T, handler func(req methods.JSONRPCRequest) 
 	return stdinWrite, stdoutRead
 }
 
-// attachServer wires a methodServerProcess (without a real os/exec process) to
-// the client so CallMethod can be exercised in isolation.
+// attachServer wires a methodServerProcess to a jsonrpc stream transport backed
+// by the given pipes (no real os/exec process), so CallMethod can be exercised
+// in isolation.
 func attachServer(client *AgentClient, reg *methods.Registration, stdin io.WriteCloser, stdout io.ReadCloser) *methodServerProcess {
+	transport := jsonrpc.NewStreamTransport(stdout, stdin)
 	server := &methodServerProcess{
-		reg:        reg,
-		stdin:      stdin,
-		pending:    make(map[int64]*pendingCall),
-		readerDone: make(chan struct{}),
-		closed:     make(chan struct{}),
+		reg:       reg,
+		client:    jsonrpc.NewClient(transport),
+		transport: transport,
+		closed:    make(chan struct{}),
 	}
 	if reg.Server.Mode == methods.ModeSerial {
 		server.semaphore = make(chan struct{}, 1)
@@ -68,7 +70,6 @@ func attachServer(client *AgentClient, reg *methods.Registration, stdin io.Write
 	client.methodMu.Lock()
 	client.methodServer = server
 	client.methodMu.Unlock()
-	go server.readLoop(stdout)
 	return server
 }
 

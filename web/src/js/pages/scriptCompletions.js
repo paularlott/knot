@@ -1649,9 +1649,9 @@ const scriptLibraries = [
       },
       {
         name: "Client",
-        signature: 'Client(base_url, *, namespace="", bearer_token="")',
+        signature: 'Client(target, *, namespace="", bearer_token="", args=None)',
         description:
-          "Create a new MCP client for connecting to a remote MCP server",
+          "Create a new MCP client. target is an http:// / https:// URL (HTTP server) or a local executable launched as a stdio MCP server (use args for command-line arguments). bearer_token is HTTP-only; args is stdio-only.",
         returns: "MCPClient - A client instance",
         returnType: "MCPClient",
       },
@@ -1684,6 +1684,13 @@ const scriptLibraries = [
             signature: "tool_search(query, max_results=10)",
             description: "Search for tools",
             returns: "list - Matching tools",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description:
+              "Close the client and release its transport. For a stdio client this shuts down the launched server subprocess; for an HTTP client it is a no-op. Safe to call more than once.",
+            returns: "null",
           },
           {
             name: "execute_discovered",

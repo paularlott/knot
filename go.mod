@@ -22,9 +22,10 @@ require (
 	github.com/miekg/dns v1.1.72
 	github.com/paularlott/cli v0.8.5
 	github.com/paularlott/gossip v0.12.7
+	github.com/paularlott/jsonrpc v0.1.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.19.0
-	github.com/paularlott/scriptling v0.15.1
+	github.com/paularlott/mcp v0.20.0
+	github.com/paularlott/scriptling v0.15.2-0.20260703151538-08b0eb024dcc
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -54,7 +55,7 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.5 // indirect
-	github.com/klauspost/compress v1.18.7 // indirect
+	github.com/klauspost/compress v1.19.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260627054121-477a66015f15 // indirect
 	github.com/paularlott/snapshotkv v0.4.0 // indirect
