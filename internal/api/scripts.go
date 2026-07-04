@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -339,6 +340,7 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 		Status: true,
 		Id:     script.Id,
 	})
+	internal_mcp.NotifyToolsChanged()
 }
 
 func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
@@ -448,6 +450,7 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 	)
 
 	w.WriteHeader(http.StatusOK)
+	internal_mcp.NotifyToolsChanged()
 }
 
 func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
@@ -523,6 +526,7 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 	)
 
 	w.WriteHeader(http.StatusOK)
+	internal_mcp.NotifyToolsChanged()
 }
 
 func HandleGetScriptDetailsByName(w http.ResponseWriter, r *http.Request) {

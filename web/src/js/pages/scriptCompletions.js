@@ -1712,6 +1712,40 @@ const scriptLibraries = [
               "Execute multiple discovered tool calls in parallel. Calls is a list of dicts with name and arguments",
             returns: "list - List of tool responses",
           },
+          {
+            name: "list_resources",
+            signature: "list_resources()",
+            description:
+              "List static resources exposed by the server (uri, name, description, mimeType)",
+            returns: "list - Resource dicts",
+          },
+          {
+            name: "list_resource_templates",
+            signature: "list_resource_templates()",
+            description:
+              "List resource templates (uriTemplate with {var} placeholders the client expands before reading)",
+            returns: "list - Resource template dicts",
+          },
+          {
+            name: "read_resource",
+            signature: "read_resource(uri)",
+            description:
+              "Read a resource by URI (static, or expanded from a template). Content text is parsed JSON when valid",
+            returns: "dict | list - Content block(s) with uri, mimeType, text|blob",
+          },
+          {
+            name: "list_prompts",
+            signature: "list_prompts()",
+            description: "List prompts exposed by the server (name, description, arguments)",
+            returns: "list - Prompt dicts",
+          },
+          {
+            name: "get_prompt",
+            signature: "get_prompt(name, arguments)",
+            description:
+              "Render a prompt by name with the given arguments (string values) into messages for the model",
+            returns: "dict - {description, messages: [{role, content}]}",
+          },
         ],
       },
     ],

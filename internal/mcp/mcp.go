@@ -68,10 +68,30 @@ Use tool_search to discover tools by keyword or description.`)
 	// =========================================================================
 	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
 		for _, remoteServer := range mcpConfig.RemoteServers {
-			// Create auth provider
-			authProvider := CreateAuthProvider(remoteServer)
-			if authProvider == nil {
-				continue // Skip if auth provider creation failed
+			// Build the client for the remote server: stdio (Command set) or HTTP (URL set).
+			var client *mcp.Client
+			if remoteServer.Command != "" {
+				c, err := mcp.NewStdioClient(remoteServer.Command, remoteServer.Args, remoteServer.Namespace)
+				if err != nil {
+					log.WithGroup("mcp").Error("Failed to launch stdio MCP server", "namespace", remoteServer.Namespace, "command", remoteServer.Command, "error", err)
+					continue
+				}
+				client = c
+				log.WithGroup("mcp").Info("Connected to stdio MCP server", "namespace", remoteServer.Namespace, "command", remoteServer.Command)
+			} else {
+				authProvider := CreateAuthProvider(remoteServer)
+				if authProvider == nil {
+					continue // Skip if auth provider creation failed
+				}
+				client = mcp.NewClient(remoteServer.URL, authProvider, remoteServer.Namespace)
+			}
+
+			// Opt the client into notifications: an HTTP client opens an SSE reader,
+			// and the propagation hook (installed by Register*) re-emits upstream
+			// listChanged events to our own clients. stdio clients always receive
+			// notifications, so this is a harmless no-op for them.
+			if remoteServer.Notifications {
+				client.EnableNotifications()
 			}
 
 			// Determine tool visibility mode (default to "native" if not specified)
@@ -83,25 +103,22 @@ Use tool_search to discover tools by keyword or description.`)
 			if visibility == "on-demand" {
 				visibility = "discoverable"
 			}
-			log.WithGroup("mcp").Info("Processing remote server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "tool_visibility_config", remoteServer.ToolVisibility, "tool_visibility_resolved", visibility)
-
-			// Create MCP client for remote server
-			client := mcp.NewClient(remoteServer.URL, authProvider, remoteServer.Namespace)
+			log.WithGroup("mcp").Info("Processing remote server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "command", remoteServer.Command, "tool_visibility_config", remoteServer.ToolVisibility, "tool_visibility_resolved", visibility, "notifications", remoteServer.Notifications)
 
 			// Register based on visibility setting
 			var err error
 			if visibility == "discoverable" {
 				// Discoverable mode: tools only available via tool_search, not in tools/list
 				err = server.RegisterRemoteServerDiscoverable(client)
-				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "discoverable")
+				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "command", remoteServer.Command, "mode", "discoverable")
 			} else {
 				// Native mode: tools visible in tools/list
 				err = server.RegisterRemoteServer(client)
-				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "native")
+				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "command", remoteServer.Command, "mode", "native")
 			}
 
 			if err != nil {
-				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", visibility, "error", err)
+				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "command", remoteServer.Command, "visibility", visibility, "error", err)
 				continue
 			}
 
@@ -115,7 +132,7 @@ Use tool_search to discover tools by keyword or description.`)
 					}
 				}
 				if remoteToolCount == 0 {
-					log.WithGroup("mcp").Warn("No tools loaded from remote MCP server (may be unreachable or have auth issues)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
+					log.WithGroup("mcp").Warn("No tools loaded from remote MCP server (may be unreachable or have auth issues)", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "command", remoteServer.Command)
 				} else {
 					log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
 				}

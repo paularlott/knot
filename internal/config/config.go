@@ -145,10 +145,13 @@ type NomadConfig struct {
 }
 
 type MCPRemoteServerConfig struct {
-	Namespace      string `toml:"namespace"`
-	URL            string `toml:"url"`
-	Token          string `toml:"token"`
-	ToolVisibility string `toml:"tool_visibility"` // "native" or "on-demand"
+	Namespace      string   `toml:"namespace"`
+	URL            string   `toml:"url"`             // HTTP(S) URL of the remote server (empty for stdio)
+	Command        string   `toml:"command"`         // stdio: executable to launch as a subprocess (empty for HTTP)
+	Args           []string `toml:"args"`            // stdio: command-line arguments
+	Token          string   `toml:"token"`           // HTTP bearer token
+	ToolVisibility string   `toml:"tool_visibility"` // "native" or "on-demand"
+	Notifications  bool     `toml:"notifications"`   // accept listChanged notifications from this server and propagate them
 }
 
 type MCPConfig struct {

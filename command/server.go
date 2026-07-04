@@ -847,6 +847,9 @@ var ServerCmd = &cli.Command{
 
 		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
 			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
+			// Record the server so other packages (e.g. script CRUD handlers) can
+			// emit listChanged notifications when the tool set changes.
+			internal_mcp.SetServer(mcpServer)
 			if !mcpEnabled {
 				logger.Debug("MCP chat-only mode")
 			} else {

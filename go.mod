@@ -6,9 +6,9 @@ go 1.26.1
 
 //replace github.com/paularlott/cli => ../cli/
 
-//replace github.com/paularlott/mcp => ../mcp
+replace github.com/paularlott/mcp => ../mcp
 
-//replace github.com/paularlott/scriptling => ../scriptling/
+replace github.com/paularlott/scriptling => ../scriptling/
 
 require (
 	github.com/BurntSushi/toml v1.6.0
