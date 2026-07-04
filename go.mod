@@ -25,7 +25,7 @@ require (
 	github.com/paularlott/jsonrpc v0.1.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.21.1
-	github.com/paularlott/scriptling v0.16.0
+	github.com/paularlott/scriptling v0.16.1
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/shirou/gopsutil/v3 v3.24.5
