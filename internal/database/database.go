@@ -95,6 +95,14 @@ type DbDriver interface {
 	GetSkillsByName(name string) ([]*model.Skill, error)
 	GetSkillsByNameAndUser(name string, userId string) ([]*model.Skill, error)
 
+	// Slash Commands
+	SaveCommand(command *model.Command, updateFields []string) error
+	DeleteCommand(command *model.Command) error
+	GetCommand(id string) (*model.Command, error)
+	GetCommands() ([]*model.Command, error)
+	GetCommandsByName(name string) ([]*model.Command, error)
+	GetCommandsByNameAndUser(name string, userId string) ([]*model.Command, error)
+
 	// Groups
 	SaveGroup(group *model.Group) error
 	DeleteGroup(group *model.Group) error

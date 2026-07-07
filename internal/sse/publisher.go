@@ -147,6 +147,22 @@ func PublishSkillsDeleted(skillId string) {
 	})
 }
 
+// PublishSlashCommandsChanged notifies clients that a slash command has changed
+func PublishSlashCommandsChanged(commandId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSlashCommandsChanged,
+		Payload: ResourcePayload{Id: commandId},
+	})
+}
+
+// PublishSlashCommandsDeleted notifies clients that a slash command was deleted
+func PublishSlashCommandsDeleted(commandId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSlashCommandsDeleted,
+		Payload: ResourcePayload{Id: commandId},
+	})
+}
+
 // PublishStackDefinitionsChanged notifies clients that a stack definition has changed
 func PublishStackDefinitionsChanged(defId string) {
 	GetHub().Broadcast(&Event{

@@ -40,6 +40,8 @@ const (
 	PermissionExecuteOwnScripts                // Can Execute Own Scripts
 	PermissionManageGlobalSkills               // Can Manage Global Skills
 	PermissionManageOwnSkills                  // Can Manage Own Skills
+	PermissionManageGlobalSlashCommands        // Can Manage Global Slash Commands
+	PermissionManageOwnSlashCommands           // Can Manage Own Slash Commands
 	PermissionSetSpaceDependencies             // Can configure space dependencies in the UI
 	PermissionUseSpaceStartupScript            // Can configure user startup script in the space form UI
 	PermissionDownloadAuditLogs                // Can Download Audit Logs
@@ -86,6 +88,9 @@ var PermissionNames = []PermissionName{
 
 	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
 	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
+
+	{PermissionManageGlobalSlashCommands, "Slash Commands", "Manage Global Slash Commands"},
+	{PermissionManageOwnSlashCommands, "Slash Commands", "Manage Own Slash Commands"},
 
 	{PermissionManageStackDefinitions, "Stacks", "Manage Global Stack Definitions"},
 	{PermissionManageOwnStackDefinitions, "Stacks", "Manage Own Stack Definitions"},
@@ -174,6 +179,8 @@ func SetRoleCache(roles []*Role) {
 			PermissionExecuteOwnScripts,
 			PermissionManageGlobalSkills,
 			PermissionManageOwnSkills,
+			PermissionManageGlobalSlashCommands,
+			PermissionManageOwnSlashCommands,
 			PermissionManageStackDefinitions,
 			PermissionManageOwnStackDefinitions,
 			PermissionUseStackDefinitions,

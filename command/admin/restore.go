@@ -142,6 +142,15 @@ var RestoreCmd = &cli.Command{
 			fmt.Println("Restored skill: ", skill.Name)
 		}
 
+		fmt.Println("Restoring slash commands...")
+		for _, command := range backupData.Commands {
+			err := db.SaveCommand(command, nil)
+			if err != nil {
+				return fmt.Errorf("Error restoring command: %w", err)
+			}
+			fmt.Println("Restored command: ", command.Name)
+		}
+
 		fmt.Println("Restoring responses...")
 		for _, response := range backupData.Responses {
 			err := db.SaveResponse(response)

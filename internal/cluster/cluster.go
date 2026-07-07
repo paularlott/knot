@@ -161,6 +161,8 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(ScriptGossipMsg, cluster.handleScriptGossip)
 		cluster.gossipCluster.HandleFuncWithReply(SkillFullSyncMsg, cluster.handleSkillFullSync)
 		cluster.gossipCluster.HandleFunc(SkillGossipMsg, cluster.handleSkillGossip)
+		cluster.gossipCluster.HandleFuncWithReply(CommandFullSyncMsg, cluster.handleCommandFullSync)
+		cluster.gossipCluster.HandleFunc(CommandGossipMsg, cluster.handleCommandGossip)
 		cluster.gossipCluster.HandleFuncWithReply(StackDefinitionFullSyncMsg, cluster.handleStackDefinitionFullSync)
 		cluster.gossipCluster.HandleFunc(StackDefinitionGossipMsg, cluster.handleStackDefinitionGossip)
 		cluster.gossipCluster.HandleFuncWithReply(ResponseFullSyncMsg, cluster.handleResponseFullSync)
@@ -207,6 +209,7 @@ func NewCluster(
 			cluster.gossipResourceLocks()
 			cluster.gossipScripts()
 			cluster.gossipSkills()
+			cluster.gossipCommands()
 			cluster.gossipStackDefinitions()
 			cluster.gossipResponses()
 			cluster.gossipSpaceUsage()
@@ -411,11 +414,15 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						c.logger.WithError(err).Error("failed to sync scripts with node")
 					}
 
-					if err := c.DoSkillFullSync(node); err != nil {
-						c.logger.WithError(err).Error("failed to sync skills with node")
-					}
+				if err := c.DoSkillFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync skills with node")
+				}
 
-					if err := c.DoStackDefinitionFullSync(node); err != nil {
+				if err := c.DoCommandFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync commands with node")
+				}
+
+				if err := c.DoStackDefinitionFullSync(node); err != nil {
 						c.logger.WithError(err).Error("failed to sync stack definitions with node")
 					}
 

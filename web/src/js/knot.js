@@ -44,9 +44,10 @@ import './pages/eventSinkListComponent.js';
 import './pages/eventSinkForm.js';
 import './pages/skillListComponent.js';
 import './pages/skillForm.js';
+import './pages/commandListComponent.js';
+import './pages/commandForm.js';
 import './pages/stackDefinitionBuilder.js';
 import './pages/stackListComponent.js';
-import './components/chat.js';
 
 import './terminal.js';
 

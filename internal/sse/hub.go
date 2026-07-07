@@ -30,6 +30,8 @@ const (
 	EventScriptsDeleted          EventType = "scripts:deleted"
 	EventSkillsChanged           EventType = "skills:changed"
 	EventSkillsDeleted           EventType = "skills:deleted"
+	EventSlashCommandsChanged    EventType = "slashcommands:changed"
+	EventSlashCommandsDeleted    EventType = "slashcommands:deleted"
 	EventStackDefinitionsChanged EventType = "stack-definitions:changed"
 	EventStackDefinitionsDeleted EventType = "stack-definitions:deleted"
 	EventTunnelsChanged          EventType = "tunnels:changed"

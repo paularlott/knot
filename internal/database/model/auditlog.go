@@ -79,6 +79,11 @@ const (
 	AuditEventSkillUpdate = "Skill Update"
 	AuditEventSkillDelete = "Skill Delete"
 
+	// Slash Commands
+	AuditEventSlashCommandCreate = "Slash Command Create"
+	AuditEventSlashCommandUpdate = "Slash Command Update"
+	AuditEventSlashCommandDelete = "Slash Command Delete"
+
 	// Stack Definitions
 	AuditEventStackDefCreate = "Stack Definition Create"
 	AuditEventStackDefUpdate = "Stack Definition Update"

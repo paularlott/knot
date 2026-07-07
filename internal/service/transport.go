@@ -21,6 +21,7 @@ type Transport interface {
 	GossipSession(session *model.Session)
 	GossipScript(script *model.Script)
 	GossipSkill(skill *model.Skill)
+	GossipCommand(command *model.Command)
 	GossipEventSink(sink *model.EventSink)
 	GossipStackDefinition(stackDef *model.StackDefinition)
 	GossipResponse(response *model.Response)

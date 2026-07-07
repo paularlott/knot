@@ -1,0 +1,257 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}Slash Commands{{ end }}
+
+{{ define "mainContent" }}
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="commandListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageSlashCommands }}, {{ .permissionManageOwnSlashCommands }}, {{ .isLeafNode }})" data-zone="{{ .zone }}">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
+
+    <div class="col-span-full">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Slash Commands</h1>
+    </div>
+
+    <form class="app-toolbar col-span-full">
+      <div class="flex" x-data>
+        <div class="w-full sm:w-auto">
+          <label for="search" class="sr-only">Search</label>
+          <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
+            <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+          </div>
+        </div>
+        <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+          </svg>
+          <span x-show="(canAccessOwn && !showMyCommands) || (canAccessGlobal && !showGlobalCommands) || showAllZones || !showLocalCommands" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
+        </button>
+
+        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" x-cloak>
+          {{ if or .isLeafNode .permissionManageOwnSlashCommands }}
+          <div class="mb-2 mt-2">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" @change="filterChanged" :checked="showMyCommands" x-model="showMyCommands">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">My Commands</span>
+            </label>
+          </div>
+          {{ end }}
+          {{ if or .isLeafNode .permissionManageSlashCommands }}
+          <div class="mb-2 mt-4">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" @change="filterChanged" :checked="showGlobalCommands" x-model="showGlobalCommands">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Global Commands</span>
+            </label>
+          </div>
+          {{ end }}
+          {{ if not .isLeafNode }}
+          <div class="mb-2 mt-4">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" @change="showAllZonesChanged" :checked="showAllZones" x-model="showAllZones">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Zones</span>
+            </label>
+          </div>
+          {{ end }}
+          {{ if .isLeafNode }}
+          <div class="mb-2 mt-4">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" @change="filterChanged" :checked="showLocalCommands" x-model="showLocalCommands">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Local Commands</span>
+            </label>
+          </div>
+          {{ end }}
+        </div>
+      </div>
+      <div class="flex gap-2">
+        {{ if or .isLeafNode .permissionManageOwnSlashCommands }}
+        <button @click.prevent="createCommand(true)" class="btn-primary flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          My Command
+        </button>
+        {{ end }}
+        {{ if or .isLeafNode .permissionManageSlashCommands }}
+        <button @click.prevent="createCommand(false)" class="btn-primary flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          Global Command
+        </button>
+        {{ end }}
+      </div>
+    </form>
+
+    {{ template "filterBar" (map "active" "(canAccessOwn && !showMyCommands) || (canAccessGlobal && !showGlobalCommands) || showAllZones || !showLocalCommands") }}
+      {{ template "filterChip" (map "show" "canAccessOwn && !showMyCommands" "label" "My Commands off" "click" "showMyCommands=true; filterChanged()") }}
+      {{ template "filterChip" (map "show" "canAccessGlobal && !showGlobalCommands" "label" "Global Commands off" "click" "showGlobalCommands=true; filterChanged()") }}
+      {{ template "filterChip" (map "show" "showAllZones" "label" "All Zones" "click" "showAllZones=false; showAllZonesChanged()") }}
+      {{ template "filterChip" (map "show" "!showLocalCommands" "label" "Local Commands off" "click" "showLocalCommands=true; filterChanged()") }}
+    {{ template "filterBarClear" (map "clear" "showMyCommands=canAccessOwn; showGlobalCommands=canAccessGlobal; showLocalCommands=true; showAllZones=false; showAllZonesChanged()") }}
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+      {{ template "loading" . }}
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto">
+        <table aria-label="Slash Commands" class="w-full text-sm text-left rtl:text-right">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <tr>
+              <th scope="col" class="px-4 py-3">Name & Description</th>
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Owner</th>
+              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Status</th>
+              <th scope="col" class="px-4 py-3 hidden lg:table-cell" x-show="!isLeafNode">Zones</th>
+              <th scope="col" class="px-4 py-3 hidden xl:table-cell" x-show="!isLeafNode">Groups</th>
+              <th scope="col" class="px-4 py-3">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="c in commands" :key="c.command_id">
+              <template x-if="!c.searchHide">
+                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                  <td class="px-4 py-3">
+                    <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="'/' + c.name"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="c.description"></div>
+                  </td>
+                  <td class="px-4 py-3 align-middle hidden md:table-cell">
+                    <span x-show="!c.user_id" class="app-badge-purple">Global</span>
+                    <span x-show="c.user_id" class="app-badge-info">User</span>
+                    <span x-show="c.is_managed" class="app-badge-neutral ml-1" title="Managed by parent server">📡</span>
+                  </td>
+                  <td class="px-4 py-3 align-middle hidden sm:table-cell">
+                    <span x-show="c.active" class="app-badge-success">Active</span>
+                    <span x-show="!c.active" class="app-badge-neutral">Inactive</span>
+                  </td>
+                  <td class="px-4 py-3 align-middle hidden lg:table-cell" x-show="!isLeafNode">
+                    <template x-if="c.zones && c.zones.length">
+                      <div>
+                        <div class="flex flex-wrap gap-1">
+                          <template x-for="zone in c.zones">
+                            <span class="app-badge-info" x-text="zone"></span>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                    <template x-if="!c.zones || !c.zones.length">
+                      <span class="text-xs text-gray-500 dark:text-gray-400">All</span>
+                    </template>
+                  </td>
+                  <td class="px-4 py-3 align-middle hidden xl:table-cell" x-show="!isLeafNode">
+                    <template x-if="c.groups && c.groups.length">
+                      <div>
+                        <div class="flex flex-wrap gap-1">
+                          <template x-for="group in c.groups">
+                            <span class="app-badge-warning" x-text="group"></span>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                    <template x-if="!c.groups || !c.groups.length">
+                      <span class="text-xs text-gray-500 dark:text-gray-400">-</span>
+                    </template>
+                  </td>
+                  <td class="px-4 py-3 align-middle">
+                    <div class="flex items-center justify-end" x-data x-show="canEditCommand(c)">
+                      <div class="hidden xl:flex items-center justify-end gap-2" aria-label="Command actions">
+                        <button @click="editCommand(c.command_id)" class="row-action-button" type="button" :aria-label="(!canActuallyEditCommand(c) ? 'View read-only command ' : 'Edit command ') + c.name" :title="!canActuallyEditCommand(c) ? 'View read-only' : 'Edit'">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                          </svg>
+                          <span class="sr-only" x-text="!canActuallyEditCommand(c) ? 'View read-only' : 'Edit'"></span>
+                        </button>
+                        <template x-if="canDeleteCommand(c)">
+                          <button @click="deleteConfirm.show = true; deleteConfirm.command = c" class="row-action-button row-action-danger" type="button" :aria-label="'Delete command ' + c.name" title="Delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                            <span class="sr-only">Delete</span>
+                          </button>
+                        </template>
+                      </div>
+                      <button @click="$refs.panel.toggle" class="row-action-menu-trigger xl:hidden" type="button" :aria-label="'More actions for command ' + c.name" aria-haspopup="menu">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+                        </svg><span class="sr-only">More</span>
+                      </button>
+
+                      <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap xl:hidden" role="menu" x-cloak>
+                        <button @click="$refs.panel.close; editCommand(c.command_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                          </svg> <span x-text="!canActuallyEditCommand(c) ? 'View (Read-only)' : 'Edit'"></span>
+                        </button>
+                        <template x-if="canDeleteCommand(c)">
+                          <hr class="my-2" />
+                        </template>
+                        <template x-if="canDeleteCommand(c)">
+                          <button @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.command = c" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300" role="menuitem">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg> Delete
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Delete Modal -->
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitleCmd">
+        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+            </div>
+            <h3 id="deleteConfirmTitleCmd" class="ui-modal-title">Confirm Delete</h3>
+            <button @click="deleteConfirm.show = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ui-modal-body text-center">
+            <p>Are you sure you want to delete the command <strong x-text="deleteConfirm.command.name"></strong>?</p>
+          </div>
+          <div class="ui-modal-footer">
+            <button @click="deleteConfirm.show = false" type="button" class="ui-button-secondary">Keep Command</button>
+            <button @click="deleteCommand(deleteConfirm.command.command_id); deleteConfirm.show = false" type="button" class="ui-button-danger">Delete Command</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit/Create Modal -->
+      <div x-cloak x-show="commandFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="commandFormModal.show" @keydown.esc.window="commandFormModal.show = false" @close-command-form.window="commandFormModal.show = false; getCommands()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="commandModalTitle">
+        <div x-show="commandFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-2xl max-h-[90vh]">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h3 id="commandModalTitle" class="ui-modal-title" x-text="commandFormModal.isEdit ? 'Edit Command' : 'Create Command'"></h3>
+            <button @click="commandFormModal.show = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <template x-if="commandFormModal.show">
+            <div class="ui-modal-body-scroll">
+              {{ template "command-form-content" . }}
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+{{ end }}

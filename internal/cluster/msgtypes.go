@@ -30,6 +30,8 @@ const (
 	ScriptGossipMsg
 	SkillFullSyncMsg
 	SkillGossipMsg
+	CommandFullSyncMsg
+	CommandGossipMsg
 	StackDefinitionFullSyncMsg
 	StackDefinitionGossipMsg
 	ResponseFullSyncMsg

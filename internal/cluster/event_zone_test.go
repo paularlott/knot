@@ -40,6 +40,7 @@ func (nonLeaderTransport) GossipAuditLog(*model.AuditLogEntry)            {}
 func (nonLeaderTransport) GossipSession(*model.Session)                   {}
 func (nonLeaderTransport) GossipScript(*model.Script)                     {}
 func (nonLeaderTransport) GossipSkill(*model.Skill)                       {}
+func (nonLeaderTransport) GossipCommand(*model.Command)                   {}
 func (nonLeaderTransport) GossipEventSink(*model.EventSink)               {}
 func (nonLeaderTransport) GossipStackDefinition(*model.StackDefinition)   {}
 func (nonLeaderTransport) GossipResponse(*model.Response)                 {}

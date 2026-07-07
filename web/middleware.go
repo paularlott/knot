@@ -114,6 +114,18 @@ func checkPermissionManageSkills(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+func checkPermissionManageSlashCommands(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageGlobalSlashCommands) && !user.HasPermission(model.PermissionManageOwnSlashCommands) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func checkPermissionStacks(next http.HandlerFunc) http.HandlerFunc {
 	cfg := config.GetServerConfig()
 	if cfg.LeafNode {

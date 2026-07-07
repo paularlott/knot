@@ -285,6 +285,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	router.HandleFunc("GET /skills", middleware.WebAuth(checkPermissionManageSkills(HandleSimplePage)))
 
+	router.HandleFunc("GET /commands", middleware.WebAuth(checkPermissionManageSlashCommands(HandleSimplePage)))
+
 	router.HandleFunc("GET /stacks", middleware.WebAuth(checkPermissionStacks(HandleSimplePage)))
 
 	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
@@ -527,6 +529,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionExecuteOwnScripts":         user.HasPermission(model.PermissionExecuteOwnScripts),
 		"permissionManageSkills":              user.HasPermission(model.PermissionManageGlobalSkills),
 		"permissionManageOwnSkills":           user.HasPermission(model.PermissionManageOwnSkills),
+		"permissionManageSlashCommands":       user.HasPermission(model.PermissionManageGlobalSlashCommands),
+		"permissionManageOwnSlashCommands":    user.HasPermission(model.PermissionManageOwnSlashCommands),
 		"permissionManageStackDefinitions":    user.HasPermission(model.PermissionManageStackDefinitions),
 		"permissionManageOwnStackDefinitions": user.HasPermission(model.PermissionManageOwnStackDefinitions) || cfg.LeafNode,
 		"permissionUseStackDefinitions":       user.HasPermission(model.PermissionUseStackDefinitions) || cfg.LeafNode,
