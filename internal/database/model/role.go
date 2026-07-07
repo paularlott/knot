@@ -40,8 +40,6 @@ const (
 	PermissionExecuteOwnScripts                // Can Execute Own Scripts
 	PermissionManageGlobalSkills               // Can Manage Global Skills
 	PermissionManageOwnSkills                  // Can Manage Own Skills
-	PermissionManageGlobalSlashCommands        // Can Manage Global Slash Commands
-	PermissionManageOwnSlashCommands           // Can Manage Own Slash Commands
 	PermissionSetSpaceDependencies             // Can configure space dependencies in the UI
 	PermissionUseSpaceStartupScript            // Can configure user startup script in the space form UI
 	PermissionDownloadAuditLogs                // Can Download Audit Logs
@@ -52,6 +50,8 @@ const (
 	PermissionUsePools                         // Can use space pools
 	PermissionManageEvents                     // Can Manage Own Event Sinks
 	PermissionManageGlobalEvents               // Can Manage Global Event Sinks
+	PermissionManageGlobalSlashCommands        // Can Manage Global Slash Commands
+	PermissionManageOwnSlashCommands           // Can Manage Own Slash Commands
 )
 
 type PermissionName struct {
