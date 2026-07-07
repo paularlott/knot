@@ -1,6 +1,7 @@
 {{ define "main-menu" }}
 <nav aria-label="Main navigation">
   <ul class="pb-2 space-y-2">
+
     {{ if or .permissionUseSpaces .isLeafNode }}
     <li>
       <a href="/spaces" class="nav-item">
@@ -11,6 +12,7 @@
       </a>
     </li>
     {{ end }}
+
     {{ if and .permissionUseTunnels (not .isLeafNode) }}
     <li>
       <a href="/tunnels" class="nav-item">
@@ -21,68 +23,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .isLeafNode }}{{ template "nav-item-templates" . }}{{ end }}
-    {{ if or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
-    <li>
-      <a href="/stacks" class="nav-item">
-        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3" />
-        </svg>
-        <span class="ml-3">Stack Templates</span>
-      </a>
-    </li>
-    {{ end }}
-    {{ if .isLeafNode }}{{ template "nav-item-variables" . }}{{ end }}
-    {{ if or .permissionManageVolumes .isLeafNode }}
-    <li>
-      <a href="/volumes" class="nav-item">
-        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
-        </svg>
-        <span class="ml-3">Volumes</span>
-      </a>
-    </li>
-    {{ end }}
-    {{ if or .permissionManageScripts .permissionManageOwnScripts }}
-    <li>
-      <a href="/scripts" class="nav-item">
-        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-        </svg>
-        <span class="ml-3">Scripts</span>
-      </a>
-    </li>
-    {{ end }}
-    {{ if or .permissionManageEvents .permissionManageGlobalEvents }}
-    <li>
-      <a href="/events" class="nav-item">
-        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-        </svg>
-        <span class="ml-3">Events</span>
-      </a>
-    </li>
-    {{ end }}
-    {{ if or .permissionManageSkills .permissionManageOwnSkills }}
-    <li>
-      <a href="/skills" class="nav-item">
-        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-        </svg>
-        <span class="ml-3">Skills</span>
-      </a>
-    </li>
-    {{ end }}
-    {{ if or .permissionManageSlashCommands .permissionManageOwnSlashCommands }}
-    <li>
-      <a href="/commands" class="nav-item">
-        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-        </svg>
-        <span class="ml-3">Slash Commands</span>
-      </a>
-    </li>
-    {{ end }}
+
     {{ if not .hideAPITokens }}
     <li>
       <a href="/api-tokens" class="nav-item">
@@ -93,28 +34,105 @@
       </a>
     </li>
     {{ end }}
-    {{ if or
-         (and .permissionManageTemplates (not .isLeafNode))
-         (and .permissionManageVariables (not .isLeafNode))
-         (and .permissionManageUsers (not .isLeafNode))
-         (and .permissionManageGroups (not .isLeafNode))
-         (and .permissionManageRoles (not .isLeafNode))
-         .permissionViewAuditLogs
-         (and .permissionViewClusterInfo (not .isLeafNode))
-    }}
-    <li x-data="{ adminOpen: {{ if .adminSectionActive }}true{{ else }}false{{ end }} }">
-      <button type="button" @click="adminOpen = !adminOpen" class="nav-item w-full" :aria-expanded="adminOpen">
-        <svg class="nav-item-icon shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+
+    {{ if or .permissionManageVolumes .isLeafNode }}
+    <li>
+      <a href="/volumes" class="nav-item">
+        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
         </svg>
-        <span class="ml-3 flex-1 text-left whitespace-nowrap">Administration</span>
-        <svg class="size-4 text-gray-500 transition-transform duration-200" :class="{ 'rotate-90': adminOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" >
+        <span class="ml-3">Volumes</span>
+      </a>
+    </li>
+    {{ end }}
+
+    {{ if .isLeafNode }}{{ template "nav-item-templates" . }}{{ end }}
+    {{ if .isLeafNode }}{{ template "nav-item-variables" . }}{{ end }}
+
+    {{ if or
+         (and (not .isLeafNode) (or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions))
+         .permissionManageScripts .permissionManageOwnScripts
+         .permissionManageEvents .permissionManageGlobalEvents
+         .permissionManageSkills .permissionManageOwnSkills
+         .permissionManageSlashCommands .permissionManageOwnSlashCommands
+         (and (not .isLeafNode) .permissionManageTemplates)
+         (and (not .isLeafNode) .permissionManageVariables)
+         (and (not .isLeafNode) .permissionManageUsers)
+         (and (not .isLeafNode) .permissionManageGroups)
+         (and (not .isLeafNode) .permissionManageRoles)
+         .permissionViewAuditLogs
+         (and (not .isLeafNode) .permissionViewClusterInfo)
+    }}
+    <li x-data="{ moreOpen: {{ if .moreSectionActive }}true{{ else }}false{{ end }} }">
+      <button type="button" @click="moreOpen = !moreOpen" class="nav-item w-full" :aria-expanded="moreOpen">
+        <svg class="nav-item-icon shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+        <span class="ml-3 flex-1 text-left whitespace-nowrap">More</span>
+        <svg class="size-4 text-gray-500 transition-transform duration-200" :class="{ 'rotate-90': moreOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" >
           <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
       </button>
-      <ul x-show="adminOpen" x-cloak class="mt-1 ml-4 space-y-2">
-        {{ if and (not .isLeafNode) .permissionManageTemplates }}{{ template "nav-item-templates" . }}{{ end }}
+      <ul x-show="moreOpen" {{ if not .moreSectionActive }}x-cloak{{ end }} class="mt-1 ml-4 space-y-2">
+
+        {{ if or .permissionManageStackDefinitions .permissionManageOwnStackDefinitions .permissionUseStackDefinitions }}
+        <li>
+          <a href="/stacks" class="nav-item">
+            <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3" />
+            </svg>
+            <span class="ml-3">Stack Templates</span>
+          </a>
+        </li>
+        {{ end }}
+
         {{ if and (not .isLeafNode) .permissionManageVariables }}{{ template "nav-item-variables" . }}{{ end }}
+        {{ if and (not .isLeafNode) .permissionManageTemplates }}{{ template "nav-item-templates" . }}{{ end }}
+
+        {{ if or .permissionManageScripts .permissionManageOwnScripts }}
+        <li>
+          <a href="/scripts" class="nav-item">
+            <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            <span class="ml-3">Scripts</span>
+          </a>
+        </li>
+        {{ end }}
+
+        {{ if or .permissionManageEvents .permissionManageGlobalEvents }}
+        <li>
+          <a href="/events" class="nav-item">
+            <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+            </svg>
+            <span class="ml-3">Events</span>
+          </a>
+        </li>
+        {{ end }}
+
+        {{ if or .permissionManageSkills .permissionManageOwnSkills }}
+        <li>
+          <a href="/skills" class="nav-item">
+            <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 1 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            </svg>
+            <span class="ml-3">Skills</span>
+          </a>
+        </li>
+        {{ end }}
+
+        {{ if or .permissionManageSlashCommands .permissionManageOwnSlashCommands }}
+        <li>
+          <a href="/commands" class="nav-item">
+            <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            <span class="ml-3">Slash Commands</span>
+          </a>
+        </li>
+        {{ end }}
+
         {{ if and .permissionManageUsers (not .isLeafNode) }}
         <li>
           <a href="/users" class="nav-item">
@@ -125,6 +143,7 @@
           </a>
         </li>
         {{ end }}
+
         {{ if and .permissionManageGroups (not .isLeafNode) }}
         <li>
           <a href="/groups" class="nav-item">
@@ -135,6 +154,7 @@
           </a>
         </li>
         {{ end }}
+
         {{ if and .permissionManageRoles (not .isLeafNode) }}
         <li>
           <a href="/roles" class="nav-item">
@@ -145,6 +165,7 @@
           </a>
         </li>
         {{ end }}
+
         {{ if .permissionViewAuditLogs }}
         <li>
           <a href="/audit-logs" class="nav-item">
@@ -155,6 +176,7 @@
           </a>
         </li>
         {{ end }}
+
         {{ if and .permissionViewClusterInfo (not .isLeafNode) }}
         <li>
           <a href="/cluster-info" class="nav-item">
@@ -165,9 +187,11 @@
           </a>
         </li>
         {{ end }}
+
       </ul>
     </li>
     {{ end }}
+
   </ul>
 </nav>
 {{ end }}
