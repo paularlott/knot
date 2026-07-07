@@ -155,3 +155,22 @@ func userFromCtx(ctx context.Context) *model.User {
 	user, _ := ctx.Value("user").(*model.User)
 	return user
 }
+
+// eventBroadcaster holds the webchat SSE broadcaster so the API
+// layer can push notifications (commands_changed etc.) to connected
+// chat clients without a direct dependency on the webchat Server.
+var eventBroadcaster *webchat.EventBroadcaster
+
+// SetEventBroadcaster stores the broadcaster for later use by
+// BroadcastCommandEvent. Called once during server startup.
+func SetEventBroadcaster(b *webchat.EventBroadcaster) {
+	eventBroadcaster = b
+}
+
+// BroadcastCommandEvent pushes a commands_changed event to all
+// connected chat clients so they reload their slash command list.
+func BroadcastCommandEvent() {
+	if eventBroadcaster != nil {
+		eventBroadcaster.Broadcast(webchat.ServerEvent{Type: "commands_changed"})
+	}
+}

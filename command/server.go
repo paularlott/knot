@@ -938,12 +938,15 @@ var ServerCmd = &cli.Command{
 				mcpServer,
 				scriptToolsProvider,
 			)
+			chatEvents := webchat.NewEventBroadcaster()
+			knotwebchat.SetEventBroadcaster(chatEvents)
 			chatServer, err := webchat.New(webchat.Config{
 				Prefix:         "/chat",
 				PersonaSource:  knotwebchat.PersonaSource(),
 				CommandSource:  knotwebchat.NewCommandSource(),
 				Host:           chatHost,
 				AuthMiddleware: chatAuthMiddleware,
+				Events:         chatEvents,
 			})
 			if err != nil {
 				logger.Warn("failed to initialize webchat UI", "error", err)

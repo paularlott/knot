@@ -48,6 +48,16 @@ func NewCommand(
 		log.Fatal(err.Error())
 	}
 
+	if allowedTools == nil {
+		allowedTools = []string{}
+	}
+	if groups == nil {
+		groups = []string{}
+	}
+	if zones == nil {
+		zones = []string{}
+	}
+
 	return &Command{
 		Id:            id.String(),
 		UserId:        ownerUserId,

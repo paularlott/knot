@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
+	knotwebchat "github.com/paularlott/knot/internal/webchat"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -258,6 +259,7 @@ func HandleCreateCommand(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipCommand(command)
 	sse.PublishSlashCommandsChanged(command.Id)
+	knotwebchat.BroadcastCommandEvent()
 
 	audit.LogWithRequest(r,
 		user.Username,
@@ -373,6 +375,7 @@ func HandleUpdateCommand(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipCommand(command)
 	sse.PublishSlashCommandsChanged(command.Id)
+	knotwebchat.BroadcastCommandEvent()
 
 	audit.LogWithRequest(r,
 		user.Username,
@@ -450,6 +453,7 @@ func HandleDeleteCommand(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipCommand(command)
 	sse.PublishSlashCommandsDeleted(command.Id)
+	knotwebchat.BroadcastCommandEvent()
 
 	audit.LogWithRequest(r,
 		user.Username,

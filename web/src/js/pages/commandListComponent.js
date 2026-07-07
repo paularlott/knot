@@ -45,10 +45,12 @@ window.commandListComponent = function (userId, zone, permissionManageCommands, 
 
     async init() {
       await this.getCommands();
+      window.sseClient?.subscribe('slashcommands:changed', () => this.getCommands(null, true));
+      window.sseClient?.subscribe('slashcommands:deleted', () => this.getCommands(null, true));
     },
 
-    async getCommands(commandId = null) {
-      this.loading = true;
+    async getCommands(commandId = null, silent = false) {
+      if (!silent) this.loading = true;
 
       const params = new URLSearchParams();
       if (this.showAllZones) params.set("all_zones", "true");

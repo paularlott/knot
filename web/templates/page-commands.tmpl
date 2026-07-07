@@ -228,7 +228,7 @@
       </div>
 
       <!-- Edit/Create Modal -->
-      <div x-cloak x-show="commandFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="commandFormModal.show" @keydown.esc.window="commandFormModal.show = false" @close-command-form.window="commandFormModal.show = false; getCommands()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="commandModalTitle">
+      <div x-cloak x-show="commandFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="commandFormModal.show" @keydown.esc.window="commandFormModal.show = false" @close-command-form.window="commandFormModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="commandModalTitle">
         <div x-show="commandFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-2xl max-h-[90vh]">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-info">
