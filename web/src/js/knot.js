@@ -50,6 +50,7 @@ import './pages/stackDefinitionBuilder.js';
 import './pages/stackListComponent.js';
 
 import './terminal.js';
+import './movable-modal.js';
 
 window.Alpine = Alpine;
 Alpine.plugin(persist);

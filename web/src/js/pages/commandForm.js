@@ -189,11 +189,13 @@ Command body (markdown). Use \`$ARGUMENTS\` to insert the user's argument.
               msg: this.isEdit ? "Command updated" : "Command created",
               type: "success",
             });
-            if (continueEditing && response.status === 201) {
-              const data = await response.json();
-              if (data.command_id) {
-                this.isEdit = true;
-                this.commandId = data.command_id;
+            if (continueEditing) {
+              if (response.status === 201) {
+                const data = await response.json();
+                if (data.command_id) {
+                  this.isEdit = true;
+                  this.commandId = data.command_id;
+                }
               }
             } else {
               this.$dispatch("close-command-form");
