@@ -184,7 +184,6 @@ func NewCluster(
 
 		cluster.gossipCluster.HandleFuncWithReply(ResourceLockMsg, cluster.handleResourceLock)
 		cluster.gossipCluster.HandleFunc(ResourceUnlockMsg, cluster.handleResourceUnlock)
-		cluster.gossipCluster.HandleFuncWithReply(ToolApprovalResponseMsg, cluster.handleToolApprovalResponse)
 
 		// Capture server state changes and maintain a list of nodes in our zone
 		cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {

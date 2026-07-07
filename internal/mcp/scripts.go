@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/paularlott/knot/internal/toolapproval"
 	"github.com/paularlott/mcp"
 	"github.com/paularlott/scriptling/conversion"
 	"github.com/paularlott/scriptling/object"
@@ -130,16 +129,6 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 // ExecuteTool executes a script tool by name
 func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (*mcp.ToolResponse, error) {
-	// Check if boot-loaded tool requires approval (web chat only — external MCP
-	// clients have no SSE writer on the context so CheckToolApproval is a no-op)
-	if tool, exists := mcptools.GetTool(name); exists {
-		if tool.RequiresApproval {
-			if err := toolapproval.CheckToolApproval(ctx, p.user.Id, name, params); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	// Try boot-loaded tools first
 	toolResult, toolErr := mcptools.ExecuteTool(name, params, p.user)
 	if toolErr == nil {
@@ -174,12 +163,7 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 		return nil, fmt.Errorf("tool '%s' is not available in zone '%s'", name, currentZone)
 	}
 
-	// Check if the user-defined script requires approval
-	if mcptools.ParseRequiresApproval([]byte(script.MCPInputSchemaToml)) {
-		if err := toolapproval.CheckToolApproval(ctx, p.user.Id, name, params); err != nil {
-			return nil, err
-		}
-	}
+	// User-defined script — approval handled by webchat UI, not SSE
 
 	// Convert params to scriptling objects for script execution
 	mcpParams := make(map[string]object.Object)
