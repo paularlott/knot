@@ -59,6 +59,21 @@
      class="contents">
 
   <!-- Floating action button: opens the chat window -->
+  {{ if eq .aiChatStyle "avatar" }}
+  <button x-show="!showChat" x-cloak x-transition.opacity
+          @click="$dispatch('knot:show-chat')"
+          class="fixed bottom-5 right-5 z-[70] cursor-pointer"
+          aria-label="Open chat">
+    <div class="ai-assistant happy">
+      <div class="shape"></div>
+      <div class="face">
+        <div class="eye left"></div>
+        <div class="eye right"></div>
+        <div class="mouth"></div>
+      </div>
+    </div>
+  </button>
+  {{ else }}
   <button x-show="!showChat" x-cloak x-transition.opacity
           @click="$dispatch('knot:show-chat')"
           class="fixed bottom-5 right-5 z-[70] w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex items-center justify-center cursor-pointer"
@@ -67,6 +82,7 @@
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z" />
     </svg>
   </button>
+  {{ end }}
 
   <!-- Chat window (shown when showChat is true) -->
   <template x-if="showChat">
@@ -81,6 +97,16 @@
     <div @mousedown="startDrag($event)"
          class="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 cursor-move select-none shrink-0">
       <div class="flex items-center gap-2 min-w-0">
+        {{ if eq .aiChatStyle "avatar" }}
+        <div class="ai-assistant happy scale-[0.7]">
+          <div class="shape"></div>
+          <div class="face">
+            <div class="eye left"></div>
+            <div class="eye right"></div>
+            <div class="mouth"></div>
+          </div>
+        </div>
+        {{ end }}
         <span class="text-sm font-medium text-gray-900 dark:text-white">Assistant</span>
         <span x-show="currentModel" class="text-xs text-gray-400 dark:text-gray-500 truncate" x-text="currentModel"></span>
       </div>
