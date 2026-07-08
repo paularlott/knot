@@ -37,7 +37,7 @@ import (
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
-	knotwebchat "github.com/paularlott/knot/internal/webchat"
+	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
@@ -45,7 +45,7 @@ import (
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/mcp"
 	ai "github.com/paularlott/mcp/ai"
-	"github.com/paularlott/webchat"
+	"github.com/paularlott/lmchatkit"
 )
 
 var ServerCmd = &cli.Command{
@@ -924,35 +924,35 @@ var ServerCmd = &cli.Command{
 			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
 			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
 
-			// Mount webchat UI — uses webchat.StandardHost (same as
+			// Mount lmchatkit UI — uses lmchatkit.StandardHost (same as
 			// llmrouter) with the LLM endpoint configured in [server.chat].
 			// StandardHost streams the raw OpenAI response via
 			// TranslateOpenAIStream, which is required because the MCP AI
 			// client suppresses tool-call delta chunks when MCP servers are
 			// present. Per-user tools are injected by AuthMiddleware.
-			chatHost := knotwebchat.NewHost(cfg.Chat, mcpServer, scriptToolsProvider)
-			chatAuthMiddleware := knotwebchat.AuthMiddleware(
+			chatHost := knotlmchatkit.NewHost(cfg.Chat, mcpServer, scriptToolsProvider)
+			chatAuthMiddleware := knotlmchatkit.AuthMiddleware(
 				func(next http.Handler) http.Handler {
 					return middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(next)))
 				},
 				mcpServer,
 				scriptToolsProvider,
 			)
-			chatEvents := webchat.NewEventBroadcaster()
-			knotwebchat.SetEventBroadcaster(chatEvents)
-			chatServer, err := webchat.New(webchat.Config{
+			chatEvents := lmchatkit.NewEventBroadcaster()
+			knotlmchatkit.SetEventBroadcaster(chatEvents)
+			chatServer, err := lmchatkit.New(lmchatkit.Config{
 				Prefix:         "/chat",
-				PersonaSource:  knotwebchat.PersonaSource(),
-				CommandSource:  knotwebchat.NewCommandSource(),
+				PersonaSource:  knotlmchatkit.PersonaSource(),
+				CommandSource:  knotlmchatkit.NewCommandSource(),
 				Host:           chatHost,
 				AuthMiddleware: chatAuthMiddleware,
 				Events:         chatEvents,
 			})
 			if err != nil {
-				logger.Warn("failed to initialize webchat UI", "error", err)
+				logger.Warn("failed to initialize lmchatkit UI", "error", err)
 			} else {
 				chatServer.Mount(routes)
-				logger.Info("webchat UI enabled at /chat")
+				logger.Info("lmchatkit UI enabled at /chat")
 			}
 		}
 

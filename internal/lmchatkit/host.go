@@ -1,18 +1,18 @@
-// Package webchat adapts the github.com/paularlott/webchat library to knot's
+// Package lmchatkit adapts the github.com/paularlott/lmchatkit library to knot's
 // per-user, MCP-backed chat architecture.
 //
-// Knot uses webchat.StandardHost (same as llmrouter) with the OpenAI base URL
+// Knot uses lmchatkit.StandardHost (same as llmrouter) with the OpenAI base URL
 // pointing at knot's configured LLM endpoint. This is required because the
 // MCP AI client's StreamChatCompletion SUPPRESSES tool-call delta chunks when
-// MCP servers are present — webchat's manual approval flow needs those chunks
+// MCP servers are present — lmchatkit's manual approval flow needs those chunks
 // to reach the frontend. StandardHost uses TranslateOpenAIStream on the raw
 // HTTP response, bypassing the suppression.
 //
 // Per-user MCP tools are injected via the auth middleware (which wraps every
-// webchat route): it sets up the tool provider in the request context so
+// lmchatkit route): it sets up the tool provider in the request context so
 // StandardHost.ListTools / CallTool resolve the user's tools through the MCP
 // server's context-aware methods.
-package webchat
+package lmchatkit
 
 import (
 	"context"
@@ -25,29 +25,29 @@ import (
 	"github.com/paularlott/knot/internal/service"
 
 	mcplib "github.com/paularlott/mcp"
-	"github.com/paularlott/webchat"
+	"github.com/paularlott/lmchatkit"
 )
 
 // ScriptToolsProvider returns a per-user MCP tool provider (script tools +
 // method tools), matching the MCPServerContext middleware logic.
 type ScriptToolsProvider func(ctx context.Context, user *model.User) mcplib.ToolProvider
 
-// NewHost builds a webchat.StandardHost configured for knot's LLM endpoint,
+// NewHost builds a lmchatkit.StandardHost configured for knot's LLM endpoint,
 // MCP server, and single persona. The per-user tool provider is injected by
-// AuthMiddleware (callers must wrap webchat's routes with it).
-func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvider ScriptToolsProvider) *webchat.StandardHost {
+// AuthMiddleware (callers must wrap lmchatkit's routes with it).
+func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvider ScriptToolsProvider) *lmchatkit.StandardHost {
 	// StandardHost.Complete appends "/v1/chat/completions" itself, so strip
 	// a trailing /v1 from the configured BaseURL to avoid a doubled path
 	// (e.g. http://host:1234/v1 → http://host:1234 + /v1/chat/completions).
 	baseURL := strings.TrimSuffix(cfg.BaseURL, "/")
 	baseURL = strings.TrimSuffix(baseURL, "/v1")
 
-	return &webchat.StandardHost{
-		ModelsFunc: func(ctx context.Context) ([]webchat.Model, error) {
+	return &lmchatkit.StandardHost{
+		ModelsFunc: func(ctx context.Context) ([]lmchatkit.Model, error) {
 			if cfg.Model == "" {
 				return nil, nil
 			}
-			return []webchat.Model{{ID: cfg.Model}}, nil
+			return []lmchatkit.Model{{ID: cfg.Model}}, nil
 		},
 		OpenAIBaseURL: baseURL,
 		OpenAIToken:   cfg.APIKey,
@@ -64,7 +64,7 @@ func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvide
 	}
 }
 
-// AuthMiddleware returns the middleware that wraps every webchat HTTP handler.
+// AuthMiddleware returns the middleware that wraps every lmchatkit HTTP handler.
 // It authenticates the user (delegating to knot's ApiAuth + permission check)
 // and injects the per-user MCP tool provider into the request context so that
 // StandardHost.ListTools / CallTool resolve the user's script and method tools.
@@ -87,15 +87,15 @@ func AuthMiddleware(apiAuthMiddleware func(http.Handler) http.Handler, mcpServer
 	}
 }
 
-// PersonaSource returns a webchat.PersonaSource backed by knot's single
+// PersonaSource returns a lmchatkit.PersonaSource backed by knot's single
 // system-defined persona (loaded from the configured system prompt file).
-func PersonaSource() webchat.PersonaSource {
+func PersonaSource() lmchatkit.PersonaSource {
 	cfg := config.GetServerConfig()
 	systemPrompt := ""
 	if cfg != nil {
 		systemPrompt = cfg.Chat.SystemPrompt
 	}
-	return webchat.StaticPersonas{{
+	return lmchatkit.StaticPersonas{{
 		ID:           "default",
 		Name:         "Default",
 		SystemPrompt: systemPrompt,
@@ -112,15 +112,15 @@ func defaultModelName() string {
 	return strings.TrimSpace(cfg.Chat.Model)
 }
 
-// CommandSource returns a webchat.CommandSource that resolves per-user slash
+// CommandSource returns a lmchatkit.CommandSource that resolves per-user slash
 // commands from the knot database.
 type commandSource struct{}
 
-func NewCommandSource() webchat.CommandSource {
+func NewCommandSource() lmchatkit.CommandSource {
 	return &commandSource{}
 }
 
-func (s *commandSource) Commands(ctx context.Context) ([]webchat.SlashCommand, error) {
+func (s *commandSource) Commands(ctx context.Context) ([]lmchatkit.SlashCommand, error) {
 	user, _ := ctx.Value("user").(*model.User)
 	if user == nil {
 		return nil, nil
@@ -130,14 +130,14 @@ func (s *commandSource) Commands(ctx context.Context) ([]webchat.SlashCommand, e
 	global, _ := cmdService.ListCommands(service.CommandListOptions{FilterUserId: "", User: user})
 	own, _ := cmdService.ListCommands(service.CommandListOptions{FilterUserId: user.Id, User: user})
 
-	out := make([]webchat.SlashCommand, 0, len(global)+len(own))
+	out := make([]lmchatkit.SlashCommand, 0, len(global)+len(own))
 	seen := map[string]bool{}
 	for _, c := range append(global, own...) {
 		if seen[c.Id] || !c.Active || c.IsDeleted {
 			continue
 		}
 		seen[c.Id] = true
-		out = append(out, webchat.SlashCommand{
+		out = append(out, lmchatkit.SlashCommand{
 			ID:           c.Id,
 			Name:         c.Name,
 			Description:  c.Description,
@@ -156,14 +156,14 @@ func userFromCtx(ctx context.Context) *model.User {
 	return user
 }
 
-// eventBroadcaster holds the webchat SSE broadcaster so the API
+// eventBroadcaster holds the lmchatkit SSE broadcaster so the API
 // layer can push notifications (commands_changed etc.) to connected
-// chat clients without a direct dependency on the webchat Server.
-var eventBroadcaster *webchat.EventBroadcaster
+// chat clients without a direct dependency on the lmchatkit Server.
+var eventBroadcaster *lmchatkit.EventBroadcaster
 
 // SetEventBroadcaster stores the broadcaster for later use by
 // BroadcastCommandEvent. Called once during server startup.
-func SetEventBroadcaster(b *webchat.EventBroadcaster) {
+func SetEventBroadcaster(b *lmchatkit.EventBroadcaster) {
 	eventBroadcaster = b
 }
 
@@ -171,6 +171,6 @@ func SetEventBroadcaster(b *webchat.EventBroadcaster) {
 // connected chat clients so they reload their slash command list.
 func BroadcastCommandEvent() {
 	if eventBroadcaster != nil {
-		eventBroadcaster.Broadcast(webchat.ServerEvent{Type: "commands_changed"})
+		eventBroadcaster.Broadcast(lmchatkit.ServerEvent{Type: "commands_changed"})
 	}
 }
