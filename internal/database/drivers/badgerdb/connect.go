@@ -181,6 +181,15 @@ func (db *BadgerDbDriver) Connect() error {
 				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
 			})
 
+			// Remove old chat conversations (soft-delete tombstones)
+			db.cleanupObjectType("Conversations", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Conversation
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
+				}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
+
 			db.cleanupObjectType("SpaceUsage", before.Add(-4*24*time.Hour), func(data []byte) (bool, time.Time, error) {
 				var obj model.SpaceUsageSample
 				if err := json.Unmarshal(data, &obj); err != nil {

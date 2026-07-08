@@ -103,6 +103,22 @@ type DbDriver interface {
 	GetCommandsByName(name string) ([]*model.Command, error)
 	GetCommandsByNameAndUser(name string, userId string) ([]*model.Command, error)
 
+	// Chat Conversations (server-side chat history, per-user)
+	SaveConversation(conv *model.Conversation) error
+	DeleteConversation(conv *model.Conversation) error
+	GetConversation(userId string, id string) (*model.Conversation, error)
+	GetConversationsByUser(userId string) ([]*model.Conversation, error)
+	GetConversations() ([]*model.Conversation, error)
+	// GetStaleConversations returns live (non-deleted) conversations whose
+	// HLC UpdatedAt precedes the cutoff — candidates for retention tombstoning.
+	GetStaleConversations(before time.Time) ([]*model.Conversation, error)
+	// DeleteTombstonedConversationsBefore hard-deletes conversations that are
+	// BOTH soft-deleted (tombstoned) AND older than the cutoff. This is the
+	// reaper — the only place conversations are physically removed. It runs
+	// only after tombstones have had time to gossip-propagate, so a tombstone
+	// (newest HLC) always wins over any late-arriving live copy.
+	DeleteTombstonedConversationsBefore(before time.Time) error
+
 	// Groups
 	SaveGroup(group *model.Group) error
 	DeleteGroup(group *model.Group) error

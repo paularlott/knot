@@ -10,7 +10,9 @@ go 1.26.1
 
 //replace github.com/paularlott/scriptling => ../scriptling/
 
-//replace github.com/paularlott/webchat => ../webchat
+//replace github.com/paularlott/lmchatkit => ../lmchatkit
+
+//replace github.com/paularlott/lmchatkit => ../lmchatkit
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -25,10 +27,10 @@ require (
 	github.com/paularlott/cli v0.8.5
 	github.com/paularlott/gossip v0.12.7
 	github.com/paularlott/jsonrpc v0.1.0
+	github.com/paularlott/lmchatkit v0.4.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.21.1
+	github.com/paularlott/mcp v0.21.2
 	github.com/paularlott/scriptling v0.16.1
-	github.com/paularlott/webchat v0.3.0
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -48,7 +50,7 @@ require (
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dgraph-io/ristretto/v2 v2.4.1 // indirect
+	github.com/dgraph-io/ristretto/v2 v2.4.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect

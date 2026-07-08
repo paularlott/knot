@@ -69,6 +69,22 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		}
 	}
 
+	// Delete the user's chat conversations (tombstone + gossip so every server
+	// drops them and connected chat windows reload).
+	if conversations, err := db.GetConversationsByUser(toDelete.Id); err == nil {
+		for _, conv := range conversations {
+			conv.IsDeleted = true
+			conv.UpdatedAt = hlc.Now()
+			if err := db.SaveConversation(conv); err != nil {
+				log.Debug("delete user: failed to delete conversation", "user_id", toDelete.Id, "conversation_id", conv.Id, "error", err)
+				continue
+			}
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipConversation(conv)
+			}
+		}
+	}
+
 	// Delete the user
 	if !hasError {
 		log.Debug("delete user: Deleting user  from database", "delete", toDelete.Id)

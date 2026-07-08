@@ -47,4 +47,6 @@ const (
 	EventBroadcastMsg
 	EventDoneMsg
 	InFlightStateMsg
+	ConversationFullSyncMsg
+	ConversationGossipMsg
 )

@@ -475,7 +475,7 @@ func HandleDeleteCommand(w http.ResponseWriter, r *http.Request) {
 
 // splitFrontmatter separates the YAML frontmatter block from the markdown
 // body. If no frontmatter is present, returns ("", content). Mirrors the
-// webchat command-file parser so the body stored in the DB matches what the
+// lmchatkit command-file parser so the body stored in the DB matches what the
 // LLM sees when a /command is expanded.
 func splitFrontmatter(content string) (frontmatter string, body string) {
 	trimmed := content

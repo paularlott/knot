@@ -9,7 +9,7 @@ import (
 )
 
 // Command is a user-invokable slash command stored in the database. Mirrors
-// the shape of a webchat slash-command markdown file (name, description,
+// the shape of a lmchatkit slash-command markdown file (name, description,
 // argument-hint, allowed-tools, body) plus the ownership/ACL fields used by
 // knot (UserId for user/global, Groups, Zones, Active). The Body is the raw
 // markdown with an optional $ARGUMENTS placeholder substituted at render time.

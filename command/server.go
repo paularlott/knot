@@ -769,6 +769,12 @@ var ServerCmd = &cli.Command{
 		// Start the SSE hub for real-time updates
 		sse.GetHub().Start()
 
+		// Sweep stale chat conversations (retention). Only on full cluster
+		// members — leaf nodes keep chat history in the browser.
+		if !cfg.LeafNode {
+			service.StartConversationRetentionSweep()
+		}
+
 		// Load roles into memory cache
 		roles, err := database.GetInstance().GetRoles()
 		if err != nil {
@@ -940,12 +946,25 @@ var ServerCmd = &cli.Command{
 			)
 			chatEvents := lmchatkit.NewEventBroadcaster()
 			knotlmchatkit.SetEventBroadcaster(chatEvents)
+
+			// Server-side chat history is only enabled on full cluster members,
+			// where it replicates over gossip. Leaf nodes connect to an origin
+			// via the leaf protocol (not gossip) and chat history is not carried
+			// over that link, so on a leaf History is nil — the chat UI then
+			// probes /api/conversations, gets a 404, and falls back to browser
+			// sessionStorage for that session.
+			var historyStore lmchatkit.HistoryStore
+			if !cfg.LeafNode {
+				historyStore = knotlmchatkit.NewHistoryStore()
+			}
+
 			chatServer, err := lmchatkit.New(lmchatkit.Config{
 				Prefix:         "/chat",
 				PersonaSource:  knotlmchatkit.PersonaSource(),
 				CommandSource:  knotlmchatkit.NewCommandSource(),
 				Host:           chatHost,
 				AuthMiddleware: chatAuthMiddleware,
+				History:        historyStore,
 				Events:         chatEvents,
 			})
 			if err != nil {

@@ -342,10 +342,27 @@ created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
 updated_at BIGINT UNSIGNED DEFAULT 0,
+	INDEX user_id (user_id),
+	INDEX idx_is_deleted (is_deleted),
+	INDEX active (active),
+	INDEX name_user (name, user_id)
+)`)
+	if err != nil {
+		return err
+	}
+
+	db.logger.Debug("ensuring conversations table exists")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS conversations (
+conversation_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36) DEFAULT '',
+title VARCHAR(256) DEFAULT '',
+data MEDIUMTEXT NOT NULL,
+created_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 INDEX user_id (user_id),
-INDEX idx_is_deleted (is_deleted),
-INDEX active (active),
-INDEX name_user (name, user_id)
+INDEX user_deleted (user_id, is_deleted),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err

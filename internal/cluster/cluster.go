@@ -177,6 +177,8 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(EventBroadcastMsg, cluster.handleEventBroadcast)
 		cluster.gossipCluster.HandleFunc(EventDoneMsg, cluster.handleEventDone)
 		cluster.gossipCluster.HandleFunc(InFlightStateMsg, cluster.handleInFlightState)
+		cluster.gossipCluster.HandleFuncWithReply(ConversationFullSyncMsg, cluster.handleConversationFullSync)
+		cluster.gossipCluster.HandleFunc(ConversationGossipMsg, cluster.handleConversationGossip)
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
@@ -215,6 +217,7 @@ func NewCluster(
 			cluster.gossipPoolDefinitions()
 			cluster.gossipEventSinks()
 			cluster.gossipInFlight()
+			cluster.gossipConversations()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -437,11 +440,15 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						c.logger.WithError(err).Error("failed to sync pool definitions with node")
 					}
 
-					if err := c.DoEventSinkFullSync(node); err != nil {
-						c.logger.WithError(err).Error("failed to sync event sinks with node")
-					}
+				if err := c.DoEventSinkFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync event sinks with node")
+				}
 
-					if c.sessionGossip {
+				if err := c.DoConversationFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync conversations with node")
+				}
+
+				if c.sessionGossip {
 						if err := c.DoSessionFullSync(node); err != nil {
 							c.logger.WithError(err).Error("failed to sync sessions with node")
 						}

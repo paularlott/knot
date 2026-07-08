@@ -163,7 +163,7 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 		return nil, fmt.Errorf("tool '%s' is not available in zone '%s'", name, currentZone)
 	}
 
-	// User-defined script — approval handled by webchat UI, not SSE
+	// User-defined script — approval handled by lmchatkit UI, not SSE
 
 	// Convert params to scriptling objects for script execution
 	mcpParams := make(map[string]object.Object)

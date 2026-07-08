@@ -380,15 +380,15 @@
 /* --- Chat message content (prose-chat) ---
    Tailwind Preflight resets list/heading styles to nothing, so the
    markdown-rendered HTML inside chat bubbles needs explicit styling.
-   webchat's markdown processor uses md-pre / md-code classes. */
+   lmchatkit's markdown processor uses md-pre / md-code classes. */
 
 /* Typing cursor + bounce dots (not standard Tailwind utilities). */
-@keyframes webchat-blink {
+@keyframes lmchatkit-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
 .animate-blink {
-  animation: webchat-blink 1s steps(1, end) infinite;
+  animation: lmchatkit-blink 1s steps(1, end) infinite;
 }
 .prose-chat ul {
   list-style: disc;
