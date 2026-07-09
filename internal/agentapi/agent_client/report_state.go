@@ -105,16 +105,14 @@ func (c *AgentClient) reportState() {
 		// If using vscode tunnels
 		if c.withVSCodeTunnel && vscodeTunnelScreen != "" {
 			// Check if there's a screen running with the name vscodeTunnel
-			screenCmd := exec.Command("screen", "-ls")
-			output, err := screenCmd.Output()
+			output, err := runCmdWithTimeout("screen", "-ls")
 			if err != nil {
 				log.WithError(err).Error("failed to list screen sessions")
 			} else if strings.Contains(string(output), vscodeTunnelScreen) {
 				hasVSCodeTunnel = true
 
 				// Call code tunnel status to get the JSON response
-				tunnelCmd := exec.Command(codeBin, "tunnel", "status")
-				output, err := tunnelCmd.Output()
+				output, err := runCmdWithTimeout(codeBin, "tunnel", "status")
 				if err != nil {
 					log.WithError(err).Error("failed to get vscode tunnel status")
 				} else {
@@ -245,4 +243,17 @@ func (c *AgentClient) ReportEvent(event *msg.Event) error {
 		return fmt.Errorf("no servers accepted the event")
 	}
 	return nil
+}
+
+// vscodeProbeTimeout bounds the vscode-tunnel probe commands below. `screen -ls`
+// and `code tunnel status` have no inherent timeout and can hang (e.g. on a
+// stuck binary or network); running them without a deadline would stall
+// reportState's ticker and freeze telemetry for the space.
+const vscodeProbeTimeout = 3 * time.Second
+
+// runCmdWithTimeout runs a command with a bounded timeout.
+func runCmdWithTimeout(name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), vscodeProbeTimeout)
+	defer cancel()
+	return exec.CommandContext(ctx, name, args...).Output()
 }

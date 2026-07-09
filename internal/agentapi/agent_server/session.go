@@ -43,6 +43,8 @@ type Session struct {
 	TCPRPS                float64
 	LastStateAt           time.Time
 	lastStateAtMu         sync.Mutex
+	LastPingAt            time.Time
+	lastPingAtMu          sync.Mutex
 	MuxSession            *yamux.Session
 	logger                logger.Logger
 
@@ -68,6 +70,7 @@ func NewSession(spaceId string, version string) *Session {
 		TcpPorts:          make(map[string]string, 0),
 		HttpPorts:         make(map[string]string, 0),
 		LastStateAt:       time.Now().UTC(),
+		LastPingAt:        time.Now().UTC(),
 		MuxSession:        nil,
 		LogHistoryMutex:   &sync.RWMutex{},
 		LogHistory:        make([]*msg.LogMessage, 0),
@@ -90,6 +93,34 @@ func (s *Session) SetLastStateAt(t time.Time) {
 	s.lastStateAtMu.Lock()
 	defer s.lastStateAtMu.Unlock()
 	s.LastStateAt = t
+}
+
+// GetLastPingAt returns the time of the last successful mux ping.
+func (s *Session) GetLastPingAt() time.Time {
+	s.lastPingAtMu.Lock()
+	defer s.lastPingAtMu.Unlock()
+	return s.LastPingAt
+}
+
+// SetLastPingAt records the time of the last successful mux ping.
+func (s *Session) SetLastPingAt(t time.Time) {
+	s.lastPingAtMu.Lock()
+	defer s.lastPingAtMu.Unlock()
+	s.LastPingAt = t
+}
+
+// TelemetryLive reports whether a real agent state report (CmdUpdateState) has
+// been received within the agent liveness window. A successful mux ping does
+// NOT count: the state-reporting loop and the ping responder are independent
+// goroutines, so a wedged state loop can leave a ping-alive session holding a
+// frozen last reading. Callers that want to present data as "current" (e.g. the
+// usage gauge) must check this rather than just session presence.
+func (s *Session) TelemetryLive() bool {
+	last := s.GetLastStateAt()
+	if last.IsZero() {
+		return false
+	}
+	return time.Since(last) <= AGENT_LIVENESS_TIMEOUT
 }
 
 func (s *Session) RegisterLogListener() (string, chan *msg.LogMessage) {

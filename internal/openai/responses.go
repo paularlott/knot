@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 )
 
 const (
@@ -268,7 +269,8 @@ func (s *Service) HandleDeleteResponse(w http.ResponseWriter, r *http.Request) {
 		globalGossipFunc(response)
 	}
 
-	w.WriteHeader(http.StatusOK)
+	// Per the Responses API spec, delete returns 200 with {id, object, deleted}.
+	rest.WriteResponse(mcpopenai.DeleteStatusCode, w, r, mcpopenai.NewResponseDeleted(responseId))
 }
 
 // Handles POST /v1/responses/{response_id}/cancel
