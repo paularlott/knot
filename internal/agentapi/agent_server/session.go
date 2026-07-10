@@ -460,3 +460,71 @@ func (s *Session) SendPortStop(portCmd *msg.PortStopRequest) (*msg.PortStopRespo
 
 	return &response, nil
 }
+
+func (s *Session) SendTunnelStart(req *msg.TunnelStartRequest) (*msg.TunnelStartResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdTunnelStart); err != nil {
+		s.logger.WithError(err).Error("writing tunnel start command:")
+		return &msg.TunnelStartResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+	if err := msg.WriteMessage(conn, req); err != nil {
+		s.logger.WithError(err).Error("writing tunnel start message:")
+		return &msg.TunnelStartResponse{Success: false, Error: "Failed to send command message to agent"}, nil
+	}
+
+	var response msg.TunnelStartResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading tunnel start response:")
+		return &msg.TunnelStartResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+	return &response, nil
+}
+
+func (s *Session) SendTunnelStop(req *msg.TunnelStopRequest) (*msg.TunnelStopResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdTunnelStop); err != nil {
+		s.logger.WithError(err).Error("writing tunnel stop command:")
+		return &msg.TunnelStopResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+	if err := msg.WriteMessage(conn, req); err != nil {
+		s.logger.WithError(err).Error("writing tunnel stop message:")
+		return &msg.TunnelStopResponse{Success: false, Error: "Failed to send command message to agent"}, nil
+	}
+
+	var response msg.TunnelStopResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading tunnel stop response:")
+		return &msg.TunnelStopResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+	return &response, nil
+}
+
+func (s *Session) SendTunnelList() (*msg.TunnelListResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdTunnelList); err != nil {
+		s.logger.WithError(err).Error("writing tunnel list command:")
+		return nil, err
+	}
+
+	var response msg.TunnelListResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading tunnel list response:")
+		return nil, err
+	}
+	return &response, nil
+}

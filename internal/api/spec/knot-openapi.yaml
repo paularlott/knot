@@ -2451,6 +2451,120 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /space-io/{space_id}/tunnel/start:
+    post:
+      summary: Start a web tunnel in a space
+      description: |
+        Start an agent-owned web tunnel inside a space, exposing a port on the
+        internet as <user>--<name>.<domain>. The tunnel is owned by the space's
+        agent and runs until the agent exits or the tunnel is stopped; it is not
+        persisted. Requires the space to be running.
+      operationId: tunnelStart
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceTunnelStartRequest"
+      responses:
+        "200":
+          description: Tunnel start result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceTunnelStartResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/tunnel/list:
+    get:
+      summary: List web tunnels in a space
+      description: List the agent-owned web tunnels active in a space.
+      operationId: tunnelList
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      responses:
+        "200":
+          description: List of active web tunnels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceTunnelListResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/tunnel/stop:
+    post:
+      summary: Stop a web tunnel in a space
+      description: Stop an agent-owned web tunnel in a space by name.
+      operationId: tunnelStop
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceTunnelStopRequest"
+      responses:
+        "200":
+          description: Tunnel stopped successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/templates:
     get:
       summary: Get Templates
@@ -7267,6 +7381,81 @@ components:
           items:
             type: string
           description: Error messages from any failed stop or start operations.
+
+    SpaceTunnelStartRequest:
+      type: object
+      required:
+        - protocol
+        - port
+        - name
+      properties:
+        protocol:
+          type: string
+          enum: [http, https]
+          example: http
+          description: The public protocol to expose.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 80
+          description: The port within the space to tunnel.
+        name:
+          type: string
+          example: myapp
+          description: The tunnel name; combined with the owner as <user>--<name>.<domain>.
+
+    SpaceTunnelStartResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: Whether the tunnel was started.
+        error:
+          type: string
+          description: Error message when success is false.
+        url:
+          type: string
+          format: uri
+          example: https://alice--myapp.tunnels.knot.internal
+          description: The public tunnel URL.
+
+    SpaceTunnelInfo:
+      type: object
+      properties:
+        port:
+          type: integer
+          example: 80
+        protocol:
+          type: string
+          example: http
+        name:
+          type: string
+          example: myapp
+        url:
+          type: string
+          format: uri
+          example: https://alice--myapp.tunnels.knot.internal
+
+    SpaceTunnelListResponse:
+      type: object
+      properties:
+        tunnels:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceTunnelInfo"
+          description: Active agent-owned web tunnels in the space.
+
+    SpaceTunnelStopRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: myapp
+          description: The name of the tunnel to stop.
 
     ScriptInfo:
       type: object

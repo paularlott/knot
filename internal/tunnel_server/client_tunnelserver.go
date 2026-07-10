@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
+	"github.com/paularlott/knot/internal/agentapi/agentproxy"
 	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/gorilla/websocket"
@@ -222,7 +222,7 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 	}
 
 	if ts.client.protocol == "http" || ts.client.protocol == "tcp" {
-		agent_client.ProxyTcp(stream, fmt.Sprintf("%d", ts.client.localPort))
+		agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", ts.client.localPort))
 	} else if ts.client.protocol == "https" || ts.client.protocol == "tls" {
 		var tlsName string
 		if ts.client.tlsName != "" {
@@ -230,6 +230,6 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 		} else {
 			tlsName = "127.0.0.1"
 		}
-		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName, ts.client.localPortSkipTLSVerify)
+		agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName, ts.client.localPortSkipTLSVerify)
 	}
 }

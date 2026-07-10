@@ -45,6 +45,9 @@ const (
 	CmdUnregisterMethods
 	CmdUpdateHealthConfig
 	CmdEvent
+	CmdTunnelStart
+	CmdTunnelStop
+	CmdTunnelList
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

@@ -1,4 +1,4 @@
-package command_port
+package command_spaces
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/cli"
 )
 
-var ForwardCmd = &cli.Command{
+var PortForwardCmd = &cli.Command{
 	Name:        "forward",
 	Usage:       "Forward a port from one space to another",
 	Description: "Forward a port from one space to a port in another space.",

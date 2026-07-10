@@ -1,4 +1,4 @@
-package command_port
+package command_spaces
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/cli"
 )
 
-var ListCmd = &cli.Command{
+var PortListCmd = &cli.Command{
 	Name:        "list",
 	Usage:       "List active port forwards for a space",
 	Description: "List all active port forwards from a space.",

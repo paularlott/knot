@@ -314,6 +314,9 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /space-io/{space_id}/port/list", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandlePortList)))
 	router.HandleFunc("POST /space-io/{space_id}/port/stop", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandlePortStop)))
 	router.HandleFunc("POST /space-io/{space_id}/port/apply", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandlePortApply)))
+	router.HandleFunc("POST /space-io/{space_id}/tunnel/start", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleTunnelStart)))
+	router.HandleFunc("GET /space-io/{space_id}/tunnel/list", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleTunnelList)))
+	router.HandleFunc("POST /space-io/{space_id}/tunnel/stop", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleTunnelStop)))
 
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
