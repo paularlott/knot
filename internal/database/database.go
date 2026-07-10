@@ -103,6 +103,13 @@ type DbDriver interface {
 	GetCommandsByName(name string) ([]*model.Command, error)
 	GetCommandsByNameAndUser(name string, userId string) ([]*model.Command, error)
 
+	// MCP Servers
+	SaveMCPServer(server *model.MCPServer, updateFields []string) error
+	DeleteMCPServer(server *model.MCPServer) error
+	GetMCPServer(id string) (*model.MCPServer, error)
+	GetMCPServers() ([]*model.MCPServer, error)
+	GetMCPServersByUser(userId string) ([]*model.MCPServer, error)
+
 	// Chat Conversations (server-side chat history, per-user)
 	SaveConversation(conv *model.Conversation) error
 	DeleteConversation(conv *model.Conversation) error

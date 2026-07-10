@@ -49,4 +49,6 @@ const (
 	InFlightStateMsg
 	ConversationFullSyncMsg
 	ConversationGossipMsg
+	MCPServerFullSyncMsg
+	MCPServerGossipMsg
 )

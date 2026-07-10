@@ -85,6 +85,7 @@ func (f *fakeTransport) GossipEventSink(*model.EventSink)              {}
 func (f *fakeTransport) GossipStackDefinition(*model.StackDefinition)  {}
 func (f *fakeTransport) GossipResponse(*model.Response)                {}
 func (f *fakeTransport) GossipConversation(*model.Conversation)        {}
+func (f *fakeTransport) GossipMCPServer(*model.MCPServer)              {}
 func (f *fakeTransport) GossipPoolDefinition(*model.PoolDefinition)    {}
 func (f *fakeTransport) GetAgentEndpoints() []string                  { return nil }
 func (f *fakeTransport) GetTunnelServers() []string                   { return nil }

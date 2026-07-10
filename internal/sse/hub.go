@@ -34,6 +34,8 @@ const (
 	EventSlashCommandsDeleted    EventType = "slashcommands:deleted"
 	EventStackDefinitionsChanged EventType = "stack-definitions:changed"
 	EventStackDefinitionsDeleted EventType = "stack-definitions:deleted"
+	EventMCPServersChanged       EventType = "mcp-servers:changed"
+	EventMCPServersDeleted       EventType = "mcp-servers:deleted"
 	EventTunnelsChanged          EventType = "tunnels:changed"
 	EventTunnelsDeleted          EventType = "tunnels:deleted"
 	EventAuditLogsChanged        EventType = "auditlogs:changed"

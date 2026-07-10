@@ -287,6 +287,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	router.HandleFunc("GET /commands", middleware.WebAuth(checkPermissionManageSlashCommands(HandleSimplePage)))
 
+	router.HandleFunc("GET /mcp-servers", middleware.WebAuth(checkPermissionManageMCPServers(HandleSimplePage)))
+
 	router.HandleFunc("GET /stacks", middleware.WebAuth(checkPermissionStacks(HandleSimplePage)))
 
 	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
@@ -535,6 +537,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageOwnSkills":           user.HasPermission(model.PermissionManageOwnSkills),
 		"permissionManageSlashCommands":       user.HasPermission(model.PermissionManageGlobalSlashCommands),
 		"permissionManageOwnSlashCommands":    user.HasPermission(model.PermissionManageOwnSlashCommands),
+		"permissionManageMCPServers":          user.HasPermission(model.PermissionManageMCPServers),
 		"permissionManageStackDefinitions":    user.HasPermission(model.PermissionManageStackDefinitions),
 		"permissionManageOwnStackDefinitions": user.HasPermission(model.PermissionManageOwnStackDefinitions) || cfg.LeafNode,
 		"permissionUseStackDefinitions":       user.HasPermission(model.PermissionUseStackDefinitions) || cfg.LeafNode,
@@ -599,7 +602,7 @@ func isAdminPath(path string, leafNode bool) bool {
 // secondary pages collapsed under the "More" section in the sidebar. Used to
 // auto-expand that section so users don't lose their place.
 func isMorePath(path string, leafNode bool) bool {
-	paths := []string{"/stacks", "/scripts", "/events", "/skills", "/commands"}
+	paths := []string{"/stacks", "/scripts", "/events", "/skills", "/commands", "/mcp-servers"}
 	if !leafNode {
 		paths = append(paths, "/templates", "/variables")
 	}

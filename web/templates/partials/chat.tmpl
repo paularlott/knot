@@ -86,7 +86,7 @@
 
   <!-- Chat window (shown when showChat is true) -->
   <template x-if="showChat">
-  <div x-data="lmchatkit({ prefix: '/chat' })"
+  <div x-data="lmchatkit({ prefix: '/chat', autoStartChat: true })"
        x-init="init()"
        x-cloak
        data-chat-window

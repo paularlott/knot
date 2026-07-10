@@ -49,6 +49,11 @@ tags:
   - name: Stack Definitions
     description: |
       Operations for working with stack definitions (reusable space blueprints).
+  - name: MCP Servers
+    description: |
+      Operations for working with per-user MCP (Model Context Protocol) server configurations.
+      MCP servers provide tools to AI assistants. Each user can configure their own set of
+      HTTP(S) or stdio MCP servers with native or discoverable tool visibility.
 paths:
   /v1/models:
     get:
@@ -4734,6 +4739,236 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/mcp-servers:
+    get:
+      summary: List MCP Servers
+      description: |
+        Get a list of MCP server configurations accessible to the user.
+        Non-admin users see only their own servers. Users with the
+        `manage_mcp_servers` permission can view all servers or filter by user.
+        On leaf nodes, permission checks are bypassed.
+      tags:
+        - MCP Servers
+      operationId: listMCPServers
+      parameters:
+        - name: user_id
+          in: query
+          description: Filter by user ID. Use "current" for the current user. Only admins can query other users.
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  servers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MCPServerInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      summary: Create MCP Server
+      description: |
+        Create a new per-user MCP server configuration. Supports HTTP(S) URL-based
+        servers or stdio servers launched as subprocesses. Requires the
+        `manage_mcp_servers` permission (bypassed on leaf nodes).
+      tags:
+        - MCP Servers
+      operationId: createMCPServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MCPServerCreateRequest"
+      responses:
+        "201":
+          description: MCP server created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  mcp_server_id:
+                    type: string
+                    format: uuid
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "409":
+          description: MCP server with this namespace already exists for the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/mcp-servers/{mcp_server_id}:
+    get:
+      summary: Get MCP Server
+      description: Get details of a specific MCP server configuration by ID.
+      tags:
+        - MCP Servers
+      operationId: getMCPServer
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MCPServerDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    put:
+      summary: Update MCP Server
+      description: Update an existing MCP server configuration. Cannot update managed servers.
+      tags:
+        - MCP Servers
+      operationId: updateMCPServer
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MCPServerUpdateRequest"
+      responses:
+        "200":
+          description: MCP server updated successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: MCP server with this namespace already exists for the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      summary: Delete MCP Server
+      description: Soft delete an MCP server configuration. Cannot delete managed servers.
+      tags:
+        - MCP Servers
+      operationId: deleteMCPServer
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      responses:
+        "200":
+          description: MCP server deleted successfully
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/mcp-servers/{mcp_server_id}/toggle-tool:
+    post:
+      summary: Toggle Tool Enabled State
+      description: |
+        Enable or disable a specific tool within an MCP server configuration.
+        Disabled tools are not listed or callable. This updates the
+        `disabled_tools` list on the server config.
+      tags:
+        - MCP Servers
+      operationId: toggleMCPServerTool
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tool_name
+                - enabled
+              properties:
+                tool_name:
+                  type: string
+                  description: Name of the tool to toggle (without namespace prefix).
+                enabled:
+                  type: boolean
+                  description: True to enable the tool, false to disable it.
+      responses:
+        "200":
+          description: Tool toggle successful
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
 components:
   securitySchemes:
     BearerAuth:
@@ -7867,6 +8102,213 @@ components:
         active:
           type: boolean
           description: If the skill is active
+
+    MCPServerInfo:
+      type: object
+      properties:
+        mcp_server_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Empty string for global servers
+        namespace:
+          type: string
+          description: Unique namespace for this server. Used as a tool name prefix.
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server (empty for stdio servers).
+        command:
+          type: string
+          description: Stdio executable command (empty for HTTP servers).
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        enabled:
+          type: boolean
+          description: Whether the server is active and its tools are available.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: "native = tools visible in tools/list; ondemand/discoverable = tools only via tool_search."
+        disabled_tools:
+          type: array
+          items:
+            type: string
+          description: Tools disabled via the toggle-tool endpoint.
+        remote_search:
+          type: boolean
+          description: Delegate tool_search to this remote server.
+
+    MCPServerDetails:
+      type: object
+      properties:
+        mcp_server_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Empty string for global servers
+        namespace:
+          type: string
+          description: Unique namespace for this server. Used as a tool name prefix.
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server (empty for stdio servers).
+        command:
+          type: string
+          description: Stdio executable command (empty for HTTP servers).
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        auth_type:
+          type: string
+          enum: [bearer, oauth2]
+          description: Authentication type for HTTP servers. Defaults to bearer.
+        token:
+          type: string
+          description: Bearer token for HTTP authentication.
+        oauth_client_id:
+          type: string
+          description: OAuth2 client ID (when auth_type is oauth2).
+        oauth_token_url:
+          type: string
+          description: OAuth2 token endpoint URL.
+        oauth_access_token:
+          type: string
+          description: OAuth2 access token.
+        oauth_refresh_token:
+          type: string
+          description: OAuth2 refresh token.
+        enabled:
+          type: boolean
+          description: Whether the server is active and its tools are available.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: "native = tools visible in tools/list; ondemand/discoverable = tools only via tool_search."
+        disabled_tools:
+          type: array
+          items:
+            type: string
+          description: Tools disabled via the toggle-tool endpoint.
+        remote_search:
+          type: boolean
+          description: Delegate tool_search to this remote server.
+        is_managed:
+          type: boolean
+          description: True if managed by parent server (read-only on leaf nodes).
+
+    MCPServerCreateRequest:
+      type: object
+      required:
+        - namespace
+      properties:
+        user_id:
+          type: string
+          description: User ID for per-user servers. Use "current" for current user. Requires manage_mcp_servers permission for other users.
+        namespace:
+          type: string
+          description: Unique namespace for this server (unique per user). Used as a tool name prefix.
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server. Required for HTTP servers.
+        command:
+          type: string
+          description: Stdio executable command. Required for stdio servers.
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        auth_type:
+          type: string
+          enum: [bearer, oauth2]
+          description: Authentication type for HTTP servers. Defaults to bearer.
+        token:
+          type: string
+          description: Bearer token for HTTP authentication.
+        oauth_client_id:
+          type: string
+          description: OAuth2 client ID (when auth_type is oauth2).
+        oauth_token_url:
+          type: string
+          description: OAuth2 token endpoint URL.
+        oauth_access_token:
+          type: string
+          description: OAuth2 access token.
+        oauth_refresh_token:
+          type: string
+          description: OAuth2 refresh token.
+        enabled:
+          type: boolean
+          default: true
+          description: Whether the server is active.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: "native = tools visible in tools/list; ondemand/discoverable = tools only via tool_search."
+        remote_search:
+          type: boolean
+          default: false
+          description: Delegate tool_search to this remote server.
+
+    MCPServerUpdateRequest:
+      type: object
+      properties:
+        namespace:
+          type: string
+          description: Unique namespace for this server (unique per user).
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server.
+        command:
+          type: string
+          description: Stdio executable command.
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        auth_type:
+          type: string
+          enum: [bearer, oauth2]
+          description: Authentication type for HTTP servers.
+        token:
+          type: string
+          description: Bearer token for HTTP authentication.
+        oauth_client_id:
+          type: string
+          description: OAuth2 client ID.
+        oauth_token_url:
+          type: string
+          description: OAuth2 token endpoint URL.
+        oauth_access_token:
+          type: string
+          description: OAuth2 access token.
+        oauth_refresh_token:
+          type: string
+          description: OAuth2 refresh token.
+        enabled:
+          type: boolean
+          description: Whether the server is active.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: Tool visibility mode.
+        remote_search:
+          type: boolean
+          description: Delegate tool_search to this remote server.
 
     PoolRequest:
       type: object

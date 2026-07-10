@@ -26,6 +26,7 @@ type Transport interface {
 	GossipStackDefinition(stackDef *model.StackDefinition)
 	GossipResponse(response *model.Response)
 	GossipConversation(conv *model.Conversation)
+	GossipMCPServer(server *model.MCPServer)
 	GossipPoolDefinition(pool *model.PoolDefinition)
 	GossipPoolDrain(spaceID string)
 	GossipPoolUndrain(spaceID string)

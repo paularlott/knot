@@ -46,6 +46,8 @@ import './pages/skillListComponent.js';
 import './pages/skillForm.js';
 import './pages/commandListComponent.js';
 import './pages/commandForm.js';
+import './pages/mcpServerListComponent.js';
+import './pages/mcpServerForm.js';
 import './pages/stackDefinitionBuilder.js';
 import './pages/stackListComponent.js';
 

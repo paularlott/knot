@@ -126,6 +126,15 @@ func checkPermissionManageSlashCommands(next http.HandlerFunc) http.HandlerFunc 
 	})
 }
 
+func checkPermissionManageMCPServers(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
+	return checkPermission(next, model.PermissionManageMCPServers)
+}
+
 func checkPermissionStacks(next http.HandlerFunc) http.HandlerFunc {
 	cfg := config.GetServerConfig()
 	if cfg.LeafNode {

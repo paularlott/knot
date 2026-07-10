@@ -915,7 +915,7 @@ var ServerCmd = &cli.Command{
 				if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
 					scriptProvider = internal_mcp.NewScriptToolsProvider(user)
 				}
-				if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user)); mp != nil {
+				if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user)); mp != nil {
 					return mp
 				}
 				return nil

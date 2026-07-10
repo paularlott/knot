@@ -43,6 +43,7 @@ Use tool_search to discover tools by keyword or description.`)
 			}
 			if user != nil {
 				providers = append(providers, NewMethodToolsProvider(user))
+				providers = append(providers, NewRemoteServerProvider(user))
 			}
 
 			// Attach providers and apply show-all mode (X-MCP-Show-All / ?show_all) in one step

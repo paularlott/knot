@@ -160,6 +160,15 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /api/command/{command_id}", middleware.ApiAuth(HandleUpdateCommand))
 	router.HandleFunc("DELETE /api/command/{command_id}", middleware.ApiAuth(HandleDeleteCommand))
 
+	// MCP Servers
+	router.HandleFunc("GET /api/mcp-servers", middleware.ApiAuth(HandleGetMCPServers))
+	router.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", middleware.ApiAuth(HandleGetMCPServer))
+	router.HandleFunc("POST /api/mcp-servers", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleCreateMCPServer)))
+	router.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleUpdateMCPServer)))
+	router.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleDeleteMCPServer)))
+	router.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/toggle-tool", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleToggleMCPServerTool)))
+	router.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/tools", middleware.ApiAuth(HandleListMCPServerTools))
+
 	// Stack Definitions
 	router.HandleFunc("GET /api/stack-definitions", middleware.ApiAuth(HandleGetStackDefinitions))
 	router.HandleFunc("GET /api/stack-definitions/{stack_definition_id}", middleware.ApiAuth(HandleGetStackDefinition))

@@ -45,6 +45,7 @@ func (nonLeaderTransport) GossipEventSink(*model.EventSink)               {}
 func (nonLeaderTransport) GossipStackDefinition(*model.StackDefinition)   {}
 func (nonLeaderTransport) GossipResponse(*model.Response)                 {}
 func (nonLeaderTransport) GossipConversation(*model.Conversation)         {}
+func (nonLeaderTransport) GossipMCPServer(*model.MCPServer)              {}
 func (nonLeaderTransport) GossipPoolDefinition(*model.PoolDefinition)     {}
 func (nonLeaderTransport) GossipPoolDrain(string)                        {}
 func (nonLeaderTransport) GossipPoolUndrain(string)                      {}

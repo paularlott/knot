@@ -497,6 +497,38 @@ INDEX user_id (user_id)
 		return err
 	}
 
+	db.logger.Debug("ensuring mcp_servers table exists")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS mcp_servers (
+mcp_server_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36) DEFAULT '',
+namespace VARCHAR(128) NOT NULL DEFAULT '',
+url TEXT DEFAULT '',
+command TEXT DEFAULT '',
+args JSON NOT NULL DEFAULT '[]',
+auth_type VARCHAR(16) DEFAULT '',
+token TEXT DEFAULT '',
+oauth_client_id VARCHAR(255) DEFAULT '',
+oauth_token_url TEXT DEFAULT '',
+oauth_access_token TEXT DEFAULT '',
+oauth_refresh_token TEXT DEFAULT '',
+enabled TINYINT(1) NOT NULL DEFAULT 1,
+tool_visibility VARCHAR(16) NOT NULL DEFAULT 'native',
+disabled_tools JSON NOT NULL DEFAULT '[]',
+remote_search TINYINT(1) NOT NULL DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+created_user_id CHAR(36) DEFAULT '',
+created_at TIMESTAMP(6),
+updated_user_id CHAR(36) DEFAULT '',
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
+INDEX idx_is_deleted (is_deleted),
+INDEX enabled (enabled),
+INDEX namespace_user (namespace, user_id)
+)`)
+	if err != nil {
+		return err
+	}
+
 	db.logger.Debug("MySQL schema ensured")
 
 	// Run schema migrations for existing databases

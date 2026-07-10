@@ -12,8 +12,6 @@ go 1.26.1
 
 //replace github.com/paularlott/lmchatkit => ../lmchatkit
 
-//replace github.com/paularlott/lmchatkit => ../lmchatkit
-
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/creack/pty v1.1.24
@@ -27,7 +25,7 @@ require (
 	github.com/paularlott/cli v0.8.5
 	github.com/paularlott/gossip v0.12.7
 	github.com/paularlott/jsonrpc v0.1.0
-	github.com/paularlott/lmchatkit v0.6.0
+	github.com/paularlott/lmchatkit v0.7.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.22.0
 	github.com/paularlott/scriptling v0.16.1
@@ -38,7 +36,7 @@ require (
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.54.0
-	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
+	golang.org/x/exp v0.0.0-20260709172345-9ea1abe57597
 	golang.org/x/net v0.57.0
 	golang.org/x/term v0.45.0
 	golang.org/x/time v0.15.0

@@ -172,6 +172,15 @@ func (db *BadgerDbDriver) Connect() error {
 				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
 			})
 
+			// Remove old MCP servers
+			db.cleanupObjectType("MCPServers", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.MCPServer
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
+				}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
+
 			// Remove old responses
 			db.cleanupObjectType("Responses", before, func(data []byte) (bool, time.Time, error) {
 				var obj model.Response

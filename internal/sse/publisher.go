@@ -179,6 +179,22 @@ func PublishStackDefinitionsDeleted(defId string) {
 	})
 }
 
+// PublishMCPServersChanged notifies clients that an MCP server has changed
+func PublishMCPServersChanged(serverId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventMCPServersChanged,
+		Payload: ResourcePayload{Id: serverId},
+	})
+}
+
+// PublishMCPServersDeleted notifies clients that an MCP server was deleted
+func PublishMCPServersDeleted(serverId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventMCPServersDeleted,
+		Payload: ResourcePayload{Id: serverId},
+	})
+}
+
 // PublishSessionsChanged notifies clients that a session has changed
 func PublishSessionsChanged(sessionId string) {
 	GetHub().Broadcast(&Event{

@@ -179,6 +179,8 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(InFlightStateMsg, cluster.handleInFlightState)
 		cluster.gossipCluster.HandleFuncWithReply(ConversationFullSyncMsg, cluster.handleConversationFullSync)
 		cluster.gossipCluster.HandleFunc(ConversationGossipMsg, cluster.handleConversationGossip)
+		cluster.gossipCluster.HandleFuncWithReply(MCPServerFullSyncMsg, cluster.handleMCPServerFullSync)
+		cluster.gossipCluster.HandleFunc(MCPServerGossipMsg, cluster.handleMCPServerGossip)
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
@@ -218,6 +220,7 @@ func NewCluster(
 			cluster.gossipEventSinks()
 			cluster.gossipInFlight()
 			cluster.gossipConversations()
+			cluster.gossipMCPServers()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -446,6 +449,10 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 
 				if err := c.DoConversationFullSync(node); err != nil {
 					c.logger.WithError(err).Error("failed to sync conversations with node")
+				}
+
+				if err := c.DoMCPServerFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync MCP servers with node")
 				}
 
 				if c.sessionGossip {
