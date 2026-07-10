@@ -27,7 +27,7 @@ require (
 	github.com/paularlott/cli v0.8.5
 	github.com/paularlott/gossip v0.12.7
 	github.com/paularlott/jsonrpc v0.1.0
-	github.com/paularlott/lmchatkit v0.5.0
+	github.com/paularlott/lmchatkit v0.6.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.22.0
 	github.com/paularlott/scriptling v0.16.1
