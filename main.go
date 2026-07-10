@@ -118,7 +118,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,
 		commands_admin.AdminCmd,
-		command_tunnel.TunnelCmd,
+		command_tunnel.DesktopTunnelCmd,
 			command.ServerCmd,
 			command.PingCmd,
 			command.ScaffoldCmd,

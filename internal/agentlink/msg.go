@@ -30,6 +30,9 @@ const (
 	CommandRegisterMethodsScript
 	CommandUnregisterMethods
 	CommandLog
+	CommandStartTunnel
+	CommandStopTunnel
+	CommandListTunnels
 )
 
 type CommandMsg struct {

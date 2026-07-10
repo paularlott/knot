@@ -269,3 +269,22 @@ func PublishPoolDeleted(poolId string) {
 		Payload: ResourcePayload{Id: poolId},
 	})
 }
+
+// PublishTunnelsChanged notifies clients that a tunnel was created. The tunnel
+// list is per-user (served from the local in-memory session map), so clients
+// re-fetch /api/tunnels on receipt.
+func PublishTunnelsChanged(userId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventTunnelsChanged,
+		Payload: ResourcePayload{UserId: userId},
+	})
+}
+
+// PublishTunnelsDeleted notifies clients that a tunnel was removed. tunnelName
+// is the <user>--<name> identifier matching the "name" field in /api/tunnels.
+func PublishTunnelsDeleted(tunnelName, userId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventTunnelsDeleted,
+		Payload: ResourcePayload{Id: tunnelName, UserId: userId},
+	})
+}

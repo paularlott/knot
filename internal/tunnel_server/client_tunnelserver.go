@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
@@ -31,6 +32,13 @@ type tunnelServer struct {
 	address            string
 	connectionAttempts int
 	logger             logger.Logger
+
+	// Active connection state, protected by connMu. Shutdown() closes these
+	// directly because the serve goroutine is normally blocked in
+	// muxSession.Accept(), which a context cancel cannot interrupt.
+	connMu     sync.Mutex
+	ws         *websocket.Conn
+	muxSession *yamux.Session
 }
 
 func newTunnelServer(client *TunnelClient, address string) *tunnelServer {
@@ -51,6 +59,13 @@ func (ts *tunnelServer) ConnectAndServe() {
 		ts.logger.Debug("connecting to tunnel server at", "server", ts.address)
 		for {
 		StartConnectionLoop:
+
+			// If shutting down, don't (re)connect.
+			select {
+			case <-ts.ctx.Done():
+				return
+			default:
+			}
 
 			// Check if the max connection attempts have been reached
 			if ts.connectionAttempts >= maxConnectionAttempts {
@@ -130,6 +145,12 @@ func (ts *tunnelServer) ConnectAndServe() {
 				goto StartConnectionLoop
 			}
 
+			// Track the live connection so Shutdown() can close it.
+			ts.connMu.Lock()
+			ts.ws = ws
+			ts.muxSession = muxSession
+			ts.connMu.Unlock()
+
 			// Loop forever waiting for connections on the mux session
 			for {
 				select {
@@ -168,6 +189,18 @@ func (ts *tunnelServer) ConnectAndServe() {
 
 func (ts *tunnelServer) Shutdown() {
 	ts.cancel()
+
+	// Close the live connection directly. The serve goroutine is normally
+	// blocked in muxSession.Accept(); closing the mux session (which closes the
+	// underlying websocket) unblocks it and lets the server detect the
+	// disconnect so it cleans up the tunnel session.
+	ts.connMu.Lock()
+	if ts.muxSession != nil {
+		ts.muxSession.Close()
+	} else if ts.ws != nil {
+		ts.ws.Close()
+	}
+	ts.connMu.Unlock()
 }
 
 func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {

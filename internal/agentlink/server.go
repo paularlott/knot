@@ -142,5 +142,14 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandLog:
 		handleLog(conn, msg)
+
+	case CommandStartTunnel:
+		handleStartTunnel(conn, msg)
+
+	case CommandStopTunnel:
+		handleStopTunnel(conn, msg)
+
+	case CommandListTunnels:
+		handleListTunnels(conn, msg)
 	}
 }

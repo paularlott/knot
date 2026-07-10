@@ -50,8 +50,10 @@ type jobSpec struct {
 }
 
 type containerInspect struct {
-	ID     string `json:"ID"`
-	Status string `json:"status"`
+	ID     string `json:"id"`
+	Status struct {
+		State string `json:"state"`
+	} `json:"status"`
 }
 
 type appleListContainer struct {
@@ -269,7 +271,7 @@ func (c *AppleClient) removeStoppedContainerByName(ctx context.Context, name str
 	if err != nil {
 		return err
 	}
-	if len(inspectData) > 0 && inspectData[0].Status == "running" {
+	if len(inspectData) > 0 && inspectData[0].Status.State == "running" {
 		return fmt.Errorf("container %s already exists and is running", name)
 	}
 
@@ -367,13 +369,13 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 				return
 			}
 
-			var inspectData []containerInspect
-			if err := json.Unmarshal(output, &inspectData); err != nil {
-				c.logger.Error("parsing inspect output error", "space_containerid", containerRef)
+			inspectData, err := parseAppleContainerInspect(output)
+			if err != nil {
+				c.logger.Error("parsing inspect output error", "space_containerid", containerRef, "error", err)
 				return
 			}
 
-			if len(inspectData) == 0 || inspectData[0].Status != "running" {
+			if len(inspectData) == 0 || inspectData[0].Status.State != "running" {
 				break
 			}
 
@@ -651,12 +653,12 @@ func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
 				return appleCleanupError("inspect migrated space container", containerRef, err, output)
 			}
 
-			var inspectData []containerInspect
-			if err := json.Unmarshal(output, &inspectData); err != nil {
+			inspectData, err := parseAppleContainerInspect(output)
+			if err != nil {
 				return err
 			}
 
-			if len(inspectData) == 0 || inspectData[0].Status != "running" {
+			if len(inspectData) == 0 || inspectData[0].Status.State != "running" {
 				break
 			}
 
@@ -728,7 +730,7 @@ func (c *AppleClient) StopSpaceRuntime(space *model.Space) error {
 			return err
 		}
 
-		if len(inspectData) == 0 || inspectData[0].Status != "running" {
+		if len(inspectData) == 0 || inspectData[0].Status.State != "running" {
 			break
 		}
 

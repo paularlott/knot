@@ -1038,7 +1038,7 @@ var ServerCmd = &cli.Command{
 				if sameAddress && tunnelDomainMatch != nil && tunnelDomainMatch.MatchString(requestHost) {
 					// Route tunnel domain traffic to tunnel handlers
 					tunnelRoutes.ServeHTTP(w, r)
-				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
+				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Hostname()) {
 					appRoutes.ServeHTTP(w, r)
 				} else if wildcardMatch != nil && wildcardMatch.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
@@ -1100,9 +1100,9 @@ var ServerCmd = &cli.Command{
 					sslDomains = append(sslDomains, "localhost")
 				}
 
-				if tunnelServerUrl != nil {
-					sslDomains = append(sslDomains, tunnelServerUrl.Host)
-				}
+			if tunnelServerUrl != nil {
+				sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
+			}
 
 				// If wildcard domain given add it
 				wildcardDomain := cfg.WildcardDomain

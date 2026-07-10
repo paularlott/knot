@@ -13,8 +13,7 @@ window.tunnelsListComponent = function() {
         });
 
         window.sseClient.subscribe('tunnels:deleted', (payload) => {
-          this.tunnels = this.tunnels.filter(x => x.tunnel_id !== payload?.id);
-          this.searchChanged();
+          this.tunnels = this.tunnels.filter(x => x.name !== payload?.id);
         });
 
         window.sseClient.subscribe('reconnected', () => {

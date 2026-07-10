@@ -10,6 +10,7 @@ import (
 	agentlogger "github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/validate"
 	"github.com/paularlott/knot/internal/wsconn"
@@ -134,12 +135,18 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 		delete(tunnels, webName)
 		tunnelMutex.Unlock()
 		logger.Info("closed", "webName", webName)
+
+		// Notify clients the tunnel is gone.
+		sse.PublishTunnelsDeleted(webName, session.user.Id)
 	}()
 
 	// Add the tunnel to the map so that traffic can route to it
 	tunnelMutex.Lock()
 	tunnels[webName] = session
 	tunnelMutex.Unlock()
+
+	// Notify clients (the owning user's browser) that the tunnel list changed.
+	sse.PublishTunnelsChanged(user.Id)
 }
 
 func CountUserTunnels(userId string) uint32 {
@@ -201,6 +208,9 @@ func DeleteTunnel(userId, tunnelName string) error {
 			t.muxSession.Close()
 			t.ws.Close()
 			delete(tunnels, key)
+
+			// Notify clients the tunnel was removed.
+			sse.PublishTunnelsDeleted(key, userId)
 			return nil
 		}
 	}

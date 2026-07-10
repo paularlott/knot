@@ -35,6 +35,7 @@ type TunnelClient struct {
 	spacePort              uint16
 	tlsName                string
 	localPortSkipTLSVerify bool
+	tunnelURL              string
 	ctx                    context.Context
 	cancel                 context.CancelFunc
 }
@@ -92,6 +93,7 @@ func (c *TunnelClient) ConnectAndServe() error {
 		}
 
 		tunnelUrl := fmt.Sprintf("https://%s--%s%s", user.Username, c.tunnelName, tunnelServerInfo.Domain)
+		c.tunnelURL = tunnelUrl
 		fmt.Printf("Tunnel URL: %s\n", tunnelUrl)
 		fmt.Printf("Forwarding to: %s://localhost:%d\n", c.protocol, c.localPort)
 
@@ -163,4 +165,10 @@ func (c *TunnelClient) Shutdown() {
 
 func (c *TunnelClient) GetCtx() context.Context {
 	return c.ctx
+}
+
+// URL returns the public tunnel URL for a web tunnel once ConnectAndServe has
+// resolved it. It is empty for port tunnels or before ConnectAndServe runs.
+func (c *TunnelClient) URL() string {
+	return c.tunnelURL
 }
