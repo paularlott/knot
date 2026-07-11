@@ -18,6 +18,11 @@ import (
 
 const jobMonitorTimeout = 30 * time.Minute
 
+// volumeDeleteJobWaitTimeout is the maximum time to wait for a Nomad job to
+// reach a terminal state before attempting volume deletion. Nomad will not
+// release volume claims until all allocations have terminated.
+const volumeDeleteJobWaitTimeout = 5 * time.Minute
+
 func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 	db := database.GetInstance()
 
@@ -84,13 +89,16 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			if ok {
 				client.logger.Debug("deleting volume  due to wrong namespace", "volume_id", volume.Id)
 				if volume.Type == "host" {
-					var id string
-					id, err = client.GetIdHostVolume(data.Id, data.Namespace)
-					if err == nil {
-						client.DeleteHostVolume(id, data.Namespace)
+					id, lookupErr := client.GetIdHostVolume(data.Id, data.Namespace)
+					if lookupErr != nil {
+						client.logger.WithError(lookupErr).Warn("failed to find volume for namespace cleanup", "volume_id", volume.Id)
+					} else if delErr := client.DeleteHostVolume(id, data.Namespace); delErr != nil {
+						client.logger.WithError(delErr).Warn("failed to delete volume for namespace cleanup", "volume_id", volume.Id)
 					}
 				} else {
-					client.DeleteCSIVolume(data.Id, data.Namespace)
+					if delErr := client.DeleteCSIVolume(data.Id, data.Namespace); delErr != nil {
+						client.logger.WithError(delErr).Warn("failed to delete volume for namespace cleanup", "volume_id", volume.Id)
+					}
 				}
 				delete(space.VolumeData, volume.Id)
 			}
@@ -148,6 +156,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 	}
 
 	// Find the volumes deployed in the space but no longer in the template definition and remove them
+	var cleanupErr error
 	for key, volume := range space.VolumeData {
 		if volume.Type == container.ManagedPathType {
 			if requiredPaths[key] {
@@ -155,7 +164,11 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			}
 			client.logger.Debug("deleting path", "path", key)
 			if err := container.DeleteManagedPath(volume.Id); err != nil {
-				return err
+				client.logger.WithError(err).Error("deleting managed path", "path", key)
+				if cleanupErr == nil {
+					cleanupErr = err
+				}
+				continue
 			}
 			delete(space.VolumeData, key)
 			continue
@@ -163,28 +176,69 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 
 		// Check if the volume is defined in the template
 		if _, ok := volById[volume.Id]; !ok {
-			// Delete the volume
-			var err error
+			var delErr error
 			if volume.Type == "host" {
-				var id string
-				id, err = client.GetIdHostVolume(volume.Id, volume.Namespace)
-				if err == nil {
-					client.DeleteHostVolume(id, volume.Namespace)
+				id, lookupErr := client.GetIdHostVolume(volume.Id, volume.Namespace)
+				if lookupErr != nil {
+					if strings.Contains(lookupErr.Error(), "not found") {
+						client.logger.Debug("host volume already gone", "volume_id", volume.Id)
+						delete(space.VolumeData, key)
+						continue
+					}
+					delErr = lookupErr
+				} else {
+					delErr = client.DeleteHostVolume(id, volume.Namespace)
 				}
 			} else {
-				err = client.DeleteCSIVolume(volume.Id, volume.Namespace)
-			}
-			if err != nil {
-				return err
+				delErr = client.DeleteCSIVolume(volume.Id, volume.Namespace)
 			}
 
-			delete(space.VolumeData, volume.Id)
+			if delErr != nil {
+				client.logger.WithError(delErr).Error("deleting volume", "volume_id", volume.Id)
+				if cleanupErr == nil {
+					cleanupErr = delErr
+				}
+				continue
+			}
+
+			delete(space.VolumeData, key)
 		}
 	}
 
 	client.logger.Debug("volumes checked")
 
-	return nil
+	return cleanupErr
+}
+
+// waitForJobStopped polls the Nomad job until it reaches a terminal state
+// (dead or not found) or the timeout expires. Nomad does not release volume
+// claims until all allocations have terminated, so callers must wait before
+// attempting volume deletion.
+func (client *NomadClient) waitForJobStopped(jobId, namespace string) {
+	client.logger.Debug("waiting for job to stop before volume deletion", "job_id", jobId)
+
+	ctx, cancel := context.WithTimeout(context.Background(), volumeDeleteJobWaitTimeout)
+	defer cancel()
+
+	for {
+		select {
+		case <-ctx.Done():
+			client.logger.Warn("timed out waiting for job to stop before volume deletion", "job_id", jobId)
+			return
+		default:
+		}
+
+		code, data, err := client.ReadJob(ctx, jobId, namespace)
+		if code == 404 || (err == nil && data["Status"] == "dead") {
+			client.logger.Debug("job stopped, proceeding with volume deletion", "job_id", jobId)
+			return
+		}
+		if err != nil {
+			client.logger.WithError(err).Warn("error checking job status before volume deletion", "job_id", jobId)
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
@@ -197,19 +251,36 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 		return nil
 	}
 
+	// Wait for the Nomad job to reach a terminal state before deleting volumes.
+	// Nomad holds volume claims open until allocations terminate, so deleting
+	// while the job is still shutting down will fail.
+	if space.ContainerId != "" {
+		client.waitForJobStopped(space.ContainerId, space.NomadNamespace)
+	}
+
 	defer func() {
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
-	// For all volumes in the space delete them
+	// Delete all volumes. Continue past errors so one failure doesn't prevent
+	// the remaining volumes from being cleaned up. Entries are only removed
+	// from VolumeData when the volume is actually gone (or already gone), so
+	// that failed deletions can be retried later.
+	var firstErr error
 	for key, volume := range space.VolumeData {
 		if volume.Type == container.ManagedPathType {
 			client.logger.Debug("deleting path", "path", key)
 			if err := container.DeleteManagedPath(volume.Id); err != nil {
-				return err
+				client.logger.WithError(err).Error("deleting managed path", "path", key)
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
 			}
 			delete(space.VolumeData, key)
 			continue
@@ -219,22 +290,34 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 		if volume.Type == "host" {
 			var id string
 			id, err = client.GetIdHostVolume(volume.Id, volume.Namespace)
-			if err == nil {
-				client.DeleteHostVolume(id, volume.Namespace)
+			if err != nil {
+				// Volume not found in Nomad — already deleted, remove from tracking.
+				if strings.Contains(err.Error(), "not found") {
+					client.logger.Debug("host volume already gone", "volume_id", volume.Id)
+					delete(space.VolumeData, key)
+					continue
+				}
+			} else {
+				err = client.DeleteHostVolume(id, volume.Namespace)
 			}
 		} else {
 			err = client.DeleteCSIVolume(volume.Id, volume.Namespace)
 		}
+
 		if err != nil {
-			return err
+			client.logger.WithError(err).Error("deleting volume", "volume_id", volume.Id)
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 
-		delete(space.VolumeData, volume.Id)
+		delete(space.VolumeData, key)
 	}
 
 	client.logger.Debug("volumes deleted")
 
-	return nil
+	return firstErr
 }
 
 func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
@@ -291,7 +374,9 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		return err
 	}
 
-	service.GetTransport().GossipSpace(space)
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 	client.MonitorJobState(space, nil)
 
@@ -318,7 +403,9 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 		return err
 	}
 
-	service.GetTransport().GossipSpace(space)
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 	client.MonitorJobState(space, onStopped)
 
@@ -435,7 +522,9 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 		if err != nil {
 			client.logger.Error("updating space job  error", "space", space.ContainerId)
 		}
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 		service.CheckSpaceLifecycleEvents(&oldSpace, space)
 

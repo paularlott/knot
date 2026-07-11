@@ -49,7 +49,7 @@ func (client *NomadClient) CreateJob(jobJSON *map[string]interface{}) (map[strin
 func (client *NomadClient) DeleteJob(jobId string, namespace string) (map[string]interface{}, error) {
 	var response = make(map[string]interface{})
 
-	_, err := client.httpClient.Delete(
+	code, err := client.httpClient.Delete(
 		context.Background(),
 		fmt.Sprintf("/v1/job/%s?purge=false&namespace=%s", jobId, namespace),
 		nil,
@@ -57,6 +57,11 @@ func (client *NomadClient) DeleteJob(jobId string, namespace string) (map[string
 		http.StatusOK,
 	)
 	if err != nil {
+		// 404 means the job is already gone — treat as success so callers
+		// (space delete, stop runtime) don't get stuck on a missing job.
+		if code == http.StatusNotFound {
+			return response, nil
+		}
 		return nil, err
 	}
 
