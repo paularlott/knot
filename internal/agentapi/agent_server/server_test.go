@@ -203,6 +203,7 @@ func TestHandleStaleSessionKeepsAliveWhenPingSucceeds(t *testing.T) {
 	oldLastState := time.Now().UTC().Add(-2 * AGENT_LIVENESS_TIMEOUT)
 	now := time.Now().UTC()
 	session.LastStateAt = oldLastState
+	session.LastPingAt = oldLastState
 	expired := false
 
 	if got := handleStaleSession(session, now, func(*Session) bool {
@@ -216,8 +217,34 @@ func TestHandleStaleSessionKeepsAliveWhenPingSucceeds(t *testing.T) {
 	if expired {
 		t.Fatalf("expire callback called when ping succeeded")
 	}
-	if !session.LastStateAt.Equal(now) {
-		t.Fatalf("LastStateAt = %s, want %s", session.LastStateAt, now)
+	// 0.27.0 invariant: a successful ping must NOT expire/restart the space.
+	// But ping only proves the mux is up — it must NOT advance LastStateAt
+	// (the telemetry-freshness signal); only a real state report may. Ping
+	// freshness moves forward in LastPingAt instead.
+	if !session.LastStateAt.Equal(oldLastState) {
+		t.Fatalf("LastStateAt = %s, want unchanged %s (ping must not reset telemetry freshness)", session.LastStateAt, oldLastState)
+	}
+	if session.LastPingAt.Before(now) {
+		t.Fatalf("LastPingAt = %s, want >= %s", session.LastPingAt, now)
+	}
+}
+
+func TestTelemetryLiveRequiresRecentStateReport(t *testing.T) {
+	session := NewSession("space-telemetry-live", "0.0.0")
+
+	// A fresh state report means telemetry is live, regardless of ping state.
+	session.LastStateAt = time.Now().UTC()
+	if !session.TelemetryLive() {
+		t.Fatalf("TelemetryLive = false, want true for a fresh state report")
+	}
+
+	// The ping-alive wedge scenario: mux still answers pings (LastPingAt is
+	// fresh) but no state report has arrived for a long time. TelemetryLive
+	// must report false so the usage gauge doesn't show a frozen value as live.
+	session.LastStateAt = time.Now().UTC().Add(-2 * AGENT_LIVENESS_TIMEOUT)
+	session.LastPingAt = time.Now().UTC()
+	if session.TelemetryLive() {
+		t.Fatalf("TelemetryLive = true, want false when only ping (not state) is fresh")
 	}
 }
 

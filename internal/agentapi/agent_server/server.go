@@ -98,7 +98,13 @@ func handleStaleSession(session *Session, now time.Time, ping func(*Session) boo
 	}
 
 	if ping(session) {
-		session.SetLastStateAt(now)
+		// Mux is responsive. Per the 0.27.0 fix a successful ping must NOT
+		// expire or reconcile the space — that previously caused continual
+		// false-positive stops. But ping only proves the mux is up, not that
+		// telemetry is flowing, so it must not advance LastStateAt (which is
+		// the telemetry-freshness signal used by TelemetryLive / is_live).
+		// Track ping freshness separately.
+		session.SetLastPingAt(now)
 		return false
 	}
 

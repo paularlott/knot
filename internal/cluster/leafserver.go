@@ -238,6 +238,33 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 	}
 	session.SendMessage(leafmsg.MessageGossipSkill, &filteredSkills)
 
+	commands, err := db.GetCommands()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting commands:")
+		return
+	}
+
+	filteredCommands := []*model.Command{}
+	for _, command := range commands {
+		if command.IsDeleted {
+			continue
+		}
+		if len(command.Groups) == 0 {
+			filteredCommands = append(filteredCommands, command)
+			continue
+		}
+		for _, groupId := range command.Groups {
+			for _, userGroupId := range user.Groups {
+				if groupId == userGroupId {
+					filteredCommands = append(filteredCommands, command)
+					goto nextCommand
+				}
+			}
+		}
+	nextCommand:
+	}
+	session.SendMessage(leafmsg.MessageGossipCommand, &filteredCommands)
+
 	stackDefs, err := db.GetStackDefinitions()
 	if err != nil {
 		c.logger.WithError(err).Error("error while getting stack definitions:")

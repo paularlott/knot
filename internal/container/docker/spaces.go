@@ -441,7 +441,9 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		return err
 	}
 
-	service.GetTransport().GossipSpace(space)
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
@@ -543,7 +545,9 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 		return err
 	}
 
-	service.GetTransport().GossipSpace(space)
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
@@ -721,6 +725,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		}
 	}
 
+	var cleanupErr error
 	for volName, data := range space.VolumeData {
 		if data.Type == container.ManagedPathType {
 			if requiredPaths[volName] {
@@ -728,7 +733,11 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 			}
 			c.Logger.Debug("deleting path", "path", volName)
 			if err := container.DeleteManagedPath(data.Id); err != nil {
-				return err
+				c.Logger.WithError(err).Error("deleting managed path", "path", volName)
+				if cleanupErr == nil {
+					cleanupErr = err
+				}
+				continue
 			}
 			delete(space.VolumeData, volName)
 			continue
@@ -737,14 +746,18 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		if _, ok := vi.Volumes[volName]; !ok {
 			c.Logger.Debug("deleting volume", "name", volName)
 			if err := c.volumeRemove(context.Background(), volName); err != nil {
-				return err
+				c.Logger.WithError(err).Error("deleting volume", "name", volName)
+				if cleanupErr == nil {
+					cleanupErr = err
+				}
+				continue
 			}
 			delete(space.VolumeData, volName)
 		}
 	}
 
 	c.Logger.Debug("volumes checked")
-	return nil
+	return cleanupErr
 }
 
 func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
@@ -760,15 +773,22 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 	defer func() {
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
+	var firstErr error
 	for volName, data := range space.VolumeData {
 		if data.Type == container.ManagedPathType {
 			c.Logger.Debug("deleting path", "path", volName)
 			if err := container.DeleteManagedPath(data.Id); err != nil {
-				return err
+				c.Logger.WithError(err).Error("deleting managed path", "path", volName)
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
 			}
 			delete(space.VolumeData, volName)
 			continue
@@ -776,13 +796,17 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 
 		c.Logger.Debug("deleting volume", "name", volName)
 		if err := c.volumeRemove(context.Background(), volName); err != nil {
-			return err
+			c.Logger.WithError(err).Error("deleting volume", "name", volName)
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 		delete(space.VolumeData, volName)
 	}
 
 	c.Logger.Debug("volumes deleted")
-	return nil
+	return firstErr
 }
 
 func (c *DockerClient) CleanupSpaceArtifacts(space *model.Space) error {

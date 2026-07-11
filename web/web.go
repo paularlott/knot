@@ -285,6 +285,10 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	router.HandleFunc("GET /skills", middleware.WebAuth(checkPermissionManageSkills(HandleSimplePage)))
 
+	router.HandleFunc("GET /commands", middleware.WebAuth(checkPermissionManageSlashCommands(HandleSimplePage)))
+
+	router.HandleFunc("GET /mcp-servers", middleware.WebAuth(checkPermissionManageMCPServers(HandleSimplePage)))
+
 	router.HandleFunc("GET /stacks", middleware.WebAuth(checkPermissionStacks(HandleSimplePage)))
 
 	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
@@ -312,6 +316,9 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /space-io/{space_id}/port/list", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandlePortList)))
 	router.HandleFunc("POST /space-io/{space_id}/port/stop", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandlePortStop)))
 	router.HandleFunc("POST /space-io/{space_id}/port/apply", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandlePortApply)))
+	router.HandleFunc("POST /space-io/{space_id}/tunnel/start", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleTunnelStart)))
+	router.HandleFunc("GET /space-io/{space_id}/tunnel/list", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleTunnelList)))
+	router.HandleFunc("POST /space-io/{space_id}/tunnel/stop", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleTunnelStop)))
 
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
@@ -514,6 +521,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"hideAPITokens":                       cfg.UI.HideAPITokens,
 		"useGravatar":                         cfg.UI.EnableGravatar,
 		"adminSectionActive":                  isAdminPath(r.URL.Path, cfg.LeafNode),
+		"moreSectionActive":                   isMorePath(r.URL.Path, cfg.LeafNode),
 		"permissionManageUsers":               user.HasPermission(model.PermissionManageUsers),
 		"permissionManageGroups":              user.HasPermission(model.PermissionManageGroups),
 		"permissionManageRoles":               user.HasPermission(model.PermissionManageRoles),
@@ -527,6 +535,9 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionExecuteOwnScripts":         user.HasPermission(model.PermissionExecuteOwnScripts),
 		"permissionManageSkills":              user.HasPermission(model.PermissionManageGlobalSkills),
 		"permissionManageOwnSkills":           user.HasPermission(model.PermissionManageOwnSkills),
+		"permissionManageSlashCommands":       user.HasPermission(model.PermissionManageGlobalSlashCommands),
+		"permissionManageOwnSlashCommands":    user.HasPermission(model.PermissionManageOwnSlashCommands),
+		"permissionManageMCPServers":          user.HasPermission(model.PermissionManageMCPServers),
 		"permissionManageStackDefinitions":    user.HasPermission(model.PermissionManageStackDefinitions),
 		"permissionManageOwnStackDefinitions": user.HasPermission(model.PermissionManageOwnStackDefinitions) || cfg.LeafNode,
 		"permissionUseStackDefinitions":       user.HasPermission(model.PermissionUseStackDefinitions) || cfg.LeafNode,
@@ -579,6 +590,23 @@ func isAdminPath(path string, leafNode bool) bool {
 	if !leafNode {
 		paths = append(paths, "/templates", "/variables")
 	}
+	for _, p := range paths {
+		if path == p || strings.HasPrefix(path, p+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// isMorePath reports whether the given request path belongs to one of the
+// secondary pages collapsed under the "More" section in the sidebar. Used to
+// auto-expand that section so users don't lose their place.
+func isMorePath(path string, leafNode bool) bool {
+	paths := []string{"/stacks", "/scripts", "/events", "/skills", "/commands", "/mcp-servers"}
+	if !leafNode {
+		paths = append(paths, "/templates", "/variables")
+	}
+	paths = append(paths, "/users", "/groups", "/roles", "/audit-logs", "/cluster-info")
 	for _, p := range paths {
 		if path == p || strings.HasPrefix(path, p+"/") {
 			return true

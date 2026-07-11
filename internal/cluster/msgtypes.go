@@ -30,6 +30,8 @@ const (
 	ScriptGossipMsg
 	SkillFullSyncMsg
 	SkillGossipMsg
+	CommandFullSyncMsg
+	CommandGossipMsg
 	StackDefinitionFullSyncMsg
 	StackDefinitionGossipMsg
 	ResponseFullSyncMsg
@@ -37,7 +39,6 @@ const (
 	SpaceUsageFullSyncMsg
 	SpaceUsageGossipMsg
 	SpaceMigrationStartMsg
-	ToolApprovalResponseMsg
 	PoolDefinitionFullSyncMsg
 	PoolDefinitionGossipMsg
 	PoolDrainMsg
@@ -46,4 +47,8 @@ const (
 	EventBroadcastMsg
 	EventDoneMsg
 	InFlightStateMsg
+	ConversationFullSyncMsg
+	ConversationGossipMsg
+	MCPServerFullSyncMsg
+	MCPServerGossipMsg
 )

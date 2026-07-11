@@ -679,3 +679,82 @@ def port_apply(source_space, forwards):
     """
     body = {"forwards": forwards}
     return api.post(f"/space-io/{_enc(source_space)}/port/apply", body)
+
+
+def _space_id(space):
+    """Resolve a space name or ID to its UUID.
+
+    The /space-io/{space_id}/* endpoints require a UUID in the path; /api/spaces
+    accepts either, so resolve via get() when needed.
+    """
+    resolved = get(space)
+    return resolved.get("id", space) if resolved else space
+
+
+def tunnel_start(space, protocol, port, name):
+    """Start an agent-owned web tunnel in a space.
+
+    The tunnel exposes a port inside the space on the internet as
+    <user>--<name>.<domain>. It is owned by the space's agent and runs until the
+    agent exits or the tunnel is stopped; it is not persisted.
+
+    Args:
+        space: Space name or ID
+        protocol: "http" or "https"
+        port: The port within the space to tunnel
+        name: The tunnel name (forms <user>--<name>.<domain>)
+
+    Returns:
+        The public tunnel URL string
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    space_id = _space_id(space)
+    response = api.post(f"/space-io/{_enc(space_id)}/tunnel/start", {
+        "protocol": protocol,
+        "port": port,
+        "name": name,
+    })
+    if response and not response.get("success", True):
+        raise Exception(response.get("error", "failed to start tunnel"))
+    return response.get("url", "") if response else ""
+
+
+def tunnel_list(space):
+    """List agent-owned web tunnels in a space.
+
+    Args:
+        space: Space name or ID
+
+    Returns:
+        A list of dicts, each containing:
+        - port: Port number within the space
+        - protocol: "http" or "https"
+        - name: Tunnel name
+        - url: Public tunnel URL
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    space_id = _space_id(space)
+    response = api.get(f"/space-io/{_enc(space_id)}/tunnel/list")
+    return response.get("tunnels", []) if response else []
+
+
+def tunnel_stop(space, name):
+    """Stop an agent-owned web tunnel in a space by name.
+
+    Args:
+        space: Space name or ID
+        name: The tunnel name
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    space_id = _space_id(space)
+    api.post(f"/space-io/{_enc(space_id)}/tunnel/stop", {"name": name})
+    return True

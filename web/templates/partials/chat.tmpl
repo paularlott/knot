@@ -1,31 +1,104 @@
 {{ define "chat" }}
 {{ if and .aiChatEnabled .permissionUseWebAssistant }}
-<!-- Chat Component -->
-<div x-data="chatComponent()" x-show="isOpen" x-cloak @keydown.esc.window="isLoading && stopGeneration()" class="fixed bottom-4 left-4 right-4 z-40 pointer-events-none">
+<!-- LMChatKit floating window — draggable, resizable chat powered by lmchatkit's
+     Alpine component + API. History is held server-side (per-user, replicated
+     over gossip); the sidebar lists saved conversations and toggles open/closed.
+     chat.js is loaded in <head> (meta.tmpl) BEFORE knot.js so the Alpine
+     "lmchatkit" component is registered before Alpine.start() processes the DOM. -->
+<script>
+  // Default window geometry on first load (before the user drags/resizes).
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      if (!localStorage.getItem('lmchatkit:winGeo')) {
+        localStorage.setItem('lmchatkit:winGeo', JSON.stringify({
+          pos: { x: Math.max(20, window.innerWidth - 520), y: Math.max(20, window.innerHeight - 600) },
+          size: { w: 480, h: 560 },
+          maximized: false,
+        }));
+      }
+    } catch {}
 
-  <div x-show="isOpen" x-transition:enter="transition-all ease-out duration-300"
-    x-transition:enter-start="opacity-0 transform translate-y-8 scale-95"
-    x-transition:enter-end="opacity-100 transform translate-y-0 scale-100"
-    x-transition:leave="transition-all ease-in duration-200"
-    x-transition:leave-start="opacity-100 transform translate-y-0 scale-100"
-    x-transition:leave-end="opacity-0 transform translate-y-8 scale-95"
-    class="relative w-full max-w-xl ml-auto max-h-[85vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col pointer-events-auto"
-    style="box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);">
+    // Keep the chat window interactive when a modal opens. Two mechanisms
+    // need defeating:
+    //
+    // 1. Alpine's x-trap.inert sets aria-hidden on every sibling crawling
+    //    up to <body>; the chat wrapper ([data-chat-root]) is a body-level
+    //    sibling of the modal's subtree, so it gets hidden. Strip it so the
+    //    chat stays visible to screen readers.
+    //
+    // 2. The focus-trap library registers a capture-phase `focusin` listener
+    //    on document that pulls focus back to the modal whenever an outside
+    //    element receives focus. Register our OWN capture listener first
+    //    (at page load, before any modal opens) and stop propagation when
+    //    the focus target is inside the chat — the trap never sees the event
+    //    and focus stays where the user clicked.
+    const chatRoot = document.querySelector('[data-chat-root]');
+    if (chatRoot) {
+      new MutationObserver(() => {
+        if (chatRoot.hasAttribute('aria-hidden')) chatRoot.removeAttribute('aria-hidden');
+        if (chatRoot.hasAttribute('inert')) chatRoot.removeAttribute('inert');
+      }).observe(chatRoot, { attributes: true, attributeFilter: ['aria-hidden', 'inert'] });
+    }
 
-    <!-- Header -->
-    <div
-      class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-xl">
-      <div class="flex items-center space-x-3">
-        {{ if eq .aiChatStyle "icon"}}
-        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-          <svg class="size-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 2a2 2 0 012 2v2h3a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V9a3 3 0 013-3h3V4a2 2 0 012-2zM9 12h.01M15 12h.01M9 16h6" />
-          </svg>
-        </div>
-        {{ end }}
-        {{ if eq .aiChatStyle "avatar"}}
-        <div class="ai-assistant happy scale-[0.8]">
+    document.addEventListener('focusin', (e) => {
+      if (e.target.closest('[data-chat-root]')) {
+        e.stopImmediatePropagation();
+      }
+    }, true);
+  });
+</script>
+
+<!-- Wrapper: controls chat visibility via window-level events.
+     showChat persists to sessionStorage so the window survives page
+     reloads. The FAB and chat window are separate children so Alpine
+     resolves showChat in THIS scope, not the lmchatkit component scope. -->
+<div x-data="{ showChat: sessionStorage.getItem('knot:chatOpen') === 'true' }"
+     data-chat-root
+     @knot:show-chat.window="showChat = true; sessionStorage.setItem('knot:chatOpen', 'true')"
+     @knot:close-chat.window="showChat = false; sessionStorage.removeItem('knot:chatOpen')"
+     class="contents">
+
+  <!-- Floating action button: opens the chat window -->
+  {{ if eq .aiChatStyle "avatar" }}
+  <button x-show="!showChat" x-cloak x-transition.opacity
+          @click="$dispatch('knot:show-chat')"
+          class="fixed bottom-5 right-5 z-[70] cursor-pointer"
+          aria-label="Open chat">
+    <div class="ai-assistant happy">
+      <div class="shape"></div>
+      <div class="face">
+        <div class="eye left"></div>
+        <div class="eye right"></div>
+        <div class="mouth"></div>
+      </div>
+    </div>
+  </button>
+  {{ else }}
+  <button x-show="!showChat" x-cloak x-transition.opacity
+          @click="$dispatch('knot:show-chat')"
+          class="fixed bottom-5 right-5 z-[70] w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex items-center justify-center cursor-pointer"
+          aria-label="Open chat">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z" />
+    </svg>
+  </button>
+  {{ end }}
+
+  <!-- Chat window (shown when showChat is true) -->
+  <template x-if="showChat">
+  <div x-data="lmchatkit({ prefix: '/chat', autoStartChat: true })"
+       x-init="init()"
+       x-cloak
+       data-chat-window
+       class="fixed z-[70] flex flex-col bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+       :style="winStyle()">
+
+    <!-- Header (drag handle) -->
+    <div @mousedown="startDrag($event)"
+         class="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 cursor-move select-none shrink-0">
+      <div class="flex items-center gap-2 min-w-0">
+        {{ if eq .aiChatStyle "avatar" }}
+        <div class="ai-assistant happy scale-[0.7]">
           <div class="shape"></div>
           <div class="face">
             <div class="eye left"></div>
@@ -34,131 +107,200 @@
           </div>
         </div>
         {{ end }}
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">AI Assistant</h3>
+        <span class="text-sm font-medium text-gray-900 dark:text-white">Assistant</span>
+        <span x-show="currentModel" class="text-xs text-gray-400 dark:text-gray-500 truncate" x-text="currentModel"></span>
       </div>
-      <div class="flex items-center space-x-2">
-        <button @click="$store.chat.clearMessages()" aria-label="Clear chat"
-          class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-          </svg>
+      <div class="flex items-center gap-0.5 shrink-0">
+        <button @click="newChat(); startChat()" title="New chat" class="p-1 rounded-lg border border-transparent text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
         </button>
-        <button @click="close()" aria-label="Close chat"
-          class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
-          <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
+        <button @click="showSidebar = !showSidebar" title="History" class="p-1 rounded-lg border border-transparent text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+        </button>
+        <button @click="toggleMaximize()" title="Maximize" class="p-1 rounded-lg border border-transparent text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 cursor-pointer">
+          <svg x-show="!winMaximized" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+          <svg x-show="winMaximized" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9 3.5 3.5M15 9V4.5M15 9h4.5M15 9l5.5-5.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 15v4.5m0-4.5h4.5m-4.5 0 5.5 5.5" /></svg>
+        </button>
+        <button @click="$dispatch('knot:close-chat')" title="Close" class="p-1 rounded-lg border border-transparent text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
     </div>
 
-    <!-- Messages -->
-    <div
-      class="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300"
-      x-ref="messagesContainer"
-      @scroll="handleScroll($event)"
-      aria-live="polite"
-      aria-label="Chat messages">
-      <!-- Empty state -->
-      <div x-show="messages.length === 0" class="flex flex-col items-center justify-center h-full text-center py-12">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">knot assistant</h3>
-        <p class="text-gray-600 dark:text-gray-400 mb-1">Ask me anything or explore your spaces and their contents.</p>
-        <p class="text-sm text-gray-500 dark:text-gray-500">I'm here to help, but remember I'm an AI, so I might not always get it right!</p>
-      </div>
-
-      <template x-for="message in messages" :key="message.id">
-      <div class="flex" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
-        <div class="max-w-xs sm:max-w-sm lg:max-w-lg"
-          :class="message.role === 'user' ? '' : 'flex items-start space-x-3'">
-          <!-- Assistant Avatar -->
-          <template x-if="message.role === 'assistant'">
-            <div
-              class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <svg class="size-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 2a2 2 0 012 2v2h3a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V9a3 3 0 013-3h3V4a2 2 0 012-2zM9 12h.01M15 12h.01M9 16h6" />
-              </svg>
+    <!-- Body: sidebar + chat -->
+    <div class="flex flex-1 min-h-0">
+      <!-- Sidebar: conversation list (browser sessionStorage history) -->
+      <aside x-show="showSidebar"
+             x-transition:enter="transition-all ease-out duration-150"
+             x-transition:enter-start="opacity-0 -ml-48"
+             x-transition:enter-end="opacity-100 ml-0"
+             x-transition:leave="transition-all ease-in duration-150"
+             x-transition:leave-start="opacity-100 ml-0"
+             x-transition:leave-end="opacity-0 -ml-48"
+             class="w-48 shrink-0 flex flex-col border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <div class="flex-1 overflow-y-auto py-2 space-y-0.5">
+          <template x-for="c in conversations" :key="c.id">
+            <div class="flex items-center gap-0.5 group px-1">
+              <button @click="loadConversation(c.id)"
+                      class="flex-1 min-w-0 text-left px-2 py-1.5 rounded text-xs truncate cursor-pointer"
+                      :class="c.id === currentId ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                      x-text="c.title || 'New conversation'"></button>
+              <span x-show="c.unread && c.id !== currentId" class="w-2 h-2 rounded-full bg-blue-500 shrink-0" aria-hidden="true"></span>
+              <button @click="deleteConversation(c.id)" title="Delete"
+                      class="p-1 rounded text-gray-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 cursor-pointer shrink-0">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </button>
             </div>
           </template>
+          <p x-show="conversations.length === 0" class="text-xs text-gray-400 dark:text-gray-500 px-2 py-2">No conversations yet.</p>
+        </div>
+      </aside>
 
-          <div class="flex-1 min-w-0">
-            <div class="px-4 py-3 rounded-2xl shadow-sm"
-              :class="message.role === 'user' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white ml-8' : message.hasError ? 'bg-red-50 dark:bg-red-900/20 text-gray-900 dark:text-white border border-red-200 dark:border-red-800' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'">
-              <!-- Thinking section -->
-              <template x-if="message.role === 'assistant' && message.fragments?.thinking">
-                <div x-data="{ showThinking: false }" class="mb-3">
-                  <button @click="showThinking = !showThinking" aria-label="Toggle thinking section"
-                    class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center space-x-2 mb-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z">
-                      </path>
-                    </svg>
-                    <span class="font-medium">Thinking</span>
-                    <svg class="size-3 ml-auto transition-transform duration-200" aria-hidden="true"
-                      :class="showThinking ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                  </button>
-                  <div x-show="showThinking" x-transition:enter="transition-all ease-out duration-200"
-                    x-transition:enter-start="opacity-0 max-h-0" x-transition:enter-end="opacity-100 max-h-96"
-                    x-transition:leave="transition-all ease-in duration-200"
-                    x-transition:leave-start="opacity-100 max-h-96" x-transition:leave-end="opacity-0 max-h-0"
-                    class="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border-l-4 border-blue-400 mb-3 overflow-hidden"
-                    x-html="formatContent(message.fragments.thinking)"></div>
-                </div>
-              </template>
+      <!-- Chat column -->
+      <section class="flex-1 flex flex-col min-w-0">
+        <!-- Empty state: start a new chat -->
+        <div x-show="!currentId" class="flex-1 flex items-center justify-center p-4">
+          <div class="text-center">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Start a conversation with the assistant.</p>
+            <button @click="startChat()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium cursor-pointer">New Chat</button>
+          </div>
+        </div>
 
-              <!-- Tool results section -->
-              <template
-                x-if="message.role === 'assistant' && message.fragments?.toolResults && message.fragments.toolResults.length > 0">
-                <div x-data="{ showToolOutput: false }" class="mb-3">
-                  <button @click="showToolOutput = !showToolOutput" aria-label="Toggle tool output section"
-                    class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center space-x-2 mb-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true"
-                      stroke="currentColor" class="size-3">
-                      <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
-                    </svg>
-                    <span class="font-medium">Tool Output</span>
-                    <svg class="size-3 ml-auto transition-transform duration-200" aria-hidden="true"
-                      :class="showToolOutput ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                  </button>
-                  <div x-show="showToolOutput" x-transition:enter="transition-all ease-out duration-200"
-                    x-transition:enter-start="opacity-0 max-h-0" x-transition:enter-end="opacity-100 max-h-96"
-                    x-transition:leave="transition-all ease-in duration-200"
-                    x-transition:leave-start="opacity-100 max-h-96" x-transition:leave-end="opacity-0 max-h-0"
-                    class="space-y-2 overflow-hidden">
+        <!-- Active chat -->
+        <div x-show="currentId" class="flex-1 flex flex-col min-h-0">
+          <!-- Messages -->
+          <div x-ref="messages" @wheel.passive="onWheel($event)"
+               class="flex-1 overflow-y-auto p-3 space-y-3 relative">
+            <template x-for="(m, idx) in messages" :key="m.id || idx">
+              <!-- Skip tool-role messages; their result renders inline in the
+                   originating assistant bubble's tool-calls disclosure. -->
+              <template x-if="m.role !== 'tool' && m.role !== 'system'">
+                <div class="flex flex-col" :class="m.role === 'user' ? 'items-end' : 'items-start'">
+                  <div class="w-full rounded-xl px-3 py-2 text-sm break-words"
+                       :class="m.role === 'user'
+                          ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                          : 'bg-gray-50 dark:bg-gray-800/30 border border-gray-200/70 dark:border-gray-700/40 text-gray-900 dark:text-gray-100'">
 
-                    <!-- Paired Tool Calls and Results -->
-                    <template x-if="message.toolCalls && message.toolCalls.length > 0">
-                      <div class="space-y-3">
-                        <template x-for="toolCall in message.toolCalls" :key="toolCall.id">
-                          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                            <!-- Tool Call -->
-                            <div class="bg-gray-50 dark:bg-gray-900/20 border-b border-gray-200 dark:border-gray-800 p-3">
-                              <code class="bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded text-xs font-mono" x-text="toolCall.function.name"></code>
-                              <div x-show="toolCall.function.arguments && Object.keys(JSON.parse(toolCall.function.arguments || '{}')).length > 0" class="mt-2 text-xs text-gray-800 dark:text-gray-300">
+                    <!-- Thinking (closed by default; click to toggle) -->
+                    <div x-show="m.role === 'assistant' && m.thinking && m.thinking.trim()"
+                         x-data="{ open: false }"
+                         class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 overflow-hidden mb-2">
+                      <button @click="open = !open" type="button"
+                              class="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        <span>Thinking</span>
+                        <svg class="w-3 h-3 ml-auto transition-transform" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                      <div x-show="open" x-transition.opacity
+                           class="px-2 pb-2 pt-1 text-xs text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700 whitespace-pre-wrap font-mono leading-relaxed max-h-40 overflow-y-auto"
+                           x-text="m.thinking"></div>
+                    </div>
+
+                    <!-- Tool calls (closed by default; click to toggle). Approval
+                         buttons are in a separate section below so they're always
+                         reachable even when this is collapsed. -->
+                    <template x-if="m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0">
+                      <div x-data="{ open: false }" class="mb-2">
+                        <button @click="open = !open" type="button"
+                                class="w-full flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded p-1.5 transition-colors cursor-pointer">
+                          <svg class="w-3.5 h-3.5 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                          <span x-text="m.tool_calls.length + ' tool call' + (m.tool_calls.length === 1 ? '' : 's')"></span>
+                          <span class="ml-auto flex items-center gap-1 text-[10px]">
+                            <span class="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                                  x-text="m.tool_calls.filter(c => c.approval === 'approved').length + ' ok'"></span>
+                            <span x-show="m.tool_calls.some(c => c.approval === 'denied' || c.approval === 'error')"
+                                  class="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">issues</span>
+                          </span>
+                        </button>
+                        <div x-show="open" x-transition.opacity class="mt-1 space-y-2">
+                          <template x-for="call in m.tool_calls" :key="call.id">
+                            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                              <div class="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 px-2 py-1 flex items-center gap-2">
+                                <code class="bg-blue-100 dark:bg-blue-800 px-1.5 py-0.5 rounded text-xs font-mono text-blue-700 dark:text-blue-300" x-text="call.name"></code>
+                                <span class="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 capitalize"
+                                      x-show="call.approval && call.approval !== 'pending'" x-text="call.approval"></span>
+                              </div>
+                              <div x-show="call.arguments && Object.keys(call.arguments || {}).length > 0"
+                                   class="px-2 py-1.5 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900">
                                 <span class="font-medium">Arguments:</span>
-                                <div class="bg-gray-200 dark:bg-gray-900 p-2 rounded mt-1 overflow-x-auto max-h-32">
-                                  <pre class="text-gray-600 dark:text-gray-400 font-mono text-xs whitespace-pre"><code x-text="formatResult(toolCall.function.arguments || '{}')"></code></pre>
+                                <div class="mt-1 bg-gray-100 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded p-1.5 overflow-x-auto max-h-24">
+                                  <pre class="text-gray-600 dark:text-gray-400 font-mono text-xs whitespace-pre-wrap break-words" x-text="JSON.stringify(call.arguments, null, 2)"></pre>
+                                </div>
+                              </div>
+                              <div x-show="call.result != null"
+                                   class="px-2 py-1.5 text-xs bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+                                <span class="font-medium text-gray-700 dark:text-gray-300">Result:</span>
+                                <div class="mt-1 bg-gray-100 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded p-1.5 overflow-x-auto max-h-32">
+                                  <pre class="font-mono text-xs whitespace-pre-wrap break-words"
+                                       :class="call.isError || call.approval === 'denied' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'"
+                                       x-text="call.result"></pre>
                                 </div>
                               </div>
                             </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
 
-                            <!-- Corresponding Tool Result -->
-                            <template x-for="result in (message.fragments?.toolResults || [])" :key="result.tool_call_id">
-                              <template x-if="result.tool_call_id === toolCall.id">
-                                <div class="bg-gray-50 dark:bg-gray-900/20 p-3 pt-0">
-                                  <span class="font-medium text-gray-800 dark:text-gray-300 text-xs">Result:</span>
-                                  <div class="bg-gray-200 dark:bg-gray-900 p-2 rounded overflow-x-auto max-h-64">
-                                    <pre class="text-gray-600 dark:text-gray-400 font-mono text-xs whitespace-pre" x-text="formatResult(result.result)"></pre>
-                                  </div>
-                                </div>
-                              </template>
-                            </template>
+                    <!-- Assistant response (markdown). -->
+                    <div x-show="m.role === 'assistant'" class="prose-chat">
+                      <div x-show="m.content" x-html="formatContent(m.content)"></div>
+                      <span x-show="streaming && idx === messages.length - 1 && m.content" class="inline-block w-1.5 h-3 align-text-bottom ml-0.5 bg-blue-500 dark:bg-blue-400 animate-blink"></span>
+                    </div>
+                    <!-- User message. -->
+                    <div x-show="m.role !== 'assistant' && m.role !== 'tool'"
+                         class="whitespace-pre-wrap break-words" x-text="m.content"></div>
+                    <!-- Bouncing dots while waiting for the first delta. -->
+                    <div x-show="m.role === 'assistant' && streaming && idx === messages.length - 1 && !m.content && (!m.tool_calls || m.tool_calls.length === 0)"
+                         class="flex items-center gap-2 py-2">
+                      <span class="flex gap-1">
+                        <span class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></span>
+                        <span class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay:0.1s"></span>
+                        <span class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay:0.2s"></span>
+                      </span>
+                      <span class="text-xs text-gray-400 dark:text-gray-500">thinking…</span>
+                    </div>
+
+                    <!-- Copy buttons (always visible when there's content). -->
+                    <div x-show="m.content && (!streaming || idx !== messages.length - 1)"
+                         class="flex justify-end gap-3 pt-1">
+                      <button type="button" @click="copyMessage(idx, m.content)"
+                              class="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 flex items-center gap-1 cursor-pointer">
+                        <svg x-show="copiedIdx !== idx" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h4a2 2 0 002-2M8 5a2 2 0 012-2h4a2 2 0 012 2m0 0h2a2 2 0 012 2v3" /></svg>
+                        <svg x-show="copiedIdx === idx" class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        <span x-text="copiedIdx === idx ? 'Copied' : 'Markdown'"></span>
+                      </button>
+                      <button type="button" @click="copyMessageHtml(idx, m.content)"
+                              class="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 flex items-center gap-1 cursor-pointer">
+                        <svg x-show="copiedHtmlIdx !== idx" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h4a2 2 0 002-2M8 5a2 2 0 012-2h4a2 2 0 012 2m0 0h2a2 2 0 012 2v3" /></svg>
+                        <svg x-show="copiedHtmlIdx === idx" class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        <span x-text="copiedHtmlIdx === idx ? 'Copied' : 'HTML'"></span>
+                      </button>
+                    </div>
+
+                    <!-- Approval prompt (separate section at bottom; always
+                         visible when there are pending calls, even if the
+                         tool-calls disclosure above is collapsed). -->
+                    <template x-if="m.role === 'assistant' && m.tool_calls && m.tool_calls.some(c => c.approval === 'pending')">
+                      <div class="mt-2 rounded-lg border border-gray-200 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/50 p-3">
+                        <template x-for="call in m.tool_calls.filter(c => c.approval === 'pending')" :key="call.id">
+                          <div class="space-y-2">
+                            <div class="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                              <svg class="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /></svg>
+                              Allow <code class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded font-mono" x-text="call.name"></code> to run?
+                            </div>
+                            <div x-show="call.arguments && Object.keys(call.arguments || {}).length > 0"
+                                 class="bg-white dark:bg-gray-900/50 rounded p-2 max-h-40 overflow-y-auto">
+                              <pre class="text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-pre-wrap break-words" x-text="JSON.stringify(call.arguments, null, 2)"></pre>
+                            </div>
+                            <div class="flex items-center gap-2">
+                              <button type="button" @click="approveToolCall(call, false)"
+                                      class="px-3 py-1.5 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 cursor-pointer">Allow</button>
+                              <button type="button" @click="approveToolCall(call, true)"
+                                      class="px-3 py-1.5 text-xs font-medium rounded bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800/80 cursor-pointer">Always Allow</button>
+                              <button type="button" @click="denyToolCall(call)"
+                                      class="px-3 py-1.5 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 cursor-pointer">Deny</button>
+                            </div>
                           </div>
                         </template>
                       </div>
@@ -167,128 +309,77 @@
                   </div>
                 </div>
               </template>
+            </template>
+            <!-- Jump to bottom -->
+            <div x-show="userHasScrolled" x-transition.opacity class="sticky bottom-1 flex justify-center pointer-events-none">
+              <button @click="userHasScrolled = false; scrollToBottom()" class="pointer-events-auto px-2 py-1 rounded-full bg-white dark:bg-gray-800 shadow border border-gray-200 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">Latest</button>
+            </div>
+          </div>
 
-              <!-- Tool approval section -->
-              <template
-                x-if="message.role === 'assistant' && message.fragments?.toolApprovals && message.fragments.toolApprovals.length > 0">
-                <div class="mb-3 space-y-2">
-                  <template x-for="approval in message.fragments.toolApprovals" :key="approval.request_id">
-                    <div class="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3">
-                      <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 text-blue-500 dark:text-blue-400 mt-0.5">
-                          <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                          </svg>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                          <div class="text-sm font-semibold text-gray-900 dark:text-white">Confirm tool action</div>
-                          <div class="mt-1 text-xs text-gray-700 dark:text-gray-300">
-                            Run <code class="bg-blue-100 dark:bg-blue-800 px-1.5 py-0.5 rounded font-mono" x-text="approval.tool_name"></code>
-                          </div>
-                          <div x-show="approval.arguments && Object.keys(approval.arguments || {}).length > 0" class="mt-2 bg-gray-200 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-800 overflow-x-auto max-h-32">
-                            <pre class="p-2 text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-pre" x-text="formatResult(JSON.stringify(approval.arguments || {}))"></pre>
-                          </div>
-                          <div x-show="approval.error" class="mt-2 text-xs text-red-600 dark:text-red-400" x-text="approval.error"></div>
-                          <div class="mt-3 flex items-center gap-2">
-                            <button type="button" @click="respondToolApproval(approval, true)" :disabled="approval.status !== 'pending'"
-                              class="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed">
-                              Allow
-                            </button>
-                            <button type="button" @click="respondToolApproval(approval, true, true)" :disabled="approval.status !== 'pending'"
-                              class="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-60 disabled:cursor-not-allowed">
-                              Always Allow
-                            </button>
-                            <button type="button" @click="respondToolApproval(approval, false)" :disabled="approval.status !== 'pending'"
-                              class="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 disabled:opacity-60 disabled:cursor-not-allowed">
-                              Deny
-                            </button>
-                            <span class="text-xs text-gray-500 dark:text-gray-400 capitalize" x-show="approval.status === 'approving' || approval.status === 'denying'" x-text="approval.status"></span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-                </div>
+          <!-- Composer -->
+          <div class="shrink-0 border-t border-gray-200 dark:border-gray-700 p-2 relative">
+            <!-- Slash command autocomplete dropdown -->
+            <div x-show="slashOpen && slashMatches.length > 0" x-cloak x-transition.opacity
+                 class="absolute bottom-full left-2 right-2 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+              <template x-for="(cmd, i) in slashMatches" :key="cmd.id">
+                <button type="button" @click="selectSlashCommand(cmd)" @mouseenter="slashIndex = i"
+                        class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors cursor-pointer border-none"
+                        :class="i === slashIndex ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'">
+                  <code class="text-blue-600 dark:text-blue-400 font-mono text-xs shrink-0" x-text="'/' + cmd.name"></code>
+                  <span class="text-xs text-gray-400 dark:text-gray-500 truncate flex-1" x-text="cmd.description"></span>
+                  <span x-show="cmd.argument_hint"
+                        class="text-xs text-gray-400 dark:text-gray-500 font-mono shrink-0" x-text="cmd.argument_hint"></span>
+                </button>
               </template>
-
-              <!-- Main content -->
-              <div class="prose prose-sm max-w-none dark:prose-invert">
-                <!-- Show actual content when available -->
-                <template x-if="message.fragments?.content || message.content">
-                  <div x-html="formatContent(message.fragments?.content || message.content || '')"></div>
-                </template>
-
-                <!-- Show loading dots when message is empty and loading -->
-                <template x-if="isLoading && message === messages[messages.length - 1]">
-                  <div class="flex space-x-1 py-2 mt-4" role="status" aria-label="Loading response">
-                    <span class="sr-only">Loading response&hellip;</span>
-                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" aria-hidden="true"></div>
-                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.1s]" aria-hidden="true"></div>
-                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]" aria-hidden="true"></div>
-                  </div>
-                </template>
-              </div>
+            </div>
+            <div x-show="commandHint" x-cloak class="text-xs text-gray-400 dark:text-gray-500 mb-1 px-1" x-text="commandHint"></div>
+            <div class="flex items-end gap-1.5">
+              <textarea x-ref="composer" x-model="draft"
+                        @keydown.enter="onEnter($event)"
+                        @keydown.arrow-up="onArrowUp($event)"
+                        @keydown.arrow-down="onArrowDown($event)"
+                        rows="1"
+                        placeholder="Message"
+                        class="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 max-h-32 overflow-y-auto"></textarea>
+              <button x-show="!streaming" @click="send()" :disabled="streaming || !draft.trim()"
+                      class="w-9 h-9 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white cursor-pointer shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12L18 6l-6 12-2-5-4-1z" /></svg>
+              </button>
+              <button x-show="streaming" @click="cancelStream()"
+                      class="w-9 h-9 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 text-white cursor-pointer shrink-0">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+              </button>
             </div>
           </div>
         </div>
-      </div>
-      </template>
-
+      </section>
     </div>
 
-    <!-- Input area -->
-    <div class="p-5 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-b-xl">
-      <form @submit.prevent="sendMessage()" class="flex space-x-3 items-end">
-        <textarea x-ref="messageInput" x-model="currentMessage" @input="adjustInputSize()"
-          @keydown="handleKeyDown($event)" :disabled="isLoading" :rows="inputRows" placeholder="Ask me anything..."
-          aria-label="Chat message"
-          class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none transition-all duration-200 shadow-sm caret-gray-900 dark:caret-white"></textarea>
+    <!-- Resize handles -->
+    <div @mousedown="startResize($event, 'e')" class="absolute top-0 right-0 w-1 h-full cursor-e-resize" data-no-drag></div>
+    <div @mousedown="startResize($event, 's')" class="absolute bottom-0 left-0 w-full h-1 cursor-s-resize" data-no-drag></div>
+    <div @mousedown="startResize($event, 'w')" class="absolute top-0 left-0 w-1 h-full cursor-w-resize" data-no-drag></div>
+    <div @mousedown="startResize($event, 'n')" class="absolute top-0 left-0 w-full h-1 cursor-n-resize" data-no-drag></div>
+    <div @mousedown="startResize($event, 'se')" class="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize" data-no-drag></div>
+    <div @mousedown="startResize($event, 'sw')" class="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize" data-no-drag></div>
+    <div @mousedown="startResize($event, 'ne')" class="absolute top-0 right-0 w-3 h-3 cursor-ne-resize" data-no-drag></div>
+    <div @mousedown="startResize($event, 'nw')" class="absolute top-0 left-0 w-3 h-3 cursor-nw-resize" data-no-drag></div>
 
-        <div class="flex">
-          <!-- Send Button -->
-          <button x-show="!isLoading" :disabled="!currentMessage.trim()" type="submit" aria-label="Send message"
-            class="h-[42px] px-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 transition-all duration-200 shadow-sm hover:shadow-md">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8">
-              </path>
-            </svg>
-          </button>
-
-          <!-- Stop Button -->
-          <button x-show="isLoading" @click="stopGeneration()" type="button" aria-label="Stop generation"
-            class="h-[42px] px-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 flex-shrink-0 transition-all duration-200 shadow-sm hover:shadow-md">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6h12v12H6z"></path>
-            </svg>
-          </button>
+    <!-- Delete confirmation modal -->
+    <div x-show="showDeleteChatModal" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="showDeleteChatModal = false"></div>
+      <div class="relative bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-sm w-full p-5">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Conversation</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Are you sure you want to delete this conversation? This cannot be undone.</p>
+        <div class="flex justify-end gap-2">
+          <button @click="showDeleteChatModal = false" class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer">Cancel</button>
+          <button @click="confirmDeleteChat()" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium cursor-pointer">Delete</button>
         </div>
-      </form>
+      </div>
     </div>
   </div>
+  </template>
+
 </div>
-
-{{ if eq .aiChatStyle "icon"}}
-<button @click="$store.chat.toggle()" x-show="!$store.chat.isOpen" aria-label="Open AI Assistant"
-  class="fixed bottom-4 right-4 z-40 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-colors">
-  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z">
-    </path>
-  </svg>
-</button>
-{{ end }}
-{{ if eq .aiChatStyle "avatar"}}
-<button @click="$store.chat.toggle()" x-show="!$store.chat.isOpen" aria-label="Open AI Assistant" class="fixed bottom-4 right-4 z-40">
-  <div class="ai-assistant happy">
-    <div class="shape"></div>
-    <div class="face">
-      <div class="eye left"></div>
-      <div class="eye right"></div>
-      <div class="mouth"></div>
-    </div>
-  </div>
-</button>
-{{ end }}
-
 {{ end }}
 {{ end }}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/agentapi/agentproxy"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
@@ -547,7 +548,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 	case byte(msg.CmdCodeServer):
 		if s.agentClient.withCodeServer {
-			ProxyTcp(stream, fmt.Sprintf("%d", cfg.Port.CodeServer))
+			agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", cfg.Port.CodeServer))
 		}
 
 	case byte(msg.CmdProxyTCPPort):
@@ -566,11 +567,11 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		   		} */
 
 		s.agentClient.tcpConnectionsTotal.Add(1)
-		ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
+		agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
 
 	case byte(msg.CmdProxyVNC):
 		if cfg.Port.VNCHttp > 0 {
-			ProxyTcpTls(stream, fmt.Sprintf("%d", cfg.Port.VNCHttp), "127.0.0.1", true)
+			agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", cfg.Port.VNCHttp), "127.0.0.1", true)
 		}
 
 	case byte(msg.CmdProxyHTTP):
@@ -583,10 +584,10 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		// Check if the port is allowed in the http map
 		if _, ok := s.agentClient.httpPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
 			s.agentClient.httpRequestsTotal.Add(1)
-			ProxyTcp(stream, fmt.Sprintf("%d", httpPort.Port))
+			agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", httpPort.Port))
 		} else if _, ok := s.agentClient.httpsPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
 			s.agentClient.httpRequestsTotal.Add(1)
-			ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName, true)
+			agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName, true)
 		} else {
 			log.Error("http port  is not allowed", "port", httpPort.Port)
 		}
@@ -684,6 +685,33 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 
 		handleCallMethodBatchExecution(stream, s.agentClient, batchMsg)
+
+	case byte(msg.CmdTunnelStart):
+		var tunnelCmd msg.TunnelStartRequest
+		if err := msg.ReadMessage(stream, &tunnelCmd); err != nil {
+			log.WithError(err).Error("reading tunnel start message:")
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handleTunnelStartExecution(stream, tunnelCmd, s.agentClient)
+		}
+
+	case byte(msg.CmdTunnelStop):
+		var tunnelCmd msg.TunnelStopRequest
+		if err := msg.ReadMessage(stream, &tunnelCmd); err != nil {
+			log.WithError(err).Error("reading tunnel stop message:")
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handleTunnelStopExecution(stream, tunnelCmd)
+		}
+
+	case byte(msg.CmdTunnelList):
+		if s.agentClient.withRunCommand {
+			handleTunnelListExecution(stream)
+		}
 
 	default:
 		log.Error("unknown command:", "cmd", cmd)

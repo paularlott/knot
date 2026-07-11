@@ -33,11 +33,11 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
-	"github.com/paularlott/knot/internal/toolapproval"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
+	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
@@ -45,6 +45,7 @@ import (
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/mcp"
 	ai "github.com/paularlott/mcp/ai"
+	"github.com/paularlott/lmchatkit"
 )
 
 var ServerCmd = &cli.Command{
@@ -768,6 +769,12 @@ var ServerCmd = &cli.Command{
 		// Start the SSE hub for real-time updates
 		sse.GetHub().Start()
 
+		// Sweep stale chat conversations (retention). Only on full cluster
+		// members — leaf nodes keep chat history in the browser.
+		if !cfg.LeafNode {
+			service.StartConversationRetentionSweep()
+		}
+
 		// Load roles into memory cache
 		roles, err := database.GetInstance().GetRoles()
 		if err != nil {
@@ -860,8 +867,6 @@ var ServerCmd = &cli.Command{
 		// If AI chat enabled then initialize chat service
 		// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
 		var openAIClient ai.Client
-		approvalManager := toolapproval.NewManager()
-		toolapproval.SetManager(approvalManager)
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
 
@@ -910,7 +915,7 @@ var ServerCmd = &cli.Command{
 				if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
 					scriptProvider = internal_mcp.NewScriptToolsProvider(user)
 				}
-				if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user)); mp != nil {
+				if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user)); mp != nil {
 					return mp
 				}
 				return nil
@@ -920,11 +925,54 @@ var ServerCmd = &cli.Command{
 			// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
 			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
 			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
-			routes.Handle("POST /v1/chat/tool-approvals", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(approvalManager.HandleResponse)))
 			routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
 			routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
 			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
 			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
+
+			// Mount lmchatkit UI — uses lmchatkit.StandardHost (same as
+			// llmrouter) with the LLM endpoint configured in [server.chat].
+			// StandardHost streams the raw OpenAI response via
+			// TranslateOpenAIStream, which is required because the MCP AI
+			// client suppresses tool-call delta chunks when MCP servers are
+			// present. Per-user tools are injected by AuthMiddleware.
+			chatHost := knotlmchatkit.NewHost(cfg.Chat, mcpServer, scriptToolsProvider)
+			chatAuthMiddleware := knotlmchatkit.AuthMiddleware(
+				func(next http.Handler) http.Handler {
+					return middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(next)))
+				},
+				mcpServer,
+				scriptToolsProvider,
+			)
+			chatEvents := lmchatkit.NewEventBroadcaster()
+			knotlmchatkit.SetEventBroadcaster(chatEvents)
+
+			// Server-side chat history is only enabled on full cluster members,
+			// where it replicates over gossip. Leaf nodes connect to an origin
+			// via the leaf protocol (not gossip) and chat history is not carried
+			// over that link, so on a leaf History is nil — the chat UI then
+			// probes /api/conversations, gets a 404, and falls back to browser
+			// sessionStorage for that session.
+			var historyStore lmchatkit.HistoryStore
+			if !cfg.LeafNode {
+				historyStore = knotlmchatkit.NewHistoryStore()
+			}
+
+			chatServer, err := lmchatkit.New(lmchatkit.Config{
+				Prefix:         "/chat",
+				PersonaSource:  knotlmchatkit.PersonaSource(),
+				CommandSource:  knotlmchatkit.NewCommandSource(),
+				Host:           chatHost,
+				AuthMiddleware: chatAuthMiddleware,
+				History:        historyStore,
+				Events:         chatEvents,
+			})
+			if err != nil {
+				logger.Warn("failed to initialize lmchatkit UI", "error", err)
+			} else {
+				chatServer.Mount(routes)
+				logger.Info("lmchatkit UI enabled at /chat")
+			}
 		}
 
 		// Add support for page not found
@@ -990,7 +1038,7 @@ var ServerCmd = &cli.Command{
 				if sameAddress && tunnelDomainMatch != nil && tunnelDomainMatch.MatchString(requestHost) {
 					// Route tunnel domain traffic to tunnel handlers
 					tunnelRoutes.ServeHTTP(w, r)
-				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
+				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Hostname()) {
 					appRoutes.ServeHTTP(w, r)
 				} else if wildcardMatch != nil && wildcardMatch.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
@@ -1052,9 +1100,9 @@ var ServerCmd = &cli.Command{
 					sslDomains = append(sslDomains, "localhost")
 				}
 
-				if tunnelServerUrl != nil {
-					sslDomains = append(sslDomains, tunnelServerUrl.Host)
-				}
+			if tunnelServerUrl != nil {
+				sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
+			}
 
 				// If wildcard domain given add it
 				wildcardDomain := cfg.WildcardDomain

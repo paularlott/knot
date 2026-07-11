@@ -407,10 +407,20 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 				}
 			}
 
-			// Delete volumes, log errors but don't fail the space deletion
+			// Delete volumes. If this fails, clear IsDeleting so the user
+			// can retry — orphaning volumes in Nomad is worse than leaving
+			// the space around for another attempt.
 			err = containerClient.DeleteSpaceVolumes(space)
 			if err != nil {
 				logger.WithError(err).Error("delete space volumes")
+				space.IsDeleting = false
+				space.UpdatedAt = hlc.Now()
+				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
+				if transport := service.GetTransport(); transport != nil {
+					transport.GossipSpace(space)
+				}
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+				return
 			}
 		}
 

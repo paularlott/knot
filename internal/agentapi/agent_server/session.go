@@ -43,6 +43,8 @@ type Session struct {
 	TCPRPS                float64
 	LastStateAt           time.Time
 	lastStateAtMu         sync.Mutex
+	LastPingAt            time.Time
+	lastPingAtMu          sync.Mutex
 	MuxSession            *yamux.Session
 	logger                logger.Logger
 
@@ -68,6 +70,7 @@ func NewSession(spaceId string, version string) *Session {
 		TcpPorts:          make(map[string]string, 0),
 		HttpPorts:         make(map[string]string, 0),
 		LastStateAt:       time.Now().UTC(),
+		LastPingAt:        time.Now().UTC(),
 		MuxSession:        nil,
 		LogHistoryMutex:   &sync.RWMutex{},
 		LogHistory:        make([]*msg.LogMessage, 0),
@@ -90,6 +93,34 @@ func (s *Session) SetLastStateAt(t time.Time) {
 	s.lastStateAtMu.Lock()
 	defer s.lastStateAtMu.Unlock()
 	s.LastStateAt = t
+}
+
+// GetLastPingAt returns the time of the last successful mux ping.
+func (s *Session) GetLastPingAt() time.Time {
+	s.lastPingAtMu.Lock()
+	defer s.lastPingAtMu.Unlock()
+	return s.LastPingAt
+}
+
+// SetLastPingAt records the time of the last successful mux ping.
+func (s *Session) SetLastPingAt(t time.Time) {
+	s.lastPingAtMu.Lock()
+	defer s.lastPingAtMu.Unlock()
+	s.LastPingAt = t
+}
+
+// TelemetryLive reports whether a real agent state report (CmdUpdateState) has
+// been received within the agent liveness window. A successful mux ping does
+// NOT count: the state-reporting loop and the ping responder are independent
+// goroutines, so a wedged state loop can leave a ping-alive session holding a
+// frozen last reading. Callers that want to present data as "current" (e.g. the
+// usage gauge) must check this rather than just session presence.
+func (s *Session) TelemetryLive() bool {
+	last := s.GetLastStateAt()
+	if last.IsZero() {
+		return false
+	}
+	return time.Since(last) <= AGENT_LIVENESS_TIMEOUT
 }
 
 func (s *Session) RegisterLogListener() (string, chan *msg.LogMessage) {
@@ -427,5 +458,73 @@ func (s *Session) SendPortStop(portCmd *msg.PortStopRequest) (*msg.PortStopRespo
 		return &msg.PortStopResponse{Success: false, Error: "Failed to read response from agent"}, nil
 	}
 
+	return &response, nil
+}
+
+func (s *Session) SendTunnelStart(req *msg.TunnelStartRequest) (*msg.TunnelStartResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdTunnelStart); err != nil {
+		s.logger.WithError(err).Error("writing tunnel start command:")
+		return &msg.TunnelStartResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+	if err := msg.WriteMessage(conn, req); err != nil {
+		s.logger.WithError(err).Error("writing tunnel start message:")
+		return &msg.TunnelStartResponse{Success: false, Error: "Failed to send command message to agent"}, nil
+	}
+
+	var response msg.TunnelStartResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading tunnel start response:")
+		return &msg.TunnelStartResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+	return &response, nil
+}
+
+func (s *Session) SendTunnelStop(req *msg.TunnelStopRequest) (*msg.TunnelStopResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdTunnelStop); err != nil {
+		s.logger.WithError(err).Error("writing tunnel stop command:")
+		return &msg.TunnelStopResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+	if err := msg.WriteMessage(conn, req); err != nil {
+		s.logger.WithError(err).Error("writing tunnel stop message:")
+		return &msg.TunnelStopResponse{Success: false, Error: "Failed to send command message to agent"}, nil
+	}
+
+	var response msg.TunnelStopResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading tunnel stop response:")
+		return &msg.TunnelStopResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+	return &response, nil
+}
+
+func (s *Session) SendTunnelList() (*msg.TunnelListResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdTunnelList); err != nil {
+		s.logger.WithError(err).Error("writing tunnel list command:")
+		return nil, err
+	}
+
+	var response msg.TunnelListResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading tunnel list response:")
+		return nil, err
+	}
 	return &response, nil
 }

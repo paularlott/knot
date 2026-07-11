@@ -413,6 +413,11 @@ func ApiPermissionCopyFiles(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionUseMCPServer(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionUseMCPServer, "No permission to use the MCP server")
 }
 
@@ -435,6 +440,15 @@ func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func ApiPermissionManageMCPServers(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
+	return checkPermission(next, model.PermissionManageMCPServers, "No permission to manage MCP servers")
 }
 
 // TokenScopesRequired wraps a handler with token-scope enforcement. If the

@@ -85,3 +85,32 @@ type LogRequest struct {
 	Level   byte   `json:"level" msgpack:"level"`
 	Message string `json:"message" msgpack:"message"`
 }
+
+type StartTunnelRequest struct {
+	Protocol      string `json:"protocol" msgpack:"protocol"`
+	Port          uint16 `json:"port" msgpack:"port"`
+	Name          string `json:"name" msgpack:"name"`
+	TlsName       string `json:"tls_name,omitempty" msgpack:"tls_name,omitempty"`
+	TlsSkipVerify bool   `json:"tls_skip_verify,omitempty" msgpack:"tls_skip_verify,omitempty"`
+}
+
+type StartTunnelResponse struct {
+	Success bool   `json:"success" msgpack:"success"`
+	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
+	URL     string `json:"url,omitempty" msgpack:"url,omitempty"`
+}
+
+type TunnelInfo struct {
+	Port     uint16 `json:"port" msgpack:"port"`
+	Protocol string `json:"protocol" msgpack:"protocol"`
+	Name     string `json:"name" msgpack:"name"`
+	URL      string `json:"url" msgpack:"url"`
+}
+
+type ListTunnelsResponse struct {
+	Tunnels []TunnelInfo `json:"tunnels" msgpack:"tunnels"`
+}
+
+type StopTunnelRequest struct {
+	Name string `json:"name" msgpack:"name"`
+}

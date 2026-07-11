@@ -69,6 +69,42 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		}
 	}
 
+	// Delete the user's chat conversations (tombstone + gossip so every server
+	// drops them and connected chat windows reload).
+	if conversations, err := db.GetConversationsByUser(toDelete.Id); err == nil {
+		for _, conv := range conversations {
+			conv.IsDeleted = true
+			conv.UpdatedAt = hlc.Now()
+			if err := db.SaveConversation(conv); err != nil {
+				log.Debug("delete user: failed to delete conversation", "user_id", toDelete.Id, "conversation_id", conv.Id, "error", err)
+				continue
+			}
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipConversation(conv)
+			}
+		}
+	}
+
+	// Delete the user's MCP servers
+	if mcpServers, err := db.GetMCPServersByUser(toDelete.Id); err == nil {
+		for _, server := range mcpServers {
+			if server.IsDeleted {
+				continue
+			}
+			server.Namespace = server.Id
+			server.IsDeleted = true
+			server.UpdatedUserId = toDelete.Id
+			server.UpdatedAt = hlc.Now()
+			if err := db.SaveMCPServer(server, nil); err != nil {
+				log.Debug("delete user: failed to delete MCP server", "user_id", toDelete.Id, "mcp_server_id", server.Id, "error", err)
+				continue
+			}
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipMCPServer(server)
+			}
+		}
+	}
+
 	// Delete the user
 	if !hasError {
 		log.Debug("delete user: Deleting user  from database", "delete", toDelete.Id)

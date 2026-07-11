@@ -123,6 +123,26 @@ const scriptLibraries = [
         returns: "bool - True if successful",
       },
       {
+        name: "tunnel_start",
+        signature: "tunnel_start(space, protocol, port, name)",
+        description:
+          "Start an agent-owned web tunnel in a space, exposing <port> as <user>--<name>.<domain>. Owned by the space's agent; not persisted.",
+        returns: "str - The public tunnel URL",
+      },
+      {
+        name: "tunnel_list",
+        signature: "tunnel_list(space)",
+        description: "List agent-owned web tunnels in a space",
+        returns:
+          "list - List of tunnel dicts with port, protocol, name, url",
+      },
+      {
+        name: "tunnel_stop",
+        signature: "tunnel_stop(space, name)",
+        description: "Stop an agent-owned web tunnel in a space by name",
+        returns: "bool - True if successful",
+      },
+      {
         name: "get",
         signature: "get(name)",
         description: "Get space details as a dict",

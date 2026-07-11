@@ -1,4 +1,4 @@
-package command_port
+package command_spaces
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/cli"
 )
 
-var StopCmd = &cli.Command{
+var PortStopCmd = &cli.Command{
 	Name:        "stop",
 	Usage:       "Stop a port forward",
 	Description: "Stop an active port forward by local port number.",

@@ -127,6 +127,19 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 		}
 	}
 
+	commands, err := db.GetCommands()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting commands from database:")
+	} else {
+		for _, command := range commands {
+			if command.IsManaged {
+				if err := db.DeleteCommand(command); err != nil {
+					c.logger.Error("error while deleting managed command from database:", "command", command.Name)
+				}
+			}
+		}
+	}
+
 	stackDefs, err := db.GetStackDefinitions()
 	if err != nil {
 		c.logger.WithError(err).Error("error while getting stack definitions from database:")
@@ -253,10 +266,13 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				case leafmsg.MessageGossipScript:
 					c.handleLeafGossipScript(msg)
 
-				case leafmsg.MessageGossipSkill:
-					c.handleLeafGossipSkill(msg)
+			case leafmsg.MessageGossipSkill:
+				c.handleLeafGossipSkill(msg)
 
-				case leafmsg.MessageGossipStackDefinition:
+			case leafmsg.MessageGossipCommand:
+				c.handleLeafGossipCommand(msg)
+
+			case leafmsg.MessageGossipStackDefinition:
 					c.handleLeafGossipStackDefinition(msg)
 
 				case leafmsg.MessageGossipEventSink:
@@ -405,6 +421,23 @@ func (c *Cluster) handleLeafGossipSkill(msg *leafmsg.Message) {
 
 	if err := c.mergeSkills(skills); err != nil {
 		c.logger.WithError(err).Error("error while merging skills from leaf:")
+		return
+	}
+}
+
+func (c *Cluster) handleLeafGossipCommand(msg *leafmsg.Message) {
+	commands := []*model.Command{}
+	if err := msg.UnmarshalPayload(&commands); err != nil {
+		c.logger.WithError(err).Error("error while unmarshalling leaf command message:")
+		return
+	}
+
+	for _, command := range commands {
+		command.IsManaged = true
+	}
+
+	if err := c.mergeCommands(commands); err != nil {
+		c.logger.WithError(err).Error("error while merging commands from leaf:")
 		return
 	}
 }

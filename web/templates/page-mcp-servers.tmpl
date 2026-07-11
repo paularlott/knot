@@ -1,0 +1,214 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}MCP Servers{{ end }}
+
+{{ define "mainContent" }}
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="mcpServerListComponent('{{ .user_id }}', {{ .isLeafNode }})" data-zone="{{ .zone }}">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
+
+    <div class="col-span-full">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">MCP Servers</h1>
+    </div>
+
+    <form class="app-toolbar col-span-full">
+      <div class="flex">
+        <div class="w-full sm:w-auto">
+          <label for="search" class="sr-only">Search</label>
+          <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
+            <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button @click.prevent="createServer()" class="btn-primary flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          Add Server
+        </button>
+      </div>
+    </form>
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+      {{ template "loading" . }}
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto">
+        <table aria-label="MCP Servers" class="w-full text-sm text-left rtl:text-right">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <tr>
+              <th scope="col" class="px-4 py-3">Namespace</th>
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Endpoint</th>
+              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Visibility</th>
+              <th scope="col" class="px-4 py-3">Status</th>
+              <th scope="col" class="px-4 py-3">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="s in servers" :key="s.mcp_server_id">
+              <template x-if="!s.searchHide">
+                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                  <td class="px-4 py-3">
+                    <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="s.namespace"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400" x-show="s.disabled_tools && s.disabled_tools.length" x-text="(s.disabled_tools || []).length + ' tools disabled'"></div>
+                  </td>
+                  <td class="px-4 py-3 align-middle hidden md:table-cell">
+                    <template x-if="s.command">
+                      <div class="flex items-center gap-1">
+                        <span class="app-badge-info">stdio</span>
+                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400" x-text="s.command"></span>
+                      </div>
+                    </template>
+                    <template x-if="!s.command && s.url">
+                      <div class="flex items-center gap-1">
+                        <span class="app-badge-success">http</span>
+                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400 truncate max-w-xs" x-text="s.url"></span>
+                      </div>
+                    </template>
+                  </td>
+                  <td class="px-4 py-3 align-middle hidden sm:table-cell">
+                    <span x-show="s.tool_visibility === 'native' || !s.tool_visibility" class="app-badge-info">Native</span>
+                    <span x-show="s.tool_visibility === 'ondemand' || s.tool_visibility === 'discoverable'" class="app-badge-warning">Discoverable</span>
+                  </td>
+                  <td class="px-4 py-3 align-middle">
+                    <span x-show="s.enabled" class="app-badge-success">Enabled</span>
+                    <span x-show="!s.enabled" class="app-badge-neutral">Disabled</span>
+                  </td>
+                  <td class="px-4 py-3 align-middle">
+                    <div class="flex items-center justify-end" x-data>
+                      <div class="flex items-center justify-end gap-2" x-show="canEdit(s)">
+                        <button @click="openTools(s)" x-show="s.enabled" x-cloak class="row-action-button" type="button" :aria-label="'Manage tools for ' + s.namespace" title="Tools">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
+                          </svg>
+                          <span class="sr-only">Tools</span>
+                        </button>
+                        <button @click="editServer(s.mcp_server_id)" class="row-action-button" type="button" :aria-label="'Edit server ' + s.namespace" title="Edit">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                          </svg>
+                          <span class="sr-only">Edit</span>
+                        </button>
+                        <template x-if="canDelete(s)">
+                          <button @click="deleteConfirm.show = true; deleteConfirm.server = s" class="row-action-button row-action-danger" type="button" :aria-label="'Delete server ' + s.namespace" title="Delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                            <span class="sr-only">Delete</span>
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+      <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+        <div class="ui-modal-header">
+          <div class="ui-modal-icon-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+          </div>
+          <h3 id="deleteConfirmTitle" class="ui-modal-title">Confirm Delete</h3>
+          <button @click="deleteConfirm.show = false" aria-label="close modal" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="ui-modal-body text-center">
+          <p>Are you sure you want to delete the MCP server <strong x-text="deleteConfirm.server.namespace"></strong>?</p>
+        </div>
+        <div class="ui-modal-footer">
+          <button @click="deleteConfirm.show = false" type="button" class="ui-button-secondary">Keep Server</button>
+          <button @click="deleteServer(deleteConfirm.server.mcp_server_id); deleteConfirm.show = false" type="button" class="ui-button-danger">Delete Server</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit/Create Modal -->
+    <div x-cloak x-show="serverFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="serverFormModal.show" @keydown.esc.window="serverFormModal.show = false" @close-mcp-server-form.window="serverFormModal.show = false; getServers()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="serverModalTitle">
+      <div x-show="serverFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide">
+        <div class="ui-modal-header">
+          <div class="ui-modal-icon-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 17.25v-.228a4.5 4.5 0 0 0-.12-1.03l-2.268-9.64a3.375 3.375 0 0 0-3.285-2.602H7.923a3.375 3.375 0 0 0-3.285 2.602l-2.268 9.64a4.5 4.5 0 0 0-.12 1.03v.228m19.5 0a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3m19.5 0a3 3 0 0 0-3-3H5.25a3 3 0 0 0-3 3" />
+            </svg>
+          </div>
+          <h3 id="serverModalTitle" class="ui-modal-title" x-text="serverFormModal.isEdit ? 'Edit MCP Server' : 'Create MCP Server'"></h3>
+          <button @click="serverFormModal.show = false" aria-label="close modal" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="ui-modal-body-scroll max-h-[70vh] relative">
+          <template x-if="serverFormModal.show">
+            {{ template "mcp-server-form-content" . }}
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tools Modal -->
+    <div x-cloak x-show="toolsModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="toolsModal.show" @keydown.esc.window="toolsModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="toolsModalTitle">
+      <div x-show="toolsModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide">
+        <div class="ui-modal-header">
+          <div class="ui-modal-icon-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
+            </svg>
+          </div>
+          <h3 id="toolsModalTitle" class="ui-modal-title">Tools — <span x-text="toolsModal.namespace"></span></h3>
+          <button @click="toolsModal.show = false" aria-label="close modal" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="ui-modal-body-scroll max-h-[70vh] relative">
+          <div x-show="toolsModal.loading" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-8 justify-center">
+            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-400"></div>
+            Loading tools from remote server...
+          </div>
+          <div x-show="toolsModal.error && !toolsModal.loading" x-cloak class="text-sm text-gray-500 dark:text-gray-400 py-8 text-center" x-text="toolsModal.error"></div>
+          <div x-show="!toolsModal.loading && !toolsModal.error && toolsModal.tools.length > 0" x-cloak class="space-y-3">
+            <div class="flex justify-end">
+              <button type="button" @click="toggleAllTools(toolsModal.tools.every(t => t.enabled))" class="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer">
+                <span x-show="toolsModal.tools.every(t => t.enabled)">Disable All</span>
+                <span x-show="!toolsModal.tools.every(t => t.enabled)">Enable All</span>
+              </button>
+            </div>
+            <template x-for="tool in toolsModal.tools" :key="tool.name">
+              <div class="flex items-start justify-between gap-3 py-1">
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-medium text-gray-900 dark:text-white" x-text="tool.name"></div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400 break-words" x-text="tool.description"></div>
+                </div>
+                <label class="flex items-center cursor-pointer shrink-0 mt-0.5">
+                  <input type="checkbox" class="sr-only peer" :checked="tool.enabled" @change="toggleToolModal(tool, $event.target.checked)">
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                </label>
+              </div>
+            </template>
+          </div>
+          <div x-show="!toolsModal.loading && !toolsModal.error && toolsModal.tools.length === 0" x-cloak class="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
+            No tools available. Ensure the server is enabled and reachable.
+          </div>
+          <div class="form-actions">
+            <button @click="toolsModal.show = false" type="button" class="form-cancel">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+{{ end }}

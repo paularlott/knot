@@ -50,6 +50,9 @@ const (
 	PermissionUsePools                         // Can use space pools
 	PermissionManageEvents                     // Can Manage Own Event Sinks
 	PermissionManageGlobalEvents               // Can Manage Global Event Sinks
+	PermissionManageGlobalSlashCommands        // Can Manage Global Slash Commands
+	PermissionManageOwnSlashCommands           // Can Manage Own Slash Commands
+	PermissionManageMCPServers                 // Can Manage MCP Servers
 )
 
 type PermissionName struct {
@@ -86,6 +89,11 @@ var PermissionNames = []PermissionName{
 
 	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
 	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
+
+	{PermissionManageGlobalSlashCommands, "Slash Commands", "Manage Global Slash Commands"},
+	{PermissionManageOwnSlashCommands, "Slash Commands", "Manage Own Slash Commands"},
+
+	{PermissionManageMCPServers, "AI Tools", "Manage MCP Servers"},
 
 	{PermissionManageStackDefinitions, "Stacks", "Manage Global Stack Definitions"},
 	{PermissionManageOwnStackDefinitions, "Stacks", "Manage Own Stack Definitions"},
@@ -174,6 +182,9 @@ func SetRoleCache(roles []*Role) {
 			PermissionExecuteOwnScripts,
 			PermissionManageGlobalSkills,
 			PermissionManageOwnSkills,
+			PermissionManageGlobalSlashCommands,
+			PermissionManageOwnSlashCommands,
+			PermissionManageMCPServers,
 			PermissionManageStackDefinitions,
 			PermissionManageOwnStackDefinitions,
 			PermissionUseStackDefinitions,

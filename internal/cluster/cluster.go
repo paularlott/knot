@@ -161,6 +161,8 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(ScriptGossipMsg, cluster.handleScriptGossip)
 		cluster.gossipCluster.HandleFuncWithReply(SkillFullSyncMsg, cluster.handleSkillFullSync)
 		cluster.gossipCluster.HandleFunc(SkillGossipMsg, cluster.handleSkillGossip)
+		cluster.gossipCluster.HandleFuncWithReply(CommandFullSyncMsg, cluster.handleCommandFullSync)
+		cluster.gossipCluster.HandleFunc(CommandGossipMsg, cluster.handleCommandGossip)
 		cluster.gossipCluster.HandleFuncWithReply(StackDefinitionFullSyncMsg, cluster.handleStackDefinitionFullSync)
 		cluster.gossipCluster.HandleFunc(StackDefinitionGossipMsg, cluster.handleStackDefinitionGossip)
 		cluster.gossipCluster.HandleFuncWithReply(ResponseFullSyncMsg, cluster.handleResponseFullSync)
@@ -175,6 +177,10 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(EventBroadcastMsg, cluster.handleEventBroadcast)
 		cluster.gossipCluster.HandleFunc(EventDoneMsg, cluster.handleEventDone)
 		cluster.gossipCluster.HandleFunc(InFlightStateMsg, cluster.handleInFlightState)
+		cluster.gossipCluster.HandleFuncWithReply(ConversationFullSyncMsg, cluster.handleConversationFullSync)
+		cluster.gossipCluster.HandleFunc(ConversationGossipMsg, cluster.handleConversationGossip)
+		cluster.gossipCluster.HandleFuncWithReply(MCPServerFullSyncMsg, cluster.handleMCPServerFullSync)
+		cluster.gossipCluster.HandleFunc(MCPServerGossipMsg, cluster.handleMCPServerGossip)
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
@@ -182,7 +188,6 @@ func NewCluster(
 
 		cluster.gossipCluster.HandleFuncWithReply(ResourceLockMsg, cluster.handleResourceLock)
 		cluster.gossipCluster.HandleFunc(ResourceUnlockMsg, cluster.handleResourceUnlock)
-		cluster.gossipCluster.HandleFuncWithReply(ToolApprovalResponseMsg, cluster.handleToolApprovalResponse)
 
 		// Capture server state changes and maintain a list of nodes in our zone
 		cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
@@ -207,12 +212,15 @@ func NewCluster(
 			cluster.gossipResourceLocks()
 			cluster.gossipScripts()
 			cluster.gossipSkills()
+			cluster.gossipCommands()
 			cluster.gossipStackDefinitions()
 			cluster.gossipResponses()
 			cluster.gossipSpaceUsage()
 			cluster.gossipPoolDefinitions()
 			cluster.gossipEventSinks()
 			cluster.gossipInFlight()
+			cluster.gossipConversations()
+			cluster.gossipMCPServers()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -411,11 +419,15 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						c.logger.WithError(err).Error("failed to sync scripts with node")
 					}
 
-					if err := c.DoSkillFullSync(node); err != nil {
-						c.logger.WithError(err).Error("failed to sync skills with node")
-					}
+				if err := c.DoSkillFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync skills with node")
+				}
 
-					if err := c.DoStackDefinitionFullSync(node); err != nil {
+				if err := c.DoCommandFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync commands with node")
+				}
+
+				if err := c.DoStackDefinitionFullSync(node); err != nil {
 						c.logger.WithError(err).Error("failed to sync stack definitions with node")
 					}
 
@@ -431,11 +443,19 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						c.logger.WithError(err).Error("failed to sync pool definitions with node")
 					}
 
-					if err := c.DoEventSinkFullSync(node); err != nil {
-						c.logger.WithError(err).Error("failed to sync event sinks with node")
-					}
+				if err := c.DoEventSinkFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync event sinks with node")
+				}
 
-					if c.sessionGossip {
+				if err := c.DoConversationFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync conversations with node")
+				}
+
+				if err := c.DoMCPServerFullSync(node); err != nil {
+					c.logger.WithError(err).Error("failed to sync MCP servers with node")
+				}
+
+				if c.sessionGossip {
 						if err := c.DoSessionFullSync(node); err != nil {
 							c.logger.WithError(err).Error("failed to sync sessions with node")
 						}

@@ -79,6 +79,16 @@ const (
 	AuditEventSkillUpdate = "Skill Update"
 	AuditEventSkillDelete = "Skill Delete"
 
+	// Slash Commands
+	AuditEventSlashCommandCreate = "Slash Command Create"
+	AuditEventSlashCommandUpdate = "Slash Command Update"
+	AuditEventSlashCommandDelete = "Slash Command Delete"
+
+	// MCP Servers
+	AuditEventMCPServerCreate = "MCP Server Create"
+	AuditEventMCPServerUpdate = "MCP Server Update"
+	AuditEventMCPServerDelete = "MCP Server Delete"
+
 	// Stack Definitions
 	AuditEventStackDefCreate = "Stack Definition Create"
 	AuditEventStackDefUpdate = "Stack Definition Update"

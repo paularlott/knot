@@ -80,9 +80,12 @@ func (f *fakeTransport) GossipAuditLog(*model.AuditLogEntry)           {}
 func (f *fakeTransport) GossipSession(*model.Session)                  {}
 func (f *fakeTransport) GossipScript(*model.Script)                    {}
 func (f *fakeTransport) GossipSkill(*model.Skill)                      {}
+func (f *fakeTransport) GossipCommand(*model.Command)                  {}
 func (f *fakeTransport) GossipEventSink(*model.EventSink)              {}
 func (f *fakeTransport) GossipStackDefinition(*model.StackDefinition)  {}
 func (f *fakeTransport) GossipResponse(*model.Response)                {}
+func (f *fakeTransport) GossipConversation(*model.Conversation)        {}
+func (f *fakeTransport) GossipMCPServer(*model.MCPServer)              {}
 func (f *fakeTransport) GossipPoolDefinition(*model.PoolDefinition)    {}
 func (f *fakeTransport) GetAgentEndpoints() []string                  { return nil }
 func (f *fakeTransport) GetTunnelServers() []string                   { return nil }

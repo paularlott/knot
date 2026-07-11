@@ -1,0 +1,144 @@
+{{ define "mcp-server-form-content" }}
+<div x-data="mcpServerForm(serverFormModal.isEdit, serverFormModal.serverId)" x-init="initData()">
+  {{ template "loading" . }}
+  <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData(false)">
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
+      <div class="space-y-6">
+        <div>
+          <label for="namespace" class="form-label">Namespace</label>
+          <input type="text" id="namespace" x-model="formData.namespace" class="form-field" placeholder="e.g. github, filesystem">
+          <div class="description">Unique name used as a tool name prefix (e.g. <code>namespace.tool_name</code>).</div>
+        </div>
+
+        <div>
+          <label class="form-label">Transport Type</label>
+          <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+            <template x-for="transport in ['HTTP(S)', 'Stdio']" :key="transport">
+              <label class="relative">
+                <input
+                  type="radio"
+                  name="transport"
+                  :value="transport === 'HTTP(S)' ? 'http' : 'stdio'"
+                  x-model="transportType"
+                  class="sr-only peer"
+                >
+                <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                  peer-checked:bg-blue-600 peer-checked:text-white
+                  peer-focus:ring-2 peer-focus:ring-blue-300
+                  transition-colors duration-200 ease-in-out
+                  text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                  hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                  <span x-text="transport"></span>
+                </div>
+              </label>
+            </template>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- HTTP Fields -->
+    <template x-if="transportType === 'http'">
+      <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">HTTP Connection</legend>
+        <div class="space-y-6">
+          <div>
+            <label for="url" class="form-label">URL</label>
+            <input type="url" id="url" x-model="formData.url" class="form-field" placeholder="https://mcp-server.example.com">
+          </div>
+          <div>
+            <label for="auth_type" class="form-label">Authentication</label>
+            <select id="auth_type" x-model="formData.auth_type" class="form-field">
+              <option value="">None</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="oauth2">OAuth2</option>
+            </select>
+          </div>
+          <template x-if="formData.auth_type === 'bearer'">
+            <div>
+              <label for="token" class="form-label">Bearer Token</label>
+              <input type="password" id="token" x-model="formData.token" class="form-field" placeholder="Token">
+            </div>
+          </template>
+          <template x-if="formData.auth_type === 'oauth2'">
+            <div class="space-y-6">
+              <div>
+                <label for="oauth_client_id" class="form-label">OAuth2 Client ID</label>
+                <input type="text" id="oauth_client_id" x-model="formData.oauth_client_id" class="form-field">
+              </div>
+              <div>
+                <label for="oauth_token_url" class="form-label">OAuth2 Token URL</label>
+                <input type="url" id="oauth_token_url" x-model="formData.oauth_token_url" class="form-field">
+              </div>
+              <div>
+                <label for="oauth_access_token" class="form-label">OAuth2 Access Token</label>
+                <input type="password" id="oauth_access_token" x-model="formData.oauth_access_token" class="form-field">
+              </div>
+              <div>
+                <label for="oauth_refresh_token" class="form-label">OAuth2 Refresh Token</label>
+                <input type="password" id="oauth_refresh_token" x-model="formData.oauth_refresh_token" class="form-field">
+              </div>
+            </div>
+          </template>
+        </div>
+      </fieldset>
+    </template>
+
+    <!-- Stdio Fields -->
+    <template x-if="transportType === 'stdio'">
+      <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Stdio Process</legend>
+        <div class="space-y-6">
+          <div>
+            <label for="command" class="form-label">Command</label>
+            <input type="text" id="command" x-model="formData.command" class="form-field" placeholder="e.g. npx, python, /usr/local/bin/mcp-server">
+          </div>
+          <div>
+            <label for="args" class="form-label">Arguments</label>
+            <input type="text" id="args" x-model="argsText" class="form-field" placeholder="space-separated arguments">
+            <div class="description">Separate arguments with spaces. Quote arguments containing spaces.</div>
+          </div>
+        </div>
+      </fieldset>
+    </template>
+
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Options</legend>
+      <div class="space-y-6">
+        <div>
+          <label class="form-label">Tool Visibility</label>
+          <select id="tool_visibility" x-model="formData.tool_visibility" class="form-field">
+            <option value="native">Native (tools visible in tools/list)</option>
+            <option value="discoverable">Discoverable (tools only via tool_search)</option>
+          </select>
+        </div>
+        <div>
+          <label class="flex items-center cursor-pointer mb-2">
+            <input type="checkbox" class="sr-only peer" x-model="formData.enabled">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Enabled</span>
+          </label>
+          <div class="description">Only enabled servers provide tools to AI assistants.</div>
+        </div>
+        <div>
+          <label class="flex items-center cursor-pointer mb-2">
+            <input type="checkbox" class="sr-only peer" x-model="formData.remote_search">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Delegate tool_search</span>
+          </label>
+          <div class="description">Forward tool_search calls to this remote server.</div>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="form-actions">
+      <button type="button" @click="serverFormModal.show = false" class="form-cancel" x-text="isEdit ? 'Discard' : 'Cancel'"></button>
+      <div class="flex gap-2">
+        <button type="button" @click="submitData(true)" class="btn-secondary" :disabled="loading" x-text="isEdit ? 'Save & Edit' : 'Create & Edit'"></button>
+        <button type="button" @click="submitData(false)" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
+      </div>
+    </div>
+  </form>
+</div>
+{{ end }}

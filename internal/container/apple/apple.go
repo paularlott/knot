@@ -50,8 +50,10 @@ type jobSpec struct {
 }
 
 type containerInspect struct {
-	ID     string `json:"ID"`
-	Status string `json:"status"`
+	ID     string `json:"id"`
+	Status struct {
+		State string `json:"state"`
+	} `json:"status"`
 }
 
 type appleListContainer struct {
@@ -139,7 +141,9 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		return err
 	}
 
-	service.GetTransport().GossipSpace(space)
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
@@ -269,7 +273,7 @@ func (c *AppleClient) removeStoppedContainerByName(ctx context.Context, name str
 	if err != nil {
 		return err
 	}
-	if len(inspectData) > 0 && inspectData[0].Status == "running" {
+	if len(inspectData) > 0 && inspectData[0].Status.State == "running" {
 		return fmt.Errorf("container %s already exists and is running", name)
 	}
 
@@ -300,7 +304,9 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		return err
 	}
 
-	service.GetTransport().GossipSpace(space)
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
@@ -367,13 +373,13 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 				return
 			}
 
-			var inspectData []containerInspect
-			if err := json.Unmarshal(output, &inspectData); err != nil {
-				c.logger.Error("parsing inspect output error", "space_containerid", containerRef)
+			inspectData, err := parseAppleContainerInspect(output)
+			if err != nil {
+				c.logger.Error("parsing inspect output error", "space_containerid", containerRef, "error", err)
 				return
 			}
 
-			if len(inspectData) == 0 || inspectData[0].Status != "running" {
+			if len(inspectData) == 0 || inspectData[0].Status.State != "running" {
 				break
 			}
 
@@ -529,6 +535,7 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}
 
+	var cleanupErr error
 	for volName, data := range space.VolumeData {
 		if data.Type == container.ManagedPathType {
 			if requiredPaths[volName] {
@@ -536,7 +543,11 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 			}
 			c.logger.Debug("deleting path", "path", volName)
 			if err := container.DeleteManagedPath(data.Id); err != nil {
-				return err
+				c.logger.WithError(err).Error("deleting managed path", "path", volName)
+				if cleanupErr == nil {
+					cleanupErr = err
+				}
+				continue
 			}
 			delete(space.VolumeData, volName)
 			continue
@@ -547,9 +558,12 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 
 			cmd := exec.Command("container", "volume", "rm", volName)
 			output, err := cmd.CombinedOutput()
-			if err != nil {
-				c.logger.Error("deleting volume error, output:", "volname", volName, "output", string(output))
-				return err
+			if err != nil && !strings.Contains(string(output), "not found") {
+				c.logger.WithError(err).Error("deleting volume error", "volname", volName, "output", string(output))
+				if cleanupErr == nil {
+					cleanupErr = err
+				}
+				continue
 			}
 
 			delete(space.VolumeData, volName)
@@ -558,7 +572,7 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 
 	c.logger.Debug("volumes checked")
 
-	return nil
+	return cleanupErr
 }
 
 func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
@@ -574,15 +588,22 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	defer func() {
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
+	var firstErr error
 	for volName, data := range space.VolumeData {
 		if data.Type == container.ManagedPathType {
 			c.logger.Debug("deleting path", "path", volName)
 			if err := container.DeleteManagedPath(data.Id); err != nil {
-				return err
+				c.logger.WithError(err).Error("deleting managed path", "path", volName)
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
 			}
 			delete(space.VolumeData, volName)
 			continue
@@ -593,8 +614,11 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 		cmd := exec.Command("container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
 		if err != nil && !strings.Contains(string(output), "not found") {
-			c.logger.Error("deleting volume error, output:", "volname", volName, "output", string(output))
-			return err
+			c.logger.WithError(err).Error("deleting volume error", "volname", volName, "output", string(output))
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 
 		delete(space.VolumeData, volName)
@@ -602,7 +626,7 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	c.logger.Debug("volumes deleted")
 
-	return nil
+	return firstErr
 }
 
 func isIgnorableAppleCleanupOutput(output string) bool {
@@ -651,12 +675,12 @@ func (c *AppleClient) CleanupSpaceArtifacts(space *model.Space) error {
 				return appleCleanupError("inspect migrated space container", containerRef, err, output)
 			}
 
-			var inspectData []containerInspect
-			if err := json.Unmarshal(output, &inspectData); err != nil {
+			inspectData, err := parseAppleContainerInspect(output)
+			if err != nil {
 				return err
 			}
 
-			if len(inspectData) == 0 || inspectData[0].Status != "running" {
+			if len(inspectData) == 0 || inspectData[0].Status.State != "running" {
 				break
 			}
 
@@ -728,7 +752,7 @@ func (c *AppleClient) StopSpaceRuntime(space *model.Space) error {
 			return err
 		}
 
-		if len(inspectData) == 0 || inspectData[0].Status != "running" {
+		if len(inspectData) == 0 || inspectData[0].Status.State != "running" {
 			break
 		}
 

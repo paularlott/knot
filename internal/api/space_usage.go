@@ -36,7 +36,13 @@ func HandleGetSpaceUsageCurrent(w http.ResponseWriter, r *http.Request) {
 				DiskUsedBytes:    state.DiskUsedBytes,
 				DiskLimitBytes:   state.DiskLimitBytes,
 			}
-			isLive = true
+			// Only present the reading as live if a real state report has
+			// arrived within the liveness window. A wedged state-report loop
+			// can leave a ping-alive session holding a frozen last value (e.g.
+			// a stuck 99.9%); don't show that as current data. The last-known
+			// values are still returned so callers can inspect them, but
+			// is_live=false signals they are stale.
+			isLive = state.TelemetryLive()
 		}
 	}
 

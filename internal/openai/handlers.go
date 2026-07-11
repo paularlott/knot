@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/paularlott/knot/internal/database/model"
 	internalmcp "github.com/paularlott/knot/internal/mcp"
@@ -13,10 +12,6 @@ import (
 
 	"github.com/paularlott/knot/internal/log"
 )
-
-func isWebChatRequest(r *http.Request) bool {
-	return strings.EqualFold(r.Header.Get("X-Knot-Web-Chat"), "true")
-}
 
 type Service struct {
 	client       AIClient
@@ -104,9 +99,6 @@ func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.Resp
 		log.Debug("Failed to write tool event", "error", err, "event", eventType, "tool", toolName)
 	})
 	ctx = mcpopenai.WithToolHandler(ctx, toolHandler)
-	if isWebChatRequest(r) {
-		ctx = mcpopenai.WithSSEEventWriter(ctx, streamWriter)
-	}
 
 	stream := s.client.StreamChatCompletion(ctx, req)
 	for stream.Next() {

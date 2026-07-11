@@ -147,6 +147,22 @@ func PublishSkillsDeleted(skillId string) {
 	})
 }
 
+// PublishSlashCommandsChanged notifies clients that a slash command has changed
+func PublishSlashCommandsChanged(commandId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSlashCommandsChanged,
+		Payload: ResourcePayload{Id: commandId},
+	})
+}
+
+// PublishSlashCommandsDeleted notifies clients that a slash command was deleted
+func PublishSlashCommandsDeleted(commandId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSlashCommandsDeleted,
+		Payload: ResourcePayload{Id: commandId},
+	})
+}
+
 // PublishStackDefinitionsChanged notifies clients that a stack definition has changed
 func PublishStackDefinitionsChanged(defId string) {
 	GetHub().Broadcast(&Event{
@@ -160,6 +176,22 @@ func PublishStackDefinitionsDeleted(defId string) {
 	GetHub().Broadcast(&Event{
 		Type:    EventStackDefinitionsDeleted,
 		Payload: ResourcePayload{Id: defId},
+	})
+}
+
+// PublishMCPServersChanged notifies clients that an MCP server has changed
+func PublishMCPServersChanged(serverId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventMCPServersChanged,
+		Payload: ResourcePayload{Id: serverId},
+	})
+}
+
+// PublishMCPServersDeleted notifies clients that an MCP server was deleted
+func PublishMCPServersDeleted(serverId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventMCPServersDeleted,
+		Payload: ResourcePayload{Id: serverId},
 	})
 }
 
@@ -251,5 +283,24 @@ func PublishPoolDeleted(poolId string) {
 	GetHub().Broadcast(&Event{
 		Type:    EventPoolDeleted,
 		Payload: ResourcePayload{Id: poolId},
+	})
+}
+
+// PublishTunnelsChanged notifies clients that a tunnel was created. The tunnel
+// list is per-user (served from the local in-memory session map), so clients
+// re-fetch /api/tunnels on receipt.
+func PublishTunnelsChanged(userId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventTunnelsChanged,
+		Payload: ResourcePayload{UserId: userId},
+	})
+}
+
+// PublishTunnelsDeleted notifies clients that a tunnel was removed. tunnelName
+// is the <user>--<name> identifier matching the "name" field in /api/tunnels.
+func PublishTunnelsDeleted(tunnelName, userId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventTunnelsDeleted,
+		Payload: ResourcePayload{Id: tunnelName, UserId: userId},
 	})
 }

@@ -58,6 +58,63 @@ func TestNormalizeContainerReference(t *testing.T) {
 	}
 }
 
+func TestParseAppleContainerInspect(t *testing.T) {
+	stoppedOutput := []byte(`[
+  {
+    "configuration" : { "id" : "knot-containers" },
+    "id" : "knot-containers",
+    "status" : { "networks" : [], "state" : "stopped" }
+  }
+]`)
+
+	runningOutput := []byte(`[
+  {
+    "id" : "abc123",
+    "status" : { "state" : "running" }
+  }
+]`)
+
+	t.Run("array with stopped container", func(t *testing.T) {
+		data, err := parseAppleContainerInspect(stoppedOutput)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(data) != 1 {
+			t.Fatalf("expected 1 container, got %d", len(data))
+		}
+		if data[0].ID != "knot-containers" {
+			t.Errorf("expected ID knot-containers, got %s", data[0].ID)
+		}
+		if data[0].Status.State != "stopped" {
+			t.Errorf("expected state stopped, got %s", data[0].Status.State)
+		}
+	})
+
+	t.Run("array with running container", func(t *testing.T) {
+		data, err := parseAppleContainerInspect(runningOutput)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(data) != 1 {
+			t.Fatalf("expected 1 container, got %d", len(data))
+		}
+		if data[0].Status.State != "running" {
+			t.Errorf("expected state running, got %s", data[0].Status.State)
+		}
+	})
+
+	t.Run("single object", func(t *testing.T) {
+		single := []byte(`{ "id" : "x", "status" : { "state" : "stopped" } }`)
+		data, err := parseAppleContainerInspect(single)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(data) != 1 || data[0].Status.State != "stopped" {
+			t.Fatalf("unexpected result: %+v", data)
+		}
+	})
+}
+
 func TestIsIgnorableAppleCleanupOutput(t *testing.T) {
 	tests := []struct {
 		name string

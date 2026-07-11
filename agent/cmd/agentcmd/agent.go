@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
+	"github.com/paularlott/knot/internal/agenttunnel"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/methods"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
@@ -246,6 +247,7 @@ var agentServerCmd = &cli.Command{
 		// Block until we receive our signal.
 		<-c
 
+		agenttunnel.StopAll()
 		agentlink.StopCommandSocket()
 		agentlink.SetMethodsScriptRunner(nil)
 		agentClient.Shutdown()

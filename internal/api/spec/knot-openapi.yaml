@@ -49,6 +49,11 @@ tags:
   - name: Stack Definitions
     description: |
       Operations for working with stack definitions (reusable space blueprints).
+  - name: MCP Servers
+    description: |
+      Operations for working with per-user MCP (Model Context Protocol) server configurations.
+      MCP servers provide tools to AI assistants. Each user can configure their own set of
+      HTTP(S) or stdio MCP servers with native or discoverable tool visibility.
 paths:
   /v1/models:
     get:
@@ -104,13 +109,6 @@ paths:
             type: string
             default: "2025-03-10"
           description: API version
-        - name: X-Knot-Web-Chat
-          in: header
-          required: false
-          schema:
-            type: string
-            enum: ["true"]
-          description: Internal browser chat marker. When set to `true` on a streaming request, write-capable tools may emit `tool_approval` comments and wait for browser approval before running.
       requestBody:
         required: true
         content:
@@ -144,47 +142,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ChatCompletionResponse"
             text/event-stream:
-              schema:
-                type: string
-                description: Server-Sent Events stream with tool status and tool approval comments
+               schema:
+                 type: string
+                 description: Server-Sent Events stream with tool status events
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
           $ref: "#/components/responses/unauthorized"
-      security: [BearerAuth: []]
-
-  /v1/chat/tool-approvals:
-    post:
-      tags:
-        - OpenAI
-      summary: Respond to Tool Approval
-      description: Approve or deny a pending write-capable tool call emitted by the streaming web chat interface. Approvals are tracked in memory on the originating Knot instance; if this request reaches another instance in the cluster, it is forwarded to the origin over gossip using the `instance_id`.
-      operationId: respondToolApproval
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ToolApprovalRequest"
-      responses:
-        "200":
-          description: Approval response accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ToolApprovalResponse"
-        "400":
-          $ref: "#/components/responses/bad-request"
-        "401":
-          $ref: "#/components/responses/unauthorized"
-        "404":
-          $ref: "#/components/responses/not-found"
-        "502":
-          description: Failed to forward the approval response to the originating Knot instance
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/error"
       security: [BearerAuth: []]
 
   /api/auth/using-totp:
@@ -2492,6 +2456,120 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /space-io/{space_id}/tunnel/start:
+    post:
+      summary: Start a web tunnel in a space
+      description: |
+        Start an agent-owned web tunnel inside a space, exposing a port on the
+        internet as <user>--<name>.<domain>. The tunnel is owned by the space's
+        agent and runs until the agent exits or the tunnel is stopped; it is not
+        persisted. Requires the space to be running.
+      operationId: tunnelStart
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceTunnelStartRequest"
+      responses:
+        "200":
+          description: Tunnel start result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceTunnelStartResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/tunnel/list:
+    get:
+      summary: List web tunnels in a space
+      description: List the agent-owned web tunnels active in a space.
+      operationId: tunnelList
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      responses:
+        "200":
+          description: List of active web tunnels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceTunnelListResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/tunnel/stop:
+    post:
+      summary: Stop a web tunnel in a space
+      description: Stop an agent-owned web tunnel in a space by name.
+      operationId: tunnelStop
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceTunnelStopRequest"
+      responses:
+        "200":
+          description: Tunnel stopped successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/templates:
     get:
       summary: Get Templates
@@ -4661,6 +4739,236 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/mcp-servers:
+    get:
+      summary: List MCP Servers
+      description: |
+        Get a list of MCP server configurations accessible to the user.
+        Non-admin users see only their own servers. Users with the
+        `manage_mcp_servers` permission can view all servers or filter by user.
+        On leaf nodes, permission checks are bypassed.
+      tags:
+        - MCP Servers
+      operationId: listMCPServers
+      parameters:
+        - name: user_id
+          in: query
+          description: Filter by user ID. Use "current" for the current user. Only admins can query other users.
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  servers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MCPServerInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      summary: Create MCP Server
+      description: |
+        Create a new per-user MCP server configuration. Supports HTTP(S) URL-based
+        servers or stdio servers launched as subprocesses. Requires the
+        `manage_mcp_servers` permission (bypassed on leaf nodes).
+      tags:
+        - MCP Servers
+      operationId: createMCPServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MCPServerCreateRequest"
+      responses:
+        "201":
+          description: MCP server created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  mcp_server_id:
+                    type: string
+                    format: uuid
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "409":
+          description: MCP server with this namespace already exists for the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/mcp-servers/{mcp_server_id}:
+    get:
+      summary: Get MCP Server
+      description: Get details of a specific MCP server configuration by ID.
+      tags:
+        - MCP Servers
+      operationId: getMCPServer
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MCPServerDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    put:
+      summary: Update MCP Server
+      description: Update an existing MCP server configuration. Cannot update managed servers.
+      tags:
+        - MCP Servers
+      operationId: updateMCPServer
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MCPServerUpdateRequest"
+      responses:
+        "200":
+          description: MCP server updated successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: MCP server with this namespace already exists for the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      summary: Delete MCP Server
+      description: Soft delete an MCP server configuration. Cannot delete managed servers.
+      tags:
+        - MCP Servers
+      operationId: deleteMCPServer
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      responses:
+        "200":
+          description: MCP server deleted successfully
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/mcp-servers/{mcp_server_id}/toggle-tool:
+    post:
+      summary: Toggle Tool Enabled State
+      description: |
+        Enable or disable a specific tool within an MCP server configuration.
+        Disabled tools are not listed or callable. This updates the
+        `disabled_tools` list on the server config.
+      tags:
+        - MCP Servers
+      operationId: toggleMCPServerTool
+      parameters:
+        - in: path
+          name: mcp_server_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The MCP server ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tool_name
+                - enabled
+              properties:
+                tool_name:
+                  type: string
+                  description: Name of the tool to toggle (without namespace prefix).
+                enabled:
+                  type: boolean
+                  description: True to enable the tool, false to disable it.
+      responses:
+        "200":
+          description: Tool toggle successful
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
 components:
   securitySchemes:
     BearerAuth:
@@ -5130,30 +5438,6 @@ components:
             parameters:
               type: object
               description: JSON Schema for function parameters
-
-    ToolApprovalRequest:
-      type: object
-      required:
-        - request_id
-        - instance_id
-        - approved
-      properties:
-        request_id:
-          type: string
-          description: Approval request ID from the `tool_approval` stream comment
-        instance_id:
-          type: string
-          description: Knot instance ID from the `tool_approval` stream comment
-        approved:
-          type: boolean
-          description: Whether the user approved the pending tool call
-
-    ToolApprovalResponse:
-      type: object
-      properties:
-        ok:
-          type: boolean
-          example: true
 
     Usage:
       type: object
@@ -7333,6 +7617,81 @@ components:
             type: string
           description: Error messages from any failed stop or start operations.
 
+    SpaceTunnelStartRequest:
+      type: object
+      required:
+        - protocol
+        - port
+        - name
+      properties:
+        protocol:
+          type: string
+          enum: [http, https]
+          example: http
+          description: The public protocol to expose.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 80
+          description: The port within the space to tunnel.
+        name:
+          type: string
+          example: myapp
+          description: The tunnel name; combined with the owner as <user>--<name>.<domain>.
+
+    SpaceTunnelStartResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: Whether the tunnel was started.
+        error:
+          type: string
+          description: Error message when success is false.
+        url:
+          type: string
+          format: uri
+          example: https://alice--myapp.tunnels.knot.internal
+          description: The public tunnel URL.
+
+    SpaceTunnelInfo:
+      type: object
+      properties:
+        port:
+          type: integer
+          example: 80
+        protocol:
+          type: string
+          example: http
+        name:
+          type: string
+          example: myapp
+        url:
+          type: string
+          format: uri
+          example: https://alice--myapp.tunnels.knot.internal
+
+    SpaceTunnelListResponse:
+      type: object
+      properties:
+        tunnels:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceTunnelInfo"
+          description: Active agent-owned web tunnels in the space.
+
+    SpaceTunnelStopRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: myapp
+          description: The name of the tunnel to stop.
+
     ScriptInfo:
       type: object
       properties:
@@ -7743,6 +8102,213 @@ components:
         active:
           type: boolean
           description: If the skill is active
+
+    MCPServerInfo:
+      type: object
+      properties:
+        mcp_server_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Empty string for global servers
+        namespace:
+          type: string
+          description: Unique namespace for this server. Used as a tool name prefix.
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server (empty for stdio servers).
+        command:
+          type: string
+          description: Stdio executable command (empty for HTTP servers).
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        enabled:
+          type: boolean
+          description: Whether the server is active and its tools are available.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: "native = tools visible in tools/list; ondemand/discoverable = tools only via tool_search."
+        disabled_tools:
+          type: array
+          items:
+            type: string
+          description: Tools disabled via the toggle-tool endpoint.
+        remote_search:
+          type: boolean
+          description: Delegate tool_search to this remote server.
+
+    MCPServerDetails:
+      type: object
+      properties:
+        mcp_server_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Empty string for global servers
+        namespace:
+          type: string
+          description: Unique namespace for this server. Used as a tool name prefix.
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server (empty for stdio servers).
+        command:
+          type: string
+          description: Stdio executable command (empty for HTTP servers).
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        auth_type:
+          type: string
+          enum: [bearer, oauth2]
+          description: Authentication type for HTTP servers. Defaults to bearer.
+        token:
+          type: string
+          description: Bearer token for HTTP authentication.
+        oauth_client_id:
+          type: string
+          description: OAuth2 client ID (when auth_type is oauth2).
+        oauth_token_url:
+          type: string
+          description: OAuth2 token endpoint URL.
+        oauth_access_token:
+          type: string
+          description: OAuth2 access token.
+        oauth_refresh_token:
+          type: string
+          description: OAuth2 refresh token.
+        enabled:
+          type: boolean
+          description: Whether the server is active and its tools are available.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: "native = tools visible in tools/list; ondemand/discoverable = tools only via tool_search."
+        disabled_tools:
+          type: array
+          items:
+            type: string
+          description: Tools disabled via the toggle-tool endpoint.
+        remote_search:
+          type: boolean
+          description: Delegate tool_search to this remote server.
+        is_managed:
+          type: boolean
+          description: True if managed by parent server (read-only on leaf nodes).
+
+    MCPServerCreateRequest:
+      type: object
+      required:
+        - namespace
+      properties:
+        user_id:
+          type: string
+          description: User ID for per-user servers. Use "current" for current user. Requires manage_mcp_servers permission for other users.
+        namespace:
+          type: string
+          description: Unique namespace for this server (unique per user). Used as a tool name prefix.
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server. Required for HTTP servers.
+        command:
+          type: string
+          description: Stdio executable command. Required for stdio servers.
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        auth_type:
+          type: string
+          enum: [bearer, oauth2]
+          description: Authentication type for HTTP servers. Defaults to bearer.
+        token:
+          type: string
+          description: Bearer token for HTTP authentication.
+        oauth_client_id:
+          type: string
+          description: OAuth2 client ID (when auth_type is oauth2).
+        oauth_token_url:
+          type: string
+          description: OAuth2 token endpoint URL.
+        oauth_access_token:
+          type: string
+          description: OAuth2 access token.
+        oauth_refresh_token:
+          type: string
+          description: OAuth2 refresh token.
+        enabled:
+          type: boolean
+          default: true
+          description: Whether the server is active.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: "native = tools visible in tools/list; ondemand/discoverable = tools only via tool_search."
+        remote_search:
+          type: boolean
+          default: false
+          description: Delegate tool_search to this remote server.
+
+    MCPServerUpdateRequest:
+      type: object
+      properties:
+        namespace:
+          type: string
+          description: Unique namespace for this server (unique per user).
+        url:
+          type: string
+          description: HTTP(S) URL of the remote MCP server.
+        command:
+          type: string
+          description: Stdio executable command.
+        args:
+          type: array
+          items:
+            type: string
+          description: Command-line arguments for stdio servers.
+        auth_type:
+          type: string
+          enum: [bearer, oauth2]
+          description: Authentication type for HTTP servers.
+        token:
+          type: string
+          description: Bearer token for HTTP authentication.
+        oauth_client_id:
+          type: string
+          description: OAuth2 client ID.
+        oauth_token_url:
+          type: string
+          description: OAuth2 token endpoint URL.
+        oauth_access_token:
+          type: string
+          description: OAuth2 access token.
+        oauth_refresh_token:
+          type: string
+          description: OAuth2 refresh token.
+        enabled:
+          type: boolean
+          description: Whether the server is active.
+        tool_visibility:
+          type: string
+          enum: [native, ondemand, discoverable]
+          default: native
+          description: Tool visibility mode.
+        remote_search:
+          type: boolean
+          description: Delegate tool_search to this remote server.
 
     PoolRequest:
       type: object

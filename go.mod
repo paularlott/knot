@@ -10,10 +10,12 @@ go 1.26.1
 
 //replace github.com/paularlott/scriptling => ../scriptling/
 
+//replace github.com/paularlott/lmchatkit => ../lmchatkit
+
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/creack/pty v1.1.24
-	github.com/dgraph-io/badger/v4 v4.9.2
+	github.com/dgraph-io/badger/v4 v4.9.4
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/uuid v1.6.0
@@ -23,8 +25,9 @@ require (
 	github.com/paularlott/cli v0.8.5
 	github.com/paularlott/gossip v0.12.7
 	github.com/paularlott/jsonrpc v0.1.0
+	github.com/paularlott/lmchatkit v0.7.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.21.1
+	github.com/paularlott/mcp v0.22.0
 	github.com/paularlott/scriptling v0.16.1
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.21.0
@@ -32,10 +35,10 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
-	golang.org/x/crypto v0.53.0
-	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
-	golang.org/x/net v0.56.0
-	golang.org/x/term v0.44.0
+	golang.org/x/crypto v0.54.0
+	golang.org/x/exp v0.0.0-20260709172345-9ea1abe57597
+	golang.org/x/net v0.57.0
+	golang.org/x/term v0.45.0
 	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -45,7 +48,7 @@ require (
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dgraph-io/ristretto/v2 v2.4.0 // indirect
+	github.com/dgraph-io/ristretto/v2 v2.4.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
@@ -75,12 +78,12 @@ require (
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/image v0.43.0 // indirect
-	golang.org/x/mod v0.37.0 // indirect
+	golang.org/x/image v0.44.0 // indirect
+	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
-	golang.org/x/tools v0.47.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/tools v0.48.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

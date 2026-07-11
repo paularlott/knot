@@ -4,6 +4,9 @@
 <base href="/" />
 <title>{{ block "pageTitle" . }}knot admin{{ end }}</title>
 <script>if(localStorage.getItem('_x_darkMode') !== 'false') { document.documentElement.classList.add('dark') }</script>
+{{ if and .aiChatEnabled .permissionUseWebAssistant }}
+<script src="/chat/assets/chat.js" defer></script>
+{{ end }}
 <script src="assets/js/knot.js?_v={{ .version }}" defer></script>
 <link rel="stylesheet" type="text/css" href="assets/css/knot.css?_v={{ .version }}" />
 <style>
