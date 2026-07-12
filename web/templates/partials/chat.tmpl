@@ -169,7 +169,7 @@
         <!-- Active chat -->
         <div x-show="currentId" class="flex-1 flex flex-col min-h-0">
           <!-- Messages -->
-          <div x-ref="messages" @wheel.passive="onWheel($event)"
+          <div x-ref="messages"
                class="flex-1 overflow-y-auto p-3 space-y-3 relative">
             <template x-for="(m, idx) in messages" :key="m.id || idx">
               <!-- Skip tool-role messages; their result renders inline in the
@@ -206,8 +206,13 @@
                           <svg class="w-3.5 h-3.5 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                           <span x-text="m.tool_calls.length + ' tool call' + (m.tool_calls.length === 1 ? '' : 's')"></span>
                           <span class="ml-auto flex items-center gap-1 text-[10px]">
+                            <span x-show="m.tool_calls.some(c => c.running)"
+                                  class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                              <span class="w-1.5 h-1.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce"></span>
+                              running
+                            </span>
                             <span class="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                                  x-text="m.tool_calls.filter(c => c.approval === 'approved').length + ' ok'"></span>
+                                  x-text="m.tool_calls.filter(c => c.approval === 'approved' && !c.running).length + ' ok'"></span>
                             <span x-show="m.tool_calls.some(c => c.approval === 'denied' || c.approval === 'error')"
                                   class="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">issues</span>
                           </span>
@@ -217,8 +222,17 @@
                             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                               <div class="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 px-2 py-1 flex items-center gap-2">
                                 <code class="bg-blue-100 dark:bg-blue-800 px-1.5 py-0.5 rounded text-xs font-mono text-blue-700 dark:text-blue-300" x-text="call.name"></code>
+                                <span x-show="call.running"
+                                      class="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 capitalize">
+                                  <span class="flex gap-0.5">
+                                    <span class="w-1.5 h-1.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce"></span>
+                                    <span class="w-1.5 h-1.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style="animation-delay:0.1s"></span>
+                                    <span class="w-1.5 h-1.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce" style="animation-delay:0.2s"></span>
+                                  </span>
+                                  running
+                                </span>
                                 <span class="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 capitalize"
-                                      x-show="call.approval && call.approval !== 'pending'" x-text="call.approval"></span>
+                                      x-show="!call.running && call.approval && call.approval !== 'pending'" x-text="call.approval"></span>
                               </div>
                               <div x-show="call.arguments && Object.keys(call.arguments || {}).length > 0"
                                    class="px-2 py-1.5 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900">
@@ -310,9 +324,12 @@
                 </div>
               </template>
             </template>
-            <!-- Jump to bottom -->
-            <div x-show="userHasScrolled" x-transition.opacity class="sticky bottom-1 flex justify-center pointer-events-none">
-              <button @click="userHasScrolled = false; scrollToBottom()" class="pointer-events-auto px-2 py-1 rounded-full bg-white dark:bg-gray-800 shadow border border-gray-200 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">Latest</button>
+            <!-- Jump to bottom: shown while follow mode is paused. -->
+            <div x-show="!following" x-transition.opacity class="sticky bottom-1 flex justify-center pointer-events-none">
+              <button @click="jumpToBottom()" class="pointer-events-auto px-2 py-1 rounded-full bg-white dark:bg-gray-800 shadow border border-gray-200 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                Latest
+              </button>
             </div>
           </div>
 
