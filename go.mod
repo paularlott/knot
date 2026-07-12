@@ -25,7 +25,7 @@ require (
 	github.com/paularlott/cli v0.8.5
 	github.com/paularlott/gossip v0.12.7
 	github.com/paularlott/jsonrpc v0.1.0
-	github.com/paularlott/lmchatkit v0.7.0
+	github.com/paularlott/lmchatkit v0.8.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.22.0
 	github.com/paularlott/scriptling v0.16.1
@@ -71,7 +71,7 @@ require (
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
-	github.com/yuin/goldmark v1.8.2 // indirect
+	github.com/yuin/goldmark v1.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
