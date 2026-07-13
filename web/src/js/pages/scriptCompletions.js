@@ -1937,6 +1937,36 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.csv",
+    description: "CSV parsing and formatting — string-based, no filesystem access (all environments)",
+    functions: [
+      {
+        name: "parse",
+        signature: 'parse(content, delimiter=",")',
+        description: "Parse CSV text into a list of rows (lists of strings). RFC 4180 compliant",
+        returns: "list[list[str]] - Rows of string values",
+      },
+      {
+        name: "parse_dict",
+        signature: 'parse_dict(content, delimiter=",")',
+        description: "Parse CSV text into a list of dicts (first row = headers)",
+        returns: "list[dict] - Dicts keyed by header names",
+      },
+      {
+        name: "format",
+        signature: 'format(rows, delimiter=",")',
+        description: "Format a list of lists into CSV text. Values with commas are auto-quoted",
+        returns: "str - CSV-formatted text",
+      },
+      {
+        name: "format_dict",
+        signature: 'format_dict(rows, delimiter=",", columns=None)',
+        description: "Format a list of dicts into CSV text with a header row",
+        returns: "str - CSV-formatted text with header row",
+      },
+    ],
+  },
+  {
     module: "scriptling.console",
     description: "TUI console for interactive terminal applications with multi-panel layouts (Remote environment only)",
     constants: [
