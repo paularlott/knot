@@ -8,7 +8,7 @@ go 1.26.1
 
 //replace github.com/paularlott/mcp => ../mcp
 
-replace github.com/paularlott/scriptling => ../scriptling/
+//replace github.com/paularlott/scriptling => ../scriptling/
 
 //replace github.com/paularlott/lmchatkit => ../lmchatkit
 
@@ -28,7 +28,7 @@ require (
 	github.com/paularlott/lmchatkit v0.8.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.22.0
-	github.com/paularlott/scriptling v0.17.0
+	github.com/paularlott/scriptling v0.17.1
 	github.com/pkg/sftp v1.13.11
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/shirou/gopsutil/v3 v3.24.5

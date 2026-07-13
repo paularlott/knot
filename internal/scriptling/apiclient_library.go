@@ -57,7 +57,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 
 		var result interface{}
-		statusCode, apiErr := client.GetJSON(ctx, path, &result)
+		statusCode, apiErr := client.GetJSON(context.Background(), path, &result)
 		if apiErr != nil {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
@@ -87,7 +87,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 
 		var result interface{}
-		statusCode, apiErr := client.PostJSON(ctx, path, body, &result, 0)
+		statusCode, apiErr := client.PostJSON(context.Background(), path, body, &result, 0)
 		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
@@ -117,7 +117,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 
 		var result interface{}
-		statusCode, apiErr := client.PutJSON(ctx, path, body, &result, 0)
+		statusCode, apiErr := client.PutJSON(context.Background(), path, body, &result, 0)
 		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
@@ -140,7 +140,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 
 		var result interface{}
-		statusCode, apiErr := client.Delete(ctx, path, nil, &result, 0)
+		statusCode, apiErr := client.Delete(context.Background(), path, nil, &result, 0)
 		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}

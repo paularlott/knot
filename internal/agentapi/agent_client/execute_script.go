@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/extlibs"
 )
 
 var agentClient *AgentClient
@@ -65,14 +66,28 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	var cleanup func()
 	var err error
 
-	// Use custom logger when agent client is available (for space startup and run-script commands)
-	var customLogger logger.Logger = nil
-	if agentClient != nil {
-		customLogger = NewAgentClientLogger(agentClient, "script")
-	}
-	env, cleanup, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger, execMsg.IsSystemCall)
-	if cleanup != nil {
-		defer cleanup()
+	if execMsg.IsSystemCall {
+		// System calls (startup, health checks) bypass the pool — they use
+		// io.Discard output and are one-shot.
+		var customLogger logger.Logger = nil
+		if agentClient != nil {
+			customLogger = NewAgentClientLogger(agentClient, "script")
+		}
+		env, cleanup, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger, true)
+		if cleanup != nil {
+			defer cleanup()
+		}
+	} else {
+		// User scripts (run-script, eval) use the warm pool.
+		env, cleanup, err = scriptPool.Acquire()
+		if err != nil {
+			cleanup = nil
+		} else {
+			defer scriptPool.Release(env, cleanup)
+		}
+		// Per-call setup: enable output capture + set argv.
+		env.EnableOutputCapture()
+		extlibs.RegisterSysLibrary(env, execMsg.Arguments, nil)
 	}
 
 	if err != nil {

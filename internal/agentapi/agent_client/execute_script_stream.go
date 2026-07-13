@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"time"
 
-	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/scriptling/extlibs"
 	"github.com/paularlott/scriptling/extlibs/agent"
 	"github.com/paularlott/scriptling/object"
 )
@@ -27,25 +25,6 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	var client *apiclient.ApiClient
-	var userId string
-
-	if agentClient != nil {
-		server := agentClient.GetServerURL()
-		token := agentClient.GetAgentToken()
-		if server != "" && token != "" {
-			var err error
-			client, err = apiclient.NewClient(server, token, true)
-			if err == nil {
-				client.SetTimeout(6 * time.Minute)
-				user, err := client.WhoAmI(ctx)
-				if err == nil {
-					userId = user.Id
-				}
-			}
-		}
-	}
 
 	// controlIn receives inbound FrameControl messages for the console stub
 	controlIn := make(chan string, 16)
@@ -69,8 +48,15 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 				}
 			case FrameControl:
 				msg := string(payload)
-				if msg == "stop" || msg == "stdin_eof" {
+				if msg == "stop" {
 					cancel()
+					stdinW.Close()
+					return
+				}
+				if msg == "stdin_eof" {
+					// stdin is closed — close the pipe so input() gets EOF,
+					// but do NOT cancel the context. The script continues to
+					// run; only "stop" (Ctrl+C) cancels execution.
 					stdinW.Close()
 					return
 				}
@@ -85,14 +71,19 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 	// scriptWriter wraps the mux stream, framing all writes as FrameStdio
 	sw := &stdioWriter{w: stream}
 
-	customLogger := NewAgentClientLogger(agentClient, "script")
-	env, cleanup, err := service.NewRemoteStreamingScriptlingEnv(execMsg.Arguments, client, userId, customLogger, sw, stdinR)
+	env, cleanup, err := scriptPool.Acquire()
 	if err != nil {
-		log.WithError(err).Error("failed to create scriptling environment")
+		log.WithError(err).Error("failed to acquire scriptling env from pool")
 		stream.Close()
 		return
 	}
-	defer cleanup()
+	defer scriptPool.Release(env, cleanup)
+
+	// Per-call I/O setup: point the env at this connection's stream/pipe.
+	env.SetOutputWriter(sw)
+	env.SetInputReader(stdinR)
+	extlibs.RegisterSysLibrary(env, execMsg.Arguments, stdinR)
+	env.SetObjectVar("input", extlibs.NewInputBuiltin(stdinR))
 
 	registerConsoleStub(env, stream, controlIn)
 	agent.RegisterInteract(env)
