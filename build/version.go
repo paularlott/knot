@@ -4,7 +4,7 @@ import "runtime/debug"
 
 var (
 	// Current version of knot
-	Version string = "0.29.1"
+	Version string = "0.29.2"
 
 	// The date the binary was built
 	Date string
