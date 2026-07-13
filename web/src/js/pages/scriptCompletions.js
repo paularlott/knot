@@ -1922,6 +1922,21 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.find",
+    description:
+      "Find files and directories by name, type, mtime, and size (Remote/External environments)",
+    functions: [
+      {
+        name: "path",
+        signature:
+          'path(path, *, recursive=True, type="any", name="", mtime_min=None, mtime_max=None, size_min=None, size_max=None, include_hidden=False, follow_links=False, max_depth=None)',
+        description:
+          "Find files and directories under a path by name, type, modification time, and size. Returns a list of matching path strings",
+        returns: "list[str] - Matching paths",
+      },
+    ],
+  },
+  {
     module: "scriptling.console",
     description: "TUI console for interactive terminal applications with multi-panel layouts (Remote environment only)",
     constants: [
@@ -6123,6 +6138,182 @@ const scriptLibraries = [
             name: "parts",
             description: "Tuple of path components",
           },
+        ],
+      },
+    ],
+  },
+  {
+    module: "glob",
+    description: "Unix shell-style wildcard matching for filenames (Remote/External environments)",
+    functions: [
+      {
+        name: "glob",
+        signature: 'glob(pattern, root_dir=".", *, recursive=False, include_hidden=False)',
+        description: "Find all pathnames matching a pattern. recursive=True makes ** match directories recursively",
+        returns: "list[str] - Matching pathnames",
+      },
+      {
+        name: "iglob",
+        signature: 'iglob(pattern, root_dir=".", *, recursive=False, include_hidden=False)',
+        description: "Iterator over pathnames matching a pattern",
+        returns: "iterator[str] - Matching pathnames",
+      },
+      {
+        name: "escape",
+        signature: "escape(pattern)",
+        description: "Escape special characters (*, ?, [, ]) in a pattern so they are treated literally",
+        returns: "str - Escaped pattern",
+      },
+    ],
+  },
+  {
+    module: "shlex",
+    description: "Shell-style quoting, splitting, and joining",
+    functions: [
+      {
+        name: "quote",
+        signature: "quote(s)",
+        description: "Escape a string for use as a single shell argument",
+        returns: "str - Shell-safe string",
+      },
+      {
+        name: "split",
+        signature: "split(s)",
+        description: "Split a string into shell-style tokens (handles quotes and escapes)",
+        returns: "list[str] - Parsed tokens",
+      },
+      {
+        name: "join",
+        signature: "join(split_command)",
+        description: "Join a list of arguments into a shell-quoted string",
+        returns: "str - Shell-quoted command line",
+      },
+    ],
+  },
+  {
+    module: "tempfile",
+    description: "Temporary file and directory creation (Remote/External environments)",
+    functions: [
+      {
+        name: "mkstemp",
+        signature: 'mkstemp(suffix="", prefix="tmp", dir=None)',
+        description: "Create a temporary file (mode 0600) and return its path",
+        returns: "str - Path to the created file",
+      },
+      {
+        name: "mkdtemp",
+        signature: 'mkdtemp(suffix="", prefix="tmp", dir=None)',
+        description: "Create a temporary directory (mode 0700) and return its path",
+        returns: "str - Path to the created directory",
+      },
+      {
+        name: "gettempdir",
+        signature: "gettempdir()",
+        description: "Return the default temporary directory",
+        returns: "str - Temp directory path",
+      },
+      {
+        name: "gettempprefix",
+        signature: "gettempprefix()",
+        description: 'Return the default prefix ("tmp")',
+        returns: "str - Temp prefix",
+      },
+    ],
+  },
+  {
+    module: "shutil",
+    description: "High-level file operations — copy, rmtree, disk_usage (Remote/External environments)",
+    functions: [
+      {
+        name: "copy",
+        signature: "copy(src, dst)",
+        description: "Copy a file or directory tree (preserving modes)",
+        returns: "str - Destination path",
+      },
+      {
+        name: "copy2",
+        signature: "copy2(src, dst)",
+        description: "Same as copy (file mode always preserved)",
+        returns: "str - Destination path",
+      },
+      {
+        name: "copytree",
+        signature: "copytree(src, dst)",
+        description: "Recursively copy a directory tree",
+        returns: "str - Destination path",
+      },
+      {
+        name: "rmtree",
+        signature: "rmtree(path)",
+        description: "Recursively delete a directory tree (does not need to be empty)",
+        returns: "None",
+      },
+      {
+        name: "move",
+        signature: "move(src, dst)",
+        description: "Move or rename a file or directory",
+        returns: "str - Destination path",
+      },
+      {
+        name: "disk_usage",
+        signature: "disk_usage(path)",
+        description: "Return disk usage: {total, used, free} in bytes",
+        returns: "dict - {total: int, used: int, free: int}",
+      },
+    ],
+  },
+  {
+    module: "zipfile",
+    description: "Read and write ZIP archives (Remote/External environments)",
+    functions: [
+      {
+        name: "is_zipfile",
+        signature: "is_zipfile(path)",
+        description: "Return True if path is a valid ZIP archive",
+        returns: "bool",
+      },
+    ],
+    classes: [
+      {
+        name: "ZipFile",
+        signature: 'ZipFile(path, mode="r")',
+        description: "Open a ZIP archive. mode 'r' for reading, 'w' for writing",
+        methods: [
+          { name: "namelist", signature: "namelist()", description: "Return list of archive member names", returns: "list[str]" },
+          { name: "read", signature: "read(name)", description: "Read a member as a string", returns: "str" },
+          { name: "extract", signature: "extract(member, path='.')", description: "Extract a single member", returns: "str" },
+          { name: "extractall", signature: "extractall(path='.')", description: "Extract all members", returns: "list[str]" },
+          { name: "write", signature: "write(filename, arcname=None)", description: "Add a file to the archive (write mode)" },
+          { name: "writestr", signature: "writestr(name, data)", description: "Write a string as a member (write mode)" },
+          { name: "close", signature: "close()", description: "Close the archive" },
+        ],
+      },
+    ],
+  },
+  {
+    module: "tarfile",
+    description: "Read and write TAR archives with gzip support (Remote/External environments)",
+    functions: [
+      {
+        name: "is_tarfile",
+        signature: "is_tarfile(path)",
+        description: "Return True if path is a valid TAR archive",
+        returns: "bool",
+      },
+    ],
+    classes: [
+      {
+        name: "TarFile",
+        signature: 'TarFile(path, mode="r")',
+        description: "Open a TAR archive. Modes: 'r', 'r:gz', 'w', 'w:gz'",
+        methods: [
+          { name: "getnames", signature: "getnames()", description: "Return list of archive member names", returns: "list[str]" },
+          { name: "read", signature: "read(name)", description: "Read a member as a string", returns: "str" },
+          { name: "extract", signature: "extract(member, path='.')", description: "Extract a single member", returns: "str" },
+          { name: "extractall", signature: "extractall(path='.')", description: "Extract all members", returns: "list[str]" },
+          { name: "add", signature: "add(filename, arcname=None)", description: "Add a file to the archive (write mode)" },
+          { name: "addstr", signature: "addstr(name, data)", description: "Write a string as a member (write mode)" },
+          { name: "close", signature: "close()", description: "Close the archive" },
         ],
       },
     ],
