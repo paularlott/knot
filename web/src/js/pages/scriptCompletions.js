@@ -2201,7 +2201,7 @@ const scriptLibraries = [
   },
   {
     module: "scriptling.similarity",
-    description: "Text similarity utilities including fuzzy search and MinHash",
+    description: "Text similarity, fuzzy search, MinHash, and vector operations",
     functions: [
       {
         name: "search",
@@ -2238,6 +2238,24 @@ const scriptLibraries = [
         signature: "minhash_similarity(a, b)",
         description: "Compare two MinHash signatures",
         returns: "float - Estimated Jaccard similarity",
+      },
+      {
+        name: "cosine_similarity",
+        signature: "cosine_similarity(a, b)",
+        description: "Compare two numeric vectors. Returns -1.0 to 1.0",
+        returns: "float - Cosine similarity score",
+      },
+      {
+        name: "most_similar",
+        signature: "most_similar(query, vectors, top_k=5)",
+        description: "Rank vectors by cosine similarity to a query",
+        returns: 'list - [{"index": int, "score": float}, ...]',
+      },
+      {
+        name: "vectorize",
+        signature: "vectorize(text, *, dims=256)",
+        description: "Generate a vector from text using feature hashing (CPU-only, no model)",
+        returns: "list[float] - Normalised vector",
       },
     ],
   },
