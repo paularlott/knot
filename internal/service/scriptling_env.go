@@ -69,6 +69,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterTemplateTextLibrary(env)
 	extlibs.RegisterShlexLibrary(env) // shlex — pure string processing, no filesystem access
 	extlibs.RegisterCsvLibrary(env)   // scriptling.csv — CSV parsing/formatting, no filesystem access
+	extlibs.RegisterXmlLibrary(env)   // scriptling.xml — XML parsing/formatting, no filesystem access
 }
 
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments.

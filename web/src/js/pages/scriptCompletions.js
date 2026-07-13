@@ -1941,28 +1941,46 @@ const scriptLibraries = [
     description: "CSV parsing and formatting — string-based, no filesystem access (all environments)",
     functions: [
       {
-        name: "parse",
-        signature: 'parse(content, delimiter=",")',
+        name: "loads",
+        signature: 'dumps... NO, delimiter=",")',
         description: "Parse CSV text into a list of rows (lists of strings). RFC 4180 compliant",
         returns: "list[list[str]] - Rows of string values",
       },
       {
-        name: "parse_dict",
+        name: "loads_dict",
         signature: 'parse_dict(content, delimiter=",")',
         description: "Parse CSV text into a list of dicts (first row = headers)",
         returns: "list[dict] - Dicts keyed by header names",
       },
       {
-        name: "format",
+        name: "dumps",
         signature: 'format(rows, delimiter=",")',
         description: "Format a list of lists into CSV text. Values with commas are auto-quoted",
         returns: "str - CSV-formatted text",
       },
       {
-        name: "format_dict",
+        name: "dumps_dict",
         signature: 'format_dict(rows, delimiter=",", columns=None)',
         description: "Format a list of dicts into CSV text with a header row",
         returns: "str - CSV-formatted text with header row",
+      },
+    ],
+  },
+  {
+    module: "scriptling.xml",
+    description: "XML parsing and formatting — dict-based, string-only (all environments)",
+    functions: [
+      {
+        name: "loads",
+        signature: "loads(content)",
+        description: "Parse XML string into nested dict. Attributes become @-prefixed keys, repeated elements become lists",
+        returns: "dict - Nested dict representing the XML document",
+      },
+      {
+        name: "dumps",
+        signature: 'dumps(data, indent="")',
+        description: "Format a dict into XML string with optional indentation",
+        returns: "str - XML-formatted text",
       },
     ],
   },
