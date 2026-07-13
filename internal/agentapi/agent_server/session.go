@@ -372,6 +372,65 @@ func (s *Session) SendCopyFile(copyCmd *msg.CopyFileMessage) (chan *msg.CopyFile
 	return responseChannel, nil
 }
 
+// sendSingleShot is the generic send-receive loop shared by every single-shot
+// file-ops session method. It opens a muxed stream, writes the command byte +
+// message, reads the typed response into a channel, and returns. On failure
+// the goroutine returns without sending; the deferred close causes the
+// receiver to read nil, which the API handlers translate into a 503 error.
+func sendSingleShot[Msg any, Resp any](s *Session, cmd msg.CmdType, cmdName string, msgData *Msg) (chan *Resp, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	responseChannel := make(chan *Resp, 1)
+
+	go func() {
+		defer conn.Close()
+		defer close(responseChannel)
+
+		if err = msg.WriteCommand(conn, cmd); err != nil {
+			s.logger.WithError(err).Error("writing " + cmdName + " command:")
+			return
+		}
+
+		if err = msg.WriteMessage(conn, msgData); err != nil {
+			s.logger.WithError(err).Error("writing " + cmdName + " message:")
+			return
+		}
+
+		var response Resp
+		if err = msg.ReadMessage(conn, &response); err != nil {
+			s.logger.WithError(err).Error("reading " + cmdName + " response:")
+			return
+		}
+
+		responseChannel <- &response
+	}()
+
+	return responseChannel, nil
+}
+
+// SendGrep sends a GrepMessage to the agent and returns the response.
+func (s *Session) SendGrep(g *msg.GrepMessage) (chan *msg.GrepResponse, error) {
+	return sendSingleShot[msg.GrepMessage, msg.GrepResponse](s, msg.CmdGrep, "grep", g)
+}
+
+// SendFind sends a FindMessage to the agent and returns the response.
+func (s *Session) SendFind(f *msg.FindMessage) (chan *msg.FindResponse, error) {
+	return sendSingleShot[msg.FindMessage, msg.FindResponse](s, msg.CmdFind, "find", f)
+}
+
+// SendSed sends a SedMessage to the agent and returns the response.
+func (s *Session) SendSed(sd *msg.SedMessage) (chan *msg.SedResponse, error) {
+	return sendSingleShot[msg.SedMessage, msg.SedResponse](s, msg.CmdSed, "sed", sd)
+}
+
+// SendEditFile sends an EditFileMessage to the agent and returns the response.
+func (s *Session) SendEditFile(e *msg.EditFileMessage) (chan *msg.EditFileResponse, error) {
+	return sendSingleShot[msg.EditFileMessage, msg.EditFileResponse](s, msg.CmdEditFile, "edit", e)
+}
+
 func (s *Session) SendPortForward(portCmd *msg.PortForwardRequest) (*msg.PortForwardResponse, error) {
 	conn, err := s.MuxSession.Open()
 	if err != nil {

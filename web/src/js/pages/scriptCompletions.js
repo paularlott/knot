@@ -214,15 +214,64 @@ const scriptLibraries = [
       },
       {
         name: "read_file",
-        signature: "read_file(space_name, file_path)",
-        description: "Read file contents from a running space",
-        returns: "str - File contents",
+        signature: "read_file(space_name, file_path, offset=0, limit=0)",
+        description: "Read file contents from a running space; offset/limit select a 1-based line range",
+        returns: "str - File contents (requested lines when offset/limit given)",
       },
       {
         name: "write_file",
-        signature: "write_file(space_name, file_path, content)",
-        description: "Write content to a file in a running space",
+        signature: "write_file(space_name, file_path, content, mode='overwrite')",
+        description: "Write content to a file in a running space (overwrite/append/prepend)",
         returns: "bool - True if successful",
+      },
+      {
+        name: "eval",
+        signature: "eval(space_name, code, args=None)",
+        description:
+          "Execute inline Scriptling code in a running space (no stored script required)",
+        returns: "dict - {output, error, exit_code}",
+      },
+      {
+        name: "grep",
+        signature: "grep(space_name, pattern, path, literal=False, recursive=False, ignore_case=False, glob='', max_size=0, workdir='')",
+        description:
+          "Search file contents in a running space via a parallel worker pool in the agent",
+        returns: "list - Match dicts {file, line, text}",
+      },
+      {
+        name: "find",
+        signature: "find(space_name, path='.', recursive=True, type='any', name_glob='', include_hidden=False, max_depth=0, workdir='')",
+        description:
+          "Find files and directories in a running space by name, type, mtime, or size",
+        returns: "list - Matching path strings",
+      },
+      {
+        name: "sed_replace",
+        signature: "sed_replace(space_name, old, new, path, recursive=False, ignore_case=False, glob='', workdir='')",
+        description:
+          "Replace literal occurrences of old with new in files (atomic in-place edit)",
+        returns: "int - Number of files modified",
+      },
+      {
+        name: "sed_replace_pattern",
+        signature: "sed_replace_pattern(space_name, pattern, new, path, recursive=False, ignore_case=False, glob='', workdir='')",
+        description:
+          "Replace regex matches in files; capture groups as ${1}, ${name} (atomic in-place edit)",
+        returns: "int - Number of files modified",
+      },
+      {
+        name: "sed_extract",
+        signature: "sed_extract(space_name, pattern, path, recursive=False, ignore_case=False, glob='', workdir='')",
+        description:
+          "Extract regex capture groups from files in a running space (read-only)",
+        returns: "list - Match dicts {file, line, text, groups}",
+      },
+      {
+        name: "edit_file",
+        signature: "edit_file(space_name, file_path, search, replace, workdir='')",
+        description:
+          "Targeted search-and-replace edit on a single file; search must be unique (fails if 0 or >1 matches)",
+        returns: "int - Bytes written",
       },
     ],
   },

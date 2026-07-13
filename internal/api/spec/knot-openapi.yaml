@@ -2162,7 +2162,11 @@ paths:
   /api/spaces/{space_id}/files/read:
     post:
       summary: Read File from Space
-      description: Read file contents from a running space.
+      description: >
+        Read file contents from a running space. When offset and/or limit are
+        provided, only the requested 1-based line range is returned (the full
+        file is still read by the agent, but the response is sliced server-side
+        so the client only receives the requested lines).
       operationId: readSpaceFile
       tags:
         - Spaces
@@ -2186,6 +2190,18 @@ paths:
                   type: string
                   description: File path in the space to read.
                   example: "/app/config.json"
+                offset:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  description: 1-based line number to start at. 0 or omitted = from the beginning.
+                  example: 10
+                limit:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  description: Maximum number of lines to return. 0 or omitted = no limit (whole file).
+                  example: 20
       responses:
         "200":
           description: File read successfully
@@ -2199,10 +2215,19 @@ paths:
                     description: True if file was read successfully.
                   content:
                     type: string
-                    description: The file contents.
+                    description: The file contents (or the requested line range).
                   size:
                     type: integer
-                    description: Size of the file in bytes.
+                    description: Size of the returned content in bytes.
+                  total_lines:
+                    type: integer
+                    description: Total lines in the file (only present when offset/limit used).
+                  offset:
+                    type: integer
+                    description: Applied 1-based offset (only present when offset/limit used).
+                  limit:
+                    type: integer
+                    description: Applied limit (only present when offset/limit used).
                   error:
                     type: string
                     description: Error message if operation failed.
@@ -2251,6 +2276,11 @@ paths:
                 content:
                   type: string
                   description: Content to write to the file (can be base64 encoded or plain text).
+                mode:
+                  type: string
+                  enum: [overwrite, append, prepend]
+                  default: overwrite
+                  description: "Write mode: overwrite (default), append (add to end), or prepend (add to beginning)."
       responses:
         "200":
           description: File written successfully
@@ -2280,6 +2310,219 @@ paths:
           $ref: "#/components/responses/internal-server-error"
         "503":
           $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/grep:
+    post:
+      summary: Search File Contents in Space
+      description: Search for a regex or literal pattern in files inside a running space. Runs in the space's agent via a parallel worker pool — no file contents leave the space.
+      operationId: grepSpaceFiles
+      tags: [Spaces]
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema: {type: string, description: The ID or name of the space.}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pattern, path]
+              properties:
+                pattern: {type: string, description: Regular expression (or literal string when literal=true).}
+                path: {type: string, description: File or directory to search.}
+                literal: {type: boolean, description: Treat pattern as a literal string. Default false.}
+                recursive: {type: boolean, description: Recurse into subdirectories. Default false.}
+                ignore_case: {type: boolean, description: Case-insensitive matching. Default false.}
+                glob: {type: string, description: 'Only search files matching this glob, e.g. "*.py".'}
+                follow_links: {type: boolean, description: Follow symlinks. Default false.}
+                max_size: {type: integer, description: "Skip files larger than this (bytes). 0 = default 1 MiB."}
+                workdir: {type: string, description: Resolve relative path against this directory.}
+      responses:
+        "200":
+          description: Search completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  error: {type: string}
+                  matches:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        file: {type: string}
+                        line: {type: integer}
+                        text: {type: string}
+        "400": {$ref: "#/components/responses/bad-request"}
+        "401": {$ref: "#/components/responses/unauthorized"}
+        "403": {$ref: "#/components/responses/forbidden"}
+        "404": {$ref: "#/components/responses/not-found"}
+        "500": {$ref: "#/components/responses/internal-server-error"}
+        "503": {$ref: "#/components/responses/service-unavailable"}
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/find:
+    post:
+      summary: Find Files in Space
+      description: Find files and directories in a running space by name, type, mtime, or size. Runs in the space's agent via a concurrent walker.
+      operationId: findSpaceFiles
+      tags: [Spaces]
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema: {type: string, description: The ID or name of the space.}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path: {type: string, description: Directory to search under. Default ".".}
+                recursive: {type: boolean, description: Descend into subdirectories. Default true.}
+                type: {type: string, enum: [any, file, dir], description: Default "any".}
+                name: {type: string, description: Shell-style glob matched against the base name.}
+                include_hidden: {type: boolean, description: Match dot-entries. Default false.}
+                follow_links: {type: boolean, description: Follow symlinks. Default false.}
+                max_depth: {type: integer, description: Maximum recursion depth. 0 = unlimited.}
+                mtime_min: {type: number, description: Epoch-time lower bound (seconds).}
+                mtime_max: {type: number, description: Epoch-time upper bound (seconds).}
+                size_min: {type: integer, description: Minimum size in bytes.}
+                size_max: {type: integer, description: Maximum size in bytes.}
+                workdir: {type: string, description: Resolve relative path against this directory.}
+      responses:
+        "200":
+          description: Find completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  error: {type: string}
+                  paths: {type: array, items: {type: string}}
+        "400": {$ref: "#/components/responses/bad-request"}
+        "401": {$ref: "#/components/responses/unauthorized"}
+        "403": {$ref: "#/components/responses/forbidden"}
+        "404": {$ref: "#/components/responses/not-found"}
+        "500": {$ref: "#/components/responses/internal-server-error"}
+        "503": {$ref: "#/components/responses/service-unavailable"}
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/sed:
+    post:
+      summary: In-place Edit or Extract in Space
+      description: >
+        Replace literal/regex matches in files or extract capture groups. Files
+        are modified in place using atomic temp-file + rename. Mode selects the
+        operation: "replace" (literal), "replace_pattern" (regex with ${1}/${name}
+        capture groups), or "extract" (read-only capture-group extraction).
+      operationId: sedSpaceFiles
+      tags: [Spaces]
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema: {type: string, description: The ID or name of the space.}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode, pattern, path]
+              properties:
+                mode: {type: string, enum: [replace, replace_pattern, extract]}
+                pattern: {type: string, description: Literal string (replace) or regular expression (replace_pattern/extract).}
+                replacement: {type: string, description: "Replacement string (required for replace/replace_pattern; may use ${1}, ${name})."}
+                path: {type: string, description: File or directory.}
+                recursive: {type: boolean, description: Default false.}
+                ignore_case: {type: boolean, description: Default false.}
+                glob: {type: string, description: Only touch files matching this glob.}
+                follow_links: {type: boolean, description: Default false.}
+                max_size: {type: integer, description: "Skip files larger than this (bytes). 0 = default 1 MiB."}
+                workdir: {type: string, description: Resolve relative path against this directory.}
+      responses:
+        "200":
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  error: {type: string}
+                  mode: {type: string}
+                  files_modified: {type: integer, description: Number of files modified (replace/replace_pattern).}
+                  matches:
+                    type: array
+                    description: Capture-group matches (extract mode).
+                    items:
+                      type: object
+                      properties:
+                        file: {type: string}
+                        line: {type: integer}
+                        text: {type: string}
+                        groups: {type: array, items: {type: string}}
+        "400": {$ref: "#/components/responses/bad-request"}
+        "401": {$ref: "#/components/responses/unauthorized"}
+        "403": {$ref: "#/components/responses/forbidden"}
+        "404": {$ref: "#/components/responses/not-found"}
+        "500": {$ref: "#/components/responses/internal-server-error"}
+        "503": {$ref: "#/components/responses/service-unavailable"}
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/edit:
+    post:
+      summary: Targeted Search-and-Replace Edit in Space
+      description: >
+        Find an exact block of text in a single file and replace it. The search
+        text must appear exactly once (fails if 0 or >1 matches). Unlike sed
+        (which replaces ALL occurrences), edit targets one specific occurrence
+        with uniqueness verification — the coding-agent edit primitive. The
+        modification is written atomically (temp file + rename).
+      operationId: editSpaceFile
+      tags: [Spaces]
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema: {type: string, description: The ID or name of the space.}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, search, replace]
+              properties:
+                path: {type: string, description: File to edit.}
+                search: {type: string, description: Exact text to find (may span multiple lines; must be unique).}
+                replace: {type: string, description: Replacement text.}
+                workdir: {type: string, description: Resolve relative path against this directory.}
+      responses:
+        "200":
+          description: Edit completed (check success).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  error: {type: string, description: "Error message (e.g. 'search text not found', 'search text matched multiple times')."}
+                  bytes_written: {type: integer}
+        "400": {$ref: "#/components/responses/bad-request"}
+        "401": {$ref: "#/components/responses/unauthorized"}
+        "403": {$ref: "#/components/responses/forbidden"}
+        "404": {$ref: "#/components/responses/not-found"}
+        "500": {$ref: "#/components/responses/internal-server-error"}
+        "503": {$ref: "#/components/responses/service-unavailable"}
       security: [BearerAuth: []]
 
   /api/spaces/{user_id}/stop-for-user:

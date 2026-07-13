@@ -1,0 +1,46 @@
+description = "Replace every literal occurrence of a string in a file (or files under a directory) in a running space. The search string is matched literally, not as a regex. Files are modified in place using an atomic temp-file + rename. Returns the number of files modified."
+keywords = ["sed", "replace", "substitute", "edit", "modify", "literal", "in-place", "patch"]
+discoverable = true
+requires_approval = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name or ID of the space"
+required = true
+
+[[parameters]]
+name = "old"
+type = "string"
+description = "Literal string to search for (not interpreted as regex)"
+required = true
+
+[[parameters]]
+name = "new"
+type = "string"
+description = "Replacement string"
+required = true
+
+[[parameters]]
+name = "path"
+type = "string"
+description = "File or directory to modify (relative to the space workdir)"
+required = true
+
+[[parameters]]
+name = "recursive"
+type = "bool"
+description = "Recurse into subdirectories when path is a directory (default false)"
+required = false
+
+[[parameters]]
+name = "ignore_case"
+type = "bool"
+description = "Case-insensitive matching (default false)"
+required = false
+
+[[parameters]]
+name = "glob"
+type = "string"
+description = "Only modify files matching this glob pattern, e.g. '*.py'"
+required = false

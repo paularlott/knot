@@ -459,37 +459,59 @@ func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *Run
 }
 
 func (c *ApiClient) ReadSpaceFile(ctx context.Context, spaceId string, filePath string) (string, error) {
+	content, _, err := c.ReadSpaceFileRange(ctx, spaceId, filePath, 0, 0)
+	return content, err
+}
+
+// ReadSpaceFileRange reads a file or a 1-based line range from a space. offset
+// is the 1-based starting line (0 = from the beginning); limit is the maximum
+// number of lines to return (0 = no limit). Returns the content, the total
+// number of lines in the file, and any error.
+func (c *ApiClient) ReadSpaceFileRange(ctx context.Context, spaceId string, filePath string, offset, limit int) (string, int, error) {
 	var request struct {
-		Path string `json:"path"`
+		Path   string `json:"path"`
+		Offset int    `json:"offset,omitempty"`
+		Limit  int    `json:"limit,omitempty"`
 	}
 	request.Path = filePath
+	request.Offset = offset
+	request.Limit = limit
 
 	var response struct {
-		Success bool   `json:"success"`
-		Content string `json:"content"`
-		Size    int    `json:"size"`
-		Error   string `json:"error"`
+		Success    bool   `json:"success"`
+		Content    string `json:"content"`
+		Size       int    `json:"size"`
+		TotalLines int    `json:"total_lines"`
+		Error      string `json:"error"`
 	}
 
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/read", request, &response, 200)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	if !response.Success {
-		return "", fmt.Errorf("%s", response.Error)
+		return "", 0, fmt.Errorf("%s", response.Error)
 	}
 
-	return response.Content, nil
+	return response.Content, response.TotalLines, nil
 }
 
 func (c *ApiClient) WriteSpaceFile(ctx context.Context, spaceId string, filePath string, content string) error {
+	return c.WriteSpaceFileMode(ctx, spaceId, filePath, content, "")
+}
+
+// WriteSpaceFileMode writes content with a mode: "overwrite" (default),
+// "append", or "prepend".
+func (c *ApiClient) WriteSpaceFileMode(ctx context.Context, spaceId string, filePath string, content string, mode string) error {
 	var request struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
+		Mode    string `json:"mode,omitempty"`
 	}
 	request.Path = filePath
 	request.Content = content
+	request.Mode = mode
 
 	var response struct {
 		Success      bool   `json:"success"`
@@ -507,4 +529,148 @@ func (c *ApiClient) WriteSpaceFile(ctx context.Context, spaceId string, filePath
 	}
 
 	return nil
+}
+
+// GrepMatch is a single grep match.
+type GrepMatch struct {
+	File string `json:"file" msgpack:"file"`
+	Line int    `json:"line" msgpack:"line"`
+	Text string `json:"text" msgpack:"text"`
+}
+
+// Grep searches file contents in a running space. Returns matching lines.
+func (c *ApiClient) Grep(ctx context.Context, spaceId string, req GrepRequest) (*GrepResponse, error) {
+	var resp GrepResponse
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/grep", req, &resp, 200)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	return &resp, nil
+}
+
+// GrepRequest mirrors msg.GrepMessage for the HTTP API.
+type GrepRequest struct {
+	Pattern     string `json:"pattern" msgpack:"pattern"`
+	Path        string `json:"path" msgpack:"path"`
+	Literal     bool   `json:"literal,omitempty" msgpack:"literal,omitempty"`
+	Recursive   bool   `json:"recursive,omitempty" msgpack:"recursive,omitempty"`
+	IgnoreCase  bool   `json:"ignore_case,omitempty" msgpack:"ignore_case,omitempty"`
+	Glob        string `json:"glob,omitempty" msgpack:"glob,omitempty"`
+	FollowLinks bool   `json:"follow_links,omitempty" msgpack:"follow_links,omitempty"`
+	MaxSize     int64  `json:"max_size,omitempty" msgpack:"max_size,omitempty"`
+	Workdir     string `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
+}
+
+type GrepResponse struct {
+	Success bool       `json:"success" msgpack:"success"`
+	Error   string     `json:"error,omitempty" msgpack:"error,omitempty"`
+	Matches []GrepMatch `json:"matches,omitempty" msgpack:"matches,omitempty"`
+}
+
+// FindRequest mirrors msg.FindMessage for the HTTP API.
+type FindRequest struct {
+	Path          string   `json:"path" msgpack:"path"`
+	Recursive     bool     `json:"recursive" msgpack:"recursive"`
+	Type          string   `json:"type,omitempty" msgpack:"type,omitempty"`
+	Name          string   `json:"name,omitempty" msgpack:"name,omitempty"`
+	IncludeHidden bool     `json:"include_hidden,omitempty" msgpack:"include_hidden,omitempty"`
+	FollowLinks   bool     `json:"follow_links,omitempty" msgpack:"follow_links,omitempty"`
+	MaxDepth      int      `json:"max_depth,omitempty" msgpack:"max_depth,omitempty"`
+	MtimeMin      *float64 `json:"mtime_min,omitempty" msgpack:"mtime_min,omitempty"`
+	MtimeMax      *float64 `json:"mtime_max,omitempty" msgpack:"mtime_max,omitempty"`
+	SizeMin       *int64   `json:"size_min,omitempty" msgpack:"size_min,omitempty"`
+	SizeMax       *int64   `json:"size_max,omitempty" msgpack:"size_max,omitempty"`
+	Workdir       string   `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
+}
+
+type FindResponse struct {
+	Success bool     `json:"success" msgpack:"success"`
+	Error   string   `json:"error,omitempty" msgpack:"error,omitempty"`
+	Paths   []string `json:"paths,omitempty" msgpack:"paths,omitempty"`
+}
+
+// Find finds files/directories in a running space.
+func (c *ApiClient) Find(ctx context.Context, spaceId string, req FindRequest) (*FindResponse, error) {
+	var resp FindResponse
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/find", req, &resp, 200)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	return &resp, nil
+}
+
+// SedRequest mirrors msg.SedMessage for the HTTP API.
+type SedRequest struct {
+	Mode        string `json:"mode" msgpack:"mode"` // "replace", "replace_pattern", "extract"
+	Pattern     string `json:"pattern" msgpack:"pattern"`
+	Replacement string `json:"replacement,omitempty" msgpack:"replacement,omitempty"`
+	Path        string `json:"path" msgpack:"path"`
+	Recursive   bool   `json:"recursive,omitempty" msgpack:"recursive,omitempty"`
+	IgnoreCase  bool   `json:"ignore_case,omitempty" msgpack:"ignore_case,omitempty"`
+	Glob        string `json:"glob,omitempty" msgpack:"glob,omitempty"`
+	FollowLinks bool   `json:"follow_links,omitempty" msgpack:"follow_links,omitempty"`
+	MaxSize     int64  `json:"max_size,omitempty" msgpack:"max_size,omitempty"`
+	Workdir     string `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
+}
+
+type ExtractMatch struct {
+	File   string   `json:"file" msgpack:"file"`
+	Line   int      `json:"line" msgpack:"line"`
+	Text   string   `json:"text" msgpack:"text"`
+	Groups []string `json:"groups,omitempty" msgpack:"groups,omitempty"`
+}
+
+type SedResponse struct {
+	Success       bool           `json:"success" msgpack:"success"`
+	Error         string         `json:"error,omitempty" msgpack:"error,omitempty"`
+	Mode          string         `json:"mode,omitempty" msgpack:"mode,omitempty"`
+	FilesModified int64          `json:"files_modified,omitempty" msgpack:"files_modified,omitempty"`
+	Matches       []ExtractMatch `json:"matches,omitempty" msgpack:"matches,omitempty"`
+}
+
+// Sed performs an in-place edit or extraction in a running space.
+func (c *ApiClient) Sed(ctx context.Context, spaceId string, req SedRequest) (*SedResponse, error) {
+	var resp SedResponse
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/sed", req, &resp, 200)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	return &resp, nil
+}
+
+// EditFileRequest mirrors msg.EditFileMessage for the HTTP API.
+type EditFileRequest struct {
+	Path    string `json:"path" msgpack:"path"`
+	Search  string `json:"search" msgpack:"search"`
+	Replace string `json:"replace" msgpack:"replace"`
+	Workdir string `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
+}
+
+type EditFileResponse struct {
+	Success      bool   `json:"success" msgpack:"success"`
+	Error        string `json:"error,omitempty" msgpack:"error,omitempty"`
+	BytesWritten int    `json:"bytes_written,omitempty" msgpack:"bytes_written,omitempty"`
+}
+
+// EditFile performs a targeted search-and-replace on a single file. The search
+// text must appear exactly once; fails if 0 or >1 matches.
+func (c *ApiClient) EditFile(ctx context.Context, spaceId string, req EditFileRequest) (*EditFileResponse, error) {
+	var resp EditFileResponse
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/edit", req, &resp, 200)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	return &resp, nil
 }

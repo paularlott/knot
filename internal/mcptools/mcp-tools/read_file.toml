@@ -1,5 +1,5 @@
-description = "Read file contents from a running space."
-keywords = ["read", "file", "content", "view", "open", "cat", "text", "document"]
+description = "Read file contents from a running space, optionally a 1-based line range. When offset and limit are omitted the whole file is returned. Use offset/limit to page through large files without transferring the entire file on each call."
+keywords = ["read", "file", "content", "view", "open", "cat", "text", "document", "lines", "offset", "limit"]
 
 [[parameters]]
 name = "name"
@@ -12,3 +12,15 @@ name = "file_path"
 type = "string"
 description = "Path to the file within the space (e.g., /app/config.json)"
 required = true
+
+[[parameters]]
+name = "offset"
+type = "int"
+description = "1-based line number to start reading from (0 or omitted = start at line 1)"
+required = false
+
+[[parameters]]
+name = "limit"
+type = "int"
+description = "Maximum number of lines to return (0 or omitted = whole file)"
+required = false

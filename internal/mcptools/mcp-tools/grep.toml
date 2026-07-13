@@ -1,0 +1,45 @@
+description = "Search file contents in a running space using a regex or literal pattern. Returns matching lines with file paths and line numbers. Runs in the space's agent via a parallel worker pool, so no file contents leave the space."
+keywords = ["grep", "search", "find", "content", "text", "regex", "pattern", "match", "scan"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name or ID of the space to search"
+required = true
+
+[[parameters]]
+name = "pattern"
+type = "string"
+description = "Regular expression to search for (or literal string when literal=true)"
+required = true
+
+[[parameters]]
+name = "path"
+type = "string"
+description = "File or directory to search (relative to the space workdir)"
+required = true
+
+[[parameters]]
+name = "literal"
+type = "bool"
+description = "Treat pattern as a literal string, not a regex (default false)"
+required = false
+
+[[parameters]]
+name = "recursive"
+type = "bool"
+description = "Recurse into subdirectories when path is a directory (default false)"
+required = false
+
+[[parameters]]
+name = "ignore_case"
+type = "bool"
+description = "Case-insensitive matching (default false)"
+required = false
+
+[[parameters]]
+name = "glob"
+type = "string"
+description = "Only search files matching this glob pattern, e.g. '*.py'"
+required = false

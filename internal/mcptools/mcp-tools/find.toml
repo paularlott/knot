@@ -1,0 +1,45 @@
+description = "Find files and directories in a running space by name, type, or size. Returns matching paths. Runs in the space's agent via a concurrent walker; recursive by default."
+keywords = ["find", "locate", "files", "list", "discover", "path", "tree", "search", "glob"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name or ID of the space to search"
+required = true
+
+[[parameters]]
+name = "path"
+type = "string"
+description = "Directory (or file) to search under (default: space workdir root)"
+required = false
+
+[[parameters]]
+name = "name_glob"
+type = "string"
+description = "Shell-style glob matched against the entry's base name, e.g. '*.md'"
+required = false
+
+[[parameters]]
+name = "type"
+type = "string"
+description = "Restrict to 'file', 'dir', or 'any' (default 'any')"
+required = false
+
+[[parameters]]
+name = "recursive"
+type = "bool"
+description = "Descend into subdirectories (default true)"
+required = false
+
+[[parameters]]
+name = "include_hidden"
+type = "bool"
+description = "Match entries whose name starts with '.' (default false)"
+required = false
+
+[[parameters]]
+name = "max_depth"
+type = "int"
+description = "Maximum recursion depth (0 = unlimited)"
+required = false

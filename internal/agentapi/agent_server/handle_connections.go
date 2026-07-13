@@ -575,6 +575,22 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleCopyFile(stream, session)
 			return // Single shot command so done
 
+		case byte(msg.CmdGrep):
+			handleGrep(stream, session)
+			return
+
+		case byte(msg.CmdFind):
+			handleFind(stream, session)
+			return
+
+		case byte(msg.CmdSed):
+			handleSed(stream, session)
+			return
+
+		case byte(msg.CmdEditFile):
+			handleEditFile(stream, session)
+			return
+
 		case byte(msg.CmdPortForward):
 			handlePortForward(stream, session)
 			return // Single shot command so done
@@ -776,6 +792,80 @@ func handleCopyFile(stream net.Conn, session *Session) {
 	}
 
 	log.Info("copy file completed", "direction", copyCmd.Direction, "space_id", session.Id, "success", response.Success)
+}
+
+// errorResponse is sent on forwarder failure. Its `success`/`error` fields
+// msgpack-decode correctly into every *Response type (they all share those
+// field names/tags).
+type errorResponse struct {
+	Success bool   `msgpack:"success"`
+	Error   string `msgpack:"error"`
+}
+
+// forwardSingleShot is the generic read→forward→respond loop shared by every
+// single-shot file-ops command (grep, find, sed, edit). It reads a typed
+// message from the client stream, forwards it to the agent with the given
+// command byte, reads the typed response, and writes it back. On any failure
+// it writes an errorResponse whose fields decode into the expected response
+// type.
+func forwardSingleShot[Msg any, Resp any](stream net.Conn, session *Session, cmd msg.CmdType, cmdName string) {
+	var msgData Msg
+	if err := msg.ReadMessage(stream, &msgData); err != nil {
+		log.WithError(err).Error("reading "+cmdName+" message:")
+		return
+	}
+
+	log.Info("forwarding "+cmdName+" to agent", "space_id", session.Id)
+
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.WithError(err).Error("opening connection to agent:")
+		msg.WriteMessage(stream, &errorResponse{Error: "Failed to connect to agent"})
+		return
+	}
+	defer agentConn.Close()
+
+	if err := msg.WriteCommand(agentConn, cmd); err != nil {
+		log.WithError(err).Error("writing " + cmdName + " command to agent:")
+		msg.WriteMessage(stream, &errorResponse{Error: "Failed to send command to agent"})
+		return
+	}
+
+	if err := msg.WriteMessage(agentConn, &msgData); err != nil {
+		log.WithError(err).Error("writing " + cmdName + " message to agent:")
+		msg.WriteMessage(stream, &errorResponse{Error: "Failed to send message to agent"})
+		return
+	}
+
+	var response Resp
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.WithError(err).Error("reading " + cmdName + " response from agent:")
+		msg.WriteMessage(stream, &errorResponse{Error: "Failed to read response from agent"})
+		return
+	}
+
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.WithError(err).Error("writing " + cmdName + " response to client:")
+		return
+	}
+
+	log.Info(cmdName + " completed")
+}
+
+func handleGrep(stream net.Conn, session *Session) {
+	forwardSingleShot[msg.GrepMessage, msg.GrepResponse](stream, session, msg.CmdGrep, "grep")
+}
+
+func handleFind(stream net.Conn, session *Session) {
+	forwardSingleShot[msg.FindMessage, msg.FindResponse](stream, session, msg.CmdFind, "find")
+}
+
+func handleSed(stream net.Conn, session *Session) {
+	forwardSingleShot[msg.SedMessage, msg.SedResponse](stream, session, msg.CmdSed, "sed")
+}
+
+func handleEditFile(stream net.Conn, session *Session) {
+	forwardSingleShot[msg.EditFileMessage, msg.EditFileResponse](stream, session, msg.CmdEditFile, "edit")
 }
 
 func handlePortForward(stream net.Conn, session *Session) {

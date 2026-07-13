@@ -1,5 +1,5 @@
-description = "Write content to a file in a running space."
-keywords = ["write", "file", "create", "save", "edit", "content", "text", "document"]
+description = "Write content to a file in a running space. Default mode is overwrite (replaces the file). Use mode=append to add to the end, or mode=prepend to add to the beginning of an existing file."
+keywords = ["write", "file", "create", "save", "edit", "content", "text", "document", "append", "prepend"]
 requires_approval = true
 
 [[parameters]]
@@ -19,3 +19,9 @@ name = "content"
 type = "string"
 description = "Content to write to the file"
 required = true
+
+[[parameters]]
+name = "mode"
+type = "string"
+description = "Write mode: overwrite (default), append, or prepend"
+required = false

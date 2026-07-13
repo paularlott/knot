@@ -623,6 +623,46 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			handleCopyFileExecution(stream, copyCmd)
 		}
 
+	case byte(msg.CmdGrep):
+		var g msg.GrepMessage
+		if err := msg.ReadMessage(stream, &g); err != nil {
+			log.WithError(err).Error("reading grep message:")
+			return
+		}
+		if s.agentClient.withRunCommand {
+			handleGrepExecution(stream, g)
+		}
+
+	case byte(msg.CmdFind):
+		var f msg.FindMessage
+		if err := msg.ReadMessage(stream, &f); err != nil {
+			log.WithError(err).Error("reading find message:")
+			return
+		}
+		if s.agentClient.withRunCommand {
+			handleFindExecution(stream, f)
+		}
+
+	case byte(msg.CmdSed):
+		var sd msg.SedMessage
+		if err := msg.ReadMessage(stream, &sd); err != nil {
+			log.WithError(err).Error("reading sed message:")
+			return
+		}
+		if s.agentClient.withRunCommand {
+			handleSedExecution(stream, sd)
+		}
+
+	case byte(msg.CmdEditFile):
+		var e msg.EditFileMessage
+		if err := msg.ReadMessage(stream, &e); err != nil {
+			log.WithError(err).Error("reading edit message:")
+			return
+		}
+		if s.agentClient.withRunCommand {
+			handleEditFileExecution(stream, e)
+		}
+
 	case byte(msg.CmdPortForward):
 		var portCmd msg.PortForwardRequest
 		if err := msg.ReadMessage(stream, &portCmd); err != nil {

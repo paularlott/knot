@@ -1,0 +1,28 @@
+description = "Targeted search-and-replace edit on a single file. The search text must appear exactly once (fails if 0 or >1 matches). Unlike sed_replace (which replaces all), edit_file targets one specific occurrence with uniqueness verification — the coding-agent edit primitive."
+keywords = ["edit", "patch", "search", "replace", "modify", "targeted", "unique", "code", "fix"]
+discoverable = true
+requires_approval = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name or ID of the space"
+required = true
+
+[[parameters]]
+name = "file_path"
+type = "string"
+description = "Path to the file to edit"
+required = true
+
+[[parameters]]
+name = "search"
+type = "string"
+description = "Exact text to find in the file. May span multiple lines. Provide enough surrounding context to make the match unique (must appear exactly once)."
+required = true
+
+[[parameters]]
+name = "replace"
+type = "string"
+description = "Text to replace the search match with"
+required = true

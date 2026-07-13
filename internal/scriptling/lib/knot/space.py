@@ -537,31 +537,74 @@ def run_script(name, script_name, args=None):
     }
 
 
-def read_file(name, file_path):
-    """Read file contents from a running space.
+def eval(name, code, args=None):
+    """Execute inline Scriptling code in a running space.
+
+    Unlike run_script, which looks up a stored script by name, eval sends the
+    code directly so no script needs to exist in the database. The code runs in
+    the target space's agent with the same permissions, libraries, and argument
+    conventions as a named script (argv[0] is "inline").
+
+    Args:
+        name: Space name or ID
+        code: Scriptling source to evaluate
+        args: List of script arguments (optional)
+
+    Returns:
+        A dict containing:
+        - output: Script output
+        - error: Error message (empty string on success)
+        - exit_code: Script exit code
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    body = {
+        "content": code,
+        "arguments": args or []
+    }
+
+    response = api.post(f"/api/spaces/{_enc(name)}/execute-script", body)
+    return {
+        "output": response.get("output", ""),
+        "error": response.get("error", ""),
+        "exit_code": response.get("exit_code", 0)
+    }
+
+
+def read_file(name, file_path, offset=0, limit=0):
+    """Read file contents from a running space, optionally a 1-based line range.
 
     Args:
         name: Space name or ID
         file_path: Path to the file
+        offset: 1-based line number to start at (0 = from the beginning)
+        limit: Maximum number of lines to return (0 = no limit / whole file)
 
     Returns:
-        The file contents as a string
+        The file contents as a string. When offset/limit are given, only the
+        requested line range is returned.
 
     Raises:
         Exception if not configured or on API error
     """
     body = {"path": file_path}
+    if offset > 0:
+        body["offset"] = offset
+    if limit > 0:
+        body["limit"] = limit
     response = api.post(f"/api/spaces/{_enc(name)}/files/read", body)
     return response.get("content", "")
 
 
-def write_file(name, file_path, content):
+def write_file(name, file_path, content, mode="overwrite"):
     """Write content to a file in a running space.
 
     Args:
         name: Space name or ID
         file_path: Path to the file
         content: Content to write
+        mode: Write mode — "overwrite" (default), "append", or "prepend"
 
     Returns:
         True if successful
@@ -573,8 +616,263 @@ def write_file(name, file_path, content):
         "path": file_path,
         "content": content
     }
+    if mode and mode != "overwrite":
+        body["mode"] = mode
     api.post(f"/api/spaces/{_enc(name)}/files/write", body)
     return True
+
+
+def grep(name, pattern, path, literal=False, recursive=False, ignore_case=False,
+         glob="", follow_links=False, max_size=0, workdir=""):
+    """Search file contents in a running space using a regex or literal pattern.
+
+    Runs in the space's agent via the scriptling extlibs worker pool — no file
+    contents leave the space, only matching lines are returned.
+
+    Args:
+        name: Space name or ID
+        pattern: Regular expression (or literal string when literal=True)
+        path: File or directory to search (relative to workdir if given)
+        literal: Treat pattern as a literal string, not a regex (default False)
+        recursive: Recurse into subdirectories when path is a directory
+        ignore_case: Case-insensitive matching (default False)
+        glob: Only search files matching this glob pattern, e.g. "*.py"
+        follow_links: Follow symlinks if they resolve within the space
+        max_size: Skip files larger than this many bytes; 0 = default 1 MiB,
+                  negative = unlimited
+        workdir: Resolve relative path against this directory
+
+    Returns:
+        A list of match dicts: {"file": str, "line": int, "text": str}
+    """
+    body = {
+        "pattern": pattern,
+        "path": path,
+        "literal": literal,
+        "recursive": recursive,
+        "ignore_case": ignore_case,
+        "follow_links": follow_links,
+        "max_size": max_size,
+    }
+    if glob:
+        body["glob"] = glob
+    if workdir:
+        body["workdir"] = workdir
+    response = api.post(f"/api/spaces/{_enc(name)}/files/grep", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "grep failed"))
+    return response.get("matches", [])
+
+
+def find(name, path=".", recursive=True, type="any", name_glob="", mtime_min=None,
+         mtime_max=None, size_min=None, size_max=None, include_hidden=False,
+         follow_links=False, max_depth=0, workdir=""):
+    """Find files and directories in a running space by name, type, mtime, or size.
+
+    Runs in the space's agent via the scriptling extlibs concurrent walker.
+
+    Args:
+        name: Space name or ID
+        path: Directory (or file) to search under (relative to workdir if given)
+        recursive: Descend into subdirectories (default True)
+        type: Restrict to "file", "dir", or "any" (default "any")
+        name_glob: Shell-style glob matched against the entry's base name
+        mtime_min: Include entries modified at/after this epoch time (float seconds)
+        mtime_max: Include entries modified at/before this epoch time
+        size_min: Include entries whose size in bytes is >= this value
+        size_max: Include entries whose size in bytes is <= this value
+        include_hidden: Match entries whose name starts with "." (default False)
+        follow_links: Follow symlinks if they resolve within the space
+        max_depth: Maximum recursion depth; 0 = unlimited
+        workdir: Resolve relative path against this directory
+
+    Returns:
+        A list of matching path strings (arbitrary order).
+    """
+    body = {
+        "path": path,
+        "recursive": recursive,
+        "type": type,
+        "include_hidden": include_hidden,
+        "follow_links": follow_links,
+        "max_depth": max_depth,
+    }
+    if name_glob:
+        body["name"] = name_glob
+    if mtime_min is not None:
+        body["mtime_min"] = mtime_min
+    if mtime_max is not None:
+        body["mtime_max"] = mtime_max
+    if size_min is not None:
+        body["size_min"] = size_min
+    if size_max is not None:
+        body["size_max"] = size_max
+    if workdir:
+        body["workdir"] = workdir
+    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "find failed"))
+    return response.get("paths", [])
+
+
+def sed_replace(name, old, new, path, recursive=False, ignore_case=False,
+                glob="", follow_links=False, max_size=0, workdir=""):
+    """Replace every literal occurrence of old with new in a file (or files under
+    a directory) in a running space. Files are modified in place using an atomic
+    temp-file + rename. old is matched literally, not as a regular expression.
+
+    Args:
+        name: Space name or ID
+        old: Literal string to search for
+        new: Replacement string
+        path: File or directory to modify (relative to workdir if given)
+        recursive: Recurse into subdirectories when path is a directory
+        ignore_case: Case-insensitive matching (default False)
+        glob: Only modify files matching this glob pattern
+        follow_links: Follow symlinks if they resolve within the space
+        max_size: Skip files larger than this many bytes; 0 = default 1 MiB
+        workdir: Resolve relative path against this directory
+
+    Returns:
+        The number of files modified.
+    """
+    body = {
+        "mode": "replace",
+        "pattern": old,
+        "replacement": new,
+        "path": path,
+        "recursive": recursive,
+        "ignore_case": ignore_case,
+        "follow_links": follow_links,
+        "max_size": max_size,
+    }
+    if glob:
+        body["glob"] = glob
+    if workdir:
+        body["workdir"] = workdir
+    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "sed replace failed"))
+    return response.get("files_modified", 0)
+
+
+def sed_replace_pattern(name, pattern, new, path, recursive=False, ignore_case=False,
+                        glob="", follow_links=False, max_size=0, workdir=""):
+    """Replace every regex match of pattern with new in a file (or files under a
+    directory) in a running space. Capture groups may be referenced in new as
+    ${1}, ${2}, or ${name}. Files are modified in place using an atomic
+    temp-file + rename.
+
+    Args:
+        name: Space name or ID
+        pattern: Regular expression pattern
+        new: Replacement string (may reference capture groups as ${1}, ${name})
+        path: File or directory to modify (relative to workdir if given)
+        recursive: Recurse into subdirectories when path is a directory
+        ignore_case: Case-insensitive matching (default False)
+        glob: Only modify files matching this glob pattern
+        follow_links: Follow symlinks if they resolve within the space
+        max_size: Skip files larger than this many bytes; 0 = default 1 MiB
+        workdir: Resolve relative path against this directory
+
+    Returns:
+        The number of files modified.
+    """
+    body = {
+        "mode": "replace_pattern",
+        "pattern": pattern,
+        "replacement": new,
+        "path": path,
+        "recursive": recursive,
+        "ignore_case": ignore_case,
+        "follow_links": follow_links,
+        "max_size": max_size,
+    }
+    if glob:
+        body["glob"] = glob
+    if workdir:
+        body["workdir"] = workdir
+    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "sed replace_pattern failed"))
+    return response.get("files_modified", 0)
+
+
+def sed_extract(name, pattern, path, recursive=False, ignore_case=False,
+                glob="", follow_links=False, max_size=0, workdir=""):
+    """Extract regex capture groups from a file (or files under a directory) in a
+    running space.
+
+    Args:
+        name: Space name or ID
+        pattern: Regular expression with capture groups
+        path: File or directory to search (relative to workdir if given)
+        recursive: Recurse into subdirectories when path is a directory
+        ignore_case: Case-insensitive matching (default False)
+        glob: Only search files matching this glob pattern
+        follow_links: Follow symlinks if they resolve within the space
+        max_size: Skip files larger than this many bytes; 0 = default 1 MiB
+        workdir: Resolve relative path against this directory
+
+    Returns:
+        A list of match dicts: {"file": str, "line": int, "text": str,
+        "groups": [str, ...]}
+    """
+    body = {
+        "mode": "extract",
+        "pattern": pattern,
+        "path": path,
+        "recursive": recursive,
+        "ignore_case": ignore_case,
+        "follow_links": follow_links,
+        "max_size": max_size,
+    }
+    if glob:
+        body["glob"] = glob
+    if workdir:
+        body["workdir"] = workdir
+    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "sed extract failed"))
+    return response.get("matches", [])
+
+
+def edit_file(name, file_path, search, replace, workdir=""):
+    """Perform a targeted search-and-replace edit on a single file in a running
+    space. The search text must appear exactly once in the file; the operation
+    fails if it matches zero or multiple times. The modification is written
+    atomically (temp file + rename).
+
+    Unlike sed_replace (which replaces ALL occurrences), edit_file targets ONE
+    specific occurrence with uniqueness verification — the gold standard for
+    coding-agent edits where "replace all" is dangerous.
+
+    Args:
+        name: Space name or ID
+        file_path: Path to the file to edit
+        search: Exact text to find (may span multiple lines; provide enough
+                surrounding context to make the match unique)
+        replace: Replacement text
+        workdir: Resolve relative path against this directory
+
+    Returns:
+        The number of bytes written.
+
+    Raises:
+        Exception if the search text is not found, matches multiple times,
+        or the API/agent fails.
+    """
+    body = {
+        "path": file_path,
+        "search": search,
+        "replace": replace,
+    }
+    if workdir:
+        body["workdir"] = workdir
+    response = api.post(f"/api/spaces/{_enc(name)}/files/edit", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "edit failed"))
+    return response.get("bytes_written", 0)
 
 
 def port_forward(source_space, local_port, remote_space, remote_port, persistent=False, force=False):

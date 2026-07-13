@@ -48,6 +48,10 @@ const (
 	CmdTunnelStart
 	CmdTunnelStop
 	CmdTunnelList
+	CmdGrep
+	CmdFind
+	CmdSed
+	CmdEditFile
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

@@ -49,13 +49,48 @@ func handleCopyToSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 		return msg.CopyFileResponse{Success: false, Error: "Failed to create directory: " + err.Error()}
 	}
 
-	// Write file content
-	if err := os.WriteFile(destPath, copyCmd.Content, 0644); err != nil {
-		logger.Error("failed to write file", "error", err, "file", destPath)
-		return msg.CopyFileResponse{Success: false, Error: "Failed to write file: " + err.Error()}
+	mode := copyCmd.Mode
+	if mode == "" {
+		mode = "overwrite"
 	}
 
-	logger.Debug("file written successfully", "file", destPath, "bytes", len(copyCmd.Content))
+	switch mode {
+	case "overwrite":
+		if err := os.WriteFile(destPath, copyCmd.Content, 0644); err != nil {
+			logger.Error("failed to write file", "error", err, "file", destPath)
+			return msg.CopyFileResponse{Success: false, Error: "Failed to write file: " + err.Error()}
+		}
+
+	case "append":
+		f, err := os.OpenFile(destPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			logger.Error("failed to open file for append", "error", err, "file", destPath)
+			return msg.CopyFileResponse{Success: false, Error: "Failed to open file: " + err.Error()}
+		}
+		if _, err := f.Write(copyCmd.Content); err != nil {
+			f.Close()
+			logger.Error("failed to append to file", "error", err, "file", destPath)
+			return msg.CopyFileResponse{Success: false, Error: "Failed to append: " + err.Error()}
+		}
+		f.Close()
+
+	case "prepend":
+		existing, err := os.ReadFile(destPath)
+		if err != nil && !os.IsNotExist(err) {
+			logger.Error("failed to read file for prepend", "error", err, "file", destPath)
+			return msg.CopyFileResponse{Success: false, Error: "Failed to read file: " + err.Error()}
+		}
+		combined := append(copyCmd.Content, existing...)
+		if err := os.WriteFile(destPath, combined, 0644); err != nil {
+			logger.Error("failed to write file", "error", err, "file", destPath)
+			return msg.CopyFileResponse{Success: false, Error: "Failed to write file: " + err.Error()}
+		}
+
+	default:
+		return msg.CopyFileResponse{Success: false, Error: "Invalid mode: " + mode}
+	}
+
+	logger.Debug("file written successfully", "file", destPath, "bytes", len(copyCmd.Content), "mode", mode)
 	return msg.CopyFileResponse{Success: true}
 }
 

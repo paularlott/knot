@@ -6,6 +6,7 @@ type CopyFileMessage struct {
 	Content    []byte `msgpack:"content,omitempty"`
 	Direction  string `msgpack:"direction"` // "to_space" or "from_space"
 	Workdir    string `msgpack:"workdir"`
+	Mode       string `msgpack:"mode,omitempty"` // to_space only: "overwrite" (default), "append", "prepend"
 }
 
 type CopyFileResponse struct {
