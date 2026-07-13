@@ -78,14 +78,14 @@ github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.22.0 h1:FeNsMn0jNFKAddgRbIx4lLHkfivLyYDCY2Jh+424SGg=
 github.com/paularlott/mcp v0.22.0/go.mod h1:oDirjyn8nbXp7rQvZFaM6wzyCR2qAgPT623HDVRn0WI=
-github.com/paularlott/scriptling v0.16.1 h1:s12ZkWKpXWlczj2geT0xkGKWHhquojHd/TLpq/iaa/k=
-github.com/paularlott/scriptling v0.16.1/go.mod h1:pC8RIGxXnKj0Rdvfb3yw/F8stetYP5cW94JsLExdYmk=
+github.com/paularlott/scriptling v0.17.0 h1:Cz74fBkY9yrhZJEixJNWUUNKW2tXF+Gb4AALF9zXqv8=
+github.com/paularlott/scriptling v0.17.0/go.mod h1:pC8RIGxXnKj0Rdvfb3yw/F8stetYP5cW94JsLExdYmk=
 github.com/paularlott/snapshotkv v0.4.0 h1:IsFyQ0hmycGkMUzbR4E4vvHzZeKbaE+LM6jqZdeBP0g=
 github.com/paularlott/snapshotkv v0.4.0/go.mod h1:X2ONJRnGTRUV2j8tIdO187y0QLm4n7bnCbdnV/mTWUQ=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
-github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=
-github.com/pkg/sftp v1.13.10/go.mod h1:bJ1a7uDhrX/4OII+agvy28lzRvQrmIQuaHrcI1HbeGA=
+github.com/pkg/sftp v1.13.11 h1:0N92SLTB8JqASJB14ZLHHzFnBV8mG9zw4K7jghEFWuE=
+github.com/pkg/sftp v1.13.11/go.mod h1:uNkH9roSXglNJqM+glJJi+TQXQUm0fXFWqCFmT8hsN0=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 h1:o4JXh1EVt9k/+g42oCprj/FisM4qX9L3sZB3upGN2ZU=
@@ -118,8 +118,6 @@ github.com/yeqown/go-qrcode/writer/standard v1.3.0 h1:chdyhEfRtUPgQtuPeaWVGQ/TQx
 github.com/yeqown/go-qrcode/writer/standard v1.3.0/go.mod h1:O4MbzsotGCvy8upYPCR91j81dr5XLT7heuljcNXW+oQ=
 github.com/yeqown/reedsolomon v1.0.0 h1:x1h/Ej/uJnNu8jaX7GLHBWmZKCAWjEJTetkqaabr4B0=
 github.com/yeqown/reedsolomon v1.0.0/go.mod h1:P76zpcn2TCuL0ul1Fso373qHRc69LKwAw/Iy6g1WiiM=
-github.com/yuin/goldmark v1.8.2 h1:kEGpgqJXdgbkhcOgBxkC0X0PmoPG1ZyoZ117rDVp4zE=
-github.com/yuin/goldmark v1.8.2/go.mod h1:ip/1k0VRfGynBgxOz0yCqHrbZXhcjxyuS66Brc7iBKg=
 github.com/yuin/goldmark v1.8.4 h1:oat/nd3U6NeQqFEL3xpEJq7d7c86NI+DbSNGAs4xnjA=
 github.com/yuin/goldmark v1.8.4/go.mod h1:ip/1k0VRfGynBgxOz0yCqHrbZXhcjxyuS66Brc7iBKg=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
