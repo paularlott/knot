@@ -1986,6 +1986,165 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.nomad",
+    description:
+      "HashiCorp Nomad client covering CSI volumes, dynamic host volumes, and jobs",
+    functions: [
+      {
+        name: "Client",
+        signature:
+          'Client(addr, *, token="", insecure=False, timeout=10)',
+        description:
+          "Create a Nomad client bound to a Nomad HTTP API endpoint",
+        returns: "NomadClient - A client instance",
+      },
+    ],
+    classes: [
+      {
+        name: "NomadClient",
+        description:
+          "Client for a Nomad cluster's HTTP API. Obtain via nomad.Client(addr, token=...)",
+        methods: [
+          {
+            name: "csi_volumes_list",
+            signature: 'csi_volumes_list(*, namespace="*", plugin_id="")',
+            description: "List CSI volumes",
+            returns:
+              "list - List of dicts with id, name, namespace, plugin_id, provider, schedulable, controllers_healthy, nodes_healthy",
+          },
+          {
+            name: "csi_volume_get",
+            signature: 'csi_volume_get(id, *, namespace="")',
+            description: "Get details for a CSI volume",
+            returns: "dict - Full volume specification and status",
+          },
+          {
+            name: "csi_volume_register",
+            signature: 'csi_volume_register(id, volume, *, namespace="")',
+            description:
+              "Register a pre-existing CSI volume with Nomad (backing storage must already exist)",
+            returns: "None",
+          },
+          {
+            name: "csi_volume_create",
+            signature: 'csi_volume_create(id, volume, *, namespace="")',
+            description:
+              "Create a CSI volume via the CSI controller plugin, provisioning backing storage",
+            returns: "None",
+          },
+          {
+            name: "csi_volume_deregister",
+            signature: 'csi_volume_deregister(id, *, namespace="", force=False)',
+            description:
+              "Deregister a CSI volume from Nomad (backing storage is preserved)",
+            returns: "None",
+          },
+          {
+            name: "csi_volume_delete",
+            signature: 'csi_volume_delete(id, *, namespace="")',
+            description:
+              "Delete a CSI volume and its backing storage via the CSI controller plugin",
+            returns: "None",
+          },
+          {
+            name: "host_volumes_list",
+            signature:
+              'host_volumes_list(*, namespace="*", node_id="", node_pool="", plugin_id="")',
+            description: "List dynamic host volumes",
+            returns:
+              "list - List of dicts with id, name, namespace, plugin_id, node_id, node_pool, state",
+          },
+          {
+            name: "host_volume_get",
+            signature: 'host_volume_get(id, *, namespace="")',
+            description: "Get details for a dynamic host volume",
+            returns: "dict - Full volume specification and status",
+          },
+          {
+            name: "host_volume_register",
+            signature: 'host_volume_register(id, volume, *, namespace="")',
+            description:
+              "Register a pre-existing dynamic host volume with Nomad",
+            returns: "None",
+          },
+          {
+            name: "host_volume_create",
+            signature: 'host_volume_create(id, volume, *, namespace="")',
+            description:
+              "Create a dynamic host volume via a host volume plugin",
+            returns: "None",
+          },
+          {
+            name: "host_volume_delete",
+            signature: 'host_volume_delete(id, *, namespace="")',
+            description:
+              "Delete a dynamic host volume and its backing storage",
+            returns: "None",
+          },
+          {
+            name: "jobs_list",
+            signature: 'jobs_list(*, namespace="*", prefix="")',
+            description: "List jobs",
+            returns:
+              "list - List of dicts with id, name, namespace, type, status, priority",
+          },
+          {
+            name: "job_get",
+            signature: 'job_get(id, *, namespace="")',
+            description:
+              "Get the full specification and status for a job",
+            returns: "dict - Job specification and status",
+          },
+          {
+            name: "job_register",
+            signature: "job_register(job)",
+            description: "Register (create or update) a job",
+            returns:
+              "dict - {EvalID, EvalCreateIndex, JobModifyIndex, Warnings}",
+          },
+          {
+            name: "job_stop",
+            signature: 'job_stop(id, *, namespace="", purge=False)',
+            description: "Stop a job",
+            returns:
+              "dict - {EvalID, EvalCreateIndex, JobModifyIndex}",
+          },
+          {
+            name: "wait_job_stopped",
+            signature: 'wait_job_stopped(id, *, namespace="", timeout=30)',
+            description:
+              "Wait for a job to reach the dead status",
+            returns:
+              "bool - True if stopped, False if timeout reached",
+          },
+          {
+            name: "job_validate",
+            signature: "job_validate(job)",
+            description:
+              "Validate a job specification without submitting it",
+            returns:
+              "dict - {DriverConfigValidated, ValidationErrors, Warnings}",
+          },
+          {
+            name: "job_plan",
+            signature: "job_plan(id, job, *, diff=False)",
+            description:
+              "Dry-run a job registration and return the scheduler plan",
+            returns:
+              "dict - Plan result with JobModifyIndex, Annotations, FailedTGAllocs",
+          },
+          {
+            name: "jobs_parse",
+            signature: "jobs_parse(hcl, *, canonicalize=False)",
+            description:
+              "Convert an HCL job spec into Nomad's JSON job format",
+            returns: "dict - JSON job spec for job_register/validate/plan",
+          },
+        ],
+      },
+    ],
+  },
+  {
     module: "scriptling.csv",
     description: "CSV parsing and formatting — string-based, no filesystem access (all environments)",
     functions: [
