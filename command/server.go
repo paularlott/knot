@@ -1179,6 +1179,10 @@ var ServerCmd = &cli.Command{
 		// Load event sink cache before boot cleanup can fire lifecycle events
 		service.GetEventDispatcher().ReloadSinks()
 
+		// Inject the .stack.* variable resolver so templates can reference sibling
+		// spaces within a stack (registered after the database is ready).
+		model.SetStackResolver(service.BuildStackVariableData)
+
 		// Stop orphaned runtimes and clean up broken space states before joining the cluster
 		service.GetContainerService().CleanupOnBoot()
 

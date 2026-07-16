@@ -394,6 +394,19 @@ export const templateVariableCompletions = [
     score: 799,
     docHTML: docs("Nomad Region", "Nomad region (from the <code>NOMAD_REGION</code> environment variable)."),
   },
+  // .stack — cross-space references to siblings in the same stack. The key is
+  // the sibling's stack-definition key (space name with the prefix stripped);
+  // complete with <key>.<group>.<name>, e.g. ${{ .stack.db.custom.password }}.
+  {
+    caption: "${{ .stack.",
+    value: "${{ .stack.",
+    meta: "stack",
+    score: 760,
+    docHTML: docs(
+      "Stack Sibling Variable",
+      "Reference a variable on a sibling space in the same stack. Replace <code>&lt;key&gt;</code> with the sibling's stack key (its name with the stack prefix stripped), then the group and field. Examples: <code>${{ .stack.db.space.id }}</code>, <code>${{ .stack.db.custom.password }}</code>. Keys containing a hyphen use a dotted-safe <code>_</code> alias: <code>${{ .stack.space_1.custom.password }}</code> (equivalently <code>${{ (index .stack \"space-1\").custom.password }}</code>). Only resolves if the sibling space already exists.",
+    ),
+  },
   // .custom — partial; the user completes the variable name
   {
     caption: "${{ .custom.",

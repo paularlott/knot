@@ -139,6 +139,15 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 		}
 	}
 
+	// Resolve cross-space references (.stack.<key>.*) for spaces that are part of
+	// a stack. The resolver is injected by the service layer; when nil or when
+	// the space has no stack, .stack is simply omitted.
+	if stackResolver != nil {
+		if stackData := stackResolver(space, variables); stackData != nil {
+			data["stack"] = stackData
+		}
+	}
+
 	var tmplBytes bytes.Buffer
 	err = tmpl.Execute(&tmplBytes, data)
 	if err != nil {
