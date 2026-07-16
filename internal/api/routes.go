@@ -83,6 +83,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/spaces/stacks/{stack_name}/stop", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleStackStop)))
 	router.HandleFunc("POST /api/spaces/stacks/{stack_name}/restart", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleStackRestart)))
 	router.HandleFunc("DELETE /api/stacks/{stack_name}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleStackDelete)))
+	router.HandleFunc("GET /api/stacks/{stack_name}/exists", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleStackExists)))
 	router.HandleFunc("POST /api/spaces/{space_id}/files/read", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleReadSpaceFile)))
 	router.HandleFunc("POST /api/spaces/{space_id}/files/write", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleWriteSpaceFile)))
 	router.HandleFunc("POST /api/spaces/{space_id}/files/grep", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleGrep)))

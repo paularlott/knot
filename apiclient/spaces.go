@@ -254,6 +254,22 @@ func (c *ApiClient) GetSpace(ctx context.Context, spaceId string) (*SpaceDefinit
 	return response, code, nil
 }
 
+// StackExists reports whether a stack name is already in use for the
+// authenticated user (i.e. at least one non-deleted space has that Stack).
+func (c *ApiClient) StackExists(ctx context.Context, stackName string) (bool, error) {
+	var response struct {
+		Exists bool `json:"exists"`
+	}
+	code, err := c.httpClient.Get(ctx, "/api/stacks/"+stackName+"/exists", &response)
+	if err != nil {
+		return false, err
+	}
+	if code != 200 {
+		return false, fmt.Errorf("unexpected status %d checking stack existence", code)
+	}
+	return response.Exists, nil
+}
+
 func (c *ApiClient) UpdateSpace(ctx context.Context, spaceId string, space *SpaceRequest) (int, error) {
 	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId, space, nil, 200)
 	if err != nil {

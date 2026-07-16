@@ -63,6 +63,16 @@ var CreateCmd = &cli.Command{
 		}
 		spaces := make([]createdSpace, 0, len(def.Spaces))
 
+		// Refuse to create a stack whose name is already in use — reusing an
+		// existing stack name would mix spaces from different stack instances.
+		if exists, err := client.StackExists(ctx, stackName); err != nil {
+			fmt.Println("Error checking for existing stack:", err)
+			os.Exit(1)
+		} else if exists {
+			fmt.Printf("Stack %q already exists. Use a different stack name or delete the existing stack first.\n", stackName)
+			os.Exit(1)
+		}
+
 		// Pass 1: Create all spaces
 		for i := range def.Spaces {
 			comp := &def.Spaces[i]

@@ -1738,6 +1738,27 @@ func waitStackStopped(stackName string, user *model.User) error {
 	return fmt.Errorf("timed out waiting for stack %q to stop", stackName)
 }
 
+// HandleStackExists reports whether a stack name is already in use for the
+// requesting user (i.e. there is at least one non-deleted space with that
+// Stack). Used by the create-stack flows to refuse reusing an existing stack
+// name, which would otherwise mix spaces from different stack instances.
+func HandleStackExists(w http.ResponseWriter, r *http.Request) {
+	user, stackName, err := resolveStackRequest(w, r)
+	if err != nil {
+		return
+	}
+	spaces, err := stackSpaces(stackName, user.Id)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	rest.WriteResponse(http.StatusOK, w, r, struct {
+		Exists bool `json:"exists"`
+	}{
+		Exists: len(spaces) > 0,
+	})
+}
+
 func HandleStackStart(w http.ResponseWriter, r *http.Request) {
 	user, stackName, err := resolveStackRequest(w, r)
 	if err != nil {

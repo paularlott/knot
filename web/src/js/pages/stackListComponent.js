@@ -216,6 +216,24 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       const created = [];
 
       try {
+        // Refuse to create a stack whose name is already in use — reusing an
+        // existing stack name would mix spaces from different stack instances.
+        const existsRes = await fetch(
+          `/api/stacks/${encodeURIComponent(stackName)}/exists`,
+          { headers: { Accept: "application/json" } },
+        );
+        if (existsRes.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        if (existsRes.ok) {
+          const existsData = await existsRes.json().catch(() => ({}));
+          if (existsData.exists) {
+            modal.error = `Stack "${stackName}" already exists. Use a different name or delete the existing stack first.`;
+            return;
+          }
+        }
+
         // Pass 1: Create all spaces
         for (const comp of spaces) {
           const spaceName = prefix + "-" + comp.name;
