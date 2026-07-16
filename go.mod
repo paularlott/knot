@@ -24,11 +24,11 @@ require (
 	github.com/miekg/dns v1.1.72
 	github.com/paularlott/cli v0.8.5
 	github.com/paularlott/gossip v0.12.7
-	github.com/paularlott/jsonrpc v0.1.0
+	github.com/paularlott/jsonrpc v0.2.0
 	github.com/paularlott/lmchatkit v0.8.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.22.0
-	github.com/paularlott/scriptling v0.17.4
+	github.com/paularlott/mcp v0.23.0
+	github.com/paularlott/scriptling v0.17.5
 	github.com/pkg/sftp v1.13.11
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/shirou/gopsutil/v3 v3.24.5
