@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/totp"
@@ -249,10 +250,14 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	// Only create the cookie for web auth
 	if r.URL.Path == "/api/auth/web" {
 		cfg := config.GetServerConfig()
+		// Drop any stale cookies first (e.g. a host-only cookie from before
+		// wildcard-domain widening) so they can't shadow the fresh session.
+		middleware.DeleteSessionCookie(w)
 		cookie := &http.Cookie{
 			Name:     model.WebSessionCookie,
 			Value:    session.Id,
 			Path:     "/",
+			Domain:   cfg.SessionCookieDomain(),
 			HttpOnly: true,
 			Secure:   cfg.TLS.UseTLS,
 			SameSite: http.SameSiteLaxMode,

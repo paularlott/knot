@@ -29,10 +29,22 @@ func GetSessionFromCookie(r *http.Request) (*model.Session, error) {
 
 func DeleteSessionCookie(w http.ResponseWriter) {
 	cfg := config.GetServerConfig()
+	// Clear both cookie scopes so a stale cookie from before a domain change
+	// (or a host-only cookie left over from before wildcard widening) can't
+	// shadow a freshly issued session. The host-only deletion always runs; the
+	// domain-scoped deletion only runs when the session cookie is widened.
+	expireSessionCookie(w, "", cfg)
+	if domain := cfg.SessionCookieDomain(); domain != "" {
+		expireSessionCookie(w, domain, cfg)
+	}
+}
+
+func expireSessionCookie(w http.ResponseWriter, domain string, cfg *config.ServerConfig) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     model.WebSessionCookie,
 		Value:    "",
 		Path:     "/",
+		Domain:   domain,
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   cfg.TLS.UseTLS,

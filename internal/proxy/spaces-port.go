@@ -74,6 +74,13 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// VNC subdomains are auth-gated by PortRoutes and resolved against the
+	// authenticated viewer so that shared spaces work. Web ports stay open.
+	if domainParts[2] == "vnc" {
+		handleVNCProxy(w, r, domainParts)
+		return
+	}
+
 	db := database.GetInstance()
 
 	user, err := db.GetUserByUsername(domainParts[0])
@@ -93,16 +100,14 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	agentSession := agent_server.GetSession(space.Id)
-	if agentSession == nil || (domainParts[2] == "vnc" && (agentSession.VNCHttpPort == 0 || !user.HasPermission(model.PermissionUseVNC))) {
+	if agentSession == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	if domainParts[2] != "vnc" {
-		if _, ok := agentSession.HttpPorts[domainParts[2]]; !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	if _, ok := agentSession.HttpPorts[domainParts[2]]; !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	stream, err := agentSession.MuxSession.Open()
@@ -112,30 +117,21 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stream.Close()
 
-	if domainParts[2] == "vnc" {
-		if err := msg.WriteCommand(stream, msg.CmdProxyVNC); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		tokenStr := "Basic " + base64.StdEncoding.EncodeToString([]byte("knot:"+user.ServicePassword))
-		token = &tokenStr
-	} else {
-		if err := msg.WriteCommand(stream, msg.CmdProxyHTTP); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		port, err := strconv.ParseUint(domainParts[2], 10, 16)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if err := msg.WriteMessage(stream, &msg.HttpPort{
-			Port:       uint16(port),
-			ServerName: r.Host,
-		}); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+	if err := msg.WriteCommand(stream, msg.CmdProxyHTTP); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	port, err := strconv.ParseUint(domainParts[2], 10, 16)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if err := msg.WriteMessage(stream, &msg.HttpPort{
+		Port:       uint16(port),
+		ServerName: r.Host,
+	}); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	targetURL, err := url.Parse("http://127.0.0.1/")
@@ -145,5 +141,78 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proxy := CreateAgentReverseProxy(targetURL, stream, token, r.Host)
+	proxy.ServeHTTP(w, r)
+}
+
+// handleVNCProxy authenticates the viewer (PortRoutes gates the VNC subdomain
+// behind ApiAuth) and proxies the request to the space's web VNC port. Access
+// is granted to the space owner and any user the space is shared with, matching
+// the SSH and terminal proxies. The VNC server inside the space authenticates
+// against the space owner's service password.
+func handleVNCProxy(w http.ResponseWriter, r *http.Request, domainParts []string) {
+	viewer, ok := r.Context().Value("user").(*model.User)
+	if !ok || viewer == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if !viewer.HasPermission(model.PermissionUseVNC) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	db := database.GetInstance()
+
+	// Resolve the space by name for the viewer; GetSpaceByName considers spaces
+	// owned by the viewer as well as spaces shared with them.
+	space, err := db.GetSpaceByName(viewer.Id, domainParts[1])
+	if err != nil || space == nil {
+		space = service.GetPoolService().PickMemberForRouting(domainParts[1], viewer.Id)
+		if space == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+	}
+
+	// Explicit access check, matching the terminal proxy.
+	if space.UserId != viewer.Id && !space.IsSharedWith(viewer.Id) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	agentSession := agent_server.GetSession(space.Id)
+	if agentSession == nil || agentSession.VNCHttpPort == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	stream, err := agentSession.MuxSession.Open()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer stream.Close()
+
+	if err := msg.WriteCommand(stream, msg.CmdProxyVNC); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// The VNC server authenticates against the space owner's service password,
+	// so resolve the owner (not the viewer) for the auth token.
+	owner, err := db.GetUser(space.UserId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	tokenStr := "Basic " + base64.StdEncoding.EncodeToString([]byte("knot:"+owner.ServicePassword))
+
+	targetURL, err := url.Parse("http://127.0.0.1/")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	proxy := CreateAgentReverseProxy(targetURL, stream, &tokenStr, r.Host)
 	proxy.ServeHTTP(w, r)
 }

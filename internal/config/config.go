@@ -1,6 +1,9 @@
 package config
 
 import (
+	"net/url"
+	"strings"
+
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/log"
@@ -51,6 +54,28 @@ type ServerConfig struct {
 	MCPToolsDisabled          []string
 	LibDir                    string
 	KnotLibPath               string
+}
+
+// SessionCookieDomain returns the domain to set on the web session cookie so
+// that it is shared with wildcard subdomains (e.g. the "<owner>--<space>--vnc"
+// subdomain used by web VNC). It is derived from WildcardDomain with any leading
+// "*" (and optional ".") stripped. Returns "" when no wildcard domain is
+// configured or when the server URL does not live under that domain (in which
+// case the browser would reject the cookie), leaving the cookie host-only.
+func (cfg *ServerConfig) SessionCookieDomain() string {
+	if cfg.WildcardDomain == "" {
+		return ""
+	}
+	d := strings.TrimPrefix(cfg.WildcardDomain, "*")
+	d = strings.TrimPrefix(d, ".")
+
+	if u, err := url.Parse(cfg.URL); err == nil && u.Hostname() != "" {
+		host := u.Hostname()
+		if host == d || strings.HasSuffix(host, "."+d) {
+			return d
+		}
+	}
+	return ""
 }
 
 type OriginConfig struct {

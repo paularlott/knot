@@ -40,6 +40,9 @@ func Initialize() {
 }
 
 func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
+	// Clear any stale session cookies so a leftover host-only cookie (from
+	// before wildcard-domain widening) can't shadow a fresh login attempt.
+	DeleteSessionCookie(w)
 	rest.WriteResponse(http.StatusUnauthorized, w, r, struct {
 		Error string `json:"error"`
 	}{
