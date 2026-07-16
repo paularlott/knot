@@ -131,6 +131,7 @@ func HandleCreateMCPServer(w http.ResponseWriter, r *http.Request) {
 	server.URL = strings.TrimSuffix(request.URL, "/")
 	server.Command = request.Command
 	server.Args = request.Args
+	server.Env = request.Env
 	server.AuthType = request.AuthType
 	server.Token = request.Token
 	server.OAuthClientID = request.OAuthClientID
@@ -223,6 +224,7 @@ func HandleUpdateMCPServer(w http.ResponseWriter, r *http.Request) {
 	server.URL = strings.TrimSuffix(request.URL, "/")
 	server.Command = request.Command
 	server.Args = request.Args
+	server.Env = request.Env
 	server.AuthType = request.AuthType
 	server.Token = request.Token
 	server.OAuthClientID = request.OAuthClientID
@@ -453,6 +455,7 @@ func toMCPServerInfo(s *model.MCPServer) apiclient.MCPServerInfo {
 		URL:            s.URL,
 		Command:        s.Command,
 		Args:           s.Args,
+		Env:            s.Env,
 		Enabled:        s.Enabled,
 		ToolVisibility: s.ToolVisibility,
 		DisabledTools:  s.DisabledTools,
@@ -468,6 +471,7 @@ func toMCPServerDetails(s *model.MCPServer) apiclient.MCPServerDetails {
 		URL:               s.URL,
 		Command:           s.Command,
 		Args:              s.Args,
+		Env:               s.Env,
 		AuthType:          s.AuthType,
 		Token:             s.Token,
 		OAuthClientID:     s.OAuthClientID,

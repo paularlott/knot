@@ -209,7 +209,7 @@ func (m *remoteServerManager) getOrCreateClient(server *model.MCPServer) (*mcp.C
 func createClient(server *model.MCPServer) (*mcp.Client, error) {
 	// stdio server
 	if server.Command != "" {
-		client, err := mcp.NewStdioClient(server.Command, server.Args, server.Namespace)
+		client, err := mcp.NewStdioClient(server.Command, server.Args, server.Namespace, mcp.WithClientExtraEnv(server.Env...))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create stdio client for %s: %w", server.Namespace, err)
 		}

@@ -9,6 +9,7 @@ type MCPServerInfo struct {
 	URL               string   `json:"url"`
 	Command           string   `json:"command"`
 	Args              []string `json:"args"`
+	Env               []string `json:"env"`
 	Enabled           bool     `json:"enabled"`
 	ToolVisibility    string   `json:"tool_visibility"`
 	DisabledTools     []string `json:"disabled_tools"`
@@ -22,6 +23,7 @@ type MCPServerDetails struct {
 	URL               string   `json:"url"`
 	Command           string   `json:"command"`
 	Args              []string `json:"args"`
+	Env               []string `json:"env"`
 	AuthType          string   `json:"auth_type"`
 	Token             string   `json:"token"`
 	OAuthClientID     string   `json:"oauth_client_id"`
@@ -44,6 +46,7 @@ type MCPServerCreateRequest struct {
 	URL               string   `json:"url"`
 	Command           string   `json:"command"`
 	Args              []string `json:"args"`
+	Env               []string `json:"env"`
 	AuthType          string   `json:"auth_type"`
 	Token             string   `json:"token"`
 	OAuthClientID     string   `json:"oauth_client_id"`
@@ -61,6 +64,7 @@ type MCPServerUpdateRequest struct {
 	URL               string   `json:"url"`
 	Command           string   `json:"command"`
 	Args              []string `json:"args"`
+	Env               []string `json:"env"`
 	AuthType          string   `json:"auth_type"`
 	Token             string   `json:"token"`
 	OAuthClientID     string   `json:"oauth_client_id"`

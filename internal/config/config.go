@@ -149,6 +149,7 @@ type MCPRemoteServerConfig struct {
 	URL            string   `toml:"url"`             // HTTP(S) URL of the remote server (empty for stdio)
 	Command        string   `toml:"command"`         // stdio: executable to launch as a subprocess (empty for HTTP)
 	Args           []string `toml:"args"`            // stdio: command-line arguments
+	Env            []string `toml:"env"`             // stdio: extra KEY=VALUE environment variables (merged on top of the parent environment)
 	Token          string   `toml:"token"`           // HTTP bearer token
 	ToolVisibility string   `toml:"tool_visibility"` // "native" or "on-demand"
 	Notifications  bool     `toml:"notifications"`   // accept listChanged notifications from this server and propagate them

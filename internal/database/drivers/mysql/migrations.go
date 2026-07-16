@@ -120,6 +120,8 @@ var migrations = []string{
 	`ALTER TABLE spaces ADD INDEX IF NOT EXISTS pool_id (pool_id)`,
 	// 57: add icon_url to stack definitions
 	`ALTER TABLE stack_definitions ADD COLUMN IF NOT EXISTS icon_url VARCHAR(255) NOT NULL DEFAULT ''`,
+	// 58: add env to mcp_servers (stdio server environment variables)
+	`ALTER TABLE mcp_servers ADD COLUMN IF NOT EXISTS env JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

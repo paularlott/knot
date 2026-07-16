@@ -5,11 +5,13 @@ window.mcpServerForm = function (isEdit, serverId) {
     serverId: serverId,
     transportType: "http",
     argsText: "",
+    envText: "",
     formData: {
       namespace: "",
       url: "",
       command: "",
       args: [],
+      env: [],
       auth_type: "",
       token: "",
       oauth_client_id: "",
@@ -35,6 +37,7 @@ window.mcpServerForm = function (isEdit, serverId) {
                   url: data.url || "",
                   command: data.command || "",
                   args: data.args || [],
+                  env: data.env || [],
                   auth_type: data.auth_type || "",
                   token: data.token || "",
                   oauth_client_id: data.oauth_client_id || "",
@@ -48,6 +51,7 @@ window.mcpServerForm = function (isEdit, serverId) {
                 };
                 this.transportType = this.formData.command ? "stdio" : "http";
                 this.argsText = (this.formData.args || []).join(" ");
+                this.envText = (this.formData.env || []).join("\n");
                 this.loading = false;
               });
             } else if (response.status === 401) {
@@ -88,9 +92,14 @@ window.mcpServerForm = function (isEdit, serverId) {
       if (this.transportType === "stdio") {
         submitData.url = "";
         submitData.args = this.parseArgs(this.argsText);
+        submitData.env = (this.envText || "")
+          .split(/\n/)
+          .map((l) => l.trim())
+          .filter(Boolean);
       } else {
         submitData.command = "";
         submitData.args = [];
+        submitData.env = [];
         if (!submitData.url) {
           this.$dispatch("show-alert", {
             msg: "URL is required for HTTP transport",

@@ -16,6 +16,7 @@ type MCPServer struct {
 	URL               string        `json:"url" db:"url" msgpack:"url"`
 	Command           string        `json:"command" db:"command" msgpack:"command"`
 	Args              []string      `json:"args" db:"args,json" msgpack:"args"`
+	Env               []string      `json:"env" db:"env,json" msgpack:"env"`
 	AuthType          string        `json:"auth_type" db:"auth_type" msgpack:"auth_type"`
 	Token             string        `json:"token" db:"token" msgpack:"token"`
 	OAuthClientID     string        `json:"oauth_client_id" db:"oauth_client_id" msgpack:"oauth_client_id"`

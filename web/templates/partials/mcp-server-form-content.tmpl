@@ -100,6 +100,11 @@
             <input type="text" id="args" x-model="argsText" class="form-field" placeholder="space-separated arguments">
             <div class="description">Separate arguments with spaces. Quote arguments containing spaces.</div>
           </div>
+          <div>
+            <label for="env" class="form-label">Environment Variables</label>
+            <textarea id="env" x-model="envText" rows="3" class="form-field font-mono text-sm" placeholder="API_KEY=secret&#10;LOG_LEVEL=debug"></textarea>
+            <div class="description">One <code>KEY=value</code> per line. Added on top of the inherited environment.</div>
+          </div>
         </div>
       </fieldset>
     </template>

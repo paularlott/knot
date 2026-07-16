@@ -71,8 +71,8 @@ Use tool_search to discover tools by keyword or description.`)
 		for _, remoteServer := range mcpConfig.RemoteServers {
 			// Build the client for the remote server: stdio (Command set) or HTTP (URL set).
 			var client *mcp.Client
-			if remoteServer.Command != "" {
-				c, err := mcp.NewStdioClient(remoteServer.Command, remoteServer.Args, remoteServer.Namespace)
+		if remoteServer.Command != "" {
+			c, err := mcp.NewStdioClient(remoteServer.Command, remoteServer.Args, remoteServer.Namespace, mcp.WithClientExtraEnv(remoteServer.Env...))
 				if err != nil {
 					log.WithGroup("mcp").Error("Failed to launch stdio MCP server", "namespace", remoteServer.Namespace, "command", remoteServer.Command, "error", err)
 					continue

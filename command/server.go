@@ -1377,27 +1377,38 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			if cmd.ConfigFile.FileUsed() != "" {
 				typedConfig := cli.NewTypedConfigFile(cmd.ConfigFile)
 				if remoteServers := typedConfig.GetObjectSlice("server.mcp.remote_servers"); remoteServers != nil {
-					for _, server := range remoteServers {
-						if server, ok := server.(interface {
-							GetString(string) string
-							GetBool(string) bool
-						}); ok {
-							remoteServer := config.MCPRemoteServerConfig{}
-							if ns := server.GetString("namespace"); ns != "" {
-								remoteServer.Namespace = ns
-							}
-							if url := server.GetString("url"); url != "" {
-								remoteServer.URL = url
-							}
-							if token := server.GetString("token"); token != "" {
-								remoteServer.Token = token
-							}
-							if visibility := server.GetString("tool_visibility"); visibility != "" {
-								remoteServer.ToolVisibility = visibility
-							}
-							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
+				for _, server := range remoteServers {
+					if server, ok := server.(interface {
+						GetString(string) string
+						GetBool(string) bool
+						GetStringSlice(string) []string
+					}); ok {
+						remoteServer := config.MCPRemoteServerConfig{}
+						if ns := server.GetString("namespace"); ns != "" {
+							remoteServer.Namespace = ns
 						}
+						if url := server.GetString("url"); url != "" {
+							remoteServer.URL = url
+						}
+						if token := server.GetString("token"); token != "" {
+							remoteServer.Token = token
+						}
+						if visibility := server.GetString("tool_visibility"); visibility != "" {
+							remoteServer.ToolVisibility = visibility
+						}
+						if command := server.GetString("command"); command != "" {
+							remoteServer.Command = command
+						}
+						if args := server.GetStringSlice("args"); len(args) > 0 {
+							remoteServer.Args = args
+						}
+						if env := server.GetStringSlice("env"); len(env) > 0 {
+							remoteServer.Env = env
+						}
+						remoteServer.Notifications = server.GetBool("notifications")
+						mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 					}
+				}
 				}
 			}
 
