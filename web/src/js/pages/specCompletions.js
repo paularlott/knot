@@ -251,3 +251,155 @@ export const nomadVolumeSpecCompletions = [
     docHTML: docs("capabilities", "CSI attachment and access modes."),
   },
 ];
+
+// System + custom template variables available in job and volume templates.
+// These resolve at deploy time via the Go template engine using the ${{
+// delimiters. Suggested across nomad job, container, and volume editors.
+export const templateVariableCompletions = [
+  // .space
+  {
+    caption: "${{ .space.id }}",
+    value: "${{ .space.id }}",
+    meta: "space",
+    score: 1000,
+    docHTML: docs("Space ID", "Unique UUID of the space."),
+  },
+  {
+    caption: "${{ .space.name }}",
+    value: "${{ .space.name }}",
+    meta: "space",
+    score: 999,
+    docHTML: docs("Space Name", "Name of the space."),
+  },
+  {
+    caption: "${{ .space.stack }}",
+    value: "${{ .space.stack }}",
+    meta: "space",
+    score: 998,
+    docHTML: docs("Space Stack", "Stack name the space belongs to (empty if not in a stack)."),
+  },
+  {
+    caption: "${{ .space.stack_prefix }}",
+    value: "${{ .space.stack_prefix }}",
+    meta: "space",
+    score: 997,
+    docHTML: docs("Space Stack Prefix", "Prefix used when the space was created as part of a stack. Use to reference sibling containers, e.g. <code>${{ .space.stack_prefix }}-db</code>."),
+  },
+  {
+    caption: "${{ .space.first_boot }}",
+    value: "${{ .space.first_boot }}",
+    meta: "space",
+    score: 996,
+    docHTML: docs("Space First Boot", "<code>true</code> on the very first boot of the space, otherwise <code>false</code>."),
+  },
+  // .template
+  {
+    caption: "${{ .template.id }}",
+    value: "${{ .template.id }}",
+    meta: "template",
+    score: 950,
+    docHTML: docs("Template ID", "UUID of the template the space was created from."),
+  },
+  {
+    caption: "${{ .template.name }}",
+    value: "${{ .template.name }}",
+    meta: "template",
+    score: 949,
+    docHTML: docs("Template Name", "Name of the template the space was created from."),
+  },
+  // .user
+  {
+    caption: "${{ .user.id }}",
+    value: "${{ .user.id }}",
+    meta: "user",
+    score: 900,
+    docHTML: docs("User ID", "UUID of the user who owns the space."),
+  },
+  {
+    caption: "${{ .user.username }}",
+    value: "${{ .user.username }}",
+    meta: "user",
+    score: 899,
+    docHTML: docs("Username", "Username of the user who owns the space."),
+  },
+  {
+    caption: "${{ .user.email }}",
+    value: "${{ .user.email }}",
+    meta: "user",
+    score: 898,
+    docHTML: docs("Email", "Email address of the user who owns the space."),
+  },
+  {
+    caption: "${{ .user.timezone }}",
+    value: "${{ .user.timezone }}",
+    meta: "user",
+    score: 897,
+    docHTML: docs("User Timezone", "Timezone of the user who owns the space."),
+  },
+  {
+    caption: "${{ .user.service_password }}",
+    value: "${{ .user.service_password }}",
+    meta: "user",
+    score: 896,
+    docHTML: docs("Service Password", "Auto-generated service password for the user (used for VNC and SSH auth)."),
+  },
+  // .server
+  {
+    caption: "${{ .server.url }}",
+    value: "${{ .server.url }}",
+    meta: "server",
+    score: 850,
+    docHTML: docs("Server URL", "External URL of the knot server."),
+  },
+  {
+    caption: "${{ .server.agent_endpoint }}",
+    value: "${{ .server.agent_endpoint }}",
+    meta: "server",
+    score: 849,
+    docHTML: docs("Agent Endpoint", "Endpoint agents use to connect back to the server."),
+  },
+  {
+    caption: "${{ .server.wildcard_domain }}",
+    value: "${{ .server.wildcard_domain }}",
+    meta: "server",
+    score: 848,
+    docHTML: docs("Wildcard Domain", "Wildcard domain used to expose space ports (without the leading <code>*</code>)."),
+  },
+  {
+    caption: "${{ .server.zone }}",
+    value: "${{ .server.zone }}",
+    meta: "server",
+    score: 847,
+    docHTML: docs("Server Zone", "Zone name of the knot server."),
+  },
+  {
+    caption: "${{ .server.timezone }}",
+    value: "${{ .server.timezone }}",
+    meta: "server",
+    score: 846,
+    docHTML: docs("Server Timezone", "Timezone configured on the knot server."),
+  },
+  // .nomad
+  {
+    caption: "${{ .nomad.dc }}",
+    value: "${{ .nomad.dc }}",
+    meta: "nomad",
+    score: 800,
+    docHTML: docs("Nomad Datacenter", "Nomad datacenter (from the <code>NOMAD_DC</code> environment variable)."),
+  },
+  {
+    caption: "${{ .nomad.region }}",
+    value: "${{ .nomad.region }}",
+    meta: "nomad",
+    score: 799,
+    docHTML: docs("Nomad Region", "Nomad region (from the <code>NOMAD_REGION</code> environment variable)."),
+  },
+  // .custom — partial; the user completes the variable name
+  {
+    caption: "${{ .custom.",
+    value: "${{ .custom.",
+    meta: "custom",
+    score: 750,
+    docHTML: docs("Custom Variable", "Inserts the opening of a custom variable. Complete with the variable name and close with <code>}}</code>, e.g. <code>${{ .custom.branch }}</code>."),
+  },
+];

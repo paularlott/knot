@@ -19,6 +19,7 @@ import {
   localVolumeSpecCompletions,
   nomadJobCompletions,
   nomadVolumeSpecCompletions,
+  templateVariableCompletions,
 } from "./specCompletions.js";
 import { scriptLibraries } from "./scriptCompletions.js";
 
@@ -444,15 +445,21 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
 
       setSpecCompleter(
         this.jobEditor,
-        this.isLocalContainer()
-          ? containerSpecCompletions
-          : nomadJobCompletions,
+        [
+          ...(this.isLocalContainer()
+            ? containerSpecCompletions
+            : nomadJobCompletions),
+          ...templateVariableCompletions,
+        ],
       );
       setSpecCompleter(
         this.volumeEditor,
-        this.isLocalContainer()
-          ? localVolumeSpecCompletions
-          : nomadVolumeSpecCompletions,
+        [
+          ...(this.isLocalContainer()
+            ? localVolumeSpecCompletions
+            : nomadVolumeSpecCompletions),
+          ...templateVariableCompletions,
+        ],
       );
     },
     clearSpecFieldErrors(field) {

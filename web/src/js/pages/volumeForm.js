@@ -14,6 +14,7 @@ import { setSpecCompleter } from "./aceSpecCompleter.js";
 import {
   localVolumeSpecCompletions,
   nomadVolumeSpecCompletions,
+  templateVariableCompletions,
 } from "./specCompletions.js";
 
 window.volumeForm = function (isEdit, volumeId) {
@@ -159,9 +160,12 @@ window.volumeForm = function (isEdit, volumeId) {
 
       setSpecCompleter(
         this.volumeEditor,
-        this.formData.platform === "nomad"
-          ? nomadVolumeSpecCompletions
-          : localVolumeSpecCompletions,
+        [
+          ...(this.formData.platform === "nomad"
+            ? nomadVolumeSpecCompletions
+            : localVolumeSpecCompletions),
+          ...templateVariableCompletions,
+        ],
       );
     },
     setEditorErrors(messages) {
