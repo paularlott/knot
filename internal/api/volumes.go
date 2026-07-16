@@ -223,6 +223,7 @@ func HandleValidateVolume(w http.ResponseWriter, r *http.Request) {
 		response.Errors = append(response.Errors, apiclient.ValidationError{
 			Field:   issue.Field,
 			Message: issue.Message,
+			Line:    issue.Line,
 		})
 	}
 

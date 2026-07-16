@@ -27,6 +27,7 @@ type StackDefSpace struct {
 type ValidationError struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
+	Line    int    `json:"line,omitempty"`
 	Space   string `json:"space,omitempty"`
 }
 

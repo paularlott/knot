@@ -7752,6 +7752,9 @@ components:
         message:
           type: string
           description: Human-readable validation message.
+        line:
+          type: integer
+          description: 1-based source line of the offending content. Omitted (or 0) when the issue applies to the whole document or the line is unknown.
 
     SpaceShareUpdateRequest:
       type: object

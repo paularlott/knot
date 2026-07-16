@@ -479,18 +479,25 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         }
       }
     },
-    setEditorErrors(editor, messages) {
+    setEditorErrors(editor, errors) {
       if (!editor) {
         return;
       }
 
       editor.session.setAnnotations(
-        messages.map((message, index) => ({
-          row: index,
-          column: 0,
-          text: message,
-          type: "error",
-        })),
+        errors.map((entry) => {
+          const message =
+            typeof entry === "string" ? entry : entry.message;
+          let row = 0;
+          if (typeof entry === "object" && entry.line) {
+            row = entry.line - 1; // Issue.Line is 1-based; ace rows are 0-based
+          } else {
+            const m = message.match(/line (\d+)/i);
+            if (m) row = parseInt(m[1], 10) - 1;
+          }
+          if (row < 0) row = 0;
+          return { row, column: 0, text: message, type: "error" };
+        }),
       );
     },
     async validateSpecs() {
@@ -515,17 +522,15 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       const result = await response.json();
       const errors = result.errors || [];
 
-      this.specErrors.job = errors
-        .filter((error) => error.field === "job")
-        .map((error) => error.message);
-      this.specErrors.volumes = errors
-        .filter((error) => error.field === "volumes")
-        .map((error) => error.message);
+      const jobErrors = errors.filter((error) => error.field === "job");
+      const volErrors = errors.filter((error) => error.field === "volumes");
+      this.specErrors.job = jobErrors.map((error) => error.message);
+      this.specErrors.volumes = volErrors.map((error) => error.message);
 
       this.jobValid = !this.jobRequired && this.specErrors.job.length === 0;
       this.volValid = !this.volRequired && this.specErrors.volumes.length === 0;
-      this.setEditorErrors(this.jobEditor, this.specErrors.job);
-      this.setEditorErrors(this.volumeEditor, this.specErrors.volumes);
+      this.setEditorErrors(this.jobEditor, jobErrors);
+      this.setEditorErrors(this.volumeEditor, volErrors);
 
       return response.ok && !!result.valid;
     },

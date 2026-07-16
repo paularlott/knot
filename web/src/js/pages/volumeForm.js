@@ -168,18 +168,24 @@ window.volumeForm = function (isEdit, volumeId) {
         ],
       );
     },
-    setEditorErrors(messages) {
+    setEditorErrors(errors) {
       if (!this.volumeEditor) {
         return;
       }
 
       this.volumeEditor.session.setAnnotations(
-        messages.map((message, index) => ({
-          row: index,
-          column: 0,
-          text: message,
-          type: "error",
-        })),
+        errors.map((entry) => {
+          const message = typeof entry === "string" ? entry : entry.message;
+          let row = 0;
+          if (typeof entry === "object" && entry.line) {
+            row = entry.line - 1; // Issue.Line is 1-based; ace rows are 0-based
+          } else {
+            const m = message.match(/line (\d+)/i);
+            if (m) row = parseInt(m[1], 10) - 1;
+          }
+          if (row < 0) row = 0;
+          return { row, column: 0, text: message, type: "error" };
+        }),
       );
     },
     async validateSpec() {
@@ -195,9 +201,10 @@ window.volumeForm = function (isEdit, volumeId) {
       });
 
       const result = await response.json();
-      this.specErrors = (result.errors || []).map((error) => error.message);
+      const errors = result.errors || [];
+      this.specErrors = errors.map((error) => error.message);
       this.volValid = this.specErrors.length === 0;
-      this.setEditorErrors(this.specErrors);
+      this.setEditorErrors(errors);
 
       return response.ok && !!result.valid;
     },
