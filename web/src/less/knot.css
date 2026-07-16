@@ -258,7 +258,7 @@
 }
 
 @utility ui-modal-body-scroll {
-  @apply ui-modal-body overflow-y-auto;
+  @apply ui-modal-body relative min-h-0 overflow-y-auto;
 }
 
 @utility ui-modal-footer {
