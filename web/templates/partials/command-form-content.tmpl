@@ -1,5 +1,6 @@
 {{ define "command-form-content" }}
-<div x-data="commandForm(commandFormModal.isEdit, commandFormModal.commandId, commandFormModal.isUserCommand)" x-init="initData()">
+<div x-data="commandForm(commandFormModal.isEdit, commandFormModal.commandId, commandFormModal.isUserCommand)" x-init="initData()" class="contents">
+  <div class="flex-1 min-h-0 overflow-y-auto p-5 relative">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div x-show="formData.is_managed" x-cloak class="toggle-shell border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
@@ -79,13 +80,14 @@ Review PR $ARGUMENTS ...</pre>
       </label>
       <div class="description">Only active commands appear in the chat slash-command picker.</div>
     </div>
-    <div class="form-actions">
-      <button type="button" @click="commandFormModal.show = false" class="form-cancel" x-text="formData.is_managed ? 'Close' : (isEdit ? 'Discard' : 'Cancel')"></button>
-      <div class="flex gap-2" x-show="!formData.is_managed" x-cloak>
-        <button type="button" @click="submitData(true)" class="btn-secondary" :disabled="loading" x-text="isEdit ? 'Save & Edit' : 'Create & Edit'"></button>
-        <button type="button" @click="submitData(false)" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
-      </div>
-    </div>
   </form>
+  </div>
+  <div class="ui-modal-footer">
+    <button type="button" @click="commandFormModal.show = false" class="ui-button-secondary sm:mr-auto" x-text="formData.is_managed ? 'Close' : (isEdit ? 'Discard' : 'Cancel')"></button>
+    <div class="flex gap-2" x-show="!formData.is_managed" x-cloak>
+      <button type="button" @click="submitData(true)" class="btn-secondary" :disabled="loading" x-text="isEdit ? 'Save & Edit' : 'Create & Edit'"></button>
+      <button type="button" @click="submitData(false)" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
+    </div>
+  </div>
 </div>
 {{ end }}

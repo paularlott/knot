@@ -140,7 +140,8 @@
           </button>
         </div>
         <template x-if="tokenFormModal.show">
-          <form class="space-y-6 ui-modal-body-scroll" @submit.prevent="submitTokenForm">
+          <form class="contents" @submit.prevent="submitTokenForm">
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
             <div>
               <label for="name" class="form-label">Token Name</label>
               <input type="text" id="name" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Token name" x-model="createForm.name">
@@ -172,9 +173,10 @@
                 </div>
               </div>
             </fieldset>
+            </div>
 
-            <div class="flex justify-between gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
-              <button type="button" @click="tokenFormModal.show = false" class="ui-button-secondary">Cancel</button>
+            <div class="ui-modal-footer">
+              <button type="button" @click="tokenFormModal.show = false" class="ui-button-secondary sm:mr-auto">Cancel</button>
               <button type="submit" class="btn-primary" :disabled="loading">Create Token</button>
             </div>
           </form>
@@ -199,7 +201,8 @@
           </button>
         </div>
         <template x-if="editModal.show">
-          <form class="space-y-6 ui-modal-body-scroll" @submit.prevent="submitEditForm">
+          <form class="contents" @submit.prevent="submitEditForm">
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
             <div>
               <label for="edit-name" class="form-label">Token Name</label>
               <input type="text" id="edit-name" name="name" class="form-field" x-on:keyup.debounce.500ms="checkEditName()" :class="{'form-field-error': !editNameValid}" placeholder="Token name" x-model="editForm.name">
@@ -231,9 +234,10 @@
                 </div>
               </div>
             </fieldset>
+            </div>
 
-            <div class="flex justify-between gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
-              <button type="button" @click="editModal.show = false" class="ui-button-secondary">Cancel</button>
+            <div class="ui-modal-footer">
+              <button type="button" @click="editModal.show = false" class="ui-button-secondary sm:mr-auto">Cancel</button>
               <button type="submit" class="btn-primary" :disabled="loading">Save Changes</button>
             </div>
           </form>

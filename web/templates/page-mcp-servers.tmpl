@@ -135,7 +135,7 @@
 
     <!-- Edit/Create Modal -->
     <div x-cloak x-show="serverFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="serverFormModal.show" @keydown.esc.window="serverFormModal.show = false" @close-mcp-server-form.window="serverFormModal.show = false; getServers()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="serverModalTitle">
-      <div x-show="serverFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide">
+      <div x-show="serverFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide max-h-[90vh]">
         <div class="ui-modal-header">
           <div class="ui-modal-icon-info">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
@@ -149,11 +149,9 @@
             </svg>
           </button>
         </div>
-        <div class="ui-modal-body-scroll max-h-[70vh] relative">
           <template x-if="serverFormModal.show">
             {{ template "mcp-server-form-content" . }}
           </template>
-        </div>
       </div>
     </div>
 
