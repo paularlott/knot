@@ -30,10 +30,15 @@ var ListPortForwardsCmd = &cli.Command{
 		for _, fwd := range response.Forwards {
 			line := fmt.Sprintf("  %d -> %s:%d", fwd.LocalPort, fwd.Space, fwd.RemotePort)
 			if fwd.Persistent {
-				line += " (persistent)"
+				line += " (persistent"
 			} else {
-				line += " (temporary)"
+				line += " (temporary"
 			}
+			mode := fwd.Mode
+			if mode == "" {
+				mode = "relay"
+			}
+			line += ", " + mode + ")"
 			fmt.Println(line)
 		}
 		return nil

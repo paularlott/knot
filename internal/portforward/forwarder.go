@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,31 @@ import (
 
 	"github.com/paularlott/knot/internal/log"
 )
+
+// DirectDialFunc attempts to forward a connection directly to a peer agent.
+// Returns nil if the connection was fully handled (caller should close the
+// local conn). Returns non-nil error if direct failed and the caller should
+// fall back to relay.
+type DirectDialFunc func(ctx context.Context, conn net.Conn, space string, remotePort uint16) error
+
+var (
+	directDialer   DirectDialFunc
+	directDialerMu sync.RWMutex
+)
+
+// SetDirectDialer installs the global direct-connection function. Called once
+// at agent startup; the port forwarder checks it for every accepted connection.
+func SetDirectDialer(fn DirectDialFunc) {
+	directDialerMu.Lock()
+	defer directDialerMu.Unlock()
+	directDialer = fn
+}
+
+func getDirectDialer() DirectDialFunc {
+	directDialerMu.RLock()
+	defer directDialerMu.RUnlock()
+	return directDialer
+}
 
 // Shared state for port forwards (used by both agentlink and mux session handlers)
 var (
@@ -29,6 +55,7 @@ type ForwardInfo struct {
 	LocalPort  uint16
 	Space      string
 	RemotePort uint16
+	Mode       string // "relay" or "direct"
 	Cancel     context.CancelFunc
 	Listener   net.Listener
 }
@@ -42,6 +69,7 @@ func StartForward(localPort, remotePort uint16, space string, cancel context.Can
 		LocalPort:  localPort,
 		Space:      space,
 		RemotePort: remotePort,
+		Mode:       "", // empty = try direct on first connection; set to "relay" after failure
 		Cancel:     cancel,
 	}
 	forwards[localPort] = info
@@ -124,6 +152,19 @@ func IsPersistent(localPort uint16) bool {
 	return persistentPorts[localPort]
 }
 
+// ResetModeForSpace sets the mode to "direct" on all forwards targeting the
+// given space, called when a fresh PeerIntroduce arrives with an updated peer
+// address. The forwarder will use direct; if it fails it switches to "relay".
+func ResetModeForSpace(space string) {
+	forwardsMux.Lock()
+	defer forwardsMux.Unlock()
+	for _, fwd := range forwards {
+		if fwd.Space == space {
+			fwd.Mode = "direct"
+		}
+	}
+}
+
 // RunTCPForwarderViaAgentWithContext runs a TCP forwarder via the agent proxy server
 func RunTCPForwarderViaAgentWithContext(ctx context.Context, proxyServerURL, listen, space string, port int, token string, skipTLSVerify bool) net.Listener {
 	logger := log.WithGroup("tcp")
@@ -136,7 +177,7 @@ func RunTCPForwarderViaAgentWithContext(ctx context.Context, proxyServerURL, lis
 		wsURL = "ws://" + proxyServerURL[7:]
 	}
 
-	logger.Info("connecting to agent via server at", "proxyServerURL", wsURL)
+	logger.Info("port forward listening", "local", listen, "space", space, "port", port)
 	return forwardTCPWithContext(ctx, fmt.Sprintf("%s/proxy/spaces/%s/port/%d", wsURL, space, port), token, listen, skipTLSVerify)
 }
 
@@ -147,6 +188,10 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 		logger.WithError(err).Error("error while opening local port")
 		return nil
 	}
+
+	// Extract the local port for ForwardInfo lookups
+	_, portStr, _ := net.SplitHostPort(listen)
+	localPort, _ := strconv.Atoi(portStr)
 
 	go func() {
 		defer tcpConnection.Close()
@@ -168,11 +213,38 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 
 			tcpConn, err := tcpConnection.Accept()
 			if err != nil {
-				logger.WithError(err).Error("could not accept the connection:")
-				return
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					logger.Debug("listener closed", "error", err)
+					return
+				}
 			}
 
-			// Create websocket connection
+			// Try direct peer connection first — but only if this forward
+			// hasn't already been switched to relay mode after a failure.
+			// ResetModeForSpace (called when a fresh PeerIntroduce arrives)
+			// clears the mode back to "" so direct is retried.
+			if dialer := getDirectDialer(); dialer != nil {
+				if fwd, ok := GetForward(uint16(localPort)); ok && fwd.Mode != "relay" {
+					if err := dialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
+						if fwd.Mode != "direct" {
+							logger.Info("using direct", "space", fwd.Space, "local_port", localPort)
+						}
+						fwd.Mode = "direct"
+						tcpConn.Close()
+						continue
+					}
+					// Direct failed — switch to relay mode for subsequent connections
+					if fwd.Mode != "relay" {
+						logger.Warn("direct failed, using relay", "space", fwd.Space, "local_port", localPort)
+					}
+					fwd.Mode = "relay"
+				}
+			}
+
+			// Relay via server WebSocket
 			dialer := websocket.DefaultDialer
 			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
 			dialer.HandshakeTimeout = 5 * time.Second

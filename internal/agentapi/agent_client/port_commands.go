@@ -157,11 +157,16 @@ func handlePortListExecution(stream net.Conn, agentClient *AgentClient) {
 		Forwards: make([]msg.PortForwardInfo, len(forwards)),
 	}
 	for i, fwd := range forwards {
+		mode := fwd.Mode
+		if mode == "" {
+			mode = "relay"
+		}
 		response.Forwards[i] = msg.PortForwardInfo{
 			LocalPort:  fwd.LocalPort,
 			Space:      fwd.Space,
 			RemotePort: fwd.RemotePort,
 			Persistent: portforward.IsPersistent(fwd.LocalPort),
+			Mode:       mode,
 		}
 	}
 

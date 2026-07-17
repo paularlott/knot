@@ -3,6 +3,7 @@ package agent_client
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database/model"
@@ -205,13 +206,19 @@ func (c *AgentClient) RemovePortForward(localPort uint16) error {
 			}
 
 			err = msg.SendRemovePortForward(conn, localPort)
-			conn.Close()
-
 			if err != nil {
+				conn.Close()
 				errs = append(errs, fmt.Errorf("failed to send remove port forward to server %v: %w", server, err))
 				continue
 			}
 
+			// Wait for the server to finish processing (stream closes when
+			// the handler returns) so the DB removal is committed before we
+			// report success to the caller.
+			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+			oneBuf := make([]byte, 1)
+			conn.Read(oneBuf) // EOF on server close
+			conn.Close()
 			return nil
 		}
 	}

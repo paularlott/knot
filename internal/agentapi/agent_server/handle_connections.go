@@ -623,6 +623,14 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleEvent(stream, session)
 			return
 
+		case byte(msg.CmdPeerRequestIntro):
+			var req msg.PeerRequestIntro
+			if err := msg.ReadMessage(stream, &req); err != nil {
+				log.WithError(err).Error("reading peer request intro:")
+				return
+			}
+			msg.WriteMessage(stream, &msg.PeerIntroduce{})
+
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
@@ -811,7 +819,7 @@ type errorResponse struct {
 func forwardSingleShot[Msg any, Resp any](stream net.Conn, session *Session, cmd msg.CmdType, cmdName string) {
 	var msgData Msg
 	if err := msg.ReadMessage(stream, &msgData); err != nil {
-		log.WithError(err).Error("reading "+cmdName+" message:")
+		log.WithError(err).Error("reading " + cmdName + " message:")
 		return
 	}
 

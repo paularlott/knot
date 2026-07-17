@@ -73,16 +73,20 @@ var PortListCmd = &cli.Command{
 
 		fmt.Printf("Active port forwards in space '%s':\n", spaceName)
 		for _, fwd := range response.Forwards {
-			mode := "temporary"
+			persist := "temporary"
 			if fwd.Persistent {
-				mode = "persistent"
+				persist = "persistent"
+			}
+			mode := fwd.Mode
+			if mode == "" {
+				mode = "relay"
 			}
 			// The server returns space names for display, but fall back to UUID lookup
 			target := fwd.Space
 			if name, ok := spaceNames[fwd.Space]; ok {
 				target = name
 			}
-			fmt.Printf("  %d -> %s:%d (%s)\n", fwd.LocalPort, target, fwd.RemotePort, mode)
+			fmt.Printf("  %d -> %s:%d (%s, %s)\n", fwd.LocalPort, target, fwd.RemotePort, persist, mode)
 		}
 
 		return nil

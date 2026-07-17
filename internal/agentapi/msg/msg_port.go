@@ -39,6 +39,7 @@ type PortForwardInfo struct {
 	Space      string `json:"space" msgpack:"space"`
 	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
 	Persistent bool   `json:"persistent" msgpack:"persistent"`
+	Mode       string `json:"mode" msgpack:"mode"` // "relay" or "direct"
 }
 
 type PortStopRequest struct {

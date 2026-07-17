@@ -230,11 +230,16 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 
 	forwards := make([]apiclient.PortForwardInfo, 0, len(response.Forwards))
 	for _, fwd := range response.Forwards {
+		mode := fwd.Mode
+		if mode == "" {
+			mode = "relay"
+		}
 		forwards = append(forwards, apiclient.PortForwardInfo{
 			LocalPort:  fwd.LocalPort,
 			Space:      fwd.Space,
 			RemotePort: fwd.RemotePort,
 			Persistent: fwd.Persistent,
+			Mode:       mode,
 		})
 	}
 

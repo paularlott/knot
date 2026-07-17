@@ -16,6 +16,7 @@ import (
 type Session struct {
 	Id                    string
 	Version               string
+	PeerPort              uint16
 	HasCodeServer         bool
 	SSHPort               int
 	VNCHttpPort           int

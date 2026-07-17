@@ -14,11 +14,16 @@ func handleListPortForwards(conn net.Conn, msg *CommandMsg) {
 		Forwards: make([]PortForwardInfo, len(forwards)),
 	}
 	for i, fwd := range forwards {
+		mode := fwd.Mode
+		if mode == "" {
+			mode = "relay"
+		}
 		response.Forwards[i] = PortForwardInfo{
 			LocalPort:  fwd.LocalPort,
 			Space:      fwd.Space,
 			RemotePort: fwd.RemotePort,
 			Persistent: portforward.IsPersistent(fwd.LocalPort),
+			Mode:       mode,
 		}
 	}
 
