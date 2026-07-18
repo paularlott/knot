@@ -225,3 +225,23 @@ func (c *AgentClient) RemovePortForward(localPort uint16) error {
 
 	return errors.Join(errs...)
 }
+
+// NotifyPortForwardChanged sends a fire-and-forget notification to the server
+// via the mux session, so the server can publish an SSE event to connected
+// web UIs. Used by agentlink handlers when port forwards change locally.
+func (c *AgentClient) NotifyPortForwardChanged() {
+	c.serverListMutex.RLock()
+	defer c.serverListMutex.RUnlock()
+
+	for _, server := range c.serverList {
+		if server.muxSession != nil && !server.muxSession.IsClosed() {
+			conn, err := server.muxSession.Open()
+			if err != nil {
+				continue
+			}
+			msg.WriteCommand(conn, msg.CmdPortForwardNotify)
+			conn.Close()
+			return
+		}
+	}
+}

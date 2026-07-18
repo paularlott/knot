@@ -65,6 +65,8 @@ type ForwardInfo struct {
 	latencyMs   int
 	jitterMs    int
 	bandwidthKB int // KB/s, 0 = unlimited
+	timeoutMs   int // connection killed after this many ms, 0 = disabled
+	down        bool // blocks all traffic, port forward definition stays
 }
 
 // GetMode returns the current connection mode (thread-safe).
@@ -175,42 +177,45 @@ func IsPersistent(localPort uint16) bool {
 // SetThrottle applies latency, jitter, and/or bandwidth limits to an existing
 // forward. All values are optional; pass 0 to clear any individual setting.
 // A new limiter is created on each call.
-func (f *ForwardInfo) SetThrottle(latencyMs, jitterMs, bandwidthKB int) {
+func (f *ForwardInfo) SetThrottle(latencyMs, jitterMs, bandwidthKB, timeoutMs int, down bool) {
 	f.throttleMu.Lock()
 	defer f.throttleMu.Unlock()
 	f.latencyMs = latencyMs
 	f.jitterMs = jitterMs
 	f.bandwidthKB = bandwidthKB
+	f.timeoutMs = timeoutMs
+	f.down = down
 }
 
 // GetThrottle returns the current throttle settings.
-func (f *ForwardInfo) GetThrottle() (latencyMs, jitterMs, bandwidthKB int) {
+func (f *ForwardInfo) GetThrottle() (latencyMs, jitterMs, bandwidthKB, timeoutMs int, down bool) {
 	f.throttleMu.RLock()
 	defer f.throttleMu.RUnlock()
-	return f.latencyMs, f.jitterMs, f.bandwidthKB
+	return f.latencyMs, f.jitterMs, f.bandwidthKB, f.timeoutMs, f.down
 }
 
 // HasThrottle reports whether any throttle setting is active.
 func (f *ForwardInfo) HasThrottle() bool {
 	f.throttleMu.RLock()
 	defer f.throttleMu.RUnlock()
-	return f.latencyMs > 0 || f.jitterMs > 0 || f.bandwidthKB > 0
+	return f.latencyMs > 0 || f.jitterMs > 0 || f.bandwidthKB > 0 || f.timeoutMs > 0 || f.down
 }
 
-// throttledWriter wraps an io.Writer with optional latency, jitter, and
-// bandwidth limiting. Reads settings from ForwardInfo on every Write so
+// throttledWriter wraps an io.Writer with optional latency, jitter, bandwidth
+// limiting, and timeout. Reads settings from ForwardInfo on every Write so
 // changes via SetThrottle take effect immediately.
 type throttledWriter struct {
-	dest io.Writer
-	fwd  *ForwardInfo
-	rng  *rand.Rand
+	dest      io.Writer
+	fwd       *ForwardInfo
+	rng       *rand.Rand
+	startTime time.Time
 }
 
 func newThrottledWriter(dest io.Writer, fwd *ForwardInfo) io.Writer {
 	if fwd == nil || !fwd.HasThrottle() {
 		return dest
 	}
-	return &throttledWriter{dest: dest, fwd: fwd, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
+	return &throttledWriter{dest: dest, fwd: fwd, rng: rand.New(rand.NewSource(time.Now().UnixNano())), startTime: time.Now()}
 }
 
 // NewThrottledWriter is the exported version for use by the direct dial path.
@@ -232,10 +237,22 @@ func FindForwardBySpace(space string) *ForwardInfo {
 
 func (w *throttledWriter) Write(p []byte) (int, error) {
 	w.fwd.throttleMu.RLock()
+	down := w.fwd.down
 	latencyMs := w.fwd.latencyMs
 	jitterMs := w.fwd.jitterMs
 	bandwidthKB := w.fwd.bandwidthKB
+	timeoutMs := w.fwd.timeoutMs
 	w.fwd.throttleMu.RUnlock()
+
+	// Down: block all traffic immediately
+	if down {
+		return 0, io.ErrClosedPipe
+	}
+
+	// Timeout: kill the connection after the specified duration
+	if timeoutMs > 0 && time.Since(w.startTime) > time.Duration(timeoutMs)*time.Millisecond {
+		return 0, io.ErrClosedPipe
+	}
 
 	// Bandwidth limiting: sleep proportional to data size
 	if bandwidthKB > 0 {

@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
@@ -354,8 +355,10 @@ func HandlePortThrottle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sse.PublishPortForwardChanged(spaceId, space.UserId)
 	rest.WriteResponse(http.StatusOK, w, r, response)
 }
+
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
 	rest.WriteResponse(status, w, nil, map[string]interface{}{

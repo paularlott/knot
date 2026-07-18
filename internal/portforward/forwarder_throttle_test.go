@@ -3,6 +3,7 @@ package portforward
 import (
 	"bytes"
 	"context"
+	"io"
 	"testing"
 	"time"
 )
@@ -12,7 +13,7 @@ import (
 func TestThrottledWriter_Latency(t *testing.T) {
 	var buf bytes.Buffer
 	fwd := &ForwardInfo{}
-	fwd.SetThrottle(50, 0, 0) // 50ms latency, no jitter, unlimited bandwidth
+	fwd.SetThrottle(50, 0, 0, 0, false) // 50ms latency, no jitter, unlimited bandwidth, no timeout
 
 	writer := newThrottledWriter(&buf, fwd)
 	data := []byte("hello world")
@@ -64,7 +65,7 @@ func TestThrottledWriter_NilForward(t *testing.T) {
 func TestThrottledWriter_Bandwidth(t *testing.T) {
 	var buf bytes.Buffer
 	fwd := &ForwardInfo{}
-	fwd.SetThrottle(0, 0, 1) // 1 KB/s = 1024 bytes/sec
+	fwd.SetThrottle(0, 0, 1, 0, false) // 1 KB/s = 1024 bytes/sec
 
 	writer := newThrottledWriter(&buf, fwd)
 	data := make([]byte, 512)
@@ -91,7 +92,7 @@ func TestThrottledWriter_Bandwidth(t *testing.T) {
 func TestThrottledWriter_Jitter(t *testing.T) {
 	var buf bytes.Buffer
 	fwd := &ForwardInfo{}
-	fwd.SetThrottle(100, 50, 0) // 100ms latency, 50ms jitter
+	fwd.SetThrottle(100, 50, 0, 0, false) // 100ms latency, 50ms jitter
 
 	for i := 0; i < 5; i++ {
 		buf.Reset()
@@ -118,7 +119,7 @@ func TestThrottledWriter_Jitter(t *testing.T) {
 func TestThrottledWriter_LargeWrite(t *testing.T) {
 	var buf bytes.Buffer
 	fwd := &ForwardInfo{}
-	fwd.SetThrottle(0, 0, 10) // 10 KB/s
+	fwd.SetThrottle(0, 0, 10, 0, false) // 10 KB/s
 
 	writer := newThrottledWriter(&buf, fwd)
 	data := make([]byte, 1024)
@@ -144,7 +145,7 @@ func TestThrottledWriter_LargeWrite(t *testing.T) {
 func TestThrottledWriter_DynamicUpdate(t *testing.T) {
 	var buf bytes.Buffer
 	fwd := &ForwardInfo{}
-	fwd.SetThrottle(50, 0, 0) // 50ms latency
+	fwd.SetThrottle(50, 0, 0, 0, false) // 50ms latency
 
 	writer := newThrottledWriter(&buf, fwd)
 
@@ -156,7 +157,7 @@ func TestThrottledWriter_DynamicUpdate(t *testing.T) {
 	}
 
 	// Clear latency
-	fwd.SetThrottle(0, 0, 0)
+	fwd.SetThrottle(0, 0, 0, 0, false)
 
 	// Second write: fast (latency now 0)
 	start = time.Now()
@@ -166,28 +167,82 @@ func TestThrottledWriter_DynamicUpdate(t *testing.T) {
 	}
 }
 
+// TestThrottledWriter_Timeout verifies that a timeout setting kills the
+// connection (returns error) after the specified duration.
+func TestThrottledWriter_Timeout(t *testing.T) {
+	var buf bytes.Buffer
+	fwd := &ForwardInfo{}
+	fwd.SetThrottle(0, 0, 0, 50, false) // 50ms timeout, no other limits
+
+	writer := newThrottledWriter(&buf, fwd)
+
+	// First write: should succeed (within 50ms)
+	n, err := writer.Write([]byte("hello"))
+	if err != nil {
+		t.Fatalf("First Write failed: %v", err)
+	}
+	if n != 5 {
+		t.Fatalf("Wrote %d, expected 5", n)
+	}
+
+	// Wait past the timeout
+	time.Sleep(80 * time.Millisecond)
+
+	// Second write: should fail with ErrClosedPipe
+	_, err = writer.Write([]byte("world"))
+	if err == nil {
+		t.Fatal("Expected error after timeout, got nil")
+	}
+	if err != io.ErrClosedPipe {
+		t.Fatalf("Expected io.ErrClosedPipe, got %v", err)
+	}
+}
+
+// TestThrottledWriter_TimeoutFastRequest verifies that data written within
+// the timeout window passes through successfully.
+func TestThrottledWriter_TimeoutFastRequest(t *testing.T) {
+	var buf bytes.Buffer
+	fwd := &ForwardInfo{}
+	fwd.SetThrottle(0, 0, 0, 1000, false) // 1s timeout
+
+	writer := newThrottledWriter(&buf, fwd)
+
+	// Write immediately — well within the 1s window
+	data := []byte("quick request")
+	n, err := writer.Write(data)
+	if err != nil {
+		t.Fatalf("Write failed within timeout: %v", err)
+	}
+	if n != len(data) {
+		t.Fatalf("Wrote %d, expected %d", n, len(data))
+	}
+	if !bytes.Equal(buf.Bytes(), data) {
+		t.Fatalf("Buffer = %q, expected %q", buf.Bytes(), data)
+	}
+}
+
 // TestForwardInfo_SetThrottle verifies Set/Get/Has throttle methods.
 func TestForwardInfo_SetThrottle(t *testing.T) {
 	fwd := &ForwardInfo{}
 
-	lat, jit, bw := fwd.GetThrottle()
-	if lat != 0 || jit != 0 || bw != 0 {
-		t.Fatalf("Initial should be zero, got lat=%d jit=%d bw=%d", lat, jit, bw)
+	lat, jit, bw, to, d := fwd.GetThrottle()
+	if lat != 0 || jit != 0 || bw != 0 || to != 0 || d {
+		t.Fatalf("Initial should be zero, got lat=%d jit=%d bw=%d to=%d d=%v", lat, jit, bw, to, d)
 	}
 	if fwd.HasThrottle() {
 		t.Fatal("HasThrottle should be false initially")
 	}
 
-	fwd.SetThrottle(100, 20, 512)
-	lat, jit, bw = fwd.GetThrottle()
-	if lat != 100 || jit != 20 || bw != 512 {
-		t.Fatalf("After SetThrottle(100,20,512): got lat=%d jit=%d bw=%d", lat, jit, bw)
+	fwd.SetThrottle(100, 20, 512, 0, false)
+	lat, jit, bw, to, d = fwd.GetThrottle()
+	if lat != 100 || jit != 20 || bw != 512 || to != 0 || d {
+		t.Fatalf("After SetThrottle(100,20,512,0,false): got lat=%d jit=%d bw=%d to=%d d=%v", lat, jit, bw, to, d)
 	}
 	if !fwd.HasThrottle() {
 		t.Fatal("HasThrottle should be true after setting values")
 	}
 
-	fwd.SetThrottle(0, 0, 0)
+	fwd.SetThrottle(0, 0, 0, 0, false)
 	if fwd.HasThrottle() {
 		t.Fatal("HasThrottle should be false after reset")
 	}
@@ -211,5 +266,45 @@ func TestFindForwardBySpace(t *testing.T) {
 
 	if FindForwardBySpace("no-such-space") != nil {
 		t.Fatal("Should return nil for non-existent space")
+	}
+}
+
+// TestThrottledWriter_Down verifies that setting down=true blocks all writes.
+func TestThrottledWriter_Down(t *testing.T) {
+	var buf bytes.Buffer
+	fwd := &ForwardInfo{}
+	fwd.SetThrottle(0, 0, 0, 0, true) // down=true
+
+	writer := newThrottledWriter(&buf, fwd)
+	_, err := writer.Write([]byte("blocked"))
+	if err == nil {
+		t.Fatal("Expected error when down=true, got nil")
+	}
+	if err != io.ErrClosedPipe {
+		t.Fatalf("Expected io.ErrClosedPipe, got %v", err)
+	}
+}
+
+// TestThrottledWriter_DownThenUp verifies toggling down off restores traffic.
+func TestThrottledWriter_DownThenUp(t *testing.T) {
+	var buf bytes.Buffer
+	fwd := &ForwardInfo{}
+	fwd.SetThrottle(0, 0, 0, 0, true) // down
+
+	writer := newThrottledWriter(&buf, fwd)
+	_, err := writer.Write([]byte("blocked"))
+	if err == nil {
+		t.Fatal("Expected block when down=true")
+	}
+
+	// Toggle up
+	fwd.SetThrottle(0, 0, 0, 0, false)
+
+	n, err := writer.Write([]byte("restored"))
+	if err != nil {
+		t.Fatalf("Write failed after toggling up: %v", err)
+	}
+	if n != 8 {
+		t.Fatalf("Wrote %d, expected 8", n)
 	}
 }

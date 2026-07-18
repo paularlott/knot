@@ -216,6 +216,8 @@ type PortForwardInfo struct {
 	LatencyMs   int    `json:"latency_ms"`
 	JitterMs    int    `json:"jitter_ms"`
 	BandwidthKB int    `json:"bandwidth_kb"`
+	TimeoutMs   int    `json:"timeout_ms"`
+	Down        bool   `json:"down"`
 }
 
 type PortStopRequest struct {
@@ -227,6 +229,8 @@ type PortThrottleRequest struct {
 	LatencyMs   int    `json:"latency_ms"`
 	JitterMs    int    `json:"jitter_ms"`
 	BandwidthKB int    `json:"bandwidth_kb"`
+	TimeoutMs   int    `json:"timeout_ms"`
+	Down        bool   `json:"down"`
 	Reset       bool   `json:"reset"`
 }
 

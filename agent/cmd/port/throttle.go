@@ -35,6 +35,14 @@ var ThrottlePortCmd = &cli.Command{
 			Name:  "bandwidth",
 			Usage: "Bandwidth limit in KB/s (e.g. 100, 1024)",
 		},
+		&cli.StringFlag{
+			Name:  "timeout",
+			Usage: "Connection timeout in milliseconds (e.g. 5000) — kills the connection after this duration",
+		},
+		&cli.BoolFlag{
+			Name:  "down",
+			Usage: "Block all traffic on this forward (port definition stays)",
+		},
 		&cli.BoolFlag{
 			Name:  "reset",
 			Usage: "Clear all throttle settings",
@@ -74,6 +82,14 @@ var ThrottlePortCmd = &cli.Command{
 				}
 				request.BandwidthKB = kb
 			}
+			if v := cmd.GetString("timeout"); v != "" {
+				ms, err := parseMs(v)
+				if err != nil {
+					return fmt.Errorf("invalid timeout: %w", err)
+				}
+				request.TimeoutMs = ms
+			}
+			request.Down = cmd.GetBool("down")
 		}
 
 		var response agentlink.RunCommandResponse
@@ -97,6 +113,12 @@ var ThrottlePortCmd = &cli.Command{
 			}
 			if request.BandwidthKB > 0 {
 				parts = append(parts, fmt.Sprintf("bandwidth=%dKB/s", request.BandwidthKB))
+			}
+			if request.TimeoutMs > 0 {
+				parts = append(parts, fmt.Sprintf("timeout=%dms", request.TimeoutMs))
+			}
+			if request.Down {
+				parts = append(parts, "down")
 			}
 			if len(parts) == 0 {
 				parts = []string{"no limits set"}

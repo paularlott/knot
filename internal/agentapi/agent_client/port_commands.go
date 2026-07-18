@@ -161,7 +161,7 @@ func handlePortListExecution(stream net.Conn, agentClient *AgentClient) {
 		if mode == "" {
 			mode = "relay"
 		}
-		latencyMs, jitterMs, bandwidthKB := fwd.GetThrottle()
+		latencyMs, jitterMs, bandwidthKB, timeoutMs, down := fwd.GetThrottle()
 		response.Forwards[i] = msg.PortForwardInfo{
 			LocalPort:   fwd.LocalPort,
 			Space:       fwd.Space,
@@ -171,6 +171,8 @@ func handlePortListExecution(stream net.Conn, agentClient *AgentClient) {
 			LatencyMs:   latencyMs,
 			JitterMs:    jitterMs,
 			BandwidthKB: bandwidthKB,
+			TimeoutMs:   timeoutMs,
+			Down:        down,
 		}
 	}
 
@@ -209,9 +211,9 @@ func handleThrottlePortExecution(stream net.Conn, req msg.ThrottlePortRequest) {
 	}
 
 	if req.Reset {
-		fwd.SetThrottle(0, 0, 0)
+		fwd.SetThrottle(0, 0, 0, 0, false)
 	} else {
-		fwd.SetThrottle(req.LatencyMs, req.JitterMs, req.BandwidthKB)
+		fwd.SetThrottle(req.LatencyMs, req.JitterMs, req.BandwidthKB, req.TimeoutMs, req.Down)
 	}
 
 	log.Info("port forward throttled", "local_port", req.LocalPort, "latency_ms", req.LatencyMs, "jitter_ms", req.JitterMs, "bandwidth_kb", req.BandwidthKB)

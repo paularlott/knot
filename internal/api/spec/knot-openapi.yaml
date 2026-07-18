@@ -8014,6 +8014,11 @@ components:
           minimum: 0
           example: 1024
           description: Bandwidth limit in KB/s (0 = unlimited).
+        timeout_ms:
+          type: integer
+          minimum: 0
+          example: 5000
+          description: Kill each connection after this many milliseconds (0 = disabled).
 
     PortListSuccess:
       type: object
@@ -8062,6 +8067,11 @@ components:
           minimum: 0
           example: 1024
           description: Bandwidth limit in KB/s (0 = unlimited).
+        timeout_ms:
+          type: integer
+          minimum: 0
+          example: 5000
+          description: Kill each connection after this many milliseconds (0 = disabled).
         reset:
           type: boolean
           example: false

@@ -24,7 +24,7 @@ func BenchmarkRawCopy(b *testing.B) {
 // should return the original writer, so this should match BenchmarkRawCopy.
 func BenchmarkThrottledCopy_NoThrottle(b *testing.B) {
 	fwd := &ForwardInfo{}
-	fwd.SetThrottle(0, 0, 0) // no throttle
+	fwd.SetThrottle(0, 0, 0, 0, false) // no throttle
 
 	src := bytes.NewReader(make([]byte, 1024*1024))
 	var buf bytes.Buffer
@@ -43,7 +43,7 @@ func BenchmarkThrottledCopy_NoThrottle(b *testing.B) {
 // applied (to show the throttle mechanism works but isn't the focus here).
 func BenchmarkThrottledCopy_WithLatency(b *testing.B) {
 	fwd := &ForwardInfo{}
-	fwd.SetThrottle(1, 0, 0) // 1ms latency
+	fwd.SetThrottle(1, 0, 0, 0, false) // 1ms latency
 
 	data := make([]byte, 1024) // small writes to see latency effect
 	src := bytes.NewReader(data)

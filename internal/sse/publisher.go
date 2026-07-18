@@ -304,3 +304,12 @@ func PublishTunnelsDeleted(tunnelName, userId string) {
 		Payload: ResourcePayload{Id: tunnelName, UserId: userId},
 	})
 }
+
+// PublishPortForwardChanged notifies clients that a space's port forwards
+// changed (created, stopped, throttled, or toggled down/up).
+func PublishPortForwardChanged(spaceId, userId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventPortForwardChanged,
+		Payload: ResourcePayload{Id: spaceId, UserId: userId},
+	})
+}

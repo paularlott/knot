@@ -18,7 +18,7 @@ func handleListPortForwards(conn net.Conn, msg *CommandMsg) {
 		if mode == "" {
 			mode = "relay"
 		}
-		latencyMs, jitterMs, bandwidthKB := fwd.GetThrottle()
+		latencyMs, jitterMs, bandwidthKB, timeoutMs, down := fwd.GetThrottle()
 		response.Forwards[i] = PortForwardInfo{
 			LocalPort:   fwd.LocalPort,
 			Space:       fwd.Space,
@@ -28,6 +28,8 @@ func handleListPortForwards(conn net.Conn, msg *CommandMsg) {
 			LatencyMs:   latencyMs,
 			JitterMs:    jitterMs,
 			BandwidthKB: bandwidthKB,
+			TimeoutMs:   timeoutMs,
+			Down:        down,
 		}
 	}
 

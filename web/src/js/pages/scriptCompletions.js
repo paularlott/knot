@@ -125,9 +125,9 @@ const scriptLibraries = [
       {
         name: "port_throttle",
         signature:
-          "port_throttle(space, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, reset=False)",
+          "port_throttle(space, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, timeout_ms=0, down=False, reset=False)",
         description:
-          "Apply latency, jitter, and/or bandwidth limits to a port forward. Pass reset=True to clear.",
+          "Apply latency, jitter, bandwidth limits, connection timeout, and/or traffic blocking (down) to a port forward. Pass reset=True to clear.",
         returns: "bool - True if successful",
       },
       {

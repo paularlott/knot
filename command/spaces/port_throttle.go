@@ -41,6 +41,14 @@ var PortThrottleCmd = &cli.Command{
 			Name:  "bandwidth",
 			Usage: "Bandwidth limit in KB/s (e.g. 100, 1024)",
 		},
+		&cli.StringFlag{
+			Name:  "timeout",
+			Usage: "Connection timeout in milliseconds (e.g. 5000) — kills the connection after this duration",
+		},
+		&cli.BoolFlag{
+			Name:  "down",
+			Usage: "Block all traffic on this forward (port definition stays)",
+		},
 		&cli.BoolFlag{
 			Name:  "reset",
 			Usage: "Clear all throttle settings",
@@ -102,6 +110,14 @@ var PortThrottleCmd = &cli.Command{
 				}
 				request.BandwidthKB = kb
 			}
+			if v := cmd.GetString("timeout"); v != "" {
+				ms, err := parseMsVal(v)
+				if err != nil {
+					return fmt.Errorf("invalid timeout: %w", err)
+				}
+				request.TimeoutMs = ms
+			}
+			request.Down = cmd.GetBool("down")
 		}
 
 		code, err := client.ThrottlePort(ctx, spaceId, &request)

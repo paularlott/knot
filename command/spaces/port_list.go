@@ -101,6 +101,12 @@ var PortListCmd = &cli.Command{
 			if fwd.BandwidthKB > 0 {
 				throttle = append(throttle, fmt.Sprintf("%dKB/s", fwd.BandwidthKB))
 			}
+			if fwd.Down {
+				throttle = append(throttle, "down")
+			}
+			if fwd.TimeoutMs > 0 {
+				throttle = append(throttle, fmt.Sprintf("timeout=%dms", fwd.TimeoutMs))
+			}
 			if len(throttle) > 0 {
 				line += ", " + strings.Join(throttle, " ")
 			}

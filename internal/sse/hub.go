@@ -46,6 +46,9 @@ const (
 	EventSpaceChanged EventType = "space:changed"
 	EventSpaceDeleted EventType = "space:deleted"
 
+	// Port forward events
+	EventPortForwardChanged EventType = "port-forward:changed"
+
 	// Pool events
 	EventPoolChanged EventType = "pool:changed"
 	EventPoolDeleted EventType = "pool:deleted"

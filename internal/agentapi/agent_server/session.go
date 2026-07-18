@@ -546,7 +546,6 @@ func (s *Session) SendThrottle(req *msg.ThrottlePortRequest) (*msg.ThrottlePortR
 
 	return &response, nil
 }
-
 func (s *Session) SendTunnelStart(req *msg.TunnelStartRequest) (*msg.TunnelStartResponse, error) {
 	conn, err := s.MuxSession.Open()
 	if err != nil {

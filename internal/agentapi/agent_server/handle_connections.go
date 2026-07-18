@@ -631,6 +631,12 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			}
 			msg.WriteMessage(stream, &msg.PeerIntroduce{})
 
+		case byte(msg.CmdPortForwardNotify):
+			db := database.GetInstance()
+			if space, err := db.GetSpace(session.Id); err == nil && space != nil {
+				sse.PublishPortForwardChanged(session.Id, space.UserId)
+			}
+
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
