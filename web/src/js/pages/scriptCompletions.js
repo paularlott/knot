@@ -123,6 +123,14 @@ const scriptLibraries = [
         returns: "bool - True if successful",
       },
       {
+        name: "port_throttle",
+        signature:
+          "port_throttle(space, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, reset=False)",
+        description:
+          "Apply latency, jitter, and/or bandwidth limits to a port forward. Pass reset=True to clear.",
+        returns: "bool - True if successful",
+      },
+      {
         name: "tunnel_start",
         signature: "tunnel_start(space, protocol, port, name)",
         description:

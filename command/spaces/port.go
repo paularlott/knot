@@ -16,5 +16,6 @@ var PortCmd = &cli.Command{
 		PortForwardCmd,
 		PortListCmd,
 		PortStopCmd,
+		PortThrottleCmd,
 	},
 }

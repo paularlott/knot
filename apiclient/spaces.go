@@ -208,15 +208,26 @@ type PortListResponse struct {
 }
 
 type PortForwardInfo struct {
-	LocalPort  uint16 `json:"local_port"`
-	Space      string `json:"space"`
-	RemotePort uint16 `json:"remote_port"`
-	Persistent bool   `json:"persistent"`
-	Mode       string `json:"mode"` // "direct" or "relay"
+	LocalPort   uint16 `json:"local_port"`
+	Space       string `json:"space"`
+	RemotePort  uint16 `json:"remote_port"`
+	Persistent  bool   `json:"persistent"`
+	Mode        string `json:"mode"` // "direct" or "relay"
+	LatencyMs   int    `json:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb"`
 }
 
 type PortStopRequest struct {
 	LocalPort uint16 `json:"local_port"`
+}
+
+type PortThrottleRequest struct {
+	LocalPort   uint16 `json:"local_port"`
+	LatencyMs   int    `json:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb"`
+	Reset       bool   `json:"reset"`
 }
 
 type PortApplyRequest struct {
@@ -431,6 +442,10 @@ func (c *ApiClient) ListPorts(ctx context.Context, spaceId string) (*PortListRes
 
 func (c *ApiClient) StopPort(ctx context.Context, spaceId string, request *PortStopRequest) (int, error) {
 	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/stop", request, nil, 200)
+}
+
+func (c *ApiClient) ThrottlePort(ctx context.Context, spaceId string, request *PortThrottleRequest) (int, error) {
+	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/throttle", request, nil, 200)
 }
 
 func (c *ApiClient) ApplyPorts(ctx context.Context, spaceId string, request *PortApplyRequest) (*PortApplyResponse, int, error) {

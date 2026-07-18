@@ -6,8 +6,8 @@ info:
   version: 1.0.0
   title: Knot API
   license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
+    name: Knot Pro EULA
+    url: https://github.com/paularlott/knot-pro/blob/main/LICENSE.txt
   x-logo:
     url: ../images/logo-light.svg
   description: |
@@ -599,6 +599,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/activity:
+    get:
+      tags:
+        - Users
+      summary: Get User Activity
+      description: Retrieve per-minute filesystem activity for the last hour or daily activity for the last 7 days.
+      operationId: getUserActivity
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID or username of the user.
+          schema:
+            type: string
+            format: uuid
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1h, 7d]
+            default: 1h
+      responses:
+        "200":
+          description: Aggregated user activity history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserActivityHistoryResponse"
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -2700,6 +2739,42 @@ paths:
           $ref: "#/components/responses/not-found"
         "500":
           $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/port/throttle:
+    post:
+      summary: Throttle a port forward
+      description: Apply latency, jitter, and/or bandwidth limits to an existing port forward. Pass reset=true to clear all limits.
+      operationId: portThrottle
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortThrottleRequest"
+      responses:
+        "200":
+          description: Throttle applied successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: Space is not running.
       security: [BearerAuth: []]
 
   /space-io/{space_id}/port/apply:
@@ -6568,7 +6643,7 @@ components:
           description: If the template is active.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         compute_units:
           type: integer
           format: uint32
@@ -6706,7 +6781,7 @@ components:
           description: If the space should support an SSH server.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         startup_script_id:
           type: string
           format: uuid
@@ -6794,7 +6869,7 @@ components:
           description: Max consecutive failures before action.
         health_check_auto_restart:
           type: boolean
-          description: Auto-restart the space on failure (false = flag only).
+          description: Auto-restart the space on failure. With allow_node_migration enabled in Pro, this also permits restarting deployed spaces on another live node after node failure.
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
@@ -6849,7 +6924,7 @@ components:
           description: If the space should support an SSH server.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         startup_script_id:
           type: string
           format: uuid
@@ -6937,7 +7012,7 @@ components:
           description: Max consecutive failures before action.
         health_check_auto_restart:
           type: boolean
-          description: Auto-restart the space on failure (false = flag only).
+          description: Auto-restart the space on failure. With allow_node_migration enabled in Pro, this also permits restarting deployed spaces on another live node after node failure.
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
@@ -7006,7 +7081,7 @@ components:
           description: If the space should support an SSH server.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         startup_script_id:
           type: string
           format: uuid
@@ -7094,7 +7169,7 @@ components:
           description: Max consecutive failures before action.
         health_check_auto_restart:
           type: boolean
-          description: Auto-restart the space on failure (false = flag only).
+          description: Auto-restart the space on failure. With allow_node_migration enabled in Pro, this also permits restarting deployed spaces on another live node after node failure.
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
@@ -7618,6 +7693,71 @@ components:
           format: uint32
           description: The number of tunnels the user has active.
 
+    UserActivityUsage:
+      type: object
+      properties:
+        write_count:
+          type: integer
+          format: uint32
+        create_count:
+          type: integer
+          format: uint32
+        delete_count:
+          type: integer
+          format: uint32
+        rename_count:
+          type: integer
+          format: uint32
+        distinct_paths:
+          type: integer
+          format: uint32
+        space_start_count:
+          type: integer
+          format: uint32
+        space_stop_count:
+          type: integer
+          format: uint32
+        space_create_count:
+          type: integer
+          format: uint32
+        space_delete_count:
+          type: integer
+          format: uint32
+        last_activity_at:
+          type: string
+          format: date-time
+
+    UserActivityPoint:
+      type: object
+      properties:
+        bucket_start:
+          type: string
+          format: date-time
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        activity_usage:
+          $ref: "#/components/schemas/UserActivityUsage"
+
+    UserActivityHistoryResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        range:
+          type: string
+          enum: [1h, 7d]
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        summary:
+          $ref: "#/components/schemas/UserActivityUsage"
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserActivityPoint"
+
     VolumeNode:
       type: object
       properties:
@@ -7854,6 +7994,26 @@ components:
           type: boolean
           example: true
           description: True when the forward is persisted for restore after agent restart.
+        mode:
+          type: string
+          enum: [relay, direct]
+          example: direct
+          description: How traffic is routed between agents. "relay" goes through the Knot server. "direct" (Pro) goes agent-to-agent.
+        latency_ms:
+          type: integer
+          minimum: 0
+          example: 200
+          description: Artificial latency in milliseconds applied to the forward (0 = none).
+        jitter_ms:
+          type: integer
+          minimum: 0
+          example: 50
+          description: Random jitter added to latency in milliseconds (0 = none).
+        bandwidth_kb:
+          type: integer
+          minimum: 0
+          example: 1024
+          description: Bandwidth limit in KB/s (0 = unlimited).
 
     PortListSuccess:
       type: object
@@ -7877,6 +8037,35 @@ components:
           maximum: 65535
           example: 8080
           description: The local port to stop forwarding.
+
+    PortThrottleRequest:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 8080
+          description: The local port of the forward to throttle.
+        latency_ms:
+          type: integer
+          minimum: 0
+          example: 200
+          description: Artificial latency in milliseconds (0 = none).
+        jitter_ms:
+          type: integer
+          minimum: 0
+          example: 50
+          description: Random jitter in milliseconds (0 = none).
+        bandwidth_kb:
+          type: integer
+          minimum: 0
+          example: 1024
+          description: Bandwidth limit in KB/s (0 = unlimited).
+        reset:
+          type: boolean
+          example: false
+          description: Clear all throttle settings.
 
     PortApplyRequest:
       type: object

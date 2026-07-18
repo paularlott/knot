@@ -3,6 +3,7 @@ package command_spaces
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/knot/command/cmdutil"
 
@@ -86,7 +87,26 @@ var PortListCmd = &cli.Command{
 			if name, ok := spaceNames[fwd.Space]; ok {
 				target = name
 			}
-			fmt.Printf("  %d -> %s:%d (%s, %s)\n", fwd.LocalPort, target, fwd.RemotePort, persist, mode)
+			line := fmt.Sprintf("  %d -> %s:%d (%s, %s", fwd.LocalPort, target, fwd.RemotePort, persist, mode)
+
+			// Throttle info
+			var throttle []string
+			if fwd.LatencyMs > 0 {
+				t := fmt.Sprintf("%dms", fwd.LatencyMs)
+				if fwd.JitterMs > 0 {
+					t += fmt.Sprintf(" ±%dms", fwd.JitterMs)
+				}
+				throttle = append(throttle, t)
+			}
+			if fwd.BandwidthKB > 0 {
+				throttle = append(throttle, fmt.Sprintf("%dKB/s", fwd.BandwidthKB))
+			}
+			if len(throttle) > 0 {
+				line += ", " + strings.Join(throttle, " ")
+			}
+
+			line += ")"
+			fmt.Println(line)
 		}
 
 		return nil

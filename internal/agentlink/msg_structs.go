@@ -46,11 +46,14 @@ type ForwardPortRequest struct {
 }
 
 type PortForwardInfo struct {
-	LocalPort  uint16 `json:"local_port" msgpack:"local_port"`
-	Space      string `json:"space" msgpack:"space"`
-	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
-	Persistent bool   `json:"persistent" msgpack:"persistent"`
-	Mode       string `json:"mode" msgpack:"mode"`
+	LocalPort   uint16 `json:"local_port" msgpack:"local_port"`
+	Space       string `json:"space" msgpack:"space"`
+	RemotePort  uint16 `json:"remote_port" msgpack:"remote_port"`
+	Persistent  bool   `json:"persistent" msgpack:"persistent"`
+	Mode        string `json:"mode" msgpack:"mode"`
+	LatencyMs   int    `json:"latency_ms" msgpack:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms" msgpack:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb" msgpack:"bandwidth_kb"`
 }
 
 type ListPortForwardsResponse struct {
@@ -59,6 +62,14 @@ type ListPortForwardsResponse struct {
 
 type StopPortForwardRequest struct {
 	LocalPort uint16 `json:"local_port" msgpack:"local_port"`
+}
+
+type ThrottlePortRequest struct {
+	LocalPort   uint16 `json:"local_port" msgpack:"local_port"`
+	LatencyMs   int    `json:"latency_ms" msgpack:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms" msgpack:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb" msgpack:"bandwidth_kb"`
+	Reset       bool   `json:"reset" msgpack:"reset"`
 }
 
 type RegisterMethodsRequest struct {

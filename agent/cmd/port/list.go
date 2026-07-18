@@ -3,6 +3,7 @@ package port
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/knot/internal/agentlink"
 
@@ -38,7 +39,24 @@ var ListPortForwardsCmd = &cli.Command{
 			if mode == "" {
 				mode = "relay"
 			}
-			line += ", " + mode + ")"
+			line += ", " + mode
+
+			// Throttle info
+			var throttle []string
+			if fwd.LatencyMs > 0 {
+				throttle = append(throttle, fmt.Sprintf("%dms", fwd.LatencyMs))
+				if fwd.JitterMs > 0 {
+					throttle = append(throttle, fmt.Sprintf("±%dms", fwd.JitterMs))
+				}
+			}
+			if fwd.BandwidthKB > 0 {
+				throttle = append(throttle, fmt.Sprintf("%dKB/s", fwd.BandwidthKB))
+			}
+			if len(throttle) > 0 {
+				line += ", " + strings.Join(throttle, " ")
+			}
+
+			line += ")"
 			fmt.Println(line)
 		}
 		return nil

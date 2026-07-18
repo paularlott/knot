@@ -521,6 +521,32 @@ func (s *Session) SendPortStop(portCmd *msg.PortStopRequest) (*msg.PortStopRespo
 	return &response, nil
 }
 
+func (s *Session) SendThrottle(req *msg.ThrottlePortRequest) (*msg.ThrottlePortResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdThrottlePort); err != nil {
+		s.logger.WithError(err).Error("writing throttle command:")
+		return &msg.ThrottlePortResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+
+	if err := msg.WriteMessage(conn, req); err != nil {
+		s.logger.WithError(err).Error("writing throttle message:")
+		return &msg.ThrottlePortResponse{Success: false, Error: "Failed to send message to agent"}, nil
+	}
+
+	var response msg.ThrottlePortResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading throttle response:")
+		return &msg.ThrottlePortResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+
+	return &response, nil
+}
+
 func (s *Session) SendTunnelStart(req *msg.TunnelStartRequest) (*msg.TunnelStartResponse, error) {
 	conn, err := s.MuxSession.Open()
 	if err != nil {

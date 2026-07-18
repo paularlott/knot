@@ -157,16 +157,20 @@ func handlePortListExecution(stream net.Conn, agentClient *AgentClient) {
 		Forwards: make([]msg.PortForwardInfo, len(forwards)),
 	}
 	for i, fwd := range forwards {
-		mode := fwd.Mode
+		mode := fwd.GetMode()
 		if mode == "" {
 			mode = "relay"
 		}
+		latencyMs, jitterMs, bandwidthKB := fwd.GetThrottle()
 		response.Forwards[i] = msg.PortForwardInfo{
-			LocalPort:  fwd.LocalPort,
-			Space:      fwd.Space,
-			RemotePort: fwd.RemotePort,
-			Persistent: portforward.IsPersistent(fwd.LocalPort),
-			Mode:       mode,
+			LocalPort:   fwd.LocalPort,
+			Space:       fwd.Space,
+			RemotePort:  fwd.RemotePort,
+			Persistent:  portforward.IsPersistent(fwd.LocalPort),
+			Mode:        mode,
+			LatencyMs:   latencyMs,
+			JitterMs:    jitterMs,
+			BandwidthKB: bandwidthKB,
 		}
 	}
 
@@ -194,4 +198,22 @@ func handlePortStopExecution(stream net.Conn, portCmd msg.PortStopRequest, agent
 	msg.WriteMessage(stream, &msg.PortStopResponse{
 		Success: true,
 	})
+}
+
+// handleThrottlePortExecution handles the throttle command from the server
+func handleThrottlePortExecution(stream net.Conn, req msg.ThrottlePortRequest) {
+	fwd, ok := portforward.GetForward(req.LocalPort)
+	if !ok {
+		msg.WriteMessage(stream, &msg.ThrottlePortResponse{Success: false, Error: "Port forward not found"})
+		return
+	}
+
+	if req.Reset {
+		fwd.SetThrottle(0, 0, 0)
+	} else {
+		fwd.SetThrottle(req.LatencyMs, req.JitterMs, req.BandwidthKB)
+	}
+
+	log.Info("port forward throttled", "local_port", req.LocalPort, "latency_ms", req.LatencyMs, "jitter_ms", req.JitterMs, "bandwidth_kb", req.BandwidthKB)
+	msg.WriteMessage(stream, &msg.ThrottlePortResponse{Success: true})
 }

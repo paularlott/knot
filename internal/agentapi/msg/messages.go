@@ -54,6 +54,7 @@ const (
 	CmdEditFile
 	CmdPeerIntroduce
 	CmdPeerRequestIntro
+	CmdThrottlePort
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

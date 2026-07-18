@@ -690,6 +690,17 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			handlePortStopExecution(stream, portCmd, s.agentClient)
 		}
 
+	case byte(msg.CmdThrottlePort):
+		var throttleCmd msg.ThrottlePortRequest
+		if err := msg.ReadMessage(stream, &throttleCmd); err != nil {
+			log.WithError(err).Error("reading throttle port message:")
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handleThrottlePortExecution(stream, throttleCmd)
+		}
+
 	case byte(msg.CmdExecuteScript):
 		var execMsg msg.ExecuteScriptMessage
 		if err := msg.ReadMessage(stream, &execMsg); err != nil {

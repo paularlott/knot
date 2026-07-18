@@ -235,11 +235,14 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 			mode = "relay"
 		}
 		forwards = append(forwards, apiclient.PortForwardInfo{
-			LocalPort:  fwd.LocalPort,
-			Space:      fwd.Space,
-			RemotePort: fwd.RemotePort,
-			Persistent: fwd.Persistent,
-			Mode:       mode,
+			LocalPort:   fwd.LocalPort,
+			Space:       fwd.Space,
+			RemotePort:  fwd.RemotePort,
+			Persistent:  fwd.Persistent,
+			Mode:        mode,
+			LatencyMs:   fwd.LatencyMs,
+			JitterMs:    fwd.JitterMs,
+			BandwidthKB: fwd.BandwidthKB,
 		})
 	}
 
@@ -310,6 +313,48 @@ func HandlePortStop(w http.ResponseWriter, r *http.Request) {
 	} else {
 		writeJSONError(w, http.StatusInternalServerError, response.Error)
 	}
+}
+
+func HandlePortThrottle(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+
+	spaceId := r.PathValue("space_id")
+	if !validate.UUID(spaceId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceId)
+	if err != nil || space == nil || (space.UserId != user.Id && !space.IsSharedWith(user.Id)) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	agentSession := agent_server.GetSession(spaceId)
+	if agentSession == nil {
+		writeJSONError(w, http.StatusConflict, "Space is not running")
+		return
+	}
+
+	var request apiclient.PortThrottleRequest
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		return
+	}
+
+	response, err := agentSession.SendThrottle(&msg.ThrottlePortRequest{
+		LocalPort:   request.LocalPort,
+		LatencyMs:   request.LatencyMs,
+		JitterMs:    request.JitterMs,
+		BandwidthKB: request.BandwidthKB,
+		Reset:       request.Reset,
+	})
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		return
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {

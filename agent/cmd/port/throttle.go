@@ -1,0 +1,114 @@
+package port
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/paularlott/knot/internal/agentlink"
+
+	"github.com/paularlott/cli"
+)
+
+var ThrottlePortCmd = &cli.Command{
+	Name:        "throttle",
+	Usage:       "Add latency, jitter, and/or bandwidth limits to a port forward",
+	Description: "Apply network simulation to an existing port forward. All values are optional; pass --reset to clear all limits.",
+	Arguments: []cli.Argument{
+		&cli.IntArg{
+			Name:     "local-port",
+			Usage:    "The local port of the forward to throttle",
+			Required: true,
+		},
+	},
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "latency",
+			Usage: "Latency in milliseconds (e.g. 50, 200ms)",
+		},
+		&cli.StringFlag{
+			Name:  "jitter",
+			Usage: "Jitter in milliseconds (e.g. 10, 50ms)",
+		},
+		&cli.StringFlag{
+			Name:  "bandwidth",
+			Usage: "Bandwidth limit in KB/s (e.g. 100, 1024)",
+		},
+		&cli.BoolFlag{
+			Name:  "reset",
+			Usage: "Clear all throttle settings",
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		localPort := cmd.GetIntArg("local-port")
+		if localPort < 1 || localPort > 65535 {
+			return fmt.Errorf("invalid local port, must be between 1 and 65535")
+		}
+
+		request := agentlink.ThrottlePortRequest{
+			LocalPort: uint16(localPort),
+			Reset:     cmd.GetBool("reset"),
+		}
+
+		if !request.Reset {
+			if v := cmd.GetString("latency"); v != "" {
+				ms, err := parseMs(v)
+				if err != nil {
+					return fmt.Errorf("invalid latency: %w", err)
+				}
+				request.LatencyMs = ms
+			}
+			if v := cmd.GetString("jitter"); v != "" {
+				ms, err := parseMs(v)
+				if err != nil {
+					return fmt.Errorf("invalid jitter: %w", err)
+				}
+				request.JitterMs = ms
+			}
+			if v := cmd.GetString("bandwidth"); v != "" {
+				kb, err := strconv.Atoi(v)
+				if err != nil || kb <= 0 {
+					return fmt.Errorf("invalid bandwidth, must be a positive number in KB/s")
+				}
+				request.BandwidthKB = kb
+			}
+		}
+
+		var response agentlink.RunCommandResponse
+		err := agentlink.SendWithResponseMsg(agentlink.CommandThrottlePort, &request, &response)
+		if err != nil {
+			return fmt.Errorf("error setting throttle: %w", err)
+		}
+		if !response.Success {
+			return fmt.Errorf("%s", response.Error)
+		}
+
+		if request.Reset {
+			fmt.Printf("Throttle cleared for port %d\n", localPort)
+		} else {
+			parts := []string{}
+			if request.LatencyMs > 0 {
+				parts = append(parts, fmt.Sprintf("latency=%dms", request.LatencyMs))
+			}
+			if request.JitterMs > 0 {
+				parts = append(parts, fmt.Sprintf("jitter=%dms", request.JitterMs))
+			}
+			if request.BandwidthKB > 0 {
+				parts = append(parts, fmt.Sprintf("bandwidth=%dKB/s", request.BandwidthKB))
+			}
+			if len(parts) == 0 {
+				parts = []string{"no limits set"}
+			}
+			fmt.Printf("Throttle set for port %d: %s\n", localPort, strings.Join(parts, ", "))
+		}
+		return nil
+	},
+}
+
+// parseMs parses a millisecond value from strings like "50", "50ms", "200ms".
+func parseMs(s string) (int, error) {
+	s = strings.TrimSuffix(strings.TrimSpace(s), "ms")
+	return strconv.Atoi(s)
+}

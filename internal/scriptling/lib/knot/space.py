@@ -949,6 +949,37 @@ def port_stop(name, local_port):
     return True
 
 
+def port_throttle(name, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, reset=False):
+    """Apply latency, jitter, and/or bandwidth limits to a port forward.
+
+    Simulates network conditions for testing. All parameters are optional;
+    pass reset=True to clear all limits.
+
+    Args:
+        name: Space name or ID
+        local_port: Local port number of the forward to throttle
+        latency_ms: Artificial latency in milliseconds (default: 0 = none)
+        jitter_ms: Random jitter added to latency in milliseconds (default: 0 = none)
+        bandwidth_kb: Bandwidth limit in KB/s (default: 0 = unlimited)
+        reset: Clear all throttle settings (default: False)
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    body = {
+        "local_port": local_port,
+        "latency_ms": latency_ms,
+        "jitter_ms": jitter_ms,
+        "bandwidth_kb": bandwidth_kb,
+        "reset": reset,
+    }
+    api.post(f"/space-io/{_enc(name)}/port/throttle", body)
+    return True
+
+
 def port_apply(source_space, forwards):
     """Replace all port forwards with the given list.
 
