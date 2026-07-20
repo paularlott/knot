@@ -181,3 +181,37 @@ func HandleEditFile(w http.ResponseWriter, r *http.Request) {
 	}
 	rest.WriteResponse(http.StatusOK, w, r, resp)
 }
+
+// HandleDeleteSpaceFile removes a file or directory from a space. A recursive
+// delete uses os.RemoveAll semantics; a non-recursive delete on a non-empty
+// directory fails. Missing paths are treated as success so the call is
+// idempotent — important for sync tools whose "delete list" was computed
+// against a slightly stale remote snapshot.
+func HandleDeleteSpaceFile(w http.ResponseWriter, r *http.Request) {
+	session := resolveSpaceForFileOps(w, r)
+	if session == nil {
+		return
+	}
+
+	var req msg.DeleteFileMessage
+	if err := rest.DecodeRequestBody(w, r, &req); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+	if req.Path == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "path is required"})
+		return
+	}
+
+	ch, err := session.SendDeleteFile(&req)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("Failed to send delete to agent: %v", err)})
+		return
+	}
+	resp := <-ch
+	if resp == nil {
+		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
+		return
+	}
+	rest.WriteResponse(http.StatusOK, w, r, resp)
+}

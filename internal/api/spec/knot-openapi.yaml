@@ -6,8 +6,8 @@ info:
   version: 1.0.0
   title: Knot API
   license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
+    name: Knot Pro EULA
+    url: https://github.com/paularlott/knot-pro/blob/main/LICENSE.txt
   x-logo:
     url: ../images/logo-light.svg
   description: |
@@ -599,6 +599,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/activity:
+    get:
+      tags:
+        - Users
+      summary: Get User Activity
+      description: Retrieve per-minute filesystem activity for the last hour or daily activity for the last 7 days.
+      operationId: getUserActivity
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID or username of the user.
+          schema:
+            type: string
+            format: uuid
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1h, 7d]
+            default: 1h
+      responses:
+        "200":
+          description: Aggregated user activity history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserActivityHistoryResponse"
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -2442,6 +2481,7 @@ paths:
                 size_min: {type: integer, description: Minimum size in bytes.}
                 size_max: {type: integer, description: Maximum size in bytes.}
                 workdir: {type: string, description: Resolve relative path against this directory.}
+                include_metadata: {type: boolean, description: "If true, stat every match and return entries with size/mtime/is_dir. Default false: returns paths only (cheap, no per-entry stat).", default: false}
       responses:
         "200":
           description: Find completed.
@@ -2452,7 +2492,20 @@ paths:
                 properties:
                   success: {type: boolean}
                   error: {type: string}
-                  paths: {type: array, items: {type: string}}
+                  paths:
+                    type: array
+                    description: "Matching paths (default mode; cheap — no per-entry stat)."
+                    items: {type: string}
+                  entries:
+                    type: array
+                    description: "Matching entries with metadata (only populated when include_metadata=true; the agent stats every match in this mode)."
+                    items:
+                      type: object
+                      properties:
+                        path: {type: string}
+                        size: {type: integer, description: "Size in bytes; 0 for directories."}
+                        mtime: {type: number, description: "Modification time, epoch seconds with fractional precision."}
+                        is_dir: {type: boolean}
         "400": {$ref: "#/components/responses/bad-request"}
         "401": {$ref: "#/components/responses/unauthorized"}
         "403": {$ref: "#/components/responses/forbidden"}
@@ -2563,6 +2616,52 @@ paths:
                   success: {type: boolean}
                   error: {type: string, description: "Error message (e.g. 'search text not found', 'search text matched multiple times')."}
                   bytes_written: {type: integer}
+        "400": {$ref: "#/components/responses/bad-request"}
+        "401": {$ref: "#/components/responses/unauthorized"}
+        "403": {$ref: "#/components/responses/forbidden"}
+        "404": {$ref: "#/components/responses/not-found"}
+        "500": {$ref: "#/components/responses/internal-server-error"}
+        "503": {$ref: "#/components/responses/service-unavailable"}
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/delete:
+    post:
+      summary: Delete File or Directory in Space
+      description: >
+        Remove a file or directory from a running space. Recursive uses
+        os.RemoveAll semantics; a non-recursive delete on a non-empty directory
+        fails. Missing paths return success with removed=0 — idempotent for
+        sync tools whose delete list was computed against a slightly stale
+        remote snapshot.
+      operationId: deleteSpaceFile
+      tags: [Spaces]
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema: {type: string, description: The ID or name of the space.}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: {type: string, description: File or directory to delete.}
+                recursive: {type: boolean, description: Recursively remove a directory and its contents. Default false.}
+                workdir: {type: string, description: Resolve relative path against this directory.}
+      responses:
+        "200":
+          description: Delete completed (check success).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  error: {type: string}
+                  removed: {type: integer, description: "Entries removed (0 if path did not exist, 1 for a single file, N for a recursive directory delete)."}
         "400": {$ref: "#/components/responses/bad-request"}
         "401": {$ref: "#/components/responses/unauthorized"}
         "403": {$ref: "#/components/responses/forbidden"}
@@ -2700,6 +2799,42 @@ paths:
           $ref: "#/components/responses/not-found"
         "500":
           $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/port/throttle:
+    post:
+      summary: Throttle a port forward
+      description: Apply latency, jitter, and/or bandwidth limits to an existing port forward. Pass reset=true to clear all limits.
+      operationId: portThrottle
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortThrottleRequest"
+      responses:
+        "200":
+          description: Throttle applied successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: Space is not running.
       security: [BearerAuth: []]
 
   /space-io/{space_id}/port/apply:
@@ -6189,6 +6324,18 @@ components:
           description: The custom field values set on the space.
           items:
             $ref: "#/components/schemas/CustomFieldValue"
+        template_has_ssh:
+          type: boolean
+          description: If the space's template declares SSH capability (available whether the space is running or stopped).
+        template_has_terminal:
+          type: boolean
+          description: If the space's template declares web terminal capability (available whether the space is running or stopped).
+        template_has_code_server:
+          type: boolean
+          description: If the space's template declares code server capability (available whether the space is running or stopped).
+        template_has_vscode_tunnel:
+          type: boolean
+          description: If the space's template declares VSCode tunnel capability (available whether the space is running or stopped).
 
     SpaceInfoList:
       type: object
@@ -6568,7 +6715,7 @@ components:
           description: If the template is active.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         compute_units:
           type: integer
           format: uint32
@@ -6706,7 +6853,7 @@ components:
           description: If the space should support an SSH server.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         startup_script_id:
           type: string
           format: uuid
@@ -6794,7 +6941,7 @@ components:
           description: Max consecutive failures before action.
         health_check_auto_restart:
           type: boolean
-          description: Auto-restart the space on failure (false = flag only).
+          description: Auto-restart the space on failure. With allow_node_migration enabled in Pro, this also permits restarting deployed spaces on another live node after node failure.
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
@@ -6849,7 +6996,7 @@ components:
           description: If the space should support an SSH server.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         startup_script_id:
           type: string
           format: uuid
@@ -6937,7 +7084,7 @@ components:
           description: Max consecutive failures before action.
         health_check_auto_restart:
           type: boolean
-          description: Auto-restart the space on failure (false = flag only).
+          description: Auto-restart the space on failure. With allow_node_migration enabled in Pro, this also permits restarting deployed spaces on another live node after node failure.
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
@@ -7006,7 +7153,7 @@ components:
           description: If the space should support an SSH server.
         allow_node_migration:
           type: boolean
-          description: Whether stopped spaces created from this local-container template may be reassigned to another node.
+          description: Whether spaces created from this local-container template may be migrated between nodes. Stopped spaces can be reassigned manually; with health_check_auto_restart enabled in Pro, deployed spaces can be restarted on another live node after node failure.
         startup_script_id:
           type: string
           format: uuid
@@ -7094,7 +7241,7 @@ components:
           description: Max consecutive failures before action.
         health_check_auto_restart:
           type: boolean
-          description: Auto-restart the space on failure (false = flag only).
+          description: Auto-restart the space on failure. With allow_node_migration enabled in Pro, this also permits restarting deployed spaces on another live node after node failure.
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
@@ -7618,6 +7765,71 @@ components:
           format: uint32
           description: The number of tunnels the user has active.
 
+    UserActivityUsage:
+      type: object
+      properties:
+        write_count:
+          type: integer
+          format: uint32
+        create_count:
+          type: integer
+          format: uint32
+        delete_count:
+          type: integer
+          format: uint32
+        rename_count:
+          type: integer
+          format: uint32
+        distinct_paths:
+          type: integer
+          format: uint32
+        space_start_count:
+          type: integer
+          format: uint32
+        space_stop_count:
+          type: integer
+          format: uint32
+        space_create_count:
+          type: integer
+          format: uint32
+        space_delete_count:
+          type: integer
+          format: uint32
+        last_activity_at:
+          type: string
+          format: date-time
+
+    UserActivityPoint:
+      type: object
+      properties:
+        bucket_start:
+          type: string
+          format: date-time
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        activity_usage:
+          $ref: "#/components/schemas/UserActivityUsage"
+
+    UserActivityHistoryResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        range:
+          type: string
+          enum: [1h, 7d]
+        bucket_kind:
+          type: string
+          enum: [minute, day]
+        summary:
+          $ref: "#/components/schemas/UserActivityUsage"
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserActivityPoint"
+
     VolumeNode:
       type: object
       properties:
@@ -7854,6 +8066,31 @@ components:
           type: boolean
           example: true
           description: True when the forward is persisted for restore after agent restart.
+        mode:
+          type: string
+          enum: [relay, direct]
+          example: direct
+          description: How traffic is routed between agents. "relay" goes through the Knot server. "direct" (Pro) goes agent-to-agent.
+        latency_ms:
+          type: integer
+          minimum: 0
+          example: 200
+          description: Artificial latency in milliseconds applied to the forward (0 = none).
+        jitter_ms:
+          type: integer
+          minimum: 0
+          example: 50
+          description: Random jitter added to latency in milliseconds (0 = none).
+        bandwidth_kb:
+          type: integer
+          minimum: 0
+          example: 1024
+          description: Bandwidth limit in KB/s (0 = unlimited).
+        timeout_ms:
+          type: integer
+          minimum: 0
+          example: 5000
+          description: Kill each connection after this many milliseconds (0 = disabled).
 
     PortListSuccess:
       type: object
@@ -7877,6 +8114,40 @@ components:
           maximum: 65535
           example: 8080
           description: The local port to stop forwarding.
+
+    PortThrottleRequest:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 8080
+          description: The local port of the forward to throttle.
+        latency_ms:
+          type: integer
+          minimum: 0
+          example: 200
+          description: Artificial latency in milliseconds (0 = none).
+        jitter_ms:
+          type: integer
+          minimum: 0
+          example: 50
+          description: Random jitter in milliseconds (0 = none).
+        bandwidth_kb:
+          type: integer
+          minimum: 0
+          example: 1024
+          description: Bandwidth limit in KB/s (0 = unlimited).
+        timeout_ms:
+          type: integer
+          minimum: 0
+          example: 5000
+          description: Kill each connection after this many milliseconds (0 = disabled).
+        reset:
+          type: boolean
+          example: false
+          description: Clear all throttle settings.
 
     PortApplyRequest:
       type: object

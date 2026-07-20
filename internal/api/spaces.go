@@ -97,6 +97,14 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.IsRemote = space.Zone != "" && space.Zone != cfg.Zone
 		s.Platform = templatePlatform
 		s.IconURL = space.IconURL
+
+		// Template-declared capabilities (available whether the space is running or not)
+		if template != nil {
+			s.TemplateHasSSH = template.WithSSH
+			s.TemplateHasTerminal = template.WithTerminal
+			s.TemplateHasCodeServer = template.WithCodeServer
+			s.TemplateHasVSCodeTunnel = template.WithVSCodeTunnel
+		}
 		if space.AltNames != nil {
 			s.AltNames = space.AltNames
 		} else {

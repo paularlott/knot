@@ -168,22 +168,22 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					ctx = context.WithValue(r.Context(), "access_token", token)
 				}
 			} else {
-				// Get the session
-				session, err := GetSessionFromCookie(r)
-				if err != nil {
-					logger.Error("failed to get session", "error", err)
-					rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
-						Error string `json:"error"`
-					}{
-						Error: "Session storage temporarily unavailable",
-					})
-					return
-				}
-				if session == nil {
-					logger.Debug("session not found")
-					returnUnauthorized(w, r)
-					return
-				}
+			// Get the session
+			session, err := GetSessionFromCookie(r)
+			if session == nil {
+				logger.Debug("session not found")
+				returnUnauthorized(w, r)
+				return
+			}
+			if err != nil {
+				logger.Error("failed to get session", "error", err)
+				rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
+					Error string `json:"error"`
+				}{
+					Error: "Session storage temporarily unavailable",
+				})
+				return
+			}
 				if session.ExpiresAfter.Before(time.Now().UTC()) {
 					logger.Debug("session expired", "session_id", session.Id, "expires", session.ExpiresAfter)
 					returnUnauthorized(w, r)
@@ -518,15 +518,15 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		// If no session then redirect to login
 		session, err := GetSessionFromCookie(r)
+		if session == nil {
+			logger.Debug("session not found", "path", r.URL.Path, "error", err)
+			DeleteSessionCookie(w)
+			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
+			return
+		}
 		if err != nil {
 			logger.Error("failed to get session", "error", err, "path", r.URL.Path)
 			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
-			return
-		}
-		if session == nil {
-			logger.Debug("session not found", "path", r.URL.Path)
-			DeleteSessionCookie(w)
-			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 		if session.ExpiresAfter.Before(time.Now().UTC()) {

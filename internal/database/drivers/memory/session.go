@@ -1,8 +1,6 @@
 package driver_memory
 
 import (
-	"errors"
-
 	"github.com/paularlott/knot/internal/database/model"
 )
 
@@ -47,7 +45,7 @@ func (db *MemoryDbDriver) GetSession(id string) (*model.Session, error) {
 
 	session, ok := db.sessions[id]
 	if !ok {
-		return nil, errors.New("session not found")
+		return nil, nil
 	}
 
 	return session, nil

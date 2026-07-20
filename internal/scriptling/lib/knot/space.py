@@ -597,7 +597,7 @@ def read_file(name, file_path, offset=0, limit=0):
     return response.get("content", "")
 
 
-def write_file(name, file_path, content, mode="overwrite"):
+def write_file(name, file_path, content, mode="overwrite", mtime_ns=None, file_perm=None):
     """Write content to a file in a running space.
 
     Args:
@@ -605,6 +605,13 @@ def write_file(name, file_path, content, mode="overwrite"):
         file_path: Path to the file
         content: Content to write
         mode: Write mode — "overwrite" (default), "append", or "prepend"
+        mtime_ns: Optional; modification time as Unix nanoseconds. When set,
+            the space's agent applies it via os.Chtimes after the write so the
+            destination file carries the same mtime as the source. Useful for
+            sync tools that compare mtimes to detect changes.
+        file_perm: Optional; permission bits as an int (e.g. 0o644, 0o755).
+            When set, the agent applies them via os.Chmod after the write.
+            Pass the raw int — not a string.
 
     Returns:
         True if successful
@@ -618,6 +625,10 @@ def write_file(name, file_path, content, mode="overwrite"):
     }
     if mode and mode != "overwrite":
         body["mode"] = mode
+    if mtime_ns is not None:
+        body["mtime_ns"] = mtime_ns
+    if file_perm is not None:
+        body["file_perm"] = file_perm
     api.post(f"/api/spaces/{_enc(name)}/files/write", body)
     return True
 
@@ -670,6 +681,9 @@ def find(name, path=".", recursive=True, type="any", name_glob="", mtime_min=Non
     """Find files and directories in a running space by name, type, mtime, or size.
 
     Runs in the space's agent via the scriptling extlibs concurrent walker.
+    Returns only paths — cheap on the agent (no per-entry stat when size/mtime
+    filters are inactive). Use find_entries() when you need size/mtime/is_dir
+    per match.
 
     Args:
         name: Space name or ID
@@ -689,14 +703,92 @@ def find(name, path=".", recursive=True, type="any", name_glob="", mtime_min=Non
     Returns:
         A list of matching path strings (arbitrary order).
     """
+    body = _find_body(
+        path=path, recursive=recursive, type=type, name_glob=name_glob,
+        mtime_min=mtime_min, mtime_max=mtime_max, size_min=size_min,
+        size_max=size_max, include_hidden=include_hidden,
+        follow_links=follow_links, max_depth=max_depth, workdir=workdir,
+        include_metadata=False,
+    )
+    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "find failed"))
+    return response.get("paths", [])
+
+
+def find_entries(name, path=".", recursive=True, type="any", name_glob="", mtime_min=None,
+                 mtime_max=None, size_min=None, size_max=None, include_hidden=False,
+                 follow_links=False, max_depth=0, include_hash=False,
+                 include_symlinks=False, workdir=""):
+    """Find files and directories in a running space, returning rich metadata.
+
+    Same search semantics as find(), but each entry is returned as a dict with
+    path, size, mtime (epoch seconds), and is_dir. The agent stats every
+    matching entry in this mode — only use it when you actually need the
+    metadata (e.g. for differential sync). For path-only listings, prefer
+    find() which is much cheaper on large trees.
+
+    Args:
+        name: Space name or ID
+        path: Directory (or file) to search under (relative to workdir if given)
+        recursive: Descend into subdirectories (default True)
+        type: Restrict to "file", "dir", or "any" (default "any")
+        name_glob: Shell-style glob matched against the entry's base name
+        mtime_min: Include entries modified at/after this epoch time (float seconds)
+        mtime_max: Include entries modified at/before this epoch time
+        size_min: Include entries whose size in bytes is >= this value
+        size_max: Include entries whose size in bytes is <= this value
+        include_hidden: Match entries whose name starts with "." (default False)
+        follow_links: Follow symlinks if they resolve within the space
+        max_depth: Maximum recursion depth; 0 = unlimited
+        include_hash: When True, each file is crc64-hashed and the hex checksum
+                      is returned in the hash field (default False)
+        include_symlinks: When True, symlink entries are yielded with their
+                          link_target instead of being followed (default False)
+        workdir: Resolve relative path against this directory
+
+    Returns:
+        A list of entry dicts (arbitrary order), each containing:
+        - path (str): Matching path
+        - size (int): Size in bytes (0 for directories)
+        - mtime (float): Modification time, epoch seconds
+        - is_dir (bool): True if the entry is a directory
+        - file_perm (int): File permission bits (e.g. 0o644)
+        - hash (str, optional): Hex crc64 checksum (only with include_hash=True)
+        - link_target (str, optional): Symlink target (only with include_symlinks=True)
+    """
+    body = _find_body(
+        path=path, recursive=recursive, type=type, name_glob=name_glob,
+        mtime_min=mtime_min, mtime_max=mtime_max, size_min=size_min,
+        size_max=size_max, include_hidden=include_hidden,
+        follow_links=follow_links, max_depth=max_depth, workdir=workdir,
+        include_metadata=True, include_hash=include_hash,
+        include_symlinks=include_symlinks,
+    )
+    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "find failed"))
+    return response.get("entries", [])
+
+
+def _find_body(path, recursive, type, name_glob, mtime_min, mtime_max,
+               size_min, size_max, include_hidden, follow_links, max_depth,
+               workdir, include_metadata, include_hash=False,
+               include_symlinks=False):
+    """Shared request body for find() and find_entries()."""
     body = {
         "path": path,
         "recursive": recursive,
         "type": type,
         "include_hidden": include_hidden,
+        "include_metadata": include_metadata,
         "follow_links": follow_links,
         "max_depth": max_depth,
     }
+    if include_hash:
+        body["include_hash"] = True
+    if include_symlinks:
+        body["include_symlinks"] = True
     if name_glob:
         body["name"] = name_glob
     if mtime_min is not None:
@@ -709,10 +801,7 @@ def find(name, path=".", recursive=True, type="any", name_glob="", mtime_min=Non
         body["size_max"] = size_max
     if workdir:
         body["workdir"] = workdir
-    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body)
-    if not response.get("success", False):
-        raise Exception(response.get("error", "find failed"))
-    return response.get("paths", [])
+    return body
 
 
 def sed_replace(name, old, new, path, recursive=False, ignore_case=False,
@@ -875,6 +964,40 @@ def edit_file(name, file_path, search, replace, workdir=""):
     return response.get("bytes_written", 0)
 
 
+def delete_file(name, file_path, recursive=False, workdir=""):
+    """Delete a file or directory in a running space.
+
+    Missing paths are treated as success so the call is idempotent — important
+    for sync tools whose delete list was computed against a slightly stale
+    remote snapshot.
+
+    Args:
+        name: Space name or ID
+        file_path: File or directory to delete (relative to workdir if given)
+        recursive: When True and file_path is a directory, remove it and its
+            entire contents (os.RemoveAll semantics). When False (the default),
+            a non-empty directory delete fails. Default False.
+        workdir: Resolve relative file_path against this directory
+
+    Returns:
+        The number of entries removed (0 if the path did not exist, 1 for a
+        single file, N for a recursive directory delete).
+
+    Raises:
+        Exception if not configured or on API error.
+    """
+    body = {
+        "path": file_path,
+        "recursive": recursive,
+    }
+    if workdir:
+        body["workdir"] = workdir
+    response = api.post(f"/api/spaces/{_enc(name)}/files/delete", body)
+    if not response.get("success", False):
+        raise Exception(response.get("error", "delete failed"))
+    return response.get("removed", 0)
+
+
 def port_forward(source_space, local_port, remote_space, remote_port, persistent=False, force=False):
     """Forward a local port to a remote space port.
 
@@ -946,6 +1069,42 @@ def port_stop(name, local_port):
     """
     body = {"local_port": local_port}
     api.post(f"/space-io/{_enc(name)}/port/stop", body)
+    return True
+
+
+def port_throttle(name, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, timeout_ms=0, down=False, reset=False):
+    """Apply latency, jitter, bandwidth limits, and/or connection timeout to a port forward.
+
+    Simulates network conditions for testing. All parameters are optional;
+    pass reset=True to clear all limits. Timeout kills each connection after
+    the specified number of milliseconds.
+
+    Args:
+        name: Space name or ID
+        local_port: Local port number of the forward to throttle
+        latency_ms: Artificial latency in milliseconds (default: 0 = none)
+        jitter_ms: Random jitter added to latency in milliseconds (default: 0 = none)
+        bandwidth_kb: Bandwidth limit in KB/s (default: 0 = unlimited)
+        timeout_ms: Kill each connection after this many milliseconds (default: 0 = disabled)
+        down: Block all traffic on the forward (default: False)
+        reset: Clear all throttle settings (default: False)
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    body = {
+        "local_port": local_port,
+        "latency_ms": latency_ms,
+        "jitter_ms": jitter_ms,
+        "bandwidth_kb": bandwidth_kb,
+        "timeout_ms": timeout_ms,
+        "down": down,
+        "reset": reset,
+    }
+    api.post(f"/space-io/{_enc(name)}/port/throttle", body)
     return True
 
 

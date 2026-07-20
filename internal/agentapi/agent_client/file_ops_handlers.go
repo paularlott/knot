@@ -59,26 +59,55 @@ func handleFindExecution(stream net.Conn, f msg.FindMessage) {
 	defer sendResponse(stream, &resp)
 
 	opts := extlibs.FindOptions{
-		Type:          f.Type,
-		Name:          f.Name,
-		IncludeHidden: f.IncludeHidden,
-		FollowLinks:   f.FollowLinks,
-		MaxDepth:      f.MaxDepth,
-		MtimeMin:      f.MtimeMin,
-		MtimeMax:      f.MtimeMax,
-		SizeMin:       f.SizeMin,
-		SizeMax:       f.SizeMax,
+		Type:            f.Type,
+		Name:            f.Name,
+		IncludeHidden:   f.IncludeHidden,
+		FollowLinks:     f.FollowLinks,
+		MaxDepth:        f.MaxDepth,
+		MtimeMin:        f.MtimeMin,
+		MtimeMax:        f.MtimeMax,
+		SizeMin:         f.SizeMin,
+		SizeMax:         f.SizeMax,
+		IncludeHash:     f.IncludeHash,
+		IncludeSymlinks: f.IncludeSymlinks,
+		IncludeMetadata: f.IncludeMetadata,
 	}
 	// Find defaults recursive=true; only send when explicitly set.
 	rec := f.Recursive
 	opts.Recursive = &rec
 
-	paths, err := extlibs.Find(context.Background(), resolvePath(f.Path, f.Workdir), opts)
-	if err != nil {
-		resp.Error = err.Error()
-		return
+	resolved := resolvePath(f.Path, f.Workdir)
+
+	// IncludeMetadata=true: stat every match and return Entries. Otherwise
+	// return Paths only — the underlying walker skips per-entry stats when
+	// no size/mtime filter is active, which is the common case and what
+	// makes the default path cheap.
+	if f.IncludeMetadata {
+		entries, err := extlibs.FindEntries(context.Background(), resolved, opts)
+		if err != nil {
+			resp.Error = err.Error()
+			return
+		}
+		resp.Entries = make([]msg.FindEntry, len(entries))
+		for i, e := range entries {
+			resp.Entries[i] = msg.FindEntry{
+				Path:       e.Path,
+				Size:       e.Size,
+				Mtime:      float64(e.Mtime.UnixNano()) / 1e9,
+				IsDir:      e.IsDir,
+				Hash:       e.Hash,
+				LinkTarget: e.LinkTarget,
+				FilePerm:   e.FilePerm,
+			}
+		}
+	} else {
+		paths, err := extlibs.Find(context.Background(), resolved, opts)
+		if err != nil {
+			resp.Error = err.Error()
+			return
+		}
+		resp.Paths = paths
 	}
-	resp.Paths = paths
 	resp.Success = true
 }
 

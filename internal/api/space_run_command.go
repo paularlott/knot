@@ -13,16 +13,16 @@ import (
 )
 
 type RunCommandRequest struct {
-	Command string   `json:"command"`
-	Args    []string `json:"args,omitempty"`
-	Timeout int      `json:"timeout"`
-	Workdir string   `json:"workdir,omitempty"`
+	Command string   `json:"command" msgpack:"command"`
+	Args    []string `json:"args,omitempty" msgpack:"args,omitempty"`
+	Timeout int      `json:"timeout" msgpack:"timeout"`
+	Workdir string   `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
 }
 
 type RunCommandResponse struct {
-	Success bool   `json:"success"`
-	Output  string `json:"output,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Success bool   `json:"success" msgpack:"success"`
+	Output  string `json:"output,omitempty" msgpack:"output,omitempty"`
+	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 func HandleRunCommand(w http.ResponseWriter, r *http.Request) {

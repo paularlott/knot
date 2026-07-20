@@ -345,17 +345,17 @@ func (s *agentServer) ConnectAndServe() {
 			}
 
 			// Open the mux session
-			mux, err := yamux.Client(s.conn, &yamux.Config{
-				AcceptBacklog:          256,
-				EnableKeepAlive:        true,
-				KeepAliveInterval:      30 * time.Second,
-				ConnectionWriteTimeout: 2 * time.Second,
-				MaxStreamWindowSize:    256 * 1024,
-				StreamCloseTimeout:     6 * time.Minute,
-				StreamOpenTimeout:      3 * time.Second,
-				LogOutput:              io.Discard,
-				//Logger:                 logger.NewMuxLogger(),
-			})
+		mux, err := yamux.Client(s.conn, &yamux.Config{
+			AcceptBacklog:          256,
+			EnableKeepAlive:        true,
+			KeepAliveInterval:      30 * time.Second,
+			ConnectionWriteTimeout: 30 * time.Second,
+			MaxStreamWindowSize:    4 * 1024 * 1024, // 4MB — 256KB default is too small for file transfers
+			StreamCloseTimeout:     6 * time.Minute,
+			StreamOpenTimeout:      3 * time.Second,
+			LogOutput:              io.Discard,
+			//Logger:                 logger.NewMuxLogger(),
+		})
 			if err != nil {
 				log.WithError(err).Error("creating mux session:")
 				s.teardownConnections()
@@ -663,6 +663,16 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			handleEditFileExecution(stream, e)
 		}
 
+	case byte(msg.CmdDeleteFile):
+		var d msg.DeleteFileMessage
+		if err := msg.ReadMessage(stream, &d); err != nil {
+			log.WithError(err).Error("reading delete file message:")
+			return
+		}
+		if s.agentClient.withRunCommand {
+			handleDeleteFileExecution(stream, d)
+		}
+
 	case byte(msg.CmdPortForward):
 		var portCmd msg.PortForwardRequest
 		if err := msg.ReadMessage(stream, &portCmd); err != nil {
@@ -688,6 +698,17 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 		if s.agentClient.withRunCommand {
 			handlePortStopExecution(stream, portCmd, s.agentClient)
+		}
+
+	case byte(msg.CmdThrottlePort):
+		var throttleCmd msg.ThrottlePortRequest
+		if err := msg.ReadMessage(stream, &throttleCmd); err != nil {
+			log.WithError(err).Error("reading throttle port message:")
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handleThrottlePortExecution(stream, throttleCmd)
 		}
 
 	case byte(msg.CmdExecuteScript):
@@ -775,7 +796,7 @@ func (s *agentServer) restorePortForwards(forwards []model.PortForwardEntry) {
 		}
 
 		forwardCtx, cancel := context.WithCancel(context.Background())
-		portforward.StartForward(entry.LocalPort, entry.RemotePort, entry.Space, cancel)
+		info := portforward.StartForward(entry.LocalPort, entry.RemotePort, entry.Space, cancel)
 		portforward.MarkPersistent(entry.LocalPort)
 
 		go func(e model.PortForwardEntry) {
@@ -793,7 +814,7 @@ func (s *agentServer) restorePortForwards(forwards []model.PortForwardEntry) {
 			}
 
 			<-forwardCtx.Done()
-			portforward.StopForward(e.LocalPort)
+			portforward.StopForwardIfMatch(e.LocalPort, info)
 		}(entry)
 
 		log.Info("restored persistent port forward", "local_port", entry.LocalPort, "space", entry.Space, "remote_port", entry.RemotePort)

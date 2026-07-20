@@ -52,6 +52,11 @@ const (
 	CmdFind
 	CmdSed
 	CmdEditFile
+	CmdDeleteFile
+	CmdPeerIntroduce
+	CmdPeerRequestIntro
+	CmdThrottlePort
+	CmdPortForwardNotify
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

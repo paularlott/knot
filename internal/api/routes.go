@@ -90,6 +90,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/spaces/{space_id}/files/find", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleFind)))
 	router.HandleFunc("POST /api/spaces/{space_id}/files/sed", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleSed)))
 	router.HandleFunc("POST /api/spaces/{space_id}/files/edit", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleEditFile)))
+	router.HandleFunc("POST /api/spaces/{space_id}/files/delete", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleDeleteSpaceFile)))
 	router.HandleFunc("POST /api/spaces/{space_id}/run-command", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleRunCommand)))
 
 	// Pools

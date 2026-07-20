@@ -151,5 +151,8 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandListTunnels:
 		handleListTunnels(conn, msg)
+
+	case CommandThrottlePort:
+		handleThrottlePort(conn, msg)
 	}
 }

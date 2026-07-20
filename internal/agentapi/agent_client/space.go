@@ -3,6 +3,7 @@ package agent_client
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database/model"
@@ -205,16 +206,42 @@ func (c *AgentClient) RemovePortForward(localPort uint16) error {
 			}
 
 			err = msg.SendRemovePortForward(conn, localPort)
-			conn.Close()
-
 			if err != nil {
+				conn.Close()
 				errs = append(errs, fmt.Errorf("failed to send remove port forward to server %v: %w", server, err))
 				continue
 			}
 
+			// Wait for the server to finish processing (stream closes when
+			// the handler returns) so the DB removal is committed before we
+			// report success to the caller.
+			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+			oneBuf := make([]byte, 1)
+			conn.Read(oneBuf) // EOF on server close
+			conn.Close()
 			return nil
 		}
 	}
 
 	return errors.Join(errs...)
+}
+
+// NotifyPortForwardChanged sends a fire-and-forget notification to the server
+// via the mux session, so the server can publish an SSE event to connected
+// web UIs. Used by agentlink handlers when port forwards change locally.
+func (c *AgentClient) NotifyPortForwardChanged() {
+	c.serverListMutex.RLock()
+	defer c.serverListMutex.RUnlock()
+
+	for _, server := range c.serverList {
+		if server.muxSession != nil && !server.muxSession.IsClosed() {
+			conn, err := server.muxSession.Open()
+			if err != nil {
+				continue
+			}
+			msg.WriteCommand(conn, msg.CmdPortForwardNotify)
+			conn.Close()
+			return
+		}
+	}
 }

@@ -3,6 +3,7 @@ package command_spaces
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/knot/command/cmdutil"
 
@@ -73,16 +74,45 @@ var PortListCmd = &cli.Command{
 
 		fmt.Printf("Active port forwards in space '%s':\n", spaceName)
 		for _, fwd := range response.Forwards {
-			mode := "temporary"
+			persist := "temporary"
 			if fwd.Persistent {
-				mode = "persistent"
+				persist = "persistent"
+			}
+			mode := fwd.Mode
+			if mode == "" {
+				mode = "relay"
 			}
 			// The server returns space names for display, but fall back to UUID lookup
 			target := fwd.Space
 			if name, ok := spaceNames[fwd.Space]; ok {
 				target = name
 			}
-			fmt.Printf("  %d -> %s:%d (%s)\n", fwd.LocalPort, target, fwd.RemotePort, mode)
+			line := fmt.Sprintf("  %d -> %s:%d (%s, %s", fwd.LocalPort, target, fwd.RemotePort, persist, mode)
+
+			// Throttle info
+			var throttle []string
+			if fwd.LatencyMs > 0 {
+				t := fmt.Sprintf("%dms", fwd.LatencyMs)
+				if fwd.JitterMs > 0 {
+					t += fmt.Sprintf(" ±%dms", fwd.JitterMs)
+				}
+				throttle = append(throttle, t)
+			}
+			if fwd.BandwidthKB > 0 {
+				throttle = append(throttle, fmt.Sprintf("%dKB/s", fwd.BandwidthKB))
+			}
+			if fwd.Down {
+				throttle = append(throttle, "down")
+			}
+			if fwd.TimeoutMs > 0 {
+				throttle = append(throttle, fmt.Sprintf("timeout=%dms", fwd.TimeoutMs))
+			}
+			if len(throttle) > 0 {
+				line += ", " + strings.Join(throttle, " ")
+			}
+
+			line += ")"
+			fmt.Println(line)
 		}
 
 		return nil

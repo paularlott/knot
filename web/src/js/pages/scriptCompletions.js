@@ -123,6 +123,14 @@ const scriptLibraries = [
         returns: "bool - True if successful",
       },
       {
+        name: "port_throttle",
+        signature:
+          "port_throttle(space, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, timeout_ms=0, down=False, reset=False)",
+        description:
+          "Apply latency, jitter, bandwidth limits, connection timeout, and/or traffic blocking (down) to a port forward. Pass reset=True to clear.",
+        returns: "bool - True if successful",
+      },
+      {
         name: "tunnel_start",
         signature: "tunnel_start(space, protocol, port, name)",
         description:
@@ -220,8 +228,9 @@ const scriptLibraries = [
       },
       {
         name: "write_file",
-        signature: "write_file(space_name, file_path, content, mode='overwrite')",
-        description: "Write content to a file in a running space (overwrite/append/prepend)",
+        signature: "write_file(space_name, file_path, content, mode='overwrite', mtime_ns=None, file_perm=None)",
+        description:
+          "Write content to a file in a running space (overwrite/append/prepend). Optional mtime_ns (Unix nanoseconds) and file_perm (int bits like 0o644) are applied after the write so the destination matches a source file's metadata — useful for sync tools.",
         returns: "bool - True if successful",
       },
       {
@@ -240,10 +249,18 @@ const scriptLibraries = [
       },
       {
         name: "find",
-        signature: "find(space_name, path='.', recursive=True, type='any', name_glob='', include_hidden=False, max_depth=0, workdir='')",
+        signature: "find(space_name, path='.', recursive=True, type='any', name_glob='', mtime_min=None, mtime_max=None, size_min=None, size_max=None, include_hidden=False, follow_links=False, max_depth=0, workdir='')",
         description:
-          "Find files and directories in a running space by name, type, mtime, or size",
-        returns: "list - Matching path strings",
+          "Find files and directories in a running space by name, type, mtime, or size. Returns path strings only.",
+        returns: "list[str] - Matching path strings",
+      },
+      {
+        name: "find_entries",
+        signature: "find_entries(space_name, path='.', recursive=True, type='any', name_glob='', mtime_min=None, mtime_max=None, size_min=None, size_max=None, include_hidden=False, follow_links=False, max_depth=0, include_hash=False, include_symlinks=False, workdir='')",
+        description:
+          "Same as find() but each entry is a dict with path, size, mtime, is_dir, file_perm. Pass include_hash=True for a crc64 hash field, include_symlinks=True for symlink entries with link_target.",
+        returns:
+          "list[dict] - Each dict has: path (str), size (int), mtime (float), is_dir (bool), file_perm (int), optionally hash (str), link_target (str)",
       },
       {
         name: "sed_replace",
@@ -1982,6 +1999,15 @@ const scriptLibraries = [
         description:
           "Find files and directories under a path by name, type, modification time, and size. Returns a list of matching path strings",
         returns: "list[str] - Matching paths",
+      },
+      {
+        name: "entries",
+        signature:
+          'entries(path, *, recursive=True, type="any", name="", mtime_min=None, mtime_max=None, size_min=None, size_max=None, include_hidden=False, follow_links=False, max_depth=None, include_metadata=False, include_hash=False, include_symlinks=False)',
+        description:
+          "Same search semantics as path(), but each entry is returned as a dict with path, size, mtime (epoch seconds), and is_dir. Pass include_metadata=True for file_perm, uid, gid. Pass include_hash=True for a crc64 hash field. Pass include_symlinks=True to get symlink entries with their link_target. The agent stats every match — only use this when you need the metadata; path() is cheaper when you only want names.",
+        returns:
+          "list[dict] - Each dict has keys: path (str), size (int, 0 for dirs), mtime (float, epoch seconds), is_dir (bool), optionally file_perm (int), uid (int), gid (int), hash (str, hex crc64), link_target (str)",
       },
     ],
   },
@@ -6158,6 +6184,12 @@ const scriptLibraries = [
         description: "Rename file or directory",
         returns: "None",
       },
+      {
+        name: "symlink",
+        signature: "symlink(src, dst)",
+        description: "Create a symbolic link from dst to src",
+        returns: "None",
+      },
     ],
     constants: [
       {
@@ -6274,6 +6306,12 @@ const scriptLibraries = [
         signature: "getmtime(path)",
         description: "Get file modification time",
         returns: "float - Modification timestamp",
+      },
+      {
+        name: "islink",
+        signature: "islink(path)",
+        description: "Check if path is a symbolic link",
+        returns: "bool - True if symlink",
       },
     ],
   },

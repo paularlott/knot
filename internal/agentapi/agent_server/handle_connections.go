@@ -202,8 +202,8 @@ func handleAgentConnection(conn net.Conn) {
 		AcceptBacklog:          256,
 		EnableKeepAlive:        true,
 		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 2 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
+		ConnectionWriteTimeout: 30 * time.Second,
+		MaxStreamWindowSize:    4 * 1024 * 1024, // 4MB — 256KB default is too small for file transfers
 		StreamCloseTimeout:     3 * time.Minute,
 		StreamOpenTimeout:      3 * time.Second,
 		LogOutput:              nil,
@@ -591,6 +591,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleEditFile(stream, session)
 			return
 
+		case byte(msg.CmdDeleteFile):
+			handleDeleteFile(stream, session)
+			return
+
 		case byte(msg.CmdPortForward):
 			handlePortForward(stream, session)
 			return // Single shot command so done
@@ -622,6 +626,20 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		case byte(msg.CmdEvent):
 			handleEvent(stream, session)
 			return
+
+		case byte(msg.CmdPeerRequestIntro):
+			var req msg.PeerRequestIntro
+			if err := msg.ReadMessage(stream, &req); err != nil {
+				log.WithError(err).Error("reading peer request intro:")
+				return
+			}
+			msg.WriteMessage(stream, &msg.PeerIntroduce{})
+
+		case byte(msg.CmdPortForwardNotify):
+			db := database.GetInstance()
+			if space, err := db.GetSpace(session.Id); err == nil && space != nil {
+				sse.PublishPortForwardChanged(session.Id, space.UserId)
+			}
 
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
@@ -811,7 +829,7 @@ type errorResponse struct {
 func forwardSingleShot[Msg any, Resp any](stream net.Conn, session *Session, cmd msg.CmdType, cmdName string) {
 	var msgData Msg
 	if err := msg.ReadMessage(stream, &msgData); err != nil {
-		log.WithError(err).Error("reading "+cmdName+" message:")
+		log.WithError(err).Error("reading " + cmdName + " message:")
 		return
 	}
 
@@ -866,6 +884,10 @@ func handleSed(stream net.Conn, session *Session) {
 
 func handleEditFile(stream net.Conn, session *Session) {
 	forwardSingleShot[msg.EditFileMessage, msg.EditFileResponse](stream, session, msg.CmdEditFile, "edit")
+}
+
+func handleDeleteFile(stream net.Conn, session *Session) {
+	forwardSingleShot[msg.DeleteFileMessage, msg.DeleteFileResponse](stream, session, msg.CmdDeleteFile, "delete file")
 }
 
 func handlePortForward(stream net.Conn, session *Session) {

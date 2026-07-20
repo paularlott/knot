@@ -4,8 +4,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 )
+
+// TestMain installs a non-nil ServerConfig so package-level helpers that read
+// it (e.g. DeleteSessionCookie via GetServerConfig) don't segfault when an
+// unauthenticated request triggers returnUnauthorized.
+func TestMain(m *testing.M) {
+	prev := config.GetServerConfig()
+	config.SetServerConfig(&config.ServerConfig{})
+	defer config.SetServerConfig(prev)
+	m.Run()
+}
 
 func TestGetBearerToken(t *testing.T) {
 	tests := []struct {

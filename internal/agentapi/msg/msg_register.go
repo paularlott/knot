@@ -4,8 +4,9 @@ import "github.com/paularlott/knot/internal/database/model"
 
 // message sent from an agent to the server to register itself
 type Register struct {
-	SpaceId string
-	Version string
+	SpaceId  string
+	Version  string
+	PeerPort uint16 // external port peers should dial for direct connections (0 = no direct)
 }
 
 // message sent from the server to the agent in response to a register message
@@ -34,4 +35,6 @@ type RegisterResponse struct {
 	HealthCheckMaxFailures   uint32
 	HealthCheckAutoRestart   bool
 	PortForwards             []model.PortForwardEntry
+	DirectEnabled            bool // if true, server supports direct agent-to-agent connections
+	PeerSecret               string // zone-wide shared secret for direct peer auth
 }

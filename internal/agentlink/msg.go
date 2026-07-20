@@ -33,6 +33,7 @@ const (
 	CommandStartTunnel
 	CommandStopTunnel
 	CommandListTunnels
+	CommandThrottlePort
 )
 
 type CommandMsg struct {

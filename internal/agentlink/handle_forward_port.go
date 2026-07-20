@@ -91,15 +91,16 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 		}
 	}
 
-	// Check if port is already forwarded
+	// If the port is already forwarded, tear down the existing forward so the
+	// new request replaces it instead of being rejected as a conflict.
+	wasPersistent := portforward.IsPersistent(request.LocalPort)
 	if portforward.IsPortForwarded(request.LocalPort) {
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "port already forwarded"})
-		return
+		portforward.StopForward(request.LocalPort)
 	}
 
 	// Create context for this forward
 	forwardCtx, cancel := context.WithCancel(context.Background())
-	portforward.StartForward(request.LocalPort, request.RemotePort, request.Space, cancel)
+	info := portforward.StartForward(request.LocalPort, request.RemotePort, request.Space, cancel)
 
 	if request.Persistent {
 		portforward.MarkPersistent(request.LocalPort)
@@ -109,6 +110,12 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 			RemotePort: request.RemotePort,
 		}); err != nil {
 			log.WithError(err).Warn("Failed to persist port forward to server")
+		}
+	} else if wasPersistent {
+		// Existing forward was persistent but the replacement isn't — remove
+		// the stale DB entry so it doesn't get restored on next agent start.
+		if err := agentClient.RemovePortForward(request.LocalPort); err != nil {
+			log.WithError(err).Warn("Failed to remove stale persistent port forward from server")
 		}
 	}
 
@@ -129,7 +136,7 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 
 		if listener == nil {
 			log.Error("failed to create listener for port forward", "port", request.LocalPort)
-			portforward.StopForward(request.LocalPort)
+			portforward.StopForwardIfMatch(request.LocalPort, info)
 			return
 		}
 
@@ -139,7 +146,8 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 		// Wait for context cancellation
 		<-forwardCtx.Done()
 
-		// Clean up when forward stops
-		portforward.StopForward(request.LocalPort)
+		// Clean up only if we still own this forward (a replacement may have
+		// already taken the slot).
+		portforward.StopForwardIfMatch(request.LocalPort, info)
 	}()
 }

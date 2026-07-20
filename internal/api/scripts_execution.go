@@ -16,10 +16,10 @@ import (
 )
 
 type UnifiedScriptExecuteRequest struct {
-	ScriptId   string   `json:"script_id,omitempty"`
-	ScriptName string   `json:"script_name,omitempty"`
-	Content    string   `json:"content,omitempty"`
-	Arguments  []string `json:"arguments"`
+	ScriptId   string   `json:"script_id,omitempty" msgpack:"script_id,omitempty"`
+	ScriptName string   `json:"script_name,omitempty" msgpack:"script_name,omitempty"`
+	Content    string   `json:"content,omitempty" msgpack:"content,omitempty"`
+	Arguments  []string `json:"arguments" msgpack:"arguments"`
 }
 
 func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {

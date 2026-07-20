@@ -35,10 +35,16 @@ type PortListResponse struct {
 }
 
 type PortForwardInfo struct {
-	LocalPort  uint16 `json:"local_port" msgpack:"local_port"`
-	Space      string `json:"space" msgpack:"space"`
-	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
-	Persistent bool   `json:"persistent" msgpack:"persistent"`
+	LocalPort   uint16 `json:"local_port" msgpack:"local_port"`
+	Space       string `json:"space" msgpack:"space"`
+	RemotePort  uint16 `json:"remote_port" msgpack:"remote_port"`
+	Persistent  bool   `json:"persistent" msgpack:"persistent"`
+	Mode        string `json:"mode" msgpack:"mode"` // "relay" or "direct"
+	LatencyMs   int    `json:"latency_ms" msgpack:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms" msgpack:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb" msgpack:"bandwidth_kb"`
+	TimeoutMs   int    `json:"timeout_ms" msgpack:"timeout_ms"`
+	Down        bool   `json:"down" msgpack:"down"`
 }
 
 type PortStopRequest struct {
@@ -46,6 +52,23 @@ type PortStopRequest struct {
 }
 
 type PortStopResponse struct {
+	Success bool   `json:"success" msgpack:"success"`
+	Error   string `json:"error" msgpack:"error"`
+}
+
+// ThrottlePortRequest configures latency, jitter, and bandwidth limits on
+// an existing port forward. Sent from the server to the agent.
+type ThrottlePortRequest struct {
+	LocalPort   uint16 `json:"local_port" msgpack:"local_port"`
+	LatencyMs   int    `json:"latency_ms" msgpack:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms" msgpack:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb" msgpack:"bandwidth_kb"`
+	TimeoutMs   int    `json:"timeout_ms" msgpack:"timeout_ms"`
+	Down        bool   `json:"down" msgpack:"down"`
+	Reset       bool   `json:"reset" msgpack:"reset"`
+}
+
+type ThrottlePortResponse struct {
 	Success bool   `json:"success" msgpack:"success"`
 	Error   string `json:"error" msgpack:"error"`
 }
