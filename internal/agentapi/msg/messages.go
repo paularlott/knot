@@ -52,6 +52,7 @@ const (
 	CmdFind
 	CmdSed
 	CmdEditFile
+	CmdDeleteFile
 	CmdPeerIntroduce
 	CmdPeerRequestIntro
 	CmdThrottlePort

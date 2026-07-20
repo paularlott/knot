@@ -47,13 +47,13 @@ func decryptSSHPrivateKey(privateKey string) string {
 
 type createUserRequest struct {
 	apiclient.CreateUserRequest
-	ServicePassword string `json:"service_password"`
-	SSHPrivateKey   string `json:"ssh_private_key"`
+	ServicePassword string `json:"service_password" msgpack:"service_password"`
+	SSHPrivateKey   string `json:"ssh_private_key" msgpack:"ssh_private_key"`
 }
 
 type updateUserRequest struct {
 	apiclient.UpdateUserRequest
-	SSHPrivateKey string `json:"ssh_private_key"`
+	SSHPrivateKey string `json:"ssh_private_key" msgpack:"ssh_private_key"`
 }
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {

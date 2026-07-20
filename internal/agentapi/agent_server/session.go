@@ -432,6 +432,11 @@ func (s *Session) SendEditFile(e *msg.EditFileMessage) (chan *msg.EditFileRespon
 	return sendSingleShot[msg.EditFileMessage, msg.EditFileResponse](s, msg.CmdEditFile, "edit", e)
 }
 
+// SendDeleteFile sends a DeleteFileMessage to the agent and returns the response.
+func (s *Session) SendDeleteFile(d *msg.DeleteFileMessage) (chan *msg.DeleteFileResponse, error) {
+	return sendSingleShot[msg.DeleteFileMessage, msg.DeleteFileResponse](s, msg.CmdDeleteFile, "delete file", d)
+}
+
 func (s *Session) SendPortForward(portCmd *msg.PortForwardRequest) (*msg.PortForwardResponse, error) {
 	conn, err := s.MuxSession.Open()
 	if err != nil {

@@ -663,6 +663,16 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			handleEditFileExecution(stream, e)
 		}
 
+	case byte(msg.CmdDeleteFile):
+		var d msg.DeleteFileMessage
+		if err := msg.ReadMessage(stream, &d); err != nil {
+			log.WithError(err).Error("reading delete file message:")
+			return
+		}
+		if s.agentClient.withRunCommand {
+			handleDeleteFileExecution(stream, d)
+		}
+
 	case byte(msg.CmdPortForward):
 		var portCmd msg.PortForwardRequest
 		if err := msg.ReadMessage(stream, &portCmd); err != nil {

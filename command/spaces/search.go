@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -78,7 +79,7 @@ var GrepCmd = &cli.Command{
 var FindCmd = &cli.Command{
 	Name:        "find",
 	Usage:       "Find files in a space",
-	Description: "Find files and directories in a running space by name, type, or size. Output is one path per line. Recursive by default.",
+	Description: "Find files and directories in a running space by name, type, or size. Output is one path per line by default; --long adds size, mtime, and type. Recursive by default.",
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "name", Aliases: []string{"n"}, Usage: "Shell-style glob matched against the base name, e.g. '*.md'"},
 		&cli.StringFlag{Name: "type", Aliases: []string{"t"}, Usage: "Restrict to 'file', 'dir', or 'any' (default 'any')"},
@@ -87,6 +88,7 @@ var FindCmd = &cli.Command{
 		&cli.IntFlag{Name: "max-depth", Usage: "Maximum recursion depth (0 = unlimited)"},
 		&cli.IntFlag{Name: "size-min", Usage: "Minimum size in bytes"},
 		&cli.IntFlag{Name: "size-max", Usage: "Maximum size in bytes"},
+		&cli.BoolFlag{Name: "long", Aliases: []string{"l"}, Usage: "List size, mtime, and type alongside each path"},
 		&cli.BoolFlag{Name: "json", Usage: "Emit the raw structured result as JSON"},
 	},
 	Arguments: []cli.Argument{
@@ -109,13 +111,15 @@ var FindCmd = &cli.Command{
 			path = "."
 		}
 
+		long := cmd.GetBool("long")
 		req := apiclient.FindRequest{
-			Path:          path,
-			Recursive:     cmd.GetBool("recursive"),
-			Type:          cmd.GetString("type"),
-			Name:          cmd.GetString("name"),
-			IncludeHidden: cmd.GetBool("include-hidden"),
-			MaxDepth:      cmd.GetInt("max-depth"),
+			Path:            path,
+			Recursive:       cmd.GetBool("recursive"),
+			Type:            cmd.GetString("type"),
+			Name:            cmd.GetString("name"),
+			IncludeHidden:   cmd.GetBool("include-hidden"),
+			IncludeMetadata: long,
+			MaxDepth:        cmd.GetInt("max-depth"),
 		}
 		if n := int64(cmd.GetInt("size-min")); n != 0 {
 			req.SizeMin = &n
@@ -130,6 +134,16 @@ var FindCmd = &cli.Command{
 		}
 		if cmd.GetBool("json") {
 			return printJSON(result)
+		}
+		if long {
+			for _, e := range result.Entries {
+				kind := "f"
+				if e.IsDir {
+					kind = "d"
+				}
+				fmt.Printf("%s %12d %s %s\n", kind, e.Size, time.Unix(0, int64(e.Mtime*1e9)).UTC().Format("2006-01-02 15:04:05"), e.Path)
+			}
+			return nil
 		}
 		for _, p := range result.Paths {
 			fmt.Println(p)

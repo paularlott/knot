@@ -2481,6 +2481,7 @@ paths:
                 size_min: {type: integer, description: Minimum size in bytes.}
                 size_max: {type: integer, description: Maximum size in bytes.}
                 workdir: {type: string, description: Resolve relative path against this directory.}
+                include_metadata: {type: boolean, description: "If true, stat every match and return entries with size/mtime/is_dir. Default false: returns paths only (cheap, no per-entry stat).", default: false}
       responses:
         "200":
           description: Find completed.
@@ -2491,7 +2492,20 @@ paths:
                 properties:
                   success: {type: boolean}
                   error: {type: string}
-                  paths: {type: array, items: {type: string}}
+                  paths:
+                    type: array
+                    description: "Matching paths (default mode; cheap — no per-entry stat)."
+                    items: {type: string}
+                  entries:
+                    type: array
+                    description: "Matching entries with metadata (only populated when include_metadata=true; the agent stats every match in this mode)."
+                    items:
+                      type: object
+                      properties:
+                        path: {type: string}
+                        size: {type: integer, description: "Size in bytes; 0 for directories."}
+                        mtime: {type: number, description: "Modification time, epoch seconds with fractional precision."}
+                        is_dir: {type: boolean}
         "400": {$ref: "#/components/responses/bad-request"}
         "401": {$ref: "#/components/responses/unauthorized"}
         "403": {$ref: "#/components/responses/forbidden"}
@@ -2602,6 +2616,52 @@ paths:
                   success: {type: boolean}
                   error: {type: string, description: "Error message (e.g. 'search text not found', 'search text matched multiple times')."}
                   bytes_written: {type: integer}
+        "400": {$ref: "#/components/responses/bad-request"}
+        "401": {$ref: "#/components/responses/unauthorized"}
+        "403": {$ref: "#/components/responses/forbidden"}
+        "404": {$ref: "#/components/responses/not-found"}
+        "500": {$ref: "#/components/responses/internal-server-error"}
+        "503": {$ref: "#/components/responses/service-unavailable"}
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/delete:
+    post:
+      summary: Delete File or Directory in Space
+      description: >
+        Remove a file or directory from a running space. Recursive uses
+        os.RemoveAll semantics; a non-recursive delete on a non-empty directory
+        fails. Missing paths return success with removed=0 — idempotent for
+        sync tools whose delete list was computed against a slightly stale
+        remote snapshot.
+      operationId: deleteSpaceFile
+      tags: [Spaces]
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema: {type: string, description: The ID or name of the space.}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: {type: string, description: File or directory to delete.}
+                recursive: {type: boolean, description: Recursively remove a directory and its contents. Default false.}
+                workdir: {type: string, description: Resolve relative path against this directory.}
+      responses:
+        "200":
+          description: Delete completed (check success).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  error: {type: string}
+                  removed: {type: integer, description: "Entries removed (0 if path did not exist, 1 for a single file, N for a recursive directory delete)."}
         "400": {$ref: "#/components/responses/bad-request"}
         "401": {$ref: "#/components/responses/unauthorized"}
         "403": {$ref: "#/components/responses/forbidden"}

@@ -540,19 +540,35 @@ func (c *ApiClient) WriteSpaceFile(ctx context.Context, spaceId string, filePath
 // WriteSpaceFileMode writes content with a mode: "overwrite" (default),
 // "append", or "prepend".
 func (c *ApiClient) WriteSpaceFileMode(ctx context.Context, spaceId string, filePath string, content string, mode string) error {
+	return c.WriteSpaceFileOpts(ctx, spaceId, filePath, content, mode, 0, 0)
+}
+
+// WriteSpaceFileOpts is the full-form upload used by sync tools. mtimeNs and
+// filePerm are optional (0 = leave alone); when set, the agent applies them
+// after the write so the destination matches the source's metadata.
+//
+// The apiclient uses msgpack for all requests by default (set in
+// NewClient/NewMuxClient), so the Content string carries bytes verbatim —
+// binary-safe. JSON encoding would have replaced non-UTF-8 bytes with U+FFFD,
+// changing the byte count and making mirror re-upload the same files forever.
+func (c *ApiClient) WriteSpaceFileOpts(ctx context.Context, spaceId string, filePath string, content string, mode string, mtimeNs int64, filePerm uint32) error {
 	var request struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
-		Mode    string `json:"mode,omitempty"`
+		Path     string `json:"path" msgpack:"path"`
+		Content  string `json:"content" msgpack:"content"`
+		Mode     string `json:"mode,omitempty" msgpack:"mode,omitempty"`
+		MtimeNs  int64  `json:"mtime_ns,omitempty" msgpack:"mtime_ns,omitempty"`
+		FilePerm uint32 `json:"file_perm,omitempty" msgpack:"file_perm,omitempty"`
 	}
 	request.Path = filePath
 	request.Content = content
 	request.Mode = mode
+	request.MtimeNs = mtimeNs
+	request.FilePerm = filePerm
 
 	var response struct {
-		Success      bool   `json:"success"`
-		BytesWritten int    `json:"bytes_written"`
-		Error        string `json:"error"`
+		Success      bool   `json:"success" msgpack:"success"`
+		BytesWritten int    `json:"bytes_written" msgpack:"bytes_written"`
+		Error        string `json:"error" msgpack:"error"`
 	}
 
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/write", request, &response, 200)
@@ -608,24 +624,44 @@ type GrepResponse struct {
 
 // FindRequest mirrors msg.FindMessage for the HTTP API.
 type FindRequest struct {
-	Path          string   `json:"path" msgpack:"path"`
-	Recursive     bool     `json:"recursive" msgpack:"recursive"`
-	Type          string   `json:"type,omitempty" msgpack:"type,omitempty"`
-	Name          string   `json:"name,omitempty" msgpack:"name,omitempty"`
-	IncludeHidden bool     `json:"include_hidden,omitempty" msgpack:"include_hidden,omitempty"`
-	FollowLinks   bool     `json:"follow_links,omitempty" msgpack:"follow_links,omitempty"`
-	MaxDepth      int      `json:"max_depth,omitempty" msgpack:"max_depth,omitempty"`
-	MtimeMin      *float64 `json:"mtime_min,omitempty" msgpack:"mtime_min,omitempty"`
-	MtimeMax      *float64 `json:"mtime_max,omitempty" msgpack:"mtime_max,omitempty"`
-	SizeMin       *int64   `json:"size_min,omitempty" msgpack:"size_min,omitempty"`
-	SizeMax       *int64   `json:"size_max,omitempty" msgpack:"size_max,omitempty"`
-	Workdir       string   `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
+	Path            string   `json:"path" msgpack:"path"`
+	Recursive       bool     `json:"recursive" msgpack:"recursive"`
+	Type            string   `json:"type,omitempty" msgpack:"type,omitempty"`
+	Name            string   `json:"name,omitempty" msgpack:"name,omitempty"`
+	IncludeHidden   bool     `json:"include_hidden,omitempty" msgpack:"include_hidden,omitempty"`
+	IncludeMetadata bool     `json:"include_metadata,omitempty" msgpack:"include_metadata,omitempty"`
+	IncludeHash     bool     `json:"include_hash,omitempty" msgpack:"include_hash,omitempty"`
+	IncludeSymlinks bool     `json:"include_symlinks,omitempty" msgpack:"include_symlinks,omitempty"`
+	FollowLinks     bool     `json:"follow_links,omitempty" msgpack:"follow_links,omitempty"`
+	MaxDepth        int      `json:"max_depth,omitempty" msgpack:"max_depth,omitempty"`
+	MtimeMin        *float64 `json:"mtime_min,omitempty" msgpack:"mtime_min,omitempty"`
+	MtimeMax        *float64 `json:"mtime_max,omitempty" msgpack:"mtime_max,omitempty"`
+	SizeMin         *int64   `json:"size_min,omitempty" msgpack:"size_min,omitempty"`
+	SizeMax         *int64   `json:"size_max,omitempty" msgpack:"size_max,omitempty"`
+	Workdir         string   `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
 }
 
+// FindResponse is the agent's reply. INVARIANT: exactly one of Paths or
+// Entries is populated per response, never both. The agent picks based on
+// FindRequest.IncludeMetadata — false (default) populates Paths (cheap, no
+// per-entry stat); true populates Entries (every match stat'd). Pick the
+// field that matches the flag you set.
 type FindResponse struct {
-	Success bool     `json:"success" msgpack:"success"`
-	Error   string   `json:"error,omitempty" msgpack:"error,omitempty"`
-	Paths   []string `json:"paths,omitempty" msgpack:"paths,omitempty"`
+	Success bool        `json:"success" msgpack:"success"`
+	Error   string      `json:"error,omitempty" msgpack:"error,omitempty"`
+	Paths   []string    `json:"paths,omitempty" msgpack:"paths,omitempty"`
+	Entries []FindEntry `json:"entries,omitempty" msgpack:"entries,omitempty"`
+}
+
+// FindEntry mirrors msg.FindEntry for the HTTP API.
+type FindEntry struct {
+	Path       string  `json:"path" msgpack:"path"`
+	Size       int64   `json:"size" msgpack:"size"`
+	Mtime      float64 `json:"mtime" msgpack:"mtime"`
+	IsDir      bool    `json:"is_dir" msgpack:"is_dir"`
+	Hash       uint64  `json:"hash,omitempty" msgpack:"hash,omitempty"`
+	LinkTarget string  `json:"link_target,omitempty" msgpack:"link_target,omitempty"`
+	FilePerm   int     `json:"file_perm,omitempty" msgpack:"file_perm,omitempty"`
 }
 
 // Find finds files/directories in a running space.
@@ -702,6 +738,62 @@ type EditFileResponse struct {
 func (c *ApiClient) EditFile(ctx context.Context, spaceId string, req EditFileRequest) (*EditFileResponse, error) {
 	var resp EditFileResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/edit", req, &resp, 200)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	return &resp, nil
+}
+
+// DeleteFileRequest mirrors msg.DeleteFileMessage for the HTTP API.
+type DeleteFileRequest struct {
+	Path      string `json:"path" msgpack:"path"`
+	Recursive bool   `json:"recursive,omitempty" msgpack:"recursive,omitempty"`
+	Workdir   string `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
+}
+
+// CreateSymlinkSpaceFile creates a symlink at filePath pointing to target.
+// Uses the same /files/write endpoint with SymlinkTarget set instead of
+// Content. The agent removes any existing file at the destination first.
+func (c *ApiClient) CreateSymlinkSpaceFile(ctx context.Context, spaceId, filePath, target string) error {
+	var request struct {
+		Path           string `json:"path" msgpack:"path"`
+		SymlinkTarget  string `json:"symlink_target" msgpack:"symlink_target"`
+	}
+	request.Path = filePath
+	request.SymlinkTarget = target
+
+	var response struct {
+		Success      bool   `json:"success" msgpack:"success"`
+		BytesWritten int    `json:"bytes_written" msgpack:"bytes_written"`
+		Error        string `json:"error" msgpack:"error"`
+	}
+
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/write", request, &response, 200)
+	if err != nil {
+		return err
+	}
+	if !response.Success {
+		return fmt.Errorf("%s", response.Error)
+	}
+	return nil
+}
+
+type DeleteFileResponse struct {
+	Success bool   `json:"success" msgpack:"success"`
+	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
+	Removed int    `json:"removed,omitempty" msgpack:"removed,omitempty"`
+}
+
+// DeleteSpaceFile removes a file or directory from a running space. Recursive
+// uses os.RemoveAll semantics; non-recursive on a non-empty directory fails.
+// Missing paths are treated as success (idempotent) — important for sync tools
+// whose delete list was computed against a slightly stale snapshot.
+func (c *ApiClient) DeleteSpaceFile(ctx context.Context, spaceId string, req DeleteFileRequest) (*DeleteFileResponse, error) {
+	var resp DeleteFileResponse
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/delete", req, &resp, 200)
 	if err != nil {
 		return nil, err
 	}

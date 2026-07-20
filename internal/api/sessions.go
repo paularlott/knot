@@ -15,11 +15,11 @@ import (
 )
 
 type sessionResponse struct {
-	Id           string    `json:"session_id"`
-	Ip           string    `json:"ip"`
-	Current      bool      `json:"current"`
-	ExpiresAfter time.Time `json:"expires_at"`
-	UserAgent    string    `json:"user_agent"`
+	Id           string    `json:"session_id" msgpack:"session_id"`
+	Ip           string    `json:"ip" msgpack:"ip"`
+	Current      bool      `json:"current" msgpack:"current"`
+	ExpiresAfter time.Time `json:"expires_at" msgpack:"expires_at"`
+	UserAgent    string    `json:"user_agent" msgpack:"user_agent"`
 }
 
 func HandleGetSessions(w http.ResponseWriter, r *http.Request) {

@@ -14,31 +14,41 @@ import (
 )
 
 type ReadFileRequest struct {
-	Path   string `json:"path"`
-	Offset int    `json:"offset,omitempty"` // 1-based line number to start at (0/absent = from beginning)
-	Limit  int    `json:"limit,omitempty"`  // max lines to return (0/absent = no limit)
+	Path   string `json:"path" msgpack:"path"`
+	Offset int    `json:"offset,omitempty" msgpack:"offset,omitempty"` // 1-based line number to start at (0/absent = from beginning)
+	Limit  int    `json:"limit,omitempty" msgpack:"limit,omitempty"`   // max lines to return (0/absent = no limit)
 }
 
 type ReadFileResponse struct {
-	Success    bool   `json:"success"`
-	Content    string `json:"content,omitempty"`
-	Size       int    `json:"size,omitempty"`
-	TotalLines int    `json:"total_lines,omitempty"` // total lines in the file (only when offset/limit used)
-	Offset     int    `json:"offset,omitempty"`      // applied offset (1-based, only when offset/limit used)
-	Limit      int    `json:"limit,omitempty"`       // applied limit (only when offset/limit used)
-	Error      string `json:"error,omitempty"`
+	Success    bool   `json:"success" msgpack:"success"`
+	Content    string `json:"content,omitempty" msgpack:"content,omitempty"`
+	Size       int    `json:"size,omitempty" msgpack:"size,omitempty"`
+	TotalLines int    `json:"total_lines,omitempty" msgpack:"total_lines,omitempty"` // total lines in the file (only when offset/limit used)
+	Offset     int    `json:"offset,omitempty" msgpack:"offset,omitempty"`           // applied offset (1-based, only when offset/limit used)
+	Limit      int    `json:"limit,omitempty" msgpack:"limit,omitempty"`             // applied limit (only when offset/limit used)
+	Error      string `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 type WriteFileRequest struct {
-	Path    string `json:"path"`
-	Content string `json:"content"`
-	Mode    string `json:"mode,omitempty"` // "overwrite" (default), "append", "prepend"
+	Path    string `json:"path" msgpack:"path"`
+	Content string `json:"content" msgpack:"content"`
+	Mode    string `json:"mode,omitempty" msgpack:"mode,omitempty"`
+
+	// SymlinkTarget, when set, creates a symlink at Path pointing to this
+	// target instead of writing content. Used by knot mirror for symlinks.
+	SymlinkTarget string `json:"symlink_target,omitempty" msgpack:"symlink_target,omitempty"`
+
+	// Sync metadata (optional). When set, the agent applies them after the
+	// write so the destination file matches the source's mtime and permission
+	// bits — used by knot sync tools (copy --recursive, watch).
+	MtimeNs  int64  `json:"mtime_ns,omitempty" msgpack:"mtime_ns,omitempty"`
+	FilePerm uint32 `json:"file_perm,omitempty" msgpack:"file_perm,omitempty"`
 }
 
 type WriteFileResponse struct {
-	Success      bool   `json:"success"`
-	BytesWritten int    `json:"bytes_written,omitempty"`
-	Error        string `json:"error,omitempty"`
+	Success      bool   `json:"success" msgpack:"success"`
+	BytesWritten int    `json:"bytes_written,omitempty" msgpack:"bytes_written,omitempty"`
+	Error        string `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
@@ -231,11 +241,14 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	copyCmd := &msg.CopyFileMessage{
-		DestPath:  req.Path,
-		Content:   []byte(req.Content),
-		Direction: "to_space",
-		Workdir:   "",
-		Mode:      req.Mode,
+		DestPath:      req.Path,
+		Content:       []byte(req.Content),
+		Direction:     "to_space",
+		Workdir:       "",
+		Mode:          req.Mode,
+		MtimeNs:       req.MtimeNs,
+		FilePerm:      req.FilePerm,
+		SymlinkTarget: req.SymlinkTarget,
 	}
 
 	responseChannel, err := session.SendCopyFile(copyCmd)

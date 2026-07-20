@@ -591,6 +591,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleEditFile(stream, session)
 			return
 
+		case byte(msg.CmdDeleteFile):
+			handleDeleteFile(stream, session)
+			return
+
 		case byte(msg.CmdPortForward):
 			handlePortForward(stream, session)
 			return // Single shot command so done
@@ -880,6 +884,10 @@ func handleSed(stream net.Conn, session *Session) {
 
 func handleEditFile(stream net.Conn, session *Session) {
 	forwardSingleShot[msg.EditFileMessage, msg.EditFileResponse](stream, session, msg.CmdEditFile, "edit")
+}
+
+func handleDeleteFile(stream net.Conn, session *Session) {
+	forwardSingleShot[msg.DeleteFileMessage, msg.DeleteFileResponse](stream, session, msg.CmdDeleteFile, "delete file")
 }
 
 func handlePortForward(stream net.Conn, session *Session) {
