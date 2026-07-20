@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -143,6 +144,10 @@ var MirrorCmd = &cli.Command{
 		if opts.parallel < 1 {
 			opts.parallel = 1
 		}
+		if opts.parallel > 32 {
+			fmt.Fprintf(os.Stderr, "Note: --parallel %d capped to 32 (server connection limit)\n", opts.parallel)
+			opts.parallel = 32
+		}
 
 		if opts.verify {
 			fmt.Fprintf(os.Stderr, "Verifying %s ↔ %s:%s\n", local, spaceName, remoteDir)
@@ -200,9 +205,12 @@ func (s *mirrorStats) String(duration time.Duration) string {
 // subsequent blocks use mode="append". The last block carries the mtime +
 // permission bits for applySyncMetadata on the agent side.
 //
-// A var (not const) so tests can shrink it to exercise the chunked path
-// without writing hundreds of megabytes.
-var chunkSize = int64(64 * 1024 * 1024) // 64 MB — power of 2, fits under common server buffer limits
+// Sized to match the yamux MaxStreamWindowSize (4MB) so each chunk's msgpack
+// message fits in one flow-control window — one round-trip through the
+// server→agent transport instead of many. A var (not const) so tests can
+// shrink it to exercise the chunked path without writing hundreds of
+// megabytes.
+var chunkSize = int64(4 * 1024 * 1024) // 4 MB — matches yamux stream window
 
 // mtimeTolerance is the fallback window used only when the agent didn't
 // return a hash (Hash=0). When hashes are available, comparison is
@@ -289,6 +297,9 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 	// the remote is cheap compared to re-uploading unchanged files.
 	remoteSet, err := o.fetchRemoteSet(ctx)
 	if err != nil {
+		if o.hash && strings.Contains(err.Error(), "503") {
+			return stats, fmt.Errorf("list remote: %w\n\nThe agent timed out hashing the remote tree (common for large spaces with --hash or --verify).\nTry without --hash — the default mtime+size comparison is fast and sufficient for most cases", err)
+		}
 		return stats, fmt.Errorf("list remote: %w", err)
 	}
 
@@ -307,9 +318,17 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		return o.runVerify(ctx, remoteSet, stats)
 	}
 
-	// Walk local, producing upload jobs. Files that match a remote entry
-	// (size + hash) are skipped — counted but not uploaded.
+	// Walk local, collecting regular files for batch processing.
+	// Symlinks and directories are handled inline (they don't need hashing).
 	var uploads []upload
+	type collectedFile struct {
+		rel      string
+		localAbs string
+		size     int64
+		mtime    time.Time
+		mode     uint32
+	}
+	var collected []collectedFile
 
 	walkErr := filepath.WalkDir(o.localRoot, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -330,9 +349,6 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 			return nil
 		}
 		if d.IsDir() {
-			// Directories are created implicitly by file uploads (the agent
-			// MkdirAll's the parent). Remove from the remote set so the
-			// delete phase doesn't try to remove them as extras.
 			delete(remoteSet, relSlash)
 			return nil
 		}
@@ -368,55 +384,62 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		if !info.Mode().IsRegular() {
 			return nil
 		}
-		stats.scanned.Add(1)
+		collected = append(collected, collectedFile{
+			rel: relSlash, localAbs: p,
+			size: info.Size(), mtime: info.ModTime(), mode: uint32(info.Mode().Perm()),
+		})
+		return nil
+	})
+	if walkErr != nil {
+		return stats, walkErr
+	}
 
-		// Skip-if-unchanged: when --hash is set, compare crc64 (definitive).
-		// Default: mtime + size heuristic (fast, no file reads).
-		r, hadRemote := remoteSet[relSlash]
-		if hadRemote && !r.isDir && r.size == info.Size() {
+	// Parallel hash: only files where size matches remote and --hash is on.
+	// Without --hash, hashing is skipped entirely (mtime+size comparison only).
+	toHash := make(map[string]string)
+	for _, f := range collected {
+		if r, ok := remoteSet[f.rel]; ok && !r.isDir && r.size == f.size && o.hash && r.hash != 0 {
+			toHash[f.rel] = f.localAbs
+		}
+	}
+	hashes := hashFilesParallel(toHash, o.parallel)
+
+	// Classify each regular file: skip (unchanged) or queue for upload.
+	for _, f := range collected {
+		stats.scanned.Add(1)
+		r, hadRemote := remoteSet[f.rel]
+		delete(remoteSet, f.rel)
+
+		if hadRemote && !r.isDir && r.size == f.size {
 			skip := false
 			if o.hash && r.hash != 0 {
-				skip = hashLocalFile(p) == r.hash
+				skip = hashes[f.rel] == r.hash
 				if skip {
 					stats.hashSkipped.Add(1)
 				}
 			} else {
-				skip = mtimeWithin(info.ModTime(), r.mtime, mtimeTolerance)
+				skip = mtimeWithin(f.mtime, r.mtime, mtimeTolerance)
 				if skip {
 					stats.mtimeSkipped.Add(1)
 				}
 			}
 			if skip {
 				stats.skipped.Add(1)
-				delete(remoteSet, relSlash)
-				return nil
+				continue
 			}
 		}
 
-		// Capture the reason before we delete from the set; used by --debug.
-		var reason string
 		if o.debug {
-			reason = uploadReason(hadRemote, r, info)
-		}
-
-		// Drop from remote set so the delete phase sees only true extras.
-		delete(remoteSet, relSlash)
-
-		if o.debug {
-			fmt.Fprintf(os.Stderr, "  ? %s — %s\n", relSlash, reason)
+			fmt.Fprintf(os.Stderr, "  ? %s — %s\n", f.rel, uploadReason(hadRemote, r, f.size, f.mtime))
 		}
 
 		uploads = append(uploads, upload{
-			rel:      relSlash,
-			localAbs: p,
-			size:     info.Size(),
-			mtime:    info.ModTime(),
-			mode:     uint32(info.Mode().Perm()),
+			rel:      f.rel,
+			localAbs: f.localAbs,
+			size:     f.size,
+			mtime:    f.mtime,
+			mode:     f.mode,
 		})
-		return nil
-	})
-	if walkErr != nil {
-		return stats, walkErr
 	}
 
 	// Upload phase: bounded parallel.
@@ -444,6 +467,17 @@ func (o *mirrorOptions) runVerify(ctx context.Context, remoteSet map[string]remo
 	var verified, mismatch, missingRemote int64
 	excludes := compileExcludes(o.excludes)
 
+	// Phase 1: walk and collect regular files. Symlinks are compared inline
+	// (target, not content). Directories are removed from remoteSet.
+	type verifyFile struct {
+		rel       string
+		abs       string
+		size      int64
+		remote    remoteMeta
+		hadRemote bool
+	}
+	var files []verifyFile
+
 	filepath.WalkDir(o.localRoot, func(p string, d os.DirEntry, err error) error {
 		if err != nil || p == o.localRoot {
 			return nil
@@ -459,8 +493,6 @@ func (o *mirrorOptions) runVerify(ctx context.Context, remoteSet map[string]remo
 			}
 			return nil
 		}
-		// Directories: remove from remoteSet so they don't show as "missing
-		// on local". Mirror only verifies file content, not empty dirs.
 		if d.IsDir() {
 			delete(remoteSet, relSlash)
 			return nil
@@ -490,7 +522,7 @@ func (o *mirrorOptions) runVerify(ctx context.Context, remoteSet map[string]remo
 			return nil
 		}
 		info, err := d.Info()
-		if err != nil {
+		if err != nil || !info.Mode().IsRegular() {
 			return nil
 		}
 
@@ -503,19 +535,35 @@ func (o *mirrorOptions) runVerify(ctx context.Context, remoteSet map[string]remo
 			return nil
 		}
 
-		localHash := hashLocalFile(p)
-		if localHash == r.hash {
+		files = append(files, verifyFile{relSlash, p, info.Size(), r, hadRemote})
+		return nil
+	})
+
+	if ctx.Err() != nil {
+		return stats, ctx.Err()
+	}
+
+	// Phase 2: hash all collected files in parallel.
+	toHash := make(map[string]string, len(files))
+	for _, f := range files {
+		toHash[f.rel] = f.abs
+	}
+	hashes := hashFilesParallel(toHash, o.parallel)
+
+	// Phase 3: compare.
+	for _, f := range files {
+		localHash := hashes[f.rel]
+		if localHash == f.remote.hash {
 			verified++
 			if o.verbose {
-				fmt.Fprintf(os.Stderr, "  ✓ %s\n", relSlash)
+				fmt.Fprintf(os.Stderr, "  ✓ %s\n", f.rel)
 			}
 		} else {
 			mismatch++
 			fmt.Fprintf(os.Stderr, "  ✗ %s — hash mismatch (local=%d remote=%d, size local=%d remote=%d)\n",
-				relSlash, localHash, r.hash, info.Size(), r.size)
+				f.rel, localHash, f.remote.hash, f.size, f.remote.size)
 		}
-		return nil
-	})
+	}
 
 	// Anything left in remoteSet exists on the remote but not locally.
 	// Only report FILES — remote-only directories are noise for content
@@ -551,28 +599,62 @@ func mtimeWithin(a, b time.Time, tol time.Duration) bool {
 	return d <= tol
 }
 
+// hashFilesParallel hashes the given files using workers goroutines.
+// Returns a map of rel path → crc64 hash (0 on error). Used by both run()
+// and runVerify() to parallelise the local-side hash computation.
+func hashFilesParallel(files map[string]string, workers int) map[string]uint64 {
+	if len(files) == 0 {
+		return nil
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	results := make(map[string]uint64, len(files))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	type job struct{ rel, abs string }
+	jobCh := make(chan job, 64)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range jobCh {
+				h := hashLocalFile(j.abs)
+				mu.Lock()
+				results[j.rel] = h
+				mu.Unlock()
+			}
+		}()
+	}
+	for rel, abs := range files {
+		jobCh <- job{rel, abs}
+	}
+	close(jobCh)
+	wg.Wait()
+	return results
+}
+
 // uploadReason returns a human-readable explanation for why a file is being
-// queued for upload instead of skipped. Used by --debug to diagnose
-// idempotence issues (e.g. mtimes that keep drifting).
-func uploadReason(hadRemote bool, r remoteMeta, info os.FileInfo) string {
+// queued for upload instead of skipped. Used by --debug.
+func uploadReason(hadRemote bool, r remoteMeta, size int64, mtime time.Time) string {
 	if !hadRemote {
 		return "new (not on remote)"
 	}
 	if r.isDir {
 		return "remote is a directory"
 	}
-	if r.size != info.Size() {
-		return fmt.Sprintf("size differs: local=%d remote=%d", info.Size(), r.size)
+	if r.size != size {
+		return fmt.Sprintf("size differs: local=%d remote=%d", size, r.size)
 	}
 	if r.hash != 0 {
 		return fmt.Sprintf("hash mismatch (remote crc64=%d) — content differs despite same size", r.hash)
 	}
-	diff := info.ModTime().Sub(r.mtime)
+	diff := mtime.Sub(r.mtime)
 	if diff < 0 {
 		diff = -diff
 	}
 	return fmt.Sprintf("mtime drift: local=%s remote=%s diff=%s (tol=%s)",
-		info.ModTime().UTC().Format(time.RFC3339Nano),
+		mtime.UTC().Format(time.RFC3339Nano),
 		r.mtime.UTC().Format(time.RFC3339Nano),
 		diff.Round(time.Millisecond),
 		mtimeTolerance)
@@ -588,7 +670,12 @@ func (o *mirrorOptions) uploadInParallel(ctx context.Context, uploads []upload, 
 	var wg sync.WaitGroup
 	for i := 0; i < o.parallel; i++ {
 		wg.Add(1)
-		go func() {
+		// One persistent buffer per worker — no allocations after startup.
+		// OS demand-paging means only the pages actually written to are
+		// backed by physical memory, so a worker handling small files
+		// touches only a few KB of its chunkSize buffer.
+		buf := make([]byte, chunkSize)
+		go func(buf []byte) {
 			defer wg.Done()
 			for u := range jobs {
 				if ctx.Err() != nil {
@@ -601,7 +688,7 @@ func (o *mirrorOptions) uploadInParallel(ctx context.Context, uploads []upload, 
 					stats.uploaded.Add(1)
 					continue
 				}
-				if err := o.uploadOne(ctx, u); err != nil {
+				if err := o.uploadOne(ctx, u, buf); err != nil {
 					stats.failed.Add(1)
 					fmt.Fprintf(os.Stderr, "  ! %s: %v\n", u.rel, err)
 					continue
@@ -612,7 +699,7 @@ func (o *mirrorOptions) uploadInParallel(ctx context.Context, uploads []upload, 
 					fmt.Fprintf(os.Stderr, "  ↑ %s\n", u.rel)
 				}
 			}
-		}()
+		}(buf)
 	}
 	for _, u := range uploads {
 		select {
@@ -627,29 +714,32 @@ func (o *mirrorOptions) uploadInParallel(ctx context.Context, uploads []upload, 
 	wg.Wait()
 }
 
+// bytesToString converts a byte slice to a string without copying. The
+// returned string shares the backing array — safe as long as the slice is
+// not mutated while the string is in use. Since WriteSpaceFileOpts
+// serialises the string synchronously and the caller doesn't reuse the
+// slice until after the call returns, this is always safe here. Saves one
+// full-size allocation per uploaded file/chunk.
+func bytesToString(b []byte) string {
+	return unsafe.String(unsafe.SliceData(b), len(b))
+}
+
 // uploadOne sends a single file to the space. Files larger than chunkSize
 // are streamed in blocks using mode="overwrite" for the first block and
 // mode="append" for the rest, so the server's 30s ReadTimeout never
 // truncates a huge single-request body. The last block carries the source
 // mtime and permission bits for applySyncMetadata on the agent side.
-func (o *mirrorOptions) uploadOne(ctx context.Context, u upload) error {
+//
+// buf is a caller-owned scratch buffer of at least chunkSize bytes. Using a
+// persistent per-worker buffer avoids allocating a new buffer for every
+// upload — the main source of GC pressure during bulk mirroring.
+func (o *mirrorOptions) uploadOne(ctx context.Context, u upload, buf []byte) error {
 	// Symlink: create link, don't write content.
 	if u.symlinkTarget != "" {
 		dest := path.Join(o.remoteDir, u.rel)
 		return o.client.CreateSymlinkSpaceFile(ctx, o.spaceID, dest, u.symlinkTarget)
 	}
 
-	if u.size <= chunkSize {
-		// Single-shot: read once, send with metadata.
-		content, err := os.ReadFile(u.localAbs)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", u.localAbs, err)
-		}
-		dest := path.Join(o.remoteDir, u.rel)
-		return o.client.WriteSpaceFileOpts(ctx, o.spaceID, dest, string(content), "", u.mtime.UnixNano(), u.mode)
-	}
-
-	// Chunked: stream chunkSize blocks. One worker, sequential blocks.
 	f, err := os.Open(u.localAbs)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", u.localAbs, err)
@@ -657,7 +747,17 @@ func (o *mirrorOptions) uploadOne(ctx context.Context, u upload) error {
 	defer f.Close()
 
 	dest := path.Join(o.remoteDir, u.rel)
-	buf := make([]byte, int(chunkSize))
+
+	// Files within chunkSize: single-shot read into buf, one request.
+	if u.size <= int64(len(buf)) {
+		n, err := io.ReadFull(f, buf)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			return fmt.Errorf("read %s: %w", u.localAbs, err)
+		}
+		return o.client.WriteSpaceFileOpts(ctx, o.spaceID, dest, bytesToString(buf[:n]), "", u.mtime.UnixNano(), u.mode)
+	}
+
+	// Chunked: stream chunkSize blocks, reusing buf for each.
 	sent := int64(0)
 	first := true
 
@@ -677,7 +777,7 @@ func (o *mirrorOptions) uploadOne(ctx context.Context, u upload) error {
 			perm = u.mode
 		}
 
-		if werr := o.client.WriteSpaceFileOpts(ctx, o.spaceID, dest, string(buf[:n]), mode, mtimeNs, perm); werr != nil {
+		if werr := o.client.WriteSpaceFileOpts(ctx, o.spaceID, dest, bytesToString(buf[:n]), mode, mtimeNs, perm); werr != nil {
 			return werr
 		}
 		sent += int64(n)

@@ -401,7 +401,10 @@ func sendSingleShot[Msg any, Resp any](s *Session, cmd msg.CmdType, cmdName stri
 		}
 
 		var response Resp
-		if err = msg.ReadMessage(conn, &response); err != nil {
+		// File operations (find with hash, large writes, recursive deletes)
+		// can take minutes on big trees. The default ReadMessage timeout is
+		// 5s — use 10 minutes here so the agent has time to finish.
+		if err = msg.ReadMessageWithTimeout(conn, &response, 10*time.Minute); err != nil {
 			s.logger.WithError(err).Error("reading " + cmdName + " response:")
 			return
 		}

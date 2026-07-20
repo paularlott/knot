@@ -59,6 +59,7 @@ func (o *mirrorOptions) runWatch(ctx context.Context) error {
 		excludes: compileExcludes(o.excludes),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	// Seed: watch every non-excluded directory under localRoot.
@@ -101,6 +102,7 @@ type mirrorWatcher struct {
 	fsw      *fsnotify.Watcher
 	mu       sync.Mutex
 	pending  map[string]fsnotify.Op
+	buf      []byte // scratch buffer for uploads, avoids per-file allocation
 }
 
 // rel converts an absolute local path to a slash-relative path under localRoot.
@@ -292,7 +294,7 @@ func (w *mirrorWatcher) uploadFile(ctx context.Context, localAbs, rel string, in
 		mtime:    info.ModTime(),
 		mode:     uint32(info.Mode().Perm()),
 	}
-	if err := w.opts.uploadOne(ctx, u); err != nil {
+	if err := w.opts.uploadOne(ctx, u, w.buf); err != nil {
 		fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
 		return
 	}

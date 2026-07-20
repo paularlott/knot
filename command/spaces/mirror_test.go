@@ -86,7 +86,7 @@ func (s *stubClient) WriteSpaceFileOpts(ctx context.Context, spaceID, filePath, 
 		}
 		existing.content = content + existing.content
 	default: // overwrite or empty
-		existing.content = content
+		existing.content = strings.Clone(content)
 	}
 	// Last-write-wins for metadata — the chunked uploader only sets
 	// mtime/perm on the final block.

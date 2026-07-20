@@ -29,6 +29,7 @@ func startTestWatcher(t *testing.T, opts *mirrorOptions) func() {
 		excludes: compileExcludes(opts.excludes),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 	w.seedDirs(opts.localRoot)
 
@@ -95,6 +96,7 @@ func TestWatchSyncPathUploadsFile(t *testing.T) {
 		excludes: compileExcludes(nil),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	w.syncPath(context.Background(), "a.txt")
@@ -120,6 +122,7 @@ func TestWatchSyncPathDeletesMissingFile(t *testing.T) {
 		excludes: compileExcludes(nil),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	// Path doesn't exist locally → should be deleted from remote.
@@ -150,6 +153,7 @@ func TestWatchSyncPathUploadsDirContents(t *testing.T) {
 		excludes: compileExcludes(nil),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	w.syncPath(context.Background(), "sub")
@@ -179,6 +183,7 @@ func TestWatchSyncPathSymlink(t *testing.T) {
 		excludes: compileExcludes(nil),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	w.syncPath(context.Background(), "link.txt")
@@ -209,6 +214,7 @@ func TestWatchSyncPathRespectsExcludes(t *testing.T) {
 		excludes: compileExcludes(opts.excludes),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	w.syncPath(context.Background(), "secret.key")
@@ -233,6 +239,7 @@ func TestWatchOnEventCoalescesByPath(t *testing.T) {
 		excludes: compileExcludes(nil),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	w.onEvent(fsnotify.Event{Name: filepath.Join(root, "f.txt"), Op: fsnotify.Create})
@@ -264,6 +271,7 @@ func TestWatchFlushDrainsPending(t *testing.T) {
 		excludes: compileExcludes(nil),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	w.mu.Lock()
@@ -293,6 +301,7 @@ func TestWatchOnEventIgnoresExcluded(t *testing.T) {
 		excludes: compileExcludes([]string{"*.log"}),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	w.onEvent(fsnotify.Event{Name: filepath.Join(root, "app.log"), Op: fsnotify.Create})
@@ -465,6 +474,7 @@ func TestWatchSkipSocket(t *testing.T) {
 		excludes: compileExcludes(nil),
 		fsw:      fsw,
 		pending:  make(map[string]fsnotify.Op),
+		buf:      make([]byte, chunkSize),
 	}
 
 	// Create a socket file — syncPath should skip it without error.

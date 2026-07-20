@@ -202,8 +202,8 @@ func handleAgentConnection(conn net.Conn) {
 		AcceptBacklog:          256,
 		EnableKeepAlive:        true,
 		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 2 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
+		ConnectionWriteTimeout: 30 * time.Second,
+		MaxStreamWindowSize:    4 * 1024 * 1024, // 4MB — 256KB default is too small for file transfers
 		StreamCloseTimeout:     3 * time.Minute,
 		StreamOpenTimeout:      3 * time.Second,
 		LogOutput:              nil,
