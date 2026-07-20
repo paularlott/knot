@@ -19,8 +19,8 @@ import (
 
 var CopyCmd = &cli.Command{
 	Name:        "copy",
-	Usage:       "Copy files between local machine and space",
-	Description: "Copy files to or from a running space. Use spacename:path format for space files.",
+	Usage:       "Copy a file between local machine and space",
+	Description: "Copy a file to or from a running space. Use spacename:path format for space files.",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:         "workdir",
@@ -172,9 +172,9 @@ var CopyCmd = &cli.Command{
 
 			// Read from source space
 			sourceRequest := apiclient.CopyFileRequest{
-				Direction: "from_space",
+				Direction:  "from_space",
 				SourcePath: sourceSpacePath,
-				Workdir: workdir,
+				Workdir:    workdir,
 			}
 
 			fmt.Printf("Copying %s:%s to %s:%s...\n", sourceSpaceName, sourceSpacePath, destSpaceName, destSpacePath)
@@ -210,9 +210,9 @@ var CopyCmd = &cli.Command{
 			// Write to destination space
 			destRequest := apiclient.CopyFileRequest{
 				Direction: "to_space",
-				DestPath: destSpacePath,
-				Content: content,
-				Workdir: workdir,
+				DestPath:  destSpacePath,
+				Content:   content,
+				Workdir:   workdir,
 			}
 
 			err = destWs.WriteJSON(destRequest)
