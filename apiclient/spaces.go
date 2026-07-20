@@ -40,44 +40,48 @@ type SpaceShareUpdateRequest struct {
 }
 
 type SpaceInfo struct {
-	Id              string               `json:"space_id"`
-	Name            string               `json:"name"`
-	Description     string               `json:"description"`
-	Note            string               `json:"note"`
-	TemplateName    string               `json:"template_name"`
-	TemplateId      string               `json:"template_id"`
-	PoolId          string               `json:"pool_id"`
-	PoolName        string               `json:"pool_name"`
-	Zone            string               `json:"zone"`
-	Username        string               `json:"username"`
-	UserId          string               `json:"user_id"`
-	Platform        string               `json:"platform"`
-	Shares          []string             `json:"shares"`
-	DependsOn       []string             `json:"depends_on"`
-	HasCodeServer   bool                 `json:"has_code_server"`
-	HasSSH          bool                 `json:"has_ssh"`
-	HasHttpVNC      bool                 `json:"has_http_vnc"`
-	HasTerminal     bool                 `json:"has_terminal"`
-	HasState        bool                 `json:"has_state"`
-	IsDeployed      bool                 `json:"is_deployed"`
-	IsPending       bool                 `json:"is_pending"`
-	IsDeleting      bool                 `json:"is_deleting"`
-	TcpPorts        map[string]string    `json:"tcp_ports"`
-	HttpPorts       map[string]string    `json:"http_ports"`
-	UpdateAvailable bool                 `json:"update_available"`
-	IsRemote        bool                 `json:"is_remote"`
-	HasVSCodeTunnel bool                 `json:"has_vscode_tunnel"`
-	VSCodeTunnel    string               `json:"vscode_tunnel_name"`
-	StartedAt       time.Time            `json:"started_at"`
-	IconURL         string               `json:"icon_url"`
-	Healthy         bool                 `json:"healthy"`
-	HealthKnown     bool                 `json:"health_known"`
-	NodeHostname    string               `json:"node_hostname"`
-	Stack           string               `json:"stack"`
-	StackPrefix     string               `json:"stack_prefix"`
-	ResourceUsage   *SpaceResourceUsage  `json:"resource_usage,omitempty"`
-	AltNames        []model.AltNameEntry `json:"alt_names"`
-	CustomFields    []CustomFieldValue   `json:"custom_fields"`
+	Id                      string               `json:"space_id"`
+	Name                    string               `json:"name"`
+	Description             string               `json:"description"`
+	Note                    string               `json:"note"`
+	TemplateName            string               `json:"template_name"`
+	TemplateId              string               `json:"template_id"`
+	PoolId                  string               `json:"pool_id"`
+	PoolName                string               `json:"pool_name"`
+	Zone                    string               `json:"zone"`
+	Username                string               `json:"username"`
+	UserId                  string               `json:"user_id"`
+	Platform                string               `json:"platform"`
+	Shares                  []string             `json:"shares"`
+	DependsOn               []string             `json:"depends_on"`
+	HasCodeServer           bool                 `json:"has_code_server"`
+	HasSSH                  bool                 `json:"has_ssh"`
+	HasHttpVNC              bool                 `json:"has_http_vnc"`
+	HasTerminal             bool                 `json:"has_terminal"`
+	HasState                bool                 `json:"has_state"`
+	IsDeployed              bool                 `json:"is_deployed"`
+	IsPending               bool                 `json:"is_pending"`
+	IsDeleting              bool                 `json:"is_deleting"`
+	TcpPorts                map[string]string    `json:"tcp_ports"`
+	HttpPorts               map[string]string    `json:"http_ports"`
+	UpdateAvailable         bool                 `json:"update_available"`
+	IsRemote                bool                 `json:"is_remote"`
+	HasVSCodeTunnel         bool                 `json:"has_vscode_tunnel"`
+	VSCodeTunnel            string               `json:"vscode_tunnel_name"`
+	StartedAt               time.Time            `json:"started_at"`
+	IconURL                 string               `json:"icon_url"`
+	Healthy                 bool                 `json:"healthy"`
+	HealthKnown             bool                 `json:"health_known"`
+	NodeHostname            string               `json:"node_hostname"`
+	Stack                   string               `json:"stack"`
+	StackPrefix             string               `json:"stack_prefix"`
+	ResourceUsage           *SpaceResourceUsage  `json:"resource_usage,omitempty"`
+	AltNames                []model.AltNameEntry `json:"alt_names"`
+	CustomFields            []CustomFieldValue   `json:"custom_fields"`
+	TemplateHasSSH          bool                 `json:"template_has_ssh"`
+	TemplateHasTerminal     bool                 `json:"template_has_terminal"`
+	TemplateHasCodeServer   bool                 `json:"template_has_code_server"`
+	TemplateHasVSCodeTunnel bool                 `json:"template_has_vscode_tunnel"`
 }
 
 type SpaceInfoList struct {
@@ -617,8 +621,8 @@ type GrepRequest struct {
 }
 
 type GrepResponse struct {
-	Success bool       `json:"success" msgpack:"success"`
-	Error   string     `json:"error,omitempty" msgpack:"error,omitempty"`
+	Success bool        `json:"success" msgpack:"success"`
+	Error   string      `json:"error,omitempty" msgpack:"error,omitempty"`
 	Matches []GrepMatch `json:"matches,omitempty" msgpack:"matches,omitempty"`
 }
 
@@ -759,8 +763,8 @@ type DeleteFileRequest struct {
 // Content. The agent removes any existing file at the destination first.
 func (c *ApiClient) CreateSymlinkSpaceFile(ctx context.Context, spaceId, filePath, target string) error {
 	var request struct {
-		Path           string `json:"path" msgpack:"path"`
-		SymlinkTarget  string `json:"symlink_target" msgpack:"symlink_target"`
+		Path          string `json:"path" msgpack:"path"`
+		SymlinkTarget string `json:"symlink_target" msgpack:"symlink_target"`
 	}
 	request.Path = filePath
 	request.SymlinkTarget = target

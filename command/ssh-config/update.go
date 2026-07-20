@@ -15,7 +15,7 @@ import (
 var SshConfigUpdateCmd = &cli.Command{
 	Name:        "update",
 	Usage:       "Update the .ssh/config file",
-	Description: "Update the .ssh/config file with the current live spaces that expose SSH.",
+	Description: "Update the .ssh/config file with all spaces that expose SSH.",
 	MaxArgs:     cli.NoArgs,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
@@ -71,7 +71,7 @@ var SshConfigUpdateCmd = &cli.Command{
 			knotParams = "--alias " + alias + " "
 		}
 		for _, space := range spaces.Spaces {
-			if space.IsDeployed && space.HasSSH {
+			if space.TemplateHasSSH {
 				fmt.Println("Adding knot." + space.Name + machineAlias + " to .ssh/config")
 
 				sshConfig += "Host knot." + space.Name + machineAlias + "\n"

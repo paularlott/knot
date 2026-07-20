@@ -6324,6 +6324,18 @@ components:
           description: The custom field values set on the space.
           items:
             $ref: "#/components/schemas/CustomFieldValue"
+        template_has_ssh:
+          type: boolean
+          description: If the space's template declares SSH capability (available whether the space is running or stopped).
+        template_has_terminal:
+          type: boolean
+          description: If the space's template declares web terminal capability (available whether the space is running or stopped).
+        template_has_code_server:
+          type: boolean
+          description: If the space's template declares code server capability (available whether the space is running or stopped).
+        template_has_vscode_tunnel:
+          type: boolean
+          description: If the space's template declares VSCode tunnel capability (available whether the space is running or stopped).
 
     SpaceInfoList:
       type: object
