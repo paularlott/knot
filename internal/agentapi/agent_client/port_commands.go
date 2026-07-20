@@ -96,18 +96,16 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 		}
 	}
 
-	// Check if port is already forwarded
+	// If the port is already forwarded, tear down the existing forward so the
+	// new request replaces it instead of being rejected as a conflict.
+	wasPersistent := portforward.IsPersistent(portCmd.LocalPort)
 	if portforward.IsPortForwarded(portCmd.LocalPort) {
-		msg.WriteMessage(stream, &msg.PortForwardResponse{
-			Success: false,
-			Error:   "Port already forwarded",
-		})
-		return
+		portforward.StopForward(portCmd.LocalPort)
 	}
 
 	// Create context for this forward
 	forwardCtx, cancel := context.WithCancel(context.Background())
-	portforward.StartForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space, cancel)
+	info := portforward.StartForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space, cancel)
 
 	if portCmd.Persistent {
 		portforward.MarkPersistent(portCmd.LocalPort)
@@ -117,6 +115,12 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 			RemotePort: portCmd.RemotePort,
 		}); err != nil {
 			log.WithError(err).Warn("Failed to persist port forward to server")
+		}
+	} else if wasPersistent {
+		// Existing forward was persistent but the replacement isn't — remove
+		// the stale DB entry so it doesn't get restored on next agent start.
+		if err := agentClient.RemovePortForward(portCmd.LocalPort); err != nil {
+			log.WithError(err).Warn("Failed to remove stale persistent port forward from server")
 		}
 	}
 
@@ -143,8 +147,9 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 		// Wait for context cancellation
 		<-forwardCtx.Done()
 
-		// Clean up when forward stops
-		portforward.StopForward(portCmd.LocalPort)
+		// Clean up only if we still own this forward (a replacement may have
+		// already taken the slot).
+		portforward.StopForwardIfMatch(portCmd.LocalPort, info)
 	}()
 }
 

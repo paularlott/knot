@@ -113,6 +113,29 @@ func StopForward(localPort uint16) {
 	}
 }
 
+// StopForwardIfMatch stops the port forward at localPort only if the entry
+// currently in the map is the same instance as expected. Returns true if
+// stopped, false otherwise.
+//
+// This is used by forward cleanup goroutines to avoid deleting a replacement
+// forward that was installed on the same local port after the goroutine's own
+// forward was already torn down by a new forward request.
+func StopForwardIfMatch(localPort uint16, expected *ForwardInfo) bool {
+	forwardsMux.Lock()
+	defer forwardsMux.Unlock()
+
+	if fwd, exists := forwards[localPort]; exists && fwd == expected {
+		fwd.Cancel()
+		if fwd.Listener != nil {
+			fwd.Listener.Close()
+		}
+		delete(forwards, localPort)
+		delete(persistentPorts, localPort)
+		return true
+	}
+	return false
+}
+
 // GetForward returns info about a specific port forward
 func GetForward(localPort uint16) (*ForwardInfo, bool) {
 	forwardsMux.RLock()

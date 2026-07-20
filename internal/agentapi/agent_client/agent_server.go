@@ -796,7 +796,7 @@ func (s *agentServer) restorePortForwards(forwards []model.PortForwardEntry) {
 		}
 
 		forwardCtx, cancel := context.WithCancel(context.Background())
-		portforward.StartForward(entry.LocalPort, entry.RemotePort, entry.Space, cancel)
+		info := portforward.StartForward(entry.LocalPort, entry.RemotePort, entry.Space, cancel)
 		portforward.MarkPersistent(entry.LocalPort)
 
 		go func(e model.PortForwardEntry) {
@@ -814,7 +814,7 @@ func (s *agentServer) restorePortForwards(forwards []model.PortForwardEntry) {
 			}
 
 			<-forwardCtx.Done()
-			portforward.StopForward(e.LocalPort)
+			portforward.StopForwardIfMatch(e.LocalPort, info)
 		}(entry)
 
 		log.Info("restored persistent port forward", "local_port", entry.LocalPort, "space", entry.Space, "remote_port", entry.RemotePort)
