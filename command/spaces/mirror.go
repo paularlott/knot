@@ -32,7 +32,7 @@ import (
 var MirrorCmd = &cli.Command{
 	Name:        "mirror",
 	Usage:       "Mirror a local directory to a space",
-	Description: "Upload <local folder> to <space>:<path>, then delete remote files that don't exist locally. The destination ends up as a mirror of the source. For one-shot upload without deletes, use `knot space copy` per-file.",
+	Description: "Upload <local folder> to <space>:<path>, then delete remote files that don't exist locally. The destination ends up as a mirror of the source. With --watch, keeps running and syncs local changes live. For one-shot upload without deletes, use `knot space copy` per-file.",
 	Flags: []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:    "exclude",
@@ -64,6 +64,10 @@ var MirrorCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name:  "hash",
 			Usage: "Use crc64 hash comparison instead of mtime+size (slower but definitive — catches content drift that mtime misses)",
+		},
+		&cli.BoolFlag{
+			Name:  "watch",
+			Usage: "After the initial mirror, watch for local changes and sync them live (one-way: local → space). Ctrl+C to stop",
 		},
 	},
 	Arguments: []cli.Argument{
@@ -128,12 +132,13 @@ var MirrorCmd = &cli.Command{
 			excludes:  cmd.GetStringSlice("exclude"),
 			parallel:  cmd.GetInt("parallel"),
 			dryRun:    cmd.GetBool("dry-run"),
-			debug: cmd.GetBool("debug"),
+			debug:     cmd.GetBool("debug"),
 			// --debug implies --verbose: skip-reason lines are meaningless
 			// without the upload lines for context.
 			verbose: cmd.GetBool("verbose") || cmd.GetBool("debug"),
 			verify:  cmd.GetBool("verify"),
 			hash:    cmd.GetBool("hash") || cmd.GetBool("verify"), // verify always uses hash
+			watch:   cmd.GetBool("watch"),
 		}
 		if opts.parallel < 1 {
 			opts.parallel = 1
@@ -144,6 +149,11 @@ var MirrorCmd = &cli.Command{
 		} else {
 			fmt.Fprintf(os.Stderr, "Mirroring %s → %s:%s\n", local, spaceName, remoteDir)
 		}
+
+		if opts.watch {
+			return opts.runWatch(ctx)
+		}
+
 		start := time.Now()
 		stats, err := opts.run(ctx)
 		if err != nil {
@@ -234,6 +244,7 @@ type mirrorOptions struct {
 	verbose   bool
 	verify    bool // hash-only comparison, no uploads/deletes
 	hash      bool // use crc64 comparison instead of mtime+size
+	watch     bool // after initial mirror, watch for changes
 }
 
 // mirrorClient is the subset of *apiclient.ApiClient that mirror needs.
@@ -351,6 +362,10 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 
 		info, err := d.Info()
 		if err != nil {
+			return nil
+		}
+		// Skip sockets, pipes, devices — not uploadable, would error on read.
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 		stats.scanned.Add(1)
