@@ -423,14 +423,6 @@ func (c *ApiClient) AddShare(ctx context.Context, spaceId string, userId string)
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)
 }
 
-func (c *ApiClient) AddShares(ctx context.Context, spaceId string, shares []string) (int, error) {
-	request := &SpaceShareUpdateRequest{
-		Shares: shares,
-	}
-
-	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)
-}
-
 func (c *ApiClient) RemoveShare(ctx context.Context, spaceId string) (int, error) {
 	return c.httpClient.Delete(ctx, "/api/spaces/"+spaceId+"/share", nil, nil, 200)
 }
