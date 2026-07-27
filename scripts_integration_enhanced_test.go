@@ -34,13 +34,13 @@ func TestSuite9_ZoneFiltering(t *testing.T) {
 	// Create script in current zone
 	t.Run("CreateCurrentZoneScript", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "",
-			Name:               testPrefix + "zone_current",
-			Description:        "Script in current zone",
-			Content:            `def run(): return "current zone"`,
-			Zones:              []string{cfg.zone},
-			Active:             true,
-			ScriptType:         "script",
+			UserId:      "",
+			Name:        testPrefix + "zone_current",
+			Description: "Script in current zone",
+			Content:     `def run(): return "current zone"`,
+			Zones:       []string{cfg.zone},
+			Active:      true,
+			ScriptType:  "script",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -58,13 +58,13 @@ type = "string"`,
 	// Create script in other zone
 	t.Run("CreateOtherZoneScript", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "",
-			Name:               testPrefix + "zone_other",
-			Description:        "Script in other zone",
-			Content:            `def run(): return "other zone"`,
-			Zones:              []string{"nonexistent_zone"},
-			Active:             true,
-			ScriptType:         "script",
+			UserId:      "",
+			Name:        testPrefix + "zone_other",
+			Description: "Script in other zone",
+			Content:     `def run(): return "other zone"`,
+			Zones:       []string{"nonexistent_zone"},
+			Active:      true,
+			ScriptType:  "script",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -81,13 +81,13 @@ type = "string"`,
 	// Create global script (no zone restriction)
 	t.Run("CreateGlobalZoneScript", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "",
-			Name:               testPrefix + "zone_global",
-			Description:        "Global script",
-			Content:            `def run(): return "global"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "script",
+			UserId:      "",
+			Name:        testPrefix + "zone_global",
+			Description: "Global script",
+			Content:     `def run(): return "global"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "script",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -220,14 +220,14 @@ func TestSuite10_GroupPermissions(t *testing.T) {
 	if len(commonGroups) > 0 {
 		t.Run("CreateCommonGroupScript", func(t *testing.T) {
 			req := apiclient.ScriptCreateRequest{
-				UserId:             "",
-				Name:               testPrefix + "common_group",
-				Description:        "Script for common group",
-				Content:            `def run(): return "common group"`,
-				Zones:              []string{},
-				Active:             true,
-				ScriptType:         "script",
-				Groups:             commonGroups,
+				UserId:      "",
+				Name:        testPrefix + "common_group",
+				Description: "Script for common group",
+				Content:     `def run(): return "common group"`,
+				Zones:       []string{},
+				Active:      true,
+				ScriptType:  "script",
+				Groups:      commonGroups,
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -247,14 +247,14 @@ type = "string"`,
 	if len(user1OnlyGroups) > 0 {
 		t.Run("CreateUser1OnlyGroupScript", func(t *testing.T) {
 			req := apiclient.ScriptCreateRequest{
-				UserId:             "",
-				Name:               testPrefix + "user1_group",
-				Description:        "Script for user1 group",
-				Content:            `def run(): return "user1 group"`,
-				Zones:              []string{},
-				Active:             true,
-				ScriptType:         "script",
-				Groups:             user1OnlyGroups,
+				UserId:      "",
+				Name:        testPrefix + "user1_group",
+				Description: "Script for user1 group",
+				Content:     `def run(): return "user1 group"`,
+				Zones:       []string{},
+				Active:      true,
+				ScriptType:  "script",
+				Groups:      user1OnlyGroups,
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -274,14 +274,14 @@ type = "string"`,
 	if len(user2OnlyGroups) > 0 {
 		t.Run("CreateUser2OnlyGroupScript", func(t *testing.T) {
 			req := apiclient.ScriptCreateRequest{
-				UserId:             "",
-				Name:               testPrefix + "user2_group",
-				Description:        "Script for user2 group",
-				Content:            `def run(): return "user2 group"`,
-				Zones:              []string{},
-				Active:             true,
-				ScriptType:         "script",
-				Groups:             user2OnlyGroups,
+				UserId:      "",
+				Name:        testPrefix + "user2_group",
+				Description: "Script for user2 group",
+				Content:     `def run(): return "user2 group"`,
+				Zones:       []string{},
+				Active:      true,
+				ScriptType:  "script",
+				Groups:      user2OnlyGroups,
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -373,13 +373,13 @@ func TestSuite11_MCPToolsComprehensive(t *testing.T) {
 	// Create global tool in current zone
 	t.Run("CreateGlobalToolCurrentZone", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "",
-			Name:               testPrefix + "global_tool_zone",
-			Description:        "Global tool in current zone",
-			Content:            `def tool(): return "global zone tool"`,
-			Zones:              []string{cfg.zone},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "",
+			Name:        testPrefix + "global_tool_zone",
+			Description: "Global tool in current zone",
+			Content:     `def tool(): return "global zone tool"`,
+			Zones:       []string{cfg.zone},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -397,13 +397,13 @@ type = "string"`,
 	// Create global tool in wrong zone
 	t.Run("CreateGlobalToolWrongZone", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "",
-			Name:               testPrefix + "global_tool_wrong",
-			Description:        "Global tool in wrong zone",
-			Content:            `def tool(): return "wrong zone"`,
-			Zones:              []string{"nonexistent_zone"},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "",
+			Name:        testPrefix + "global_tool_wrong",
+			Description: "Global tool in wrong zone",
+			Content:     `def tool(): return "wrong zone"`,
+			Zones:       []string{"nonexistent_zone"},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -419,13 +419,13 @@ type = "string"`,
 	// Create user1's tool
 	t.Run("CreateUser1Tool", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "user1_tool",
-			Description:        "User1's private tool",
-			Content:            `def tool(): return "user1 tool"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "current",
+			Name:        testPrefix + "user1_tool",
+			Description: "User1's private tool",
+			Content:     `def tool(): return "user1 tool"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -442,13 +442,13 @@ type = "string"`,
 	// Create user2's tool
 	t.Run("CreateUser2Tool", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "user2_tool",
-			Description:        "User2's private tool",
-			Content:            `def tool(): return "user2 tool"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "current",
+			Name:        testPrefix + "user2_tool",
+			Description: "User2's private tool",
+			Content:     `def tool(): return "user2 tool"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -977,13 +977,13 @@ func TestSuite13_MCPIsolationAndOverrides(t *testing.T) {
 	// Step 1: Create a global tool
 	t.Run("CreateGlobalTool", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "",
-			Name:               overrideToolName,
-			Description:        "Global tool for override testing",
-			Content:            `def tool(): return "global version"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "",
+			Name:        overrideToolName,
+			Description: "Global tool for override testing",
+			Content:     `def tool(): return "global version"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1166,13 +1166,13 @@ type = "string"`,
 	var user1OverrideID string
 	t.Run("User1CreatesOverride", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               overrideToolName,
-			Description:        "User1's override tool",
-			Content:            `def tool(): return "user1 version"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "current",
+			Name:        overrideToolName,
+			Description: "User1's override tool",
+			Content:     `def tool(): return "user1 version"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1191,13 +1191,13 @@ type = "string"`,
 	var user2OverrideID string
 	t.Run("User2CreatesOverride", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               overrideToolName,
-			Description:        "User2's override tool",
-			Content:            `def tool(): return "user2 version"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "current",
+			Name:        overrideToolName,
+			Description: "User2's override tool",
+			Content:     `def tool(): return "user2 version"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1752,13 +1752,13 @@ func TestSuite15_EdgeCases(t *testing.T) {
 	// TC15.1: Script with No Name - Validation prevents empty names
 	t.Run("ScriptWithNoName_ValidationPrevents", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               "", // Empty name
-			Description:        "Script with no name",
-			Content:            `def run(): return "test"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "script",
+			UserId:      "current",
+			Name:        "", // Empty name
+			Description: "Script with no name",
+			Content:     `def run(): return "test"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "script",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1788,13 +1788,13 @@ type = "string"`,
 
 		for _, invalidName := range invalidNames {
 			req := apiclient.ScriptCreateRequest{
-				UserId:             "current",
-				Name:               invalidName,
-				Description:        "Script with invalid name format",
-				Content:            `def run(): return "test"`,
-				Zones:              []string{},
-				Active:             true,
-				ScriptType:         "script",
+				UserId:      "current",
+				Name:        invalidName,
+				Description: "Script with invalid name format",
+				Content:     `def run(): return "test"`,
+				Zones:       []string{},
+				Active:      true,
+				ScriptType:  "script",
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1813,13 +1813,13 @@ type = "string"`,
 	// TC15.2: Script with Invalid Zone Format
 	t.Run("ScriptWithInvalidZoneFormat_Accepted", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "invalid_zone",
-			Description:        "Script with invalid zone format",
-			Content:            `def run(): return "test"`,
-			Zones:              []string{"invalid!!zone", "zone-with-特殊-characters"},
-			Active:             true,
-			ScriptType:         "script",
+			UserId:      "current",
+			Name:        testPrefix + "invalid_zone",
+			Description: "Script with invalid zone format",
+			Content:     `def run(): return "test"`,
+			Zones:       []string{"invalid!!zone", "zone-with-特殊-characters"},
+			Active:      true,
+			ScriptType:  "script",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1838,13 +1838,13 @@ type = "string"`,
 	t.Run("EmptyZonesVsNullZones_BothMeanAllZones", func(t *testing.T) {
 		// Create script with empty zones array
 		req1 := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "empty_zones",
-			Description:        "Script with empty zones array",
-			Content:            `def run(): return "test"`,
-			Zones:              []string{}, // Empty array
-			Active:             true,
-			ScriptType:         "script",
+			UserId:      "current",
+			Name:        testPrefix + "empty_zones",
+			Description: "Script with empty zones array",
+			Content:     `def run(): return "test"`,
+			Zones:       []string{}, // Empty array
+			Active:      true,
+			ScriptType:  "script",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1878,13 +1878,13 @@ type = "string"`,
 	t.Run("ScriptTypeChange_ToolAppearsInMCP", func(t *testing.T) {
 		// First create a script type
 		createReq := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "type_change_test",
-			Description:        "Script for type change test",
-			Content:            `def tool(): return "tool result"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "script", // Start as script
+			UserId:      "current",
+			Name:        testPrefix + "type_change_test",
+			Description: "Script for type change test",
+			Content:     `def tool(): return "tool result"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "script", // Start as script
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1932,12 +1932,12 @@ type = "string"`,
 
 		// Now update to tool type
 		updateReq := apiclient.ScriptUpdateRequest{
-			Name:               testPrefix + "type_change_test",
-			Description:        "Updated to tool type",
-			Content:            `def tool(): return "tool result"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool", // Change to tool
+			Name:        testPrefix + "type_change_test",
+			Description: "Updated to tool type",
+			Content:     `def tool(): return "tool result"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool", // Change to tool
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -1983,13 +1983,13 @@ type = "string"`,
 	t.Run("ToolTypeChangeToScript_RemovedFromMCP", func(t *testing.T) {
 		// Create a tool type
 		createReq := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "tool_to_script",
-			Description:        "Tool to convert to script",
-			Content:            `def run(): return "script result"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool", // Start as tool
+			UserId:      "current",
+			Name:        testPrefix + "tool_to_script",
+			Description: "Tool to convert to script",
+			Content:     `def run(): return "script result"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool", // Start as tool
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
@@ -2032,12 +2032,12 @@ type = "string"`,
 
 		// Update to script type
 		updateReq := apiclient.ScriptUpdateRequest{
-			Name:               testPrefix + "tool_to_script",
-			Description:        "Converted to script",
-			Content:            `def run(): return "script result"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "script", // Change to script
+			Name:        testPrefix + "tool_to_script",
+			Description: "Converted to script",
+			Content:     `def run(): return "script result"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "script", // Change to script
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,

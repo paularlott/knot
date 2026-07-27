@@ -22,8 +22,8 @@ type GrepMatch struct {
 }
 
 type GrepResponse struct {
-	Success bool       `msgpack:"success" json:"success"`
-	Error   string     `msgpack:"error,omitempty" json:"error,omitempty"`
+	Success bool        `msgpack:"success" json:"success"`
+	Error   string      `msgpack:"error,omitempty" json:"error,omitempty"`
 	Matches []GrepMatch `msgpack:"matches,omitempty" json:"matches,omitempty"`
 }
 
@@ -118,7 +118,7 @@ type SedResponse struct {
 	Error         string         `msgpack:"error,omitempty" json:"error,omitempty"`
 	Mode          string         `msgpack:"mode,omitempty" json:"mode,omitempty"`
 	FilesModified int64          `msgpack:"files_modified,omitempty" json:"files_modified,omitempty"` // replace / replace_pattern
-	Matches       []ExtractMatch `msgpack:"matches,omitempty" json:"matches,omitempty"`        // extract
+	Matches       []ExtractMatch `msgpack:"matches,omitempty" json:"matches,omitempty"`               // extract
 }
 
 // EditFileMessage performs a targeted search-and-replace on a single file in

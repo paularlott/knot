@@ -29,9 +29,9 @@ var RunScriptCmd = &cli.Command{
 	},
 	Flags: append([]cli.Flag{
 		&cli.BoolFlag{
-			Name:     "interactive",
-			Aliases:  []string{"i"},
-			Usage:    "Start an interactive REPL in this space.",
+			Name:    "interactive",
+			Aliases: []string{"i"},
+			Usage:   "Start an interactive REPL in this space.",
 		},
 		&cli.BoolFlag{
 			Name:  "no-fail",

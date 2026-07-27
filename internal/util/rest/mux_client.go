@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 )
 
 var apiMux *http.ServeMux
@@ -129,7 +129,7 @@ func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) 
 	if response != nil {
 		contentType := rec.Header().Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err := msgpack.NewDecoder(rec.Body).Decode(response)
+			err := msgpack.UnmarshalRead(rec.Body, response)
 			return rec.Code, err
 		} else {
 			err := json.NewDecoder(rec.Body).Decode(response)
@@ -177,7 +177,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 	if response != nil {
 		contentType := rec.Header().Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = msgpack.NewDecoder(rec.Body).Decode(response)
+			err = msgpack.UnmarshalRead(rec.Body, response)
 		} else {
 			err = json.NewDecoder(rec.Body).Decode(response)
 		}

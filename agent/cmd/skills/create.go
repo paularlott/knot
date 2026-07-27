@@ -23,12 +23,12 @@ var createCmd = &cli.Command{
 			Usage:   "Create as global skill",
 		},
 		&cli.StringSliceFlag{
-			Name:    "group",
-			Usage:   "Group IDs (can be specified multiple times)",
+			Name:  "group",
+			Usage: "Group IDs (can be specified multiple times)",
 		},
 		&cli.StringSliceFlag{
-			Name:    "zone",
-			Usage:   "Zone names (can be specified multiple times)",
+			Name:  "zone",
+			Usage: "Zone names (can be specified multiple times)",
 		},
 		&cli.BoolFlag{
 			Name:         "active",

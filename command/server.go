@@ -25,6 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
+	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/middleware"
@@ -37,15 +38,14 @@ import (
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
-	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/mcptools"
+	"github.com/paularlott/lmchatkit"
 	"github.com/paularlott/mcp"
 	ai "github.com/paularlott/mcp/ai"
-	"github.com/paularlott/lmchatkit"
 )
 
 var ServerCmd = &cli.Command{
@@ -1100,9 +1100,9 @@ var ServerCmd = &cli.Command{
 					sslDomains = append(sslDomains, "localhost")
 				}
 
-			if tunnelServerUrl != nil {
-				sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
-			}
+				if tunnelServerUrl != nil {
+					sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
+				}
 
 				// If wildcard domain given add it
 				wildcardDomain := cfg.WildcardDomain
@@ -1381,38 +1381,38 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			if cmd.ConfigFile.FileUsed() != "" {
 				typedConfig := cli.NewTypedConfigFile(cmd.ConfigFile)
 				if remoteServers := typedConfig.GetObjectSlice("server.mcp.remote_servers"); remoteServers != nil {
-				for _, server := range remoteServers {
-					if server, ok := server.(interface {
-						GetString(string) string
-						GetBool(string) bool
-						GetStringSlice(string) []string
-					}); ok {
-						remoteServer := config.MCPRemoteServerConfig{}
-						if ns := server.GetString("namespace"); ns != "" {
-							remoteServer.Namespace = ns
+					for _, server := range remoteServers {
+						if server, ok := server.(interface {
+							GetString(string) string
+							GetBool(string) bool
+							GetStringSlice(string) []string
+						}); ok {
+							remoteServer := config.MCPRemoteServerConfig{}
+							if ns := server.GetString("namespace"); ns != "" {
+								remoteServer.Namespace = ns
+							}
+							if url := server.GetString("url"); url != "" {
+								remoteServer.URL = url
+							}
+							if token := server.GetString("token"); token != "" {
+								remoteServer.Token = token
+							}
+							if visibility := server.GetString("tool_visibility"); visibility != "" {
+								remoteServer.ToolVisibility = visibility
+							}
+							if command := server.GetString("command"); command != "" {
+								remoteServer.Command = command
+							}
+							if args := server.GetStringSlice("args"); len(args) > 0 {
+								remoteServer.Args = args
+							}
+							if env := server.GetStringSlice("env"); len(env) > 0 {
+								remoteServer.Env = env
+							}
+							remoteServer.Notifications = server.GetBool("notifications")
+							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 						}
-						if url := server.GetString("url"); url != "" {
-							remoteServer.URL = url
-						}
-						if token := server.GetString("token"); token != "" {
-							remoteServer.Token = token
-						}
-						if visibility := server.GetString("tool_visibility"); visibility != "" {
-							remoteServer.ToolVisibility = visibility
-						}
-						if command := server.GetString("command"); command != "" {
-							remoteServer.Command = command
-						}
-						if args := server.GetStringSlice("args"); len(args) > 0 {
-							remoteServer.Args = args
-						}
-						if env := server.GetStringSlice("env"); len(env) > 0 {
-							remoteServer.Env = env
-						}
-						remoteServer.Notifications = server.GetBool("notifications")
-						mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 					}
-				}
 				}
 			}
 

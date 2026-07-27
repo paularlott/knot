@@ -61,9 +61,9 @@ var registerCmd = &cli.Command{
 }
 
 var unregisterCmd = &cli.Command{
-	Name:      "unregister",
-	Usage:     "Remove all registered methods and stop the method server",
-	MaxArgs:   cli.NoArgs,
+	Name:    "unregister",
+	Usage:   "Remove all registered methods and stop the method server",
+	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		var response agentlink.RegisterMethodsResponse
 		if err := agentlink.SendWithResponseMsg(agentlink.CommandUnregisterMethods, nil, &response); err != nil {

@@ -7,14 +7,14 @@ import (
 	"github.com/paularlott/gossip/hlc"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
-	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 )
@@ -267,12 +267,12 @@ func HandleCreateCommand(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSlashCommandCreate,
 		fmt.Sprintf("Created slash command %s", command.Name),
 		&map[string]interface{}{
-			"agent":            r.UserAgent(),
-			"IP":               r.RemoteAddr,
-			"X-Forwarded-For":  r.Header.Get("X-Forwarded-For"),
-			"command_id":       command.Id,
-			"command_name":     command.Name,
-			"is_user_command":  isUserCommand,
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"command_id":      command.Id,
+			"command_name":    command.Name,
+			"is_user_command": isUserCommand,
 		},
 	)
 
@@ -383,12 +383,12 @@ func HandleUpdateCommand(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSlashCommandUpdate,
 		fmt.Sprintf("Updated slash command %s", command.Name),
 		&map[string]interface{}{
-			"agent":            r.UserAgent(),
-			"IP":               r.RemoteAddr,
-			"X-Forwarded-For":  r.Header.Get("X-Forwarded-For"),
-			"command_id":       command.Id,
-			"command_name":     command.Name,
-			"is_user_command":  command.IsUserCommand(),
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"command_id":      command.Id,
+			"command_name":    command.Name,
+			"is_user_command": command.IsUserCommand(),
 		},
 	)
 
@@ -461,12 +461,12 @@ func HandleDeleteCommand(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSlashCommandDelete,
 		fmt.Sprintf("Deleted slash command %s", commandName),
 		&map[string]interface{}{
-			"agent":            r.UserAgent(),
-			"IP":               r.RemoteAddr,
-			"X-Forwarded-For":  r.Header.Get("X-Forwarded-For"),
-			"command_id":       commandId,
-			"command_name":     commandName,
-			"is_user_command":  command.IsUserCommand(),
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"command_id":      commandId,
+			"command_name":    commandName,
+			"is_user_command": command.IsUserCommand(),
 		},
 	)
 

@@ -9,14 +9,14 @@ import (
 )
 
 type StackComponent struct {
-	Name            string               `json:"name" db:"name"`
-	TemplateId      string               `json:"template_id" db:"template_id"`
-	Description     string               `json:"description" db:"description"`
-	Shell           string               `json:"shell" db:"shell"`
-	StartupScriptId string               `json:"startup_script_id" db:"startup_script_id"`
-	DependsOn       []string             `json:"depends_on" db:"depends_on,json"`
-	CustomFields    []StackCustomField   `json:"custom_fields" db:"custom_fields,json"`
-	PortForwards    []StackPortForward   `json:"port_forwards" db:"port_forwards,json"`
+	Name            string             `json:"name" db:"name"`
+	TemplateId      string             `json:"template_id" db:"template_id"`
+	Description     string             `json:"description" db:"description"`
+	Shell           string             `json:"shell" db:"shell"`
+	StartupScriptId string             `json:"startup_script_id" db:"startup_script_id"`
+	DependsOn       []string           `json:"depends_on" db:"depends_on,json"`
+	CustomFields    []StackCustomField `json:"custom_fields" db:"custom_fields,json"`
+	PortForwards    []StackPortForward `json:"port_forwards" db:"port_forwards,json"`
 }
 
 type StackCustomField struct {
@@ -31,21 +31,21 @@ type StackPortForward struct {
 }
 
 type StackDefinition struct {
-	Id               string           `json:"stack_definition_id" db:"stack_definition_id,pk"`
-	UserId           string           `json:"user_id" db:"user_id"`
-	Name             string           `json:"name" db:"name"`
-	Description      string           `json:"description" db:"description"`
-	IconURL          string           `json:"icon_url" db:"icon_url"`
-	Groups           []string         `json:"groups" db:"groups,json"`
-	Zones            []string         `json:"zones" db:"zones,json"`
-	Active           bool             `json:"active" db:"active"`
-	IsDeleted        bool             `json:"is_deleted" db:"is_deleted"`
-	IsManaged        bool             `json:"is_managed" db:"is_managed"`
-	Components       []StackComponent `json:"components" db:"components,json"`
-	CreatedUserId    string           `json:"created_user_id" db:"created_user_id"`
-	CreatedAt        time.Time        `json:"created_at" db:"created_at"`
-	UpdatedUserId    string           `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt        hlc.Timestamp    `json:"updated_at" db:"updated_at"`
+	Id            string           `json:"stack_definition_id" db:"stack_definition_id,pk"`
+	UserId        string           `json:"user_id" db:"user_id"`
+	Name          string           `json:"name" db:"name"`
+	Description   string           `json:"description" db:"description"`
+	IconURL       string           `json:"icon_url" db:"icon_url"`
+	Groups        []string         `json:"groups" db:"groups,json"`
+	Zones         []string         `json:"zones" db:"zones,json"`
+	Active        bool             `json:"active" db:"active"`
+	IsDeleted     bool             `json:"is_deleted" db:"is_deleted"`
+	IsManaged     bool             `json:"is_managed" db:"is_managed"`
+	Components    []StackComponent `json:"components" db:"components,json"`
+	CreatedUserId string           `json:"created_user_id" db:"created_user_id"`
+	CreatedAt     time.Time        `json:"created_at" db:"created_at"`
+	UpdatedUserId string           `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp    `json:"updated_at" db:"updated_at"`
 }
 
 func NewStackDefinition(

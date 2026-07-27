@@ -56,18 +56,18 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 			if transport := service.GetTransport(); transport != nil {
 				transport.GossipToken(token)
 			}
-	} else {
-		// Get session from cookie
-		session, err := middleware.GetSessionFromCookie(r)
-		if session == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		if err != nil {
-			logger.Error("failed to get session", "error", err)
-			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
-			return
-		}
+		} else {
+			// Get session from cookie
+			session, err := middleware.GetSessionFromCookie(r)
+			if session == nil {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			if err != nil {
+				logger.Error("failed to get session", "error", err)
+				http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+				return
+			}
 			if session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return

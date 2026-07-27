@@ -20,12 +20,12 @@ import (
 // drain/undrain) and lets a test pretend to be the zone leader or a follower.
 // All other Transport methods are no-ops.
 type fakeTransport struct {
-	mu          sync.Mutex
-	leader      bool
-	doneEvents  []string
-	broadcasts  []*EventEnvelope
-	drained     []string
-	undrained   []string
+	mu         sync.Mutex
+	leader     bool
+	doneEvents []string
+	broadcasts []*EventEnvelope
+	drained    []string
+	undrained  []string
 }
 
 func (f *fakeTransport) IsLeader() bool { return f.leader }
@@ -67,33 +67,33 @@ func (f *fakeTransport) doneCount(eventId string) int {
 }
 
 // Remaining Transport methods — unused no-ops.
-func (f *fakeTransport) GossipGroup(*model.Group)                      {}
-func (f *fakeTransport) GossipRole(*model.Role)                        {}
-func (f *fakeTransport) GossipSpace(*model.Space)                      {}
-func (f *fakeTransport) GossipTemplate(*model.Template)                {}
-func (f *fakeTransport) GossipTemplateVar(*model.TemplateVar)          {}
-func (f *fakeTransport) GossipUser(*model.User)                        {}
-func (f *fakeTransport) GossipToken(*model.Token)                      {}
-func (f *fakeTransport) GossipVolume(*model.Volume)                    {}
+func (f *fakeTransport) GossipGroup(*model.Group)                       {}
+func (f *fakeTransport) GossipRole(*model.Role)                         {}
+func (f *fakeTransport) GossipSpace(*model.Space)                       {}
+func (f *fakeTransport) GossipTemplate(*model.Template)                 {}
+func (f *fakeTransport) GossipTemplateVar(*model.TemplateVar)           {}
+func (f *fakeTransport) GossipUser(*model.User)                         {}
+func (f *fakeTransport) GossipToken(*model.Token)                       {}
+func (f *fakeTransport) GossipVolume(*model.Volume)                     {}
 func (f *fakeTransport) GossipSpaceUsageSample(*model.SpaceUsageSample) {}
-func (f *fakeTransport) GossipAuditLog(*model.AuditLogEntry)           {}
-func (f *fakeTransport) GossipSession(*model.Session)                  {}
-func (f *fakeTransport) GossipScript(*model.Script)                    {}
-func (f *fakeTransport) GossipSkill(*model.Skill)                      {}
-func (f *fakeTransport) GossipCommand(*model.Command)                  {}
-func (f *fakeTransport) GossipEventSink(*model.EventSink)              {}
-func (f *fakeTransport) GossipStackDefinition(*model.StackDefinition)  {}
-func (f *fakeTransport) GossipResponse(*model.Response)                {}
-func (f *fakeTransport) GossipConversation(*model.Conversation)        {}
-func (f *fakeTransport) GossipMCPServer(*model.MCPServer)              {}
-func (f *fakeTransport) GossipPoolDefinition(*model.PoolDefinition)    {}
-func (f *fakeTransport) GetAgentEndpoints() []string                  { return nil }
-func (f *fakeTransport) GetTunnelServers() []string                   { return nil }
-func (f *fakeTransport) LockResource(string) string                   { return "" }
-func (f *fakeTransport) UnlockResource(string, string)                {}
-func (f *fakeTransport) Nodes() []*gossip.Node                        { return nil }
-func (f *fakeTransport) GetNodeByIDString(string) *gossip.Node        { return nil }
-func (f *fakeTransport) EnqueueSpaceCleanup(*model.Space)             {}
+func (f *fakeTransport) GossipAuditLog(*model.AuditLogEntry)            {}
+func (f *fakeTransport) GossipSession(*model.Session)                   {}
+func (f *fakeTransport) GossipScript(*model.Script)                     {}
+func (f *fakeTransport) GossipSkill(*model.Skill)                       {}
+func (f *fakeTransport) GossipCommand(*model.Command)                   {}
+func (f *fakeTransport) GossipEventSink(*model.EventSink)               {}
+func (f *fakeTransport) GossipStackDefinition(*model.StackDefinition)   {}
+func (f *fakeTransport) GossipResponse(*model.Response)                 {}
+func (f *fakeTransport) GossipConversation(*model.Conversation)         {}
+func (f *fakeTransport) GossipMCPServer(*model.MCPServer)               {}
+func (f *fakeTransport) GossipPoolDefinition(*model.PoolDefinition)     {}
+func (f *fakeTransport) GetAgentEndpoints() []string                    { return nil }
+func (f *fakeTransport) GetTunnelServers() []string                     { return nil }
+func (f *fakeTransport) LockResource(string) string                     { return "" }
+func (f *fakeTransport) UnlockResource(string, string)                  {}
+func (f *fakeTransport) Nodes() []*gossip.Node                          { return nil }
+func (f *fakeTransport) GetNodeByIDString(string) *gossip.Node          { return nil }
+func (f *fakeTransport) EnqueueSpaceCleanup(*model.Space)               {}
 
 // newTestDispatcher builds an isolated EventDispatcher with no background GC
 // goroutine and no singleton state, so a test can stand up several of them to
@@ -165,8 +165,8 @@ func TestNonLeaderRecordsInFlightForFailover(t *testing.T) {
 func TestMarkEventDoneTombstonesEmptySinkKey(t *testing.T) {
 	d := newTestDispatcher()
 	env := testEnvelope("e1")
-	d.recordInFlight(env, "")        // non-leader failover entry
-	d.recordInFlight(env, "sink-a")  // a real sink delivery entry
+	d.recordInFlight(env, "")       // non-leader failover entry
+	d.recordInFlight(env, "sink-a") // a real sink delivery entry
 
 	d.MarkEventDone("e1")
 

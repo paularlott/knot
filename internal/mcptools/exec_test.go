@@ -359,10 +359,10 @@ func TestExecute_ListSpaces(t *testing.T) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"spaces": []map[string]interface{}{
 					{
-						"space_id":   "s1",
-						"name":       "web",
+						"space_id":    "s1",
+						"name":        "web",
 						"is_deployed": true,
-						"stack":      "",
+						"stack":       "",
 						"custom_fields": []map[string]string{
 							{"name": "ENV", "value": "prod"},
 						},
@@ -444,11 +444,11 @@ func TestExecute_UpdateSpace(t *testing.T) {
 	server := mockAPIServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
 		"GET /api/spaces/my-space": func(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"space_id":     "s1",
-				"name":         "my-space",
-				"description":  "old",
-				"shell":        "bash",
-				"template_id":  "tpl-1",
+				"space_id":      "s1",
+				"name":          "my-space",
+				"description":   "old",
+				"shell":         "bash",
+				"template_id":   "tpl-1",
 				"custom_fields": []map[string]string{},
 			})
 		},
@@ -512,8 +512,8 @@ func TestExecute_StartStopRestartSpace(t *testing.T) {
 				// which calls GET /api/spaces/{name}. restart_space.py skips this.
 				"GET /api/spaces/my-space": func(w http.ResponseWriter, r *http.Request) {
 					json.NewEncoder(w).Encode(map[string]interface{}{
-						"space_id":   "s1",
-						"name":       "my-space",
+						"space_id":    "s1",
+						"name":        "my-space",
 						"is_deployed": tc.running,
 					})
 				},
@@ -681,8 +681,8 @@ func TestExecute_StartStopRestartStack(t *testing.T) {
 	mustLoadTools(t)
 
 	for _, tc := range []struct {
-		tool   string
-		verb   string
+		tool string
+		verb string
 	}{
 		{"start_stack", "start"},
 		{"stop_stack", "stop"},

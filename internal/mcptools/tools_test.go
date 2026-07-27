@@ -9,20 +9,20 @@ import (
 
 // validParamTypes is the set of type strings supported by internal/mcp/toml_schema.go.
 var validParamTypes = map[string]bool{
-	"string":          true,
-	"int":             true,
-	"integer":         true,
-	"float":           true,
-	"number":          true,
-	"bool":            true,
-	"boolean":         true,
-	"array:string":    true,
-	"array:number":    true,
-	"array:int":       true,
-	"array:integer":   true,
-	"array:float":     true,
-	"array:bool":      true,
-	"array:boolean":   true,
+	"string":        true,
+	"int":           true,
+	"integer":       true,
+	"float":         true,
+	"number":        true,
+	"bool":          true,
+	"boolean":       true,
+	"array:string":  true,
+	"array:number":  true,
+	"array:int":     true,
+	"array:integer": true,
+	"array:float":   true,
+	"array:bool":    true,
+	"array:boolean": true,
 }
 
 var (

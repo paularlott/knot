@@ -64,8 +64,8 @@ type ForwardInfo struct {
 	throttleMu  sync.RWMutex
 	latencyMs   int
 	jitterMs    int
-	bandwidthKB int // KB/s, 0 = unlimited
-	timeoutMs   int // connection killed after this many ms, 0 = disabled
+	bandwidthKB int  // KB/s, 0 = unlimited
+	timeoutMs   int  // connection killed after this many ms, 0 = disabled
 	down        bool // blocks all traffic, port forward definition stays
 }
 

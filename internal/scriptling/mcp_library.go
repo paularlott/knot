@@ -269,7 +269,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 	req := mcp.ToolCallParams{
 		Name: "execute_tool",
 		Arguments: map[string]interface{}{
-			"name":      toolName,
+			"name":       toolName,
 			"parameters": arguments,
 		},
 	}

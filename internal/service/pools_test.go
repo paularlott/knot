@@ -144,7 +144,7 @@ func TestPoolMembersSortedByOrdinal(t *testing.T) {
 	spaces := []*model.Space{
 		{Id: "c", PoolId: "p1", Name: "mypool-2"},
 		{Id: "a", PoolId: "p1", Name: "mypool-0"},
-		{Id: "x", PoolId: "other", Name: "mypool-0"},   // different pool, ignored
+		{Id: "x", PoolId: "other", Name: "mypool-0"}, // different pool, ignored
 		{Id: "b", PoolId: "p1", Name: "mypool-1"},
 		{Id: "d", PoolId: "p1", Name: "mypool-3", IsDeleted: true}, // deleted, ignored
 	}

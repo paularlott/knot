@@ -9,24 +9,24 @@ import (
 )
 
 type Script struct {
-	Id                  string        `json:"script_id" db:"script_id,pk"`
-	UserId              string        `json:"user_id" db:"user_id"`
-	Name                string        `json:"name" db:"name"`
-	Description         string        `json:"description" db:"description"`
-	Content             string        `json:"content" db:"content"`
-	Groups              []string      `json:"groups" db:"groups,json"`
-	Zones               []string      `json:"zones" db:"zones,json"`
-	Active              bool          `json:"active" db:"active"`
-	ScriptType          string        `json:"script_type" db:"script_type"`
-	MCPInputSchemaToml  string        `json:"mcp_input_schema_toml" db:"mcp_input_schema_toml"`
-	MCPKeywords         []string      `json:"mcp_keywords" db:"mcp_keywords,json"`
-	Discoverable        bool          `json:"discoverable" db:"discoverable"`
-	IsDeleted           bool          `json:"is_deleted" db:"is_deleted"`
-	IsManaged           bool          `json:"is_managed" db:"is_managed"`
-	CreatedUserId       string        `json:"created_user_id" db:"created_user_id"`
-	CreatedAt           time.Time     `json:"created_at" db:"created_at"`
-	UpdatedUserId       string        `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt           hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	Id                 string        `json:"script_id" db:"script_id,pk"`
+	UserId             string        `json:"user_id" db:"user_id"`
+	Name               string        `json:"name" db:"name"`
+	Description        string        `json:"description" db:"description"`
+	Content            string        `json:"content" db:"content"`
+	Groups             []string      `json:"groups" db:"groups,json"`
+	Zones              []string      `json:"zones" db:"zones,json"`
+	Active             bool          `json:"active" db:"active"`
+	ScriptType         string        `json:"script_type" db:"script_type"`
+	MCPInputSchemaToml string        `json:"mcp_input_schema_toml" db:"mcp_input_schema_toml"`
+	MCPKeywords        []string      `json:"mcp_keywords" db:"mcp_keywords,json"`
+	Discoverable       bool          `json:"discoverable" db:"discoverable"`
+	IsDeleted          bool          `json:"is_deleted" db:"is_deleted"`
+	IsManaged          bool          `json:"is_managed" db:"is_managed"`
+	CreatedUserId      string        `json:"created_user_id" db:"created_user_id"`
+	CreatedAt          time.Time     `json:"created_at" db:"created_at"`
+	UpdatedUserId      string        `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt          hlc.Timestamp `json:"updated_at" db:"updated_at"`
 }
 
 func NewScript(
@@ -71,7 +71,6 @@ func NewScript(
 		UpdatedAt:          hlc.Now(),
 	}
 }
-
 
 // IsValidForZone determines whether the script is valid for execution in the specified zone.
 // The function evaluates zone restrictions based on the script's Zones configuration.

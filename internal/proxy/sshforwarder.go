@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/gorilla/websocket"
 )

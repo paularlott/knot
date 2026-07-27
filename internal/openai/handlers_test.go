@@ -109,9 +109,9 @@ func TestHandlers_ChatCompletions_NonStreaming(t *testing.T) {
 	message := Message{Role: "user"}
 	message.SetContentAsString("Hello")
 	reqBody := ChatCompletionRequest{
-		Model: "test-model",
+		Model:    "test-model",
 		Messages: []Message{message},
-		Stream: false,
+		Stream:   false,
 	}
 
 	jsonBody, _ := json.Marshal(reqBody)

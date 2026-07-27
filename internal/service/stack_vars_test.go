@@ -9,7 +9,7 @@ import (
 func TestStackKeyAlias(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"space-1", "space_1"},
-		{"db", "db"},   // no hyphen -> unchanged
+		{"db", "db"}, // no hyphen -> unchanged
 		{"a-b-c", "a_b_c"},
 		{"my-db", "my_db"},
 	}

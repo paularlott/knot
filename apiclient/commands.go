@@ -35,11 +35,11 @@ type CommandDetails struct {
 }
 
 type CommandCreateRequest struct {
-	UserId       string   `json:"user_id"`
-	Content      string   `json:"content"`
-	Groups       []string `json:"groups"`
-	Zones        []string `json:"zones"`
-	Active       bool     `json:"active"`
+	UserId  string   `json:"user_id"`
+	Content string   `json:"content"`
+	Groups  []string `json:"groups"`
+	Zones   []string `json:"zones"`
+	Active  bool     `json:"active"`
 }
 
 type CommandUpdateRequest struct {

@@ -113,13 +113,13 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 	extlibs.RegisterRuntimePluginLibrary(env)
 
-	scriptlingconsole.Register(env)        // scriptling.console
-	extlibs.RegisterGrepLibrary(env, nil)  // scriptling.grep
-	extlibs.RegisterFindLibrary(env, nil)  // scriptling.find
-	extlibs.RegisterSedLibrary(env, nil)   // scriptling.sed
+	scriptlingconsole.Register(env)       // scriptling.console
+	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
+	extlibs.RegisterFindLibrary(env, nil) // scriptling.find
+	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
-	extlibs.RegisterGlobLibrary(env, nil)    // scriptling.glob
+	extlibs.RegisterGlobLibrary(env, nil)     // scriptling.glob
 	extlibs.RegisterTempfileLibrary(env, nil) // tempfile
 	extlibs.RegisterShutilLibrary(env, nil)   // shutil
 	extlibs.RegisterZipfileLibrary(env, nil)  // zipfile
@@ -440,9 +440,9 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 	// scriptling.console intentionally not registered here — registered via registerConsoleStub in execute_script_stream.go
 	// scriptling.ai.agent.interact intentionally not registered here — registered via agent.RegisterInteract in execute_script_stream.go
-	extlibs.RegisterGrepLibrary(env, nil)  // scriptling.grep
-	extlibs.RegisterFindLibrary(env, nil)  // scriptling.find
-	extlibs.RegisterSedLibrary(env, nil)   // scriptling.sed
+	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
+	extlibs.RegisterFindLibrary(env, nil) // scriptling.find
+	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil)

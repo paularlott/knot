@@ -7,8 +7,8 @@ import (
 // TunnelCmd is the agent binary's tunnel command. It offers foreground and
 // daemon web tunnels plus stop/list for agent-owned tunnels.
 var TunnelCmd = &cli.Command{
-	Name:        "tunnel",
-	Usage:       "Open a tunnel",
+	Name:  "tunnel",
+	Usage: "Open a tunnel",
 	Description: `Open a tunnel to expose a local port on the internet, or manage daemon-owned tunnels.
 
 When run without --daemon the tunnel lives for the life of this command (until
@@ -29,8 +29,8 @@ The tunnel is exposed as <user>--<tunnel_name>.<domain>.`,
 // offers foreground web tunnels — there is no knot agent running on a
 // workstation to own a daemon tunnel, so --daemon, stop and list are excluded.
 var DesktopTunnelCmd = &cli.Command{
-	Name:        "tunnel",
-	Usage:       "Open a tunnel",
+	Name:  "tunnel",
+	Usage: "Open a tunnel",
 	Description: `Open a tunnel to expose a local port on the internet.
 
 The tunnel lives for the life of this command (until Ctrl-C). It is exposed as

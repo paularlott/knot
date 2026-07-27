@@ -90,7 +90,6 @@ func (db *MySQLDriver) GetScriptsByName(name string) ([]*model.Script, error) {
 	return scripts, nil
 }
 
-
 // GetScriptByNameAndUser gets a script by name for a specific user
 // If userId is empty, it searches for global scripts
 // This supports the user script override functionality

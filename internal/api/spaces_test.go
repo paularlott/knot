@@ -9,7 +9,7 @@ import (
 
 func TestIsSpaceRenameBlocked(t *testing.T) {
 	tests := []struct {
-		name    string
+		name     string
 		existing *model.Space
 		request  *apiclient.SpaceRequest
 		want     bool

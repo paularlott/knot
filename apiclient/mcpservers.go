@@ -3,17 +3,17 @@ package apiclient
 import "context"
 
 type MCPServerInfo struct {
-	Id                string   `json:"mcp_server_id"`
-	UserId            string   `json:"user_id"`
-	Namespace         string   `json:"namespace"`
-	URL               string   `json:"url"`
-	Command           string   `json:"command"`
-	Args              []string `json:"args"`
-	Env               []string `json:"env"`
-	Enabled           bool     `json:"enabled"`
-	ToolVisibility    string   `json:"tool_visibility"`
-	DisabledTools     []string `json:"disabled_tools"`
-	RemoteSearch      bool     `json:"remote_search"`
+	Id             string   `json:"mcp_server_id"`
+	UserId         string   `json:"user_id"`
+	Namespace      string   `json:"namespace"`
+	URL            string   `json:"url"`
+	Command        string   `json:"command"`
+	Args           []string `json:"args"`
+	Env            []string `json:"env"`
+	Enabled        bool     `json:"enabled"`
+	ToolVisibility string   `json:"tool_visibility"`
+	DisabledTools  []string `json:"disabled_tools"`
+	RemoteSearch   bool     `json:"remote_search"`
 }
 
 type MCPServerDetails struct {
@@ -37,7 +37,7 @@ type MCPServerDetails struct {
 }
 
 type MCPServerList struct {
-	Count  int              `json:"count"`
+	Count   int             `json:"count"`
 	Servers []MCPServerInfo `json:"servers"`
 }
 

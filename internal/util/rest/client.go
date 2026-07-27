@@ -16,7 +16,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 	"golang.org/x/net/http2"
 )
 
@@ -287,7 +287,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 	if response != nil {
 		contentType := resp.Header.Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = msgpack.NewDecoder(resp.Body).Decode(response)
+			err = msgpack.UnmarshalRead(resp.Body, response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}
@@ -335,7 +335,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 	if response != nil {
 		contentType := resp.Header.Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = msgpack.NewDecoder(resp.Body).Decode(response)
+			err = msgpack.UnmarshalRead(resp.Body, response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}
@@ -404,7 +404,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 	if response != nil {
 		respContentType := resp.Header.Get("Content-Type")
 		if strings.Contains(respContentType, ContentTypeMsgPack) {
-			err = msgpack.NewDecoder(resp.Body).Decode(response)
+			err = msgpack.UnmarshalRead(resp.Body, response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}

@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-  fmt.Println(build.Version)
+	fmt.Println(build.Version)
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip"
-	"github.com/paularlott/gossip/codec"
+	"github.com/paularlott/gossip/codec/shamaton"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
@@ -45,18 +45,18 @@ func (nonLeaderTransport) GossipEventSink(*model.EventSink)               {}
 func (nonLeaderTransport) GossipStackDefinition(*model.StackDefinition)   {}
 func (nonLeaderTransport) GossipResponse(*model.Response)                 {}
 func (nonLeaderTransport) GossipConversation(*model.Conversation)         {}
-func (nonLeaderTransport) GossipMCPServer(*model.MCPServer)              {}
+func (nonLeaderTransport) GossipMCPServer(*model.MCPServer)               {}
 func (nonLeaderTransport) GossipPoolDefinition(*model.PoolDefinition)     {}
-func (nonLeaderTransport) GossipPoolDrain(string)                        {}
-func (nonLeaderTransport) GossipPoolUndrain(string)                      {}
+func (nonLeaderTransport) GossipPoolDrain(string)                         {}
+func (nonLeaderTransport) GossipPoolUndrain(string)                       {}
 func (nonLeaderTransport) BroadcastEvent(*service.EventEnvelope)          {}
-func (nonLeaderTransport) GetAgentEndpoints() []string                   { return nil }
-func (nonLeaderTransport) GetTunnelServers() []string                    { return nil }
-func (nonLeaderTransport) LockResource(string) string                    { return "" }
-func (nonLeaderTransport) UnlockResource(string, string)                 {}
-func (nonLeaderTransport) Nodes() []*gossip.Node                         { return nil }
-func (nonLeaderTransport) GetNodeByIDString(string) *gossip.Node         { return nil }
-func (nonLeaderTransport) EnqueueSpaceCleanup(*model.Space)              {}
+func (nonLeaderTransport) GetAgentEndpoints() []string                    { return nil }
+func (nonLeaderTransport) GetTunnelServers() []string                     { return nil }
+func (nonLeaderTransport) LockResource(string) string                     { return "" }
+func (nonLeaderTransport) UnlockResource(string, string)                  {}
+func (nonLeaderTransport) Nodes() []*gossip.Node                          { return nil }
+func (nonLeaderTransport) GetNodeByIDString(string) *gossip.Node          { return nil }
+func (nonLeaderTransport) EnqueueSpaceCleanup(*model.Space)               {}
 
 func testCluster() *Cluster {
 	return &Cluster{logger: log.WithGroup("cluster-test")}
@@ -69,7 +69,7 @@ func zoneSender(zone string) *gossip.Node {
 // packetFor builds a gossip packet carrying v, decodable by the handler.
 func packetFor(t *testing.T, msgType gossip.MessageType, v interface{}) *gossip.Packet {
 	t.Helper()
-	ser := codec.NewVmihailencoMsgpackCodec()
+	ser := shamaton.New()
 	data, err := ser.Marshal(v)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)

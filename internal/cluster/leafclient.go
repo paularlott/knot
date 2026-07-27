@@ -266,13 +266,13 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				case leafmsg.MessageGossipScript:
 					c.handleLeafGossipScript(msg)
 
-			case leafmsg.MessageGossipSkill:
-				c.handleLeafGossipSkill(msg)
+				case leafmsg.MessageGossipSkill:
+					c.handleLeafGossipSkill(msg)
 
-			case leafmsg.MessageGossipCommand:
-				c.handleLeafGossipCommand(msg)
+				case leafmsg.MessageGossipCommand:
+					c.handleLeafGossipCommand(msg)
 
-			case leafmsg.MessageGossipStackDefinition:
+				case leafmsg.MessageGossipStackDefinition:
 					c.handleLeafGossipStackDefinition(msg)
 
 				case leafmsg.MessageGossipEventSink:

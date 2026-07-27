@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 )
 
 type CmdType byte

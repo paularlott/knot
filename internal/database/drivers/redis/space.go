@@ -185,7 +185,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 				}
 			}
 			if !found {
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name))).Err()
+				err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name))).Err()
 				if err != nil {
 					return err
 				}

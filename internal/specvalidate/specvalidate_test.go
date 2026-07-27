@@ -123,7 +123,10 @@ func TestValidateAddHostEntry(t *testing.T) {
 }
 
 func TestLineFromError(t *testing.T) {
-	cases := []struct{ in string; want int }{
+	cases := []struct {
+		in   string
+		want int
+	}{
 		{"yaml: line 5: could not find expected ':'", 5},
 		{"yaml: unmarshal errors:\n  line 3: cannot unmarshal", 3},
 		{"no line here", 0},

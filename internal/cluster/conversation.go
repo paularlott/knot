@@ -4,9 +4,9 @@ import (
 	"math/rand"
 
 	"github.com/paularlott/gossip"
-	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 )
 
 // Chat conversation replication. Conversations are per-user history written

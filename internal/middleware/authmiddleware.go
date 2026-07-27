@@ -168,22 +168,22 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					ctx = context.WithValue(r.Context(), "access_token", token)
 				}
 			} else {
-			// Get the session
-			session, err := GetSessionFromCookie(r)
-			if session == nil {
-				logger.Debug("session not found")
-				returnUnauthorized(w, r)
-				return
-			}
-			if err != nil {
-				logger.Error("failed to get session", "error", err)
-				rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
-					Error string `json:"error"`
-				}{
-					Error: "Session storage temporarily unavailable",
-				})
-				return
-			}
+				// Get the session
+				session, err := GetSessionFromCookie(r)
+				if session == nil {
+					logger.Debug("session not found")
+					returnUnauthorized(w, r)
+					return
+				}
+				if err != nil {
+					logger.Error("failed to get session", "error", err)
+					rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
+						Error string `json:"error"`
+					}{
+						Error: "Session storage temporarily unavailable",
+					})
+					return
+				}
 				if session.ExpiresAfter.Before(time.Now().UTC()) {
 					logger.Debug("session expired", "session_id", session.Id, "expires", session.ExpiresAfter)
 					returnUnauthorized(w, r)

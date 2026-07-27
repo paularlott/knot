@@ -597,10 +597,10 @@ func (s *PoolService) reconcileStoppedPool(pool *model.PoolDefinition, members [
 //  2. If any member is IsDeleting → retry DeleteSpace, wait.
 //  3. No transitions in progress:
 //     - total > DesiredCount:
-//       Excess running → drain (stop new traffic), mark. Next sweep → StopSpace.
-//       Excess stopped → grace period (2 passes) → deletePoolSpace.
+//     Excess running → drain (stop new traffic), mark. Next sweep → StopSpace.
+//     Excess stopped → grace period (2 passes) → deletePoolSpace.
 //     - total <= DesiredCount:
-//       Start stopped spaces (undrain first). Create new if still under count.
+//     Start stopped spaces (undrain first). Create new if still under count.
 func (s *PoolService) reconcile(pool *model.PoolDefinition, members []*model.Space) {
 	for _, sp := range members {
 		if sp.IsPending {

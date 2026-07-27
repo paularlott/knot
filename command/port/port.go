@@ -18,8 +18,8 @@ import (
 // the local machine into a space so the space can reach it: the space's port is
 // forwarded to the local port. The link is active only while the command runs.
 var PortCmd = &cli.Command{
-	Name:        "port",
-	Usage:       "Link a local service into a space",
+	Name:  "port",
+	Usage: "Link a local service into a space",
 	Description: `Link a service running on the local machine into a space.
 
 The space's <space-port> is forwarded to the local <local-port>, so processes
@@ -45,18 +45,18 @@ command runs (Ctrl-C to stop).`,
 	MaxArgs: cli.NoArgs,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "server",
-			Aliases:  []string{"s"},
-			Usage:    "The address of the remote server to manage spaces on.",
-			EnvVars:  []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
-			Global:   true,
+			Name:    "server",
+			Aliases: []string{"s"},
+			Usage:   "The address of the remote server to manage spaces on.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
+			Global:  true,
 		},
 		&cli.StringFlag{
-			Name:     "token",
-			Aliases:  []string{"t"},
-			Usage:    "The token to use for authentication.",
-			EnvVars:  []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
-			Global:   true,
+			Name:    "token",
+			Aliases: []string{"t"},
+			Usage:   "The token to use for authentication.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
+			Global:  true,
 		},
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",

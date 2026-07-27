@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gorilla/websocket"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 )
 
 type MessageType byte

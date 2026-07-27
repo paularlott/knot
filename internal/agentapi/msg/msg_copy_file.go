@@ -16,9 +16,9 @@ type CopyFileMessage struct {
 	Content       []byte `msgpack:"content,omitempty"`
 	Direction     string `msgpack:"direction"` // "to_space" or "from_space"
 	Workdir       string `msgpack:"workdir"`
-	Mode          string `msgpack:"mode,omitempty"`     // to_space only: "overwrite" (default), "append", "prepend"
-	MtimeNs       int64  `msgpack:"mtime_ns,omitempty"` // to_space only: unix nanoseconds; agent Chtimes after write
-	FilePerm      uint32 `msgpack:"file_perm,omitempty"` // to_space only: os.FileMode bits; agent Chmod after write
+	Mode          string `msgpack:"mode,omitempty"`           // to_space only: "overwrite" (default), "append", "prepend"
+	MtimeNs       int64  `msgpack:"mtime_ns,omitempty"`       // to_space only: unix nanoseconds; agent Chtimes after write
+	FilePerm      uint32 `msgpack:"file_perm,omitempty"`      // to_space only: os.FileMode bits; agent Chmod after write
 	SymlinkTarget string `msgpack:"symlink_target,omitempty"` // to_space only: when set, create symlink instead of writing content
 }
 

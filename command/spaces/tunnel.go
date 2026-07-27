@@ -15,8 +15,8 @@ import (
 // agent-owned web tunnels. Tunnels started here are owned by the space's agent
 // (daemon is implied) and run until the agent exits or they are stopped.
 var TunnelCmd = &cli.Command{
-	Name:        "tunnel",
-	Usage:       "Manage a space's web tunnels",
+	Name:  "tunnel",
+	Usage: "Manage a space's web tunnels",
 	Description: `Start and manage agent-owned web tunnels in a space.
 
 A tunnel exposes a port inside the space on the internet as

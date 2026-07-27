@@ -4354,6 +4354,36 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "msgpack",
+    description: "MessagePack binary serialisation (compact counterpart to json)",
+    functions: [
+      {
+        name: "packb",
+        signature: "packb(obj)",
+        description: "Serialize a Scriptling value to MessagePack bytes",
+        returns: "bytes",
+      },
+      {
+        name: "unpackb",
+        signature: "unpackb(packed)",
+        description: "Parse MessagePack bytes into a Scriptling value",
+        returns: "object",
+      },
+      {
+        name: "pack",
+        signature: "pack(obj)",
+        description: "Alias for packb()",
+        returns: "bytes",
+      },
+      {
+        name: "unpack",
+        signature: "unpack(packed)",
+        description: "Alias for unpackb()",
+        returns: "object",
+      },
+    ],
+  },
+  {
     module: "time",
     description: "Time functions and sleeping",
     functions: [
@@ -5252,8 +5282,8 @@ const scriptLibraries = [
           {
             name: "digest",
             signature: "digest()",
-            description: "Return raw digest as a byte string",
-            returns: "str",
+            description: "Return raw digest as a bytes value",
+            returns: "bytes",
           },
           {
             name: "copy",
@@ -5274,14 +5304,14 @@ const scriptLibraries = [
         name: "new",
         signature: "new(key, msg=None, digestmod=None)",
         description:
-          "Create an HMAC object. digestmod: 'sha256' (default), 'sha1', 'md5', or hashlib.sha256. Strings are used as byte buffers.",
+          "Create an HMAC object. digestmod: 'sha256' (default), 'sha1', 'md5', or hashlib.sha256. Accepts bytes, string, or list of byte values.",
         returns: "HMAC",
       },
       {
         name: "digest",
         signature: "digest(key, msg, digestmod)",
-        description: "One-shot HMAC, returns raw digest byte string",
-        returns: "str",
+        description: "One-shot HMAC, returns the raw digest as bytes",
+        returns: "bytes",
       },
       {
         name: "compare_digest",
@@ -5311,8 +5341,8 @@ const scriptLibraries = [
           {
             name: "digest",
             signature: "digest()",
-            description: "Return raw MAC as a byte string",
-            returns: "str",
+            description: "Return raw MAC as a bytes value",
+            returns: "bytes",
           },
           {
             name: "copy",
@@ -5331,14 +5361,14 @@ const scriptLibraries = [
       {
         name: "b64encode",
         signature: "b64encode(s)",
-        description: "Encode to Base64",
+        description: "Encode a bytes or str value to Base64",
         returns: "str",
       },
       {
         name: "b64decode",
         signature: "b64decode(s)",
-        description: "Decode from Base64",
-        returns: "str",
+        description: "Decode from Base64, returning bytes",
+        returns: "bytes",
       },
     ],
   },
@@ -6127,19 +6157,32 @@ const scriptLibraries = [
       {
         name: "read_file",
         signature: "read_file(path)",
-        description: "Read entire file contents as string",
+        description: "Read entire file as string (use read_bytes for binary)",
         returns: "str - File contents",
+      },
+      {
+        name: "read_bytes",
+        signature: "read_bytes(path)",
+        description: "Read entire file as bytes (preserves binary data)",
+        returns: "bytes - File contents",
+      },
+      {
+        name: "read_lines",
+        signature: "read_lines(path)",
+        description:
+          "Iterate over lines lazily (memory-efficient for large files)",
+        returns: "iterator - One str per line",
       },
       {
         name: "write_file",
         signature: "write_file(path, content, mode=0o644)",
-        description: "Write string content to file",
+        description: "Write str or bytes content to file",
         returns: "None",
       },
       {
         name: "append_file",
         signature: "append_file(path, content)",
-        description: "Append content to file",
+        description: "Append str or bytes content to file",
         returns: "None",
       },
       {
@@ -6702,7 +6745,11 @@ const scriptLibraries = [
           },
           {
             name: "text",
-            description: "Response body as string",
+            description: "Response body decoded as string",
+          },
+          {
+            name: "content",
+            description: "Raw response body as bytes (use instead of .text for binary)",
           },
           {
             name: "headers",
@@ -6710,7 +6757,7 @@ const scriptLibraries = [
           },
           {
             name: "body",
-            description: "Response body as string (alias for text)",
+            description: "Response body as string (deprecated alias for text)",
           },
           {
             name: "url",
