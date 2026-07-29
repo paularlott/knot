@@ -1,0 +1,150 @@
+# Knot base image catalog.
+#
+# Used by the template spec wizard to present a curated picker of base images.
+# Each [[image]] entry is a single selectable image.
+#
+# The `image` field may contain template variables resolved at deploy time via
+# the standard Go template engine using ${{ ... }} delimiters. The most common
+# variable is ${{ .server.base_image_registry }} which resolves to the
+# configured `base-image-registry` (default "docker.io/paularlott"). Use an
+# absolute reference (e.g. "ghcr.io/foo/bar:1") to bypass the registry prefix.
+#
+# `icon` references an icon served by knot at /icons/<name>.svg (see
+# internal/service/icons.go for the bundled set). Replace this whole file via
+# `base-images-manifest` to use a custom catalog and custom icon URLs.
+#
+# To regenerate from the knot-base-images repo: copy the OCI image labels from
+# docker-bake.hcl (title, description, version) into the matching fields here.
+
+version = 1
+description = "Default knot base image catalog"
+
+# ── Base Ubuntu ────────────────────────────────────────────────────────────
+
+[[image]]
+name            = "ubuntu-26.04"
+display_name    = "Ubuntu 26.04"
+description     = "Base Ubuntu 26.04 image with knot startup scripts, code-server, and common dev tools. Use this when you just need a shell."
+image           = "${{ .server.base_image_registry }}/knot-ubuntu:26.04"
+icon            = "/icons/ubuntu-linux-alt.svg"
+category        = "base"
+default_memory  = "2G"
+recommended     = true
+
+[[image]]
+name            = "ubuntu-24.04"
+display_name    = "Ubuntu 24.04"
+description     = "Base Ubuntu 24.04 image with knot startup scripts, code-server, and common dev tools. LTS release."
+image           = "${{ .server.base_image_registry }}/knot-ubuntu:24.04"
+icon            = "/icons/ubuntu-linux-alt.svg"
+category        = "base"
+default_memory  = "2G"
+
+# ── Desktop ─────────────────────────────────────────────────────────────────
+
+[[image]]
+name            = "desktop-26.04"
+display_name    = "Ubuntu Desktop 26.04"
+description     = "Ubuntu 26.04 with the XFCE desktop environment and code-server, accessible via the web VNC client."
+image           = "${{ .server.base_image_registry }}/knot-desktop:26.04"
+icon            = "/icons/ubuntu-linux-alt.svg"
+category        = "desktop"
+default_memory  = "4G"
+recommended     = true
+
+[[image]]
+name            = "desktop-24.04"
+display_name    = "Ubuntu Desktop 24.04"
+description     = "Ubuntu 24.04 with the XFCE desktop environment and code-server, accessible via the web VNC client."
+image           = "${{ .server.base_image_registry }}/knot-desktop:24.04"
+icon            = "/icons/ubuntu-linux-alt.svg"
+category        = "desktop"
+default_memory  = "4G"
+
+# ── PHP / Web ───────────────────────────────────────────────────────────────
+
+[[image]]
+name            = "php-8.5"
+display_name    = "PHP 8.5 (Ubuntu 24.04)"
+description     = "Ubuntu 24.04 with Caddy and PHP 8.5. Use for PHP web apps; the Caddyfile is generated from the space's exposed ports."
+image           = "${{ .server.base_image_registry }}/knot-php:8.5"
+icon            = "/icons/php.svg"
+category        = "web"
+default_memory  = "2G"
+recommended     = true
+
+[[image]]
+name            = "php-8.4"
+display_name    = "PHP 8.4 (Ubuntu 24.04)"
+description     = "Ubuntu 24.04 with Caddy and PHP 8.4."
+image           = "${{ .server.base_image_registry }}/knot-php:8.4"
+icon            = "/icons/php.svg"
+category        = "web"
+default_memory  = "2G"
+
+[[image]]
+name            = "php-8.3"
+display_name    = "PHP 8.3 (Ubuntu 24.04)"
+description     = "Ubuntu 24.04 with Caddy and PHP 8.3."
+image           = "${{ .server.base_image_registry }}/knot-php:8.3"
+icon            = "/icons/php.svg"
+category        = "web"
+default_memory  = "2G"
+
+# ── Datastores ──────────────────────────────────────────────────────────────
+
+[[image]]
+name            = "mariadb-12.3"
+display_name    = "MariaDB 12.3"
+description     = "MariaDB 12.3 with knot startup tooling. Data is stored in the space's persistent volume."
+image           = "${{ .server.base_image_registry }}/knot-mariadb:12.3"
+icon            = "/icons/mariadb.svg"
+category        = "datastore"
+default_memory  = "1G"
+recommended     = true
+
+[[image]]
+name            = "mariadb-11.8"
+display_name    = "MariaDB 11.8"
+description     = "MariaDB 11.8 with knot startup tooling. Data is stored in the space's persistent volume."
+image           = "${{ .server.base_image_registry }}/knot-mariadb:11.8"
+icon            = "/icons/mariadb.svg"
+category        = "datastore"
+default_memory  = "1G"
+
+[[image]]
+name            = "mariadb-11.4"
+display_name    = "MariaDB 11.4 (LTS)"
+description     = "MariaDB 11.4 LTS with knot startup tooling. Use for production-style deployments."
+image           = "${{ .server.base_image_registry }}/knot-mariadb:11.4"
+icon            = "/icons/mariadb.svg"
+category        = "datastore"
+default_memory  = "1G"
+
+[[image]]
+name            = "mariadb-10.11"
+display_name    = "MariaDB 10.11 (LTS)"
+description     = "MariaDB 10.11 LTS with knot startup tooling. Use for compatibility with older applications."
+image           = "${{ .server.base_image_registry }}/knot-mariadb:10.11"
+icon            = "/icons/mariadb.svg"
+category        = "datastore"
+default_memory  = "1G"
+
+[[image]]
+name            = "valkey-9.1"
+display_name    = "Valkey 9.1"
+description     = "Valkey 9.1 (Redis-compatible) with knot startup tooling."
+image           = "${{ .server.base_image_registry }}/knot-valkey:9.1"
+icon            = "/icons/valkey.svg"
+category        = "datastore"
+default_memory  = "512M"
+recommended     = true
+
+[[image]]
+name            = "valkey-9.0"
+display_name    = "Valkey 9.0"
+description     = "Valkey 9.0 (Redis-compatible) with knot startup tooling."
+image           = "${{ .server.base_image_registry }}/knot-valkey:9.0"
+icon            = "/icons/valkey.svg"
+category        = "datastore"
+default_memory  = "512M"

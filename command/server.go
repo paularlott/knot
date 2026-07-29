@@ -593,6 +593,21 @@ var ServerCmd = &cli.Command{
 			DefaultValue: []string{"docker", "podman", "apple"},
 		},
 
+		// Template spec wizard flags
+		&cli.StringFlag{
+			Name:         "base-image-registry",
+			Usage:        "Default registry prefix for base images referenced by the template spec wizard. Exposed to specs as ${{ .server.base_image_registry }}.",
+			ConfigPath:   []string{"server.base_image_registry"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY"},
+			DefaultValue: "registry-1.docker.io/paularlott",
+		},
+		&cli.StringFlag{
+			Name:       "base-images-manifest",
+			Usage:      "Path to a TOML manifest of base images for the template spec wizard. Defaults to the bundled manifest.",
+			ConfigPath: []string{"server.base_images_manifest"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_MANIFEST"},
+		},
+
 		// MCP flags
 		&cli.BoolFlag{
 			Name:         "mcp-enabled",
@@ -1450,6 +1465,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			return chatCfg
 		}(),
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
+		BaseImageRegistry:         cmd.GetString("base-image-registry"),
+		BaseImagesManifest:        cmd.GetString("base-images-manifest"),
 	}
 
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present

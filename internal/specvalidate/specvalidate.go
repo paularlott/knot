@@ -126,9 +126,7 @@ func validateLocalContainerJob(job string) []Issue {
 		case "ports":
 			issues = append(issues, validateStringList(valNode, "ports", validatePortMapping)...)
 		case "volumes":
-			issues = append(issues, validateStringList(valNode, "volumes", func(v string) error {
-				return validateHostContainerPair(v, "volume")
-			})...)
+			issues = append(issues, validateStringList(valNode, "volumes", validateVolumeBind)...)
 		case "devices":
 			issues = append(issues, validateStringList(valNode, "devices", func(v string) error {
 				return validateHostContainerPair(v, "device")
@@ -395,6 +393,39 @@ func validateHostContainerPair(value, kind string) error {
 	parts := strings.Split(value, ":")
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
 		return fmt.Errorf("%s %q must be in the format hostPath:containerPath", kind, value)
+	}
+	return nil
+}
+
+// volumeModes are the bind mount options accepted as the optional third field
+// of a volume entry (hostPath:containerPath:ro). The runtimes pass the whole
+// string through to Docker/Podman/container, all of which understand these.
+var volumeModes = map[string]bool{
+	"ro": true, "rw": true,
+	"z": true, "Z": true,
+	"nocopy": true,
+}
+
+// validateVolumeBind accepts hostPath:containerPath with an optional mount mode
+// suffix, e.g. /etc/hosts:/etc/hosts:ro or data:/data:rw,z.
+func validateVolumeBind(value string) error {
+	parts := strings.Split(value, ":")
+	if len(parts) < 2 || len(parts) > 3 ||
+		strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return fmt.Errorf("volume %q must be in the format hostPath:containerPath[:mode]", value)
+	}
+	if len(parts) == 2 {
+		return nil
+	}
+	mode := strings.TrimSpace(parts[2])
+	if mode == "" {
+		return fmt.Errorf("volume %q has an empty mount mode (expected e.g. ro)", value)
+	}
+	for _, flag := range strings.Split(mode, ",") {
+		flag = strings.TrimSpace(flag)
+		if !volumeModes[flag] {
+			return fmt.Errorf("volume %q has an unknown mount mode %q (expected ro, rw, z, Z or nocopy)", value, flag)
+		}
 	}
 	return nil
 }

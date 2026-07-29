@@ -9,6 +9,38 @@ import (
 
 var portEnvVarNames = []string{"KNOT_HTTP_PORT", "KNOT_HTTPS_PORT", "KNOT_TCP_PORT"}
 
+// EnvVar is a single environment variable as an ordered key/value pair.
+type EnvVar struct {
+	Key   string
+	Value string
+}
+
+// ParseEnvStrings parses "KEY=value" entries into an ordered slice of EnvVar.
+// Entries without "=" or with an empty key are skipped. Order is preserved so
+// callers that care about insertion order (e.g. the spec wizard, which
+// round-trips the user's ordering through HCL/YAML emission) don't lose it.
+func ParseEnvStrings(env []string) []EnvVar {
+	out := make([]EnvVar, 0, len(env))
+	for _, e := range env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) != 2 || parts[0] == "" {
+			continue
+		}
+		out = append(out, EnvVar{Key: parts[0], Value: parts[1]})
+	}
+	return out
+}
+
+// FormatEnvStrings formats env vars back to "KEY=value" strings, preserving
+// the order of the input slice.
+func FormatEnvStrings(env []EnvVar) []string {
+	out := make([]string, 0, len(env))
+	for _, e := range env {
+		out = append(out, e.Key+"="+e.Value)
+	}
+	return out
+}
+
 // RemoveExistingPortEnvVars removes any existing KNOT_HTTP_PORT, KNOT_HTTPS_PORT,
 // or KNOT_TCP_PORT entries from the given environment slice.
 func RemoveExistingPortEnvVars(env []string) []string {

@@ -112,6 +112,12 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
 
+	// Template spec wizard (base image catalog + spec parse/build)
+	router.HandleFunc("GET /api/base-images", middleware.ApiAuth(HandleGetBaseImages))
+	router.HandleFunc("GET /api/capabilities", middleware.ApiAuth(HandleGetCapabilities))
+	router.HandleFunc("POST /api/spec/parse", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleSpecParse)))
+	router.HandleFunc("POST /api/spec/build", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleSpecBuild)))
+
 	// Volumes
 	router.HandleFunc("GET /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumes)))
 	router.HandleFunc("POST /api/volumes/validate", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleValidateVolume)))

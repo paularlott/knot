@@ -1,0 +1,370 @@
+{{ define "spec-wizard-modal" }}
+<div x-cloak x-show="specWizard.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="specWizard.show" @keydown.esc.stop="if (!specWizard.volumeDetails.show) specWizard.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="specWizardTitle">
+  <div x-show="specWizard.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl max-h-[90vh]">
+    <!-- Header -->
+    <div class="ui-modal-header">
+      <div class="ui-modal-icon-info">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+        </svg>
+      </div>
+      <h3 id="specWizardTitle" class="ui-modal-title">Template Spec Wizard</h3>
+      <button @click="cancelSpecWizard()" aria-label="close modal" class="ui-modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="ui-modal-body-scroll flex-1">
+      <!-- Loading / error / not-wizardable states -->
+      <div x-show="specWizard.loading" class="py-12 text-center text-gray-500 dark:text-gray-400">
+        Parsing current spec…
+      </div>
+
+      <div x-show="!specWizard.loading && specWizard.error" x-cloak class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+        <span x-text="specWizard.error"></span>
+      </div>
+
+      <div x-show="!specWizard.loading && !specWizard.wizardable" x-cloak class="py-8 text-center">
+        <p class="text-sm text-gray-700 dark:text-gray-300">This spec can't be edited via the wizard.</p>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400" x-text="specWizard.notWizardableReason"></p>
+        <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">Close the wizard to edit the spec directly.</p>
+      </div>
+
+      <form x-show="!specWizard.loading && specWizard.wizardable" x-cloak class="space-y-6" @submit.prevent="applySpecWizard()">
+        <!-- Image picker -->
+        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Image</legend>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3">
+              <img x-show="specWizard.icon" :src="specWizard.icon" alt="" class="size-10 rounded shrink-0">
+              <div class="relative w-full" @click.outside="specWizard.imageDropdownOpen = false">
+                <input type="text"
+                  class="form-field"
+                  x-model="specWizard.spec.image"
+                  placeholder="registry.example.com/image:tag"
+                  aria-label="Container image">
+                <button type="button"
+                  @click="specWizard.imageDropdownOpen = !specWizard.imageDropdownOpen; if (specWizard.imageDropdownOpen) $nextTick(() => $refs.baseImageSearch.focus())"
+                  class="absolute right-1 top-1 bottom-1 px-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                  title="Pick from base images"
+                  aria-label="Pick from base images">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                  </svg>
+                </button>
+
+                <!-- Image picker dropdown -->
+                <div x-show="specWizard.imageDropdownOpen" x-cloak class="absolute z-[80] mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-72 overflow-auto">
+                  <div class="sticky top-0 bg-white dark:bg-gray-800 p-2 border-b border-gray-200 dark:border-gray-700">
+                    <input type="search"
+                      x-ref="baseImageSearch"
+                      class="form-field"
+                      x-model="specWizard.imageSearch"
+                      placeholder="Search base images…"
+                      aria-label="Search base images">
+                  </div>
+                  <div class="p-1">
+                    <template x-for="img in filteredBaseImages()" :key="img.name">
+                      <button type="button"
+                        @click="pickBaseImage(img)"
+                        class="w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-start gap-3">
+                        <img x-show="img.icon" :src="img.icon" alt="" class="size-10 rounded shrink-0">
+                        <div class="flex-grow min-w-0">
+                          <div class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="img.display_name || img.name"></div>
+                          <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2" x-text="img.description"></div>
+                          <div class="mt-1 flex flex-wrap gap-1">
+                            <span x-show="img.category" class="app-badge-info" x-text="img.category"></span>
+                            <span x-show="img.recommended" class="app-badge-success">recommended</span>
+                          </div>
+                        </div>
+                      </button>
+                    </template>
+                    <div x-show="filteredBaseImages().length === 0" class="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
+                      No matching base images.<br>Type an absolute image reference above.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div x-show="specWizard.baseImagesError" class="text-xs text-amber-600 dark:text-amber-400" x-text="specWizard.baseImagesError"></div>
+          </div>
+        </fieldset>
+
+        <!-- Resources -->
+        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Resources</legend>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hostname</label>
+              <input type="text" class="form-field" x-model="specWizard.spec.hostname" placeholder="container hostname">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                x-text="formData.platform === 'nomad' ? 'Job Name' : 'Container Name'">Name</label>
+              <input type="text" class="form-field" x-model="specWizard.spec.name"
+                :placeholder="formData.platform === 'nomad' ? 'job \u0022&lt;name&gt;\u0022 { ... }' : 'container_name'">
+            </div>
+          </div>
+          <p class="description mb-3">Name (<span x-text="formData.platform === 'nomad' ? 'the Nomad job label' : 'container_name'"></span>) is separate from Hostname. Both are commonly <code>${{ .user.username }}-${{ .space.name }}</code> / <code>${{ .space.name }}</code>.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Memory</label>
+              <input type="text" class="form-field" x-model="specWizard.spec.memory" placeholder="e.g. 2G">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                x-text="formData.platform === 'nomad' ? (specWizard.spec.cpu_type === 'cores' ? 'Cores' : 'CPU (MHz)') : 'CPUs'">CPUs</label>
+              <div class="flex">
+                <input type="text" class="form-field grow" x-model="specWizard.spec.cpus"
+                  :placeholder="formData.platform === 'nomad' && specWizard.spec.cpu_type !== 'cores' ? 'e.g. 500' : 'e.g. 2'"
+                  :class="formData.platform === 'nomad' ? 'rounded-r-none border-r-0' : ''">
+                <template x-if="formData.platform === 'nomad'">
+                  <select x-model="specWizard.spec.cpu_type" class="form-field w-24 rounded-l-none shrink-0" aria-label="CPU type">
+                    <option value="">MHz</option>
+                    <option value="cores">Cores</option>
+                  </select>
+                </template>
+              </div>
+            </div>
+          </div>
+          <label class="flex items-center cursor-pointer mt-3">
+            <input type="checkbox" class="sr-only peer" x-model="specWizard.spec.privileged">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Privileged</span>
+          </label>
+        </fieldset>
+
+        <!-- Environment -->
+        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-2 mb-2">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Environment</legend>
+            <button type="button" @click="wizardAddEnv()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              <span class="sr-only">Add env var</span>
+            </button>
+          </div>
+          <template x-for="(kv, i) in specWizard.spec.environment" :key="i">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="text" class="form-field w-40" x-model="specWizard.spec.environment[i].key" placeholder="KEY" aria-label="Variable name">
+              <span class="text-gray-400">=</span>
+              <input type="text" class="form-field grow" x-model="specWizard.spec.environment[i].value" placeholder="value (literals or template vars)" aria-label="Variable value">
+              <button type="button" @click="wizardRemoveEnv(i)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                <span class="sr-only">Remove</span>
+              </button>
+            </div>
+          </template>
+        </fieldset>
+
+        <!-- Linux capabilities (cap_add only — cap_drop stays a hand-edit, and
+             any existing cap_drop in the spec is preserved on Apply) -->
+        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <!-- click.outside wraps the toggle button AND the dropdown together.
+               When the button lived outside this container, clicking it counted
+               as an "outside" click on the same event, closing the dropdown
+               the instant it opened. -->
+          <div class="relative" data-cap-picker @click.outside="specWizard.capPicker.cap_add.open = false">
+            <div class="flex items-center gap-2 mb-2">
+              <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Capabilities</legend>
+              <button type="button"
+                @click="toggleCapabilityPicker('cap_add'); $nextTick(() => { if (specWizard.capPicker.cap_add.open) { const el = $el.closest('[data-cap-picker]').querySelector('input[type=search]'); if (el) el.focus(); } })"
+                class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5"
+                aria-label="Add a capability"
+                :aria-expanded="specWizard.capPicker.cap_add.open ? 'true' : 'false'">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              </button>
+            </div>
+
+            <!-- Selected capabilities as removable pills -->
+            <div class="flex flex-wrap gap-2">
+              <template x-for="(cap, i) in specWizard.spec.cap_add" :key="cap">
+                <span class="app-badge-info" :title="capabilityDescription(cap)">
+                  <span x-text="cap"></span>
+                  <button type="button" @click="removeCapability('cap_add', i)" class="ml-1.5 -mr-1 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500" :aria-label="'Remove ' + cap">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </span>
+              </template>
+              <span x-show="!specWizard.spec.cap_add || specWizard.spec.cap_add.length === 0" class="text-xs text-gray-500 dark:text-gray-400">None</span>
+            </div>
+
+            <!-- Searchable capability picker -->
+            <div x-show="specWizard.capPicker.cap_add.open" x-cloak class="absolute z-[80] mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-72 overflow-auto">
+              <div class="sticky top-0 bg-white dark:bg-gray-800 p-2 border-b border-gray-200 dark:border-gray-700">
+                <input type="search"
+                  class="form-field"
+                  x-model="specWizard.capPicker.cap_add.search"
+                  @keydown.enter.prevent.stop="addTypedCapability('cap_add')"
+                  @keydown.esc.stop="specWizard.capPicker.cap_add.open = false"
+                  placeholder="Search capabilities…"
+                  aria-label="Search capabilities to add">
+              </div>
+              <div class="p-1">
+                <template x-for="cap in filteredCapabilities('cap_add')" :key="cap.name">
+                  <button type="button"
+                    @click="addCapability('cap_add', cap.name)"
+                    class="w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="cap.name"></span>
+                      <span x-show="cap.common" class="app-badge-success">common</span>
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="cap.description"></div>
+                  </button>
+                </template>
+                <div x-show="filteredCapabilities('cap_add').length === 0" class="p-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                  No matching capability.<br>Press Enter to use what you typed.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div x-show="specWizard.capabilitiesError" x-cloak class="mt-2 text-xs text-amber-600 dark:text-amber-400" x-text="specWizard.capabilitiesError"></div>
+          <p class="description">Capabilities granted to the container (<code>cap_add</code>). Search by name or by what the capability does.</p>
+        </fieldset>
+
+        <!-- Storage -->
+        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-2 mb-2">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Storage</legend>
+            <div class="flex gap-1">
+              <button type="button" @click="wizardAddStorage('bind')" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-xs px-2 py-1" title="Add bind mount">+ Bind</button>
+              <button type="button" @click="wizardAddStorage('volume')" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-xs px-2 py-1" title="Add managed volume">+ Volume</button>
+              <button type="button" x-show="formData.platform !== 'nomad'" @click="wizardAddStorage('path')" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-xs px-2 py-1" title="Add managed path">+ Path</button>
+            </div>
+          </div>
+          <template x-for="(entry, i) in specWizard.spec.storage" :key="i">
+            <div class="flex flex-wrap items-center gap-2 mb-2 p-2 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <!-- Kind badge -->
+              <span class="app-badge-neutral text-[10px] uppercase w-16 text-center" x-text="entry.kind"></span>
+              <!-- Name (volume) or HostPath (bind/path) -->
+              <template x-if="entry.kind === 'volume'">
+                <input type="text" class="form-field w-80" x-model="specWizard.spec.storage[i].name" placeholder="volume name" aria-label="Volume name">
+              </template>
+              <template x-if="entry.kind !== 'volume'">
+                <input type="text" class="form-field w-60" x-model="specWizard.spec.storage[i].host_path" :placeholder="entry.kind === 'path' ? '/managed/path' : 'host path'" aria-label="Host path">
+              </template>
+              <span class="text-gray-400">→</span>
+              <input type="text" class="form-field grow" x-model="specWizard.spec.storage[i].container_path" placeholder="/container/path" aria-label="Container path">
+              <!-- Read-only toggle -->
+              <label class="flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" class="sr-only peer" x-model="specWizard.spec.storage[i].read_only">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <span class="ms-2 text-xs font-medium text-gray-900 dark:text-gray-300">ro</span>
+              </label>
+              <!-- Volume-specific fields -->
+              <template x-if="entry.kind === 'volume' && formData.platform !== 'nomad'">
+                <input type="text" class="form-field w-20" x-model="specWizard.spec.storage[i].size" placeholder="e.g. 20G" aria-label="Size">
+              </template>
+              <template x-if="entry.kind === 'volume' && formData.platform === 'nomad'">
+                <select class="form-field w-40 text-xs" @change="setVolumeType(i, $event.target.value)" aria-label="Volume type">
+                  <option value="host" :selected="entry.volume_type === 'host' || (!entry.volume_type && entry.plugin_id === 'mkdir')">host</option>
+                  <option value="single" :selected="entry.volume_type !== 'host' && (!entry.volume_type || entry.volume_type === 'csi') && (entry.access_modes?.[0]?.access_mode || 'single-node-writer') === 'single-node-writer'">csi: single</option>
+                  <option value="multi" :selected="entry.volume_type !== 'host' && entry.access_modes?.[0]?.access_mode === 'multi-node-multi-writer'">csi: multi</option>
+                </select>
+              </template>
+              <template x-if="entry.kind === 'volume' && formData.platform === 'nomad'">
+                <input type="text" class="form-field w-28" x-model="specWizard.spec.storage[i].plugin_id" placeholder="plugin_id" aria-label="Plugin ID">
+              </template>
+              <template x-if="entry.kind === 'volume' && formData.platform === 'nomad'">
+                <input type="text" class="form-field w-20" x-model="specWizard.spec.storage[i].capacity_min" placeholder="min" aria-label="Capacity min">
+              </template>
+              <template x-if="entry.kind === 'volume' && formData.platform === 'nomad'">
+                <input type="text" class="form-field w-20" x-model="specWizard.spec.storage[i].capacity_max" placeholder="max" aria-label="Capacity max">
+              </template>
+              <!-- Volume details button (parameters, secrets, capabilities, mount_options) -->
+              <template x-if="entry.kind === 'volume' && formData.platform === 'nomad'">
+                <button type="button" @click="openVolumeDetails(i)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5 shrink-0" title="Edit parameters, secrets & mount options">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                </button>
+              </template>
+              <!-- Remove button -->
+              <button type="button" @click="wizardRemoveStorage(i)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                <span class="sr-only">Remove</span>
+              </button>
+            </div>
+          </template>
+          <p class="description"><strong>Bind</strong>: mount an existing host path. <strong>Volume</strong>: a managed named volume (created/destroyed with the space). <strong>Path</strong>: a managed directory.</p>
+        </fieldset>
+
+        <!-- Ports -->
+        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-2 mb-2">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Ports</legend>
+            <button type="button" @click="wizardAddPort()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              <span class="sr-only">Add port</span>
+            </button>
+          </div>
+          <template x-for="(p, i) in specWizard.spec.ports" :key="i">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="text" class="form-field w-32" x-model="specWizard.spec.ports[i].label" placeholder="label (Nomad)" aria-label="Port label (Nomad)">
+              <input type="number" min="1" max="65535" class="form-field w-24" x-model.number="specWizard.spec.ports[i].host_port" placeholder="Host" aria-label="Host port">
+              <span class="text-gray-400">:</span>
+              <input type="number" min="1" max="65535" class="form-field w-24" x-model.number="specWizard.spec.ports[i].container_port" placeholder="Container" aria-label="Container port">
+              <select class="form-field w-28" x-model="specWizard.spec.ports[i].protocol">
+                <option value="tcp">TCP</option>
+                <option value="udp">UDP</option>
+                <option value="tcp+udp">TCP+UDP</option>
+              </select>
+              <button type="button" @click="wizardRemovePort(i)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                <span class="sr-only">Remove port</span>
+              </button>
+            </div>
+          </template>
+        </fieldset>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="ui-modal-footer">
+      <button type="button" @click="cancelSpecWizard()" class="ui-button-secondary sm:mr-auto" x-text="specWizard.wizardable ? 'Cancel' : 'Close'"></button>
+      <button type="button"
+      x-show="specWizard.wizardable"
+      x-cloak
+      @click="applySpecWizard()"
+      :disabled="specWizard.saving"
+      class="btn-primary"
+      x-text="specWizard.saving ? 'Applying…' : 'Apply'"></button>
+    </div>
+  </div>
+
+  <!-- Volume details modal (nested inside wizard modal's x-trap scope) -->
+  <div x-cloak x-show="specWizard.volumeDetails.show" x-transition.opacity.duration.150ms @keydown.esc.stop="closeVolumeDetails()" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="volumeDetailsTitle">
+    <div x-show="specWizard.volumeDetails.show" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl max-h-[85vh]" @click.outside="closeVolumeDetails()">
+      <div class="ui-modal-header">
+        <h3 id="volumeDetailsTitle" class="ui-modal-title">Volume Details</h3>
+        <button @click="closeVolumeDetails()" aria-label="close" class="ui-modal-close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="ui-modal-body-scroll flex-1 space-y-4">
+        <div>
+          <label class="form-label">Parameters <span class="text-xs text-gray-400">(YAML)</span></label>
+          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.parameters" placeholder='mode: "0755"&#10;uid: 1000&#10;gid: 1000'></textarea>
+        </div>
+        <div>
+          <label class="form-label">Secrets <span class="text-xs text-gray-400">(YAML)</span></label>
+          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.secrets" placeholder='userID: "nomad.rbd"&#10;userKey: "secret=="'></textarea>
+        </div>
+        <div>
+          <label class="form-label">Capabilities <span class="text-xs text-gray-400">(YAML list, excludes access_mode &amp; attachment_mode)</span></label>
+          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.capabilities" placeholder='- foo: "bar"&#10;  baz: "qux"'></textarea>
+        </div>
+        <div>
+          <label class="form-label">Mount Options <span class="text-xs text-gray-400">(YAML)</span></label>
+          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.mountOptions" placeholder='fs_type: "ext4"&#10;mount_flags:&#10;  - rw&#10;  - noatime'></textarea>
+        </div>
+      </div>
+      <div class="ui-modal-footer">
+        <button type="button" @click="closeVolumeDetails()" class="ui-button-secondary sm:mr-auto">Cancel</button>
+        <button type="button" @click="applyVolumeDetails()" class="btn-primary">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

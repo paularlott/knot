@@ -54,6 +54,8 @@ type ServerConfig struct {
 	MCPToolsDisabled          []string
 	LibDir                    string
 	KnotLibPath               string
+	BaseImageRegistry         string
+	BaseImagesManifest        string
 }
 
 // SessionCookieDomain returns the domain to set on the web session cookie so

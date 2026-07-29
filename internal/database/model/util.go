@@ -98,11 +98,12 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"service_password": "",
 		},
 		"server": map[string]interface{}{
-			"url":             strings.TrimSuffix(cfg.URL, "/"),
-			"agent_endpoint":  cfg.AgentEndpoint,
-			"wildcard_domain": wildcardDomain,
-			"zone":            cfg.Zone,
-			"timezone":        cfg.Timezone,
+			"url":               strings.TrimSuffix(cfg.URL, "/"),
+			"agent_endpoint":    cfg.AgentEndpoint,
+			"wildcard_domain":   wildcardDomain,
+			"zone":              cfg.Zone,
+			"timezone":          cfg.Timezone,
+			"base_image_registry": cfg.BaseImageRegistry,
 		},
 		"nomad": map[string]interface{}{
 			"dc":     os.Getenv("NOMAD_DC"),

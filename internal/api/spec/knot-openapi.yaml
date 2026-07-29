@@ -3092,6 +3092,113 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/base-images:
+    get:
+      summary: List Base Images
+      description: Return the active base image catalog used by the template spec wizard. Sources are the bundled manifest (default) or an external manifest configured via `server.base_image.manifest`.
+      operationId: listBaseImages
+      tags:
+        - Templates
+      responses:
+        "200":
+          description: Base image catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseImagesManifest"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/capabilities:
+    get:
+      summary: List Linux Capabilities
+      description: Return the Linux capability catalog rendered by the template spec wizard's capability picker. The list is a static common subset; any well-formed `CAP_*` name already present in a spec still round-trips through the wizard.
+      operationId: listCapabilities
+      tags:
+        - Templates
+      responses:
+        "200":
+          description: Capability catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilitiesResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /api/spec/parse:
+    post:
+      summary: Parse a Template Spec into Wizard JSON
+      description: Convert a native template spec (Nomad HCL or local container YAML) into the unified JSON the template spec wizard edits. Returns `wizardable=false` when the spec can't be safely presented in the wizard (e.g. multi-task Nomad job, unparseable HCL, unsupported driver).
+      operationId: parseSpec
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpecParseRequest"
+      responses:
+        "200":
+          description: Parse result. When `wizardable=true`, `spec` carries the unified representation; when `wizardable=false`, `reason` explains why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecParseResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spec/build:
+    post:
+      summary: Build a Template Spec from Wizard JSON
+      description: |
+        Convert a unified spec back into native text. Accepts the original job/volumes
+        alongside the wizard's edited unified spec so the server can patch wizard-controlled
+        fields into the original text (Nomad) or regenerate from the spec (container).
+
+        On the Nomad side, fields the wizard doesn't know about (constraints, meta, services)
+        are preserved byte-for-byte via constrained text surgery on the first task block.
+        If the original job is empty, a complete default job skeleton is emitted using
+        `${{ .space.name }}` / `${{ .user.username }}` placeholders.
+      operationId: buildSpec
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpecBuildRequest"
+      responses:
+        "200":
+          description: Build result with the patched `job` and `volumes` strings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecBuildResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+
   /api/templates/{template_id}:
     put:
       summary: Update a Template
@@ -7279,6 +7386,295 @@ components:
         volumes:
           type: string
           description: YAML volume definition for the selected platform.
+
+    BaseImagesManifest:
+      type: object
+      description: Catalog of base images shown by the template spec wizard.
+      properties:
+        version:
+          type: integer
+          description: Manifest schema version (currently 1).
+        description:
+          type: string
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/BaseImageEntry"
+
+    BaseImageEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Stable identifier used as the picker key.
+        display_name:
+          type: string
+        description:
+          type: string
+        image:
+          type: string
+          description: Image reference. May use `${{ .server.base_image_registry }}` to inherit the configured registry prefix, or be absolute.
+        icon:
+          type: string
+          format: uri
+          description: URL the browser fetches (typically an SVG).
+        category:
+          type: string
+          description: Free-form label rendered as a badge.
+        tags:
+          type: array
+          items:
+            type: string
+        default_memory:
+          type: string
+          description: Pre-filled in the wizard when the user picks this image and the memory field is empty.
+        default_cpus:
+          type: string
+        recommended:
+          type: boolean
+
+    CapabilitiesResponse:
+      type: object
+      description: Linux capability catalog rendered by the template spec wizard's capability picker.
+      properties:
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapabilityEntry"
+
+    CapabilityEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Canonical capability name, e.g. `CAP_NET_ADMIN`.
+        description:
+          type: string
+          description: What the capability allows. The wizard's search matches on name and description.
+        common:
+          type: boolean
+          description: Marks capabilities dev spaces commonly need; the picker lists these first.
+
+    SpecParseRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+        job:
+          type: string
+        volumes:
+          type: string
+
+    SpecParseResponse:
+      type: object
+      properties:
+        wizardable:
+          type: boolean
+          description: Whether the wizard can safely present this spec.
+        reason:
+          type: string
+          description: Human-readable explanation when `wizardable=false`.
+        spec:
+          $ref: "#/components/schemas/UnifiedSpec"
+
+    SpecBuildRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+        original_job:
+          type: string
+          description: Current native spec text (may have been hand-edited since the last parse).
+        original_volumes:
+          type: string
+        spec:
+          $ref: "#/components/schemas/UnifiedSpec"
+
+    SpecBuildResponse:
+      type: object
+      properties:
+        job:
+          type: string
+        volumes:
+          type: string
+
+    UnifiedSpec:
+      type: object
+      description: Runtime-agnostic representation the wizard edits. Strings may contain template variables like `${{ .server.base_image_registry }}`; the wizard never resolves them.
+      properties:
+        name:
+          type: string
+          description: The container's `container_name` (Docker/Podman/Apple) or the Nomad job's label (`job "<name>" { ... }`). Distinct from `hostname` — templates commonly set both, e.g. `${{ .user.username }}-${{ .space.name }}` for name alongside `${{ .space.name }}` for hostname.
+        image:
+          type: string
+        hostname:
+          type: string
+        command:
+          type: array
+          items:
+            type: string
+        environment:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeyValue"
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortMapping"
+        volumes:
+          type: array
+          items:
+            $ref: "#/components/schemas/VolumeMount"
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/HostContainerMapping"
+        extra_hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/HostIPMapping"
+        dns:
+          type: array
+          items:
+            type: string
+        dns_search:
+          type: array
+          items:
+            type: string
+        cap_add:
+          type: array
+          description: Linux capabilities to grant, in canonical `CAP_NET_ADMIN` form. Emitted as-is for local containers; Nomad HCL receives the driver's documented bare form (`net_admin`) unless the job already uses the prefixed form.
+          items:
+            type: string
+        cap_drop:
+          type: array
+          description: Linux capabilities to revoke, in canonical `CAP_NET_ADMIN` form.
+          items:
+            type: string
+        network:
+          type: string
+        privileged:
+          type: boolean
+        memory:
+          type: string
+          description: Human-friendly size like "2G", "512M".
+        cpus:
+          type: string
+          description: Decimal CPU count as a string, e.g. "1" or "0.5".
+        auth:
+          $ref: "#/components/schemas/RegistryAuth"
+        volume_definitions:
+          $ref: "#/components/schemas/VolumeDefinitions"
+
+    KeyValue:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+
+    PortMapping:
+      type: object
+      properties:
+        host_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        container_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        protocol:
+          type: string
+          enum: ["tcp", "udp"]
+        label:
+          type: string
+          description: Nomad port-block name (e.g. "redis_port"); referenced from the docker-driver config's `ports = [...]` list. Empty for local container YAML.
+
+    VolumeMount:
+      type: object
+      properties:
+        host_path:
+          type: string
+        container_path:
+          type: string
+        read_only:
+          type: boolean
+
+    HostContainerMapping:
+      type: object
+      properties:
+        host_path:
+          type: string
+        container_path:
+          type: string
+        cgroup_permissions:
+          type: string
+
+    HostIPMapping:
+      type: object
+      properties:
+        hostname:
+          type: string
+        ip:
+          type: string
+
+    RegistryAuth:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    VolumeDefinitions:
+      type: object
+      properties:
+        local_volumes:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/LocalVolume"
+        nomad_volumes:
+          type: array
+          items:
+            $ref: "#/components/schemas/NomadVolume"
+        paths:
+          type: array
+          items:
+            type: string
+
+    LocalVolume:
+      type: object
+      properties:
+        size:
+          type: string
+
+    NomadVolume:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: ["csi", "host"]
+        plugin_id:
+          type: string
+        capacity_min:
+          type: string
+        capacity_max:
+          type: string
+        fs_type:
+          type: string
+        access_mode:
+          type: string
+        attachment_mode:
+          type: string
+
 
     TemplateVar:
       type: object

@@ -123,6 +123,15 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     jobEditor: null,
     volumeEditor: null,
 
+    // Advanced/Wizard toggle — controls whether the raw textareas or the
+    // wizard fieldsets are shown for the job + volumes fields.
+    // advancedMode: true = show raw editors, false = show wizard.
+    // advancedForced: true = the toggle is locked to Advanced because the spec
+    // contains constructs the wizard can't display. Derived from parse response.
+    advancedMode: true,
+    advancedForced: false,
+    advancedForcedReason: "",
+
     async initData() {
       focus.Element('input[name="name"]');
 
@@ -781,6 +790,619 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         this.formData.platform === "apple" ||
         this.formData.platform === "container"
       );
+    },
+
+    // ── Template spec wizard ────────────────────────────────────────────
+    //
+    // State and handlers for the "Build spec…" wizard. The wizard is a full
+    // modal overlay that blocks the underlying Job/Volumes textareas; on Apply
+    // it patches the wizard-controlled fields back into the ace editors via
+    // /api/spec/build.
+    //
+    // Icon flow (per design):
+    //   - On open, wizard.icon is cleared.
+    //   - Selecting a base image via the picker writes both image string and
+    //     the manifest icon URL into wizard.icon.
+    //   - Typing in the image field does NOT clear wizard.icon.
+    //   - On Apply, if wizard.icon is set, it's written to the template's
+    //     icon_url; if empty, the template's icon_url is left untouched.
+    specWizard: {
+      show: false,
+      loading: false,
+      saving: false,
+      error: "",
+      wizardable: true,
+      notWizardableReason: "",
+      baseImages: [],
+      baseImagesLoaded: false,
+      baseImagesError: "",
+      imageSearch: "",
+      imageDropdownOpen: false,
+      // Linux capability catalog (name + description) for the searchable
+      // picker, plus per-list dropdown state. Only cap_add is editable in the
+      // wizard; cap_drop is kept in state so a spec that already drops
+      // capabilities round-trips untouched, and is edited in the raw spec.
+      capabilities: [],
+      capabilitiesLoaded: false,
+      capabilitiesError: "",
+      capPicker: {
+        cap_add: { open: false, search: "" },
+        cap_drop: { open: false, search: "" },
+      },
+      // Volume details modal state (Nomad only)
+      volumeDetails: {
+        show: false,
+        index: -1,
+        parameters: "",
+        secrets: "",
+        capabilities: "",
+        mountOptions: "",
+      },
+      icon: "", // hidden — only set by picker; cleared on open
+      spec: {
+        name: "",
+        image: "",
+        hostname: "",
+        command: [],
+        environment: [],
+        ports: [],
+        storage: [],
+        devices: [],
+        extra_hosts: [],
+        dns: [],
+        dns_search: [],
+        cap_add: [],
+        cap_drop: [],
+        network: "",
+        privileged: false,
+        memory: "",
+        cpus: "",
+        cpu_type: "",
+        auth: null,
+      },
+    },
+
+    async openSpecWizard() {
+      this.specWizard.show = true;
+      this.specWizard.loading = true;
+      this.specWizard.error = "";
+      this.specWizard.icon = ""; // cleared on every open per design
+
+      this.specWizard.capPicker.cap_add = { open: false, search: "" };
+      this.specWizard.capPicker.cap_drop = { open: false, search: "" };
+
+      if (!this.specWizard.baseImagesLoaded) {
+        await this.loadBaseImages();
+      }
+      if (!this.specWizard.capabilitiesLoaded) {
+        await this.loadCapabilities();
+      }
+
+      // Parse the current spec via the server so values populate the wizard.
+      const platform = this.formData.platform;
+      const job = this.jobEditor ? this.jobEditor.getValue() : this.formData.job;
+      const volumes = this.volumeEditor ? this.volumeEditor.getValue() : this.formData.volumes;
+
+      try {
+        const resp = await fetch("/api/spec/parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ platform, job, volumes }),
+        });
+        if (resp.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        this.specWizard.wizardable = !!data.wizardable;
+        this.specWizard.notWizardableReason = data.reason || "";
+        if (data.wizardable && data.spec) {
+          this.specWizard.spec = this.normaliseSpec(data.spec);
+          // Default hostname/name for new templates (empty job) — matches the
+          // convention used by all stock knot-base-images specs.
+          if (!this.specWizard.spec.hostname && !job.trim()) {
+            this.specWizard.spec.hostname = "${{ .space.name }}";
+          }
+          if (!this.specWizard.spec.name && !job.trim()) {
+            this.specWizard.spec.name = "${{ .user.username }}-${{ .space.name }}";
+          }
+        } else {
+          // Keep an empty spec visible so the UI doesn't crash; Apply stays
+          // disabled while wizardable is false.
+          this.specWizard.spec = this.normaliseSpec({});
+        }
+      } catch (err) {
+        this.specWizard.error = "Failed to parse current spec: " + err.message;
+        this.specWizard.wizardable = false;
+      } finally {
+        this.specWizard.loading = false;
+      }
+    },
+
+    async loadBaseImages() {
+      try {
+        const resp = await fetch("/api/base-images", {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (resp.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        this.specWizard.baseImages = (data.images || []).filter((i) => i.image);
+        this.specWizard.baseImagesLoaded = true;
+      } catch (err) {
+        this.specWizard.baseImagesError = "Failed to load base images: " + err.message;
+      }
+    },
+
+    async loadCapabilities() {
+      try {
+        const resp = await fetch("/api/capabilities", {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (resp.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        this.specWizard.capabilities = data.capabilities || [];
+        this.specWizard.capabilitiesLoaded = true;
+      } catch (err) {
+        this.specWizard.capabilitiesError =
+          "Failed to load capabilities: " + err.message;
+      }
+    },
+
+    // Canonical form is CAP_UPPER_SNAKE, matching the server. Returns "" for
+    // anything that isn't a usable capability name.
+    normaliseCapability(name) {
+      const n = (name || "").trim().toUpperCase();
+      if (!n) return "";
+      const body = n.startsWith("CAP_") ? n.slice(4) : n;
+      if (!body || !/^[A-Z][A-Z0-9_]*$/.test(body)) return "";
+      return "CAP_" + body;
+    },
+
+    // Search matches the capability name first, then the description, so
+    // "net_admin" and "network administration" both find CAP_NET_ADMIN. Every
+    // whitespace-separated word must match somewhere, which keeps multi-word
+    // searches like "raw sockets" useful. Already selected capabilities are
+    // filtered out of their own list.
+    filteredCapabilities(kind) {
+      const words = (this.specWizard.capPicker[kind].search || "")
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 0);
+      const selected = new Set(this.specWizard.spec[kind] || []);
+      const scored = [];
+      for (const cap of this.specWizard.capabilities) {
+        if (selected.has(cap.name)) continue;
+        const name = (cap.name || "").toLowerCase();
+        const haystack = name + " " + (cap.description || "").toLowerCase();
+        let rank;
+        if (words.length === 0) {
+          rank = 0;
+        } else if (words.every((w) => name.includes(w))) {
+          rank = 0;
+        } else if (words.every((w) => haystack.includes(w))) {
+          rank = 1;
+        } else {
+          continue;
+        }
+        scored.push({ cap, rank });
+      }
+      const coll = new Intl.Collator(undefined, { sensitivity: "base" });
+      scored.sort((a, b) => {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        if (!!a.cap.common !== !!b.cap.common) return a.cap.common ? -1 : 1;
+        return coll.compare(a.cap.name, b.cap.name);
+      });
+      return scored.map((s) => s.cap);
+    },
+
+    // Description shown under a selected pill; blank for names that aren't in
+    // the catalog (hand-written capabilities still round-trip fine).
+    capabilityDescription(name) {
+      const match = this.specWizard.capabilities.find((c) => c.name === name);
+      return match ? match.description : "";
+    },
+
+    addCapability(kind, name) {
+      const canonical = this.normaliseCapability(name);
+      if (!canonical) return false;
+      this.specWizard.capabilitiesError = "";
+      if (!Array.isArray(this.specWizard.spec[kind])) {
+        this.specWizard.spec[kind] = [];
+      }
+      if (!this.specWizard.spec[kind].includes(canonical)) {
+        this.specWizard.spec[kind].push(canonical);
+      }
+      this.specWizard.capPicker[kind].search = "";
+      this.specWizard.capPicker[kind].open = false;
+      return true;
+    },
+
+    // Enter in the search box adds whatever was typed, so capabilities missing
+    // from the catalog can still be selected.
+    addTypedCapability(kind) {
+      const typed = this.specWizard.capPicker[kind].search;
+      const matches = this.filteredCapabilities(kind);
+      if (matches.length > 0) {
+        this.addCapability(kind, matches[0].name);
+        return;
+      }
+      if (!this.addCapability(kind, typed)) {
+        this.specWizard.capabilitiesError = `"${typed}" isn't a valid capability name.`;
+      }
+    },
+
+    removeCapability(kind, index) {
+      this.specWizard.spec[kind].splice(index, 1);
+    },
+
+    toggleCapabilityPicker(kind) {
+      const picker = this.specWizard.capPicker[kind];
+      picker.open = !picker.open;
+      if (picker.open) {
+        picker.search = "";
+        this.specWizard.capPicker[kind === "cap_add" ? "cap_drop" : "cap_add"].open = false;
+      }
+    },
+
+    filteredBaseImages() {
+      const term = (this.specWizard.imageSearch || "").toLowerCase();
+      let list = this.specWizard.baseImages;
+      if (term) {
+        list = list.filter(
+          (i) =>
+            (i.display_name || "").toLowerCase().includes(term) ||
+            (i.description || "").toLowerCase().includes(term) ||
+            (i.name || "").toLowerCase().includes(term) ||
+            (i.category || "").toLowerCase().includes(term),
+        );
+      }
+      // Recommended first, each bucket sorted by display_name (case-insensitive).
+      const coll = new Intl.Collator(undefined, { sensitivity: "base" });
+      return [...list].sort((a, b) => {
+        if (!!a.recommended !== !!b.recommended) return a.recommended ? -1 : 1;
+        return coll.compare(a.display_name || "", b.display_name || "");
+      });
+    },
+
+    // Called when the user picks a base image from the picker dropdown.
+    // Writes both the image string (visible) and the icon URL (hidden).
+    pickBaseImage(image) {
+      this.specWizard.spec.image = image.image;
+      this.specWizard.icon = image.icon || "";
+      this.specWizard.imageSearch = "";
+      this.specWizard.imageDropdownOpen = false;
+      if (image.default_memory && !this.specWizard.spec.memory) {
+        this.specWizard.spec.memory = image.default_memory;
+      }
+      if (image.default_cores && !this.specWizard.spec.cpus) {
+        this.specWizard.spec.cpus = image.default_cores;
+        this.specWizard.spec.cpu_type = "cores";
+      } else if (image.default_cpus && !this.specWizard.spec.cpus) {
+        this.specWizard.spec.cpus = image.default_cpus;
+      }
+    },
+
+    // Normalises a parsed spec so the wizard always sees all fields as arrays
+    // / objects (never null/undefined). Avoids x-for explosions on empty.
+    normaliseSpec(spec) {
+      const s = spec || {};
+      const toArray = (v) => (Array.isArray(v) ? v : []);
+      // Ensure Nomad volume entries always have a parameters object for x-model bindings.
+      const normaliseStorage = (arr) => {
+        if (!Array.isArray(arr)) return [];
+        return arr.map((e) => {
+          if (e.kind === "volume" && (!e.parameters || typeof e.parameters !== "object")) {
+            e.parameters = {};
+          }
+          return e;
+        });
+      };
+      return {
+        name: s.name || "",
+        image: s.image || "",
+        hostname: s.hostname || "",
+        command: toArray(s.command),
+        environment: toArray(s.environment),
+        ports: toArray(s.ports),
+        storage: normaliseStorage(s.storage),
+        devices: toArray(s.devices),
+        extra_hosts: toArray(s.extra_hosts),
+        dns: toArray(s.dns),
+        dns_search: toArray(s.dns_search),
+        cap_add: toArray(s.cap_add),
+        cap_drop: toArray(s.cap_drop),
+        network: s.network || "",
+        privileged: !!s.privileged,
+        memory: s.memory || "",
+        cpus: s.cpus || "",
+        cpu_type: s.cpu_type || "",
+        auth: s.auth || null,
+      };
+    },
+
+    // Wizard list helpers — the array variants need a stable shape for x-for.
+    // New entries go at the top so they're visible without scrolling once the
+    // list gets long.
+    wizardAddEnv() {
+      this.specWizard.spec.environment.unshift({ key: "", value: "" });
+    },
+    wizardRemoveEnv(i) {
+      this.specWizard.spec.environment.splice(i, 1);
+    },
+    wizardAddPort() {
+      this.specWizard.spec.ports.push({ label: "", host_port: null, container_port: null, protocol: "tcp" });
+    },
+    wizardRemovePort(i) {
+      this.specWizard.spec.ports.splice(i, 1);
+    },
+    wizardAddStorage(kind) {
+      const entry = { kind: kind || "bind", container_path: "", read_only: false, host_path: "", name: "", size: "" };
+      if (this.formData.platform === "nomad" && kind === "volume") {
+        entry.plugin_id = "";
+        entry.capacity_min = "";
+        entry.capacity_max = "";
+        entry.parameters = {};
+        entry.access_modes = [{ access_mode: "single-node-writer", attachment_mode: "file-system" }];
+      }
+      this.specWizard.spec.storage.unshift(entry);
+    },
+    wizardRemoveStorage(i) {
+      this.specWizard.spec.storage.splice(i, 1);
+    },
+    setVolumeType(i, value) {
+      const entry = this.specWizard.spec.storage[i];
+      if (value === "host") {
+        entry.volume_type = "host";
+        entry.access_modes = [];
+        if (!entry.plugin_id) entry.plugin_id = "mkdir";
+      } else {
+        entry.volume_type = "csi";
+        const mode = value === "multi" ? "multi-node-multi-writer" : "single-node-writer";
+        entry.access_modes = [{ access_mode: mode, attachment_mode: "file-system" }];
+      }
+    },
+
+    // --- Volume details modal (Nomad: parameters, secrets, capabilities, mount_options) ---
+
+    openVolumeDetails(index) {
+      const entry = this.specWizard.spec.storage[index];
+      if (!entry) return;
+      const d = this.specWizard.volumeDetails;
+      d.index = index;
+      // Serialize maps/arrays to YAML text for the textarea editors.
+      d.parameters = this._mapToYaml(entry.parameters);
+      d.secrets = this._mapToYaml(entry.secrets);
+      d.capabilities = this._capabilitiesToYaml(entry.access_modes);
+      d.mountOptions = this._mountOptionsToYaml(entry.fs_type, entry.mount_flags);
+      d.show = true;
+    },
+
+    closeVolumeDetails() {
+      this.specWizard.volumeDetails.show = false;
+    },
+
+    applyVolumeDetails() {
+      const d = this.specWizard.volumeDetails;
+      const entry = this.specWizard.spec.storage[d.index];
+      if (!entry) { d.show = false; return; }
+      // Parse YAML text back into structured fields.
+      entry.parameters = this._yamlToMap(d.parameters);
+      entry.secrets = this._yamlToMap(d.secrets);
+      entry.access_modes = this._yamlToCapabilities(d.capabilities, entry.access_modes);
+      const mo = this._yamlToMountOptions(d.mountOptions);
+      entry.fs_type = mo.fs_type || "";
+      entry.mount_flags = mo.mount_flags || [];
+      d.show = false;
+    },
+
+    // Helper: object → YAML lines (flat key-value only)
+    _mapToYaml(obj) {
+      if (!obj || typeof obj !== "object") return "";
+      const lines = [];
+      for (const [k, v] of Object.entries(obj)) {
+        if (v === "" || v === undefined || v === null) continue;
+        // Quote strings that contain special chars; leave numbers unquoted.
+        const val = typeof v === "number" ? String(v) : `"${String(v).replace(/"/g, '\\"')}"`;
+        lines.push(`${k}: ${val}`);
+      }
+      return lines.join("\n");
+    },
+
+    // Helper: YAML lines → object
+    _yamlToMap(text) {
+      if (!text || !text.trim()) return {};
+      const result = {};
+      for (const line of text.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const colonIdx = trimmed.indexOf(":");
+        if (colonIdx < 1) continue;
+        const key = trimmed.slice(0, colonIdx).trim();
+        let val = trimmed.slice(colonIdx + 1).trim();
+        // Strip surrounding quotes
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        result[key] = val;
+      }
+      return result;
+    },
+
+    // Helper: access_modes array → YAML list, excluding access_mode and
+    // attachment_mode (managed by the dropdown and backend respectively).
+    _capabilitiesToYaml(modes) {
+      if (!Array.isArray(modes) || modes.length === 0) return "";
+      const lines = [];
+      for (const m of modes) {
+        const extra = [];
+        for (const [k, v] of Object.entries(m)) {
+          if (k === "access_mode" || k === "attachment_mode") continue;
+          extra.push(`${k}: "${v || ""}"`);
+        }
+        if (extra.length === 0) continue;
+        lines.push("- " + extra[0]);
+        for (let i = 1; i < extra.length; i++) lines.push("  " + extra[i]);
+      }
+      return lines.join("\n");
+    },
+
+    // Helper: YAML list → access_modes array
+    // Helper: YAML list → access_modes array. access_mode and attachment_mode
+    // are NOT parsed from the textarea — they're preserved from existingModes
+    // (access_mode from the dropdown, attachment_mode always file-system).
+    _yamlToCapabilities(text, existingModes) {
+      if (!text || !text.trim()) return existingModes || [];
+      const parsed = [];
+      let current = null;
+      for (const line of text.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("- ")) {
+          if (current) parsed.push(current);
+          current = {};
+          const kv = trimmed.slice(2);
+          const p = this._parseInlineKV(kv);
+          if (p) current[p.key] = p.value;
+        } else if (current && trimmed.includes(":")) {
+          const p = this._parseInlineKV(trimmed);
+          if (p) current[p.key] = p.value;
+        }
+      }
+      if (current) parsed.push(current);
+
+      // Merge parsed extra fields onto existing modes, preserving access_mode
+      // and attachment_mode. If the textarea has more entries than existingModes,
+      // inject defaults for the extras.
+      const result = [];
+      for (let i = 0; i < parsed.length; i++) {
+        const merged = {};
+        const ex = existingModes && existingModes[i];
+        merged.access_mode = ex ? ex.access_mode : "single-node-writer";
+        merged.attachment_mode = ex ? ex.attachment_mode : "file-system";
+        for (const [k, v] of Object.entries(parsed[i])) {
+          if (k !== "access_mode" && k !== "attachment_mode") merged[k] = v;
+        }
+        result.push(merged);
+      }
+      // If nothing was parsed from textarea, keep existing modes as-is.
+      return result.length > 0 ? result : (existingModes || []);
+    },
+
+    // Helper: mount_options (fs_type + mount_flags) → YAML
+    _mountOptionsToYaml(fsType, mountFlags) {
+      const lines = [];
+      if (fsType) lines.push(`fs_type: "${fsType}"`);
+      if (Array.isArray(mountFlags) && mountFlags.length > 0) {
+        lines.push("mount_flags:");
+        for (const f of mountFlags) lines.push(`  - ${f}`);
+      }
+      return lines.join("\n");
+    },
+
+    // Helper: YAML → mount_options object
+    _yamlToMountOptions(text) {
+      if (!text || !text.trim()) return {};
+      const result = { fs_type: "", mount_flags: [] };
+      let inFlags = false;
+      for (const line of text.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("fs_type:")) {
+          let val = trimmed.slice(8).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+          result.fs_type = val;
+          inFlags = false;
+        } else if (trimmed === "mount_flags:" || trimmed.startsWith("mount_flags:")) {
+          inFlags = true;
+        } else if (inFlags && trimmed.startsWith("- ")) {
+          result.mount_flags.push(trimmed.slice(2).trim());
+        } else {
+          inFlags = false;
+        }
+      }
+      return result;
+    },
+
+    _parseInlineKV(s) {
+      const idx = s.indexOf(":");
+      if (idx < 1) return null;
+      const key = s.slice(0, idx).trim();
+      let val = s.slice(idx + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+      return { key, value: val };
+    },
+    wizardAddDevice() {
+      this.specWizard.spec.devices.push({ host_path: "", container_path: "", cgroup_permissions: "" });
+    },
+    wizardRemoveDevice(i) {
+      this.specWizard.spec.devices.splice(i, 1);
+    },
+
+    async applySpecWizard() {
+      if (!this.specWizard.wizardable) {
+        this.specWizard.show = false;
+        return;
+      }
+      this.specWizard.saving = true;
+      this.specWizard.error = "";
+      try {
+        const platform = this.formData.platform;
+        const originalJob = this.jobEditor ? this.jobEditor.getValue() : this.formData.job;
+        const originalVolumes = this.volumeEditor ? this.volumeEditor.getValue() : this.formData.volumes;
+        const resp = await fetch("/api/spec/build", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            platform,
+            original_job: originalJob,
+            original_volumes: originalVolumes,
+            spec: this.specWizard.spec,
+          }),
+        });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          throw new Error(`HTTP ${resp.status}: ${txt}`);
+        }
+        const data = await resp.json();
+        if (this.jobEditor) {
+          this.jobEditor.session.setValue(data.job || "");
+        } else {
+          this.formData.job = data.job || "";
+        }
+        if (this.volumeEditor) {
+          this.volumeEditor.session.setValue(data.volumes || "");
+        } else {
+          this.formData.volumes = data.volumes || "";
+        }
+        // Icon write-through: only when wizard.icon is set (picker was used).
+        if (this.specWizard.icon) {
+          this.formData.icon_url = this.specWizard.icon;
+          this.$nextTick(() => this.$dispatch("refresh-autocompleter"));
+        }
+        this.specWizard.show = false;
+      } catch (err) {
+        this.specWizard.error = "Failed to apply spec: " + err.message;
+      } finally {
+        this.specWizard.saving = false;
+      }
+    },
+
+    cancelSpecWizard() {
+      this.specWizard.show = false;
     },
   };
 };

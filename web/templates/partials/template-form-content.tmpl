@@ -143,7 +143,25 @@
           <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Orchestration</legend>
           <div class="space-y-6">
             <div>
-              <label class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
+              <div class="flex items-center gap-2 mb-1">
+                <label class="form-label mb-0">
+                  <span x-show="!isLocalContainer()">Nomad Job (HCL)</span>
+                  <span x-show="isLocalContainer()">Container Specification (YAML)</span>
+                </label>
+                <!-- Wizard button (opens modal) -->
+                <button type="button"
+                  x-show="formData.platform !== 'manual'"
+                  x-cloak
+                  @click="openSpecWizard()"
+                  class="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+                  title="Edit via wizard"
+                  aria-label="Edit spec via wizard">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+                  </svg>
+                  Wizard
+                </button>
+              </div>
               <div class="large-editor">
                 <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
                   <textarea name="job" class="form-field" id="job"></textarea>
@@ -175,7 +193,7 @@
               </div>
             </div>
             <div>
-              <div class="flex items-center justify-between gap-4 mb-1">
+              <div class="flex items-center gap-2 mb-1">
                 <label class="form-label mb-0">Ports</label>
                 <button type="button" x-on:click="addPort()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
@@ -494,8 +512,8 @@
         <fieldset x-show="formData.platform != 'manual'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Custom Fields</legend>
           <div class="space-y-6">
-            <div class="flex items-center justify-between gap-4 mb-3">
-              <div class="description">Additional fields shown when creating a space from this template.</div>
+            <div class="flex items-center gap-2 mb-3">
+              <span class="description mb-0">Additional fields shown when creating a space from this template.</span>
               <button type="button" x-on:click="addField()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -529,5 +547,7 @@
       <button type="button" @click="submitData(false)" class="btn-primary"  :disabled="loading || formData.is_managed" x-text="isEdit ? 'Save' : 'Create'"></button>
     </div>
   </div>
+
+  {{ template "spec-wizard-modal" . }}
 </div>
 {{ end }}
