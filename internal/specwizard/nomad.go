@@ -317,6 +317,18 @@ func BuildNomadHCL(spec *apiclient.UnifiedSpec, originalHCL string, originalVolu
 
 // emitDefaultNomadHCL produces a complete Nomad HCL job skeleton from the
 // spec. Output is deterministic so re-emitting an unchanged spec is a no-op.
+// defaultNomadEnv returns the environment variables knot injects into every
+// new Nomad template so the in-container agent can reach the server.
+func defaultNomadEnv() []apiclient.KeyValue {
+	return []apiclient.KeyValue{
+		{Key: "KNOT_SERVER", Value: "${{ .server.url }}"},
+		{Key: "KNOT_AGENT_ENDPOINT", Value: "${{ .server.agent_endpoint }}"},
+		{Key: "KNOT_SPACEID", Value: "${{ .space.id }}"},
+		{Key: "KNOT_LOGLEVEL", Value: "info"},
+		{Key: "TZ", Value: "${{ .user.timezone }}"},
+	}
+}
+
 func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 	name := spec.Name
 	if name == "" {
@@ -324,10 +336,7 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "job %s {\n", hclQuoted(name))
-	b.WriteString(`  datacenters = ["${{ .nomad.dc }}"]
-  namespace   = "default"
-
-  group "app" {
+	b.WriteString(`  group "app" {
     count = 1
 
 `)
@@ -336,13 +345,10 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString("    network {\n")
-	b.WriteString("      mode = \"bridge\"\n")
-	for _, p := range spec.Ports {
-		label := protocolToLabel(p.Protocol)
-		fmt.Fprintf(&b, "      port %q {\n        to = %d\n      }\n", label, p.ContainerPort)
+	if netBlock := emitNetworkBlock(spec.Ports, spec.Network); netBlock != "" {
+		b.WriteString(netBlock)
+		b.WriteString("\n")
 	}
-	b.WriteString("    }\n\n")
 
 	b.WriteString("    task \"app\" {\n")
 	b.WriteString("      driver = \"docker\"\n\n")
@@ -377,13 +383,16 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 	}
 	b.WriteString("      }\n\n")
 
-	if len(spec.Environment) > 0 {
-		b.WriteString("      env {\n")
-		for _, kv := range spec.Environment {
-			fmt.Fprintf(&b, "        %s = %s\n", hclKey(kv.Key), hclQuoted(kv.Value))
-		}
-		b.WriteString("      }\n\n")
+	// Always emit the env block in a fresh template — the knot agent needs
+	// these to connect back to the server. User-added vars are appended after.
+	b.WriteString("      env {\n")
+	for _, kv := range defaultNomadEnv() {
+		fmt.Fprintf(&b, "        %s = %s\n", hclKey(kv.Key), hclQuoted(kv.Value))
 	}
+	for _, kv := range spec.Environment {
+		fmt.Fprintf(&b, "        %s = %s\n", hclKey(kv.Key), hclQuoted(kv.Value))
+	}
+	b.WriteString("      }\n\n")
 
 	hasResources := spec.Memory != "" || spec.CPUs != ""
 	if hasResources {
@@ -1321,16 +1330,18 @@ func emitServiceBlocks(ports []apiclient.PortMapping) string {
 		if label == "" {
 			label = protocolToLabel(p.Protocol)
 		}
+		// Consul service names use hyphens, not underscores.
+		serviceName := strings.ReplaceAll(label, "_", "-")
 		protos := expandProtocols(p.Protocol)
 		if len(protos) <= 1 {
 			b.WriteString("      service {\n")
-			fmt.Fprintf(&b, "        name = %q\n", label)
+			fmt.Fprintf(&b, "        name = %q\n", serviceName)
 			fmt.Fprintf(&b, "        port = %q\n", label)
 			b.WriteString("      }\n")
 		} else {
 			for _, proto := range protos {
 				b.WriteString("      service {\n")
-				fmt.Fprintf(&b, "        name = %q\n", label+"-"+proto)
+				fmt.Fprintf(&b, "        name = %q\n", serviceName+"-"+proto)
 				fmt.Fprintf(&b, "        port = %q\n", label+"-"+proto)
 				b.WriteString("      }\n")
 			}
