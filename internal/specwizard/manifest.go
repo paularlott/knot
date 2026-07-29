@@ -36,6 +36,11 @@ type Manifest struct {
 	Version     int          `toml:"version" json:"version"`
 	Description string       `toml:"description" json:"description"`
 	Images      []ImageEntry `toml:"image" json:"images"`
+
+	// RegistryAuth is set by the API handler (not parsed from TOML) to tell
+	// the wizard whether server.base_image.registry_user/password are
+	// configured, so it can inject an auth block when picking an image.
+	RegistryAuth bool `toml:"-" json:"registry_auth"`
 }
 
 var (

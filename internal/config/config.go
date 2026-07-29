@@ -56,6 +56,8 @@ type ServerConfig struct {
 	KnotLibPath               string
 	BaseImageRegistry         string
 	BaseImagesManifest        string
+	BaseImageRegistryUser     string
+	BaseImageRegistryPassword string
 }
 
 // SessionCookieDomain returns the domain to set on the web session cookie so

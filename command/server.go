@@ -597,15 +597,27 @@ var ServerCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:         "base-image-registry",
 			Usage:        "Default registry prefix for base images referenced by the template spec wizard. Exposed to specs as ${{ .server.base_image_registry }}.",
-			ConfigPath:   []string{"server.base_image_registry"},
+			ConfigPath:   []string{"server.base_image.registry_url"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY"},
 			DefaultValue: "registry-1.docker.io/paularlott",
 		},
 		&cli.StringFlag{
 			Name:       "base-images-manifest",
 			Usage:      "Path to a TOML manifest of base images for the template spec wizard. Defaults to the bundled manifest.",
-			ConfigPath: []string{"server.base_images_manifest"},
+			ConfigPath: []string{"server.base_image.manifest"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_MANIFEST"},
+		},
+		&cli.StringFlag{
+			Name:       "base-image-registry-user",
+			Usage:      "Username for the base image registry. Exposed to specs as ${{ .server.base_image_registry_user }}.",
+			ConfigPath: []string{"server.base_image.registry_user"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY_USER"},
+		},
+		&cli.StringFlag{
+			Name:       "base-image-registry-password",
+			Usage:      "Password for the base image registry. Exposed to specs as ${{ .server.base_image_registry_password }}.",
+			ConfigPath: []string{"server.base_image.registry_password"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY_PASSWORD"},
 		},
 
 		// MCP flags
@@ -1467,6 +1479,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 		BaseImageRegistry:         cmd.GetString("base-image-registry"),
 		BaseImagesManifest:        cmd.GetString("base-images-manifest"),
+		BaseImageRegistryUser:     cmd.GetString("base-image-registry-user"),
+		BaseImageRegistryPassword: cmd.GetString("base-image-registry-password"),
 	}
 
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present

@@ -816,6 +816,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       baseImages: [],
       baseImagesLoaded: false,
       baseImagesError: "",
+      registryAuth: false,
       imageSearch: "",
       imageDropdownOpen: false,
       // Linux capability catalog (name + description) for the searchable
@@ -936,6 +937,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         }
         const data = await resp.json();
         this.specWizard.baseImages = (data.images || []).filter((i) => i.image);
+        this.specWizard.registryAuth = !!data.registry_auth;
         this.specWizard.baseImagesLoaded = true;
       } catch (err) {
         this.specWizard.baseImagesError = "Failed to load base images: " + err.message;
@@ -1095,6 +1097,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         this.specWizard.spec.cpu_type = "cores";
       } else if (image.default_cpus && !this.specWizard.spec.cpus) {
         this.specWizard.spec.cpus = image.default_cpus;
+      }
+      // Inject registry auth from server config if available and the spec
+      // doesn't already have an auth block.
+      if (this.specWizard.registryAuth && !this.specWizard.spec.auth) {
+        this.specWizard.spec.auth = {
+          username: "${{ .server.base_image_registry_user }}",
+          password: "${{ .server.base_image_registry_password }}",
+        };
       }
     },
 

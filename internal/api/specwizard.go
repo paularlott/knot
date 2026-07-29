@@ -19,6 +19,10 @@ func HandleGetBaseImages(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	cfg := config.GetServerConfig()
+	if cfg != nil && cfg.BaseImageRegistryUser != "" && cfg.BaseImageRegistryPassword != "" {
+		manifest.RegistryAuth = true
+	}
 	rest.WriteResponse(http.StatusOK, w, r, manifest)
 }
 
