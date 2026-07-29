@@ -457,8 +457,9 @@ func TestBuildContainerYAML_specialCharacters(t *testing.T) {
 	}
 	// Round trip: parse what we built and check the values survived.
 	spec2, _, _ := ParseContainerYAML(job, "")
-	if len(spec2.Environment) != 2 {
-		t.Fatalf("Environment len = %d", len(spec2.Environment))
+	// 5 default knot env vars + 2 user vars
+	if len(spec2.Environment) != 7 {
+		t.Fatalf("Environment len = %d, want 7 (5 defaults + 2 user)", len(spec2.Environment))
 	}
 	for _, kv := range spec2.Environment {
 		if kv.Key == "PASSWORD" && kv.Value != `p@ss"with\quotes` {

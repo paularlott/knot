@@ -334,6 +334,10 @@ func BuildContainerYAML(spec *apiclient.UnifiedSpec, originalJob, originalVolume
 		}
 	}
 
+	// Inject default knot env vars (same as Nomad) so the agent can reach
+	// the server. User-added vars are appended after.
+	env := defaultKnotEnv()
+	env = append(env, spec.Environment...)
 	js := jobSpec{
 		ContainerName: spec.Name,
 		Image:         spec.Image,
@@ -346,7 +350,7 @@ func BuildContainerYAML(spec *apiclient.UnifiedSpec, originalJob, originalVolume
 		Ports:         portMappingStrings(spec.Ports),
 		Volumes:       storageBindStrings(spec.Storage),
 		Devices:       hostContainerStrings(spec.Devices),
-		Environment:   keyValueStrings(spec.Environment),
+		Environment:   keyValueStrings(env),
 		AddHost:       hostIPStrings(spec.ExtraHosts),
 		DNS:           spec.DNS,
 		DNSSearch:     spec.DNSSearch,

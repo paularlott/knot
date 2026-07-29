@@ -317,9 +317,9 @@ func BuildNomadHCL(spec *apiclient.UnifiedSpec, originalHCL string, originalVolu
 
 // emitDefaultNomadHCL produces a complete Nomad HCL job skeleton from the
 // spec. Output is deterministic so re-emitting an unchanged spec is a no-op.
-// defaultNomadEnv returns the environment variables knot injects into every
-// new Nomad template so the in-container agent can reach the server.
-func defaultNomadEnv() []apiclient.KeyValue {
+// defaultKnotEnv returns the environment variables knot injects into every
+// new template so the in-container agent can reach the server.
+func defaultKnotEnv() []apiclient.KeyValue {
 	return []apiclient.KeyValue{
 		{Key: "KNOT_SERVER", Value: "${{ .server.url }}"},
 		{Key: "KNOT_AGENT_ENDPOINT", Value: "${{ .server.agent_endpoint }}"},
@@ -386,7 +386,7 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 	// Always emit the env block in a fresh template — the knot agent needs
 	// these to connect back to the server. User-added vars are appended after.
 	b.WriteString("      env {\n")
-	for _, kv := range defaultNomadEnv() {
+	for _, kv := range defaultKnotEnv() {
 		fmt.Fprintf(&b, "        %s = %s\n", hclKey(kv.Key), hclQuoted(kv.Value))
 	}
 	for _, kv := range spec.Environment {
