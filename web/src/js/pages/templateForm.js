@@ -1130,6 +1130,26 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       } else if (image.default_cpus && !this.specWizard.spec.cpus) {
         this.specWizard.spec.cpus = image.default_cpus;
       }
+      // Image-specific env vars (e.g. KNOT_VNC_HTTP_PORT for desktop images).
+      if (image.default_env) {
+        for (const entry of image.default_env) {
+          const eqIdx = entry.indexOf("=");
+          if (eqIdx < 1) continue;
+          const key = entry.slice(0, eqIdx);
+          const value = entry.slice(eqIdx + 1);
+          if (!this.specWizard.spec.environment.some((e) => e.key === key)) {
+            this.specWizard.spec.environment.unshift({ key, value });
+          }
+        }
+      }
+      // Image-specific template ports (e.g. Web:80:http for PHP images).
+      if (image.default_port) {
+        for (const dp of image.default_port) {
+          if (!this.formData.ports.some((p) => p.port === dp.port)) {
+            this.formData.ports.unshift({ name: dp.name, port: dp.port, protocol: dp.protocol });
+          }
+        }
+      }
       // Inject registry auth from server config if available and the spec
       // doesn't already have an auth block.
       if (this.specWizard.registryAuth && !this.specWizard.spec.auth) {

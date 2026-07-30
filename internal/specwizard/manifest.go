@@ -29,6 +29,22 @@ type ImageEntry struct {
 	DefaultCPUs   string   `toml:"default_cpus" json:"default_cpus"`
 	DefaultCores  string   `toml:"default_cores" json:"default_cores"`
 	Recommended   bool     `toml:"recommended" json:"recommended"`
+
+	// DefaultEnv are KEY=value env vars pre-filled when picking this image
+	// (e.g. KNOT_VNC_HTTP_PORT=5680 for desktop images).
+	DefaultEnv []string `toml:"default_env" json:"default_env,omitempty"`
+
+	// DefaultPorts are template-level ports pre-filled when picking this
+	// image (e.g. Web:80:http for PHP images). These are the template port
+	// metadata, not the Nomad/Docker network ports.
+	DefaultPorts []ManifestPort `toml:"default_port" json:"default_port,omitempty"`
+}
+
+// ManifestPort is a template-level port entry in the manifest.
+type ManifestPort struct {
+	Name     string `toml:"name" json:"name"`
+	Port     uint16 `toml:"port" json:"port"`
+	Protocol string `toml:"protocol" json:"protocol"`
 }
 
 // Manifest is the parsed catalog of base images plus catalog metadata.
