@@ -1,5 +1,5 @@
 {{ define "spec-wizard-modal" }}
-<div x-cloak x-show="specWizard.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="specWizard.show" @keydown.esc.stop="if (!specWizard.volumeDetails.show) specWizard.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="specWizardTitle">
+<div x-cloak x-show="specWizard.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="specWizard.show" @keydown.esc.stop="if (!specWizard.volumeDetails.show && !specWizard.templateEditor.show) specWizard.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="specWizardTitle">
   <div x-show="specWizard.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl max-h-[90vh]">
     <!-- Header -->
     <div class="ui-modal-header">
@@ -317,6 +317,32 @@
             </div>
           </template>
         </fieldset>
+
+        <!-- Templates (Nomad only) -->
+        <fieldset x-show="formData.platform === 'nomad'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-2 mb-2">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Templates</legend>
+            <button type="button" @click="wizardAddTemplate()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              <span class="sr-only">Add template</span>
+            </button>
+          </div>
+          <template x-if="!specWizard.spec.templates || specWizard.spec.templates.length === 0">
+            <p class="text-xs text-gray-500 dark:text-gray-400">No templates. Click + to add one.</p>
+          </template>
+          <template x-for="(tmpl, i) in specWizard.spec.templates" :key="i">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-mono text-gray-700 dark:text-gray-300 grow truncate" x-text="tmpl.destination || '(unset)'"></span>
+              <button type="button" @click="openTemplateEditor(i)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5 shrink-0" :title="'Edit ' + (tmpl.destination || 'template')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
+              </button>
+              <button type="button" @click="wizardRemoveTemplate(i)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                <span class="sr-only">Remove</span>
+              </button>
+            </div>
+          </template>
+        </fieldset>
       </form>
     </div>
 
@@ -363,6 +389,58 @@
       <div class="ui-modal-footer">
         <button type="button" @click="closeVolumeDetails()" class="ui-button-secondary sm:mr-auto">Cancel</button>
         <button type="button" @click="applyVolumeDetails()" class="btn-primary">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template editor modal -->
+  <div x-cloak x-show="specWizard.templateEditor.show" x-transition.opacity.duration.150ms @keydown.esc.stop="closeTemplateEditor()" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="templateEditorTitle">
+    <div x-show="specWizard.templateEditor.show" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl max-h-[85vh]" @click.outside="closeTemplateEditor()">
+      <div class="ui-modal-header">
+        <h3 id="templateEditorTitle" class="ui-modal-title" x-text="specWizard.templateEditor.destination || 'New Template'"></h3>
+        <button @click="closeTemplateEditor()" aria-label="close" class="ui-modal-close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="ui-modal-body-scroll flex-1 space-y-4">
+        <div>
+          <label class="form-label">Destination</label>
+          <input type="text" class="form-field font-mono text-sm" x-model="specWizard.templateEditor.destination" placeholder="local/custom.ini" aria-label="Template destination path">
+        </div>
+        <div>
+          <label class="form-label">Data</label>
+          <div id="templateAceEditor" class="h-64 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" x-ref="templateAceEditor"></div>
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <div>
+            <label class="form-label">Change Mode</label>
+            <select class="form-field w-36" x-model="specWizard.templateEditor.change_mode" aria-label="Change mode">
+              <option value="">(default)</option>
+              <option value="noop">noop</option>
+              <option value="signal">signal</option>
+              <option value="restart">restart</option>
+            </select>
+          </div>
+          <div x-show="specWizard.templateEditor.change_mode === 'signal'">
+            <label class="form-label">Change Signal</label>
+            <input type="text" class="form-field w-32" x-model="specWizard.templateEditor.change_signal" placeholder="SIGHUP" aria-label="Change signal">
+          </div>
+        </div>
+        <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+          <label class="form-label">Mount into container (optional)</label>
+          <div class="flex items-center gap-2">
+            <input type="text" class="form-field grow font-mono text-sm" x-model="specWizard.templateEditor.mount_target" placeholder="/etc/custom.ini" aria-label="Mount target path in container">
+            <label class="flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" class="sr-only peer" x-model="specWizard.templateEditor.mount_readonly">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-2 text-xs font-medium text-gray-900 dark:text-gray-300">ro</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="ui-modal-footer">
+        <button type="button" @click="closeTemplateEditor()" class="ui-button-secondary sm:mr-auto">Cancel</button>
+        <button type="button" @click="applyTemplateEditor()" class="btn-primary">Apply</button>
       </div>
     </div>
   </div>

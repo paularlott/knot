@@ -449,11 +449,8 @@ func TestCheckFullyRepresentable_nomadWithTemplate(t *testing.T) {
 }
 `
 	fully, reason := CheckFullyRepresentable("nomad", job, "", nil)
-	if fully {
-		t.Error("spec with template block should not be fully representable")
-	}
-	if !strings.Contains(reason, "template") {
-		t.Errorf("reason should mention 'template': %s", reason)
+	if !fully {
+		t.Errorf("spec with template block should be fully representable: %s", reason)
 	}
 }
 

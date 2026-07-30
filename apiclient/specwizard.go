@@ -123,6 +123,28 @@ type UnifiedSpec struct {
 	// (Nomad only) a `volume {}` stanza plus `volume_mount {}` — all kept in
 	// sync from one row instead of three separately-edited artefacts.
 	Storage []StorageEntry `json:"storage,omitempty"`
+
+	// Templates holds Nomad `template {}` blocks (Nomad only). Each carries
+	// the heredoc data, destination path, optional change_mode/change_signal,
+	// and an optional Docker mount that binds the rendered file into the
+	// container.
+	Templates []NomadTemplate `json:"templates,omitempty"`
+}
+
+// NomadTemplate models a single Nomad `template {}` block as the wizard
+// edits it. The destination path is the unique key. The data is the raw
+// heredoc content (may contain knot template variables like ${{ .X }}).
+// ChangeMode/ChangeSignal control what happens when the rendered file
+// changes. MountTarget/MountReadonly, when set, cause the wizard to emit a
+// matching `mount {}` block inside the docker-driver `config {}` so the
+// rendered file is available inside the container.
+type NomadTemplate struct {
+	Destination   string `json:"destination"`
+	Data          string `json:"data"`
+	ChangeMode    string `json:"change_mode,omitempty"`
+	ChangeSignal  string `json:"change_signal,omitempty"`
+	MountTarget   string `json:"mount_target,omitempty"`
+	MountReadonly bool   `json:"mount_readonly,omitempty"`
 }
 
 // KeyValue is a single environment variable or generic KEY=value pair.

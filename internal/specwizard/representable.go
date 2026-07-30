@@ -96,6 +96,7 @@ var nomadWizardTaskBlocks = map[string]bool{
 	"resources":    true,
 	"volume_mount": true,
 	"service":      true,
+	"template":     true,
 	"driver":       true, // field, not block, but appears at task level
 }
 

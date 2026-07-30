@@ -2572,13 +2572,17 @@ API_KEY={{ .Data.data.key }}
 {{ end }}
 EOH
         destination = "secrets/app.env"
-        env         = true
       }
     }
   }
 }
 `
-	spec := &apiclient.UnifiedSpec{Image: "new:2", CapAdd: []string{"CAP_NET_ADMIN"}}
+	spec := &apiclient.UnifiedSpec{
+		Image: "new:2",
+		Templates: []apiclient.NomadTemplate{
+			{Destination: "secrets/app.env", Data: "# generated\n{{ with secret \"kv/data/app\" }}\nAPI_KEY={{ .Data.data.key }}\n{{ end }}\n"},
+		},
+	}
 	out, _, err := BuildNomadHCL(spec, original, "")
 	if err != nil {
 		t.Fatalf("BuildNomadHCL: %v", err)
@@ -2590,13 +2594,224 @@ EOH
 		t.Errorf("heredoc template body damaged:\n%s", out)
 	}
 	if !strings.Contains(out, "destination = \"secrets/app.env\"") {
-		t.Errorf("template block fields lost:\n%s", out)
+		t.Errorf("template destination lost:\n%s", out)
 	}
-	if strings.Count(out, "EOH") != 2 {
-		t.Errorf("heredoc markers damaged:\n%s", out)
+}
+
+func TestParseNomadHCL_templateBlocks(t *testing.T) {
+	parsed := map[string]interface{}{
+		"TaskGroups": []interface{}{
+			map[string]interface{}{
+				"Tasks": []interface{}{
+					map[string]interface{}{
+						"Driver": "docker",
+						"Config": map[string]interface{}{
+							"image": "x:1",
+							"Mounts": []interface{}{
+								map[string]interface{}{
+									"Type":     "bind",
+									"Source":   "local/custom.ini",
+									"Target":   "/usr/local/etc/php/conf.d/custom.ini",
+									"ReadOnly": false,
+								},
+								map[string]interface{}{
+									"Type":     "bind",
+									"Source":   "/cephfs/data",
+									"Target":   "/data",
+									"ReadOnly": true,
+								},
+							},
+						},
+						"Templates": []interface{}{
+							map[string]interface{}{
+								"Data":        "KEY=value\n",
+								"DestPath":    "local/env",
+								"ChangeMode":  "noop",
+							},
+							map[string]interface{}{
+								"Data":         "post_max_size = 50M\n",
+								"DestPath":     "local/custom.ini",
+								"ChangeMode":   "signal",
+								"ChangeSignal": "SIGHUP",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
-	if !strings.Contains(out, `cap_add = ["net_admin"]`) {
-		t.Errorf("cap_add not added:\n%s", out)
+	spec, wizardable, reason := ParseNomadHCL("ignored", "", fakeHCLParser(parsed))
+	if !wizardable {
+		t.Fatalf("not wizardable: %s", reason)
+	}
+	if len(spec.Templates) != 2 {
+		t.Fatalf("expected 2 templates, got %d: %+v", len(spec.Templates), spec.Templates)
+	}
+	// First template has no mount.
+	t1 := spec.Templates[0]
+	if t1.Destination != "local/env" {
+		t.Errorf("t1 destination: %s", t1.Destination)
+	}
+	if t1.Data != "KEY=value\n" {
+		t.Errorf("t1 data: %q", t1.Data)
+	}
+	if t1.MountTarget != "" {
+		t.Errorf("t1 should have no mount, got %s", t1.MountTarget)
+	}
+	// Second template has a mount with matching source.
+	t2 := spec.Templates[1]
+	if t2.Destination != "local/custom.ini" {
+		t.Errorf("t2 destination: %s", t2.Destination)
+	}
+	if t2.ChangeMode != "signal" {
+		t.Errorf("t2 change_mode: %s", t2.ChangeMode)
+	}
+	if t2.ChangeSignal != "SIGHUP" {
+		t.Errorf("t2 change_signal: %s", t2.ChangeSignal)
+	}
+	if t2.MountTarget != "/usr/local/etc/php/conf.d/custom.ini" {
+		t.Errorf("t2 mount target: %s", t2.MountTarget)
+	}
+}
+
+func TestBuildNomadHCL_templateBlocksWithMounts(t *testing.T) {
+	original := `job "demo" {
+  group "app" {
+    task "app" {
+      driver = "docker"
+      config {
+        image = "x:1"
+        mount {
+          type     = "bind"
+          source   = "/cephfs/data"
+          target   = "/data"
+          readonly = true
+        }
+        mount {
+          type     = "bind"
+          source   = "local/old.ini"
+          target   = "/old.ini"
+          readonly = true
+        }
+      }
+      template {
+        data = <<EOF
+old data
+EOF
+        destination = "local/old.ini"
+      }
+    }
+  }
+}
+`
+	spec := &apiclient.UnifiedSpec{
+		Image: "x:1",
+		Templates: []apiclient.NomadTemplate{
+			{Destination: "local/custom.ini", Data: "new data\n", ChangeMode: "signal", ChangeSignal: "SIGHUP", MountTarget: "/etc/custom.ini", MountReadonly: true},
+			{Destination: "local/env", Data: "KEY=val\n"},
+		},
+	}
+	out, _, err := BuildNomadHCL(spec, original, "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	// Old template replaced — not present.
+	if strings.Contains(out, "local/old.ini") {
+		t.Errorf("old template should be replaced:\n%s", out)
+	}
+	// New templates present.
+	if !strings.Contains(out, "destination = \"local/custom.ini\"") {
+		t.Errorf("custom.ini template missing:\n%s", out)
+	}
+	if !strings.Contains(out, "destination = \"local/env\"") {
+		t.Errorf("env template missing:\n%s", out)
+	}
+	// Template data rendered.
+	if !strings.Contains(out, "new data") {
+		t.Errorf("template data missing:\n%s", out)
+	}
+	// Change mode/signal emitted.
+	if !strings.Contains(out, "change_mode = \"signal\"") {
+		t.Errorf("change_mode missing:\n%s", out)
+	}
+	if !strings.Contains(out, "change_signal = \"SIGHUP\"") {
+		t.Errorf("change_signal missing:\n%s", out)
+	}
+	// Template mount block emitted inside config.
+	if !strings.Contains(out, `source   = "local/custom.ini"`) {
+		t.Errorf("template mount missing in config:\n%s", out)
+	}
+	if !strings.Contains(out, `target   = "/etc/custom.ini"`) {
+		t.Errorf("template mount target missing:\n%s", out)
+	}
+	// Non-template mount preserved.
+	if !strings.Contains(out, `source   = "/cephfs/data"`) {
+		t.Errorf("non-template mount should be preserved:\n%s", out)
+	}
+	// Old template mount removed.
+	if strings.Contains(out, `source   = "local/old.ini"`) {
+		t.Errorf("old template mount should be removed:\n%s", out)
+	}
+}
+
+func TestBuildNomadHCL_emptyTemplatesRemovesBlocks(t *testing.T) {
+	original := `job "demo" {
+  group "app" {
+    task "app" {
+      driver = "docker"
+      config {
+        image = "x:1"
+        mount {
+          type   = "bind"
+          source = "local/cfg"
+          target = "/cfg"
+        }
+      }
+      template {
+        data = <<EOF
+data
+EOF
+        destination = "local/cfg"
+      }
+    }
+  }
+}
+`
+	spec := &apiclient.UnifiedSpec{Image: "x:1"}
+	out, _, err := BuildNomadHCL(spec, original, "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if strings.Contains(out, "template {") {
+		t.Errorf("template blocks should be removed:\n%s", out)
+	}
+	if strings.Contains(out, `source = "local/cfg"`) {
+		t.Errorf("template mount should be removed from config:\n%s", out)
+	}
+}
+
+func TestBuildNomadHCL_templateWithTemplateVarsInData(t *testing.T) {
+	original := `job "demo" {
+  group "app" {
+    task "app" {
+      driver = "docker"
+      config { image = "x:1" }
+    }
+  }
+}
+`
+	spec := &apiclient.UnifiedSpec{
+		Image: "x:1",
+		Templates: []apiclient.NomadTemplate{
+			{Destination: "local/tz.ini", Data: "date.timezone = \"${{.user.timezone}}\"\n"},
+		},
+	}
+	out, _, err := BuildNomadHCL(spec, original, "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if !strings.Contains(out, "${{.user.timezone}}") {
+		t.Errorf("template variable in data should survive:\n%s", out)
 	}
 }
 

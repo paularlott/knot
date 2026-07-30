@@ -860,6 +860,18 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         cpus: "",
         cpu_type: "",
         auth: null,
+        templates: [],
+      },
+
+      templateEditor: {
+        show: false,
+        index: -1,
+        destination: "",
+        change_mode: "",
+        change_signal: "",
+        mount_target: "",
+        mount_readonly: false,
+        ace: null,
       },
     },
 
@@ -1143,6 +1155,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         cpus: s.cpus || "",
         cpu_type: s.cpu_type || "",
         auth: s.auth || null,
+        templates: toArray(s.templates),
       };
     },
 
@@ -1218,6 +1231,86 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       const mo = this._yamlToMountOptions(d.mountOptions);
       entry.fs_type = mo.fs_type || "";
       entry.mount_flags = mo.mount_flags || [];
+      d.show = false;
+    },
+
+    // --- Template editor (Nomad: heredoc data + optional mount) ---
+
+    wizardAddTemplate() {
+      this.specWizard.spec.templates.unshift({
+        destination: "",
+        data: "",
+        change_mode: "",
+        change_signal: "",
+        mount_target: "",
+        mount_readonly: false,
+      });
+    },
+
+    wizardRemoveTemplate(i) {
+      this.specWizard.spec.templates.splice(i, 1);
+    },
+
+    openTemplateEditor(i) {
+      const entry = this.specWizard.spec.templates[i];
+      if (!entry) return;
+      const d = this.specWizard.templateEditor;
+      d.index = i;
+      d.destination = entry.destination || "";
+      d.change_mode = entry.change_mode || "";
+      d.change_signal = entry.change_signal || "";
+      d.mount_target = entry.mount_target || "";
+      d.mount_readonly = !!entry.mount_readonly;
+      d.show = true;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          let container = this.$refs.templateAceEditor || document.getElementById("templateAceEditor");
+          if (!container) return;
+          let darkMode = false;
+          try { darkMode = JSON.parse(localStorage.getItem("_x_darkMode")); } catch (e) {}
+          // Reuse existing editor if it was already created.
+          if (d.ace) {
+            d.ace.setValue(entry.data || "");
+            d.ace.clearSelection();
+            d.ace.moveCursorToPosition({ row: 0, column: 0 });
+            d.ace.resize();
+            return;
+          }
+          d.ace = ace.edit(container);
+          d.ace.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
+          d.ace.session.setMode("ace/mode/text");
+          d.ace.setOptions({
+            printMargin: false,
+            newLineMode: "unix",
+            tabSize: 2,
+            wrap: true,
+            vScrollBarAlwaysVisible: true,
+            customScrollbar: true,
+            useWorker: false,
+          });
+          setSpecCompleter(d.ace, [...templateVariableCompletions]);
+          d.ace.setValue(entry.data || "");
+          d.ace.clearSelection();
+          d.ace.moveCursorToPosition({ row: 0, column: 0 });
+          d.ace.resize();
+        });
+      });
+    },
+
+    closeTemplateEditor() {
+      this.specWizard.templateEditor.show = false;
+    },
+
+    applyTemplateEditor() {
+      const d = this.specWizard.templateEditor;
+      const entry = this.specWizard.spec.templates[d.index];
+      if (!entry) { d.show = false; return; }
+      entry.destination = d.destination;
+      entry.data = d.ace ? d.ace.getValue() : "";
+      entry.change_mode = d.change_mode;
+      entry.change_signal = d.change_signal;
+      entry.mount_target = d.mount_target;
+      entry.mount_readonly = d.mount_readonly;
       d.show = false;
     },
 

@@ -85,6 +85,24 @@ func ParseNomadHCL(job, volumes string, parser HCLParser) (spec *apiclient.Unifi
 	// for string values inside blocks.
 	spec.Name = extractJobLabel(job)
 	spec.Storage = mergeNomadStorage(spec.Storage, volumes)
+
+	// The Nomad parse API doesn't populate the Data field for embedded
+	// templates (heredoc content), and the mount key name varies by version.
+	// Extract both directly from the raw HCL.
+	if len(spec.Templates) > 0 {
+		tmplData := extractTemplateDataFromHCL(job)
+		mountData := extractTemplateMountsFromHCL(job)
+		for i := range spec.Templates {
+			if spec.Templates[i].Data == "" {
+				spec.Templates[i].Data = tmplData[spec.Templates[i].Destination]
+			}
+			if mnt, ok := mountData[spec.Templates[i].Destination]; ok {
+				spec.Templates[i].MountTarget = mnt.Target
+				spec.Templates[i].MountReadonly = mnt.ReadOnly
+			}
+		}
+	}
+
 	return spec, true, ""
 }
 
@@ -212,6 +230,54 @@ func extractFromParsedJob(parsed map[string]interface{}) (*apiclient.UnifiedSpec
 				ContainerPath: dest,
 				ReadOnly:      readonly,
 			})
+		}
+	}
+
+	// Template blocks (task level). Each carries a heredoc `data`, a
+	// `destination` path, and optional change_mode/change_signal. We also
+	// look for `mount {}` blocks inside the docker-driver config that bind
+	// the rendered file into the container — matched by source path.
+	mountsBySource := map[string]map[string]interface{}{}
+	if mounts, _ := configMap["Mounts"].([]interface{}); mounts != nil {
+		for _, m := range mounts {
+			mm, _ := m.(map[string]interface{})
+			if mm == nil {
+				continue
+			}
+			src, _ := mm["Source"].(string)
+			if src != "" {
+				mountsBySource[src] = mm
+			}
+		}
+	}
+	if tmpls, _ := task["Templates"].([]interface{}); tmpls != nil {
+		for _, t := range tmpls {
+			tm, _ := t.(map[string]interface{})
+			if tm == nil {
+				continue
+			}
+			dest, _ := tm["DestPath"].(string)
+			if dest == "" {
+				continue
+			}
+			data := getStr(tm, "Data")
+			// "restart" is Nomad's default change_mode; only store if the
+			// user explicitly set it in the HCL.
+			cm := getStr(tm, "ChangeMode")
+			if cm == "restart" {
+				cm = ""
+			}
+			nt := apiclient.NomadTemplate{
+				Destination:  dest,
+				Data:         data,
+				ChangeMode:   cm,
+				ChangeSignal: getStr(tm, "ChangeSignal"),
+			}
+			if mnt, ok := mountsBySource[dest]; ok {
+				nt.MountTarget, _ = mnt["Target"].(string)
+				nt.MountReadonly, _ = mnt["ReadOnly"].(bool)
+			}
+			spec.Templates = append(spec.Templates, nt)
 		}
 	}
 
@@ -422,6 +488,11 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 		b.WriteString("\n")
 	}
 
+	if tmpl := emitTemplateBlocks(spec.Templates); tmpl != "" {
+		b.WriteString(tmpl)
+		b.WriteString("\n")
+	}
+
 	b.WriteString("    }\n  }\n}\n")
 	return b.String()
 }
@@ -482,6 +553,9 @@ func patchNomadHCL(hcl string, spec *apiclient.UnifiedSpec) (string, error) {
 	// Replace service {} blocks as a group — one per port so Consul can
 	// discover the space's exposed services.
 	taskBody = replaceRepeatedBlocks(taskBody, "service", emitServiceBlocks(spec.Ports))
+
+	// Replace template {} blocks as a group (Nomad template stanzas).
+	taskBody = replaceRepeatedBlocks(taskBody, "template", emitTemplateBlocks(spec.Templates))
 
 	out = out[:taskRange.start] + taskBody + out[taskRange.end:]
 
@@ -878,6 +952,11 @@ func patchTaskConfig(body string, spec *apiclient.UnifiedSpec) string {
 	// longer exist in the group's network block.
 	configBlock = patchConfigListField(configBlock, "ports", configPortsLiteral(spec.Ports))
 
+	// Replace template-related mount {} blocks inside config (docker bind
+	// mounts whose source is a template destination). Non-template mounts
+	// (host paths) are preserved.
+	configBlock = replaceTemplateMounts(configBlock, spec.Templates)
+
 	return body[:blockStart] + configBlock + body[blockEnd:]
 }
 
@@ -1087,7 +1166,140 @@ func patchJobLabel(hcl, name string) string {
 	return jobLabelRe.ReplaceAllString(hcl, `$1"`+escaped+`"$3`)
 }
 
-// extractAuthFromHCL scans the raw HCL text for a docker-driver auth block
+// extractTemplateDataFromHCL scans the raw HCL for `template {}` blocks and
+// extracts the heredoc data for each, keyed by destination. The Nomad parse
+// API doesn't populate the Data field for embedded templates, so we read it
+// directly from the source text.
+func extractTemplateDataFromHCL(hcl string) map[string]string {
+	result := map[string]string{}
+	re := regexp.MustCompile(`(?m)^[ \t]*template\b[^{\n"]*(?:"[^"]*"[^{\n"]*)*\{`)
+	locs := re.FindAllStringIndex(hcl, -1)
+	for _, loc := range locs {
+		openIdx := loc[1] - 1
+		closeIdx, ok := matchBrace(hcl, openIdx)
+		if !ok {
+			continue
+		}
+		block := hcl[loc[0] : closeIdx+1]
+
+		// Extract destination.
+		destRe := regexp.MustCompile(`destination\s*=\s*"([^"]*)"`)
+		destMatch := destRe.FindStringSubmatch(block)
+		if len(destMatch) < 2 {
+			continue
+		}
+		dest := destMatch[1]
+
+		// Extract heredoc data: find `data = <<TAG` or `data = <<-TAG`.
+		dataRe := regexp.MustCompile(`data\s*=\s*<<-?([A-Za-z_][A-Za-z0-9_]*)`)
+		dataMatch := dataRe.FindStringSubmatch(block)
+		if len(dataMatch) < 2 {
+			continue
+		}
+		tag := dataMatch[1]
+
+		// Find content between the opening line and the closing tag line.
+		dataAssignIdx := strings.Index(block, dataMatch[0])
+		if dataAssignIdx < 0 {
+			continue
+		}
+		// Skip past the opening line (everything up to and including the newline after <<TAG).
+		rest := block[dataAssignIdx:]
+		newlineIdx := strings.Index(rest, "\n")
+		if newlineIdx < 0 {
+			continue
+		}
+		content := rest[newlineIdx+1:]
+
+		// Find the closing tag line and trim everything from it onward.
+		tagBytes := []byte(tag)
+		lines := strings.Split(content, "\n")
+		var contentLines []string
+		for _, line := range lines {
+			if strings.TrimSpace(line) == string(tagBytes) {
+				break
+			}
+			contentLines = append(contentLines, line)
+		}
+		result[dest] = strings.Join(contentLines, "\n")
+	}
+	return result
+}
+
+// templateMountInfo holds the container mount details for a template file.
+type templateMountInfo struct {
+	Target   string
+	ReadOnly bool
+}
+
+// extractTemplateMountsFromHCL scans the raw HCL for `mount {}` blocks inside
+// the first task's `config {}` block whose `source` starts with "local/"
+// (i.e. they reference template-rendered files). Returns a map keyed by
+// source path.
+func extractTemplateMountsFromHCL(hcl string) map[string]templateMountInfo {
+	result := map[string]templateMountInfo{}
+
+	taskRange, ok := findFirstTaskBlock(hcl)
+	if !ok {
+		return result
+	}
+	taskBody := hcl[taskRange.start:taskRange.end]
+
+	// Find the config block within the task.
+	configRe := regexp.MustCompile(`(?m)^[ \t]*config[ \t]*\{`)
+	configLoc := configRe.FindStringIndex(taskBody)
+	if configLoc == nil {
+		return result
+	}
+	configEnd, ok := matchBrace(taskBody, configLoc[1]-1)
+	if !ok {
+		return result
+	}
+	configBlock := taskBody[configLoc[0] : configEnd+1]
+
+	// Find all mount blocks within config.
+	mountRe := regexp.MustCompile(`(?m)^[ \t]*mount\b[^{\n"]*(?:"[^"]*"[^{\n"]*)*\{`)
+	mountLocs := mountRe.FindAllStringIndex(configBlock, -1)
+	for _, loc := range mountLocs {
+		openIdx := loc[1] - 1
+		closeIdx, ok := matchBrace(configBlock, openIdx)
+		if !ok {
+			continue
+		}
+		mountBlock := configBlock[loc[0] : closeIdx+1]
+
+		source := extractHCLStringField(mountBlock, "source")
+		if !strings.HasPrefix(source, "local/") {
+			continue
+		}
+		result[source] = templateMountInfo{
+			Target:   extractHCLStringField(mountBlock, "target"),
+			ReadOnly: extractHCLBoolField(mountBlock, "readonly"),
+		}
+	}
+	return result
+}
+
+// extractHCLStringField extracts a `field = "value"` string from a block of
+// HCL text. Returns "" if not found.
+func extractHCLStringField(block, field string) string {
+	re := regexp.MustCompile(regexp.QuoteMeta(field) + `\s*=\s*"([^"]*)"`)
+	m := re.FindStringSubmatch(block)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
+}
+
+// extractHCLBoolField extracts a `field = true/false` boolean from a block of
+// HCL text.
+func extractHCLBoolField(block, field string) bool {
+	re := regexp.MustCompile(regexp.QuoteMeta(field) + `\s*=\s*(true|false)`)
+	m := re.FindStringSubmatch(block)
+	return len(m) >= 2 && m[1] == "true"
+}
+
+// extractAuthFromHCL scans the raw HCL text for the first `auth {}` block for a docker-driver auth block
 // inside the first config {} and extracts username/password. Used as a
 // fallback when the Nomad-parsed JSON doesn't carry auth in Config.auth.
 func extractAuthFromHCL(hcl string) *apiclient.RegistryAuth {
@@ -1350,6 +1562,102 @@ func emitServiceBlocks(ports []apiclient.PortMapping) string {
 	return b.String()
 }
 
+// emitTemplateBlocks produces the `template {}` blocks that go at the task
+// level. Each block carries its heredoc data, destination, and optional
+// change_mode/change_signal.
+func emitTemplateBlocks(templates []apiclient.NomadTemplate) string {
+	if len(templates) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, t := range templates {
+		if t.Destination == "" {
+			continue
+		}
+		b.WriteString("      template {\n")
+		b.WriteString("        data = <<EOF\n")
+		b.WriteString(t.Data)
+		if !strings.HasSuffix(t.Data, "\n") {
+			b.WriteString("\n")
+		}
+		b.WriteString("EOF\n")
+		fmt.Fprintf(&b, "        destination = %q\n", t.Destination)
+		if t.ChangeMode != "" {
+			fmt.Fprintf(&b, "        change_mode = %q\n", t.ChangeMode)
+		}
+		if t.ChangeSignal != "" {
+			fmt.Fprintf(&b, "        change_signal = %q\n", t.ChangeSignal)
+		}
+		b.WriteString("      }\n")
+	}
+	return b.String()
+}
+
+// emitConfigMountBlocks produces the `mount {}` blocks that go inside the
+// docker-driver `config {}` for templates that have a mount target set.
+// Only templates with MountTarget produce a mount block.
+func emitConfigMountBlocks(templates []apiclient.NomadTemplate) string {
+	var b strings.Builder
+	for _, t := range templates {
+		if t.MountTarget == "" {
+			continue
+		}
+		b.WriteString("        mount {\n")
+		b.WriteString("          type     = \"bind\"\n")
+		fmt.Fprintf(&b, "          source   = %q\n", t.Destination)
+		fmt.Fprintf(&b, "          target   = %q\n", t.MountTarget)
+		if t.MountReadonly {
+			b.WriteString("          readonly = true\n")
+		}
+		b.WriteString("        }\n")
+	}
+	return b.String()
+}
+
+// replaceTemplateMounts replaces mount blocks inside the config block whose
+// `source` starts with "local/" (template destinations). Non-template mounts
+// (host paths, conditional mounts) are left untouched.
+func replaceTemplateMounts(configBlock string, templates []apiclient.NomadTemplate) string {
+	// Remove all existing local/ mounts regardless of which template they
+	// belonged to — old mounts from removed templates must be cleaned up too.
+	configBlock = removeMountsBySourcePrefix(configBlock, "local/")
+
+	newMounts := emitConfigMountBlocks(templates)
+	if newMounts == "" {
+		return configBlock
+	}
+	return insertAfterBrace(configBlock, newMounts)
+}
+
+// removeMountsBySourcePrefix removes all mount blocks whose source starts
+// with the given prefix. Used to clean up template mounts when no templates
+// remain in the spec.
+func removeMountsBySourcePrefix(configBlock, prefix string) string {
+	mountRe := regexp.MustCompile(`(?m)^[ \t]*mount\b[^{\n"]*(?:"[^"]*"[^{\n"]*)*\{`)
+	locs := mountRe.FindAllStringIndex(configBlock, -1)
+	if len(locs) == 0 {
+		return configBlock
+	}
+	srcRe := regexp.MustCompile(`source\s*=\s*"([^"]*)"`)
+	for i := len(locs) - 1; i >= 0; i-- {
+		open := locs[i][1] - 1
+		closeIdx, ok := matchBrace(configBlock, open)
+		if !ok {
+			continue
+		}
+		blockText := configBlock[locs[i][0] : closeIdx+1]
+		m := srcRe.FindStringSubmatch(blockText)
+		if m != nil && strings.HasPrefix(m[1], prefix) {
+			end := closeIdx + 1
+			if end < len(configBlock) && configBlock[end] == '\n' {
+				end++
+			}
+			configBlock = configBlock[:locs[i][0]] + configBlock[end:]
+		}
+	}
+	return configBlock
+}
+
 func emitNetworkBlock(ports []apiclient.PortMapping, mode string) string {
 	if len(ports) == 0 && mode == "" {
 		return ""
@@ -1529,6 +1837,11 @@ func toStringSlice(v interface{}) []string {
 		return []string{x}
 	}
 	return nil
+}
+
+func getStr(m map[string]interface{}, key string) string {
+	s, _ := m[key].(string)
+	return s
 }
 
 func toFloat(v interface{}) (float64, bool) {
