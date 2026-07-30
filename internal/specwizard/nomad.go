@@ -392,7 +392,6 @@ func defaultKnotEnv() []apiclient.KeyValue {
 		{Key: "KNOT_AGENT_ENDPOINT", Value: "${{ .server.agent_endpoint }}"},
 		{Key: "KNOT_SPACEID", Value: "${{ .space.id }}"},
 		{Key: "KNOT_USER", Value: "${{ .user.username }}"},
-		{Key: "KNOT_SERVICE_PASSWORD", Value: "${{ .user.service_password }}"},
 		{Key: "KNOT_LOGLEVEL", Value: "info"},
 		{Key: "TZ", Value: "${{ .user.timezone }}"},
 	}

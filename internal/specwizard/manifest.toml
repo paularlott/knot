@@ -50,7 +50,7 @@ image           = "${{ .server.base_image_registry }}/knot-desktop:26.04"
 icon            = "/icons/ubuntu-linux-alt.svg"
 category        = "desktop"
 default_memory  = "4G"
-default_env     = ["KNOT_VNC_HTTP_PORT=5680"]
+default_env     = ["KNOT_VNC_HTTP_PORT=5680", "KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 recommended     = true
 
 [[image]]
@@ -61,7 +61,7 @@ image           = "${{ .server.base_image_registry }}/knot-desktop:24.04"
 icon            = "/icons/ubuntu-linux-alt.svg"
 category        = "desktop"
 default_memory  = "4G"
-default_env     = ["KNOT_VNC_HTTP_PORT=5680"]
+default_env     = ["KNOT_VNC_HTTP_PORT=5680", "KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
 # ── PHP / Web ───────────────────────────────────────────────────────────────
 
@@ -119,6 +119,7 @@ icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
 recommended     = true
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 
 [[image]]
 name            = "mariadb-11.8"
@@ -128,6 +129,7 @@ image           = "${{ .server.base_image_registry }}/knot-mariadb:11.8"
 icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 
 [[image]]
 name            = "mariadb-11.4"
@@ -137,6 +139,7 @@ image           = "${{ .server.base_image_registry }}/knot-mariadb:11.4"
 icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 
 [[image]]
 name            = "mariadb-10.11"
@@ -146,6 +149,7 @@ image           = "${{ .server.base_image_registry }}/knot-mariadb:10.11"
 icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 
 [[image]]
 name            = "valkey-9.1"
