@@ -117,6 +117,11 @@ type UnifiedSpec struct {
 	// handling should reference ${{ .var.* }} or ${{ .custom.* }} values.
 	Auth *RegistryAuth `json:"auth,omitempty"`
 
+	// Driver is the Nomad task driver ("docker" or "podman"). Empty for
+	// container platforms. Controls how template mounts are emitted: docker
+	// uses `mount {}` blocks, podman uses `volumes = [...]` entries.
+	Driver string `json:"driver,omitempty"`
+
 	// Storage is the unified list of mounts the wizard edits — see
 	// StorageEntry. Each entry expands to everything needed for its Kind on
 	// the target platform: a bind-mount line, a Volume Definition entry, and

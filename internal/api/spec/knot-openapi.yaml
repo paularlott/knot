@@ -3062,6 +3062,34 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/templates/import:
+    post:
+      summary: Import a Template from YAML
+      description: Imports a template from a portable YAML export. Resolves script names to IDs and creates the template.
+      operationId: importTemplate
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: Portable YAML template export.
+      responses:
+        "201":
+          description: Template imported successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateCreateResponse"
+        "400":
+          description: Invalid YAML or missing required fields.
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/templates/validate:
     post:
       summary: Validate a Template Specification
@@ -3332,6 +3360,34 @@ paths:
                     total_spaces:
                       type: integer
                       description: The total number of spaces on the node.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/templates/{template_id}/export:
+    get:
+      summary: Export a Template as Portable YAML
+      description: Returns a portable YAML representation of a template suitable for version control and cross-instance import.
+      operationId: exportTemplate
+      tags: [Templates]
+      parameters:
+        - in: path
+          name: template_id
+          schema:
+            type: string
+          required: true
+          description: Template ID or name.
+      responses:
+        "200":
+          description: Portable YAML export.
+          content:
+            text/plain:
+              schema:
+                type: string
         "401":
           $ref: "#/components/responses/unauthorized"
         "404":

@@ -131,11 +131,12 @@ func extractFromParsedJob(parsed map[string]interface{}) (*apiclient.UnifiedSpec
 	task, _ := tasks[0].(map[string]interface{})
 
 	driver, _ := task["Driver"].(string)
-	if driver != "docker" {
-		return nil, false, fmt.Sprintf("task driver %q is not supported by the wizard (only \"docker\")", driver)
+	if driver != "docker" && driver != "podman" {
+		return nil, false, fmt.Sprintf("task driver %q is not supported by the wizard (only \"docker\" or \"podman\")", driver)
 	}
+	spec.Driver = driver
 
-	// Image + config (docker driver: image, command, args, hostname,
+	// Image + config (docker/podman driver: image, command, args, hostname,
 	// privileged, auth all live inside the task's Config map).
 	configMap, _ := task["Config"].(map[string]interface{})
 	if img, ok := configMap["image"].(string); ok {
@@ -417,7 +418,11 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 	}
 
 	b.WriteString("    task \"app\" {\n")
-	b.WriteString("      driver = \"docker\"\n\n")
+	driver := spec.Driver
+	if driver == "" {
+		driver = "docker"
+	}
+	fmt.Fprintf(&b, "      driver = %q\n\n", driver)
 	b.WriteString("      config {\n")
 	fmt.Fprintf(&b, "        image = %s\n", hclQuoted(spec.Image))
 	if spec.Hostname != "" {
@@ -952,10 +957,13 @@ func patchTaskConfig(body string, spec *apiclient.UnifiedSpec) string {
 	// longer exist in the group's network block.
 	configBlock = patchConfigListField(configBlock, "ports", configPortsLiteral(spec.Ports))
 
-	// Replace template-related mount {} blocks inside config (docker bind
-	// mounts whose source is a template destination). Non-template mounts
-	// (host paths) are preserved.
-	configBlock = replaceTemplateMounts(configBlock, spec.Templates)
+	// Replace template-related mount blocks or volumes entries inside config.
+	// Docker uses `mount {}` blocks, podman uses `volumes = [...]`.
+	if spec.Driver == "podman" {
+		configBlock = replaceTemplateVolumes(configBlock, spec.Templates)
+	} else {
+		configBlock = replaceTemplateMounts(configBlock, spec.Templates)
+	}
 
 	return body[:blockStart] + configBlock + body[blockEnd:]
 }
@@ -1257,7 +1265,7 @@ func extractTemplateMountsFromHCL(hcl string) map[string]templateMountInfo {
 	}
 	configBlock := taskBody[configLoc[0] : configEnd+1]
 
-	// Find all mount blocks within config.
+	// Find all mount blocks within config (docker driver).
 	mountRe := regexp.MustCompile(`(?m)^[ \t]*mount\b[^{\n"]*(?:"[^"]*"[^{\n"]*)*\{`)
 	mountLocs := mountRe.FindAllStringIndex(configBlock, -1)
 	for _, loc := range mountLocs {
@@ -1277,6 +1285,28 @@ func extractTemplateMountsFromHCL(hcl string) map[string]templateMountInfo {
 			ReadOnly: extractHCLBoolField(mountBlock, "readonly"),
 		}
 	}
+
+	// Also check volumes = [...] entries (podman driver).
+	// Format: "host_path:container_path[:options]" where options can be "ro".
+	volRe := regexp.MustCompile(`(?ms)^\s*volumes\s*=\s*\[(.*?)\]`)
+	volMatch := volRe.FindStringSubmatch(configBlock)
+	if len(volMatch) >= 2 {
+		entryRe := regexp.MustCompile(`"([^"]*)"`)
+		for _, m := range entryRe.FindAllStringSubmatch(volMatch[1], -1) {
+			parts := strings.SplitN(m[1], ":", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			source := parts[0]
+			if !strings.HasPrefix(source, "local/") {
+				continue
+			}
+			target := parts[1]
+			readOnly := len(parts) >= 3 && strings.Contains(parts[2], "ro")
+			result[source] = templateMountInfo{Target: target, ReadOnly: readOnly}
+		}
+	}
+
 	return result
 }
 
@@ -1656,6 +1686,73 @@ func removeMountsBySourcePrefix(configBlock, prefix string) string {
 		}
 	}
 	return configBlock
+}
+
+// replaceTemplateVolumes handles the podman driver's `volumes = [...]` list
+// inside config. Entries whose host path starts with "local/" (template
+// destinations) are removed and re-emitted from the spec's templates.
+// Non-template volume entries are preserved.
+func replaceTemplateVolumes(configBlock string, templates []apiclient.NomadTemplate) string {
+	// Build new template volume entries in "source:target[:ro]" format.
+	var newEntries []string
+	for _, t := range templates {
+		if t.MountTarget == "" || t.Destination == "" {
+			continue
+		}
+		entry := t.Destination + ":" + t.MountTarget
+		if t.MountReadonly {
+			entry += ":ro"
+		}
+		newEntries = append(newEntries, fmt.Sprintf("%q", entry))
+	}
+
+	// Find volumes = [...] field.
+	volRe := regexp.MustCompile(`(?ms)^\s*volumes\s*=\s*\[([^\]]*)\]`)
+	loc := volRe.FindStringSubmatchIndex(configBlock)
+
+	if loc == nil {
+		if len(newEntries) == 0 {
+			return configBlock
+		}
+		volLiteral := fmt.Sprintf("        volumes = [%s]\n", strings.Join(newEntries, ", "))
+		return insertAfterBrace(configBlock, volLiteral)
+	}
+
+	// Parse existing entries, keeping only non-template ones.
+	existingContent := configBlock[loc[2]:loc[3]]
+	entryRe := regexp.MustCompile(`"([^"]*)"`)
+	var keptEntries []string
+	for _, m := range entryRe.FindAllStringSubmatch(existingContent, -1) {
+		parts := strings.SplitN(m[1], ":", 3)
+		if len(parts) >= 1 && strings.HasPrefix(parts[0], "local/") {
+			continue
+		}
+		keptEntries = append(keptEntries, fmt.Sprintf("%q", m[1]))
+	}
+
+	allEntries := append(keptEntries, newEntries...)
+
+	if len(allEntries) == 0 {
+		// Remove the entire volumes field + its line.
+		start := loc[0]
+		for start > 0 && configBlock[start-1] != '\n' {
+			start--
+		}
+		end := loc[1]
+		if end < len(configBlock) && configBlock[end] == '\n' {
+			end++
+		}
+		return configBlock[:start] + configBlock[end:]
+	}
+
+	// Rebuild, preserving the original line's indentation.
+	lineStart := loc[0]
+	for lineStart > 0 && configBlock[lineStart-1] != '\n' {
+		lineStart--
+	}
+	indent := configBlock[lineStart:loc[0]]
+	replacement := indent + "volumes = [" + strings.Join(allEntries, ", ") + "]"
+	return configBlock[:lineStart] + replacement + configBlock[loc[1]:]
 }
 
 func emitNetworkBlock(ports []apiclient.PortMapping, mode string) string {

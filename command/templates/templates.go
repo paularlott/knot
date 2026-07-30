@@ -43,5 +43,7 @@ var TemplatesCmd = &cli.Command{
 	},
 	Commands: []*cli.Command{
 		ListCmd,
+		ExportCmd,
+		ImportCmd,
 	},
 }

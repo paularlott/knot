@@ -102,6 +102,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     },
     loading: true,
     isEdit: isEdit,
+    _formDirty: false,
+    discardConfirm: { show: false },
     nameValid: true,
     jobValid: true,
     jobRequired: false,
@@ -257,6 +259,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       editor.session.on("change", () => {
         this.formData.job = editor.getValue();
         this.clearSpecFieldErrors("job");
+        this.scheduleSpecValidation();
+        this._formDirty = true;
       });
       editor.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
       editor.setOptions({
@@ -276,6 +280,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       editorVol.session.on("change", () => {
         this.formData.volumes = editorVol.getValue();
         this.clearSpecFieldErrors("volumes");
+        this.scheduleSpecValidation();
+        this._formDirty = true;
       });
       editorVol.setTheme(
         darkMode ? "ace/theme/github_dark" : "ace/theme/github",
@@ -509,6 +515,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         }),
       );
     },
+    scheduleSpecValidation() {
+      clearTimeout(this._specValidationTimer);
+      this._specValidationTimer = setTimeout(() => {
+        this.validateSpecs();
+      }, 750);
+    },
+
     async validateSpecs() {
       if (this.formData.platform === "manual") {
         this.clearSpecFieldErrors("job");
@@ -642,6 +655,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       )
         .then(async (response) => {
           if (response.status === 200) {
+            self._formDirty = false;
             self.$dispatch("show-alert", {
               msg: "Template updated",
               type: "success",
@@ -653,6 +667,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           } else if (response.status === 201) {
             const data = await response.json();
 
+            self._formDirty = false;
             self.$dispatch("show-alert", {
               msg: "Template created",
               type: "success",
@@ -1101,6 +1116,11 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       this.specWizard.icon = image.icon || "";
       this.specWizard.imageSearch = "";
       this.specWizard.imageDropdownOpen = false;
+      // Auto-fill the template name if empty.
+      if (!this.formData.name && image.display_name) {
+        this.formData.name = image.display_name;
+        this.checkName();
+      }
       if (image.default_memory && !this.specWizard.spec.memory) {
         this.specWizard.spec.memory = image.default_memory;
       }
@@ -1155,6 +1175,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         cpus: s.cpus || "",
         cpu_type: s.cpu_type || "",
         auth: s.auth || null,
+        driver: s.driver || "",
         templates: toArray(s.templates),
       };
     },
@@ -1497,6 +1518,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.$nextTick(() => this.$dispatch("refresh-autocompleter"));
         }
         this.specWizard.show = false;
+        this.$dispatch('show-alert', { msg: "Spec updated via wizard: " + this.generateWizardSummary(this.specWizard.spec), type: 'success' });
+        this.validateSpecs();
       } catch (err) {
         this.specWizard.error = "Failed to apply spec: " + err.message;
       } finally {
@@ -1506,6 +1529,41 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
 
     cancelSpecWizard() {
       this.specWizard.show = false;
+    },
+
+    confirmCloseTemplate() {
+      if (this.specWizard.show || this.specWizard.volumeDetails.show || this.specWizard.templateEditor.show) {
+        return;
+      }
+      if (this._formDirty) {
+        this.discardConfirm.show = true;
+      } else {
+        this.$dispatch("close-template-form");
+      }
+    },
+
+    discardChanges() {
+      this._formDirty = false;
+      this.discardConfirm.show = false;
+      this.$dispatch("close-template-form");
+    },
+
+    generateWizardSummary(spec) {
+      const parts = [];
+      if (spec.image) {
+        const img = spec.image.replace(/\$\{\{[^}]*\}\}/g, "…");
+        parts.push(img.length > 45 ? img.slice(0, 42) + "…" : img);
+      }
+      if (spec.memory) parts.push(spec.memory);
+      if (spec.cpus) {
+        parts.push(spec.cpus + (spec.cpu_type === "cores" ? " cores" : (this.formData.platform === "nomad" ? " MHz" : " CPU")));
+      }
+      if (spec.ports && spec.ports.length) parts.push(spec.ports.length + (spec.ports.length > 1 ? " ports" : " port"));
+      if (spec.environment && spec.environment.length) parts.push(spec.environment.length + " env");
+      if (spec.storage && spec.storage.length) parts.push(spec.storage.length + (spec.storage.length > 1 ? " volumes" : " volume"));
+      if (spec.templates && spec.templates.length) parts.push(spec.templates.length + (spec.templates.length > 1 ? " templates" : " template"));
+      if (spec.cap_add && spec.cap_add.length) parts.push(spec.cap_add.length + (spec.cap_add.length > 1 ? " caps" : " cap"));
+      return parts.join(" · ");
     },
   };
 };
