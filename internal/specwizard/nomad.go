@@ -195,6 +195,9 @@ func extractFromParsedJob(parsed map[string]interface{}) (*apiclient.UnifiedSpec
 		if memMB, ok := toFloat(res["MemoryMB"]); ok && memMB > 0 {
 			spec.Memory = formatMemory(int64(memMB))
 		}
+		if memMaxMB, ok := toFloat(res["MemoryMaxMB"]); ok && memMaxMB > 0 {
+			spec.MemoryMax = formatMemory(int64(memMaxMB))
+		}
 		// Nomad has two CPU fields: `cores` (whole CPU cores, integer) and
 		// `cpu` (MHz, integer). They're semantically different and NOT
 		// interchangeable. Preserve whichever the user set rather than
@@ -466,12 +469,16 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 	}
 	b.WriteString("      }\n\n")
 
-	hasResources := spec.Memory != "" || spec.CPUs != ""
+	hasResources := spec.Memory != "" || spec.MemoryMax != "" || spec.CPUs != ""
 	if hasResources {
 		b.WriteString("      resources {\n")
 		if spec.Memory != "" {
 			memMB, _ := memoryToMB(spec.Memory)
 			fmt.Fprintf(&b, "        memory = %d\n", memMB)
+		}
+		if spec.MemoryMax != "" {
+			memMaxMB, _ := memoryToMB(spec.MemoryMax)
+			fmt.Fprintf(&b, "        memory_max = %d\n", memMaxMB)
 		}
 		if spec.CPUs != "" {
 			cpuVal, _ := strconv.ParseInt(spec.CPUs, 10, 64)
@@ -549,8 +556,8 @@ func patchNomadHCL(hcl string, spec *apiclient.UnifiedSpec) (string, error) {
 	}
 
 	// Replace resources {} block.
-	if spec.Memory != "" || spec.CPUs != "" || hasBlock(taskBody, "resources") {
-		taskBody = replaceOrRemoveBlock(taskBody, "resources", emitResourcesBlock(spec.Memory, spec.CPUs, spec.CPUType))
+	if spec.Memory != "" || spec.MemoryMax != "" || spec.CPUs != "" || hasBlock(taskBody, "resources") {
+		taskBody = replaceOrRemoveBlock(taskBody, "resources", emitResourcesBlock(spec.Memory, spec.MemoryMax, spec.CPUs, spec.CPUType))
 	}
 
 	// Replace volume_mount {} blocks as a group.
@@ -1410,8 +1417,8 @@ func emitEnvBlock(env []apiclient.KeyValue) string {
 	return b.String()
 }
 
-func emitResourcesBlock(memory, cpus, cpuType string) string {
-	if memory == "" && cpus == "" {
+func emitResourcesBlock(memory, memoryMax, cpus, cpuType string) string {
+	if memory == "" && memoryMax == "" && cpus == "" {
 		return ""
 	}
 	var b strings.Builder
@@ -1419,6 +1426,10 @@ func emitResourcesBlock(memory, cpus, cpuType string) string {
 	if memory != "" {
 		memMB, _ := memoryToMB(memory)
 		fmt.Fprintf(&b, "        memory = %d\n", memMB)
+	}
+	if memoryMax != "" {
+		memMaxMB, _ := memoryToMB(memoryMax)
+		fmt.Fprintf(&b, "        memory_max = %d\n", memMaxMB)
 	}
 	if cpus != "" {
 		// Emit as integer — both cpu (MHz) and cores are integers in Nomad.

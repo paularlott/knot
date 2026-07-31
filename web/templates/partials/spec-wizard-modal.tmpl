@@ -114,6 +114,10 @@
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Memory</label>
               <input type="text" class="form-field" x-model="specWizard.spec.memory" placeholder="e.g. 2G">
             </div>
+            <div x-show="formData.platform === 'nomad'" x-cloak>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Memory Max</label>
+              <input type="text" class="form-field" x-model="specWizard.spec.memory_max" placeholder="e.g. 4G">
+            </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 x-text="formData.platform === 'nomad' ? (specWizard.spec.cpu_type === 'cores' ? 'Cores' : 'CPU (MHz)') : 'CPUs'">CPUs</label>
@@ -297,7 +301,7 @@
         <!-- Ports -->
         <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
-            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Ports</legend>
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Container Ports</legend>
             <button type="button" @click="wizardAddPort()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
               <span class="sr-only">Add port</span>

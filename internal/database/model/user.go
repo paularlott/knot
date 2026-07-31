@@ -41,6 +41,7 @@ type User struct {
 	MaxTunnels            uint32                      `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
 	PreferredShell        string                      `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
 	Timezone              string                      `json:"timezone" db:"timezone" msgpack:"timezone"`
+	Preferences           map[string]any              `json:"preferences" db:"preferences,json" msgpack:"preferences"`
 	LastLoginAt           *time.Time                  `json:"last_login_at" db:"last_login_at" msgpack:"last_login_at"`
 	UpdatedAt             hlc.Timestamp               `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 	CreatedAt             time.Time                   `json:"created_at" db:"created_at" msgpack:"created_at"`
@@ -207,6 +208,51 @@ func (u *User) ClearOAuthTokens(providerID string) {
 		ep.RefreshToken = ""
 		u.ExternalAuthProviders[providerID] = ep
 	}
+}
+
+// Preference keys stored under User.Preferences.
+const PrefNavStarred = "nav.starred"
+
+// GetNavStarred returns the user's pinned (starred) navigation URLs in their
+// chosen display order, or nil if none are set. JSON round-trips decode the
+// stored array as []any, so coerce back to []string here.
+func (u *User) GetNavStarred() []string {
+	if u.Preferences == nil {
+		return nil
+	}
+	switch arr := u.Preferences[PrefNavStarred].(type) {
+	case []string:
+		return arr
+	case []any:
+		out := make([]string, 0, len(arr))
+		for _, v := range arr {
+			if s, ok := v.(string); ok {
+				out = append(out, s)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+	return nil
+}
+
+// SetNavStarred stores the given navigation URLs as the user's pinned set in
+// the supplied order. An empty slice clears the preference (opts out of the
+// starred layout and returns the menu to its default arrangement).
+func (u *User) SetNavStarred(order []string) {
+	if u.Preferences == nil {
+		u.Preferences = map[string]any{}
+	}
+	if len(order) == 0 {
+		delete(u.Preferences, PrefNavStarred)
+		if len(u.Preferences) == 0 {
+			u.Preferences = nil
+		}
+		return
+	}
+	u.Preferences[PrefNavStarred] = order
 }
 
 func generateRandomString(length int) string {

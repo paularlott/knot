@@ -67,8 +67,8 @@ default_env     = ["KNOT_VNC_HTTP_PORT=5680", "KNOT_SERVICE_PASSWORD=${{ .user.s
 
 [[image]]
 name            = "php-8.5"
-display_name    = "PHP 8.5 (Ubuntu 26.04)"
-description     = "Ubuntu 26.04 with Caddy and PHP 8.5."
+display_name    = "PHP 8.5"
+description     = "Ubuntu with Caddy and PHP 8.5."
 image           = "${{ .server.base_image_registry }}/knot-php:8.5"
 icon            = "/icons/php.svg"
 category        = "web"
@@ -82,8 +82,8 @@ protocol = "http"
 
 [[image]]
 name            = "php-8.4"
-display_name    = "PHP 8.4 (Ubuntu 26.04)"
-description     = "Ubuntu 26.04 with Caddy and PHP 8.4."
+display_name    = "PHP 8.4"
+description     = "Ubuntu with Caddy and PHP 8.4."
 image           = "${{ .server.base_image_registry }}/knot-php:8.4"
 icon            = "/icons/php.svg"
 category        = "web"
@@ -96,10 +96,40 @@ protocol = "http"
 
 [[image]]
 name            = "php-8.3"
-display_name    = "PHP 8.3 (Ubuntu 26.04)"
-description     = "Ubuntu 26.04 with Caddy and PHP 8.3."
+display_name    = "PHP 8.3"
+description     = "Ubuntu with Caddy and PHP 8.3."
 image           = "${{ .server.base_image_registry }}/knot-php:8.3"
 icon            = "/icons/php.svg"
+category        = "web"
+default_memory  = "2G"
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+
+[[image]]
+name            = "frankenphp-8.5"
+display_name    = "FrankenPHP 8.5"
+description     = "Ubuntu with FrankenPHP 8.5."
+image           = "${{ .server.base_image_registry }}/knot-frankenphp:8.5"
+icon            = "/icons/frankenphp.svg"
+category        = "web"
+default_memory  = "2G"
+recommended     = true
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+[[image]]
+name            = "frankenphp-8.4"
+display_name    = "FrankenPHP 8.4"
+description     = "Ubuntu with FrankenPHP 8.4."
+image           = "${{ .server.base_image_registry }}/knot-frankenphp:8.4"
+icon            = "/icons/frankenphp.svg"
 category        = "web"
 default_memory  = "2G"
 

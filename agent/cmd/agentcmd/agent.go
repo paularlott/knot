@@ -127,7 +127,7 @@ var agentServerCmd = &cli.Command{
 			Usage:        "The port to listen on for syslog messages, syslog is disabled if set to 0.",
 			ConfigPath:   []string{"agent.syslog_port"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SYSLOG_PORT"},
-			DefaultValue: 514,
+			DefaultValue: 1514,
 		},
 		&cli.IntFlag{
 			Name:         "api-port",

@@ -1192,6 +1192,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         network: s.network || "",
         privileged: !!s.privileged,
         memory: s.memory || "",
+        memory_max: s.memory_max || "",
         cpus: s.cpus || "",
         cpu_type: s.cpu_type || "",
         auth: s.auth || null,

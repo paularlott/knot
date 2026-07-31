@@ -53,6 +53,7 @@ import './pages/stackListComponent.js';
 
 import './terminal.js';
 import './movable-modal.js';
+import './nav-starred.js';
 
 window.Alpine = Alpine;
 Alpine.plugin(persist);

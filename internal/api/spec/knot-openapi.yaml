@@ -882,6 +882,53 @@ paths:
           $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
+  /api/users/preferences/nav:
+    get:
+      tags:
+        - Users
+      summary: Get Own Pinned Navigation
+      description: Retrieve the current user's pinned (starred) sidebar URLs, in their stored display order. An empty list means the sidebar is using its default layout.
+      operationId: getOwnNavPreferences
+      responses:
+        "200":
+          description: The current user's pinned navigation state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NavPreferences"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - Users
+      summary: Update Own Pinned Navigation
+      description: |
+        Replace the current user's pinned (starred) sidebar ordering with the given list of menu URLs.
+
+        Only known menu URLs are accepted; unknown entries are dropped and duplicates are collapsed (preserving first-seen order). The response returns the canonical stored ordering, which may therefore differ from the request.
+
+        Sending an empty list clears the preference and returns the sidebar to its default layout (no pinned items, everything under **More**).
+      operationId: updateOwnNavPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOwnNavPreferencesRequest"
+      responses:
+        "200":
+          description: The pinned navigation was updated. Returns the canonical stored ordering.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NavPreferences"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
   /api/permissions:
     get:
       summary: Get Permissions
@@ -8076,6 +8123,47 @@ components:
         ssh_private_key:
           type: string
           description: The SSH private key for the current user. Empty removes the managed key from spaces.
+
+    UpdateOwnNavPreferencesRequest:
+      type: object
+      description: Replaces the current user's pinned (starred) sidebar ordering.
+      properties:
+        starred:
+          type: array
+          description: |
+            Menu URLs to pin to the top of the sidebar, in the desired display order. Only known menu URLs are stored; unknown entries are dropped and duplicates collapsed. An empty array clears the pinned set and returns the sidebar to its default layout.
+          items:
+            type: string
+            enum:
+              - /spaces
+              - /tunnels
+              - /api-tokens
+              - /volumes
+              - /templates
+              - /variables
+              - /stacks
+              - /scripts
+              - /events
+              - /skills
+              - /commands
+              - /mcp-servers
+              - /users
+              - /groups
+              - /roles
+              - /audit-logs
+              - /cluster-info
+          example: ["/spaces", "/scripts", "/audit-logs"]
+
+    NavPreferences:
+      type: object
+      description: The current user's pinned (starred) sidebar state.
+      properties:
+        starred:
+          type: array
+          description: The pinned menu URLs in their stored display order. Empty when the sidebar is using its default layout.
+          items:
+            type: string
+          example: ["/spaces", "/scripts", "/audit-logs"]
 
     UserQuota:
       type: object
