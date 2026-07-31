@@ -85,13 +85,27 @@ func HandleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- Template Variables ---
+	// Same variable name can exist for different zones (or as local), so show
+	// the scope + flags as the description to disambiguate duplicates.
 	if user.HasPermission(model.PermissionManageVariables) || leaf {
 		if list, err := db.GetTemplateVars(); err == nil {
 			for _, v := range list {
 				if v.IsDeleted || !match(v.Name) {
 					continue
 				}
-				out.Variables = append(out.Variables, apiclient.SearchHit{Id: v.Id, Name: v.Name})
+				scope := "All zones"
+				if v.Local {
+					scope = "Local"
+				} else if len(v.Zones) > 0 {
+					scope = strings.Join(v.Zones, ", ")
+				}
+				if v.Protected {
+					scope += " · Protected"
+				}
+				if v.Restricted {
+					scope += " · Restricted"
+				}
+				out.Variables = append(out.Variables, apiclient.SearchHit{Id: v.Id, Name: v.Name, Description: scope})
 				if len(out.Variables) >= searchLimitPerType {
 					break
 				}
