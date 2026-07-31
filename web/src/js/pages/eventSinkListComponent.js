@@ -48,6 +48,14 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
     async init() {
       await this.getEventSinks();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editSink(editId);
+      }
+
       if (window.sseClient) {
         window.sseClient.subscribe("eventsinks:changed", (payload) => {
           this.getEventSinks(payload?.id);

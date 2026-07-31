@@ -47,7 +47,7 @@
                   placeholder="registry.example.com/image:tag"
                   aria-label="Container image">
                 <button type="button"
-                  @click="specWizard.imageDropdownOpen = !specWizard.imageDropdownOpen; if (specWizard.imageDropdownOpen) $nextTick(() => $refs.baseImageSearch.focus())"
+                  @click="specWizard.imageDropdownOpen = !specWizard.imageDropdownOpen; if (specWizard.imageDropdownOpen) { specWizard.imageActiveIndex = 0; $nextTick(() => $refs.baseImageSearch.focus()) }"
                   class="absolute right-1 top-1 bottom-1 px-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                   title="Pick from base images"
                   aria-label="Pick from base images">
@@ -63,13 +63,20 @@
                       x-ref="baseImageSearch"
                       class="form-field"
                       x-model="specWizard.imageSearch"
+                      @input="specWizard.imageActiveIndex = 0"
+                      @keydown.arrow-down.prevent="imageMoveDown()"
+                      @keydown.arrow-up.prevent="imageMoveUp()"
+                      @keydown.enter.prevent="imagePickActive()"
                       placeholder="Search base images…"
                       aria-label="Search base images">
                   </div>
-                  <div class="p-1">
-                    <template x-for="img in filteredBaseImages()" :key="img.name">
+                  <div class="p-1" x-ref="imageList">
+                    <template x-for="(img, idx) in filteredBaseImages()" :key="img.name">
                       <button type="button"
+                        :data-img-idx="idx"
+                        :class="specWizard.imageActiveIndex === idx ? 'bg-gray-100 dark:bg-gray-700' : ''"
                         @click="pickBaseImage(img)"
+                        @mousemove="specWizard.imageActiveIndex = idx"
                         class="w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-start gap-3">
                         <img x-show="img.icon" :src="img.icon" alt="" class="size-10 rounded shrink-0">
                         <div class="flex-grow min-w-0">

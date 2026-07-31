@@ -29,6 +29,14 @@ window.groupListComponent = function() {
     async init() {
       await this.getGroups();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editGroup(editId);
+      }
+
       // Subscribe to SSE for real-time updates
       if (window.sseClient) {
         window.sseClient.subscribe('groups:changed', (payload) => {

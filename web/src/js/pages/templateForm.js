@@ -834,6 +834,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       registryAuth: false,
       imageSearch: "",
       imageDropdownOpen: false,
+      imageActiveIndex: 0,
       // Linux capability catalog (name + description) for the searchable
       // picker, plus per-list dropdown state. Only cap_add is editable in the
       // wizard; cap_drop is kept in state so a spec that already drops
@@ -1106,6 +1107,50 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       return [...list].sort((a, b) => {
         if (!!a.recommended !== !!b.recommended) return a.recommended ? -1 : 1;
         return coll.compare(a.display_name || "", b.display_name || "");
+      });
+    },
+
+    // Keyboard navigation for the base-image picker: ↑/↓ move the active row,
+    // Enter selects it. Active row is also tracked on mouse move so hover and
+    // keyboard stay in sync.
+    imageMoveDown() {
+      const n = this.filteredBaseImages().length;
+      if (n === 0) return;
+      this.specWizard.imageActiveIndex = Math.min(this.specWizard.imageActiveIndex + 1, n - 1);
+      this.scrollImageActiveIntoView();
+    },
+    imageMoveUp() {
+      const n = this.filteredBaseImages().length;
+      if (n === 0) return;
+      this.specWizard.imageActiveIndex = Math.max(this.specWizard.imageActiveIndex - 1, 0);
+      this.scrollImageActiveIntoView();
+    },
+    imagePickActive() {
+      const list = this.filteredBaseImages();
+      const i = this.specWizard.imageActiveIndex;
+      if (i >= 0 && i < list.length) this.pickBaseImage(list[i]);
+    },
+    scrollImageActiveIntoView() {
+      this.$nextTick(() => {
+        const list = this.$refs.imageList;
+        if (!list) return;
+        const item = list.querySelector('[data-img-idx="' + this.specWizard.imageActiveIndex + '"]');
+        if (!item) return;
+        const scroller = list.parentElement; // the .overflow-auto container
+        if (!scroller) return;
+        // The sticky search header sits at the top of the scroller, so the
+        // usable top is below it. scrollIntoView can't see sticky elements,
+        // so adjust scrollTop manually to keep the active row fully visible.
+        const header = scroller.firstElementChild;
+        const headerH = header ? header.offsetHeight : 0;
+        const itemRect = item.getBoundingClientRect();
+        const scrollerRect = scroller.getBoundingClientRect();
+        const topBound = scrollerRect.top + headerH;
+        if (itemRect.top < topBound) {
+          scroller.scrollTop -= topBound - itemRect.top;
+        } else if (itemRect.bottom > scrollerRect.bottom) {
+          scroller.scrollTop += itemRect.bottom - scrollerRect.bottom;
+        }
       });
     },
 

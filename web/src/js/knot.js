@@ -54,6 +54,7 @@ import './pages/stackListComponent.js';
 import './terminal.js';
 import './movable-modal.js';
 import './nav-starred.js';
+import './search-palette.js';
 
 window.Alpine = Alpine;
 Alpine.plugin(persist);

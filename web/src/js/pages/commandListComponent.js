@@ -45,6 +45,14 @@ window.commandListComponent = function (userId, zone, permissionManageCommands, 
 
     async init() {
       await this.getCommands();
+
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editCommand(editId);
+      }
       window.sseClient?.subscribe('slashcommands:changed', () => this.getCommands(null, true));
       window.sseClient?.subscribe('slashcommands:deleted', () => this.getCommands(null, true));
     },

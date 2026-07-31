@@ -929,6 +929,34 @@ paths:
           $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
+  /api/search:
+    get:
+      tags:
+        - Core
+      summary: Global Search
+      description: |
+        Keyword search across the entity types the current user may see. Matching is a case-insensitive substring match on each entity's primary name (or namespace for MCP servers, or username for users).
+
+        Results are grouped by type, each group capped at a small number of matches; empty groups are omitted. Scoping mirrors sidebar visibility: spaces are the caller's own (all in-zone for space admins); admin entities (templates, variables, volumes, users, groups, roles, stacks, event sinks) appear only with the relevant manage permission; personal entities (scripts, skills, slash commands, MCP servers, tokens) are scoped to the caller; leaf nodes get the reduced sidebar set (no users/groups/roles).
+      operationId: search
+      parameters:
+        - name: q
+          in: query
+          description: Search query (matched as a case-insensitive substring). An empty query returns an empty result set.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Grouped search results. Each array holds at most a capped number of matches; omitted arrays had no matches.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
   /api/permissions:
     get:
       summary: Get Permissions
@@ -8164,6 +8192,85 @@ components:
           items:
             type: string
           example: ["/spaces", "/scripts", "/audit-logs"]
+
+    SearchHit:
+      type: object
+      description: A single matched entity in global search results. The client maps the enclosing result group to a destination page.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The entity's ID.
+        name:
+          type: string
+          description: The entity's display name (namespace for MCP servers, username for users).
+        description:
+          type: string
+          description: Optional secondary text (description, email, etc.) shown under the name.
+
+    SearchResults:
+      type: object
+      description: Grouped global search results. Each array holds at most a capped number of matches; omitted groups had no matches.
+      properties:
+        query:
+          type: string
+          description: The (trimmed) query that produced these results.
+        spaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        variables:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        volumes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        stacks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        scripts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        commands:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        mcp_servers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        event_sinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
 
     UserQuota:
       type: object

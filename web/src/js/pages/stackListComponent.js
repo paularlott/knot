@@ -50,6 +50,14 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     async init() {
       await this.getDefinitions();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editDefinition(editId);
+      }
+
       if (window.sseClient) {
         window.sseClient.subscribe("stack-definitions:changed", (payload) => {
           if (payload?.id) this.getDefinitions(payload.id);

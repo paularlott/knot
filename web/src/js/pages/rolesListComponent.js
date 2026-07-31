@@ -29,6 +29,14 @@ window.rolesListComponent = function() {
     async init() {
       await this.getRoles();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editRole(editId);
+      }
+
       // Subscribe to SSE for real-time updates
       if (window.sseClient) {
         window.sseClient.subscribe('roles:changed', (payload) => {

@@ -56,6 +56,14 @@ window.templateListComponent = function(canManageSpaces, zone, isLeafNode = fals
     async init() {
       await this.getTemplates();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editTemplate(editId);
+      }
+
       window.addEventListener('close-template-form', () => {
         this.templateFormModal.show = false;
         this.getTemplates();
