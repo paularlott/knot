@@ -174,15 +174,20 @@ Alpine.data('searchPalette', () => ({
     if (!item) return;
     const g = SEARCH_GROUPS.find((x) => x.key === item.type);
     if (!g) return;
-    // Spaces land on their filtered list; everything else opens the found
-    // item directly in its edit modal via the ?edit=<id> deep link.
+    const name = item.hit.name || '';
+    const params = new URLSearchParams();
     if (item.type === 'spaces') {
-      const name = item.hit.name || '';
-      window.location.href = g.url + (name ? '?q=' + encodeURIComponent(name) : '');
+      // Spaces land on their filtered list.
+      if (name) params.set('q', name);
     } else {
-      const id = item.hit.id || '';
-      window.location.href = g.url + (id ? '?edit=' + encodeURIComponent(id) : '');
+      // Everything else opens straight in edit mode, and also seeds the page's
+      // local search so the list is filtered to the item (e.g. when the edit
+      // modal is closed the matched row is still in view).
+      if (item.hit.id) params.set('edit', item.hit.id);
+      if (name) params.set('q', name);
     }
+    const qs = params.toString();
+    window.location.href = g.url + (qs ? '?' + qs : '');
   },
 }));
 

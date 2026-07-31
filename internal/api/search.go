@@ -224,7 +224,7 @@ func HandleSearch(w http.ResponseWriter, r *http.Request) {
 	if user.HasPermission(model.PermissionManageUsers) && !leaf {
 		if list, err := db.GetUsers(); err == nil {
 			for _, u := range list {
-				if u.IsDeleted || !match(u.Username) {
+				if u.IsDeleted || (!match(u.Username) && !match(u.Email)) {
 					continue
 				}
 				out.Users = append(out.Users, apiclient.SearchHit{Id: u.Id, Name: u.Username, Description: u.Email})
