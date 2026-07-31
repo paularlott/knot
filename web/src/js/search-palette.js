@@ -13,6 +13,7 @@ import Alpine from 'alpinejs';
 // Display order + destination page for each result group. Keys mirror the
 // apiclient.SearchResults JSON fields.
 const SEARCH_GROUPS = [
+  { key: 'pages',      label: 'Pages',          url: '' },
   { key: 'spaces',      label: 'Spaces',          url: '/spaces' },
   { key: 'templates',   label: 'Templates',       url: '/templates' },
   { key: 'variables',   label: 'Variables',       url: '/variables' },
@@ -172,6 +173,11 @@ Alpine.data('searchPalette', () => ({
 
   activate(item) {
     if (!item) return;
+    // Pages are navigation destinations — just open the page.
+    if (item.type === 'pages') {
+      window.location.href = item.hit.id || '/';
+      return;
+    }
     const g = SEARCH_GROUPS.find((x) => x.key === item.type);
     if (!g) return;
     const name = item.hit.name || '';

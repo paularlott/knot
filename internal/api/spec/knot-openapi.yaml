@@ -8215,6 +8215,11 @@ components:
         query:
           type: string
           description: The (trimmed) query that produced these results.
+        pages:
+          type: array
+          description: Navigation destinations (sidebar pages) matching the query, gated by the same visibility rules as the sidebar.
+          items:
+            $ref: "#/components/schemas/SearchHit"
         spaces:
           type: array
           items:

@@ -55,6 +55,7 @@ import './terminal.js';
 import './movable-modal.js';
 import './nav-starred.js';
 import './search-palette.js';
+import './form-dirty-guard.js';
 
 window.Alpine = Alpine;
 Alpine.plugin(persist);

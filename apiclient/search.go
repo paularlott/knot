@@ -18,6 +18,7 @@ type SearchHit struct {
 // groups are omitted from the JSON.
 type SearchResults struct {
 	Query      string      `json:"query"`
+	Pages      []SearchHit `json:"pages,omitempty"`
 	Spaces     []SearchHit `json:"spaces,omitempty"`
 	Templates  []SearchHit `json:"templates,omitempty"`
 	Variables  []SearchHit `json:"variables,omitempty"`

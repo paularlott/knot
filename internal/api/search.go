@@ -280,5 +280,18 @@ func HandleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// --- Pages (navigation destinations) ---
+	// Same visibility gates as the sidebar (model.VisibleNavPages), so a page
+	// only appears if the user would see it in the menu.
+	auditAvailable := db.HasAuditLog() && cfg.Audit.Routing != "external"
+	for _, p := range model.VisibleNavPages(user, cfg, auditAvailable) {
+		if match(p.Label) || match(p.URL) {
+			out.Pages = append(out.Pages, apiclient.SearchHit{Id: p.URL, Name: p.Label})
+			if len(out.Pages) >= searchLimitPerType {
+				break
+			}
+		}
+	}
+
 	rest.WriteResponse(http.StatusOK, w, r, out)
 }
