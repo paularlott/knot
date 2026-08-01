@@ -199,3 +199,12 @@ image           = "${{ .server.base_image_registry }}/knot-valkey:9.0"
 icon            = "/icons/valkey.svg"
 category        = "datastore"
 default_memory  = "512M"
+
+[[image]]
+name            = "Redis-8.10"
+display_name    = "Redis 8.10"
+description     = "Redis 8.10 with knot startup tooling."
+image           = "${{ .server.base_image_registry }}/knot-redis:8.10"
+icon            = "/icons/redis.svg"
+category        = "datastore"
+default_memory  = "512M"
