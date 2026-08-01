@@ -287,7 +287,11 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 	if response != nil {
 		contentType := resp.Header.Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = msgpack.UnmarshalRead(resp.Body, response)
+			bodyBytes, readErr := io.ReadAll(resp.Body)
+			if readErr != nil {
+				return resp.StatusCode, readErr
+			}
+			err = msgpack.UnmarshalRead(bytes.NewReader(bodyBytes), response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}
