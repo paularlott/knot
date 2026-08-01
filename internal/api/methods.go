@@ -193,10 +193,10 @@ func handleBatchCall(w http.ResponseWriter, r *http.Request, rawItems []json.Raw
 
 	// Phase 2: Group forwardable items by destination space.
 	type groupInfo struct {
-		session  *agent_server.Session
-		timeout  int
-		entries  []*methods.Entry
-		request  msg.CallMethodBatchRequest
+		session *agent_server.Session
+		timeout int
+		entries []*methods.Entry
+		request msg.CallMethodBatchRequest
 		// position maps each sub-batch item index to its original position
 		// in the incoming batch, so we can place responses correctly.
 		origPositions []int

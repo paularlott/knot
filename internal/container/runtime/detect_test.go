@@ -33,9 +33,9 @@ func TestDetectLocalContainerRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := DetectLocalContainerRuntime(tt.preferences)
 			// Result can be empty or one of the valid platforms
-			if result != "" && 
-				result != model.PlatformDocker && 
-				result != model.PlatformPodman && 
+			if result != "" &&
+				result != model.PlatformDocker &&
+				result != model.PlatformPodman &&
 				result != model.PlatformApple {
 				t.Errorf("Unexpected runtime detected: %s", result)
 			}

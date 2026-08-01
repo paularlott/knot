@@ -123,7 +123,10 @@ func TestValidateAddHostEntry(t *testing.T) {
 }
 
 func TestLineFromError(t *testing.T) {
-	cases := []struct{ in string; want int }{
+	cases := []struct {
+		in   string
+		want int
+	}{
 		{"yaml: line 5: could not find expected ':'", 5},
 		{"yaml: unmarshal errors:\n  line 3: cannot unmarshal", 3},
 		{"no line here", 0},
@@ -317,5 +320,48 @@ volumes:
 `)
 	if len(issues) != 0 {
 		t.Fatalf("expected no issues, got %+v", issues)
+	}
+}
+
+func TestValidateVolumeBind(t *testing.T) {
+	cases := []struct {
+		value   string
+		wantErr bool
+	}{
+		{"data:/data", false},
+		{"/etc/hosts:/etc/hosts", false},
+		{"/etc/hosts:/etc/hosts:ro", false},
+		{"data:/data:rw", false},
+		{"data:/data:z", false},
+		{"data:/data:Z", false},
+		{"data:/data:ro,z", false},
+		{"data:/data:nocopy", false},
+		{"data", true},
+		{"data:", true},
+		{":/data", true},
+		{"data:/data:", true},
+		{"data:/data:readonly", true},
+		{"data:/data:ro:extra", true},
+		{"data:/data:ro,bogus", true},
+	}
+	for _, c := range cases {
+		err := validateVolumeBind(c.value)
+		if c.wantErr && err == nil {
+			t.Errorf("validateVolumeBind(%q) = nil, want error", c.value)
+		}
+		if !c.wantErr && err != nil {
+			t.Errorf("validateVolumeBind(%q) = %v, want nil", c.value, err)
+		}
+	}
+}
+
+// Devices keep the stricter two-field rule: the container runtimes reject a
+// third field for device mappings.
+func TestValidateDeviceStillRejectsThirdField(t *testing.T) {
+	if err := validateHostContainerPair("/dev/fuse:/dev/fuse:rwm", "device"); err == nil {
+		t.Error("expected an error for a three-part device mapping")
+	}
+	if err := validateHostContainerPair("/dev/fuse:/dev/fuse", "device"); err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

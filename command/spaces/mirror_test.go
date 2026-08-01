@@ -723,7 +723,7 @@ func TestMirrorHashBasedSkip(t *testing.T) {
 		{
 			Path:  "/var/www/a.php",
 			Size:  int64(len(content)),
-			Mtime: float64(time.Now().Add(-24 * time.Hour).UnixNano()) / 1e9,
+			Mtime: float64(time.Now().Add(-24*time.Hour).UnixNano()) / 1e9,
 			IsDir: false,
 			Hash:  expectedHash,
 		},
@@ -733,7 +733,7 @@ func TestMirrorHashBasedSkip(t *testing.T) {
 		client: stub, spaceID: "sp", spaceName: "myspace",
 		localRoot: root, remoteDir: "/var/www",
 		parallel: 1,
-		hash:    true,
+		hash:     true,
 	}
 	stats, err := opts.run(context.Background())
 	if err != nil {
@@ -772,7 +772,7 @@ func TestMirrorHashMismatchForcesReupload(t *testing.T) {
 		client: stub, spaceID: "sp", spaceName: "myspace",
 		localRoot: root, remoteDir: "/var/www",
 		parallel: 1,
-		hash:    true,
+		hash:     true,
 	}
 	stats, err := opts.run(context.Background())
 	if err != nil {

@@ -15,18 +15,18 @@ func TestCanUserExecuteScript_UserScript_Owner(t *testing.T) {
 	}
 
 	script := &model.Script{
-		Id:       "script1",
-		Name:     "user_script",
-		UserId:   "user1",
-		Active:   true,
+		Id:        "script1",
+		Name:      "user_script",
+		UserId:    "user1",
+		Active:    true,
 		IsDeleted: false,
 	}
 
 	// Set up the role cache with ExecuteOwnScripts permission
 	model.SetRoleCache([]*model.Role{
 		{
-			Id:    model.RoleAdminUUID,
-			Name:  "Admin",
+			Id:   model.RoleAdminUUID,
+			Name: "Admin",
 			Permissions: []uint16{
 				model.PermissionExecuteOwnScripts,
 			},
@@ -54,18 +54,18 @@ func TestCanUserExecuteScript_UserScript_NotOwner(t *testing.T) {
 	}
 
 	script := &model.Script{
-		Id:       "script1",
-		Name:     "user1_script",
-		UserId:   "user1",
-		Active:   true,
+		Id:        "script1",
+		Name:      "user1_script",
+		UserId:    "user1",
+		Active:    true,
 		IsDeleted: false,
 	}
 
 	// Set up the role cache with ExecuteOwnScripts permission
 	model.SetRoleCache([]*model.Role{
 		{
-			Id:    model.RoleAdminUUID,
-			Name:  "Admin",
+			Id:   model.RoleAdminUUID,
+			Name: "Admin",
 			Permissions: []uint16{
 				model.PermissionExecuteOwnScripts,
 			},
@@ -94,19 +94,19 @@ func TestCanUserExecuteScript_GlobalScript_WithPermission(t *testing.T) {
 	}
 
 	script := &model.Script{
-		Id:       "script1",
-		Name:     "global_script",
-		UserId:   "", // Global script
-		Active:   true,
+		Id:        "script1",
+		Name:      "global_script",
+		UserId:    "", // Global script
+		Active:    true,
 		IsDeleted: false,
-		Groups:   []string{},
+		Groups:    []string{},
 	}
 
 	// Set up the role cache with ExecuteScripts permission
 	model.SetRoleCache([]*model.Role{
 		{
-			Id:    model.RoleAdminUUID,
-			Name:  "Admin",
+			Id:   model.RoleAdminUUID,
+			Name: "Admin",
 			Permissions: []uint16{
 				model.PermissionExecuteScripts,
 			},
@@ -128,12 +128,12 @@ func TestCanUserExecuteScript_GlobalScript_WithoutPermission(t *testing.T) {
 	}
 
 	script := &model.Script{
-		Id:       "script1",
-		Name:     "global_script",
-		UserId:   "", // Global script
-		Active:   true,
+		Id:        "script1",
+		Name:      "global_script",
+		UserId:    "", // Global script
+		Active:    true,
 		IsDeleted: false,
-		Groups:   []string{},
+		Groups:    []string{},
 	}
 
 	// Set up the role cache without ExecuteScripts permission
@@ -168,12 +168,12 @@ func TestCanUserExecuteScript_GlobalScript_WithGroupRestriction(t *testing.T) {
 	}
 
 	script := &model.Script{
-		Id:       "script1",
-		Name:     "global_script",
-		UserId:   "", // Global script
-		Active:   true,
+		Id:        "script1",
+		Name:      "global_script",
+		UserId:    "", // Global script
+		Active:    true,
 		IsDeleted: false,
-		Groups:   []string{"developers"},
+		Groups:    []string{"developers"},
 	}
 
 	// Set up the role cache with ExecuteScripts but NOT ManageScripts
@@ -208,19 +208,19 @@ func TestCanUserExecuteScript_GlobalScript_AdminBypassesGroups(t *testing.T) {
 	}
 
 	script := &model.Script{
-		Id:       "script1",
-		Name:     "global_script",
-		UserId:   "", // Global script
-		Active:   true,
+		Id:        "script1",
+		Name:      "global_script",
+		UserId:    "", // Global script
+		Active:    true,
 		IsDeleted: false,
-		Groups:   []string{"developers"},
+		Groups:    []string{"developers"},
 	}
 
 	// Set up the role cache with both ExecuteScripts AND ManageScripts
 	model.SetRoleCache([]*model.Role{
 		{
-			Id:    "role-admin",
-			Name:  "Admin",
+			Id:   "role-admin",
+			Name: "Admin",
 			Permissions: []uint16{
 				model.PermissionExecuteScripts,
 				model.PermissionManageScripts,
@@ -243,10 +243,10 @@ func TestCanUserExecuteScript_UserScript_NoPermission(t *testing.T) {
 	}
 
 	script := &model.Script{
-		Id:       "script1",
-		Name:     "user_script",
-		UserId:   "user1",
-		Active:   true,
+		Id:        "script1",
+		Name:      "user_script",
+		UserId:    "user1",
+		Active:    true,
 		IsDeleted: false,
 	}
 
@@ -428,19 +428,19 @@ func TestPermissionModelExecuteOwnVsExecuteScripts(t *testing.T) {
 	}
 
 	globalScript := &model.Script{
-		Id:       "script1",
-		Name:     "global_script",
-		UserId:   "", // Global
-		Active:   true,
+		Id:        "script1",
+		Name:      "global_script",
+		UserId:    "", // Global
+		Active:    true,
 		IsDeleted: false,
-		Groups:   []string{},
+		Groups:    []string{},
 	}
 
 	userScript := &model.Script{
-		Id:       "script2",
-		Name:     "user_script",
-		UserId:   "user1",
-		Active:   true,
+		Id:        "script2",
+		Name:      "user_script",
+		UserId:    "user1",
+		Active:    true,
 		IsDeleted: false,
 	}
 

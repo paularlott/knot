@@ -359,7 +359,6 @@ func HandlePortThrottle(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
-
 func writeJSONError(w http.ResponseWriter, status int, message string) {
 	rest.WriteResponse(status, w, nil, map[string]interface{}{
 		"success": false,

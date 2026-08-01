@@ -35,6 +35,14 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
     async init() {
       await this.getServers();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editServer(editId);
+      }
+
       if (window.sseClient) {
         window.sseClient.subscribe("mcp-servers:changed", (payload) => {
           if (payload?.id) this.getServers();

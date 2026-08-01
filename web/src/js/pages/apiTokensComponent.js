@@ -119,6 +119,15 @@ window.apiTokensComponent = function () {
           this.getTokens();
         });
       }
+
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        const token = this.tokens.find((t) => t.token_id === editId);
+        if (token) this.openEdit(token);
+      }
     },
 
     async getTokens() {

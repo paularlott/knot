@@ -364,6 +364,49 @@ func HandleUpdateOwnSSHPrivateKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleGetOwnNavPreferences returns the current user's pinned (starred)
+// sidebar URLs in their stored display order.
+func HandleGetOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	rest.WriteResponse(http.StatusOK, w, r, &apiclient.NavPreferences{Starred: user.GetNavStarred()})
+}
+
+// HandleUpdateOwnNavPreferences replaces the current user's pinned sidebar
+// ordering. URLs are validated against apiclient.ValidNavURLs and de-duplicated
+// (preserving order); an empty slice clears the preference, returning the
+// sidebar to its default layout. The canonical stored order is returned.
+func HandleUpdateOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	request := apiclient.UpdateOwnNavPreferencesRequest{}
+
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	seen := make(map[string]bool, len(request.Starred))
+	cleaned := make([]string, 0, len(request.Starred))
+	for _, u := range request.Starred {
+		if apiclient.ValidNavURLs[u] && !seen[u] {
+			seen[u] = true
+			cleaned = append(cleaned, u)
+		}
+	}
+
+	user.SetNavStarred(cleaned)
+	user.UpdatedAt = hlc.Now()
+
+	if err := database.GetInstance().SaveUser(user, []string{"Preferences", "UpdatedAt"}); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	service.GetTransport().GossipUser(user)
+	sse.PublishUsersChanged(user.Id)
+
+	rest.WriteResponse(http.StatusOK, w, r, &apiclient.NavPreferences{Starred: user.GetNavStarred()})
+}
+
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	requiredState := r.URL.Query().Get("state")

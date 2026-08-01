@@ -557,11 +557,8 @@ func injectNomadEnvVars(jobJSON map[string]interface{}, envVars []string) {
 			if !ok {
 				env = make(map[string]interface{})
 			}
-			for _, ev := range envVars {
-				parts := strings.SplitN(ev, "=", 2)
-				if len(parts) == 2 {
-					env[parts[0]] = parts[1]
-				}
+			for _, ev := range container.ParseEnvStrings(envVars) {
+				env[ev.Key] = ev.Value
 			}
 			taskMap["Env"] = env
 		}

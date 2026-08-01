@@ -203,6 +203,23 @@ export const nomadJobCompletions = [
     score: 930,
     docHTML: docs("network", "Nomad network stanza."),
   },
+  {
+    caption: "cap_add",
+    value: 'cap_add = ["net_admin"]',
+    meta: "nomad",
+    score: 920,
+    docHTML: docs(
+      "cap_add",
+      "Linux capabilities to grant, docker driver config block. Subject to the client's allow_caps setting.",
+    ),
+  },
+  {
+    caption: "cap_drop",
+    value: 'cap_drop = ["mknod"]',
+    meta: "nomad",
+    score: 910,
+    docHTML: docs("cap_drop", "Linux capabilities to revoke, docker driver config block."),
+  },
 ];
 
 export const nomadVolumeSpecCompletions = [

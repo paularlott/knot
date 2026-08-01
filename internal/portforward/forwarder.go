@@ -64,8 +64,8 @@ type ForwardInfo struct {
 	throttleMu  sync.RWMutex
 	latencyMs   int
 	jitterMs    int
-	bandwidthKB int // KB/s, 0 = unlimited
-	timeoutMs   int // connection killed after this many ms, 0 = disabled
+	bandwidthKB int  // KB/s, 0 = unlimited
+	timeoutMs   int  // connection killed after this many ms, 0 = disabled
 	down        bool // blocks all traffic, port forward definition stays
 }
 
@@ -398,12 +398,12 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 			dialer.HandshakeTimeout = 5 * time.Second
 			wsConn, response, err := dialer.Dial(dialURL, header)
 			if err != nil {
-				if response != nil && response.StatusCode == http.StatusUnauthorized {
-					logger.Error("tcp", response.Status)
-				} else if response != nil && response.StatusCode == http.StatusForbidden {
-					logger.Error("proxy of remote port is not allowed")
+				if response != nil {
+					body, _ := io.ReadAll(response.Body)
+					response.Body.Close()
+					logger.Error("error while dialing", "status", response.StatusCode, "body", string(body), "url", dialURL)
 				} else {
-					logger.WithError(err).Error("error while dialing:")
+					logger.WithError(err).Error("error while dialing", "url", dialURL)
 				}
 
 				tcpConn.Close()

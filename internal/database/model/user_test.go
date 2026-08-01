@@ -221,6 +221,47 @@ func TestIsAdmin(t *testing.T) {
 	}
 }
 
+func TestUserNavStarredPreferences(t *testing.T) {
+	u := &User{}
+
+	if got := u.GetNavStarred(); got != nil {
+		t.Fatalf("expected nil with no preferences, got %v", got)
+	}
+
+	u.SetNavStarred([]string{"/spaces", "/scripts"})
+	got := u.GetNavStarred()
+	if len(got) != 2 || got[0] != "/spaces" || got[1] != "/scripts" {
+		t.Fatalf("expected [/spaces /scripts], got %v", got)
+	}
+
+	// Other preferences coexist in the same blob.
+	u.Preferences["theme"] = "dark"
+	if theme, ok := u.Preferences["theme"].(string); !ok || theme != "dark" {
+		t.Fatalf("expected unrelated preference preserved, got %v", u.Preferences["theme"])
+	}
+
+	// Clearing the pin set removes the key and leaves the other prefs intact.
+	u.SetNavStarred([]string{})
+	if got := u.GetNavStarred(); got != nil {
+		t.Fatalf("expected nil after clear, got %v", got)
+	}
+	if _, exists := u.Preferences["theme"]; !exists {
+		t.Fatalf("clearing pins must not wipe unrelated preferences")
+	}
+}
+
+func TestUserNavStarredPreferences_JSONRoundTrip(t *testing.T) {
+	// Drivers persist Preferences as JSON; on load an array decodes to []any,
+	// so GetNavStarred must coerce back to []string.
+	u := &User{Preferences: map[string]any{
+		PrefNavStarred: []any{"/volumes", "/skills"},
+	}}
+	got := u.GetNavStarred()
+	if len(got) != 2 || got[0] != "/volumes" || got[1] != "/skills" {
+		t.Fatalf("expected [/volumes /skills] after JSON round-trip, got %v", got)
+	}
+}
+
 func TestSetOAuthTokensPreservesExistingRefreshToken(t *testing.T) {
 	user := &User{
 		ExternalAuthProviders: map[string]ExternalProvider{

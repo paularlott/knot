@@ -511,10 +511,9 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		withDownloads = true
 	}
 
-	return user, map[string]interface{}{
-		"username":                            user.Username,
-		"user_id":                             user.Id,
-		"user_email":                          user.Email,
+	data := map[string]interface{}{
+		"username": user.Username,
+		"user_id":  user.Id, "user_email": user.Email,
 		"preferredShell":                      user.PreferredShell,
 		"user_email_md5":                      fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
 		"withDownloads":                       withDownloads,
@@ -578,6 +577,9 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"aiChatStyle":                         cfg.Chat.UIStyle,
 		"requestHost":                         r.Host,
 	}
+
+	applyNav(user, cfg, r.URL.Path, data)
+	return user, data
 }
 
 // isAdminPath reports whether the given request path belongs to one of the

@@ -222,3 +222,24 @@ func (c *ApiClient) GetTemplateByName(ctx context.Context, name string) (*Templa
 	}
 	return nil, fmt.Errorf("template not found: %s", name)
 }
+
+// ExportTemplate fetches a template as portable YAML text.
+func (c *ApiClient) ExportTemplate(ctx context.Context, templateId string) (string, int, error) {
+	var buf string
+	code, err := c.httpClient.Get(ctx, "/api/templates/"+templateId+"/export", &buf)
+	if err != nil {
+		return "", code, err
+	}
+	return buf, code, nil
+}
+
+// ImportTemplate sends a portable YAML export to the server and creates or
+// updates a template. Returns the template ID.
+func (c *ApiClient) ImportTemplate(ctx context.Context, yamlText string) (string, int, error) {
+	resp := &TemplateCreateResponse{}
+	code, err := c.httpClient.Post(ctx, "/api/templates/import", yamlText, resp, 0)
+	if err != nil {
+		return "", code, err
+	}
+	return resp.Id, code, nil
+}

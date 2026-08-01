@@ -22,18 +22,18 @@ const (
 
 // Response object for OpenAI Responses API
 type Response struct {
-	Id                string                 `json:"response_id" db:"response_id,pk" msgpack:"response_id"`
-	Status            ResponseStatus         `json:"status" db:"status" msgpack:"status"`
-	Request           map[string]interface{} `json:"request" db:"request,json" msgpack:"request"`
-	Response          map[string]interface{} `json:"response" db:"response,json" msgpack:"response"`
-	Error             string                 `json:"error,omitempty" db:"error_text" msgpack:"error"`
-	PreviousResponseId string                `json:"previous_response_id,omitempty" db:"previous_response_id" msgpack:"previous_response_id"`
-	UserId            string                 `json:"user_id" db:"user_id" msgpack:"user_id"`
-	SpaceId           string                 `json:"space_id,omitempty" db:"space_id" msgpack:"space_id"`
-	ExpiresAt         *time.Time             `json:"expires_at,omitempty" db:"expires_at" msgpack:"expires_at"`
-	IsDeleted         bool                   `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	CreatedAt         time.Time              `json:"created_at" db:"created_at" msgpack:"created_at"`
-	UpdatedAt         hlc.Timestamp          `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	Id                 string                 `json:"response_id" db:"response_id,pk" msgpack:"response_id"`
+	Status             ResponseStatus         `json:"status" db:"status" msgpack:"status"`
+	Request            map[string]interface{} `json:"request" db:"request,json" msgpack:"request"`
+	Response           map[string]interface{} `json:"response" db:"response,json" msgpack:"response"`
+	Error              string                 `json:"error,omitempty" db:"error_text" msgpack:"error"`
+	PreviousResponseId string                 `json:"previous_response_id,omitempty" db:"previous_response_id" msgpack:"previous_response_id"`
+	UserId             string                 `json:"user_id" db:"user_id" msgpack:"user_id"`
+	SpaceId            string                 `json:"space_id,omitempty" db:"space_id" msgpack:"space_id"`
+	ExpiresAt          *time.Time             `json:"expires_at,omitempty" db:"expires_at" msgpack:"expires_at"`
+	IsDeleted          bool                   `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	CreatedAt          time.Time              `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedAt          hlc.Timestamp          `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 // NewResponse creates a new Response object

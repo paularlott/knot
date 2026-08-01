@@ -45,15 +45,15 @@ func NewMCPServer(
 	}
 
 	return &MCPServer{
-		Id:            id.String(),
-		UserId:        ownerUserId,
-		Namespace:     namespace,
-		Enabled:       true,
+		Id:             id.String(),
+		UserId:         ownerUserId,
+		Namespace:      namespace,
+		Enabled:        true,
 		ToolVisibility: "native",
-		CreatedUserId: createdUserId,
-		CreatedAt:     time.Now().UTC(),
-		UpdatedUserId: createdUserId,
-		UpdatedAt:     hlc.Now(),
+		CreatedUserId:  createdUserId,
+		CreatedAt:      time.Now().UTC(),
+		UpdatedUserId:  createdUserId,
+		UpdatedAt:      hlc.Now(),
 	}
 }
 

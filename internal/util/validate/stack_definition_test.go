@@ -231,8 +231,8 @@ func TestValidate_PortForwardToSpaceNotFound(t *testing.T) {
 		Name: "badpf",
 		Spaces: []apiclient.StackDefSpace{
 			{
-				Name:        "web",
-				TemplateId:  "tpl-1",
+				Name:       "web",
+				TemplateId: "tpl-1",
 				PortForwards: []apiclient.StackDefPortForward{
 					{ToSpace: "ghost", LocalPort: 3306, RemotePort: 3306},
 				},
@@ -250,8 +250,8 @@ func TestValidate_PortForwardToSpaceValid(t *testing.T) {
 		Name: "okpf",
 		Spaces: []apiclient.StackDefSpace{
 			{
-				Name:        "web",
-				TemplateId:  "tpl-1",
+				Name:       "web",
+				TemplateId: "tpl-1",
 				PortForwards: []apiclient.StackDefPortForward{
 					{ToSpace: "db", LocalPort: 3306, RemotePort: 3306},
 				},
@@ -272,8 +272,8 @@ func TestValidate_PortForwardZeroLocalPort(t *testing.T) {
 		Name: "zeroport",
 		Spaces: []apiclient.StackDefSpace{
 			{
-				Name:        "web",
-				TemplateId:  "tpl-1",
+				Name:       "web",
+				TemplateId: "tpl-1",
 				PortForwards: []apiclient.StackDefPortForward{
 					{ToSpace: "db", LocalPort: 0, RemotePort: 3306},
 				},
@@ -292,8 +292,8 @@ func TestValidate_PortForwardZeroRemotePort(t *testing.T) {
 		Name: "zeroport2",
 		Spaces: []apiclient.StackDefSpace{
 			{
-				Name:        "web",
-				TemplateId:  "tpl-1",
+				Name:       "web",
+				TemplateId: "tpl-1",
 				PortForwards: []apiclient.StackDefPortForward{
 					{ToSpace: "db", LocalPort: 3306, RemotePort: 0},
 				},
@@ -312,8 +312,8 @@ func TestValidate_PortForwardBothZero(t *testing.T) {
 		Name: "bothzero",
 		Spaces: []apiclient.StackDefSpace{
 			{
-				Name:        "web",
-				TemplateId:  "tpl-1",
+				Name:       "web",
+				TemplateId: "tpl-1",
 				PortForwards: []apiclient.StackDefPortForward{
 					{ToSpace: "db", LocalPort: 0, RemotePort: 0},
 				},
@@ -344,19 +344,19 @@ func TestValidate_ValidFull(t *testing.T) {
 		Name: "lamp",
 		Spaces: []apiclient.StackDefSpace{
 			{
-				Name:         "db",
-				TemplateId:   "tpl-mysql",
-				Description:  "MySQL database",
-				Shell:        "/bin/bash",
+				Name:          "db",
+				TemplateId:    "tpl-mysql",
+				Description:   "MySQL database",
+				Shell:         "/bin/bash",
 				StartupScript: "script-1",
 				CustomFields: []apiclient.StackDefCustomField{
 					{Name: "MYSQL_ROOT_PASSWORD", Value: "secret"},
 				},
 			},
 			{
-				Name:        "web",
-				TemplateId:  "tpl-apache",
-				DependsOn:   []string{"db"},
+				Name:       "web",
+				TemplateId: "tpl-apache",
+				DependsOn:  []string{"db"},
 				PortForwards: []apiclient.StackDefPortForward{
 					{ToSpace: "db", LocalPort: 3306, RemotePort: 3306},
 				},

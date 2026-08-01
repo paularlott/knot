@@ -56,6 +56,14 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, pe
     async init() {
       await this.getScripts();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editScript(editId);
+      }
+
       if (window.sseClient) {
         window.sseClient.subscribe("scripts:changed", (payload) => {
           if (payload?.id) this.getScripts(payload.id);

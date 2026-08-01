@@ -29,6 +29,14 @@ window.templateVarListComponent = function() {
     async init() {
       await this.getTemplateVars();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editVariable(editId);
+      }
+
       // Subscribe to SSE for real-time updates instead of polling
       if (window.sseClient) {
         window.sseClient.subscribe('templatevars:changed', (payload) => {

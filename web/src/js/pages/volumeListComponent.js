@@ -42,6 +42,14 @@ window.volumeListComponent = function() {
     async init() {
       await this.getVolumes();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editVolume(editId);
+      }
+
       window.addEventListener('close-volume-form', () => {
         this.volumeFormModal.show = false;
         this.getVolumes();

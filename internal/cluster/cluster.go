@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/paularlott/gossip"
-	"github.com/paularlott/gossip/codec"
-	"github.com/paularlott/gossip/compression"
-	"github.com/paularlott/gossip/encryption"
+	"github.com/paularlott/gossip/codec/shamaton"
+	"github.com/paularlott/gossip/compression/snappy"
+	"github.com/paularlott/gossip/encryption/aes"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/gossip/leader"
 	"github.com/paularlott/knot/build"
@@ -92,12 +92,12 @@ func NewCluster(
 		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") && !strings.HasPrefix(gossipConfig.AdvertiseAddr, "http://") {
 			gossipConfig.BindAddr = bindAddr
 			gossipConfig.EncryptionKey = []byte(clusterKey)
-			gossipConfig.Cipher = encryption.NewAESEncryptor()
+			gossipConfig.Cipher = aes.New()
 			gossipConfig.ForceReliableTransport = tcpOnly
 			gossipConfig.Transport = gossip.NewSocketTransport(gossipConfig)
 
 			if compress {
-				gossipConfig.Compressor = compression.NewSnappyCompressor()
+				gossipConfig.Compressor = snappy.New()
 			}
 		} else {
 			cfg := config.GetServerConfig()
@@ -117,7 +117,7 @@ func NewCluster(
 		}
 
 		gossipConfig.Logger = log.GetLogger()
-		gossipConfig.MsgCodec = codec.NewVmihailencoMsgpackCodec()
+		gossipConfig.MsgCodec = shamaton.New()
 
 		gossipConfig.ApplicationVersion = build.Version
 		gossipConfig.ApplicationVersionCheck = func(version string) bool {
@@ -419,15 +419,15 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						c.logger.WithError(err).Error("failed to sync scripts with node")
 					}
 
-				if err := c.DoSkillFullSync(node); err != nil {
-					c.logger.WithError(err).Error("failed to sync skills with node")
-				}
+					if err := c.DoSkillFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync skills with node")
+					}
 
-				if err := c.DoCommandFullSync(node); err != nil {
-					c.logger.WithError(err).Error("failed to sync commands with node")
-				}
+					if err := c.DoCommandFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync commands with node")
+					}
 
-				if err := c.DoStackDefinitionFullSync(node); err != nil {
+					if err := c.DoStackDefinitionFullSync(node); err != nil {
 						c.logger.WithError(err).Error("failed to sync stack definitions with node")
 					}
 
@@ -443,19 +443,19 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						c.logger.WithError(err).Error("failed to sync pool definitions with node")
 					}
 
-				if err := c.DoEventSinkFullSync(node); err != nil {
-					c.logger.WithError(err).Error("failed to sync event sinks with node")
-				}
+					if err := c.DoEventSinkFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync event sinks with node")
+					}
 
-				if err := c.DoConversationFullSync(node); err != nil {
-					c.logger.WithError(err).Error("failed to sync conversations with node")
-				}
+					if err := c.DoConversationFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync conversations with node")
+					}
 
-				if err := c.DoMCPServerFullSync(node); err != nil {
-					c.logger.WithError(err).Error("failed to sync MCP servers with node")
-				}
+					if err := c.DoMCPServerFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync MCP servers with node")
+					}
 
-				if c.sessionGossip {
+					if c.sessionGossip {
 						if err := c.DoSessionFullSync(node); err != nil {
 							c.logger.WithError(err).Error("failed to sync sessions with node")
 						}

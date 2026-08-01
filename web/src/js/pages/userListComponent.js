@@ -43,6 +43,14 @@ window.userListComponent = function() {
     async init() {
       await this.getUsers();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editUser(editId);
+      }
+
       window.addEventListener('close-user-form', () => {
         this.userFormModal.show = false;
         this.getUsers();

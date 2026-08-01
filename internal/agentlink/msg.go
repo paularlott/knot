@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/log"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 )
 
 type CommandType int

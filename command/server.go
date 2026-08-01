@@ -25,6 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
+	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/middleware"
@@ -37,15 +38,14 @@ import (
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
-	knotlmchatkit "github.com/paularlott/knot/internal/lmchatkit"
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/mcptools"
+	"github.com/paularlott/lmchatkit"
 	"github.com/paularlott/mcp"
 	ai "github.com/paularlott/mcp/ai"
-	"github.com/paularlott/lmchatkit"
 )
 
 var ServerCmd = &cli.Command{
@@ -593,6 +593,33 @@ var ServerCmd = &cli.Command{
 			DefaultValue: []string{"docker", "podman", "apple"},
 		},
 
+		// Template spec wizard flags
+		&cli.StringFlag{
+			Name:         "base-image-registry",
+			Usage:        "Default registry prefix for base images referenced by the template spec wizard. Exposed to specs as ${{ .server.base_image_registry }}.",
+			ConfigPath:   []string{"server.base_image.registry_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY"},
+			DefaultValue: "registry-1.docker.io/paularlott",
+		},
+		&cli.StringFlag{
+			Name:       "base-images-manifest",
+			Usage:      "Path to a TOML manifest of base images for the template spec wizard. Defaults to the bundled manifest.",
+			ConfigPath: []string{"server.base_image.manifest"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_MANIFEST"},
+		},
+		&cli.StringFlag{
+			Name:       "base-image-registry-user",
+			Usage:      "Username for the base image registry. Exposed to specs as ${{ .server.base_image_registry_user }}.",
+			ConfigPath: []string{"server.base_image.registry_user"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY_USER"},
+		},
+		&cli.StringFlag{
+			Name:       "base-image-registry-password",
+			Usage:      "Password for the base image registry. Exposed to specs as ${{ .server.base_image_registry_password }}.",
+			ConfigPath: []string{"server.base_image.registry_password"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY_PASSWORD"},
+		},
+
 		// MCP flags
 		&cli.BoolFlag{
 			Name:         "mcp-enabled",
@@ -1100,9 +1127,9 @@ var ServerCmd = &cli.Command{
 					sslDomains = append(sslDomains, "localhost")
 				}
 
-			if tunnelServerUrl != nil {
-				sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
-			}
+				if tunnelServerUrl != nil {
+					sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
+				}
 
 				// If wildcard domain given add it
 				wildcardDomain := cfg.WildcardDomain
@@ -1381,38 +1408,38 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			if cmd.ConfigFile.FileUsed() != "" {
 				typedConfig := cli.NewTypedConfigFile(cmd.ConfigFile)
 				if remoteServers := typedConfig.GetObjectSlice("server.mcp.remote_servers"); remoteServers != nil {
-				for _, server := range remoteServers {
-					if server, ok := server.(interface {
-						GetString(string) string
-						GetBool(string) bool
-						GetStringSlice(string) []string
-					}); ok {
-						remoteServer := config.MCPRemoteServerConfig{}
-						if ns := server.GetString("namespace"); ns != "" {
-							remoteServer.Namespace = ns
+					for _, server := range remoteServers {
+						if server, ok := server.(interface {
+							GetString(string) string
+							GetBool(string) bool
+							GetStringSlice(string) []string
+						}); ok {
+							remoteServer := config.MCPRemoteServerConfig{}
+							if ns := server.GetString("namespace"); ns != "" {
+								remoteServer.Namespace = ns
+							}
+							if url := server.GetString("url"); url != "" {
+								remoteServer.URL = url
+							}
+							if token := server.GetString("token"); token != "" {
+								remoteServer.Token = token
+							}
+							if visibility := server.GetString("tool_visibility"); visibility != "" {
+								remoteServer.ToolVisibility = visibility
+							}
+							if command := server.GetString("command"); command != "" {
+								remoteServer.Command = command
+							}
+							if args := server.GetStringSlice("args"); len(args) > 0 {
+								remoteServer.Args = args
+							}
+							if env := server.GetStringSlice("env"); len(env) > 0 {
+								remoteServer.Env = env
+							}
+							remoteServer.Notifications = server.GetBool("notifications")
+							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 						}
-						if url := server.GetString("url"); url != "" {
-							remoteServer.URL = url
-						}
-						if token := server.GetString("token"); token != "" {
-							remoteServer.Token = token
-						}
-						if visibility := server.GetString("tool_visibility"); visibility != "" {
-							remoteServer.ToolVisibility = visibility
-						}
-						if command := server.GetString("command"); command != "" {
-							remoteServer.Command = command
-						}
-						if args := server.GetStringSlice("args"); len(args) > 0 {
-							remoteServer.Args = args
-						}
-						if env := server.GetStringSlice("env"); len(env) > 0 {
-							remoteServer.Env = env
-						}
-						remoteServer.Notifications = server.GetBool("notifications")
-						mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 					}
-				}
 				}
 			}
 
@@ -1450,6 +1477,10 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			return chatCfg
 		}(),
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
+		BaseImageRegistry:         cmd.GetString("base-image-registry"),
+		BaseImagesManifest:        cmd.GetString("base-images-manifest"),
+		BaseImageRegistryUser:     cmd.GetString("base-image-registry-user"),
+		BaseImageRegistryPassword: cmd.GetString("base-image-registry-password"),
 	}
 
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present

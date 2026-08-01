@@ -56,6 +56,14 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, perm
     async init() {
       await this.getSkills();
 
+      const editId = new URLSearchParams(location.search).get('edit');
+      if (editId) {
+        const u = new URL(location.href);
+        u.searchParams.delete('edit');
+        history.replaceState(null, '', u.toString());
+        this.editSkill(editId);
+      }
+
       if (window.sseClient) {
         window.sseClient.subscribe("skills:changed", (payload) => {
           if (payload?.id) this.getSkills(payload.id);

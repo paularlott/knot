@@ -54,12 +54,12 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space, updateFields []string) e
 
 				// Delete alternate names
 				for _, altName := range existingSpace.AltNames {
-				err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", existingSpace.UserId, strings.ToLower(altName.Name))))
-				if err != nil {
-					return err
-				}
+					err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", existingSpace.UserId, strings.ToLower(altName.Name))))
+					if err != nil {
+						return err
+					}
 
-				err = txn.SetEntry(badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName.Name))), []byte(space.Id)))
+					err = txn.SetEntry(badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName.Name))), []byte(space.Id)))
 					if err != nil {
 						return err
 					}

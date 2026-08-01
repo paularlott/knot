@@ -1,8 +1,8 @@
 {{ define "template-form-content" }}
-<div x-data="templateForm(templateFormModal.isEdit, templateFormModal.templateId, templateFormModal.isDuplicate || false)" x-init="initData()" class="contents">
+<div x-data="templateForm(templateFormModal.isEdit, templateFormModal.templateId, templateFormModal.isDuplicate || false)" x-init="initData()" @check-dirty-close.window="confirmCloseTemplate()" class="contents">
   <div class="flex-1 min-h-0 overflow-y-auto p-5 relative">
       {{ template "loading" . }}
-      <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
+      <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" @input="_formDirty = true" x-show="!loading" x-cloak>
         <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
           <div class="space-y-6">
@@ -140,10 +140,35 @@
         </fieldset>
 
         <fieldset x-show="formData.platform != 'manual'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Orchestration</legend>
+          <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">
+            Orchestration
+            <span x-show="(jobEditor && jobEditor.getValue()) || formData.job"
+                  class="inline-block w-2 h-2 rounded-full ml-1 align-middle"
+                  :class="(specErrors.job.length > 0 || specErrors.volumes.length > 0) ? 'bg-red-500' : 'bg-green-500'"
+                  :title="(specErrors.job.length > 0 || specErrors.volumes.length > 0) ? 'Spec has validation errors' : 'Spec valid'">
+            </span>
+          </legend>
           <div class="space-y-6">
             <div>
-              <label class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
+              <div class="flex items-center gap-2 mb-1">
+                <label class="form-label mb-0">
+                  <span x-show="!isLocalContainer()">Nomad Job (HCL)</span>
+                  <span x-show="isLocalContainer()">Container Specification (YAML)</span>
+                </label>
+                <!-- Wizard button (opens modal) -->
+                <button type="button"
+                  x-show="formData.platform !== 'manual'"
+                  x-cloak
+                  @click="openSpecWizard()"
+                  class="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg px-2.5 py-1"
+                  title="Edit via wizard"
+                  aria-label="Edit spec via wizard">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+                  </svg>
+                  Wizard
+                </button>
+              </div>
               <div class="large-editor">
                 <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
                   <textarea name="job" class="form-field" id="job"></textarea>
@@ -175,7 +200,7 @@
               </div>
             </div>
             <div>
-              <div class="flex items-center justify-between gap-4 mb-1">
+              <div class="flex items-center gap-2 mb-1">
                 <label class="form-label mb-0">Ports</label>
                 <button type="button" x-on:click="addPort()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
@@ -494,8 +519,8 @@
         <fieldset x-show="formData.platform != 'manual'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Custom Fields</legend>
           <div class="space-y-6">
-            <div class="flex items-center justify-between gap-4 mb-3">
-              <div class="description">Additional fields shown when creating a space from this template.</div>
+            <div class="flex items-center gap-2 mb-3">
+              <span class="description mb-0">Additional fields shown when creating a space from this template.</span>
               <button type="button" x-on:click="addField()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -523,10 +548,36 @@
       </form>
   </div>
   <div class="ui-modal-footer">
-    <button type="button" @click="templateFormModal.show = false" class="ui-button-secondary sm:mr-auto" x-text="isEdit ? 'Discard' : 'Cancel'"></button>
+    <button type="button" @click="confirmCloseTemplate()" class="ui-button-secondary sm:mr-auto" x-text="isEdit ? 'Discard' : 'Cancel'"></button>
     <div class="flex gap-2">
       <button type="button" @click="submitData(true)" class="btn-secondary" :disabled="loading || formData.is_managed" x-text="isEdit ? 'Save & Edit' : 'Create & Edit'"></button>
       <button type="button" @click="submitData(false)" class="btn-primary"  :disabled="loading || formData.is_managed" x-text="isEdit ? 'Save' : 'Create'"></button>
+    </div>
+  </div>
+
+  {{ template "spec-wizard-modal" . }}
+
+  <!-- Discard unsaved changes confirmation -->
+  <div x-cloak x-show="discardConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="discardConfirm.show" @keydown.esc.stop="discardConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="discardTitle">
+    <div x-show="discardConfirm.show" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+      <div class="ui-modal-header">
+        <div class="ui-modal-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+        </div>
+        <h3 id="discardTitle" class="ui-modal-title">Unsaved Changes</h3>
+        <button @click="discardConfirm.show = false" aria-label="close" class="ui-modal-close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="ui-modal-body">
+        <p>You have unsaved changes. Are you sure you want to discard them?</p>
+      </div>
+      <div class="ui-modal-footer">
+        <button @click="discardConfirm.show = false" type="button" class="ui-button-secondary sm:mr-auto">Keep Editing</button>
+        <button @click="discardChanges()" type="button" class="ui-button-danger">Discard Changes</button>
+      </div>
     </div>
   </div>
 </div>

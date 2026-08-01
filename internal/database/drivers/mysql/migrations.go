@@ -122,6 +122,8 @@ var migrations = []string{
 	`ALTER TABLE stack_definitions ADD COLUMN IF NOT EXISTS icon_url VARCHAR(255) NOT NULL DEFAULT ''`,
 	// 58: add env to mcp_servers (stdio server environment variables)
 	`ALTER TABLE mcp_servers ADD COLUMN IF NOT EXISTS env JSON NOT NULL DEFAULT '[]'`,
+	// 59: add generic preferences JSON column to users (UI prefs, e.g. pinned nav items)
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSON DEFAULT NULL`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

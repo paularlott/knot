@@ -24,8 +24,8 @@ import (
 	internalmcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/service"
 
-	mcplib "github.com/paularlott/mcp"
 	"github.com/paularlott/lmchatkit"
+	mcplib "github.com/paularlott/mcp"
 )
 
 // ScriptToolsProvider returns a per-user MCP tool provider (script tools +

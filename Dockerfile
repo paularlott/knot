@@ -1,13 +1,13 @@
 ARG DOCKER_HUB
 
-FROM --platform=${BUILDPLATFORM} ${DOCKER_HUB}library/golang:1.26.4-alpine AS builder
+FROM --platform=${BUILDPLATFORM} ${DOCKER_HUB}library/golang:1.26.5-alpine AS builder
 
 # Set build arguments
 ARG TARGETPLATFORM
 
 RUN apk update \
   && apk add --no-cache bash unzip zip nodejs npm \
-  && GO_TASK_VERSION=3.44.1 \
+  && GO_TASK_VERSION=3.52.0 \
   && TARGETARCH=$(uname -m) \
   && case ${TARGETPLATFORM} in \
     'linux/amd64') url="https://github.com/go-task/task/releases/download/v${GO_TASK_VERSION}/task_linux_amd64.tar.gz" ;; \

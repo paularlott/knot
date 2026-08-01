@@ -22,16 +22,16 @@ import (
 func tunnelBaseFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:     "server",
-			Aliases:  []string{"s"},
-			Usage:    "The address of the remote server to create the tunnel on.",
-			EnvVars:  []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
+			Name:    "server",
+			Aliases: []string{"s"},
+			Usage:   "The address of the remote server to create the tunnel on.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
 		},
 		&cli.StringFlag{
-			Name:     "token",
-			Aliases:  []string{"t"},
-			Usage:    "The token to use for authentication.",
-			EnvVars:  []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
+			Name:    "token",
+			Aliases: []string{"t"},
+			Usage:   "The token to use for authentication.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
 		},
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",

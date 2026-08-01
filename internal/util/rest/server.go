@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 )
 
 var (
@@ -38,8 +38,7 @@ func DecodeRequestBody(w http.ResponseWriter, r *http.Request, v interface{}) er
 		}
 		return nil
 	case "application/msgpack":
-		decoder := msgpack.NewDecoder(r.Body)
-		if err := decoder.Decode(v); err != nil {
+		if err := msgpack.UnmarshalRead(r.Body, v); err != nil {
 			http.Error(w, "invalid msgpack format", http.StatusBadRequest)
 			return err
 		}
@@ -65,7 +64,7 @@ func WriteResponse(status int, w http.ResponseWriter, r *http.Request, v interfa
 	if strings.Contains(accept, "application/msgpack") {
 		w.Header().Set("Content-Type", "application/msgpack")
 		w.WriteHeader(status)
-		return msgpack.NewEncoder(w).Encode(v)
+		return msgpack.MarshalWrite(w, v)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

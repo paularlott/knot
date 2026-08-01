@@ -1,0 +1,68 @@
+{{ define "search-palette" }}
+<div x-data="searchPalette()" x-cloak>
+  <div x-show="open"
+       class="fixed inset-0 z-[60] flex items-start justify-center bg-gray-900/50 px-4 pt-[10vh]"
+       x-transition.opacity
+       @click.self="close()">
+    <div class="w-full max-w-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[70vh]"
+         @keydown.escape.stop="close()">
+
+      <div class="p-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <input type="search" x-ref="input" x-model="query"
+               class="form-field"
+               @input.debounce.150ms="search()"
+               @keydown.arrow-down.prevent="moveDown()"
+               @keydown.arrow-up.prevent="moveUp()"
+               @keydown.enter.prevent="activateSelected()"
+               placeholder="Search spaces, templates, users…"
+               autocomplete="off"
+               aria-label="Search" />
+      </div>
+
+      <div class="overflow-y-auto p-1" x-ref="list">
+        <div x-show="loading" class="p-4 text-center text-xs text-gray-500 dark:text-gray-400">Searching…</div>
+
+        <template x-if="!loading && totalResults === 0 && query.trim() === ''">
+          <div class="p-4 text-center text-xs text-gray-500 dark:text-gray-400">Type to search across your spaces, templates, users and more.</div>
+        </template>
+        <template x-if="!loading && totalResults === 0 && query.trim() !== ''">
+          <div class="p-4 text-center text-xs text-gray-500 dark:text-gray-400">No matches for &ldquo;<span x-text="query"></span>&rdquo;.</div>
+        </template>
+
+        <template x-for="g in groupDefs" :key="g.key">
+          <div x-show="hitsFor(g.key).length > 0"
+               :class="g.key !== firstVisibleGroupKey ? 'mt-2 pt-2 border-t border-gray-200 dark:border-gray-700' : ''">
+            <div class="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500" x-text="g.label"></div>
+            <template x-for="hit in hitsFor(g.key)" :key="hit.id">
+              <button type="button"
+                      :data-idx="flatIndexFor(g.key, hit)"
+                      :class="activeIndex === flatIndexFor(g.key, hit) ? 'bg-gray-100 dark:bg-gray-700' : ''"
+                      class="w-full text-left p-2 rounded flex items-start gap-3"
+                      @click="activate({type: g.key, hit: hit})"
+                      @mousemove="activeIndex = flatIndexFor(g.key, hit)">
+                <div class="flex-grow min-w-0">
+                  <div class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="hit.name"></div>
+                  <div x-show="hit.description" class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="hit.description"></div>
+                </div>
+                <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0 self-center" x-text="g.label"></span>
+              </button>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <div class="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 shrink-0">
+        <span class="flex items-center gap-1">
+          <kbd class="border border-gray-200 dark:border-gray-600 rounded px-1">&uarr;</kbd>
+          <kbd class="border border-gray-200 dark:border-gray-600 rounded px-1">&darr;</kbd>
+          navigate
+        </span>
+        <span class="flex items-center gap-1">
+          <kbd class="border border-gray-200 dark:border-gray-600 rounded px-1">&crarr;</kbd>
+          open
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

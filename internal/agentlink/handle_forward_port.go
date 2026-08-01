@@ -44,18 +44,18 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 
 		// Get current space info
 		ctx := context.Background()
-		currentSpace, _, err := client.GetSpace(ctx, agentClient.GetSpaceId())
+		currentSpace, code, err := client.GetSpace(ctx, agentClient.GetSpaceId())
 		if err != nil {
-			log.WithError(err).Error("Failed to get current space")
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get current space"})
+			log.WithError(err).Error("Failed to get current space", "status", code)
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: fmt.Sprintf("failed to get current space (status %d): %v", code, err)})
 			return
 		}
 
 		// Get target space info
-		spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId, false)
+		spaces, code, err := client.GetSpaces(ctx, currentSpace.UserId, false)
 		if err != nil {
-			log.WithError(err).Error("Failed to get spaces")
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get spaces"})
+			log.WithError(err).Error("Failed to get spaces", "status", code)
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: fmt.Sprintf("failed to get spaces (status %d): %v", code, err)})
 			return
 		}
 

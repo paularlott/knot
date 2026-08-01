@@ -135,8 +135,8 @@
     </fieldset>
     <fieldset x-show="canSetSpaceDependencies && (dependencyOptions.length > 0 || formData.depends_on.length > 0)" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Space Dependencies</legend>
-      <div class="flex items-center justify-between gap-4 mb-3">
-        <div class="description">Selected spaces must already be running before this space can start.</div>
+      <div class="flex items-center gap-2 mb-3">
+        <span class="description mb-0">Selected spaces must already be running before this space can start.</span>
         <button type="button" @click="openDependencyModal()" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!dependencyOptions.length" aria-label="Add dependency">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

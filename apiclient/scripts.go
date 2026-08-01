@@ -6,16 +6,16 @@ type ScriptList struct {
 }
 
 type ScriptInfo struct {
-	Id          string   `json:"script_id"`
-	UserId      string   `json:"user_id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Groups      []string `json:"groups"`
-	Zones       []string `json:"zones"`
-	Active      bool     `json:"active"`
-	ScriptType  string   `json:"script_type"`
-	Discoverable bool    `json:"discoverable"`
-	IsManaged   bool     `json:"is_managed"`
+	Id           string   `json:"script_id"`
+	UserId       string   `json:"user_id"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Groups       []string `json:"groups"`
+	Zones        []string `json:"zones"`
+	Active       bool     `json:"active"`
+	ScriptType   string   `json:"script_type"`
+	Discoverable bool     `json:"discoverable"`
+	IsManaged    bool     `json:"is_managed"`
 }
 
 type ScriptDetails struct {

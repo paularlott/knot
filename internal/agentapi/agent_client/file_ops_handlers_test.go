@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 )
 
 // runFindHandler invokes handleFindExecution against an in-memory pipe,

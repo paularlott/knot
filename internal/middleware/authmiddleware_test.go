@@ -71,21 +71,21 @@ func TestCheckPermissionLogic(t *testing.T) {
 	})
 
 	tests := []struct {
-		name           string
-		userRoles      []string
-		permission     uint16
+		name            string
+		userRoles       []string
+		permission      uint16
 		expectForbidden bool
 	}{
 		{
-			name:           "user has permission",
-			userRoles:      []string{"role1"},
-			permission:     model.PermissionManageTemplates,
+			name:            "user has permission",
+			userRoles:       []string{"role1"},
+			permission:      model.PermissionManageTemplates,
 			expectForbidden: false,
 		},
 		{
-			name:           "user lacks permission",
-			userRoles:      []string{"role1"},
-			permission:     model.PermissionManageUsers,
+			name:            "user lacks permission",
+			userRoles:       []string{"role1"},
+			permission:      model.PermissionManageUsers,
 			expectForbidden: true,
 		},
 	}

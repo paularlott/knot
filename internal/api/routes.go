@@ -12,6 +12,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// Core
 	router.HandleFunc("GET /api/ping", middleware.ApiAuth(HandlePing))
 	router.HandleFunc("GET /api/server-info", middleware.ApiAuth(HandleGetServerInfo))
+	router.HandleFunc("GET /api/search", middleware.ApiAuth(HandleSearch))
 	router.HandleFunc("POST /api/auth/logout", middleware.ApiAuth(HandleLogout))
 
 	// Users
@@ -20,6 +21,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/users/whoami", middleware.ApiAuth(HandleWhoAmI))
 	router.HandleFunc("PUT /api/users/whoami/ssh-public-key", middleware.ApiAuth(HandleUpdateOwnSSHPublicKey))
 	router.HandleFunc("PUT /api/users/whoami/ssh-private-key", middleware.ApiAuth(HandleUpdateOwnSSHPrivateKey))
+	router.HandleFunc("GET /api/users/preferences/nav", middleware.ApiAuth(HandleGetOwnNavPreferences))
+	router.HandleFunc("PUT /api/users/preferences/nav", middleware.ApiAuth(HandleUpdateOwnNavPreferences))
 	router.HandleFunc("GET /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUser)))
 	router.HandleFunc("PUT /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleUpdateUser)))
 	router.HandleFunc("DELETE /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleDeleteUser)))
@@ -111,6 +114,14 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
+	router.HandleFunc("GET /api/templates/{template_id}/export", middleware.ApiAuth(HandleExportTemplate))
+	router.HandleFunc("POST /api/templates/import", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleImportTemplate)))
+
+	// Template spec wizard (base image catalog + spec parse/build)
+	router.HandleFunc("GET /api/base-images", middleware.ApiAuth(HandleGetBaseImages))
+	router.HandleFunc("GET /api/capabilities", middleware.ApiAuth(HandleGetCapabilities))
+	router.HandleFunc("POST /api/spec/parse", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleSpecParse)))
+	router.HandleFunc("POST /api/spec/build", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleSpecBuild)))
 
 	// Volumes
 	router.HandleFunc("GET /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumes)))

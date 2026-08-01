@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	FrameStdio    byte = 0x00
-	FrameControl  byte = 0x01
-	maxFrameSize       = 16 * 1024 * 1024 // 16MB
+	FrameStdio   byte = 0x00
+	FrameControl byte = 0x01
+	maxFrameSize      = 16 * 1024 * 1024 // 16MB
 )
 
 func WriteFrame(w io.Writer, frameType byte, payload []byte) error {

@@ -37,8 +37,8 @@ type agentServer struct {
 	muxSession         *yamux.Session
 	ctx                context.Context
 	cancel             context.CancelFunc
-	reportingConn      net.Conn   // Connection for reporting state
-	logConn            net.Conn   // Connection for logging messages
+	reportingConn      net.Conn // Connection for reporting state
+	logConn            net.Conn // Connection for logging messages
 	logChannel         chan *msg.LogMessage
 
 	// aliases is the set of addresses this server contributed to the client's
@@ -345,17 +345,17 @@ func (s *agentServer) ConnectAndServe() {
 			}
 
 			// Open the mux session
-		mux, err := yamux.Client(s.conn, &yamux.Config{
-			AcceptBacklog:          256,
-			EnableKeepAlive:        true,
-			KeepAliveInterval:      30 * time.Second,
-			ConnectionWriteTimeout: 30 * time.Second,
-			MaxStreamWindowSize:    4 * 1024 * 1024, // 4MB — 256KB default is too small for file transfers
-			StreamCloseTimeout:     6 * time.Minute,
-			StreamOpenTimeout:      3 * time.Second,
-			LogOutput:              io.Discard,
-			//Logger:                 logger.NewMuxLogger(),
-		})
+			mux, err := yamux.Client(s.conn, &yamux.Config{
+				AcceptBacklog:          256,
+				EnableKeepAlive:        true,
+				KeepAliveInterval:      30 * time.Second,
+				ConnectionWriteTimeout: 30 * time.Second,
+				MaxStreamWindowSize:    4 * 1024 * 1024, // 4MB — 256KB default is too small for file transfers
+				StreamCloseTimeout:     6 * time.Minute,
+				StreamOpenTimeout:      3 * time.Second,
+				LogOutput:              io.Discard,
+				//Logger:                 logger.NewMuxLogger(),
+			})
 			if err != nil {
 				log.WithError(err).Error("creating mux session:")
 				s.teardownConnections()

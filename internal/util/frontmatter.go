@@ -24,7 +24,7 @@ var commandNameRegex = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 
 func ParseSkillFrontmatter(content string) (*SkillFrontmatter, error) {
 	scanner := bufio.NewScanner(strings.NewReader(content))
-	
+
 	if !scanner.Scan() {
 		return nil, fmt.Errorf("empty content")
 	}

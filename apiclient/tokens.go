@@ -20,7 +20,7 @@ type CreateTokenRequest struct {
 }
 
 type UpdateTokenRequest struct {
-	Name   *string  `json:"name,omitempty"`
+	Name   *string   `json:"name,omitempty"`
 	Scopes *[]string `json:"scopes,omitempty"`
 }
 

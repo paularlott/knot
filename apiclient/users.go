@@ -134,6 +134,30 @@ type UpdateOwnSSHPrivateKeyRequest struct {
 	SSHPrivateKey string `json:"ssh_private_key"`
 }
 
+// ValidNavURLs is the set of sidebar URLs that may be pinned to the top of the
+// navigation. The server validates preference updates against it so clients
+// can't store arbitrary strings in the preferences blob.
+var ValidNavURLs = map[string]bool{
+	"/spaces": true, "/tunnels": true, "/api-tokens": true, "/volumes": true,
+	"/templates": true, "/variables": true, "/stacks": true, "/scripts": true,
+	"/events": true, "/skills": true, "/commands": true, "/mcp-servers": true,
+	"/users": true, "/groups": true, "/roles": true, "/audit-logs": true,
+	"/cluster-info": true,
+}
+
+// UpdateOwnNavPreferencesRequest replaces the current user's pinned sidebar
+// ordering. URLs are validated against ValidNavURLs and de-duplicated, so the
+// stored order may differ from the request. An empty slice clears the
+// preference and returns the sidebar to its default layout.
+type UpdateOwnNavPreferencesRequest struct {
+	Starred []string `json:"starred"`
+}
+
+// NavPreferences is the pinned-sidebar state for the current user.
+type NavPreferences struct {
+	Starred []string `json:"starred"`
+}
+
 func (c *ApiClient) CreateUser(ctx context.Context, request *CreateUserRequest) (string, int, error) {
 	response := CreateUserResponse{}
 
@@ -202,6 +226,28 @@ func (c *ApiClient) UpdateOwnSSHPublicKey(ctx context.Context, request *UpdateOw
 func (c *ApiClient) UpdateOwnSSHPrivateKey(ctx context.Context, request *UpdateOwnSSHPrivateKeyRequest) error {
 	_, err := c.httpClient.Put(ctx, "/api/users/whoami/ssh-private-key", request, nil, 200)
 	return err
+}
+
+// GetOwnNavPreferences returns the current user's pinned sidebar URLs in display order.
+func (c *ApiClient) GetOwnNavPreferences(ctx context.Context) (*NavPreferences, error) {
+	response := NavPreferences{}
+	_, err := c.httpClient.Get(ctx, "/api/users/preferences/nav", &response)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// UpdateOwnNavPreferences replaces the current user's pinned sidebar ordering.
+// The returned NavPreferences reflects the canonical (validated, de-duplicated)
+// order stored by the server.
+func (c *ApiClient) UpdateOwnNavPreferences(ctx context.Context, request *UpdateOwnNavPreferencesRequest) (*NavPreferences, error) {
+	response := NavPreferences{}
+	_, err := c.httpClient.Put(ctx, "/api/users/preferences/nav", request, &response, 200)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 func (c *ApiClient) DeleteUser(ctx context.Context, userId string) error {

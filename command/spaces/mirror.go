@@ -24,7 +24,7 @@ import (
 // each file's mtime and permission bits) and deletes any remote file that
 // doesn't exist locally — the destination ends up as a mirror of the source.
 //
-//   knot space mirror ./src myspace:/var/www/html
+//	knot space mirror ./src myspace:/var/www/html
 //
 // For one-way upload without deletes, use knot space copy per-file or write
 // your own loop. For continuous two-way sync, mutagen against the space's SSH

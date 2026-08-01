@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/shamaton/msgpack/v3"
 )
 
 // TestMsgpackBinaryContentRoundTrip proves msgpack's str type preserves
@@ -32,7 +32,7 @@ func TestMsgpackBinaryContentRoundTrip(t *testing.T) {
 	}
 
 	var decoded request
-	if err := msgpack.NewDecoder(bytes.NewReader(encoded)).Decode(&decoded); err != nil {
+	if err := msgpack.UnmarshalRead(bytes.NewReader(encoded), &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestMsgpackLargeContentRoundTrip(t *testing.T) {
 	}
 
 	var decoded request
-	if err := msgpack.NewDecoder(bytes.NewReader(encoded)).Decode(&decoded); err != nil {
+	if err := msgpack.UnmarshalRead(bytes.NewReader(encoded), &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
