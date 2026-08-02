@@ -305,7 +305,7 @@ func (s *agentServer) ConnectAndServe() {
 				}
 
 				// Restore persistent port forwards from server
-				if len(response.PortForwards) > 0 && s.agentClient.withRunCommand {
+				if len(response.PortForwards) > 0 {
 					go s.restorePortForwards(response.PortForwards)
 				}
 			}
@@ -680,14 +680,10 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		if s.agentClient.withRunCommand {
-			handlePortForwardExecution(stream, portCmd, s.agentClient)
-		}
+		handlePortForwardExecution(stream, portCmd, s.agentClient)
 
 	case byte(msg.CmdPortList):
-		if s.agentClient.withRunCommand {
-			handlePortListExecution(stream, s.agentClient)
-		}
+		handlePortListExecution(stream, s.agentClient)
 
 	case byte(msg.CmdPortStop):
 		var portCmd msg.PortStopRequest
@@ -696,9 +692,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		if s.agentClient.withRunCommand {
-			handlePortStopExecution(stream, portCmd, s.agentClient)
-		}
+		handlePortStopExecution(stream, portCmd, s.agentClient)
 
 	case byte(msg.CmdThrottlePort):
 		var throttleCmd msg.ThrottlePortRequest
@@ -707,9 +701,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		if s.agentClient.withRunCommand {
-			handleThrottlePortExecution(stream, throttleCmd)
-		}
+		handleThrottlePortExecution(stream, throttleCmd)
 
 	case byte(msg.CmdExecuteScript):
 		var execMsg msg.ExecuteScriptMessage
@@ -754,9 +746,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		if s.agentClient.withRunCommand {
-			handleTunnelStartExecution(stream, tunnelCmd, s.agentClient)
-		}
+		handleTunnelStartExecution(stream, tunnelCmd, s.agentClient)
 
 	case byte(msg.CmdTunnelStop):
 		var tunnelCmd msg.TunnelStopRequest
@@ -765,14 +755,10 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		if s.agentClient.withRunCommand {
-			handleTunnelStopExecution(stream, tunnelCmd)
-		}
+		handleTunnelStopExecution(stream, tunnelCmd)
 
 	case byte(msg.CmdTunnelList):
-		if s.agentClient.withRunCommand {
-			handleTunnelListExecution(stream)
-		}
+		handleTunnelListExecution(stream)
 
 	default:
 		log.Error("unknown command:", "cmd", cmd)

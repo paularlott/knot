@@ -98,24 +98,24 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 
 	// Validate the request
 	if request.LocalPort < 1 || request.LocalPort > 65535 {
-		writeJSONError(w, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
+		writeJSONError(w, r, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
 		return
 	}
 
 	if request.RemotePort < 1 || request.RemotePort > 65535 {
-		writeJSONError(w, http.StatusBadRequest, "Invalid remote port, must be between 1 and 65535")
+		writeJSONError(w, r, http.StatusBadRequest, "Invalid remote port, must be between 1 and 65535")
 		return
 	}
 
 	if request.Space == "" {
-		writeJSONError(w, http.StatusBadRequest, "Target space ID is required")
+		writeJSONError(w, r, http.StatusBadRequest, "Target space ID is required")
 		return
 	}
 
 	// Resolve the target space (accepts UUID or name)
 	targetSpace, err := resolvePortForwardTarget(db, space.UserId, request.Space)
 	if err != nil || targetSpace == nil {
-		writeJSONError(w, http.StatusNotFound, "Target space not found")
+		writeJSONError(w, r, http.StatusNotFound, "Target space not found")
 		return
 	}
 
@@ -124,14 +124,14 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 
 	// Source space not running — only persistent forwards allowed
 	if agentSession == nil && !request.Persistent {
-		writeJSONError(w, http.StatusConflict, "Space is not running, only persistent forwards can be created for stopped spaces")
+		writeJSONError(w, r, http.StatusConflict, "Space is not running, only persistent forwards can be created for stopped spaces")
 		return
 	}
 
 	// Validate the target space is running (unless force)
 	if !request.Force {
 		if agent_server.GetSession(targetSpace.Id) == nil {
-			writeJSONError(w, http.StatusConflict, "Target space is not running")
+			writeJSONError(w, r, http.StatusConflict, "Target space is not running")
 			return
 		}
 	}
@@ -147,7 +147,7 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 
 		if err := savePortForwardToDB(space, entry); err != nil {
 			log.WithError(err).Error("Failed to save port forward to database")
-			writeJSONError(w, http.StatusInternalServerError, "Failed to save port forward")
+			writeJSONError(w, r, http.StatusInternalServerError, "Failed to save port forward")
 			return
 		}
 
@@ -167,14 +167,14 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 	response, err := agentSession.SendPortForward(portForwardMsg)
 	if err != nil {
 		log.WithError(err).Error("Failed to send port forward command to agent")
-		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to send command to agent")
 		return
 	}
 
 	if response.Success {
 		w.WriteHeader(http.StatusOK)
 	} else {
-		writeJSONError(w, http.StatusInternalServerError, response.Error)
+		writeJSONError(w, r, http.StatusInternalServerError, response.Error)
 	}
 }
 
@@ -225,7 +225,7 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 	response, err := agentSession.SendPortList()
 	if err != nil {
 		log.WithError(err).Error("failed to send port list command to agent")
-		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to send command to agent")
 		return
 	}
 
@@ -278,7 +278,7 @@ func HandlePortStop(w http.ResponseWriter, r *http.Request) {
 
 	// Validate the request
 	if request.LocalPort < 1 || request.LocalPort > 65535 {
-		writeJSONError(w, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
+		writeJSONError(w, r, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
 		return
 	}
 
@@ -289,7 +289,7 @@ func HandlePortStop(w http.ResponseWriter, r *http.Request) {
 		// Space is not running — remove from database
 		if err := removePortForwardFromDB(space, request.LocalPort); err != nil {
 			log.WithError(err).Error("Failed to remove port forward from database")
-			writeJSONError(w, http.StatusInternalServerError, "Failed to remove port forward")
+			writeJSONError(w, r, http.StatusInternalServerError, "Failed to remove port forward")
 			return
 		}
 
@@ -305,14 +305,14 @@ func HandlePortStop(w http.ResponseWriter, r *http.Request) {
 	response, err := agentSession.SendPortStop(portStopMsg)
 	if err != nil {
 		log.WithError(err).Error("Failed to send port stop command to agent")
-		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to send command to agent")
 		return
 	}
 
 	if response.Success {
 		w.WriteHeader(http.StatusOK)
 	} else {
-		writeJSONError(w, http.StatusInternalServerError, response.Error)
+		writeJSONError(w, r, http.StatusInternalServerError, response.Error)
 	}
 }
 
@@ -334,7 +334,7 @@ func HandlePortThrottle(w http.ResponseWriter, r *http.Request) {
 
 	agentSession := agent_server.GetSession(spaceId)
 	if agentSession == nil {
-		writeJSONError(w, http.StatusConflict, "Space is not running")
+		writeJSONError(w, r, http.StatusConflict, "Space is not running")
 		return
 	}
 
@@ -351,7 +351,7 @@ func HandlePortThrottle(w http.ResponseWriter, r *http.Request) {
 		Reset:       request.Reset,
 	})
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to send command to agent")
 		return
 	}
 
@@ -359,8 +359,8 @@ func HandlePortThrottle(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
-func writeJSONError(w http.ResponseWriter, status int, message string) {
-	rest.WriteResponse(status, w, nil, map[string]interface{}{
+func writeJSONError(w http.ResponseWriter, r *http.Request, status int, message string) {
+	rest.WriteResponse(status, w, r, map[string]interface{}{
 		"success": false,
 		"error":   message,
 	})
@@ -391,7 +391,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(request.Forwards) == 0 {
-		writeJSONError(w, http.StatusBadRequest, "At least one forward is required")
+		writeJSONError(w, r, http.StatusBadRequest, "At least one forward is required")
 		return
 	}
 
@@ -399,21 +399,21 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	targetLookup := make(map[string]*model.Space)
 	for _, fwd := range request.Forwards {
 		if fwd.LocalPort < 1 || fwd.LocalPort > 65535 {
-			writeJSONError(w, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
+			writeJSONError(w, r, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
 			return
 		}
 		if fwd.RemotePort < 1 || fwd.RemotePort > 65535 {
-			writeJSONError(w, http.StatusBadRequest, "Invalid remote port, must be between 1 and 65535")
+			writeJSONError(w, r, http.StatusBadRequest, "Invalid remote port, must be between 1 and 65535")
 			return
 		}
 		if fwd.Space == "" {
-			writeJSONError(w, http.StatusBadRequest, "Target space ID is required")
+			writeJSONError(w, r, http.StatusBadRequest, "Target space ID is required")
 			return
 		}
 		if _, seen := targetLookup[fwd.Space]; !seen {
 			ts, err := resolvePortForwardTarget(db, space.UserId, fwd.Space)
 			if err != nil || ts == nil {
-				writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Target space %q not found", fwd.Space))
+				writeJSONError(w, r, http.StatusNotFound, fmt.Sprintf("Target space %q not found", fwd.Space))
 				return
 			}
 			targetLookup[fwd.Space] = ts
@@ -427,7 +427,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		// Space is not running — check that all forwards are persistent, then apply to DB
 		for _, fwd := range request.Forwards {
 			if !fwd.Persistent {
-				writeJSONError(w, http.StatusConflict, "Space is not running, only persistent forwards can be created for stopped spaces")
+				writeJSONError(w, r, http.StatusConflict, "Space is not running, only persistent forwards can be created for stopped spaces")
 				return
 			}
 		}
@@ -478,7 +478,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 				RemotePort: fwd.RemotePort,
 			}
 			if err := savePortForwardToDB(space, entry); err != nil {
-				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to save port forward %d: %v", fwd.LocalPort, err))
+				writeJSONError(w, r, http.StatusInternalServerError, fmt.Sprintf("Failed to save port forward %d: %v", fwd.LocalPort, err))
 				return
 			}
 			applied = append(applied, apiclient.PortForwardInfo{
@@ -520,7 +520,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	currentList, err := agentSession.SendPortList()
 	if err != nil {
 		log.WithError(err).Error("Failed to get current port list from agent")
-		writeJSONError(w, http.StatusInternalServerError, "Failed to get current port forwards")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to get current port forwards")
 		return
 	}
 

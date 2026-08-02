@@ -56,66 +56,68 @@ const (
 )
 
 type PermissionName struct {
-	Id    int    `json:"id"`
-	Group string `json:"group"`
-	Name  string `json:"name"`
+	Id          int    `json:"id"`
+	Group       string `json:"group"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 var PermissionNames = []PermissionName{
-	{PermissionViewAuditLogs, "Audit", "View Audit Logs"},
-	{PermissionDownloadAuditLogs, "Audit", "Download Audit Logs"},
+	{PermissionViewAuditLogs, "Audit", "View Audit Logs", "View the audit log of system activity."},
+	{PermissionDownloadAuditLogs, "Audit", "Download Audit Logs", "Export audit log entries to a file."},
 
-	{PermissionClusterInfo, "System", "View Cluster Info"},
+	{PermissionClusterInfo, "System", "View Cluster Info", "View cluster node and topology information."},
 
-	{PermissionManageGroups, "User Management", "Manage Groups"},
-	{PermissionManageRoles, "User Management", "Manage Roles"},
-	{PermissionManageUsers, "User Management", "Manage Users"},
+	{PermissionManageGroups, "User Management", "Manage Groups", "Create, edit, and delete user groups."},
+	{PermissionManageRoles, "User Management", "Manage Roles", "Create, edit, and delete roles and their permissions."},
+	{PermissionManageUsers, "User Management", "Manage Users", "Create, edit, and delete user accounts."},
 
-	{PermissionManageSpaces, "Resource Management", "Manage Spaces"},
-	{PermissionManageTemplates, "Resource Management", "Manage Templates"},
-	{PermissionManageVariables, "Resource Management", "Manage Variables"},
-	{PermissionManageVolumes, "Resource Management", "Manage Volumes"},
+	{PermissionManageSpaces, "Resource Management", "Manage Spaces", "Manage any space, including those owned by other users."},
+	{PermissionManageTemplates, "Resource Management", "Manage Templates", "Create, edit, and delete space templates."},
+	{PermissionManageVariables, "Resource Management", "Manage Variables", "Create, edit, and delete system variables."},
+	{PermissionManageVolumes, "Resource Management", "Manage Volumes", "Create, edit, and delete volumes."},
 
-	{PermissionUseMCPServer, "AI Tools", "Use MCP Server"},
-	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant"},
+	{PermissionUseMCPServer, "AI Tools", "Use MCP Server", "Connect to the knot MCP server."},
+	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant", "Use the built-in web AI assistant."},
 
-	{PermissionManageScripts, "Scripting", "Manage System Scripts"},
-	{PermissionExecuteScripts, "Scripting", "Execute System Scripts"},
-	{PermissionManageOwnScripts, "Scripting", "Manage Own Scripts"},
-	{PermissionExecuteOwnScripts, "Scripting", "Execute Own Scripts"},
+	{PermissionManageScripts, "Scripting", "Manage System Scripts", "Create and edit system (global) scripts."},
+	{PermissionExecuteScripts, "Scripting", "Execute System Scripts", "Run system (global) scripts."},
+	{PermissionManageOwnScripts, "Scripting", "Manage Own Scripts", "Create and edit your own scripts."},
+	{PermissionExecuteOwnScripts, "Scripting", "Execute Own Scripts", "Run your own scripts."},
 
-	{PermissionManageEvents, "Events", "Manage Own Event Sinks"},
-	{PermissionManageGlobalEvents, "Events", "Manage Global Event Sinks"},
+	{PermissionManageEvents, "Events", "Manage Own Event Sinks", "Create and manage your own event sinks."},
+	{PermissionManageGlobalEvents, "Events", "Manage Global Event Sinks", "Create and manage global event sinks."},
 
-	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
-	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
+	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills", "Create and edit global skills."},
+	{PermissionManageOwnSkills, "Skills", "Manage Own Skills", "Create and edit your own skills."},
 
-	{PermissionManageGlobalSlashCommands, "Slash Commands", "Manage Global Slash Commands"},
-	{PermissionManageOwnSlashCommands, "Slash Commands", "Manage Own Slash Commands"},
+	{PermissionManageGlobalSlashCommands, "Slash Commands", "Manage Global Slash Commands", "Create and edit global slash commands."},
+	{PermissionManageOwnSlashCommands, "Slash Commands", "Manage Own Slash Commands", "Create and edit your own slash commands."},
 
-	{PermissionManageMCPServers, "AI Tools", "Manage MCP Servers"},
+	{PermissionManageMCPServers, "AI Tools", "Manage MCP Servers", "Register and configure MCP servers."},
 
-	{PermissionManageStackDefinitions, "Stacks", "Manage Global Stack Definitions"},
-	{PermissionManageOwnStackDefinitions, "Stacks", "Manage Own Stack Definitions"},
-	{PermissionUseStackDefinitions, "Stacks", "Use Stack Definitions"},
+	{PermissionManageStackDefinitions, "Stacks", "Manage Global Stack Definitions", "Create, edit, and delete global (system) stack definitions."},
+	{PermissionManageOwnStackDefinitions, "Stacks", "Manage Own Stack Definitions", "Create, edit, and delete personal stack definitions."},
+	{PermissionUseStackDefinitions, "Stacks", "Use Stack Definitions", "Create spaces from stack definitions."},
 
-	{PermissionUseMethods, "Methods", "Use Space Methods Shared by Others"},
+	{PermissionUseMethods, "Methods", "Use Space Methods Shared by Others", "Call space methods shared by other users."},
 
-	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
-	{PermissionUsePools, "Space Operations", "Use Space Pools"},
-	{PermissionSetSpaceDependencies, "Space Operations", "Set Space Dependencies"},
-	{PermissionUseSpaceStartupScript, "Space Operations", "Use User Startup Script"},
-	{PermissionShareSpaces, "Space Operations", "Share Spaces"},
-	{PermissionTransferSpaces, "Space Operations", "Transfer Spaces"},
-	{PermissionUseTunnels, "Space Operations", "Use Tunnels"},
-	{PermissionUseCodeServer, "Space Operations", "Use Code Server"},
-	{PermissionUseLogs, "Space Operations", "View Logs"},
-	{PermissionUseSSH, "Space Operations", "Use SSH"},
-	{PermissionUseVNC, "Space Operations", "Use VNC"},
-	{PermissionUseVSCodeTunnel, "Space Operations", "Use VSCode Tunnel"},
-	{PermissionUseWebTerminal, "Space Operations", "Use Web Terminal"},
-	{PermissionRunCommands, "Space Operations", "Run Commands"},
-	{PermissionCopyFiles, "Space Operations", "Copy Files"},
+	{PermissionUseTunnels, "Public Tunnels", "Use Tunnels", "Expose a local or space port as a public URL via a knot tunnel."},
+
+	{PermissionUseSpaces, "Space Operations", "Use Spaces", "Create and run spaces."},
+	{PermissionUsePools, "Space Operations", "Use Space Pools", "Create and run space pools."},
+	{PermissionSetSpaceDependencies, "Space Operations", "Set Space Dependencies", "Configure dependencies between spaces."},
+	{PermissionUseSpaceStartupScript, "Space Operations", "Use User Startup Script", "Set a user startup script that runs when a space starts."},
+	{PermissionShareSpaces, "Space Operations", "Share Spaces", "Share your spaces with other users."},
+	{PermissionTransferSpaces, "Space Operations", "Transfer Spaces", "Transfer ownership of your spaces to another user."},
+	{PermissionUseCodeServer, "Space Operations", "Use Code Server", "Open code-server in a space."},
+	{PermissionUseLogs, "Space Operations", "View Logs", "View the log window for a space."},
+	{PermissionUseSSH, "Space Operations", "Use SSH", "Connect to spaces over SSH."},
+	{PermissionUseVNC, "Space Operations", "Use VNC", "Use the VNC graphical desktop in a space."},
+	{PermissionUseVSCodeTunnel, "Space Operations", "Use VSCode Tunnel", "Connect to a space via a VS Code tunnel."},
+	{PermissionUseWebTerminal, "Space Operations", "Use Web Terminal", "Use the web terminal in a space."},
+	{PermissionRunCommands, "Space Operations", "Run Commands", "Execute commands inside a space."},
+	{PermissionCopyFiles, "Space Operations", "Copy Files", "Copy files to and from a space."},
 }
 
 // Role

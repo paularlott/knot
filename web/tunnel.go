@@ -40,21 +40,21 @@ func HandleTunnelStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if request.Protocol != "http" && request.Protocol != "https" {
-		writeJSONError(w, http.StatusBadRequest, "Invalid protocol, must be http or https")
+		writeJSONError(w, r, http.StatusBadRequest, "Invalid protocol, must be http or https")
 		return
 	}
 	if request.Port < 1 || request.Port > 65535 {
-		writeJSONError(w, http.StatusBadRequest, "Invalid port, must be between 1 and 65535")
+		writeJSONError(w, r, http.StatusBadRequest, "Invalid port, must be between 1 and 65535")
 		return
 	}
 	if !validate.Name(request.Name) {
-		writeJSONError(w, http.StatusBadRequest, "Invalid name, must be all lowercase and only contain letters, numbers and dashes")
+		writeJSONError(w, r, http.StatusBadRequest, "Invalid name, must be all lowercase and only contain letters, numbers and dashes")
 		return
 	}
 
 	agentSession := agent_server.GetSession(spaceId)
 	if agentSession == nil {
-		writeJSONError(w, http.StatusConflict, "Space is not running")
+		writeJSONError(w, r, http.StatusConflict, "Space is not running")
 		return
 	}
 
@@ -65,7 +65,7 @@ func HandleTunnelStart(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.WithError(err).Error("Failed to send tunnel start command to agent")
-		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to send command to agent")
 		return
 	}
 
@@ -111,7 +111,7 @@ func HandleTunnelList(w http.ResponseWriter, r *http.Request) {
 	response, err := agentSession.SendTunnelList()
 	if err != nil {
 		log.WithError(err).Error("Failed to send tunnel list command to agent")
-		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to send command to agent")
 		return
 	}
 
@@ -151,26 +151,26 @@ func HandleTunnelStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if request.Name == "" {
-		writeJSONError(w, http.StatusBadRequest, "Tunnel name is required")
+		writeJSONError(w, r, http.StatusBadRequest, "Tunnel name is required")
 		return
 	}
 
 	agentSession := agent_server.GetSession(spaceId)
 	if agentSession == nil {
-		writeJSONError(w, http.StatusConflict, "Space is not running")
+		writeJSONError(w, r, http.StatusConflict, "Space is not running")
 		return
 	}
 
 	response, err := agentSession.SendTunnelStop(&msg.TunnelStopRequest{Name: request.Name})
 	if err != nil {
 		log.WithError(err).Error("Failed to send tunnel stop command to agent")
-		writeJSONError(w, http.StatusInternalServerError, "Failed to send command to agent")
+		writeJSONError(w, r, http.StatusInternalServerError, "Failed to send command to agent")
 		return
 	}
 
 	if response.Success {
 		w.WriteHeader(http.StatusOK)
 	} else {
-		writeJSONError(w, http.StatusInternalServerError, response.Error)
+		writeJSONError(w, r, http.StatusInternalServerError, response.Error)
 	}
 }

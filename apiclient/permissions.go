@@ -3,9 +3,10 @@ package apiclient
 import "context"
 
 type PermissionInfo struct {
-	Id    int    `json:"id"`
-	Name  string `json:"name"`
-	Group string `json:"group"`
+	Id          int    `json:"id"`
+	Name        string `json:"name"`
+	Group       string `json:"group"`
+	Description string `json:"description,omitempty"`
 }
 
 type PermissionInfoList struct {

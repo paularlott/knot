@@ -6158,6 +6158,9 @@ components:
         group:
           type: string
           description: The group of the permission.
+        description:
+          type: string
+          description: A human-readable description of what the permission grants.
 
     Icon:
       type: object

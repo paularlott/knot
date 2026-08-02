@@ -16,9 +16,10 @@ func HandleGetPermissions(w http.ResponseWriter, r *http.Request) {
 
 	for i, permission := range model.PermissionNames {
 		permissionList.Permissions[i] = apiclient.PermissionInfo{
-			Id:    permission.Id,
-			Name:  permission.Name,
-			Group: permission.Group,
+			Id:          permission.Id,
+			Name:        permission.Name,
+			Group:       permission.Group,
+			Description: permission.Description,
 		}
 	}
 

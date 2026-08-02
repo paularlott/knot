@@ -184,7 +184,7 @@ default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 [[image]]
 name            = "valkey-9.1"
 display_name    = "Valkey 9.1"
-description     = "Valkey 9.1 (Redis-compatible) with knot startup tooling."
+description     = "Valkey 9.1 with knot startup tooling."
 image           = "${{ .server.base_image_registry }}/knot-valkey:9.1"
 icon            = "/icons/valkey.svg"
 category        = "datastore"
@@ -194,7 +194,7 @@ recommended     = true
 [[image]]
 name            = "valkey-9.0"
 display_name    = "Valkey 9.0"
-description     = "Valkey 9.0 (Redis-compatible) with knot startup tooling."
+description     = "Valkey 9.0 with knot startup tooling."
 image           = "${{ .server.base_image_registry }}/knot-valkey:9.0"
 icon            = "/icons/valkey.svg"
 category        = "datastore"
