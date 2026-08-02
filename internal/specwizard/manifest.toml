@@ -74,6 +74,7 @@ icon            = "/icons/php.svg"
 category        = "web"
 default_memory  = "2G"
 recommended     = true
+default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
 [[image.default_port]]
 name     = "Web"
@@ -88,6 +89,7 @@ image           = "${{ .server.base_image_registry }}/knot-php:8.4"
 icon            = "/icons/php.svg"
 category        = "web"
 default_memory  = "2G"
+default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
 [[image.default_port]]
 name     = "Web"
@@ -102,6 +104,7 @@ image           = "${{ .server.base_image_registry }}/knot-php:8.3"
 icon            = "/icons/php.svg"
 category        = "web"
 default_memory  = "2G"
+default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
 [[image.default_port]]
 name     = "Web"
