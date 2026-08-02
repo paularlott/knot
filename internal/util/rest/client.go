@@ -287,11 +287,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 	if response != nil {
 		contentType := resp.Header.Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
-			bodyBytes, readErr := io.ReadAll(resp.Body)
-			if readErr != nil {
-				return resp.StatusCode, readErr
-			}
-			err = msgpack.UnmarshalRead(bytes.NewReader(bodyBytes), response)
+			err = DecodeMsgPack(resp.Body, response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}
@@ -339,7 +335,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 	if response != nil {
 		contentType := resp.Header.Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = msgpack.UnmarshalRead(resp.Body, response)
+			err = DecodeMsgPack(resp.Body, response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}
@@ -408,7 +404,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 	if response != nil {
 		respContentType := resp.Header.Get("Content-Type")
 		if strings.Contains(respContentType, ContentTypeMsgPack) {
-			err = msgpack.UnmarshalRead(resp.Body, response)
+			err = DecodeMsgPack(resp.Body, response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}
