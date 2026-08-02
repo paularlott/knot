@@ -32,7 +32,7 @@ func TestMsgpackBinaryContentRoundTrip(t *testing.T) {
 	}
 
 	var decoded request
-	if err := msgpack.UnmarshalRead(bytes.NewReader(encoded), &decoded); err != nil {
+	if err := msgpack.Unmarshal(encoded, &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestMsgpackLargeContentRoundTrip(t *testing.T) {
 	}
 
 	var decoded request
-	if err := msgpack.UnmarshalRead(bytes.NewReader(encoded), &decoded); err != nil {
+	if err := msgpack.Unmarshal(encoded, &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
