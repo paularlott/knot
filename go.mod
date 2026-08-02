@@ -2,6 +2,8 @@ module github.com/paularlott/knot
 
 go 1.26.1
 
+toolchain go1.26.5
+
 //replace github.com/paularlott/gossip => ../gossip/
 
 //replace github.com/paularlott/cli => ../cli/
