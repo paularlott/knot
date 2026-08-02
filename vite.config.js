@@ -21,9 +21,9 @@ export default defineConfig({
         dir: 'web/public_html/assets/',
       },
       input: {
-        knot: resolve(__dirname, 'web/src/js/knot.js'),
-        meshanimation: resolve(__dirname, 'web/src/js/mesh-animation.js'),
-        nunito: resolve(__dirname, 'web/src/less/nunito.less'),
+        knot: resolve(import.meta.dirname, 'web/src/js/knot.js'),
+        meshanimation: resolve(import.meta.dirname, 'web/src/js/mesh-animation.js'),
+        nunito: resolve(import.meta.dirname, 'web/src/less/nunito.less'),
       },
     },
     css: {
