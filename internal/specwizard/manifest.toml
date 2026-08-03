@@ -22,7 +22,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080302"
+manifest_version = "2026080401"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -295,3 +295,29 @@ default_memory  = "512M"
 [[image.volume]]
 path        = "/data"
 description = "Redis working directory (RDB snapshots / AOF). Persist for durable data."
+
+# ── Mail ────────────────────────────────────────────────────────────────────
+
+[[image]]
+name            = "mailpit-1.30"
+display_name    = "Mailpit 1.30"
+description     = "Mailpit SMTP mail catcher with a web UI for inspecting captured mail."
+image           = "${{ .server.base_image_registry }}/knot-mailpit:1.30"
+icon            = "/icons/mailpit.svg"
+category        = "datastore"
+default_memory  = "512M"
+recommended     = true
+
+[[image.default_port]]
+name     = "Web"
+port     = 8025
+protocol = "http"
+
+[[image.default_port]]
+name     = "SMTP"
+port     = 1025
+protocol = "tcp"
+
+[[image.volume]]
+path        = "/data"
+description = "Mailpit database. Persist for durable captured mail across restarts."
