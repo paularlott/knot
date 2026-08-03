@@ -410,8 +410,8 @@
           <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.secrets" placeholder='userID: "nomad.rbd"&#10;userKey: "secret=="'></textarea>
         </div>
         <div>
-          <label class="form-label">Capabilities <span class="text-xs text-gray-400">(YAML list, excludes access_mode &amp; attachment_mode)</span></label>
-          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.capabilities" placeholder='- foo: "bar"&#10;  baz: "qux"'></textarea>
+          <label class="form-label">Capabilities <span class="text-xs text-gray-400">(YAML list)</span></label>
+          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.capabilities" placeholder='- access_mode: "single-node-writer"&#10;  attachment_mode: "file-system"'></textarea>
         </div>
         <div>
           <label class="form-label">Mount Options <span class="text-xs text-gray-400">(YAML)</span></label>

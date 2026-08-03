@@ -1485,39 +1485,38 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       return result;
     },
 
-    // Helper: access_modes array → YAML list, excluding access_mode and
-    // attachment_mode (managed by the dropdown and backend respectively).
+    // Helper: access_modes array → YAML list. Includes access_mode and
+    // attachment_mode so the full CSI capability pair is visible and editable.
     _capabilitiesToYaml(modes) {
       if (!Array.isArray(modes) || modes.length === 0) return "";
       const lines = [];
       for (const m of modes) {
-        const extra = [];
+        const pairs = [];
         for (const [k, v] of Object.entries(m)) {
-          if (k === "access_mode" || k === "attachment_mode") continue;
-          extra.push(`${k}: "${v || ""}"`);
+          if (v === undefined || v === null || v === "") continue;
+          pairs.push(`${k}: "${v}"`);
         }
-        if (extra.length === 0) continue;
-        lines.push("- " + extra[0]);
-        for (let i = 1; i < extra.length; i++) lines.push("  " + extra[i]);
+        if (pairs.length === 0) continue;
+        lines.push("- " + pairs[0]);
+        for (let i = 1; i < pairs.length; i++) lines.push("  " + pairs[i]);
       }
       return lines.join("\n");
     },
 
-    // Helper: YAML list → access_modes array
-    // Helper: YAML list → access_modes array. access_mode and attachment_mode
-    // are NOT parsed from the textarea — they're preserved from existingModes
-    // (access_mode from the dropdown, attachment_mode always file-system).
+    // Helper: YAML list → access_modes array. access_mode and attachment_mode ARE
+    // parsed from the textarea so the full CSI capability pair round-trips; when
+    // absent, they fall back to the existing value (set by the volume-type
+    // dropdown) or the CSI defaults.
     _yamlToCapabilities(text, existingModes) {
-      if (!text || !text.trim()) return existingModes || [];
       const parsed = [];
       let current = null;
       for (const line of text.split("\n")) {
         const trimmed = line.trim();
+        if (!trimmed) continue;
         if (trimmed.startsWith("- ")) {
           if (current) parsed.push(current);
           current = {};
-          const kv = trimmed.slice(2);
-          const p = this._parseInlineKV(kv);
+          const p = this._parseInlineKV(trimmed.slice(2));
           if (p) current[p.key] = p.value;
         } else if (current && trimmed.includes(":")) {
           const p = this._parseInlineKV(trimmed);
@@ -1526,22 +1525,20 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       }
       if (current) parsed.push(current);
 
-      // Merge parsed extra fields onto existing modes, preserving access_mode
-      // and attachment_mode. If the textarea has more entries than existingModes,
-      // inject defaults for the extras.
+      if (parsed.length === 0) return existingModes || [];
+
       const result = [];
       for (let i = 0; i < parsed.length; i++) {
         const merged = {};
         const ex = existingModes && existingModes[i];
-        merged.access_mode = ex ? ex.access_mode : "single-node-writer";
-        merged.attachment_mode = ex ? ex.attachment_mode : "file-system";
+        merged.access_mode = parsed[i].access_mode || (ex && ex.access_mode) || "single-node-writer";
+        merged.attachment_mode = parsed[i].attachment_mode || (ex && ex.attachment_mode) || "file-system";
         for (const [k, v] of Object.entries(parsed[i])) {
           if (k !== "access_mode" && k !== "attachment_mode") merged[k] = v;
         }
         result.push(merged);
       }
-      // If nothing was parsed from textarea, keep existing modes as-is.
-      return result.length > 0 ? result : (existingModes || []);
+      return result;
     },
 
     // Helper: mount_options (fs_type + mount_flags) → YAML
