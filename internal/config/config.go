@@ -58,6 +58,8 @@ type ServerConfig struct {
 	BaseImagesManifest        string
 	BaseImageRegistryUser     string
 	BaseImageRegistryPassword string
+	BaseImagesUpdateEnabled   bool
+	BaseImagesUpdateURL       string
 }
 
 // SessionCookieDomain returns the domain to set on the web session cookie so

@@ -1488,6 +1488,71 @@ func TestBuildNomadHCL_removeAllVolumeMounts(t *testing.T) {
 	}
 }
 
+// TestBuildNomadHCL_volumeToBindClearsVolumeDefinitions verifies that
+// converting a managed volume to a bind mount removes the now-stale entry from
+// the Volume Definition YAML (the separate `volumes:` text), not just from the
+// HCL job's group-level volume stanza.
+func TestBuildNomadHCL_volumeToBindClearsVolumeDefinitions(t *testing.T) {
+	originalVolumes := "volumes:\n  - name: data\n    id: data\n    plugin_id: mkdir\n    type: host\n"
+
+	// Stage 1: a managed-volume entry → the volume definition is emitted.
+	specVol := &apiclient.UnifiedSpec{
+		Image: "x:1",
+		Storage: []apiclient.StorageEntry{
+			{Kind: "volume", Name: "data", ContainerPath: "/data", VolumeType: "host", PluginID: "mkdir"},
+		},
+	}
+	if _, vols, err := BuildNomadHCL(specVol, "", originalVolumes); err != nil {
+		t.Fatalf("BuildNomadHCL vol: %v", err)
+	} else if !strings.Contains(vols, "data") {
+		t.Errorf("expected the volume definition to be present, got:\n%s", vols)
+	}
+
+	// Stage 2: that same mount is converted to a bind. The volume definition
+	// must be cleared (empty) — the old entry must NOT linger.
+	specBind := &apiclient.UnifiedSpec{
+		Image: "x:1",
+		Storage: []apiclient.StorageEntry{
+			{Kind: "bind", HostPath: "/host/data", ContainerPath: "/data"},
+		},
+	}
+	_, vols, err := BuildNomadHCL(specBind, "", originalVolumes)
+	if err != nil {
+		t.Fatalf("BuildNomadHCL bind: %v", err)
+	}
+	if strings.TrimSpace(vols) != "" {
+		t.Errorf("expected volume definitions cleared after volume→bind, got:\n%s", vols)
+	}
+
+	// Stage 3: patch an existing job that declares the managed volume. After
+	// conversion to bind, the group-level `volume "data" {}` stanza must be
+	// removed from the HCL too (not just the volume definitions).
+	originalJob := `job "demo" {
+  group "app" {
+    volume "data" {
+      type            = "host"
+      source          = "data"
+    }
+    task "app" {
+      driver = "docker"
+      config { image = "x:1" }
+      volume_mount {
+        volume      = "data"
+        destination = "/data"
+      }
+    }
+  }
+}
+`
+	out, _, err := BuildNomadHCL(specBind, originalJob, originalVolumes)
+	if err != nil {
+		t.Fatalf("BuildNomadHCL patch: %v", err)
+	}
+	if strings.Contains(out, `volume "data"`) {
+		t.Errorf("group-level volume stanza not removed after volume→bind:\n%s", out)
+	}
+}
+
 func TestBuildNomadHCL_volumeNamesWithTemplateVars(t *testing.T) {
 	original := `job "demo" {
   group "app" {
@@ -1543,10 +1608,10 @@ func TestBuildNomadHCL_volumeNamesWithTemplateVars(t *testing.T) {
 	}
 }
 
-func TestBuildNomadHCL_bindMountOnlyEmitsVolumeMount(t *testing.T) {
-	// A bind entry must only emit a volume_mount in the task — NO group-level
-	// volume stanza and NO Volume Definition entry. Bind mounts reference
-	// volumes declared elsewhere (by a "volume" entry or pre-existing in Nomad).
+func TestBuildNomadHCL_bindMountEmitsConfigMount(t *testing.T) {
+	// A bind entry must emit a docker-driver `mount {}` block INSIDE config —
+	// NOT a task-level volume_mount, and NO group-level volume stanza or Volume
+	// Definition. (docker driver; podman uses `volumes = [...]`.)
 	original := `job "demo" {
   group "app" {
     task "app" {
@@ -1567,20 +1632,18 @@ func TestBuildNomadHCL_bindMountOnlyEmitsVolumeMount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildNomadHCL: %v", err)
 	}
-	// Both volume_mount blocks should be present.
-	if strings.Count(out, "volume_mount {") != 2 {
-		t.Errorf("expected 2 volume_mount blocks, got %d:\n%s", strings.Count(out, "volume_mount {"), out)
+	// Bind mounts appear as config-level mount {} blocks.
+	if !strings.Contains(out, `source   = "external-vol"`) || !strings.Contains(out, `target   = "/shared"`) {
+		t.Errorf("bind mount external-vol → /shared missing from config:\n%s", out)
 	}
-	if !strings.Contains(out, `volume      = "external-vol"`) {
-		t.Errorf("bind volume_mount for external-vol missing:\n%s", out)
+	if !strings.Contains(out, `source   = "logs"`) || !strings.Contains(out, `readonly = true`) {
+		t.Errorf("read-only bind mount missing from config:\n%s", out)
 	}
-	if !strings.Contains(out, `volume      = "logs"`) {
-		t.Errorf("bind volume_mount for logs missing:\n%s", out)
+	// NO task-level volume_mount for binds.
+	if strings.Contains(out, "volume_mount {") {
+		t.Errorf("bind entries must not emit volume_mount:\n%s", out)
 	}
-	if !strings.Contains(out, `read_only   = true`) {
-		t.Errorf("read_only missing:\n%s", out)
-	}
-	// NO volume stanzas should be generated for bind entries.
+	// NO group-level volume stanza.
 	if strings.Contains(out, `volume "external-vol" {`) {
 		t.Errorf("bind entry should NOT create a volume stanza:\n%s", out)
 	}
@@ -1588,18 +1651,219 @@ func TestBuildNomadHCL_bindMountOnlyEmitsVolumeMount(t *testing.T) {
 		t.Errorf("bind entry should NOT create a volume stanza:\n%s", out)
 	}
 	// NO Volume Definition entries for bind entries.
-	if strings.Contains(volYAML, "external-vol") {
-		t.Errorf("bind entry should NOT appear in Volume Definitions:\n%s", volYAML)
+	if strings.TrimSpace(volYAML) != "" {
+		t.Errorf("bind entries should NOT produce Volume Definitions:\n%s", volYAML)
 	}
-	if strings.Contains(volYAML, "logs") {
-		t.Errorf("bind entry should NOT appear in Volume Definitions:\n%s", volYAML)
+}
+
+func TestBuildNomadHCL_bindMountPodmanEmitsVolumes(t *testing.T) {
+	// podman driver: bind entries emit `volumes = [...]` inside config — not
+	// volume_mount and not docker-style `mount {}` blocks.
+	original := `job "demo" {
+  group "app" {
+    task "app" {
+      driver = "podman"
+      config { image = "x:1" }
+    }
+  }
+}
+`
+	spec := &apiclient.UnifiedSpec{
+		Image:  "x:1",
+		Driver: "podman",
+		Storage: []apiclient.StorageEntry{
+			{Kind: "bind", HostPath: "/host/shared", ContainerPath: "/shared"},
+			{Kind: "bind", HostPath: "/host/logs", ContainerPath: "/logs", ReadOnly: true},
+		},
+	}
+	out, volYAML, err := BuildNomadHCL(spec, original, "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if !strings.Contains(out, `volumes = [`) {
+		t.Errorf("podman volumes list missing:\n%s", out)
+	}
+	if !strings.Contains(out, `"/host/shared:/shared"`) {
+		t.Errorf("bind volume entry missing:\n%s", out)
+	}
+	if !strings.Contains(out, `"/host/logs:/logs:ro"`) {
+		t.Errorf("read-only bind volume entry missing:\n%s", out)
+	}
+	if strings.Contains(out, "volume_mount {") {
+		t.Errorf("podman bind must not emit volume_mount:\n%s", out)
+	}
+	if strings.Contains(out, `type     = "bind"`) {
+		t.Errorf("podman bind must not emit docker mount {} blocks:\n%s", out)
+	}
+	if strings.TrimSpace(volYAML) != "" {
+		t.Errorf("bind must not produce Volume Definitions:\n%s", volYAML)
+	}
+}
+
+func TestParseNomadHCL_configBindMountBecomesStorage(t *testing.T) {
+	// A docker config `mount {}` with a host-path source (not local/) parses to
+	// a kind=bind storage entry — binds live in the config block, not in
+	// task-level volume_mount.
+	parsed := map[string]interface{}{
+		"TaskGroups": []interface{}{
+			map[string]interface{}{
+				"Tasks": []interface{}{
+					map[string]interface{}{
+						"Driver": "docker",
+						"Config": map[string]interface{}{
+							"image": "x:1",
+							"Mounts": []interface{}{
+								map[string]interface{}{
+									"Type":     "bind",
+									"Source":   "/host/data",
+									"Target":   "/data",
+									"ReadOnly": true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	spec, wizardable, reason := ParseNomadHCL("ignored", "", fakeHCLParser(parsed))
+	if !wizardable {
+		t.Fatalf("not wizardable: %s", reason)
+	}
+	var bind *apiclient.StorageEntry
+	for i := range spec.Storage {
+		if spec.Storage[i].Kind == "bind" {
+			bind = &spec.Storage[i]
+			break
+		}
+	}
+	if bind == nil {
+		t.Fatalf("expected a bind storage entry, got %+v", spec.Storage)
+	}
+	if bind.HostPath != "/host/data" || bind.ContainerPath != "/data" || !bind.ReadOnly {
+		t.Errorf("unexpected bind entry: %+v", bind)
+	}
+}
+
+// TestParseNomadHCL_configBindMountRealisticKeys verifies the docker config
+// mount block is parsed when Nomad's jobs/parse API returns it with lowercase
+// HCL keys ("mount"/"source"/"target"/"readonly"), which is what real Nomad
+// emits (the older PascalCase form is covered by the test above).
+func TestParseNomadHCL_configBindMountRealisticKeys(t *testing.T) {
+	parsed := map[string]interface{}{
+		"TaskGroups": []interface{}{
+			map[string]interface{}{
+				"Tasks": []interface{}{
+					map[string]interface{}{
+						"Driver": "docker",
+						"Config": map[string]interface{}{
+							"image": "x:1",
+							"mount": []interface{}{
+								map[string]interface{}{
+									"type":     "bind",
+									"source":   "/wef",
+									"target":   "/home",
+									"readonly": true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	spec, wizardable, reason := ParseNomadHCL("ignored", "", fakeHCLParser(parsed))
+	if !wizardable {
+		t.Fatalf("not wizardable: %s", reason)
+	}
+	var bind *apiclient.StorageEntry
+	for i := range spec.Storage {
+		if spec.Storage[i].Kind == "bind" {
+			bind = &spec.Storage[i]
+			break
+		}
+	}
+	if bind == nil {
+		t.Fatalf("expected a bind storage entry from the config mount, got %+v", spec.Storage)
+	}
+	if bind.HostPath != "/wef" || bind.ContainerPath != "/home" || !bind.ReadOnly {
+		t.Errorf("unexpected bind entry: %+v", bind)
+	}
+}
+
+func TestParseBuildNomadHCL_configBindMountRoundTrip(t *testing.T) {
+	// A docker config bind mount survives a parse → build round trip and is
+	// emitted back as a config-level mount {} (not a volume_mount).
+	parsed := map[string]interface{}{
+		"TaskGroups": []interface{}{
+			map[string]interface{}{
+				"Tasks": []interface{}{
+					map[string]interface{}{
+						"Driver": "docker",
+						"Config": map[string]interface{}{
+							"image": "x:1",
+							"Mounts": []interface{}{
+								map[string]interface{}{"Type": "bind", "Source": "/host/data", "Target": "/data"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	spec, wizardable, reason := ParseNomadHCL("ignored", "", fakeHCLParser(parsed))
+	if !wizardable {
+		t.Fatalf("not wizardable: %s", reason)
+	}
+	out, _, err := BuildNomadHCL(spec, "", "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if !strings.Contains(out, `source   = "/host/data"`) || !strings.Contains(out, `target   = "/data"`) {
+		t.Errorf("bind not round-tripped through parse→build:\n%s", out)
+	}
+	if strings.Contains(out, "volume_mount {") {
+		t.Errorf("bind should be a config mount, not a volume_mount:\n%s", out)
+	}
+}
+
+func TestBuildNomadHCL_bindAndTemplateBothInConfig(t *testing.T) {
+	// A spec with both a template mount and a bind mount must emit BOTH in the
+	// config block — adding a template must not drop an existing bind mount.
+	original := `job "demo" {
+  group "app" {
+    task "app" {
+      driver = "docker"
+      config { image = "x:1" }
+    }
+  }
+}
+`
+	spec := &apiclient.UnifiedSpec{
+		Image: "x:1",
+		Storage: []apiclient.StorageEntry{
+			{Kind: "bind", HostPath: "/host/data", ContainerPath: "/data"},
+		},
+		Templates: []apiclient.NomadTemplate{
+			{Destination: "local/cfg", Data: "k=v\n", MountTarget: "/etc/cfg"},
+		},
+	}
+	out, _, err := BuildNomadHCL(spec, original, "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if !strings.Contains(out, `source   = "/host/data"`) || !strings.Contains(out, `target   = "/data"`) {
+		t.Errorf("bind mount missing from config:\n%s", out)
+	}
+	if !strings.Contains(out, `source   = "local/cfg"`) || !strings.Contains(out, `target   = "/etc/cfg"`) {
+		t.Errorf("template mount missing from config:\n%s", out)
 	}
 }
 
 func TestBuildNomadHCL_bindAndVolumeShareStanza(t *testing.T) {
-	// A "volume" entry creates the stanza + definition; a "bind" entry
-	// referencing the same name only adds another volume_mount — it must NOT
-	// create a duplicate stanza or definition.
+	// A "volume" entry creates the stanza + definition + a task volume_mount; a
+	// "bind" entry emits a config mount{} (docker) — it no longer shares the
+	// volume_mount mechanism and must NOT create a duplicate stanza or def.
 	original := `job "demo" {
   group "app" {
     task "app" {
@@ -1625,9 +1889,14 @@ func TestBuildNomadHCL_bindAndVolumeShareStanza(t *testing.T) {
 	if count != 1 {
 		t.Errorf("expected 1 volume stanza, got %d:\n%s", count, out)
 	}
-	// Two volume_mount blocks (one per entry).
-	if strings.Count(out, "volume_mount {") != 2 {
-		t.Errorf("expected 2 volume_mount blocks, got %d:\n%s", strings.Count(out, "volume_mount {"), out)
+	// Exactly one task-level volume_mount (the "volume" entry); the bind no
+	// longer emits one.
+	if strings.Count(out, "volume_mount {") != 1 {
+		t.Errorf("expected 1 volume_mount, got %d:\n%s", strings.Count(out, "volume_mount {"), out)
+	}
+	// The bind entry is emitted as a config-level mount {} instead.
+	if !strings.Contains(out, `source   = "data"`) || !strings.Contains(out, `target   = "/app/data"`) {
+		t.Errorf("bind entry missing from config:\n%s", out)
 	}
 	// Only one Volume Definition entry (no duplicate from bind).
 	defCount := strings.Count(volYAML, "name: data")
@@ -1690,9 +1959,13 @@ func TestBuildNomadHCL_bindMountRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildNomadHCL: %v", err)
 	}
-	// volume_mount should be preserved.
-	if !strings.Contains(out, `volume      = "ext-data"`) {
-		t.Errorf("volume_mount not preserved:\n%s", out)
+	// The legacy volume_mount is migrated into a config-level mount {} (docker
+	// driver): the bind now lives in the config block, not as a volume_mount.
+	if strings.Contains(out, "volume_mount {") {
+		t.Errorf("legacy volume_mount should be migrated into config:\n%s", out)
+	}
+	if !strings.Contains(out, `source   = "ext-data"`) || !strings.Contains(out, `target   = "/data"`) {
+		t.Errorf("bind not emitted as config mount:\n%s", out)
 	}
 	// No volume stanza should have been added.
 	if strings.Contains(out, `volume "ext-data" {`) {
@@ -2706,6 +2979,12 @@ EOF
 `
 	spec := &apiclient.UnifiedSpec{
 		Image: "x:1",
+		// The pre-existing /cephfs/data bind mount is in storage (the wizard
+		// now owns all config-level mounts: templates + binds), so it is
+		// re-emitted rather than dropped on rebuild.
+		Storage: []apiclient.StorageEntry{
+			{Kind: "bind", HostPath: "/cephfs/data", ContainerPath: "/data", ReadOnly: true},
+		},
 		Templates: []apiclient.NomadTemplate{
 			{Destination: "local/custom.ini", Data: "new data\n", ChangeMode: "signal", ChangeSignal: "SIGHUP", MountTarget: "/etc/custom.ini", MountReadonly: true},
 			{Destination: "local/env", Data: "KEY=val\n"},

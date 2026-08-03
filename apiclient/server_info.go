@@ -10,6 +10,10 @@ type ServerInfoResponse struct {
 	// WildcardDomain is the server's wildcard domain used to build space
 	// web-port dev URLs (e.g. "*.knot.example.com"). Empty when not configured.
 	WildcardDomain string `json:"wildcard_domain"`
+	// Clustered reports whether this server is running a gossip cluster (i.e.
+	// a cluster advertise address is configured). Clients use it to decide
+	// whether cluster-wide fan-out operations make sense.
+	Clustered bool `json:"clustered"`
 }
 
 // GetServerInfo returns server-wide information.

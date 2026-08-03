@@ -241,17 +241,15 @@ func extractFromParsedJob(parsed map[string]interface{}) (*apiclient.UnifiedSpec
 	// `destination` path, and optional change_mode/change_signal. We also
 	// look for `mount {}` blocks inside the docker-driver config that bind
 	// the rendered file into the container — matched by source path.
+	//
+	// The Nomad jobs/parse API returns the driver config keyed by the HCL
+	// block/attribute names (lowercase: "mount", "source", "target"), while
+	// some fixtures use PascalCase ("Mounts", "Source", "Target"). configMountList
+	// / mapStr / mapBool accept both so real Nomad output and fixtures parse.
 	mountsBySource := map[string]map[string]interface{}{}
-	if mounts, _ := configMap["Mounts"].([]interface{}); mounts != nil {
-		for _, m := range mounts {
-			mm, _ := m.(map[string]interface{})
-			if mm == nil {
-				continue
-			}
-			src, _ := mm["Source"].(string)
-			if src != "" {
-				mountsBySource[src] = mm
-			}
+	for _, mm := range configMountList(configMap) {
+		if src := mapStr(mm, "source", "Source"); src != "" {
+			mountsBySource[src] = mm
 		}
 	}
 	if tmpls, _ := task["Templates"].([]interface{}); tmpls != nil {
@@ -278,11 +276,54 @@ func extractFromParsedJob(parsed map[string]interface{}) (*apiclient.UnifiedSpec
 				ChangeSignal: getStr(tm, "ChangeSignal"),
 			}
 			if mnt, ok := mountsBySource[dest]; ok {
-				nt.MountTarget, _ = mnt["Target"].(string)
-				nt.MountReadonly, _ = mnt["ReadOnly"].(bool)
+				nt.MountTarget = mapStr(mnt, "target", "Target")
+				nt.MountReadonly = mapBool(mnt, "readonly", "ReadOnly")
 			}
 			spec.Templates = append(spec.Templates, nt)
 		}
+	}
+
+	// Bind mounts live inside the driver config block, not in task-level
+	// volume_mount blocks. docker exposes them as `mount {}` entries whose
+	// source is a host path (template mounts use source = "local/<dest>" and
+	// were matched above); podman exposes them as a `volumes = [...]` list.
+	for src, mm := range mountsBySource {
+		if strings.HasPrefix(src, "local/") {
+			continue
+		}
+		target := mapStr(mm, "target", "Target")
+		if target == "" {
+			continue
+		}
+		spec.Storage = append(spec.Storage, apiclient.StorageEntry{
+			Kind:          "bind",
+			HostPath:      src,
+			ContainerPath: target,
+			ReadOnly:      mapBool(mm, "readonly", "ReadOnly"),
+		})
+	}
+	for _, key := range []string{"volumes", "Volumes"} {
+		vols, _ := configMap[key].([]interface{})
+		if vols == nil {
+			continue
+		}
+		for _, v := range vols {
+			s, _ := v.(string)
+			if s == "" {
+				continue
+			}
+			parts := strings.SplitN(s, ":", 3)
+			host := parts[0]
+			if strings.HasPrefix(host, "local/") || len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+				continue
+			}
+			e := apiclient.StorageEntry{Kind: "bind", HostPath: host, ContainerPath: parts[1]}
+			if len(parts) == 3 && parts[2] == "ro" {
+				e.ReadOnly = true
+			}
+			spec.Storage = append(spec.Storage, e)
+		}
+		break
 	}
 
 	// Network ports (group level). Nomad exposes ports under several keys
@@ -456,6 +497,9 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 		// emitConfigPortsLine returns 2-space indented; config block uses 8.
 		b.WriteString("        " + strings.TrimPrefix(line, "  "))
 	}
+	// Config-level mounts: template mounts + bind storage mounts (docker uses
+	// `mount {}` blocks, podman uses `volumes = [...]`).
+	b.WriteString(emitConfigMountsForDriver(driver, spec.Templates, spec.Storage))
 	b.WriteString("      }\n\n")
 
 	// Always emit the env block in a fresh template — the knot agent needs
@@ -965,12 +1009,14 @@ func patchTaskConfig(body string, spec *apiclient.UnifiedSpec) string {
 	// longer exist in the group's network block.
 	configBlock = patchConfigListField(configBlock, "ports", configPortsLiteral(spec.Ports))
 
-	// Replace template-related mount blocks or volumes entries inside config.
-	// Docker uses `mount {}` blocks, podman uses `volumes = [...]`.
+	// Replace config-level mounts/volumes: docker uses `mount {}` blocks and
+	// podman uses `volumes = [...]`. Both carry template mounts (local/ sources)
+	// AND bind storage entries (host-path bind mounts) — they no longer live in
+	// task-level volume_mount blocks.
 	if spec.Driver == "podman" {
-		configBlock = replaceTemplateVolumes(configBlock, spec.Templates)
+		configBlock = replaceConfigVolumes(configBlock, spec.Templates, spec.Storage)
 	} else {
-		configBlock = replaceTemplateMounts(configBlock, spec.Templates)
+		configBlock = replaceConfigMounts(configBlock, spec.Templates, spec.Storage)
 	}
 
 	return body[:blockStart] + configBlock + body[blockEnd:]
@@ -1520,6 +1566,13 @@ func volumeAttachmentMode(se apiclient.StorageEntry) string {
 func emitVolumeMountBlocksFromStorage(entries []apiclient.StorageEntry) string {
 	var b strings.Builder
 	for _, se := range entries {
+		// Only managed volumes get a task-level volume_mount (referencing a
+		// group-level `volume "name" {}` stanza). Bind mounts live inside the
+		// driver config block (mount{} for docker, volumes=[] for podman); path
+		// entries have no task-level mount.
+		if se.Kind != "volume" {
+			continue
+		}
 		volName := storageEntryVolumeName(se)
 		if volName == "" || se.ContainerPath == "" {
 			continue
@@ -1656,19 +1709,61 @@ func emitConfigMountBlocks(templates []apiclient.NomadTemplate) string {
 	return b.String()
 }
 
-// replaceTemplateMounts replaces mount blocks inside the config block whose
-// `source` starts with "local/" (template destinations). Non-template mounts
-// (host paths, conditional mounts) are left untouched.
-func replaceTemplateMounts(configBlock string, templates []apiclient.NomadTemplate) string {
-	// Remove all existing local/ mounts regardless of which template they
-	// belonged to — old mounts from removed templates must be cleaned up too.
-	configBlock = removeMountsBySourcePrefix(configBlock, "local/")
-
-	newMounts := emitConfigMountBlocks(templates)
-	if newMounts == "" {
-		return configBlock
+// emitConfigBindMounts produces docker-driver `mount {}` blocks (inside
+// config) for bind storage entries — host-path bind mounts. Mirrors
+// emitConfigMountBlocks (template mounts) but sourced from spec.Storage.
+func emitConfigBindMounts(entries []apiclient.StorageEntry) string {
+	var b strings.Builder
+	for _, se := range entries {
+		if se.Kind != "bind" || se.HostPath == "" || se.ContainerPath == "" {
+			continue
+		}
+		b.WriteString("        mount {\n")
+		b.WriteString("          type     = \"bind\"\n")
+		fmt.Fprintf(&b, "          source   = %q\n", se.HostPath)
+		fmt.Fprintf(&b, "          target   = %q\n", se.ContainerPath)
+		if se.ReadOnly {
+			b.WriteString("          readonly = true\n")
+		}
+		b.WriteString("        }\n")
 	}
-	return insertAfterBrace(configBlock, newMounts)
+	return b.String()
+}
+
+// bindVolumeEntries renders bind storage entries as podman "host:target[:ro]"
+// volume strings, for the podman driver's `volumes = [...]` config field.
+func bindVolumeEntries(entries []apiclient.StorageEntry) []string {
+	var out []string
+	for _, se := range entries {
+		if se.Kind != "bind" || se.HostPath == "" || se.ContainerPath == "" {
+			continue
+		}
+		e := se.HostPath + ":" + se.ContainerPath
+		if se.ReadOnly {
+			e += ":ro"
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// configVolumeEntries builds the podman `volumes = [...]` entries from both
+// template mounts (local/ sources) and bind storage entries. Shared by the
+// patch path and the default skeleton.
+func configVolumeEntries(templates []apiclient.NomadTemplate, storage []apiclient.StorageEntry) []string {
+	var entries []string
+	for _, t := range templates {
+		if t.MountTarget == "" || t.Destination == "" {
+			continue
+		}
+		e := t.Destination + ":" + t.MountTarget
+		if t.MountReadonly {
+			e += ":ro"
+		}
+		entries = append(entries, e)
+	}
+	entries = append(entries, bindVolumeEntries(storage)...)
+	return entries
 }
 
 // removeMountsBySourcePrefix removes all mount blocks whose source starts
@@ -1700,72 +1795,56 @@ func removeMountsBySourcePrefix(configBlock, prefix string) string {
 	return configBlock
 }
 
-// replaceTemplateVolumes handles the podman driver's `volumes = [...]` list
-// inside config. Entries whose host path starts with "local/" (template
-// destinations) are removed and re-emitted from the spec's templates.
-// Non-template volume entries are preserved.
-func replaceTemplateVolumes(configBlock string, templates []apiclient.NomadTemplate) string {
-	// Build new template volume entries in "source:target[:ro]" format.
-	var newEntries []string
-	for _, t := range templates {
-		if t.MountTarget == "" || t.Destination == "" {
-			continue
-		}
-		entry := t.Destination + ":" + t.MountTarget
-		if t.MountReadonly {
-			entry += ":ro"
-		}
-		newEntries = append(newEntries, fmt.Sprintf("%q", entry))
+// replaceConfigMounts rebuilds all docker-driver `mount {}` blocks inside the
+// config block from the spec's templates (local/ sources) and bind storage
+// entries (host-path bind mounts). All existing mount blocks are removed first
+// — the wizard owns every config-level mount (templates + binds round-trip via
+// the parsed spec), so this never drops user content that isn't represented in
+// spec.Storage/spec.Templates.
+func replaceConfigMounts(configBlock string, templates []apiclient.NomadTemplate, storage []apiclient.StorageEntry) string {
+	configBlock = removeMountsBySourcePrefix(configBlock, "") // "" prefix → remove every mount with a source
+	mounts := emitConfigMountBlocks(templates) + emitConfigBindMounts(storage)
+	if strings.TrimSpace(mounts) == "" {
+		return configBlock
 	}
-
-	// Find volumes = [...] field.
-	volRe := regexp.MustCompile(`(?ms)^\s*volumes\s*=\s*\[([^\]]*)\]`)
-	loc := volRe.FindStringSubmatchIndex(configBlock)
-
-	if loc == nil {
-		if len(newEntries) == 0 {
-			return configBlock
-		}
-		volLiteral := fmt.Sprintf("        volumes = [%s]\n", strings.Join(newEntries, ", "))
-		return insertAfterBrace(configBlock, volLiteral)
-	}
-
-	// Parse existing entries, keeping only non-template ones.
-	existingContent := configBlock[loc[2]:loc[3]]
-	entryRe := regexp.MustCompile(`"([^"]*)"`)
-	var keptEntries []string
-	for _, m := range entryRe.FindAllStringSubmatch(existingContent, -1) {
-		parts := strings.SplitN(m[1], ":", 3)
-		if len(parts) >= 1 && strings.HasPrefix(parts[0], "local/") {
-			continue
-		}
-		keptEntries = append(keptEntries, fmt.Sprintf("%q", m[1]))
-	}
-
-	allEntries := append(keptEntries, newEntries...)
-
-	if len(allEntries) == 0 {
-		// Remove the entire volumes field + its line.
-		start := loc[0]
-		for start > 0 && configBlock[start-1] != '\n' {
-			start--
-		}
-		end := loc[1]
-		if end < len(configBlock) && configBlock[end] == '\n' {
-			end++
-		}
-		return configBlock[:start] + configBlock[end:]
-	}
-
-	// Rebuild, preserving the original line's indentation.
-	lineStart := loc[0]
-	for lineStart > 0 && configBlock[lineStart-1] != '\n' {
-		lineStart--
-	}
-	indent := configBlock[lineStart:loc[0]]
-	replacement := indent + "volumes = [" + strings.Join(allEntries, ", ") + "]"
-	return configBlock[:lineStart] + replacement + configBlock[loc[1]:]
+	return insertAfterBrace(configBlock, mounts)
 }
+
+// replaceConfigVolumes rebuilds the podman driver's `volumes = [...]` field
+// inside config from the spec's templates and bind storage entries. The whole
+// list is wizard-owned; an empty result removes the field.
+func replaceConfigVolumes(configBlock string, templates []apiclient.NomadTemplate, storage []apiclient.StorageEntry) string {
+	entries := configVolumeEntries(templates, storage)
+	var literal string
+	if len(entries) > 0 {
+		quoted := make([]string, len(entries))
+		for i, e := range entries {
+			quoted[i] = fmt.Sprintf("%q", e)
+		}
+		literal = "[" + strings.Join(quoted, ", ") + "]"
+	}
+	return patchConfigListField(configBlock, "volumes", literal)
+}
+
+// emitConfigMountsForDriver emits the config-level mount entries (template
+// mounts + bind storage mounts) for the default skeleton, in the driver's
+// native form: docker `mount {}` blocks, podman `volumes = [...]`. Returns ""
+// when there is nothing to emit.
+func emitConfigMountsForDriver(driver string, templates []apiclient.NomadTemplate, storage []apiclient.StorageEntry) string {
+	if driver == "podman" {
+		entries := configVolumeEntries(templates, storage)
+		if len(entries) == 0 {
+			return ""
+		}
+		quoted := make([]string, len(entries))
+		for i, e := range entries {
+			quoted[i] = fmt.Sprintf("%q", e)
+		}
+		return "        volumes = [" + strings.Join(quoted, ", ") + "]\n"
+	}
+	return emitConfigMountBlocks(templates) + emitConfigBindMounts(storage)
+}
+
 
 func emitNetworkBlock(ports []apiclient.PortMapping, mode string) string {
 	if len(ports) == 0 && mode == "" {
@@ -1951,6 +2030,45 @@ func toStringSlice(v interface{}) []string {
 func getStr(m map[string]interface{}, key string) string {
 	s, _ := m[key].(string)
 	return s
+}
+
+// configMountList returns the docker-driver `mount {}` entries from a parsed
+// task config map. Nomad's jobs/parse API keys these by the HCL block name
+// (lowercase "mount"); some fixtures/older paths use "Mounts". Try both.
+func configMountList(configMap map[string]interface{}) []map[string]interface{} {
+	for _, key := range []string{"mount", "Mounts", "mounts"} {
+		if raw, ok := configMap[key].([]interface{}); ok {
+			out := make([]map[string]interface{}, 0, len(raw))
+			for _, m := range raw {
+				if mm, ok := m.(map[string]interface{}); ok {
+					out = append(out, mm)
+				}
+			}
+			return out
+		}
+	}
+	return nil
+}
+
+// mapStr returns the first non-empty string found under any of keys (casing
+// fallback for parsed config fields: lowercase HCL name vs PascalCase).
+func mapStr(m map[string]interface{}, keys ...string) string {
+	for _, k := range keys {
+		if v, ok := m[k].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// mapBool returns the bool under the first matching key.
+func mapBool(m map[string]interface{}, keys ...string) bool {
+	for _, k := range keys {
+		if v, ok := m[k].(bool); ok {
+			return v
+		}
+	}
+	return false
 }
 
 func toFloat(v interface{}) (float64, bool) {
@@ -2201,7 +2319,10 @@ func buildNomadStorageDefinitions(entries []apiclient.StorageEntry, originalVolu
 	}
 
 	if len(nvs.Volumes) == 0 && len(nvs.Paths) == 0 {
-		return originalVolumes
+		// Entries exist but none declare a managed volume/path — e.g. the user
+		// converted every volume to a bind mount. Clear the volume definitions
+		// rather than leaving the stale entries from originalVolumes behind.
+		return ""
 	}
 
 	out, err := yaml.Marshal(nvs)

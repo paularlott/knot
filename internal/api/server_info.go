@@ -17,5 +17,7 @@ func HandleGetServerInfo(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, &apiclient.ServerInfoResponse{
 		Version:        build.Version,
 		WildcardDomain: cfg.WildcardDomain,
+		// A gossip cluster only forms when an advertise address is configured.
+		Clustered: cfg.Cluster.AdvertiseAddr != "",
 	})
 }

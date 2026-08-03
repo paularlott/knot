@@ -8,6 +8,55 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 )
 
+// TestBuildLocalStorageDefinitions_sizelessAndQuotedSize verifies that a
+// freshly generated Volume Definition renders a sizeless volume as `name: null`
+// (never `name: {}`) and a size as a double-quoted string, and that the output
+// round-trips back through model.LoadLocalStorageFromYaml.
+func TestBuildLocalStorageDefinitions_sizelessAndQuotedSize(t *testing.T) {
+	out := buildLocalStorageDefinitions([]apiclient.StorageEntry{
+		{Kind: "volume", Name: "data"},
+		{Kind: "volume", Name: "big", Size: "20G"},
+	}, "")
+	if strings.Contains(out, "{}") {
+		t.Errorf("sizeless volume should not render as {}:\n%s", out)
+	}
+	// Sizeless volume renders as a bare `data:` (null value), not `data: {}`.
+	if !strings.Contains(out, "data:") {
+		t.Errorf("sizeless volume should render as `data:`:\n%s", out)
+	}
+	if !strings.Contains(out, `size: "20G"`) {
+		t.Errorf("size should be double-quoted:\n%s", out)
+	}
+	// Round-trip: the generated YAML must parse back into the storage model.
+	spec, err := model.LoadLocalStorageFromYaml(out, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("generated volume defs failed to parse: %v\n%s", err, out)
+	}
+	if _, ok := spec.Volumes["data"]; !ok {
+		t.Errorf("sizeless volume `data` not present after round-trip: %+v", spec.Volumes)
+	}
+	if spec.Volumes["big"].Size != "20G" {
+		t.Errorf("size not preserved after round-trip: got %q", spec.Volumes["big"].Size)
+	}
+}
+
+// TestBuildLocalStorageDefinitions_volumeToBindCleansUp verifies that
+// converting a managed volume to a bind mount removes its entry from the
+// Volume Definition YAML (no stale `{}` or leftover name).
+func TestBuildLocalStorageDefinitions_volumeToBindCleansUp(t *testing.T) {
+	original := "volumes:\n  data:\n    size: \"20G\"\n"
+	// All storage is now a bind — no managed volumes remain.
+	out := buildLocalStorageDefinitions([]apiclient.StorageEntry{
+		{Kind: "bind", HostPath: "/host/data", ContainerPath: "/data"},
+	}, original)
+	if strings.Contains(out, "data") {
+		t.Errorf("converted volume should be removed from Volume Definitions:\n%s", out)
+	}
+	if strings.Contains(out, "{}") {
+		t.Errorf("stale {} left behind after volume→bind:\n%s", out)
+	}
+}
+
 // TestContainerYAMLRoundTrip verifies that ParseContainerYAML → BuildContainerYAML
 // preserves all wizard-controlled fields. This is the guarantee the wizard UI
 // relies on: editing a value in the wizard and saving must not drop other

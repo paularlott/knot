@@ -772,21 +772,7 @@ func buildLocalStorageDefinitions(entries []apiclient.StorageEntry, originalVolu
 		// the container job YAML patcher.
 	}
 
-	if len(volumeNames) == 0 && len(paths) == 0 {
-		return ""
-	}
-	lvs := localVolumeSpec{Paths: paths}
-	if len(volumeNames) > 0 {
-		lvs.Volumes = make(map[string]localVolumeEntry, len(volumeNames))
-		for _, name := range volumeNames {
-			lvs.Volumes[name] = localVolumeEntry{Size: volumeSizes[name]}
-		}
-	}
-	out, err := yaml.Marshal(lvs)
-	if err != nil {
-		return ""
-	}
-	return string(out)
+	return renderLocalStorageDefinitions(volumeNames, volumeSizes, paths)
 }
 
 // splitStorageDefinitions extracts the "volume" and "path" kind entries from
@@ -810,18 +796,6 @@ func splitStorageDefinitions(entries []apiclient.StorageEntry) (volumeNames []st
 		}
 	}
 	return
-}
-
-// localVolumeSpec mirrors model.LocalStorageSpec but lives here to keep the
-// parse/build paths symmetric inside this package. The shape MUST match
-// model.LocalStorageSpec.
-type localVolumeSpec struct {
-	Volumes map[string]localVolumeEntry `yaml:"volumes,omitempty"`
-	Paths   []string                    `yaml:"paths,omitempty"`
-}
-
-type localVolumeEntry struct {
-	Size string `yaml:"size,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

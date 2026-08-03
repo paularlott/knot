@@ -3190,7 +3190,7 @@ paths:
   /api/base-images:
     get:
       summary: List Base Images
-      description: Return the active base image catalog used by the template spec wizard. Sources are the bundled manifest (default) or an external manifest configured via `server.base_image.manifest`.
+      description: Return the active base image catalog used by the template spec wizard. Sources are the bundled manifest (default), an external manifest configured via `server.base_image.manifest` (re-read on every call), or a manifest fetched from `server.base_image.update_url` when `server.base_image.update_enabled` is on and newer than the bundled one.
       operationId: listBaseImages
       tags:
         - Templates
@@ -3205,6 +3205,55 @@ paths:
           $ref: "#/components/responses/unauthorized"
         "500":
           $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/base-images/refresh:
+    post:
+      summary: Refresh the Base Image Manifest
+      description: |
+        Force this server to fetch the base image manifest from its configured
+        update URL (`server.base_image.update_url`, or the default URL when none
+        is set and no manifest file is configured) immediately.
+
+        The fetched manifest is kept only when its `manifest_version`
+        (yyyymmddbb) is newer than the active catalog; when newer it replaces
+        the in-memory catalog. There is no cluster-wide fan-out from this
+        endpoint — each server fetches independently, so to refresh a whole
+        cluster an operator calls this endpoint on each node (the
+        `knot admin refresh-base-images` CLI does this automatically).
+        Requires the `manage-templates` permission.
+
+        Returns `409` when this server won't fetch: either
+        `server.base_image.update_enabled` is off, or a manifest file is in use
+        without an explicit `update_url`. With a file and an explicit
+        `update_url`, the file is treated as the baseline and the fetched copy
+        overlays it only when newer.
+      operationId: refreshBaseImages
+      tags:
+        - Templates
+      responses:
+        "200":
+          description: Refresh result. `updated` is true when the fetched manifest replaced the active catalog.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseImageRefreshResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "409":
+          description: Auto-update is not configured (no update URL, or an external manifest file is in use).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "502":
+          description: The fetch from the update URL failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
       security: [BearerAuth: []]
 
   /api/capabilities:
@@ -6330,6 +6379,9 @@ components:
           type: string
           example: "*.knot.example.com"
           description: The server's wildcard domain used to build space web-port URLs. Empty when not configured.
+        clustered:
+          type: boolean
+          description: Whether this server is running a gossip cluster (a cluster advertise address is configured). Clients use it to decide whether cluster-wide fan-out operations apply.
 
     AuditLogEntry:
       type: object
@@ -7531,12 +7583,35 @@ components:
         version:
           type: integer
           description: Manifest schema version (currently 1).
+        manifest_version:
+          type: string
+          description: Catalog revision in `yyyymmddbb` form (date + same-day build counter). Lexicographic compare equals chronological compare; used to decide whether a fetched manifest is newer than the bundled one.
         description:
           type: string
         images:
           type: array
           items:
             $ref: "#/components/schemas/BaseImageEntry"
+        registry_auth:
+          type: boolean
+          description: Set by the server when `server.base_image.registry_user` and `registry_password` are both configured, so the wizard can inject an auth block when picking an image.
+
+    BaseImageRefreshResponse:
+      type: object
+      description: Result of forcing a base image manifest refresh.
+      properties:
+        updated:
+          type: boolean
+          description: True when the fetched manifest was newer than the active catalog and replaced it (and was therefore gossiped to the cluster). False when the server already had an equal or newer copy.
+        active_version:
+          type: string
+          description: The `manifest_version` now active on the server.
+        update_url:
+          type: string
+          description: The URL the manifest was fetched from.
+        fetched_version:
+          type: string
+          description: The `manifest_version` of the fetched manifest (same as `active_version` when `updated` is true).
 
     BaseImageEntry:
       type: object
@@ -7567,8 +7642,48 @@ components:
           description: Pre-filled in the wizard when the user picks this image and the memory field is empty.
         default_cpus:
           type: string
+        default_cores:
+          type: string
         recommended:
           type: boolean
+        default_env:
+          type: array
+          description: KEY=value env vars pre-filled when picking this image.
+          items:
+            type: string
+        default_port:
+          type: array
+          description: Template-level ports pre-filled when picking this image.
+          items:
+            $ref: "#/components/schemas/BaseImagePort"
+        volumes:
+          type: array
+          description: Mount points the image expects to be backed by persistent storage (e.g. `/home`, `/data`, `/var/lib/mysql`). The wizard pre-fills one storage row per entry.
+          items:
+            $ref: "#/components/schemas/BaseImageVolume"
+
+    BaseImagePort:
+      type: object
+      properties:
+        name:
+          type: string
+        port:
+          type: integer
+        protocol:
+          type: string
+
+    BaseImageVolume:
+      type: object
+      properties:
+        path:
+          type: string
+          description: In-container mount point, e.g. `/home` or `/data`.
+        kind:
+          type: string
+          enum: [bind, volume, path]
+          description: Suggested backing kind the wizard pre-fills for this mount. Defaults to `volume` when unset; the user can still change it in the wizard.
+        description:
+          type: string
 
     CapabilitiesResponse:
       type: object

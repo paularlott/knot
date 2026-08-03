@@ -32,6 +32,7 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/specwizard"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
@@ -618,6 +619,20 @@ var ServerCmd = &cli.Command{
 			Usage:      "Password for the base image registry. Exposed to specs as ${{ .server.base_image_registry_password }}.",
 			ConfigPath: []string{"server.base_image.registry_password"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGE_REGISTRY_PASSWORD"},
+		},
+		&cli.BoolFlag{
+			Name:         "base-images-update-enabled",
+			Usage:        "Master gate for fetching the base image manifest from --base-images-update-url. When set, the server fetches once on startup (background) and the admin refresh command is permitted; when unset, no remote fetch happens and `knot admin refresh-base-images` will fail. With --base-images-manifest set, the file is the baseline and a fetched copy overlays it only when newer.",
+			ConfigPath:   []string{"server.base_image.update_enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:       "base-images-update-url",
+			Usage:      "URL to fetch the base image manifest from. When unset, the default (" + specwizard.DefaultUpdateURL + ") is used unless a manifest file is configured.",
+			ConfigPath: []string{"server.base_image.update_url"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_URL"},
+			DefaultText: specwizard.DefaultUpdateURL,
 		},
 
 		// MCP flags
@@ -1219,6 +1234,14 @@ var ServerCmd = &cli.Command{
 			cfg.Origin.Server,
 			cfg.Origin.Token,
 		)
+
+		// Kick off a one-shot background fetch of the base image manifest from
+		// the update URL (no periodic loop; the catalog only changes on startup
+		// or via an explicit admin refresh). Does nothing unless
+		// --base-images-update-enabled is on and no external manifest file is
+		// configured.
+		specwizard.FetchOnStartup()
+
 		service.GetPoolService().StartSweep()
 		service.GetPoolService().StartReaper()
 		methods.DefaultRegistry().SetDrainChecker(func(spaceID string) bool {
@@ -1481,6 +1504,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		BaseImagesManifest:        cmd.GetString("base-images-manifest"),
 		BaseImageRegistryUser:     cmd.GetString("base-image-registry-user"),
 		BaseImageRegistryPassword: cmd.GetString("base-image-registry-password"),
+		BaseImagesUpdateEnabled:   cmd.GetBool("base-images-update-enabled"),
+		BaseImagesUpdateURL:       cmd.GetString("base-images-update-url"),
 	}
 
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present

@@ -119,6 +119,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Template spec wizard (base image catalog + spec parse/build)
 	router.HandleFunc("GET /api/base-images", middleware.ApiAuth(HandleGetBaseImages))
+	router.HandleFunc("POST /api/base-images/refresh", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleRefreshBaseImages)))
 	router.HandleFunc("GET /api/capabilities", middleware.ApiAuth(HandleGetCapabilities))
 	router.HandleFunc("POST /api/spec/parse", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleSpecParse)))
 	router.HandleFunc("POST /api/spec/build", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleSpecBuild)))

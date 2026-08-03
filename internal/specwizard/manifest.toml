@@ -16,7 +16,13 @@
 # To regenerate from the knot-base-images repo: copy the OCI image labels from
 # docker-bake.hcl (title, description, version) into the matching fields here.
 
+# Catalog schema version. Bump only when the structure of this file changes
+# incompatibly.
 version = 1
+# Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
+# whether a manifest fetched from getknot.dev is newer than the one compiled
+# into this binary. Lexicographic compare == chronological compare.
+manifest_version = "2026080301"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -31,6 +37,10 @@ category        = "base"
 default_memory  = "2G"
 recommended     = true
 
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (user files, projects, shell config)."
+
 [[image]]
 name            = "ubuntu-24.04"
 display_name    = "Ubuntu 24.04"
@@ -39,6 +49,10 @@ image           = "${{ .server.base_image_registry }}/knot-ubuntu:24.04"
 icon            = "/icons/ubuntu-linux-alt.svg"
 category        = "base"
 default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (user files, projects, shell config)."
 
 # ── Desktop ─────────────────────────────────────────────────────────────────
 
@@ -53,6 +67,10 @@ default_memory  = "4G"
 default_env     = ["KNOT_VNC_HTTP_PORT=5680", "KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 recommended     = true
 
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (desktop profile, user files)."
+
 [[image]]
 name            = "desktop-24.04"
 display_name    = "Ubuntu Desktop 24.04"
@@ -62,6 +80,10 @@ icon            = "/icons/ubuntu-linux-alt.svg"
 category        = "desktop"
 default_memory  = "4G"
 default_env     = ["KNOT_VNC_HTTP_PORT=5680", "KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (desktop profile, user files)."
 
 # ── PHP / Web ───────────────────────────────────────────────────────────────
 
@@ -75,6 +97,10 @@ category        = "web"
 default_memory  = "2G"
 recommended     = true
 default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
 name     = "Web"
@@ -91,6 +117,10 @@ category        = "web"
 default_memory  = "2G"
 default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory. Web root is ~/public_html."
+
 [[image.default_port]]
 name     = "Web"
 port     = 80
@@ -105,6 +135,10 @@ icon            = "/icons/php.svg"
 category        = "web"
 default_memory  = "2G"
 default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
 name     = "Web"
@@ -122,6 +156,10 @@ category        = "web"
 default_memory  = "2G"
 recommended     = true
 
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory. Web root is ~/public_html."
+
 [[image.default_port]]
 name     = "Web"
 port     = 80
@@ -135,6 +173,10 @@ image           = "${{ .server.base_image_registry }}/knot-frankenphp:8.4"
 icon            = "/icons/frankenphp.svg"
 category        = "web"
 default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
 name     = "Web"
@@ -154,6 +196,10 @@ default_memory  = "1G"
 recommended     = true
 default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 
+[[image.volume]]
+path        = "/var/lib/mysql"
+description = "MariaDB data directory. Persist for durable databases."
+
 [[image]]
 name            = "mariadb-11.8"
 display_name    = "MariaDB 11.8 (LTS)"
@@ -163,6 +209,10 @@ icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
 default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/var/lib/mysql"
+description = "MariaDB data directory. Persist for durable databases."
 
 [[image]]
 name            = "mariadb-11.4"
@@ -174,6 +224,10 @@ category        = "datastore"
 default_memory  = "1G"
 default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 
+[[image.volume]]
+path        = "/var/lib/mysql"
+description = "MariaDB data directory. Persist for durable databases."
+
 [[image]]
 name            = "mariadb-10.11"
 display_name    = "MariaDB 10.11 (LTS)"
@@ -183,6 +237,10 @@ icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
 default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/var/lib/mysql"
+description = "MariaDB data directory. Persist for durable databases."
 
 [[image]]
 name            = "valkey-9.1"
@@ -194,6 +252,10 @@ category        = "datastore"
 default_memory  = "512M"
 recommended     = true
 
+[[image.volume]]
+path        = "/data"
+description = "Valkey working directory (RDB snapshots / AOF). Persist for durable data."
+
 [[image]]
 name            = "valkey-9.0"
 display_name    = "Valkey 9.0"
@@ -203,6 +265,10 @@ icon            = "/icons/valkey.svg"
 category        = "datastore"
 default_memory  = "512M"
 
+[[image.volume]]
+path        = "/data"
+description = "Valkey working directory (RDB snapshots / AOF). Persist for durable data."
+
 [[image]]
 name            = "Redis-8.10"
 display_name    = "Redis 8.10"
@@ -211,3 +277,7 @@ image           = "${{ .server.base_image_registry }}/knot-redis:8.10"
 icon            = "/icons/redis.svg"
 category        = "datastore"
 default_memory  = "512M"
+
+[[image.volume]]
+path        = "/data"
+description = "Redis working directory (RDB snapshots / AOF). Persist for durable data."

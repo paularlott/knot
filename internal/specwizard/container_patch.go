@@ -233,6 +233,11 @@ func patchLocalStorageDefinitions(original string, volumeNames []string, volumeS
 		appendMappingEntry(mapping, "paths", sequenceNode(paths))
 	}
 
+	// If no volumes or paths remain, emit nothing rather than an empty `{}`.
+	if len(mapping.Content) == 0 {
+		return "", true
+	}
+
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
@@ -241,6 +246,36 @@ func patchLocalStorageDefinitions(original string, volumeNames []string, volumeS
 	}
 	enc.Close()
 	return buf.String(), true
+}
+
+// renderLocalStorageDefinitions builds the Volume Definition YAML from scratch
+// (used when there is no original text to patch). Sizeless volumes render as
+// `name: null` (not `{}`) and sizes are double-quoted (`size: "20G"`).
+func renderLocalStorageDefinitions(volumeNames []string, volumeSizes map[string]string, paths []string) string {
+	if len(volumeNames) == 0 && len(paths) == 0 {
+		return ""
+	}
+	mapping := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	if len(volumeNames) > 0 {
+		volumesNode := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		for _, name := range volumeNames {
+			appendMappingEntry(volumesNode, name, newVolumeEntryNode(volumeSizes[name]))
+		}
+		appendMappingEntry(mapping, "volumes", volumesNode)
+	}
+	if len(paths) > 0 {
+		appendMappingEntry(mapping, "paths", sequenceNode(paths))
+	}
+	root := &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{mapping}}
+
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(root); err != nil {
+		return ""
+	}
+	enc.Close()
+	return buf.String()
 }
 
 // patchVolumesMapping updates volumesNode in place: existing entries in
@@ -280,12 +315,19 @@ func patchVolumesMapping(volumesNode *yaml.Node, volumeNames []string, volumeSiz
 }
 
 // setVolumeEntrySize updates (or adds/removes) the `size` field of a single
-// volume entry node in place.
+// volume entry node in place. A sizeless volume is rendered as a null scalar
+// (`name: null`), never an empty `{}`
 func setVolumeEntrySize(entryNode *yaml.Node, size string) {
+	if size == "" {
+		// Sizeless volume → null scalar (renders `name: null`, not `name: {}`).
+		entryNode.Kind = yaml.ScalarNode
+		entryNode.Tag = "!!null"
+		entryNode.Value = ""
+		entryNode.Style = 0
+		entryNode.Content = nil
+		return
+	}
 	if entryNode.Kind != yaml.MappingNode {
-		if size == "" {
-			return
-		}
 		entryNode.Kind = yaml.MappingNode
 		entryNode.Tag = "!!map"
 		entryNode.Value = ""
@@ -293,28 +335,24 @@ func setVolumeEntrySize(entryNode *yaml.Node, size string) {
 	}
 	for i := 0; i+1 < len(entryNode.Content); i += 2 {
 		if entryNode.Content[i].Value == "size" {
-			if size == "" {
-				entryNode.Content = removeMappingPairAt(entryNode.Content, i)
-			} else {
-				entryNode.Content[i+1].Value = size
-				entryNode.Content[i+1].Tag = "!!str"
-			}
+			entryNode.Content[i+1].Value = size
+			entryNode.Content[i+1].Tag = "!!str"
+			entryNode.Content[i+1].Style = yaml.DoubleQuotedStyle
 			return
 		}
 	}
-	if size != "" {
-		appendMappingEntry(entryNode, "size", scalarStr(size))
-	}
+	appendMappingEntry(entryNode, "size", scalarQuotedStr(size))
 }
 
 func newVolumeEntryNode(size string) *yaml.Node {
 	if size == "" {
-		return &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		// Sizeless volume → null scalar (renders `name: null`, not `name: {}`).
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null"}
 	}
 	return &yaml.Node{
 		Kind:    yaml.MappingNode,
 		Tag:     "!!map",
-		Content: []*yaml.Node{scalarStr("size"), scalarStr(size)},
+		Content: []*yaml.Node{scalarStr("size"), scalarQuotedStr(size)},
 	}
 }
 
@@ -334,6 +372,12 @@ func removeMappingPairAt(content []*yaml.Node, idx int) []*yaml.Node {
 
 func scalarStr(v string) *yaml.Node {
 	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v}
+}
+
+// scalarQuotedStr is scalarStr with forced double-quoting, used for values like
+// volume sizes ("20G") that should always render as quoted strings.
+func scalarQuotedStr(v string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v, Style: yaml.DoubleQuotedStyle}
 }
 
 func scalarBool(v bool) *yaml.Node {

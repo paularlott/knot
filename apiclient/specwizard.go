@@ -1,5 +1,7 @@
 package apiclient
 
+import "context"
+
 // This file defines the unified JSON schema used by the template spec wizard.
 // The wizard operates on UnifiedSpec regardless of the underlying platform
 // (local container YAML or Nomad HCL); the parse/build endpoints in
@@ -77,6 +79,26 @@ type CapabilityEntry struct {
 // already exists in the spec, and the raw editor can express the rest.
 type CapabilitiesResponse struct {
 	Capabilities []CapabilityEntry `json:"capabilities"`
+}
+
+// BaseImageRefreshResponse is the output of POST /api/base-images/refresh.
+// Updated is true when the fetched manifest was newer than the active one and
+// replaced it (and was therefore gossiped to the cluster). When false the
+// server already had an equal or newer manifest and nothing changed.
+type BaseImageRefreshResponse struct {
+	Updated        bool   `json:"updated"`
+	ActiveVersion  string `json:"active_version"`
+	UpdateURL      string `json:"update_url,omitempty"`
+	FetchedVersion string `json:"fetched_version,omitempty"`
+}
+
+// RefreshBaseImages forces the server to fetch the base image manifest from
+// its configured update URL right now. The server gossips the result to the
+// cluster when the fetched copy is newer than the active one.
+func (c *ApiClient) RefreshBaseImages(ctx context.Context) (*BaseImageRefreshResponse, int, error) {
+	response := &BaseImageRefreshResponse{}
+	code, err := c.httpClient.Post(ctx, "/api/base-images/refresh", nil, response, 200)
+	return response, code, err
 }
 
 // UnifiedSpec is the runtime-agnostic representation the wizard edits.

@@ -329,7 +329,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 
 	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, string(bodyBytes))
+		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
 	}
 
 	if response != nil {
@@ -344,6 +344,32 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 		}
 	}
 	return resp.StatusCode, nil
+}
+
+// errorMessageFromBody returns a human-readable error message from a response
+// body. knot's API returns errors as {"error": "..."} in either msgpack or
+// JSON (depending on the client's content type); decode that envelope so the
+// message is readable instead of dumping raw bytes (e.g. msgpack) into the
+// error string. Falls back to the raw body when decoding fails or the shape
+// doesn't match. The encoding is sniffed from the first byte: '{' → JSON,
+// otherwise msgpack.
+func errorMessageFromBody(body []byte) string {
+	type errBody struct {
+		Error string `json:"error" msgpack:"error"`
+	}
+	if len(body) > 0 {
+		var eb errBody
+		var err error
+		if body[0] == '{' {
+			err = json.Unmarshal(body, &eb)
+		} else {
+			err = msgpack.Unmarshal(body, &eb)
+		}
+		if err == nil && eb.Error != "" {
+			return eb.Error
+		}
+	}
+	return string(body)
 }
 
 // SendDataWithContentType sends a request with a specific content type (thread-safe)
@@ -398,7 +424,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 
 	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, string(bodyBytes))
+		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
 	}
 
 	if response != nil {
@@ -542,7 +568,7 @@ func (c *HTTPClient) streamDataCore(
 	// Check status code
 	if resp.StatusCode >= http.StatusBadRequest {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, string(bodyBytes))
+		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
 	}
 
 	// SSE streaming logic

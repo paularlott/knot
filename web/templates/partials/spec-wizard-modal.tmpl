@@ -252,8 +252,12 @@
           </div>
           <template x-for="(entry, i) in specWizard.spec.storage" :key="i">
             <div class="flex flex-wrap items-center gap-2 mb-2 p-2 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <!-- Kind badge -->
-              <span class="app-badge-neutral text-[10px] uppercase w-16 text-center" x-text="entry.kind"></span>
+              <!-- Kind selector — swap a row between bind / volume / path -->
+              <select class="form-field w-24 text-xs" x-model="specWizard.spec.storage[i].kind" @change="ensureVolumeScaffolding(i)" aria-label="Mount kind" title="Change mount kind">
+                <option value="bind">bind</option>
+                <option value="volume">volume</option>
+                <option value="path" x-show="formData.platform !== 'nomad'">path</option>
+              </select>
               <!-- Name (volume) or HostPath (bind/path) -->
               <template x-if="entry.kind === 'volume'">
                 <input type="text" class="form-field w-80" x-model="specWizard.spec.storage[i].name" placeholder="volume name" aria-label="Volume name">
@@ -271,7 +275,7 @@
               </label>
               <!-- Volume-specific fields -->
               <template x-if="entry.kind === 'volume' && formData.platform !== 'nomad'">
-                <input type="text" class="form-field w-20" x-model="specWizard.spec.storage[i].size" placeholder="e.g. 20G" aria-label="Size">
+                <input type="text" class="form-field w-28" x-model="specWizard.spec.storage[i].size" placeholder="e.g. 20G" aria-label="Size">
               </template>
               <template x-if="entry.kind === 'volume' && formData.platform === 'nomad'">
                 <select class="form-field w-40 text-xs" @change="setVolumeType(i, $event.target.value)" aria-label="Volume type">

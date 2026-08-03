@@ -1195,6 +1195,36 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           }
         }
       }
+      // Image-specific storage volumes (e.g. /home, /data, /var/lib/mysql).
+      // Pre-fill one row per declared mount point using the manifest's
+      // suggested kind (defaulting to "volume"); the user can change the kind
+      // (bind/path/volume) or remove it. Skipped if a row for the same
+      // container path already exists.
+      if (image.volumes && image.volumes.length) {
+        for (const v of image.volumes) {
+          const path = (v && v.path) || "";
+          if (!path) continue;
+          if (this.specWizard.spec.storage.some((s) => s.container_path === path)) continue;
+          const kind = v.kind === "bind" || v.kind === "path" ? v.kind : "volume";
+          const name = path.replace(/^\/*/, "").split("/").filter(Boolean).pop() || "data";
+          const entry = {
+            kind,
+            container_path: path,
+            read_only: false,
+            host_path: "",
+            name,
+            size: "",
+          };
+          if (this.formData.platform === "nomad") {
+            entry.plugin_id = "";
+            entry.capacity_min = "";
+            entry.capacity_max = "";
+            entry.parameters = {};
+            entry.access_modes = [{ access_mode: "single-node-writer", attachment_mode: "file-system" }];
+          }
+          this.specWizard.spec.storage.unshift(entry);
+        }
+      }
       // Inject registry auth from server config if available and the spec
       // doesn't already have an auth block.
       if (this.specWizard.registryAuth && !this.specWizard.spec.auth) {
@@ -1287,6 +1317,24 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         entry.access_modes = [{ access_mode: mode, attachment_mode: "file-system" }];
       }
     },
+    // ensureVolumeScaffolding runs after a storage row's kind changes (via the
+    // kind <select>). Switching a row TO a managed volume on Nomad needs the
+    // CSI/host fields the builder expects; add them only if absent so flipping
+    // back and forth doesn't clobber values the user already set. Switching
+    // away from volume leaves the fields in place (hidden, ignored by the
+    // builder) so the user doesn't lose them.
+    ensureVolumeScaffolding(i) {
+      const entry = this.specWizard.spec.storage[i];
+      if (!entry) return;
+      if (entry.kind !== "volume" || this.formData.platform !== "nomad") return;
+      if (entry.access_modes == null) {
+        entry.access_modes = [{ access_mode: "single-node-writer", attachment_mode: "file-system" }];
+      }
+      if (entry.parameters == null) entry.parameters = {};
+      if (entry.plugin_id == null) entry.plugin_id = "";
+      if (entry.capacity_min == null) entry.capacity_min = "";
+      if (entry.capacity_max == null) entry.capacity_max = "";
+    },
 
     // --- Volume details modal (Nomad: parameters, secrets, capabilities, mount_options) ---
 
@@ -1332,6 +1380,9 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         mount_target: "",
         mount_readonly: false,
       });
+      // Open the editor for the freshly-added row (index 0) so the user can
+      // start typing without an extra click.
+      this.openTemplateEditor(0);
     },
 
     wizardRemoveTemplate(i) {

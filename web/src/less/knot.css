@@ -314,7 +314,7 @@
 }
 
 @utility nav-row {
-  @apply flex items-center gap-1;
+  @apply flex items-center gap-1 mb-0;
 }
 
 @utility nav-star-btn {

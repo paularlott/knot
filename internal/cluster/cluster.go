@@ -230,6 +230,7 @@ func NewCluster(
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("zone", cfg.Zone)
 		metadata.SetString("hostname", cfg.Hostname)
+		metadata.SetString("api_endpoint", cfg.URL)
 		metadata.SetString("agent_endpoint", cfg.AgentEndpoint)
 		metadata.SetString("tunnel_server", cfg.TunnelServer)
 		if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
