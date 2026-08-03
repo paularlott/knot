@@ -140,6 +140,19 @@
                 </template>
               </div>
             </div>
+            <div x-show="formData.platform === 'nomad'" x-cloak>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task driver</label>
+              <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button type="button"
+                  @click="specWizard.spec.driver = 'docker'"
+                  :class="(specWizard.spec.driver || 'docker') !== 'podman' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                  class="px-3 py-2 text-sm">Docker</button>
+                <button type="button"
+                  @click="specWizard.spec.driver = 'podman'"
+                  :class="specWizard.spec.driver === 'podman' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                  class="px-3 py-2 text-sm border-l border-gray-300 dark:border-gray-600">Podman</button>
+              </div>
+            </div>
           </div>
           <label class="flex items-center cursor-pointer mt-3">
             <input type="checkbox" class="sr-only peer" x-model="specWizard.spec.privileged">

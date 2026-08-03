@@ -1271,7 +1271,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         cpus: s.cpus || "",
         cpu_type: s.cpu_type || "",
         auth: s.auth || null,
-        driver: s.driver || "",
+        driver: s.driver || (this.formData.platform === "nomad" ? "docker" : ""),
         templates: toArray(s.templates),
       };
     },

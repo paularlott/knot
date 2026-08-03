@@ -21,9 +21,9 @@ type HCLParser func(hcl string) (map[string]interface{}, error)
 
 // ParseNomadHCL converts a Nomad HCL job into UnifiedSpec. The HCL must be
 // parseable by the supplied parser (typically Nomad's /v1/jobs/parse), and
-// must contain exactly one task with driver = "docker" for the result to be
-// wizardable. Anything more complex (multi-task, non-docker drivers, multiple
-// groups) returns wizardable=false so the UI disables the wizard button.
+// must contain exactly one task with driver = "docker" or "podman" for the
+// result to be wizardable. Anything more complex (multi-task, other drivers,
+// multiple groups) returns wizardable=false so the UI disables the wizard.
 //
 // volumes is the Volume Definition (YAML) text from the template; it is
 // parsed into VolumeDefinitions independently of the HCL.
@@ -108,7 +108,7 @@ func ParseNomadHCL(job, volumes string, parser HCLParser) (spec *apiclient.Unifi
 
 // extractFromParsedJob walks the JSON job shape and pulls out the wizard-
 // editable fields. Returns wizardable=false unless the job has exactly one
-// task whose driver is "docker".
+// task whose driver is "docker" or "podman".
 func extractFromParsedJob(parsed map[string]interface{}) (*apiclient.UnifiedSpec, bool, string) {
 	spec := &apiclient.UnifiedSpec{}
 
@@ -594,6 +594,15 @@ func patchNomadHCL(hcl string, spec *apiclient.UnifiedSpec) (string, error) {
 	// Patch config { image = ...; args = ... } inside the task body.
 	taskBody = patchTaskConfig(taskBody, spec)
 
+	// Patch the task-level `driver = "..."` line so an edit-time switch via the
+	// wizard takes effect. Mounts/volumes inside config are already converted by
+	// patchTaskConfig (which branches on spec.Driver); this keeps the driver
+	// declaration itself in sync. Only docker/podman reach here — ParseNomadHCL
+	// rejects other drivers.
+	if spec.Driver != "" {
+		taskBody = patchDriverLine(taskBody, spec.Driver)
+	}
+
 	// Replace env {} block wholesale if the spec carries env.
 	if len(spec.Environment) > 0 || hasBlock(taskBody, "env") {
 		taskBody = replaceOrRemoveBlock(taskBody, "env", emitEnvBlock(spec.Environment))
@@ -905,6 +914,19 @@ func appendBlockToBody(body, replacement string) string {
 // (essential for multiline-formatted blocks where fields are indented). The
 // alternation also avoids matching field names inside comments (# image = ...)
 // since the comment's leading `#` is neither line-start nor `;`/`{`.
+// patchDriverLine rewrites the task-level `driver = "..."` line in a task body
+// to the spec's driver. The driver value is constrained to docker/podman
+// (ParseNomadHCL rejects anything else), so it is safe to interpolate directly.
+// A missing driver line is left untouched — every wizardable job already has
+// one, and inserting it here would risk malformed HCL.
+func patchDriverLine(taskBody, driver string) string {
+	re := regexp.MustCompile(`(?m)^([ \t]*driver[ \t]*=[ \t]*)"[^"]*"`)
+	if !re.MatchString(taskBody) {
+		return taskBody
+	}
+	return re.ReplaceAllString(taskBody, `${1}"`+driver+`"`)
+}
+
 func patchTaskConfig(body string, spec *apiclient.UnifiedSpec) string {
 	// Find the config block.
 	re := regexp.MustCompile(`(?m)^[ \t]*config[ \t]*\{`)
@@ -1012,10 +1034,14 @@ func patchTaskConfig(body string, spec *apiclient.UnifiedSpec) string {
 	// Replace config-level mounts/volumes: docker uses `mount {}` blocks and
 	// podman uses `volumes = [...]`. Both carry template mounts (local/ sources)
 	// AND bind storage entries (host-path bind mounts) — they no longer live in
-	// task-level volume_mount blocks.
+	// task-level volume_mount blocks. The wizard owns every config-level mount
+	// and volume entry, so each branch also clears the OTHER driver's stale
+	// artefacts (e.g. a leftover `volumes = [...]` after a switch to docker).
 	if spec.Driver == "podman" {
+		configBlock = replaceConfigMounts(configBlock, nil, nil) // drop docker mount {} blocks
 		configBlock = replaceConfigVolumes(configBlock, spec.Templates, spec.Storage)
 	} else {
+		configBlock = replaceConfigVolumes(configBlock, nil, nil) // drop podman volumes = [...]
 		configBlock = replaceConfigMounts(configBlock, spec.Templates, spec.Storage)
 	}
 
@@ -2262,10 +2288,6 @@ func mergeNomadStorage(mounts []apiclient.StorageEntry, volumesYAML string) []ap
 // volumes declared elsewhere). When originalVolumes is non-empty and
 // parseable, a comment-preserving patcher is attempted.
 func buildNomadStorageDefinitions(entries []apiclient.StorageEntry, originalVolumes string) string {
-	if len(entries) == 0 {
-		return originalVolumes
-	}
-
 	nvs := nomadVolumeSpec{}
 	for _, e := range entries {
 		switch e.Kind {

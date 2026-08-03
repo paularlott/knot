@@ -1700,6 +1700,90 @@ func TestBuildNomadHCL_bindMountPodmanEmitsVolumes(t *testing.T) {
 	}
 }
 
+func TestBuildNomadHCL_switchDriverDockerToPodman(t *testing.T) {
+	// Editing a docker job and switching the driver to podman via the wizard:
+	// the task-level `driver =` line must flip AND config mounts must convert
+	// from `mount {}` blocks to `volumes = [...]`.
+	original := `job "demo" {
+  group "app" {
+    task "app" {
+      driver = "docker"
+      config {
+        image = "x:1"
+        mount {
+          type   = "bind"
+          source = "/host/shared"
+          target = "/shared"
+        }
+      }
+    }
+  }
+}
+`
+	spec := &apiclient.UnifiedSpec{
+		Image:  "x:1",
+		Driver: "podman",
+		Storage: []apiclient.StorageEntry{
+			{Kind: "bind", HostPath: "/host/shared", ContainerPath: "/shared"},
+		},
+	}
+	out, _, err := BuildNomadHCL(spec, original, "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if !strings.Contains(out, `driver = "podman"`) {
+		t.Errorf("driver line should be podman:\n%s", out)
+	}
+	if strings.Contains(out, `driver = "docker"`) {
+		t.Errorf("stale docker driver line present:\n%s", out)
+	}
+	if !strings.Contains(out, `volumes = [`) {
+		t.Errorf("mounts should have converted to podman volumes list:\n%s", out)
+	}
+	if strings.Contains(out, "mount {") {
+		t.Errorf("docker mount {} block should be gone after switch:\n%s", out)
+	}
+}
+
+func TestBuildNomadHCL_switchDriverPodmanToDocker(t *testing.T) {
+	// Reverse switch: podman job edited to docker.
+	original := `job "demo" {
+  group "app" {
+    task "app" {
+      driver = "podman"
+      config {
+        image   = "x:1"
+        volumes = ["/host/shared:/shared"]
+      }
+    }
+  }
+}
+`
+	spec := &apiclient.UnifiedSpec{
+		Image:  "x:1",
+		Driver: "docker",
+		Storage: []apiclient.StorageEntry{
+			{Kind: "bind", HostPath: "/host/shared", ContainerPath: "/shared"},
+		},
+	}
+	out, _, err := BuildNomadHCL(spec, original, "")
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if !strings.Contains(out, `driver = "docker"`) {
+		t.Errorf("driver line should be docker:\n%s", out)
+	}
+	if strings.Contains(out, `driver = "podman"`) {
+		t.Errorf("stale podman driver line present:\n%s", out)
+	}
+	if !strings.Contains(out, "mount {") {
+		t.Errorf("volumes should have converted to docker mount {} block:\n%s", out)
+	}
+	if strings.Contains(out, `volumes = [`) {
+		t.Errorf("stale podman volumes list present after switch:\n%s", out)
+	}
+}
+
 func TestParseNomadHCL_configBindMountBecomesStorage(t *testing.T) {
 	// A docker config `mount {}` with a host-path source (not local/) parses to
 	// a kind=bind storage entry — binds live in the config block, not in
@@ -2363,17 +2447,59 @@ func TestBuildNomadVolumeDefinitionsRoundTrip(t *testing.T) {
 	}
 }
 
-func TestBuildNomadHCL_nilVolumeDefinitionsPreservesOriginal(t *testing.T) {
-	// If spec has no Storage, the original volumes text must be
-	// returned unchanged — the wizard doesn't touch what it doesn't own.
+func TestBuildNomadHCL_nilStorageClearsVolumeDefinitions(t *testing.T) {
+	// If spec has no Storage (user deleted every row), the Volume Definition
+	// YAML is cleared — stale entries must not linger in the volume section.
 	originalVolumes := "volumes:\n  - name: untouched\n    type: csi\n    plugin_id: hostpath\n"
 	spec := &apiclient.UnifiedSpec{Image: "x:1"}
 	_, volumes, err := BuildNomadHCL(spec, "", originalVolumes)
 	if err != nil {
 		t.Fatalf("BuildNomadHCL: %v", err)
 	}
-	if volumes != originalVolumes {
-		t.Errorf("nil Storage should preserve original:\nwant: %q\ngot:  %q", originalVolumes, volumes)
+	if volumes != "" {
+		t.Errorf("nil Storage should clear the volume section:\nwant: %q\ngot:  %q", "", volumes)
+	}
+}
+
+func TestBuildNomadHCL_deleteAllStorageClearsVolumesAndDefinitions(t *testing.T) {
+	// Edit flow: a job with a managed volume (group `volume {}` stanza +
+	// volume_mount + a Volume Definition entry). The user deletes every storage
+	// row in the wizard (spec.Storage empty). Applying must clear ALL volume
+	// artefacts — the group stanza, the task volume_mount, AND the Volume
+	// Definition YAML. Applies to both docker and podman drivers.
+	originalHCL := `job "demo" {
+  group "app" {
+    volume "data" {
+      type            = "csi"
+      source          = "data"
+      attachment_mode = "file-system"
+      access_mode     = "single-node-writer"
+    }
+    task "app" {
+      driver = "docker"
+      config { image = "x:1" }
+      volume_mount {
+        volume      = "data"
+        destination = "/data"
+      }
+    }
+  }
+}
+`
+	originalVolumes := "volumes:\n  - name: data\n    type: csi\n    plugin_id: hostpath\n"
+	spec := &apiclient.UnifiedSpec{Image: "x:1", Driver: "docker"}
+	out, volYAML, err := BuildNomadHCL(spec, originalHCL, originalVolumes)
+	if err != nil {
+		t.Fatalf("BuildNomadHCL: %v", err)
+	}
+	if strings.Contains(out, `volume "data"`) || strings.Contains(out, "volume ") {
+		t.Errorf("group volume stanza should be removed:\n%s", out)
+	}
+	if strings.Contains(out, "volume_mount {") {
+		t.Errorf("task volume_mount should be removed:\n%s", out)
+	}
+	if strings.TrimSpace(volYAML) != "" {
+		t.Errorf("Volume Definition YAML should be empty:\n%s", volYAML)
 	}
 }
 

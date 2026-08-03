@@ -378,11 +378,13 @@ func TestNomadStorage_mergeVolumeMountsWithDefinitions(t *testing.T) {
 	}
 }
 
-func TestNomadStorage_emptyPreservesOriginalVolumes(t *testing.T) {
+func TestNomadStorage_emptyClearsOriginalVolumes(t *testing.T) {
+	// When the wizard's storage list is empty (user deleted every row), the
+	// Volume Definition YAML is cleared — stale entries must not linger.
 	original := "volumes:\n  - name: keep\n    type: csi\n    plugin_id: hostpath\n"
 	output := buildNomadStorageDefinitions(nil, original)
-	if output != original {
-		t.Errorf("nil entries should preserve original:\nwant: %q\ngot:  %q", original, output)
+	if output != "" {
+		t.Errorf("nil entries should clear the volume section:\nwant: %q\ngot:  %q", "", output)
 	}
 }
 
