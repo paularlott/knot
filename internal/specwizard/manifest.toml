@@ -22,7 +22,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080401"
+manifest_version = "2026080403"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -321,3 +321,25 @@ protocol = "tcp"
 [[image.volume]]
 path        = "/data"
 description = "Mailpit database. Persist for durable captured mail across restarts."
+
+# ── Log database ────────────────────────────────────────────────────────────
+
+[[image]]
+name            = "victoria-logs-1.52"
+display_name    = "VictoriaLogs 1.52"
+description     = "VictoriaLogs log database - JSON / Loki / Elasticsearch / syslog ingest with LogsQL querying."
+image           = "${{ .server.base_image_registry }}/knot-victoria-logs:1.52.0"
+icon            = "/icons/victorialogs.svg"
+category        = "datastore"
+default_memory  = "1G"
+default_env     = ["VICTORIA_LOGS_RETENTION_PERIOD=30d"]
+recommended     = true
+
+[[image.default_port]]
+name     = "HTTP"
+port     = 9428
+protocol = "http"
+
+[[image.volume]]
+path        = "/data"
+description = "VictoriaLogs storage directory. Persist for durable log data."
