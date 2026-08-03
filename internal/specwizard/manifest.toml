@@ -22,7 +22,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080301"
+manifest_version = "2026080302"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -241,6 +241,20 @@ default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
 [[image.volume]]
 path        = "/var/lib/mysql"
 description = "MariaDB data directory. Persist for durable databases."
+
+[[image]]
+name            = "mysql-9.7"
+display_name    = "MySQL 9.7"
+description     = "MySQL 9.7 (Innovation) with knot startup tooling."
+image           = "${{ .server.base_image_registry }}/knot-mysql:9.7"
+icon            = "/icons/mysql.svg"
+category        = "datastore"
+default_memory  = "1G"
+default_env     = ["MYSQL_ROOT_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/var/lib/mysql"
+description = "MySQL data directory. Persist for durable databases."
 
 [[image]]
 name            = "valkey-9.1"
