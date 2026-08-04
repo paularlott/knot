@@ -22,7 +22,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080405"
+manifest_version = "2026080406"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -312,6 +312,21 @@ default_env     = ["MYSQL_ROOT_PASSWORD=${{ .user.service_password }}"]
 [[image.volume]]
 path        = "/var/lib/mysql"
 description = "MySQL data directory. Persist for durable databases."
+
+[[image]]
+name            = "postgres-18"
+display_name    = "PostgreSQL 18"
+description     = "PostgreSQL 18 with knot startup tooling."
+image           = "${{ .server.base_image_registry }}/knot-postgres:18"
+icon            = "/icons/postgres.svg"
+category        = "datastore"
+default_memory  = "1G"
+recommended     = true
+default_env     = ["POSTGRES_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/var/lib/postgresql/data"
+description = "PostgreSQL data directory. Persist for durable databases."
 
 [[image]]
 name            = "valkey-9.1"
