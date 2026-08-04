@@ -185,6 +185,7 @@ func getDefaultIcons() []Icon {
 		{Description: "Podman", Source: "built-in", URL: "/icons/podman.svg"},
 		{Description: "PostgreSQL", Source: "built-in", URL: "/icons/postgres.svg"},
 		{Description: "Proxmox", Source: "built-in", URL: "/icons/proxmox.svg"},
+		{Description: "Python", Source: "built-in", URL: "/icons/python.svg"},
 		{Description: "R", Source: "built-in", URL: "/icons/r.svg"},
 		{Description: "RabbitMQ", Source: "built-in", URL: "/icons/rabbitmq.svg"},
 		{Description: "Rails", Source: "built-in", URL: "/icons/rails-plain.svg"},

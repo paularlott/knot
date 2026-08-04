@@ -22,7 +22,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080404"
+manifest_version = "2026080405"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -182,6 +182,63 @@ description = "Persistent home directory. Web root is ~/public_html."
 name     = "Web"
 port     = 80
 protocol = "http"
+
+# ── Language runtimes ───────────────────────────────────────────────────────
+
+[[image]]
+name            = "go-1.26"
+display_name    = "Go 1.26"
+description     = "Ubuntu with the Go toolchain. Pure runtime image — run your own process or binary."
+image           = "${{ .server.base_image_registry }}/knot-go:1.26"
+icon            = "/icons/go.svg"
+category        = "base"
+default_memory  = "2G"
+recommended     = true
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (projects, GOPATH)."
+
+[[image]]
+name            = "python-3.14"
+display_name    = "Python 3.14"
+description     = "Ubuntu with Python, pip and uv. Pure runtime image — run your own app server."
+image           = "${{ .server.base_image_registry }}/knot-python:3.14"
+icon            = "/icons/python.svg"
+category        = "base"
+default_memory  = "2G"
+recommended     = true
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (projects, virtualenvs)."
+
+[[image]]
+name            = "node-24"
+display_name    = "Node.js 24 (LTS)"
+description     = "Ubuntu with Node.js 24 LTS, npm and corepack (pnpm / yarn). Pure runtime image."
+image           = "${{ .server.base_image_registry }}/knot-node:24"
+icon            = "/icons/nodejs.svg"
+category        = "base"
+default_memory  = "2G"
+recommended     = true
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (projects, node_modules)."
+
+[[image]]
+name            = "node-26"
+display_name    = "Node.js 26"
+description     = "Ubuntu with Node.js 26 (current), npm and corepack (pnpm / yarn). Pure runtime image."
+image           = "${{ .server.base_image_registry }}/knot-node:26"
+icon            = "/icons/nodejs.svg"
+category        = "base"
+default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+description = "Persistent home directory (projects, node_modules)."
 
 # ── Datastores ──────────────────────────────────────────────────────────────
 
