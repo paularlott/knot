@@ -156,10 +156,13 @@ type AuditConfig struct {
 }
 
 type LogOutputConfig struct {
-	URL     string
-	Format  string
-	Stream  string
-	Headers map[string]string
+	URL      string
+	Format   string
+	Stream   string
+	Headers  map[string]string
+	Username string // optional HTTP basic auth username
+	Password string // optional HTTP basic auth password
+	Token    string // optional bearer token (Authorization: Bearer <token>); takes precedence over basic auth
 }
 
 type DockerConfig struct {
@@ -231,7 +234,11 @@ func InitCommonConfig(cmd *cli.Command) {
 
 	httpURL := cmd.GetString("log-output-url")
 	if httpURL != "" {
-		log.ConfigureWithHTTP(logLevel, httpURL, cmd.GetString("log-output-format"), cmd.GetString("log-output-stream"))
+		log.ConfigureWithHTTP(
+			logLevel, httpURL,
+			cmd.GetString("log-output-format"), cmd.GetString("log-output-stream"),
+			cmd.GetString("log-output-username"), cmd.GetString("log-output-password"), cmd.GetString("log-output-token"),
+		)
 	} else {
 		log.Configure(logLevel, "console", nil)
 	}

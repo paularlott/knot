@@ -35,7 +35,12 @@ func Configure(level, format string, writer io.Writer) {
 
 // ConfigureWithHTTP sets up the logger to send JSON-formatted records to the
 // given HTTP endpoint. When a URL is configured stderr output is suppressed.
-func ConfigureWithHTTP(level, url, format, stream string) {
+//
+// Optional authentication:
+//   - username + password: sent as HTTP Basic Auth on every request.
+//   - token: sent as "Authorization: Bearer <token>"; takes precedence over
+//     basic auth when both are configured.
+func ConfigureWithHTTP(level, url, format, stream, username, password, token string) {
 	if format == "" {
 		format = "ndjson"
 	}
@@ -46,7 +51,7 @@ func ConfigureWithHTTP(level, url, format, stream string) {
 	defaultLogger = logslog.New(logslog.Config{
 		Level:  level,
 		Format: "json",
-		Writer: newHTTPWriter(url, format, stream, nil),
+		Writer: newHTTPWriter(url, format, stream, nil, username, password, token),
 	})
 }
 

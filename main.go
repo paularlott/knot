@@ -96,6 +96,27 @@ It offers both a user-friendly web interface and a command line interface to str
 				DefaultValue: "knot",
 				Global:       true,
 			},
+			&cli.StringFlag{
+				Name:       "log-output-username",
+				Usage:      "Optional username for HTTP basic auth to the log output endpoint.",
+				ConfigPath: []string{"log.output.username"},
+				EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_USERNAME"},
+				Global:     true,
+			},
+			&cli.StringFlag{
+				Name:       "log-output-password",
+				Usage:      "Optional password for HTTP basic auth to the log output endpoint.",
+				ConfigPath: []string{"log.output.password"},
+				EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_PASSWORD"},
+				Global:     true,
+			},
+			&cli.StringFlag{
+				Name:       "log-output-token",
+				Usage:      "Optional bearer token sent as Authorization: Bearer to the log output endpoint. Takes precedence over basic auth.",
+				ConfigPath: []string{"log.output.token"},
+				EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_TOKEN"},
+				Global:     true,
+			},
 			&cli.StringSliceFlag{
 				Name:       "nameservers",
 				Usage:      "Nameservers to use for DNS resolution, maybe given multiple times.",

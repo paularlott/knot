@@ -20,6 +20,9 @@ type httpWriter struct {
 	format  string
 	stream  string
 	headers map[string]string
+	username string // optional HTTP basic auth username
+	password string // optional HTTP basic auth password
+	token    string // optional bearer token (Authorization: Bearer <token>)
 	client  *http.Client
 
 	mu      sync.Mutex
@@ -33,7 +36,7 @@ const (
 	flushInterval = 2 * time.Second
 )
 
-func newHTTPWriter(rawURL, format, stream string, headers map[string]string) io.Writer {
+func newHTTPWriter(rawURL, format, stream string, headers map[string]string, username, password, token string) io.Writer {
 	// Append VictoriaLogs field-mapping query params if not already present
 	if format == "ndjson" || format == "" || format == "elasticsearch" {
 		if u, err := url.Parse(rawURL); err == nil {
@@ -53,13 +56,16 @@ func newHTTPWriter(rawURL, format, stream string, headers map[string]string) io.
 	}
 
 	w := &httpWriter{
-		url:     rawURL,
-		format:  format,
-		stream:  stream,
-		headers: headers,
-		client:  &http.Client{Timeout: 10 * time.Second},
-		stopCh:  make(chan struct{}),
-		flushCh: make(chan struct{}, 1),
+		url:      rawURL,
+		format:   format,
+		stream:   stream,
+		headers:  headers,
+		username: username,
+		password: password,
+		token:    token,
+		client:   &http.Client{Timeout: 10 * time.Second},
+		stopCh:   make(chan struct{}),
+		flushCh:  make(chan struct{}, 1),
 	}
 	go w.run()
 	return w
@@ -124,6 +130,13 @@ func (w *httpWriter) flush() {
 		return
 	}
 	req.Header.Set("Content-Type", contentType)
+	// A bearer token takes precedence over basic auth credentials; custom
+	// headers are applied last so they can override either if required.
+	if w.token != "" {
+		req.Header.Set("Authorization", "Bearer "+w.token)
+	} else if w.username != "" {
+		req.SetBasicAuth(w.username, w.password)
+	}
 	for k, v := range w.headers {
 		req.Header.Set(k, v)
 	}
