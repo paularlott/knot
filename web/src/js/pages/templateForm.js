@@ -1459,7 +1459,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       for (const [k, v] of Object.entries(obj)) {
         if (v === "" || v === undefined || v === null) continue;
         // Quote strings that contain special chars; leave numbers unquoted.
-        const val = typeof v === "number" ? String(v) : `"${String(v).replace(/"/g, '\\"')}"`;
+        const val = typeof v === "number" ? String(v) : `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
         lines.push(`${k}: ${val}`);
       }
       return lines.join("\n");

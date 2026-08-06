@@ -341,7 +341,13 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 
 	// Extract the local port for ForwardInfo lookups
 	_, portStr, _ := net.SplitHostPort(listen)
-	localPort, _ := strconv.Atoi(portStr)
+	portInt, err := strconv.Atoi(portStr)
+	if err != nil || portInt < 0 || portInt > 65535 {
+		logger.Error("invalid local port", "listen", listen)
+		tcpConnection.Close()
+		return nil
+	}
+	localPort := uint16(portInt)
 
 	go func() {
 		defer tcpConnection.Close()
@@ -375,7 +381,7 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 			// Try direct peer connection first — but only if this forward
 			// hasn't already been switched to relay mode after a failure.
 			if dialer := getDirectDialer(); dialer != nil {
-				if fwd, ok := GetForward(uint16(localPort)); ok && fwd.GetMode() != "relay" {
+				if fwd, ok := GetForward(localPort); ok && fwd.GetMode() != "relay" {
 					if err := dialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
 						if fwd.GetMode() != "direct" {
 							logger.Info("using direct", "space", fwd.Space, "local_port", localPort)
@@ -414,7 +420,7 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 
 			// Look up the ForwardInfo for throttle settings
 			var fwd *ForwardInfo
-			if f, ok := GetForward(uint16(localPort)); ok {
+			if f, ok := GetForward(localPort); ok {
 				fwd = f
 			}
 

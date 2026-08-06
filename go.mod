@@ -17,7 +17,7 @@ toolchain go1.26.5
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/creack/pty v1.1.24
-	github.com/dgraph-io/badger/v4 v4.9.5
+	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.10.0
@@ -31,13 +31,13 @@ require (
 	github.com/paularlott/lmchatkit v0.8.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.23.0
-	github.com/paularlott/scriptling v0.20.0
+	github.com/paularlott/scriptling v0.20.1
 	github.com/pkg/sftp v1.13.11
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/shamaton/msgpack/v3 v3.2.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/yeqown/go-qrcode/v2 v2.2.5
-	github.com/yeqown/go-qrcode/writer/standard v1.3.0
+	github.com/yeqown/go-qrcode/v2 v2.3.0
+	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743
 	golang.org/x/net v0.57.0
@@ -65,7 +65,7 @@ require (
 	github.com/paularlott/snapshotkv v0.5.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
+	github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6 // indirect
 	github.com/shoenig/go-m1cpu v0.2.2 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
