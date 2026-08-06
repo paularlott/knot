@@ -22,7 +22,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080406"
+manifest_version = "2026080601"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -251,7 +251,7 @@ icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
 recommended     = true
-default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIADB_ENCRYPTION_KEY="]
 
 [[image.volume]]
 path        = "/var/lib/mysql"
@@ -265,7 +265,7 @@ image           = "${{ .server.base_image_registry }}/knot-mariadb:11.8"
 icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
-default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIADB_ENCRYPTION_KEY="]
 
 [[image.volume]]
 path        = "/var/lib/mysql"
@@ -279,7 +279,7 @@ image           = "${{ .server.base_image_registry }}/knot-mariadb:11.4"
 icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
-default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIADB_ENCRYPTION_KEY="]
 
 [[image.volume]]
 path        = "/var/lib/mysql"
@@ -293,7 +293,7 @@ image           = "${{ .server.base_image_registry }}/knot-mariadb:10.11"
 icon            = "/icons/mariadb.svg"
 category        = "datastore"
 default_memory  = "1G"
-default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}"]
+default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIADB_ENCRYPTION_KEY="]
 
 [[image.volume]]
 path        = "/var/lib/mysql"
@@ -307,7 +307,7 @@ image           = "${{ .server.base_image_registry }}/knot-mysql:9.7"
 icon            = "/icons/mysql.svg"
 category        = "datastore"
 default_memory  = "1G"
-default_env     = ["MYSQL_ROOT_PASSWORD=${{ .user.service_password }}"]
+default_env     = ["MYSQL_ROOT_PASSWORD=${{ .user.service_password }}", "MYSQL_ENCRYPTION_KEY="]
 
 [[image.volume]]
 path        = "/var/lib/mysql"
