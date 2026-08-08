@@ -854,6 +854,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         secrets: "",
         capabilities: "",
         mountOptions: "",
+        // Ace editor instances, keyed by field. Created lazily on first open
+        // and reused thereafter (the value is reset each open via setValue).
+        ace: { parameters: null, secrets: null, capabilities: null, mountOptions: null },
+        // Snapshot of the seeded text captured after the editors are populated
+        // on open; compared against the live editor values to decide whether a
+        // close (Cancel / Esc / X) needs a discard prompt.
+        initial: null,
+        discardShow: false,
       },
       icon: "", // hidden — only set by picker; cleared on open
       spec: {
@@ -1206,7 +1214,10 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           if (!path) continue;
           if (this.specWizard.spec.storage.some((s) => s.container_path === path)) continue;
           const kind = v.kind === "bind" || v.kind === "path" ? v.kind : "volume";
-          const name = path.replace(/^\/*/, "").split("/").filter(Boolean).pop() || "data";
+          // Prefer the manifest's name (which should include ${{ .space.id }}
+          // so the volume is unique per space); fall back to the last path
+          // segment when no name is declared.
+          const name = (v && v.name) || path.replace(/^\/*/, "").split("/").filter(Boolean).pop() || "data";
           const entry = {
             kind,
             container_path: path,
@@ -1343,12 +1354,97 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       if (!entry) return;
       const d = this.specWizard.volumeDetails;
       d.index = index;
-      // Serialize maps/arrays to YAML text for the textarea editors.
-      d.parameters = this._mapToYaml(entry.parameters);
-      d.secrets = this._mapToYaml(entry.secrets);
-      d.capabilities = this._capabilitiesToYaml(entry.access_modes);
-      d.mountOptions = this._mountOptionsToYaml(entry.fs_type, entry.mount_flags);
+      // Serialize maps/arrays to YAML text for the ace editors.
+      const parameters = this._mapToYaml(entry.parameters);
+      const secrets = this._mapToYaml(entry.secrets);
+      const capabilities = this._capabilitiesToYaml(entry.access_modes);
+      const mountOptions = this._mountOptionsToYaml(entry.fs_type, entry.mount_flags);
+      // Keep the plain fields in sync as a fallback for when the ace editors
+      // haven't been created yet.
+      d.parameters = parameters;
+      d.secrets = secrets;
+      d.capabilities = capabilities;
+      d.mountOptions = mountOptions;
+      d.discardShow = false;
       d.show = true;
+      // Wait for the modal's x-show to paint before creating/resizing the
+      // editors — ace needs a sized container.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          this._initVolDetailsEditor("parameters", "volDetailsParameters", parameters);
+          this._initVolDetailsEditor("secrets", "volDetailsSecrets", secrets);
+          this._initVolDetailsEditor("capabilities", "volDetailsCapabilities", capabilities);
+          this._initVolDetailsEditor("mountOptions", "volDetailsMountOptions", mountOptions);
+          // Snapshot the seeded values now that the editors hold them, so a
+          // no-op close doesn't prompt.
+          d.initial = { parameters, secrets, capabilities, mountOptions };
+        });
+      });
+    },
+
+    // Lazily create (or reuse) one of the volume-details ace editors. Enables
+    // template-variable autocompletion so ${{ .space.id }} etc. complete the
+    // same way as in the volume editor of the template form.
+    _initVolDetailsEditor(key, id, text) {
+      const d = this.specWizard.volumeDetails;
+      const container = document.getElementById(id);
+      if (!container) return;
+      let darkMode = false;
+      try { darkMode = JSON.parse(localStorage.getItem("_x_darkMode")); } catch (e) {}
+      if (d.ace[key]) {
+        d.ace[key].setValue(text);
+        d.ace[key].clearSelection();
+        d.ace[key].moveCursorToPosition({ row: 0, column: 0 });
+        d.ace[key].resize();
+        return;
+      }
+      const editor = ace.edit(container);
+      editor.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
+      editor.session.setMode("ace/mode/yaml");
+      editor.setOptions({
+        printMargin: false,
+        newLineMode: "unix",
+        tabSize: 2,
+        wrap: false,
+        vScrollBarAlwaysVisible: true,
+        customScrollbar: true,
+        useWorker: false,
+      });
+      setSpecCompleter(editor, [...templateVariableCompletions]);
+      editor.setValue(text);
+      editor.clearSelection();
+      editor.moveCursorToPosition({ row: 0, column: 0 });
+      editor.resize();
+      d.ace[key] = editor;
+    },
+
+    // Reports whether any of the four editors differs from its seeded value.
+    _volumeDetailsDirty() {
+      const d = this.specWizard.volumeDetails;
+      if (!d.initial) return false;
+      const keys = ["parameters", "secrets", "capabilities", "mountOptions"];
+      for (const k of keys) {
+        const ed = d.ace[k];
+        if (!ed) continue;
+        if (ed.getValue() !== d.initial[k]) return true;
+      }
+      return false;
+    },
+
+    // Close requested via Cancel, the X button, or Esc. Clicking outside the
+    // panel does NOT close (no @click.outside). If edits were made, prompt to
+    // discard before closing.
+    requestCloseVolumeDetails() {
+      if (this._volumeDetailsDirty()) {
+        this.specWizard.volumeDetails.discardShow = true;
+      } else {
+        this.closeVolumeDetails();
+      }
+    },
+
+    discardVolumeDetails() {
+      this.specWizard.volumeDetails.discardShow = false;
+      this.closeVolumeDetails();
     },
 
     closeVolumeDetails() {
@@ -1359,11 +1455,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       const d = this.specWizard.volumeDetails;
       const entry = this.specWizard.spec.storage[d.index];
       if (!entry) { d.show = false; return; }
+      // Read the live editor values (fall back to the seeded plain field if
+      // the editor hasn't been created yet).
+      const get = (k) => (d.ace[k] ? d.ace[k].getValue() : d[k]);
       // Parse YAML text back into structured fields.
-      entry.parameters = this._yamlToMap(d.parameters);
-      entry.secrets = this._yamlToMap(d.secrets);
-      entry.access_modes = this._yamlToCapabilities(d.capabilities, entry.access_modes);
-      const mo = this._yamlToMountOptions(d.mountOptions);
+      entry.parameters = this._yamlToMap(get("parameters"));
+      entry.secrets = this._yamlToMap(get("secrets"));
+      entry.access_modes = this._yamlToCapabilities(get("capabilities"), entry.access_modes);
+      const mo = this._yamlToMountOptions(get("mountOptions"));
       entry.fs_type = mo.fs_type || "";
       entry.mount_flags = mo.mount_flags || [];
       d.show = false;
@@ -1643,6 +1742,26 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
 
     cancelSpecWizard() {
       this.specWizard.show = false;
+    },
+
+    // Centralised Esc handler for the wizard and its nested popups. Closes one
+    // level at a time, innermost first, so Esc never dismisses a popup together
+    // with its parent. The volume details close goes through the same discard
+    // check as Cancel/X. (Each nested popup also has its own @keydown.esc.stop,
+    // which handles the case where focus is inside it and stops the event
+    // before it reaches this handler; this covers focus elsewhere in the
+    // wizard — e.g. on the button that opened the popup.)
+    wizardEscape() {
+      const sw = this.specWizard;
+      if (sw.volumeDetails.discardShow) {
+        sw.volumeDetails.discardShow = false;
+      } else if (sw.volumeDetails.show) {
+        this.requestCloseVolumeDetails();
+      } else if (sw.templateEditor.show) {
+        this.closeTemplateEditor();
+      } else {
+        sw.show = false;
+      }
     },
 
     confirmCloseTemplate() {

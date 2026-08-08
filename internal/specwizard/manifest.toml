@@ -13,6 +13,12 @@
 # internal/service/icons.go for the bundled set). Replace this whole file via
 # `base-images-manifest` to use a custom catalog and custom icon URLs.
 #
+# Each [[image.volume]] declares a persistent mount point. Its `name` is the
+# suggested name for the managed volume the wizard pre-fills; it SHOULD include
+# `${{ .space.id }}` so the resolved name is unique per space and won't clash
+# with other spaces' volumes on the same host (e.g. named Docker volumes are
+# global per daemon). Template variables are resolved at deploy time.
+#
 # To regenerate from the knot-base-images repo: copy the OCI image labels from
 # docker-bake.hcl (title, description, version) into the matching fields here.
 
@@ -22,7 +28,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080601"
+manifest_version = "2026080801"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -39,6 +45,7 @@ recommended     = true
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (user files, projects, shell config)."
 
 [[image]]
@@ -52,6 +59,7 @@ default_memory  = "2G"
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (user files, projects, shell config)."
 
 # ── Desktop ─────────────────────────────────────────────────────────────────
@@ -69,6 +77,7 @@ recommended     = true
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (desktop profile, user files)."
 
 [[image]]
@@ -83,6 +92,7 @@ default_env     = ["KNOT_VNC_HTTP_PORT=5680", "KNOT_SERVICE_PASSWORD=${{ .user.s
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (desktop profile, user files)."
 
 # ── PHP / Web ───────────────────────────────────────────────────────────────
@@ -100,6 +110,7 @@ default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
@@ -119,6 +130,7 @@ default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
@@ -138,6 +150,7 @@ default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
@@ -158,6 +171,7 @@ recommended     = true
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
@@ -176,6 +190,7 @@ default_memory  = "2G"
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory. Web root is ~/public_html."
 
 [[image.default_port]]
@@ -197,6 +212,7 @@ recommended     = true
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (projects, GOPATH)."
 
 [[image]]
@@ -211,6 +227,7 @@ recommended     = true
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (projects, virtualenvs)."
 
 [[image]]
@@ -225,6 +242,7 @@ recommended     = true
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (projects, node_modules)."
 
 [[image]]
@@ -238,6 +256,7 @@ default_memory  = "2G"
 
 [[image.volume]]
 path        = "/home"
+name        = "${{ .space.id }}-home"
 description = "Persistent home directory (projects, node_modules)."
 
 # ── Datastores ──────────────────────────────────────────────────────────────
@@ -255,6 +274,7 @@ default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIA
 
 [[image.volume]]
 path        = "/var/lib/mysql"
+name        = "${{ .space.id }}-mysql"
 description = "MariaDB data directory. Persist for durable databases."
 
 [[image]]
@@ -269,6 +289,7 @@ default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIA
 
 [[image.volume]]
 path        = "/var/lib/mysql"
+name        = "${{ .space.id }}-mysql"
 description = "MariaDB data directory. Persist for durable databases."
 
 [[image]]
@@ -283,6 +304,7 @@ default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIA
 
 [[image.volume]]
 path        = "/var/lib/mysql"
+name        = "${{ .space.id }}-mysql"
 description = "MariaDB data directory. Persist for durable databases."
 
 [[image]]
@@ -297,6 +319,7 @@ default_env     = ["MARIADB_ROOT_PASSWORD=${{ .user.service_password }}", "MARIA
 
 [[image.volume]]
 path        = "/var/lib/mysql"
+name        = "${{ .space.id }}-mysql"
 description = "MariaDB data directory. Persist for durable databases."
 
 [[image]]
@@ -311,6 +334,7 @@ default_env     = ["MYSQL_ROOT_PASSWORD=${{ .user.service_password }}", "MYSQL_E
 
 [[image.volume]]
 path        = "/var/lib/mysql"
+name        = "${{ .space.id }}-mysql"
 description = "MySQL data directory. Persist for durable databases."
 
 [[image]]
@@ -326,6 +350,7 @@ default_env     = ["POSTGRES_PASSWORD=${{ .user.service_password }}"]
 
 [[image.volume]]
 path        = "/var/lib/postgresql/data"
+name        = "${{ .space.id }}-data"
 description = "PostgreSQL data directory. Persist for durable databases."
 
 [[image]]
@@ -340,6 +365,7 @@ recommended     = true
 
 [[image.volume]]
 path        = "/data"
+name        = "${{ .space.id }}-data"
 description = "Valkey working directory (RDB snapshots / AOF). Persist for durable data."
 
 [[image]]
@@ -353,6 +379,7 @@ default_memory  = "512M"
 
 [[image.volume]]
 path        = "/data"
+name        = "${{ .space.id }}-data"
 description = "Valkey working directory (RDB snapshots / AOF). Persist for durable data."
 
 [[image]]
@@ -366,6 +393,7 @@ default_memory  = "512M"
 
 [[image.volume]]
 path        = "/data"
+name        = "${{ .space.id }}-data"
 description = "Redis working directory (RDB snapshots / AOF). Persist for durable data."
 
 # ── Mail ────────────────────────────────────────────────────────────────────
@@ -392,6 +420,7 @@ protocol = "tcp"
 
 [[image.volume]]
 path        = "/data"
+name        = "${{ .space.id }}-data"
 description = "Mailpit database. Persist for durable captured mail across restarts."
 
 # ── Log database ────────────────────────────────────────────────────────────
@@ -418,4 +447,5 @@ protocol = "http"
 
 [[image.volume]]
 path        = "/data"
+name        = "${{ .space.id }}-data"
 description = "VictoriaLogs storage directory. Persist for durable log data."

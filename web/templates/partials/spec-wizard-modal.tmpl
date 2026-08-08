@@ -1,5 +1,5 @@
 {{ define "spec-wizard-modal" }}
-<div x-cloak x-show="specWizard.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="specWizard.show" @keydown.esc.stop="if (!specWizard.volumeDetails.show && !specWizard.templateEditor.show) specWizard.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="specWizardTitle">
+<div x-cloak x-show="specWizard.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="specWizard.show" @keydown.esc.stop="wizardEscape()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="specWizardTitle">
   <div x-show="specWizard.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl max-h-[90vh]">
     <!-- Header -->
     <div class="ui-modal-header">
@@ -392,35 +392,59 @@
   </div>
 
   <!-- Volume details modal (nested inside wizard modal's x-trap scope) -->
-  <div x-cloak x-show="specWizard.volumeDetails.show" x-transition.opacity.duration.150ms @keydown.esc.stop="closeVolumeDetails()" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="volumeDetailsTitle">
-    <div x-show="specWizard.volumeDetails.show" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl max-h-[85vh]" @click.outside="closeVolumeDetails()">
+  <div x-cloak x-show="specWizard.volumeDetails.show" x-transition.opacity.duration.150ms @keydown.esc.stop="if (!specWizard.volumeDetails.discardShow) requestCloseVolumeDetails()" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="volumeDetailsTitle">
+    <div x-show="specWizard.volumeDetails.show" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl max-h-[85vh]">
       <div class="ui-modal-header">
         <h3 id="volumeDetailsTitle" class="ui-modal-title">Volume Details</h3>
-        <button @click="closeVolumeDetails()" aria-label="close" class="ui-modal-close">
+        <button @click="requestCloseVolumeDetails()" aria-label="close" class="ui-modal-close">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
       <div class="ui-modal-body-scroll flex-1 space-y-4">
         <div>
           <label class="form-label">Parameters <span class="text-xs text-gray-400">(YAML)</span></label>
-          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.parameters" placeholder='mode: "0755"&#10;uid: 1000&#10;gid: 1000'></textarea>
+          <div id="volDetailsParameters" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
         <div>
           <label class="form-label">Secrets <span class="text-xs text-gray-400">(YAML)</span></label>
-          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.secrets" placeholder='userID: "nomad.rbd"&#10;userKey: "secret=="'></textarea>
+          <div id="volDetailsSecrets" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
         <div>
           <label class="form-label">Capabilities <span class="text-xs text-gray-400">(YAML list)</span></label>
-          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.capabilities" placeholder='- access_mode: "single-node-writer"&#10;  attachment_mode: "file-system"'></textarea>
+          <div id="volDetailsCapabilities" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
         <div>
           <label class="form-label">Mount Options <span class="text-xs text-gray-400">(YAML)</span></label>
-          <textarea class="form-field h-24 w-full font-mono text-xs resize-none" x-model="specWizard.volumeDetails.mountOptions" placeholder='fs_type: "ext4"&#10;mount_flags:&#10;  - rw&#10;  - noatime'></textarea>
+          <div id="volDetailsMountOptions" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
       </div>
       <div class="ui-modal-footer">
-        <button type="button" @click="closeVolumeDetails()" class="ui-button-secondary sm:mr-auto">Cancel</button>
+        <button type="button" @click="requestCloseVolumeDetails()" class="ui-button-secondary sm:mr-auto">Cancel</button>
         <button type="button" @click="applyVolumeDetails()" class="btn-primary">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Volume details: discard unsaved changes confirmation -->
+  <div x-cloak x-show="specWizard.volumeDetails.discardShow" x-transition.opacity.duration.150ms x-trap.inert.noscroll="specWizard.volumeDetails.discardShow" @keydown.esc.stop="specWizard.volumeDetails.discardShow = false" class="fixed inset-0 z-[95] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="volDiscardTitle">
+    <div x-show="specWizard.volumeDetails.discardShow" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+      <div class="ui-modal-header">
+        <div class="ui-modal-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+        </div>
+        <h3 id="volDiscardTitle" class="ui-modal-title">Unsaved Changes</h3>
+        <button @click="specWizard.volumeDetails.discardShow = false" aria-label="close" class="ui-modal-close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="ui-modal-body">
+        <p>You have unsaved changes. Are you sure you want to discard them?</p>
+      </div>
+      <div class="ui-modal-footer">
+        <button @click="specWizard.volumeDetails.discardShow = false" type="button" class="ui-button-secondary sm:mr-auto">Keep Editing</button>
+        <button @click="discardVolumeDetails()" type="button" class="ui-button-danger">Discard Changes</button>
       </div>
     </div>
   </div>

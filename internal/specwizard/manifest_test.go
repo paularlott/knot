@@ -275,6 +275,14 @@ func TestManifestVolumes_parsed(t *testing.T) {
 			if vol.Path == "/home" {
 				sawHome = true
 			}
+			// Every bundled volume name MUST be scoped by ${{ .space.id }} so
+			// the resolved volume name is unique per space and doesn't clash
+			// with other spaces' volumes on the same host.
+			if vol.Name == "" {
+				t.Errorf("embedded volume %q on %q has no name; expected a ${{ .space.id }}-scoped name", vol.Path, img.Name)
+			} else if !strings.Contains(vol.Name, "${{ .space.id }}") {
+				t.Errorf("embedded volume %q on %q has name %q; expected it to contain ${{ .space.id }}", vol.Path, img.Name, vol.Name)
+			}
 		}
 	}
 	if !sawData {

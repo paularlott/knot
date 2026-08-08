@@ -59,6 +59,13 @@ type ManifestPort struct {
 // to be persistent. Path is the in-container mount point (e.g. /data).
 type ManifestVolume struct {
 	Path string `toml:"path" json:"path" msgpack:"path"`
+	// Name is the suggested name for the wizard's storage row when the kind is
+	// a managed volume (it is ignored for "bind"/"path" kinds). It may carry
+	// deploy-time template variables — e.g. "${{ .space.id }}-home" — so that
+	// the resolved volume name is unique per space and won't clash with other
+	// spaces on the same host. Empty falls back to a name derived from Path
+	// (the last path segment), which is NOT unique per space and may clash.
+	Name string `toml:"name" json:"name,omitempty" msgpack:"name,omitempty"`
 	// Kind is the suggested backing kind for the wizard's storage row:
 	// "bind", "volume", or "path". Empty (the default) means "volume". Invalid
 	// values are normalised to empty by the parser. The user can still change
@@ -125,6 +132,7 @@ func parseManifest(data []byte) (*Manifest, error) {
 		for j := range e.Volumes {
 			v := &m.Images[i].Volumes[j]
 			v.Path = strings.TrimSpace(v.Path)
+			v.Name = strings.TrimSpace(v.Name)
 			switch v.Kind {
 			case "bind", "volume", "path":
 				// valid backing kind; keep as-is
