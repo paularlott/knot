@@ -136,6 +136,13 @@ var agentServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_API_PORT"},
 			DefaultValue: 12201,
 		},
+		&cli.BoolFlag{
+			Name:         "dns-resolver",
+			Usage:        "Run a resident DNS resolver on 127.0.0.1:53 that forwards queries to the knot server's DNS (KNOT_SERVER_DNS).",
+			ConfigPath:   []string{"agent.dns.resolver"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AGENT_DNS"},
+			DefaultValue: false,
+		},
 		// TLS flags
 		&cli.StringFlag{
 			Name:       "cert-file",
@@ -182,6 +189,16 @@ var agentServerCmd = &cli.Command{
 		// Check the key is given
 		if len(cfg.SpaceID) != 36 {
 			log.Fatal("space-id is required and must be a valid space ID")
+		}
+
+		// Start the resident DNS resolver first (if enabled) so the
+		// entrypoint's wait for :53 resolves quickly and the space has DNS as
+		// soon as the agent is up.
+		var stopResolver func()
+		if cfg.DNSResolver {
+			if _, stop := startResidentResolver(); stop != nil {
+				stopResolver = stop
+			}
 		}
 
 		// Open agent connection to the server
@@ -251,6 +268,9 @@ var agentServerCmd = &cli.Command{
 		agentlink.StopCommandSocket()
 		agentlink.SetMethodsScriptRunner(nil)
 		agentClient.Shutdown()
+		if stopResolver != nil {
+			stopResolver()
+		}
 		fmt.Println("\r")
 		logger.Info("shutdown")
 
@@ -328,6 +348,7 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		DisableTerminal:      cmd.GetBool("disable-terminal"),
 		DisableSpaceIO:       cmd.GetBool("disable-space-io"),
 		MethodsFile:          cmd.GetString("methods-file"),
+		DNSResolver:          cmd.GetBool("dns-resolver"),
 		Port: config.PortConfig{
 			CodeServer: cmd.GetInt("code-server-port"),
 			VNCHttp:    cmd.GetInt("vnc-http-port"),
@@ -354,6 +375,7 @@ var AgentCmd = &cli.Command{
 	Description: `Knot agent commands.`,
 	Commands: []*cli.Command{
 		agentServerCmd,
+		agentWaitCmd,
 		space.SpaceNoteCmd,
 		space.SpaceSetFieldCmd,
 		space.SpaceGetFieldCmd,

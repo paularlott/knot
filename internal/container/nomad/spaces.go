@@ -345,6 +345,23 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		injectNomadEnvVars(jobJSON, portEnvs)
 	}
 
+	// When agent DNS is enabled, signal the in-container agent to run its
+	// resolver, hand it the upstream nameservers, expose KNOT_SERVER_RESOLVE
+	// for the agent fetch, and route each docker-driver task's DNS at the
+	// agent resolver via the driver's dns_servers config (the Nomad equivalent
+	// of docker's --dns). Refuse the space if the server can't resolve its own
+	// hostname (the fetch would fail too).
+	agentDNS, err := container.BuildAgentDNSInjection()
+	if err != nil {
+		return err
+	}
+	if len(agentDNS.Env) > 0 {
+		injectNomadEnvVars(jobJSON, agentDNS.Env)
+	}
+	if len(agentDNS.DNS) > 0 {
+		injectNomadDNSServers(jobJSON, agentDNS.DNS)
+	}
+
 	// Save the namespace and job ID to the space
 	namespace, ok := jobJSON["Namespace"].(string)
 	if !ok {
@@ -561,6 +578,51 @@ func injectNomadEnvVars(jobJSON map[string]interface{}, envVars []string) {
 				env[ev.Key] = ev.Value
 			}
 			taskMap["Env"] = env
+		}
+	}
+}
+
+// injectNomadDNSServers sets the dns_servers list on every docker- or podman-
+// driver task's Config — both drivers pass these through to the container as
+// --dns (podman's driver is config-compatible with docker's). Other drivers
+// are skipped. Any dns_servers the template already set are preserved and the
+// given servers appended.
+func injectNomadDNSServers(jobJSON map[string]interface{}, servers []string) {
+	if len(servers) == 0 {
+		return
+	}
+	taskGroups, ok := jobJSON["TaskGroups"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, tg := range taskGroups {
+		tgMap, ok := tg.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		tasks, ok := tgMap["Tasks"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, t := range tasks {
+			taskMap, ok := t.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			driver, _ := taskMap["Driver"].(string)
+			if driver != "docker" && driver != "podman" {
+				continue
+			}
+			config, ok := taskMap["Config"].(map[string]interface{})
+			if !ok {
+				config = make(map[string]interface{})
+				taskMap["Config"] = config
+			}
+			merged, _ := config["dns_servers"].([]interface{})
+			for _, s := range servers {
+				merged = append(merged, s)
+			}
+			config["dns_servers"] = merged
 		}
 	}
 }

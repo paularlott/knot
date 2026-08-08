@@ -19,6 +19,7 @@ type ResolverConfig struct {
 	QueryTimeout time.Duration // Timeout for upstream queries, 0 uses 2s default
 	EnableCache  bool          // Enable/disable upstream DNS cache
 	MaxCacheTTL  int           // Maximum cache TTL in seconds (0 = unlimited)
+	UseTCP       bool          // Query upstream over TCP only (e.g. when UDP to the upstream is refused, such as macOS hairpin to the host)
 }
 
 type CacheEntry struct {
@@ -309,18 +310,21 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 	return nil, fmt.Errorf("all nameservers failed: %w", errors.Join(errs...))
 }
 
-// queryNameserver queries a single nameserver with both UDP and TCP fallback
+// queryNameserver queries a single nameserver. It uses TCP directly when
+// UseTCP is set; otherwise UDP first with TCP fallback (on truncation or error).
 func (r *DNSResolver) queryNameserver(ctx context.Context, msg *dns.Msg, nameserver string) *dns.Msg {
-	// Try UDP first
 	client := &dns.Client{
 		Net:     "udp",
 		Timeout: r.config.QueryTimeout,
 	}
+	if r.config.UseTCP {
+		client.Net = "tcp"
+	}
 
 	response, _, err := client.ExchangeContext(ctx, msg, nameserver)
 	if err == nil && response != nil {
-		// Check if truncated - if so, retry with TCP
-		if response.Truncated {
+		// UDP: check if truncated - if so, retry with TCP
+		if client.Net == "udp" && response.Truncated {
 			client.Net = "tcp"
 			response, _, err = client.ExchangeContext(ctx, msg, nameserver)
 		}
@@ -329,8 +333,8 @@ func (r *DNSResolver) queryNameserver(ctx context.Context, msg *dns.Msg, nameser
 		}
 	}
 
-	// If UDP failed or context cancelled, try TCP as fallback
-	if ctx.Err() == nil {
+	// If UDP failed (not TCP-only), try TCP as fallback
+	if client.Net == "udp" && ctx.Err() == nil {
 		client.Net = "tcp"
 		response, _, err = client.ExchangeContext(ctx, msg, nameserver)
 		if err == nil && response != nil {

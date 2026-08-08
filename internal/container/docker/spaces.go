@@ -395,6 +395,17 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
 	spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
 
+	// When agent DNS is enabled, point the container's sole nameserver at the
+	// in-container agent resolver (127.0.0.1) and expose KNOT_SERVER_RESOLVE so
+	// the entrypoint's agent fetch reaches the server without DNS. If the
+	// server can't resolve its own hostname, refuse to start the space.
+	agentDNS, err := container.BuildAgentDNSInjection()
+	if err != nil {
+		return err
+	}
+	spec.Environment = append(spec.Environment, agentDNS.Env...)
+	spec.DNS = append(spec.DNS, agentDNS.DNS...)
+
 	createReq := containerCreateRequest{
 		Image:        spec.Image,
 		Hostname:     spec.Hostname,

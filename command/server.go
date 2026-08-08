@@ -779,13 +779,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_DEFAULT_TTL"},
 			DefaultValue: 300,
 		},
-		&cli.BoolFlag{
-			Name:         "dns-enable-upstream",
-			Usage:        "Enable resolution of unknown domains by passing to upstream DNS servers.",
-			ConfigPath:   []string{"server.dns.enable_upstream"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_ENABLE_UPSTREAM"},
-			DefaultValue: false,
-		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		logger := log.WithGroup("server")
@@ -829,24 +822,23 @@ var ServerCmd = &cli.Command{
 			logger.Error("Failed to load mcp-tools", "error", err)
 		}
 
-		// Start the DNS server if enabled
+		// Start the DNS server if enabled. It is the single DNS point for
+		// spaces (their agents forward every query here), so always wire up
+		// upstream forwarding — it serves the wildcard zone from dns-records and
+		// forwards the rest using the configured nameservers, or the system
+		// default when none are set.
 		if cmd.GetBool("dns-enabled") {
 			dnsServerCfg := dns.DNSServerConfig{
 				ListenAddr: cmd.GetString("dns-listen"),
 				Records:    cmd.GetStringSlice("dns-records"),
 				DefaultTTL: cmd.GetInt("dns-default-ttl"),
+				Resolver:   dns.GetDefaultResolver(),
 			}
-
-			if cmd.GetBool("dns-enable-upstream") {
-				dnsServerCfg.Resolver = dns.GetDefaultResolver()
-
-				// Enable the resolver cache
-				dnsServerCfg.Resolver.SetConfig(dns.ResolverConfig{
-					QueryTimeout: 2 * time.Second,
-					EnableCache:  true,
-					MaxCacheTTL:  30,
-				})
-			}
+			dnsServerCfg.Resolver.SetConfig(dns.ResolverConfig{
+				QueryTimeout: 2 * time.Second,
+				EnableCache:  true,
+				MaxCacheTTL:  30,
+			})
 
 			dnsServer, err := dns.NewDNSServer(dnsServerCfg)
 			if err != nil {
@@ -1349,6 +1341,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		Timezone:           cmd.GetString("timezone"),
 		LeafNode:           cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
 		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),
+		DNSEnabled:         cmd.GetBool("dns-enabled"),
+		DNSListen:          cmd.GetString("dns-listen"),
+		Nameservers:        cmd.GetStringSlice("nameservers"),
 		MCPToolTimeout:     cmd.GetInt("mcp-tool-timeout"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),

@@ -11,6 +11,7 @@ type AgentConfig struct {
 	DisableTerminal      bool
 	DisableSpaceIO       bool
 	MethodsFile          string
+	DNSResolver          bool
 	Port                 PortConfig
 	TLS                  TLSConfig
 }

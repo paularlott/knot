@@ -33,6 +33,9 @@ type ServerConfig struct {
 	Timezone                  string
 	LeafNode                  bool
 	AuthIPRateLimiting        bool
+	DNSEnabled                bool
+	DNSListen                 string
+	Nameservers               []string
 	LocalContainerRuntimePref []string
 	MCPToolTimeout            int
 	Origin                    OriginConfig
