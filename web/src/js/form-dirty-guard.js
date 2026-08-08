@@ -105,15 +105,37 @@ document.addEventListener('show-alert', (e) => {
 }, true);
 
 // Patch Ace.edit once so every code editor marks its form dirty on change.
+//
+// Programmatic content loads (every form calls `editor.session.setValue(...)`
+// when initialising) also fire Ace's `change` event. Without suppression that
+// would mark the panel dirty the instant it opens, prompting "discard
+// changes?" even though the user touched nothing. We wrap the session's
+// setValue so the `change` events it emits synchronously do NOT dispatch
+// `mark-dirty`. Genuine user edits (typing, paste, etc.) never go through
+// setValue, so they still mark the form dirty as expected.
 if (ace && typeof ace.edit === 'function') {
   const origEdit = ace.edit;
   ace.edit = function (...args) {
     const editor = origEdit.apply(this, args);
     try {
-      editor.session.on('change', () => {
-        if (editor.container) {
-          editor.container.dispatchEvent(new CustomEvent('mark-dirty', { bubbles: true }));
-        }
+      let suppressDirty = false;
+      const session = editor.session;
+      if (session && typeof session.setValue === 'function') {
+        const origSetValue = session.setValue;
+        session.setValue = function (...setValueArgs) {
+          suppressDirty = true;
+          try {
+            return origSetValue.apply(this, setValueArgs);
+          } finally {
+            suppressDirty = false;
+          }
+        };
+      }
+      session.on('change', () => {
+        if (suppressDirty || !editor.container) return;
+        editor.container.dispatchEvent(
+          new CustomEvent('mark-dirty', { bubbles: true }),
+        );
       });
     } catch (_) {
       // ignore — dirty tracking is best-effort
