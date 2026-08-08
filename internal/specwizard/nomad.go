@@ -436,7 +436,7 @@ func defaultKnotEnv() []apiclient.KeyValue {
 		{Key: "KNOT_AGENT_ENDPOINT", Value: "${{ .server.agent_endpoint }}"},
 		{Key: "KNOT_SPACEID", Value: "${{ .space.id }}"},
 		{Key: "KNOT_USER", Value: "${{ .user.username }}"},
-		{Key: "KNOT_LOGLEVEL", Value: "info"},
+		{Key: "KNOT_LOGLEVEL", Value: "warn"},
 		{Key: "TZ", Value: "${{ .user.timezone }}"},
 	}
 }
@@ -448,7 +448,8 @@ func emitDefaultNomadHCL(spec *apiclient.UnifiedSpec) string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "job %s {\n", hclQuoted(name))
-	b.WriteString(`  group "app" {
+	b.WriteString(`  datacenters  = ["${{ .nomad.dc }}"]
+  group "app" {
     count = 1
 
 `)

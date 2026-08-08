@@ -177,8 +177,10 @@ type PodmanConfig struct {
 }
 
 type NomadConfig struct {
-	Host  string
-	Token string
+	Host   string
+	Token  string
+	DC     string // Nomad datacenter, exposed as ${{ .nomad.dc }}. Defaults to NOMAD_DC.
+	Region string // Nomad region, exposed as ${{ .nomad.region }}. Defaults to NOMAD_REGION.
 }
 
 type MCPRemoteServerConfig struct {

@@ -64,6 +64,11 @@ db = 0
 [server.nomad]
 addr = "http://127.0.0.1:4646"
 token = ""
+# Datacenter and region exposed as ${{ .nomad.dc }} / ${{ .nomad.region }} and
+# pre-filled into new Nomad jobs. Default to the NOMAD_DC / NOMAD_REGION env
+# vars (set automatically when knot runs as a Nomad job) when left empty.
+#dc = ""
+#region = ""
 
 # MCP (Model Context Protocol) server
 [server.mcp]

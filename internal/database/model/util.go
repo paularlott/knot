@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"text/template"
 
@@ -108,8 +107,8 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"base_image_registry_password": cfg.BaseImageRegistryPassword,
 		},
 		"nomad": map[string]interface{}{
-			"dc":     os.Getenv("NOMAD_DC"),
-			"region": os.Getenv("NOMAD_REGION"),
+			"dc":     cfg.Nomad.DC,
+			"region": cfg.Nomad.Region,
 		},
 		"var":    variables,
 		"custom": &custVars,

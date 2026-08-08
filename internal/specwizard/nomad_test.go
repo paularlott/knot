@@ -401,6 +401,7 @@ func TestBuildNomadHCL_empty(t *testing.T) {
 
 	mustContain := []string{
 		`job "${{ .space.name }}-${{ .user.username }}"`,
+		`datacenters  = ["${{ .nomad.dc }}"]`,
 		`driver = "docker"`,
 		`image = "${{ .server.base_image_registry }}/knot-ubuntu:26.04"`,
 		`memory = 2048`,

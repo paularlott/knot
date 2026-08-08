@@ -441,6 +441,20 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NOMAD_TOKEN"},
 			DefaultValue: "",
 		},
+		&cli.StringFlag{
+			Name:         "nomad-dc",
+			Usage:        "The Nomad datacenter to expose as ${{ .nomad.dc }} in templates and to pre-fill in new Nomad jobs. Defaults to the NOMAD_DC environment variable (set automatically when knot runs as a Nomad job).",
+			ConfigPath:   []string{"server.nomad.dc"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NOMAD_DC"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "nomad-region",
+			Usage:        "The Nomad region to expose as ${{ .nomad.region }} in templates and to pre-fill in new Nomad jobs. Defaults to the NOMAD_REGION environment variable (set automatically when knot runs as a Nomad job).",
+			ConfigPath:   []string{"server.nomad.region"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NOMAD_REGION"},
+			DefaultValue: "",
+		},
 
 		// MySQL flags
 		&cli.BoolFlag{
@@ -1292,6 +1306,17 @@ var ServerCmd = &cli.Command{
 	},
 }
 
+// envFallback returns v when non-empty, otherwise the named environment
+// variable. Used so server.nomad.dc / .region default to NOMAD_DC /
+// NOMAD_REGION (set automatically when knot runs as a Nomad job) while still
+// allowing an explicit flag/config/KNOT_* to override.
+func envFallback(v, env string) string {
+	if v != "" {
+		return v
+	}
+	return os.Getenv(env)
+}
+
 func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger := log.WithGroup("server")
 
@@ -1409,6 +1434,11 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		Nomad: config.NomadConfig{
 			Host:  cmd.GetString("nomad-addr"),
 			Token: cmd.GetString("nomad-token"),
+			// Fall back to the NOMAD_DC / NOMAD_REGION env vars (set automatically
+			// when knot itself runs as a Nomad job) so existing deployments keep
+			// working without explicit config; the flags/config/KNOT_* override.
+			DC:     envFallback(cmd.GetString("nomad-dc"), "NOMAD_DC"),
+			Region: envFallback(cmd.GetString("nomad-region"), "NOMAD_REGION"),
 		},
 		TLS: config.TLSConfig{
 			CertFile:    cmd.GetString("cert-file"),

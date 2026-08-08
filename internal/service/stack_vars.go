@@ -1,7 +1,6 @@
 package service
 
 import (
-	"os"
 	"strings"
 
 	"github.com/paularlott/knot/internal/config"
@@ -48,8 +47,8 @@ func BuildStackVariableData(space *model.Space, variables map[string]interface{}
 		"timezone":        cfg.Timezone,
 	}
 	nomadGroup := map[string]interface{}{
-		"dc":     os.Getenv("NOMAD_DC"),
-		"region": os.Getenv("NOMAD_REGION"),
+		"dc":     cfg.Nomad.DC,
+		"region": cfg.Nomad.Region,
 	}
 	varGroup := variables
 	if varGroup == nil {
