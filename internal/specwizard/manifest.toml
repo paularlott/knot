@@ -28,7 +28,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026080801"
+manifest_version = "2026081001"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -185,6 +185,44 @@ display_name    = "FrankenPHP 8.4"
 description     = "Ubuntu with FrankenPHP 8.4."
 image           = "${{ .server.base_image_registry }}/knot-frankenphp:8.4"
 icon            = "/icons/frankenphp.svg"
+category        = "web"
+default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory. Web root is ~/public_html."
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+[[image]]
+name            = "frankenscriptling-8.5"
+display_name    = "FrankenScriptling 8.5"
+description     = "FrankenPHP 8.5 with the Scriptling PHP extension."
+image           = "${{ .server.base_image_registry }}/knot-frankenscriptling:8.5"
+icon            = "/icons/frankenscriptling.svg"
+category        = "web"
+default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory. Web root is ~/public_html."
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+[[image]]
+name            = "frankenscriptling-8.4"
+display_name    = "FrankenScriptling 8.4"
+description     = "FrankenPHP 8.4 with the Scriptling PHP extension."
+image           = "${{ .server.base_image_registry }}/knot-frankenscriptling:8.4"
+icon            = "/icons/frankenscriptling.svg"
 category        = "web"
 default_memory  = "2G"
 

@@ -156,6 +156,7 @@ func getDefaultIcons() []Icon {
 		{Description: "Files", Source: "built-in", URL: "/icons/files.svg"},
 		{Description: "Fortran", Source: "built-in", URL: "/icons/fortran.svg"},
 		{Description: "FrankenPHP", Source: "built-in", URL: "/icons/frankenphp.svg"},
+		{Description: "FrankenScriptling", Source: "built-in", URL: "/icons/frankenscriptling.svg"},
 		{Description: "Go", Source: "built-in", URL: "/icons/go.svg"},
 		{Description: "Golang", Source: "built-in", URL: "/icons/golang.svg"},
 		{Description: "Grafana", Source: "built-in", URL: "/icons/grafana.svg"},
