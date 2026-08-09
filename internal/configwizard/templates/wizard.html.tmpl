@@ -364,14 +364,12 @@
     <div style="margin-bottom:1rem">
       <label class="toggle"><input type="checkbox" id="chat_enabled" {{ checked .Form.ChatEnabled }}><span class="slider"></span><span class="toggle-label">AI / Chat assistant</span></label>
       <div id="chat-fields" class="collapsible">
-        <label>Provider</label>
-        <select id="chat_provider">
-          <option value="ollama">Ollama (local, no API key needed)</option>
+        <label>API type</label>
+        <select id="chat_type">
           <option value="openai">OpenAI</option>
-          <option value="claude">Claude (Anthropic)</option>
-          <option value="gemini">Gemini (Google)</option>
-          <option value="mistral">Mistral</option>
-          <option value="zai">ZAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="google">Google</option>
+          <option value="ollama">Ollama (local)</option>
         </select>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-top:0.4rem">
           <div><label>API key <span class="hint">(skip for Ollama)</span></label><input type="password" id="chat_api_key" value="{{ .Form.ChatAPIKey }}"></div>
@@ -620,7 +618,7 @@ function generateTOML() {
   if ($("chat_enabled").checked) {
     L.push(""); L.push("[server.chat]");
     L.push("enabled = true");
-    L.push('provider = "' + E($("chat_provider").value) + '"');
+    L.push('type = "' + E($("chat_type").value) + '"');
     var key = $("chat_api_key").value; if (key) L.push('api_key = "' + E(key) + '"');
     var baseUrl = $("chat_base_url").value; if (baseUrl) L.push('base_url = "' + E(baseUrl) + '"');
     var model = $("chat_model").value; if (model) L.push('model = "' + E(model) + '"');
@@ -647,7 +645,7 @@ window.addEventListener("DOMContentLoaded", function() {
   editor.setOptions({ fontSize: "13px", showPrintMargin: false, useSoftTabs: true, tabSize: 2 });
   editor.$blockScrolling = Infinity;
   editor.setReadOnly({{ if .ConfigExists }}true{{ else }}false{{ end }});
-  $("chat_provider").value = "{{ .Form.ChatProvider }}";
+  $("chat_type").value = "{{ .Form.ChatType }}";
 
   $("regen-key").addEventListener("click", function() { $("encryption_key").value = randomKey(); });
 

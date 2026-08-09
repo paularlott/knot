@@ -39,11 +39,11 @@ type Form struct {
 	DNSEnabled bool   `json:"dns_enabled"`
 	DNSListen  string `json:"dns_listen"`
 
-	ChatEnabled  bool   `json:"chat_enabled"`
-	ChatProvider string `json:"chat_provider"`
-	ChatAPIKey   string `json:"chat_api_key"`
-	ChatBaseURL  string `json:"chat_base_url"`
-	ChatModel    string `json:"chat_model"`
+	ChatEnabled bool   `json:"chat_enabled"`
+	ChatType    string `json:"chat_type"`
+	ChatAPIKey  string `json:"chat_api_key"`
+	ChatBaseURL string `json:"chat_base_url"`
+	ChatModel   string `json:"chat_model"`
 
 	TunnelEnabled bool   `json:"tunnel_enabled"`
 	TunnelListen  string `json:"tunnel_listen"`
@@ -78,8 +78,8 @@ func DefaultForm() Form {
 		DNSEnabled:     false,
 		DNSListen:      ":3053",
 		ChatEnabled:    false,
-		ChatProvider:   "ollama",
-		ChatBaseURL:    "http://127.0.0.1:11434/v1",
+		ChatType:       "openai",
+		ChatBaseURL:    "",
 		TunnelEnabled:  false,
 		TotpEnabled:    false,
 		TotpIssuer:     "Knot",

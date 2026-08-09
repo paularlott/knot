@@ -695,6 +695,13 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
+			Name:         "chat-type",
+			Usage:        "AI API type (openai, anthropic, google, ollama). Determines the protocol used to communicate with the LLM.",
+			ConfigPath:   []string{"server.chat.type"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TYPE"},
+			DefaultValue: "openai",
+		},
+		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
 			Usage:        "Deprecated: use chat-api-key instead.",
 			ConfigPath:   []string{"server.chat.openai_api_key"},
@@ -1499,6 +1506,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		Chat: func() config.ChatConfig {
 			chatCfg := config.ChatConfig{
 				Enabled:          cmd.GetBool("chat-enabled"),
+				Type:             cmd.GetString("chat-type"),
 				Provider:         cmd.GetString("chat-provider"),
 				APIKey:           cmd.GetString("chat-api-key"),
 				BaseURL:          cmd.GetString("chat-base-url"),
@@ -1510,6 +1518,19 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 				SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
 				ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
 				UIStyle:          cmd.GetString("chat-ui-style"),
+			}
+
+			// Map the user-facing type to the MCP package's internal provider name.
+			// Type is the canonical field; Provider is set from it for backwards compat.
+			switch chatCfg.Type {
+			case "anthropic":
+				chatCfg.Provider = string(ai.ProviderClaude)
+			case "google":
+				chatCfg.Provider = string(ai.ProviderGemini)
+			case "ollama":
+				chatCfg.Provider = string(ai.ProviderOllama)
+			default:
+				chatCfg.Provider = string(ai.ProviderOpenAI)
 			}
 
 			// Fallback to deprecated openai_* keys if new keys are not set
