@@ -50,6 +50,7 @@ type ServerConfig struct {
 	Docker                    DockerConfig
 	Podman                    PodmanConfig
 	Nomad                     NomadConfig
+	Apple                     AppleConfig
 	TLS                       TLSConfig
 	MCP                       MCPConfig
 	Chat                      ChatConfig
@@ -169,18 +170,25 @@ type LogOutputConfig struct {
 }
 
 type DockerConfig struct {
-	Host string
+	Host                  string
+	AllowInTemplateCreate bool
 }
 
 type PodmanConfig struct {
-	Host string
+	Host                  string
+	AllowInTemplateCreate bool
 }
 
 type NomadConfig struct {
-	Host   string
-	Token  string
-	DC     string // Nomad datacenter, exposed as ${{ .nomad.dc }}. Defaults to NOMAD_DC.
-	Region string // Nomad region, exposed as ${{ .nomad.region }}. Defaults to NOMAD_REGION.
+	Host                  string
+	Token                 string
+	DC                    string // Nomad datacenter, exposed as ${{ .nomad.dc }}. Defaults to NOMAD_DC.
+	Region                string // Nomad region, exposed as ${{ .nomad.region }}. Defaults to NOMAD_REGION.
+	AllowInTemplateCreate bool
+}
+
+type AppleConfig struct {
+	AllowInTemplateCreate bool
 }
 
 type MCPRemoteServerConfig struct {

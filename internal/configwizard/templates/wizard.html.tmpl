@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>knot config wizard</title>
+<script src="/static/ace/ace.js"></script>
+<script src="/static/ace/mode-toml.js"></script>
+<script src="/static/ace/theme-github_dark.js"></script>
+<script src="/static/timezones.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.5; background: #0f172a; color: #e2e8f0;
+  }
+  header { padding: 0.6rem 1.25rem; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  header .path { font-family: ui-monospace, monospace; font-size: 0.8rem; color: #94a3b8; }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+
+  .progress { display: flex; gap: 0.3rem; margin-bottom: 1.5rem; }
+  .progress-dot { flex: 1; height: 4px; background: #334155; border-radius: 2px; transition: background 0.2s; }
+  .progress-dot.active { background: #3b82f6; }
+  .progress-dot.done { background: #1d4ed8; }
+
+  .step { display: none; }
+  .step.active { display: block; }
+  .step-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .step-desc { color: #94a3b8; font-size: 0.88rem; margin-bottom: 1.25rem; line-height: 1.6; }
+
+  .cards { display: grid; gap: 0.75rem; }
+  .card { background: #1e293b; border: 2px solid #334155; border-radius: 0.7rem; padding: 1rem 1.1rem; cursor: pointer; transition: border-color 0.15s; }
+  .card:hover { border-color: #475569; }
+  .card.selected { border-color: #3b82f6; background: #1e293b; }
+  .card h3 { font-size: 0.98rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .card p { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; }
+
+  .field-group { margin-bottom: 1rem; }
+  label { display: block; margin: 0.45rem 0 0.1rem; font-weight: 600; font-size: 0.82rem; color: #cbd5e1; }
+  .hint { font-weight: 400; font-size: 0.76rem; color: #64748b; }
+  .explain { font-size: 0.82rem; color: #94a3b8; line-height: 1.55; margin: 0.3rem 0 0.6rem; padding-left: 0.7rem; border-left: 2px solid #334155; }
+  .warning { font-size: 0.8rem; color: #fbbf24; background: #422006; border: 1px solid #92400e; border-radius: 0.4rem; padding: 0.5rem 0.7rem; margin: 0.6rem 0; }
+
+  input[type="text"], input[type="password"], input[type="number"], input[type="url"], select, textarea {
+    width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem; border: 1px solid #475569; border-radius: 0.35rem;
+    font-family: inherit; background: #0f172a; color: #e2e8f0; transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+  select { cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.5rem center; padding-right: 1.8rem; }
+  option { background: #0f172a; color: #e2e8f0; }
+
+  .toggle { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; padding: 0.2rem 0; }
+  .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .slider { position: relative; width: 36px; height: 20px; background: #475569; border-radius: 9999px; transition: background 0.2s; flex-shrink: 0; }
+  .slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 9999px; transition: transform 0.2s; }
+  .toggle input:checked + .slider { background: #3b82f6; }
+  .toggle input:checked + .slider::after { transform: translateX(16px); }
+  .toggle-label { font-size: 0.85rem; font-weight: 500; color: #cbd5e1; }
+
+  .radio-card { background: #1e293b; border: 2px solid #334155; border-radius: 0.6rem; padding: 0.8rem 1rem; cursor: pointer; margin-bottom: 0.5rem; transition: border-color 0.15s; }
+  .radio-card:hover { border-color: #475569; }
+  .radio-card.selected { border-color: #3b82f6; }
+  .radio-card h3 { font-size: 0.9rem; font-weight: 600; }
+  .radio-card p { font-size: 0.8rem; color: #94a3b8; margin-top: 0.15rem; }
+  .radio-card .rec { font-size: 0.72rem; color: #3b82f6; font-weight: 600; margin-top: 0.3rem; }
+
+  .collapsible { display: none; margin-top: 0.5rem; }
+
+  .dns-record { display: grid; grid-template-columns: 70px 1fr 1fr 60px auto; gap: 0.3rem; margin-bottom: 0.3rem; align-items: center; }
+  .dns-record select, .dns-record input { padding: 0.25rem 0.35rem; font-size: 0.78rem; }
+  .dns-remove { background: #334155; color: #cbd5e1; border: 1px solid #475569; border-radius: 0.3rem; padding: 0.3rem 0.55rem; font-size: 1rem; line-height: 1; cursor: pointer; }
+  .dns-remove:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
+
+  button { cursor: pointer; border: none; border-radius: 0.35rem; font-weight: 600; font-family: inherit; }
+  .btn-primary { background: #3b82f6; color: #fff; padding: 0.5rem 1.4rem; font-size: 0.88rem; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-primary:disabled { background: #475569; cursor: not-allowed; opacity: 0.7; }
+  .btn-secondary { background: #334155; color: #cbd5e1; padding: 0.4rem 0.9rem; font-size: 0.82rem; border: 1px solid #475569; }
+  .btn-secondary:hover { background: #3e4f68; }
+  .btn-sm { background: #334155; color: #cbd5e1; padding: 0.3rem 0.65rem; font-size: 0.78rem; border: 1px solid #475569; border-radius: 0.35rem; }
+  .btn-sm:hover { background: #3e4f68; }
+
+  .nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
+  .status { color: #64748b; font-size: 0.78rem; }
+  code { background: #334155; padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.82em; font-family: ui-monospace, monospace; }
+  pre { background: #0f172a; border: 1px solid #334155; border-radius: 0.5rem; padding: 0.75rem; overflow-x: auto; }
+
+  .tz-picker { position: relative; }
+  .tz-dropdown { display: none; position: absolute; z-index: 50; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: #1e293b; border: 1px solid #475569; border-radius: 0.35rem; margin-top: 0.15rem; }
+  .tz-item { padding: 0.3rem 0.5rem; font-size: 0.82rem; cursor: pointer; color: #cbd5e1; }
+  .tz-item:hover { background: #334155; }
+
+  #editor { width: 100%; height: 420px; border: 1px solid #334155; border-radius: 0.5rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>knot config wizard</h1>
+  <span class="path">target: <code>{{ .ConfigPath }}</code></span>
+</header>
+
+<div class="container">
+  <div class="progress" id="progress"></div>
+
+  <!-- STEP 1: Deployment Type -->
+  <div class="step" id="step-1">
+    <div class="step-title">What are you setting up?</div>
+    <div class="step-desc">This determines the recommended storage, platforms, and networking defaults. You can override everything later.</div>
+    <div class="cards" id="deploy-cards">
+      <div class="card" data-deploy="standalone">
+        <h3>Single Server</h3>
+        <p>Standalone deployment for individuals, small teams, or development. Uses embedded storage — no external database required.</p>
+      </div>
+      <div class="card" data-deploy="cluster">
+        <h3>Cluster</h3>
+        <p>Production deployment with multiple servers for high availability and geographic distribution. Uses an external database and Nomad orchestration.</p>
+      </div>
+      <div class="card" data-deploy="leaf">
+        <h3>Leaf Node</h3>
+        <p>A local server that connects to an existing cluster. Runs spaces locally using local containers while syncing templates and users from the origin.</p>
+      </div>
+    </div>
+    <div class="nav"><span></span><button class="btn-primary next" id="next-1" disabled>Next</button></div>
+  </div>
+
+  <!-- STEP 2: Storage -->
+  <div class="step" id="step-2">
+    <div class="step-title">Database</div>
+    <div class="step-desc">Choose where knot stores users, templates, and audit logs.</div>
+
+    <div class="radio-card" data-db="badger">
+      <h3>BadgerDB</h3>
+      <p>Embedded file database — no external dependencies, production-ready. Works in multi-server clusters (data synced via gossip). Ideal for leaf nodes and single-server setups.</p>
+    </div>
+    <div class="radio-card" data-db="mysql">
+      <h3>MySQL / MariaDB</h3>
+      <p>External database — proven reliability at scale. Good if you have existing database infrastructure. Each server needs its own database name.</p>
+    </div>
+    <div class="radio-card" data-db="redis">
+      <h3>Redis / Valkey</h3>
+      <p>In-memory database — highest performance, requires more memory. Good for high-traffic deployments. Sessions go to Redis automatically.</p>
+    </div>
+
+    <div class="warning">Never use the same database (same MySQL database name or Redis DB number) for multiple knot instances — each server must have its own.</div>
+
+    <div id="badger-fields" class="collapsible">
+      <label>BadgerDB path</label>
+      <input type="text" id="badger_path" value="{{ .Form.BadgerPath }}">
+    </div>
+
+    <div id="mysql-fields" class="collapsible">
+      <div class="field-group">
+        <label>MySQL host <span class="hint">(prefix with srv+ for SRV lookup)</span></label>
+        <input type="text" id="mysql_host" value="{{ .Form.MySQLHost }}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+        <div><label>Port</label><input type="number" id="mysql_port" value="{{ .Form.MySQLPort }}"></div>
+        <div><label>Database name</label><input type="text" id="mysql_database" value="{{ .Form.MySQLDatabase }}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+        <div><label>User</label><input type="text" id="mysql_user" value="{{ .Form.MySQLUser }}" placeholder="username"></div>
+        <div><label>Password</label><input type="password" id="mysql_password" value="{{ .Form.MySQLPassword }}"></div>
+      </div>
+    </div>
+
+    <div id="session-redis-section" style="display:none;margin-top:0.8rem;padding-top:0.6rem;border-top:1px solid #334155">
+      <label class="toggle"><input type="checkbox" id="session_redis_enabled"><span class="slider"></span><span class="toggle-label">Also use Redis for session storage</span></label>
+      <div class="explain">Sessions survive server restarts when stored in Redis. Recommended for production and clustered setups.</div>
+    </div>
+
+    <div id="redis-fields" class="collapsible">
+      <div class="field-group">
+        <label>Redis hosts <span class="hint">(comma-separated host:port)</span></label>
+        <input type="text" id="redis_hosts" value="{{ range $i, $h := .Form.RedisHosts }}{{ if $i }}, {{ end }}{{ $h }}{{ end }}" placeholder="localhost:6379">
+      </div>
+      <label>Password</label>
+      <input type="password" id="redis_password" value="{{ .Form.RedisPassword }}">
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 3: Networking -->
+  <div class="step" id="step-3">
+    <div class="step-title">Server address</div>
+    <div class="step-desc">How users and agents will reach this knot server.</div>
+
+    <div class="field-group">
+      <label>Server URL</label>
+      <input type="url" id="url" value="{{ .Form.URL }}" placeholder="https://knot.example.com/">
+      <div class="explain">The address users visit in their browser to access the knot web interface.</div>
+    </div>
+
+    <div class="field-group">
+      <label>Wildcard domain</label>
+      <input type="text" id="wildcard_domain" value="{{ .Form.WildcardDomain }}" placeholder="*.knot.example.com">
+      <div class="explain">Knot needs a wildcard domain to serve web UIs of running spaces. Each space gets an address like <code>&lt;user&gt;--&lt;space&gt;--&lt;port&gt;.wildcard_domain</code>. Derived from your server URL — adjust if different.</div>
+    </div>
+
+    <div class="field-group">
+      <label>Agent endpoint</label>
+      <input type="text" id="agent_endpoint" value="{{ .Form.AgentEndpoint }}" placeholder="server.example.com:3010 or IP:3010">
+      <div class="explain">Agents connect to the server on this address to manage spaces. For local setups, use your hostname and port 3010. For Nomad, use a Consul SRV address like <code>srv+knot-server-agent.service.consul</code>.</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+      <div class="field-group">
+        <label>Web listen address</label>
+        <input type="text" id="listen" value="{{ .Form.Listen }}">
+      </div>
+      <div class="field-group">
+        <label>Agent listen address</label>
+        <input type="text" id="listen_agent" value="{{ .Form.ListenAgent }}">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Timezone</label>
+      <div class="tz-picker">
+        <input type="text" id="timezone" value="{{ .Form.Timezone }}" placeholder="Search timezone...">
+        <div class="tz-dropdown" id="tz-dropdown"></div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Encryption key</label>
+      <div style="display:flex;gap:0.3rem">
+        <input type="text" id="encryption_key" value="{{ .Form.EncryptionKey }}" style="flex:1">
+        <button type="button" class="btn-sm" id="regen-key">regen</button>
+      </div>
+      <div class="explain">Used to encrypt protected variables. Rotate with <code>knot genkey</code>.</div>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 4: DNS -->
+  <div class="step" id="step-4">
+    <div class="step-title">DNS resolution</div>
+    <div class="step-desc">How knot resolves hostnames for agents and services.</div>
+
+    <div class="radio-card" data-ns="system">
+      <h3>Use system nameservers</h3>
+      <p>Resolve DNS using the system's default nameservers. Works for most setups.</p>
+    </div>
+    <div class="radio-card" data-ns="custom">
+      <h3>Custom nameservers</h3>
+      <p>Specify nameservers for Consul SRV lookups or custom DNS infrastructure.</p>
+    </div>
+
+    <div id="ns-custom-fields" class="collapsible">
+      <label>Nameservers <span class="hint">(comma-separated, e.g. 192.168.1.1:53, consul/192.168.1.4:8600)</span></label>
+      <input type="text" id="nameservers" placeholder="1.1.1.1, 8.8.8.8">
+    </div>
+
+    <div style="margin-top:1.2rem">
+      <label class="toggle"><input type="checkbox" id="dns_enabled" {{ checked .Form.DNSEnabled }}><span class="slider"></span><span class="toggle-label">Enable built-in DNS server</span></label>
+      <div class="explain">Knot's built-in DNS server can serve records for your wildcard domain so local clients resolve space addresses without external DNS. Configure your OS to forward lookups to knot on the listen port below.</div>
+      <div id="dns-fields" class="collapsible">
+        <label>DNS listen address</label>
+        <input type="text" id="dns_listen" value="{{ .Form.DNSListen }}" placeholder=":3053">
+        <label style="margin-top:0.5rem">DNS records</label>
+        <div id="dns-records"></div>
+        <button type="button" class="btn-sm" id="dns-add-btn">+ add record</button>
+      </div>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 5: Platforms -->
+  <div class="step" id="step-5">
+    <div class="step-title">Deployment platforms</div>
+    <div class="step-desc" id="platform-desc">Which platforms this server supports. Each platform can create templates in the editor.</div>
+
+    <div style="margin-bottom:0.5rem">
+      <label class="toggle"><input type="checkbox" id="enable_nomad" {{ checked .Form.EnableNomad }}><span class="slider"></span><span class="toggle-label">Nomad <span class="hint">(orchestration cluster)</span></span></label>
+      <div id="nomad-fields" class="collapsible">
+        <label>Nomad address</label>
+        <input type="text" id="nomad_addr" value="{{ .Form.NomadAddr }}">
+        <label>Nomad token</label>
+        <input type="password" id="nomad_token" value="{{ .Form.NomadToken }}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+          <div><label>Datacenter <span class="hint">(optional)</span></label><input type="text" id="nomad_dc" value="{{ .Form.NomadDC }}"></div>
+          <div><label>Region <span class="hint">(optional)</span></label><input type="text" id="nomad_region" value="{{ .Form.NomadRegion }}"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:0.5rem">
+      <label class="toggle"><input type="checkbox" id="enable_docker" {{ checked .Form.EnableDocker }}><span class="slider"></span><span class="toggle-label">Docker <span class="hint">(local containers)</span></span></label>
+      <div id="docker-fields" class="collapsible"><label>Docker host</label><input type="text" id="docker_host" value="{{ .Form.DockerHost }}"></div>
+    </div>
+
+    <div style="margin-bottom:0.5rem">
+      <label class="toggle"><input type="checkbox" id="enable_podman" {{ checked .Form.EnablePodman }}><span class="slider"></span><span class="toggle-label">Podman <span class="hint">(rootless local containers)</span></span></label>
+      <div id="podman-fields" class="collapsible"><label>Podman host</label><input type="text" id="podman_host" value="{{ .Form.PodmanHost }}"></div>
+    </div>
+
+    <div style="margin-bottom:0.5rem">
+      <label class="toggle"><input type="checkbox" id="enable_apple" {{ checked .Form.EnableApple }}><span class="slider"></span><span class="toggle-label">Apple <span class="hint">(macOS Virtualization framework)</span></span></label>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 6: Tunnel -->
+  <div class="step" id="step-6">
+    <div class="step-title">Tunnel server</div>
+    <div class="step-desc">Expose services running inside spaces to the public internet for testing.</div>
+
+    <label class="toggle"><input type="checkbox" id="tunnel_enabled" {{ checked .Form.TunnelEnabled }}><span class="slider"></span><span class="toggle-label">Enable tunnel server</span></label>
+    <div class="explain">When enabled, desktop clients and spaces can open a tunnel to the public internet through this server. Traffic from the internet is passed back through the tunnel to specific services — useful for testing webhooks, sharing preview URLs, or any scenario where an external service needs to reach a development environment running in a space.</div>
+
+    <div id="tunnel-fields" class="collapsible">
+      <div class="field-group">
+        <label>Tunnel listen address</label>
+        <input type="text" id="tunnel_listen" value="{{ .Form.TunnelListen }}" placeholder="0.0.0.0:3000">
+        <div class="explain">Address knot listens on for tunnel WebSocket connections. Can share the web listen address or use a separate port.</div>
+      </div>
+      <div class="field-group">
+        <label>Tunnel domain</label>
+        <input type="text" id="tunnel_domain" value="{{ .Form.TunnelDomain }}" placeholder="*.knot-public.example.com">
+        <div class="explain">Public wildcard domain that internet traffic uses to reach tunnelled services. Each tunnelled service gets a subdomain here.</div>
+      </div>
+      <div class="field-group">
+        <label>Tunnel server URL</label>
+        <input type="text" id="tunnel_server" value="{{ .Form.TunnelServer }}" placeholder="wss://knot.example.com:3000">
+        <div class="explain">The WebSocket URL that desktop clients and spaces connect to in order to open their tunnel. Usually <code>wss://</code> + your server URL host + port.</div>
+      </div>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 7: Security & UI -->
+  <div class="step" id="step-7">
+    <div class="step-title">Security & UI</div>
+    <div class="step-desc">Authentication and interface options.</div>
+
+    <label class="toggle"><input type="checkbox" id="totp_enabled" {{ checked .Form.TotpEnabled }}><span class="slider"></span><span class="toggle-label">Enable TOTP two-factor authentication</span></label>
+    <div class="explain">Users can enable 2FA using authenticator apps like Google Authenticator or Microsoft Authenticator. They scan a QR code from their profile settings.</div>
+    <div id="totp-fields" class="collapsible">
+      <label>TOTP issuer name</label>
+      <input type="text" id="totp_issuer" value="{{ .Form.TotpIssuer }}">
+      <div class="explain">The name shown in users' authenticator apps.</div>
+    </div>
+
+    <div style="margin-top:1rem">
+      <label class="toggle"><input type="checkbox" id="enable_gravatar" {{ checked .Form.EnableGravatar }}><span class="slider"></span><span class="toggle-label">Enable Gravatar avatars</span></label>
+      <div class="explain">Uses email addresses to fetch user avatars from Gravatar. Disable if the server runs offline.</div>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 8: Optional Features -->
+  <div class="step" id="step-8">
+    <div class="step-title">Optional features</div>
+    <div class="step-desc">These can be enabled now or added to the config file later.</div>
+
+    <div style="margin-bottom:1rem">
+      <label class="toggle"><input type="checkbox" id="chat_enabled" {{ checked .Form.ChatEnabled }}><span class="slider"></span><span class="toggle-label">AI / Chat assistant</span></label>
+      <div id="chat-fields" class="collapsible">
+        <label>Provider</label>
+        <select id="chat_provider">
+          <option value="ollama">Ollama (local, no API key needed)</option>
+          <option value="openai">OpenAI</option>
+          <option value="claude">Claude (Anthropic)</option>
+          <option value="gemini">Gemini (Google)</option>
+          <option value="mistral">Mistral</option>
+          <option value="zai">ZAI</option>
+        </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-top:0.4rem">
+          <div><label>API key <span class="hint">(skip for Ollama)</span></label><input type="password" id="chat_api_key" value="{{ .Form.ChatAPIKey }}"></div>
+          <div><label>Model</label><input type="text" id="chat_model" value="{{ .Form.ChatModel }}" placeholder="e.g. llama3.2"></div>
+        </div>
+        <label style="margin-top:0.4rem">Base URL</label>
+        <input type="url" id="chat_base_url" value="{{ .Form.ChatBaseURL }}">
+      </div>
+    </div>
+
+    <div>
+      <label class="toggle"><input type="checkbox" id="enable_mcp" {{ checked .Form.EnableMCP }}><span class="slider"></span><span class="toggle-label">MCP server <span class="hint">(Model Context Protocol)</span></span></label>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 9: Review -->
+  <div class="step" id="step-9">
+    <div class="step-title">Review and save</div>
+    <div class="step-desc">This is your generated configuration. Edit directly if needed, then write to disk or copy.</div>
+    {{ if .ConfigExists }}
+    <div class="warning">A config already exists at <code>{{ .ConfigPath }}</code> — write is disabled. Copy the text below to merge by hand.</div>
+    {{ end }}
+    <div id="editor"></div>
+    <div class="nav" style="margin-top:0.75rem">
+      <div style="display:flex;gap:0.4rem">
+        <button class="btn-sm" id="copy-btn">copy to clipboard</button>
+        <button class="btn-sm prev">back</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.6rem">
+        <span class="status" id="status"></span>
+        {{ if .ConfigExists }}
+        <button class="btn-primary" disabled>write disabled</button>
+        {{ else }}
+        <button class="btn-primary" id="write-btn">write to disk</button>
+        {{ end }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var TOTAL_STEPS = 9;
+var current = 1;
+var editor, lastSet = "";
+var deployType = "";
+
+function esc(s) { return String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"'); }
+function $(id) { return document.getElementById(id); }
+
+/* ---- Step navigation ---- */
+function buildProgress() {
+  var p = $("progress");
+  p.innerHTML = "";
+  for (var i = 1; i <= TOTAL_STEPS; i++) {
+    var d = document.createElement("div");
+    d.className = "progress-dot" + (i === current ? " active" : i < current ? " done" : "");
+    p.appendChild(d);
+  }
+}
+function showStep(n) {
+  current = n;
+  document.querySelectorAll(".step").forEach(function(s){ s.classList.remove("active"); });
+  $("step-" + n).classList.add("active");
+  buildProgress();
+  window.scrollTo(0, 0);
+  if (n === TOTAL_STEPS) { setEditor(generateTOML()); }
+}
+document.addEventListener("click", function(e) {
+  if (e.target.classList.contains("next") && !e.target.disabled) { showStep(current + 1); return; }
+  if (e.target.classList.contains("prev")) { showStep(current - 1); return; }
+});
+
+/* ---- Step 1: deployment cards ---- */
+document.querySelectorAll("#deploy-cards .card").forEach(function(c) {
+  c.addEventListener("click", function() {
+    document.querySelectorAll("#deploy-cards .card").forEach(function(x){ x.classList.remove("selected"); });
+    c.classList.add("selected");
+    deployType = c.dataset.deploy;
+    $("next-1").disabled = false;
+    applyDeploymentDefaults();
+  });
+});
+
+function applyDeploymentDefaults() {
+  if (deployType === "standalone") {
+    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("enable_docker", true); setCheck("enable_podman", true); setCheck("enable_apple", true); setCheck("enable_nomad", false);
+    selectNs("system");
+  } else if (deployType === "cluster") {
+    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("enable_nomad", true); setCheck("enable_docker", false); setCheck("enable_podman", false); setCheck("enable_apple", false);
+    selectNs("custom");
+  } else if (deployType === "leaf") {
+    selectCard("badger"); setCheck("session_redis_enabled", false); setCheck("enable_docker", true); setCheck("enable_podman", true); setCheck("enable_apple", true); setCheck("enable_nomad", false);
+    selectNs("system");
+  }
+}
+
+/* ---- Wildcard auto-derive ---- */
+$("url").addEventListener("input", function() {
+  var u = $("url").value.trim();
+  var m = u.match(/^https?:\/\/([^\/:]+)/);
+  if (m) { $("wildcard_domain").value = "*." + m[1]; }
+});
+
+/* ---- Step 3: storage radio cards ---- */
+function selectCard(db) {
+  document.querySelectorAll("[data-db]").forEach(function(x){ x.classList.remove("selected"); });
+  var el = document.querySelector('[data-db="'+db+'"]'); if (el) el.classList.add("selected");
+  ["badger","mysql"].forEach(function(k){ $(k+"-fields").style.display = k === db ? "block" : "none"; });
+  $("session-redis-section").style.display = db === "redis" ? "none" : "block";
+  updateRedisVisibility();
+}
+document.querySelectorAll("[data-db]").forEach(function(c) {
+  c.addEventListener("click", function() { selectCard(c.dataset.db); });
+});
+
+function updateRedisVisibility() {
+  var db = currentDb();
+  var show = db === "redis" || (db !== "redis" && $("session_redis_enabled").checked);
+  $("redis-fields").style.display = show ? "block" : "none";
+}
+$("session_redis_enabled").addEventListener("change", updateRedisVisibility);
+
+/* ---- Step 4: nameservers ---- */
+function selectNs(ns) {
+  document.querySelectorAll("[data-ns]").forEach(function(x){ x.classList.remove("selected"); });
+  var el = document.querySelector('[data-ns="'+ns+'"]'); if (el) el.classList.add("selected");
+  $("ns-custom-fields").style.display = ns === "custom" ? "block" : "none";
+}
+document.querySelectorAll("[data-ns]").forEach(function(c) {
+  c.addEventListener("click", function() { selectNs(c.dataset.ns); });
+});
+
+/* ---- Toggles for collapsible sections ---- */
+function toggleSection(checkId, sectionId) {
+  var el = $(checkId); if (!el) return;
+  var sec = $(sectionId); if (!sec) return;
+  function upd() { sec.style.display = el.checked ? "block" : "none"; }
+  el.addEventListener("change", upd); upd();
+}
+["dns_enabled:dns-fields","chat_enabled:chat-fields","enable_nomad:nomad-fields","enable_docker:docker-fields","enable_podman:podman-fields","tunnel_enabled:tunnel-fields","totp_enabled:totp-fields"].forEach(function(pair) {
+  var p = pair.split(":"); toggleSection(p[0], p[1]);
+});
+
+function setCheck(id, val) { var el = $(id); if (el) { el.checked = val; el.dispatchEvent(new Event("change")); } }
+
+/* ---- DNS records ---- */
+function addDnsRecord(typ, name, value, ttl) {
+  var container = $("dns-records");
+  var row = document.createElement("div"); row.className = "dns-record";
+  var opts = ["A","AAAA","CNAME","TXT","SRV","MX","NS","PTR"].map(function(t){ return '<option value="'+t+'"'+(t===typ?' selected':'')+'>'+t+'</option>'; }).join("");
+  row.innerHTML = '<select class="dns-type">'+opts+'</select><input type="text" class="dns-name" value="'+esc(name)+'" placeholder="knot.internal"><input type="text" class="dns-value" value="'+esc(value)+'" placeholder="127.0.0.1"><input type="number" class="dns-ttl" value="'+esc(ttl)+'" placeholder="TTL"><button type="button" class="dns-remove">&times;</button>';
+  row.querySelector(".dns-remove").addEventListener("click", function(){ row.remove(); });
+  container.appendChild(row);
+}
+$("dns-add-btn").addEventListener("click", function() { addDnsRecord("A","","",""); });
+
+function readDnsRecords() {
+  var records = [];
+  document.querySelectorAll(".dns-record").forEach(function(row) {
+    var typ = row.querySelector(".dns-type").value, name = row.querySelector(".dns-name").value.trim(), value = row.querySelector(".dns-value").value.trim(), ttl = row.querySelector(".dns-ttl").value.trim();
+    if (name && value) { var r = typ + "|" + name + "|" + value; if (ttl) r += "|" + ttl; records.push(r); }
+  });
+  return records;
+}
+
+/* ---- Timezone picker ---- */
+(function() {
+  var input = $("timezone"), dd = $("tz-dropdown");
+  function show() {
+    var q = input.value.toLowerCase();
+    var m = (window.Timezones || []).filter(function(t){ return t.toLowerCase().indexOf(q) >= 0; }).slice(0, 100);
+    dd.innerHTML = m.map(function(t){ return '<div class="tz-item" data-tz="'+t+'">'+t+'</div>'; }).join("");
+    dd.style.display = m.length ? "block" : "none";
+    dd.querySelectorAll(".tz-item").forEach(function(el) { el.addEventListener("mousedown", function(e){ e.preventDefault(); input.value = el.dataset.tz; dd.style.display = "none"; }); });
+  }
+  input.addEventListener("focus", show); input.addEventListener("input", show);
+  input.addEventListener("blur", function(){ setTimeout(function(){ dd.style.display = "none"; }, 200); });
+})();
+
+/* ---- TOML generation ---- */
+function currentDb() { var el = document.querySelector("[data-db].selected"); return el ? el.dataset.db : "mysql"; }
+function currentNs() { var el = document.querySelector("[data-ns].selected"); return el ? el.dataset.ns : "system"; }
+
+function generateTOML() {
+  var E = esc, L = [], db = currentDb();
+  L.push("# knot server configuration — generated by `knot server config-wizard`");
+  L.push("# Edit by hand for advanced options.");
+  L.push("");
+  L.push("[server]");
+  L.push('listen = "' + E($("listen").value) + '"');
+  L.push('listen_agent = "' + E($("listen_agent").value) + '"');
+  L.push('agent_endpoint = "' + E($("agent_endpoint").value) + '"');
+  L.push('url = "' + E($("url").value) + '"');
+  var wd = $("wildcard_domain").value.trim(); if (wd) L.push('wildcard_domain = "' + E(wd) + '"');
+  var tz = $("timezone").value.trim(); if (tz) L.push('timezone = "' + E(tz) + '"');
+  L.push('encrypt = "' + E($("encryption_key").value) + '"');
+  if ($("tunnel_enabled").checked) {
+    L.push('listen_tunnel = "' + E($("tunnel_listen").value) + '"');
+    var td = $("tunnel_domain").value.trim(); if (td) L.push('tunnel_domain = "' + E(td) + '"');
+    var ts = $("tunnel_server").value.trim(); if (ts) L.push('tunnel_server = "' + E(ts) + '"');
+  }
+  L.push("");
+  L.push("[server.terminal]");
+  L.push("webgl = true");
+  L.push("");
+  L.push("# Database backend (" + db + ")");
+  L.push("[server.badgerdb]"); L.push(db === "badger" ? "enabled = true" : "enabled = false");
+  if (db === "badger") L.push('path = "' + E($("badger_path").value) + '"');
+  L.push("");
+  L.push("[server.mysql]"); L.push(db === "mysql" ? "enabled = true" : "enabled = false");
+  if (db === "mysql") { L.push('host = "' + E($("mysql_host").value) + '"'); L.push("port = " + E($("mysql_port").value)); L.push('user = "' + E($("mysql_user").value) + '"'); L.push('password = "' + E($("mysql_password").value) + '"'); L.push('database = "' + E($("mysql_database").value) + '"'); }
+  L.push("");
+  L.push("[server.redis]");
+  var sessionRedis = db !== "redis" && $("session_redis_enabled").checked;
+  var redisOn = db === "redis" || sessionRedis;
+  L.push(redisOn ? "enabled = true" : "enabled = false");
+  if (redisOn) { var hosts = $("redis_hosts").value.split(",").map(function(s){return s.trim()}).filter(function(s){return s}); L.push("hosts = [" + hosts.map(function(h){return '"'+E(h)+'"'}).join(", ") + "]"); L.push('password = "' + E($("redis_password").value) + '"'); L.push("db = 0"); }
+  if ($("nameservers")) {
+    var ns = $("nameservers").value.trim();
+    if (currentNs() === "custom" && ns) {
+      L.push(""); L.push("[resolver]");
+      L.push("nameservers = [" + ns.split(",").map(function(s){return '"'+E(s.trim())+'"'}).join(", ") + "]");
+    }
+  }
+  if ($("enable_nomad").checked) {
+    L.push(""); L.push("[server.nomad]");
+    L.push('addr = "' + E($("nomad_addr").value) + '"');
+    L.push('token = "' + E($("nomad_token").value) + '"');
+    L.push("allow_in_template_create = true");
+    var dc = $("nomad_dc").value.trim(); if (dc) L.push('dc = "' + E(dc) + '"');
+    var region = $("nomad_region").value.trim(); if (region) L.push('region = "' + E(region) + '"');
+  }
+  if ($("enable_docker").checked) { L.push(""); L.push("[server.docker]"); L.push('host = "' + E($("docker_host").value) + '"'); L.push("allow_in_template_create = true"); }
+  if ($("enable_podman").checked) { L.push(""); L.push("[server.podman]"); L.push('host = "' + E($("podman_host").value) + '"'); L.push("allow_in_template_create = true"); }
+  if ($("enable_apple").checked) { L.push(""); L.push("[server.apple]"); L.push("allow_in_template_create = true"); }
+  if ($("dns_enabled").checked) {
+    L.push(""); L.push("[server.dns]");
+    L.push("enabled = true");
+    L.push('listen = "' + E($("dns_listen").value) + '"');
+    var recs = readDnsRecords();
+    if (recs.length) L.push("records = [" + recs.map(function(r){return '"'+E(r)+'"'}).join(", ") + "]");
+  }
+  if ($("chat_enabled").checked) {
+    L.push(""); L.push("[server.chat]");
+    L.push("enabled = true");
+    L.push('provider = "' + E($("chat_provider").value) + '"');
+    var key = $("chat_api_key").value; if (key) L.push('api_key = "' + E(key) + '"');
+    var baseUrl = $("chat_base_url").value; if (baseUrl) L.push('base_url = "' + E(baseUrl) + '"');
+    var model = $("chat_model").value; if (model) L.push('model = "' + E(model) + '"');
+  }
+  if ($("totp_enabled").checked) {
+    L.push(""); L.push("[server.totp]");
+    L.push("enabled = true");
+    if ($("totp_issuer").value.trim()) L.push('issuer = "' + E($("totp_issuer").value.trim()) + '"');
+  }
+  L.push(""); L.push("[server.ui]");
+  L.push('enable_gravatar = ' + $("enable_gravatar").checked);
+  L.push(""); L.push("[server.mcp]"); L.push("enabled = " + $("enable_mcp").checked);
+  L.push(""); L.push("[log]"); L.push('level = "info"');
+  return L.join("\n") + "\n";
+}
+
+function setEditor(text) { editor.setValue(text, -1); editor.session.getUndoManager().reset(); lastSet = text; }
+
+/* ---- Init ---- */
+window.addEventListener("DOMContentLoaded", function() {
+  editor = ace.edit("editor");
+  editor.session.setMode("ace/mode/toml");
+  editor.setTheme("ace/theme/github_dark");
+  editor.setOptions({ fontSize: "13px", showPrintMargin: false, useSoftTabs: true, tabSize: 2 });
+  editor.$blockScrolling = Infinity;
+  editor.setReadOnly({{ if .ConfigExists }}true{{ else }}false{{ end }});
+  $("chat_provider").value = "{{ .Form.ChatProvider }}";
+
+  $("regen-key").addEventListener("click", function() { $("encryption_key").value = randomKey(); });
+
+  var wb = $("write-btn");
+  if (wb) {
+    wb.addEventListener("click", function() {
+      $("status").textContent = "writing...";
+      fetch("/save", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
+        .then(function(r) {
+          if (r.ok) { r.text().then(function(h){ document.open(); document.write(h); document.close(); }); }
+          else if (r.status === 409) { r.text().then(function(t){ $("status").textContent = ""; alert(t); }); }
+          else { r.text().then(function(t){ $("status").textContent = ""; alert("Write failed: " + t); }); }
+        }).catch(function(e) { $("status").textContent = ""; alert("Write failed: " + e.message); });
+    });
+  }
+
+  $("copy-btn").addEventListener("click", function() {
+    navigator.clipboard.writeText(editor.getValue()).then(function() { $("status").textContent = "copied"; setTimeout(function(){ $("status").textContent = ""; }, 1500); });
+  });
+
+  selectCard("mysql"); selectNs("system");
+  buildProgress(); showStep(1);
+});
+
+function randomKey() {
+  var c = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  var a = new Uint8Array(32); crypto.getRandomValues(a);
+  var s = ""; for (var i = 0; i < a.length; i++) s += c[a[i] % c.length];
+  return s;
+}
+</script>
+</body>
+</html>

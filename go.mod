@@ -30,7 +30,7 @@ require (
 	github.com/paularlott/jsonrpc v0.2.0
 	github.com/paularlott/lmchatkit v0.9.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.23.0
+	github.com/paularlott/mcp v0.24.0
 	github.com/paularlott/scriptling v0.20.1
 	github.com/pkg/sftp v1.13.11
 	github.com/redis/go-redis/v9 v9.22.0

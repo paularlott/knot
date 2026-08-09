@@ -52,8 +52,6 @@ github.com/hashicorp/go-msgpack/v2 v2.1.5 h1:Ue879bPnutj/hXfmUk6s/jtIK90XxgiUIcX
 github.com/hashicorp/go-msgpack/v2 v2.1.5/go.mod h1:bjCsRXpZ7NsJdk45PoCQnzRGDaK8TKm5ZnDI/9y3J4M=
 github.com/hashicorp/yamux v0.1.2 h1:XtB8kyFOyHXYVFnwT5C3+Bdo8gArse7j2AQ0DA0Uey8=
 github.com/hashicorp/yamux v0.1.2/go.mod h1:C+zze2n6e/7wshOZep2A70/aQU6QBRWJO/G6FT1wIns=
-github.com/klauspost/compress v1.19.1 h1:VsB4HPswih7mmZ8WleSFQ75c/Ui1M4trX5oAsJnhSlk=
-github.com/klauspost/compress v1.19.1/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/klauspost/compress v1.19.2 h1:hMRETovs/pu/dVWN7zIT1PGG8t509MwT6bO7XSi26R8=
 github.com/klauspost/compress v1.19.2/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/klauspost/cpuid/v2 v2.2.10 h1:tBs3QSyvjDyFTq3uoc/9xFpCuOsJQFNPiAhYdw2skhE=
@@ -74,14 +72,12 @@ github.com/paularlott/gossip v0.20.0 h1:sqd6rECkHI0ZuUI2R0fGdlbLjwWkEwCb8vYwxKaP
 github.com/paularlott/gossip v0.20.0/go.mod h1:FFbGO5Rv+f0lMUsYvWoKuKYEOnMEAg4M8QOIH/kxl+o=
 github.com/paularlott/jsonrpc v0.2.0 h1:iR584f/oi5L7LbfH8oskAMalNoikNxzlW/ABEZUJCJY=
 github.com/paularlott/jsonrpc v0.2.0/go.mod h1:mXoOPTPQf87HF3wR064n23dmsAQs3/EICA3Cbha3Sk4=
-github.com/paularlott/lmchatkit v0.8.0 h1:t/n3QKMR9818Nskzf9MsWihWdMY04T3spQcAHhr2RKg=
-github.com/paularlott/lmchatkit v0.8.0/go.mod h1:UG+lpOKE5RodE9v2i2sftV3w5cFZlkvBwu8pZivLt64=
 github.com/paularlott/lmchatkit v0.9.0 h1:6diM7hFPAdVZYdhk7ocqB3aXk9fZoB7lJQJ6cFWVofE=
 github.com/paularlott/lmchatkit v0.9.0/go.mod h1:UG+lpOKE5RodE9v2i2sftV3w5cFZlkvBwu8pZivLt64=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
-github.com/paularlott/mcp v0.23.0 h1:+cSJ0PlGWXikn/LDTId5CQaJBWkSM3HK0FbBOv4oLso=
-github.com/paularlott/mcp v0.23.0/go.mod h1:J+Ix/SFnJKcZGu7DHLwnHS5F7IaIvRoyQFh0TQHZKvY=
+github.com/paularlott/mcp v0.24.0 h1:L80bCsmJP5lSwiAkVUHoH5nnzK6sn5HTydF4nB+Mtws=
+github.com/paularlott/mcp v0.24.0/go.mod h1:J+Ix/SFnJKcZGu7DHLwnHS5F7IaIvRoyQFh0TQHZKvY=
 github.com/paularlott/scriptling v0.20.1 h1:49dQpDkqxbH9uig7cgtAJ071WgFcgbnWFneIsUgSWqI=
 github.com/paularlott/scriptling v0.20.1/go.mod h1:+vCkvhxwq/gqyzP7twv2k60jL2+q6+cyTvkigcb4cWo=
 github.com/paularlott/snapshotkv v0.5.0 h1:PcEtzChCSK6jR98Im/nnHUVIW4+hSp+y9XfDCKe9Hgo=
