@@ -276,35 +276,31 @@
 
   <!-- STEP 5: Platforms -->
   <div class="step" id="step-5">
-    <div class="step-title">Deployment platforms</div>
-    <div class="step-desc" id="platform-desc">Which platforms this server supports. Each platform can create templates in the editor.</div>
+    <div class="step-title">Container runtimes</div>
+    <div class="step-desc">Configure the runtimes this server can use to run spaces. Leave a field blank to skip that runtime.</div>
 
-    <div style="margin-bottom:0.5rem">
-      <label class="toggle"><input type="checkbox" id="enable_nomad" {{ checked .Form.EnableNomad }}><span class="slider"></span><span class="toggle-label">Nomad <span class="hint">(orchestration cluster)</span></span></label>
-      <div id="nomad-fields" class="collapsible">
-        <label>Nomad address</label>
-        <input type="text" id="nomad_addr" value="{{ .Form.NomadAddr }}">
-        <label>Nomad token</label>
-        <input type="password" id="nomad_token" value="{{ .Form.NomadToken }}">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
-          <div><label>Datacenter <span class="hint">(optional)</span></label><input type="text" id="nomad_dc" value="{{ .Form.NomadDC }}"></div>
-          <div><label>Region <span class="hint">(optional)</span></label><input type="text" id="nomad_region" value="{{ .Form.NomadRegion }}"></div>
-        </div>
+    <div class="field-group">
+      <label>Nomad address</label>
+      <input type="text" id="nomad_addr" value="{{ .Form.NomadAddr }}" placeholder="http://127.0.0.1:4646">
+      <div class="explain">The address of your Nomad server. Leave blank if not using Nomad orchestration.</div>
+      <label>Nomad token</label>
+      <input type="password" id="nomad_token" value="{{ .Form.NomadToken }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-top:0.4rem">
+        <div><label>Datacenter <span class="hint">(optional)</span></label><input type="text" id="nomad_dc" value="{{ .Form.NomadDC }}"></div>
+        <div><label>Region <span class="hint">(optional)</span></label><input type="text" id="nomad_region" value="{{ .Form.NomadRegion }}"></div>
       </div>
     </div>
 
-    <div style="margin-bottom:0.5rem">
-      <label class="toggle"><input type="checkbox" id="enable_docker" {{ checked .Form.EnableDocker }}><span class="slider"></span><span class="toggle-label">Docker <span class="hint">(local containers)</span></span></label>
-      <div id="docker-fields" class="collapsible"><label>Docker host</label><input type="text" id="docker_host" value="{{ .Form.DockerHost }}"></div>
+    <div class="field-group">
+      <label>Docker host</label>
+      <input type="text" id="docker_host" value="{{ .Form.DockerHost }}" placeholder="unix:///var/run/docker.sock">
+      <div class="explain">Leave blank if Docker is not installed.</div>
     </div>
 
-    <div style="margin-bottom:0.5rem">
-      <label class="toggle"><input type="checkbox" id="enable_podman" {{ checked .Form.EnablePodman }}><span class="slider"></span><span class="toggle-label">Podman <span class="hint">(rootless local containers)</span></span></label>
-      <div id="podman-fields" class="collapsible"><label>Podman host</label><input type="text" id="podman_host" value="{{ .Form.PodmanHost }}"></div>
-    </div>
-
-    <div style="margin-bottom:0.5rem">
-      <label class="toggle"><input type="checkbox" id="enable_apple" {{ checked .Form.EnableApple }}><span class="slider"></span><span class="toggle-label">Apple <span class="hint">(macOS Virtualization framework)</span></span></label>
+    <div class="field-group">
+      <label>Podman host</label>
+      <input type="text" id="podman_host" value="{{ .Form.PodmanHost }}" placeholder="unix:///run/podman/podman.sock">
+      <div class="explain">Leave blank if Podman is not installed.</div>
     </div>
 
     <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
@@ -463,13 +459,16 @@ document.querySelectorAll("#deploy-cards .card").forEach(function(c) {
 
 function applyDeploymentDefaults() {
   if (deployType === "standalone") {
-    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("enable_docker", true); setCheck("enable_podman", true); setCheck("enable_apple", true); setCheck("enable_nomad", false);
+    selectCard("mysql"); setCheck("session_redis_enabled", true);
+    $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
     selectNs("system");
   } else if (deployType === "cluster") {
-    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("enable_nomad", true); setCheck("enable_docker", false); setCheck("enable_podman", false); setCheck("enable_apple", false);
+    selectCard("mysql"); setCheck("session_redis_enabled", true);
+    $("nomad_addr").value = "http://127.0.0.1:4646"; $("docker_host").value = ""; $("podman_host").value = "";
     selectNs("custom");
   } else if (deployType === "leaf") {
-    selectCard("badger"); setCheck("session_redis_enabled", false); setCheck("enable_docker", true); setCheck("enable_podman", true); setCheck("enable_apple", true); setCheck("enable_nomad", false);
+    selectCard("badger"); setCheck("session_redis_enabled", false);
+    $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
     selectNs("system");
   }
 }
@@ -517,7 +516,7 @@ function toggleSection(checkId, sectionId) {
   function upd() { sec.style.display = el.checked ? "block" : "none"; }
   el.addEventListener("change", upd); upd();
 }
-["dns_enabled:dns-fields","chat_enabled:chat-fields","enable_nomad:nomad-fields","enable_docker:docker-fields","enable_podman:podman-fields","tunnel_enabled:tunnel-fields","totp_enabled:totp-fields"].forEach(function(pair) {
+["dns_enabled:dns-fields","chat_enabled:chat-fields","tunnel_enabled:tunnel-fields","totp_enabled:totp-fields"].forEach(function(pair) {
   var p = pair.split(":"); toggleSection(p[0], p[1]);
 });
 
@@ -602,17 +601,15 @@ function generateTOML() {
       L.push("nameservers = [" + ns.split(",").map(function(s){return '"'+E(s.trim())+'"'}).join(", ") + "]");
     }
   }
-  if ($("enable_nomad").checked) {
+  if ($("nomad_addr").value.trim()) {
     L.push(""); L.push("[server.nomad]");
     L.push('addr = "' + E($("nomad_addr").value) + '"');
     L.push('token = "' + E($("nomad_token").value) + '"');
-    L.push("allow_in_template_create = true");
     var dc = $("nomad_dc").value.trim(); if (dc) L.push('dc = "' + E(dc) + '"');
     var region = $("nomad_region").value.trim(); if (region) L.push('region = "' + E(region) + '"');
   }
-  if ($("enable_docker").checked) { L.push(""); L.push("[server.docker]"); L.push('host = "' + E($("docker_host").value) + '"'); L.push("allow_in_template_create = true"); }
-  if ($("enable_podman").checked) { L.push(""); L.push("[server.podman]"); L.push('host = "' + E($("podman_host").value) + '"'); L.push("allow_in_template_create = true"); }
-  if ($("enable_apple").checked) { L.push(""); L.push("[server.apple]"); L.push("allow_in_template_create = true"); }
+  if ($("docker_host").value.trim()) { L.push(""); L.push("[server.docker]"); L.push('host = "' + E($("docker_host").value) + '"'); }
+  if ($("podman_host").value.trim()) { L.push(""); L.push("[server.podman]"); L.push('host = "' + E($("podman_host").value) + '"'); }
   if ($("dns_enabled").checked) {
     L.push(""); L.push("[server.dns]");
     L.push("enabled = true");

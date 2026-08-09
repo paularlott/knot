@@ -12,11 +12,6 @@ type Form struct {
 	WildcardDomain string `json:"wildcard_domain"`
 	Timezone       string `json:"timezone"`
 
-	EnableNomad  bool `json:"enable_nomad"`
-	EnableDocker bool `json:"enable_docker"`
-	EnablePodman bool `json:"enable_podman"`
-	EnableApple  bool `json:"enable_apple"`
-
 	NomadAddr   string `json:"nomad_addr"`
 	NomadToken  string `json:"nomad_token"`
 	NomadDC     string `json:"nomad_dc"`
@@ -68,10 +63,6 @@ func DefaultForm() Form {
 		URL:            "",
 		AgentEndpoint:  "",
 		Timezone:       "",
-		EnableNomad:    true,
-		EnableDocker:   true,
-		EnablePodman:   true,
-		EnableApple:    true,
 		NomadAddr:      "http://127.0.0.1:4646",
 		DockerHost:     "unix:///var/run/docker.sock",
 		PodmanHost:     "unix:///run/podman/podman.sock",

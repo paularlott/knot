@@ -455,13 +455,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NOMAD_REGION"},
 			DefaultValue: "",
 		},
-		&cli.BoolFlag{
-			Name:         "nomad-allow-in-template-create",
-			Usage:        "Allow creating new Nomad templates in the template editor.",
-			ConfigPath:   []string{"server.nomad.allow_in_template_create"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NOMAD_ALLOW_IN_TEMPLATE_CREATE"},
-			DefaultValue: true,
-		},
 
 		// MySQL flags
 		&cli.BoolFlag{
@@ -596,13 +589,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DOCKER_HOST"},
 			DefaultValue: "unix:///var/run/docker.sock",
 		},
-		&cli.BoolFlag{
-			Name:         "docker-allow-in-template-create",
-			Usage:        "Allow creating new Docker templates in the template editor.",
-			ConfigPath:   []string{"server.docker.allow_in_template_create"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DOCKER_ALLOW_IN_TEMPLATE_CREATE"},
-			DefaultValue: true,
-		},
 
 		// Podman flags
 		&cli.StringFlag{
@@ -611,22 +597,6 @@ var ServerCmd = &cli.Command{
 			ConfigPath:   []string{"server.podman.host"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PODMAN_HOST"},
 			DefaultValue: "unix:///var/run/podman.sock",
-		},
-		&cli.BoolFlag{
-			Name:         "podman-allow-in-template-create",
-			Usage:        "Allow creating new Podman templates in the template editor.",
-			ConfigPath:   []string{"server.podman.allow_in_template_create"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PODMAN_ALLOW_IN_TEMPLATE_CREATE"},
-			DefaultValue: true,
-		},
-
-		// Apple (macOS Virtualization framework) flags
-		&cli.BoolFlag{
-			Name:         "apple-allow-in-template-create",
-			Usage:        "Allow creating new Apple platform templates in the template editor.",
-			ConfigPath:   []string{"server.apple.allow_in_template_create"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_APPLE_ALLOW_IN_TEMPLATE_CREATE"},
-			DefaultValue: true,
 		},
 
 		// Local container runtime preference
@@ -1459,12 +1429,10 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			AuditStream: cmd.GetString("audit-stream"),
 		},
 		Docker: config.DockerConfig{
-			Host:                  cmd.GetString("docker-host"),
-			AllowInTemplateCreate: cmd.GetBool("docker-allow-in-template-create"),
+			Host: cmd.GetString("docker-host"),
 		},
 		Podman: config.PodmanConfig{
-			Host:                  cmd.GetString("podman-host"),
-			AllowInTemplateCreate: cmd.GetBool("podman-allow-in-template-create"),
+			Host: cmd.GetString("podman-host"),
 		},
 		Nomad: config.NomadConfig{
 			Host:  cmd.GetString("nomad-addr"),
@@ -1472,12 +1440,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			// Fall back to the NOMAD_DC / NOMAD_REGION env vars (set automatically
 			// when knot itself runs as a Nomad job) so existing deployments keep
 			// working without explicit config; the flags/config/KNOT_* override.
-			DC:                    envFallback(cmd.GetString("nomad-dc"), "NOMAD_DC"),
-			Region:                envFallback(cmd.GetString("nomad-region"), "NOMAD_REGION"),
-			AllowInTemplateCreate: cmd.GetBool("nomad-allow-in-template-create"),
-		},
-		Apple: config.AppleConfig{
-			AllowInTemplateCreate: cmd.GetBool("apple-allow-in-template-create"),
+			DC:     envFallback(cmd.GetString("nomad-dc"), "NOMAD_DC"),
+			Region: envFallback(cmd.GetString("nomad-region"), "NOMAD_REGION"),
 		},
 		TLS: config.TLSConfig{
 			CertFile:    cmd.GetString("cert-file"),
