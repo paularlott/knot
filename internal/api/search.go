@@ -8,7 +8,6 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -23,7 +22,7 @@ const searchLimitPerType = 5
 // group is capped at searchLimitPerType entries; empty groups are omitted.
 //
 // Scoping mirrors the sidebar visibility gates:
-//   - spaces are the current user's own (all in-zone for space admins);
+//   - spaces are the current user's own plus any shared with them;
 //   - admin entities (templates, variables, volumes, users, groups, roles,
 //     stacks, event sinks) appear only when the user holds the manage
 //     permission for that type;
@@ -50,14 +49,9 @@ func HandleSearch(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
 	leaf := cfg.LeafNode
 
-	// --- Spaces: own for regular users, all in-zone for space admins. ---
+	// --- Spaces: the current user's own + shared spaces (personal palette). ---
 	if user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || leaf {
-		var spaces []*model.Space
-		if user.HasPermission(model.PermissionManageSpaces) {
-			spaces, _ = service.GetSpaceService().ListSpaces(service.SpaceListOptions{User: user, CheckZone: true})
-		} else {
-			spaces, _ = db.GetSpacesForUser(user.Id)
-		}
+		spaces, _ := db.GetSpacesForUser(user.Id)
 		for _, s := range spaces {
 			if s.IsDeleted || !match(s.Name) {
 				continue
