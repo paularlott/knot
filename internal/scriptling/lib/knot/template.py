@@ -60,6 +60,50 @@ def validate(platform, job="", volumes=""):
     })
 
 
+def build_spec(platform, spec, original_job="", original_volumes=""):
+    """Build native job and volume text from a unified spec.
+
+    Converts a runtime-agnostic spec (image, environment, ports, storage,
+    memory, cpus, etc.) into the platform's native job definition (Nomad HCL
+    or container YAML) and volume definition text. This is the same
+    conversion the UI spec wizard applies on "Apply".
+
+    When original_job / original_volumes are provided, the server patches the
+    unified spec into them field-by-field, preserving any hand-written
+    content outside the wizard's surface. Pass empty strings to build from
+    scratch.
+
+    Args:
+        platform: Target platform ("nomad", "container", "docker", "podman",
+            "apple").
+        spec: Unified spec dict. Recognised keys include image, hostname,
+            name, command (list), environment (list of {key, value}), ports
+            (list of {host_port, container_port, protocol, label}), storage
+            (list of StorageEntry dicts), devices, memory, cpus, cpu_type,
+            cap_add, cap_drop, network, privileged, auth, templates.
+        original_job: Existing native job text to patch (default "").
+        original_volumes: Existing native volume text to patch (default "").
+
+    Returns:
+        A dict containing:
+        - job: Native job definition text (HCL or YAML).
+        - volumes: Volume definition text (YAML).
+
+    Raises:
+        Exception if not configured or on API error.
+    """
+    response = api.post("/api/spec/build", {
+        "platform": platform,
+        "original_job": original_job,
+        "original_volumes": original_volumes,
+        "spec": spec,
+    })
+    return {
+        "job": response.get("job", "") if response else "",
+        "volumes": response.get("volumes", "") if response else "",
+    }
+
+
 def nodes(template_id):
     """List available nodes for a local-container template."""
     response = api.get(f"/api/templates/{_enc(template_id)}/nodes")

@@ -1,6 +1,3 @@
-import json
-
-import knot.apiclient as api
 import knot.template
 import scriptling.mcp.tool as tool
 
@@ -100,17 +97,12 @@ if platform != "manual":
         spec["cpu_type"] = "cores"
 
     try:
-        build_resp = api.post("/api/spec/build", {
-            "platform": platform,
-            "original_job": "",
-            "original_volumes": "",
-            "spec": spec,
-        })
+        built = knot.template.build_spec(platform, spec)
     except Exception as e:
         tool.return_error("failed to build template spec: %s" % e)
 
-    job = (build_resp or {}).get("job", "")
-    volumes = (build_resp or {}).get("volumes", "")
+    job = built.get("job", "")
+    volumes = built.get("volumes", "")
 
 template_id = knot.template.create(
     name,

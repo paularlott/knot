@@ -1031,6 +1031,12 @@ const scriptLibraries = [
         returns: "dict - Validation result with valid and errors",
       },
       {
+        name: "build_spec",
+        signature: "build_spec(platform, spec, original_job='', original_volumes='')",
+        description: "Build native job and volume text from a unified spec (image, environment, ports, storage, memory, cpus). Same conversion as the UI spec wizard. Patch into originals to preserve hand-written content.",
+        returns: "dict - {job, volumes} native spec text",
+      },
+      {
         name: "nodes",
         signature: "nodes(template_id)",
         description: "List available placement nodes for a local-container template",
