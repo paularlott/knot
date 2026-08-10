@@ -1,0 +1,124 @@
+description = "Create a space template from a container image using a simplified spec (same model as the UI spec wizard). Give an image plus optional env vars, ports, memory, CPU, and feature toggles; the native Nomad/container spec is built for you. Returns the new template ID."
+keywords = ["create", "template", "new", "image", "container", "nomad", "blueprint", "spec", "wizard", "docker", "podman"]
+requires_approval = true
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the template"
+required = true
+
+[[parameters]]
+name = "image"
+type = "string"
+description = "Container image to run, e.g. 'nginx:latest' or 'registry.example.com/myapp:1.0'. Required unless platform is 'manual'."
+required = false
+
+[[parameters]]
+name = "description"
+type = "string"
+description = "Optional description for the template"
+required = false
+
+[[parameters]]
+name = "platform"
+type = "string"
+description = "Orchestration platform: 'nomad' (default), 'container', 'docker', 'podman', 'apple', or 'manual'. Choose 'manual' for a template knot won't run itself; otherwise pick what the server runs."
+required = false
+
+[[parameters]]
+name = "command"
+type = "array:string"
+description = "Optional command used to start the container, as a list of args e.g. [\"node\", \"server.js\"]. When omitted the image entrypoint is used."
+required = false
+
+[[parameters]]
+name = "environment"
+type = "array:string"
+description = "Environment variables as KEY=value strings, e.g. [\"NODE_ENV=production\", \"LOG_LEVEL=info\"]. Also accepts {\"key\": ..., \"value\": ...} or {\"KEY\": \"value\"} objects."
+required = false
+
+[[parameters]]
+name = "ports"
+type = "array:string"
+description = "Ports the space exposes (registered for URL/env-var injection). Each entry is '[name:]port[/protocol]', e.g. ['8080', 'web:8080/http', 'db:5432/tcp']. Protocol is http, https, or tcp (default tcp). http/https ports get a public URL when a space is created."
+required = false
+
+[[parameters]]
+name = "memory"
+type = "string"
+description = "Memory limit, e.g. '512M', '1G', '2G'. Omit for the platform default."
+required = false
+
+[[parameters]]
+name = "cpus"
+type = "string"
+description = "CPU allocation. Interpreted as whole CPU cores, e.g. '1' or '2' (also accepted as a number). Omit for the platform default."
+required = false
+
+[[parameters]]
+name = "hostname"
+type = "string"
+description = "Optional container hostname. Template variables like ${{ .space.name }} are supported."
+required = false
+
+[[parameters]]
+name = "with_terminal"
+type = "bool"
+description = "Give spaces created from this template a web terminal (default false)"
+required = false
+
+[[parameters]]
+name = "with_ssh"
+type = "bool"
+description = "Allow SSH access to spaces created from this template (default false)"
+required = false
+
+[[parameters]]
+name = "with_code_server"
+type = "bool"
+description = "Give spaces created from this template a code-server IDE (default false)"
+required = false
+
+[[parameters]]
+name = "with_vscode_tunnel"
+type = "bool"
+description = "Give spaces created from this template a VS Code tunnel (default false)"
+required = false
+
+[[parameters]]
+name = "with_run_command"
+type = "bool"
+description = "Allow running commands and copying files into spaces created from this template (default false)"
+required = false
+
+[[parameters]]
+name = "compute_units"
+type = "int"
+description = "Compute units a running space from this template counts against quota (default 0 = inherit server default)"
+required = false
+
+[[parameters]]
+name = "storage_units"
+type = "int"
+description = "Storage units a space from this template counts against quota once created (default 0 = inherit server default)"
+required = false
+
+[[parameters]]
+name = "groups"
+type = "array:string"
+description = "Group names to restrict the template to. Omit to leave it available to everyone."
+required = false
+
+[[parameters]]
+name = "zones"
+type = "array:string"
+description = "Zone restrictions. Prefix a name with '!' to exclude it. Omit for all zones."
+required = false
+
+[[parameters]]
+name = "active"
+type = "bool"
+description = "Whether the template is active and usable for new spaces (default true)"
+required = false
