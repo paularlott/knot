@@ -57,7 +57,7 @@ It offers both a user-friendly web interface and a command line interface to str
 
 			return paths
 		}),
-		Flags: []cli.Flag{
+		Flags: append([]cli.Flag{
 			&cli.StringFlag{
 				Name:        "config",
 				Aliases:     []string{"c"},
@@ -127,7 +127,7 @@ It offers both a user-friendly web interface and a command line interface to str
 				EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_NAMESERVERS"},
 				Global:     true,
 			},
-		},
+		}, command.ServerFlags()...),
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command.ConnectCmd,
@@ -155,6 +155,10 @@ It offers both a user-friendly web interface and a command line interface to str
 			return ctx, nil
 		},
 	}
+
+	// Desktop mode: bare `knot` (no subcommand) runs the server with a system
+	// tray icon. No-op in -tags server builds, where bare `knot` shows help.
+	applyDesktopMode(cmd)
 
 	err := cmd.Execute(context.Background())
 	if err != nil {

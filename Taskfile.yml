@@ -163,9 +163,23 @@ tasks:
     cmds:
       - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} .
       - |
-        cd {{$.OUTPUT_DIR}} && \
-        mv {{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}} {{.FINAL_NAME}} && \
-        zip {{.ZIP_FILE}} {{.FINAL_NAME}}
+        if [ "{{.GOOS}}" = "darwin" ]; then
+          # macOS builds ship as a .app bundle (menu bar tray desktop mode)
+          APP="{{$.OUTPUT_DIR}}/Knot.app"
+          rm -rf "$APP"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp "{{.OUTPUT_FILE}}" "$APP/Contents/MacOS/{{$.PROJECT_NAME}}"
+          cp build/darwin/icon.icns "$APP/Contents/Resources/"
+          sed "s/0\.0\.0/{{$.VERSION}}/g" build/darwin/Info.plist > "$APP/Contents/Info.plist"
+          codesign --force --deep --sign - "$APP" 2>/dev/null || true
+          rm -f "{{$.OUTPUT_DIR}}/{{.ZIP_FILE}}"
+          cd {{$.OUTPUT_DIR}} && zip -r --symlinks "{{.ZIP_FILE}}" "Knot.app"
+          rm -rf "$APP"
+        else
+          cd {{$.OUTPUT_DIR}} && \
+          mv {{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}} {{.FINAL_NAME}} && \
+          zip {{.ZIP_FILE}} {{.FINAL_NAME}}
+        fi
     sources:
       - ./**/*.go
       - go.mod
@@ -244,14 +258,15 @@ tasks:
       - shasum -a 256 {{.OUTPUT_DIR}}/*.zip
 
   homebrew-formula:
-    desc: Generate the Homebrew formula
+    desc: Generate the Homebrew formula and cask
     method: none
     cmds:
-      - go run ./scripts/homebrew-formula/ > ../homebrew-tap/Formula/knot.rb
+      - go run ./scripts/homebrew-formula/ -out ../homebrew-tap
     sources:
       - ./scripts/homebrew-formula/**/*.go
     generates:
       - ../homebrew-tap/Formula/knot.rb
+      - ../homebrew-tap/Casks/knot.rb
 
   legal:
     desc: Generate the third-party license report in the project root
@@ -419,6 +434,45 @@ tasks:
     cmds:
       - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages
     ignore_error: true
+
+  icons:
+    desc: Generate the monochrome desktop tray icons from the web UI logo SVG
+    cmds:
+      - |
+        if ! command -v rsvg-convert >/dev/null 2>&1; then
+          echo "rsvg-convert not found (brew install librsvg) — note: qlmanage is NOT a usable fallback, it flattens transparency" >&2
+          exit 1
+        fi
+        render() {
+          sed "s/fill:url(#[A-Za-z0-9_]*)/fill:${1}/g" web/public_html/images/logo.svg > /tmp/knot-icon.svg
+          # Render large, thin the strokes (erosion), then downsample — a
+          # straight 44px render of the logo is too blocky for the menu bar.
+          rsvg-convert -w 1006 -h 1006 /tmp/knot-icon.svg -o /tmp/knot-icon-src.png
+          go run ./scripts/iconthin -size 44 -erode 12 /tmp/knot-icon-src.png "${2}"
+        }
+        render '#000000' internal/desktop/icon.png
+        render '#ffffff' internal/desktop/icon-white.png
+      - |
+        # Regenerate the macOS .app icon from the full colour logo
+        if ! command -v iconutil >/dev/null 2>&1; then
+          echo "iconutil not found (macOS only) — skipping build/darwin/icon.icns" >&2
+          exit 0
+        fi
+        rm -rf /tmp/Knot.iconset && mkdir -p /tmp/Knot.iconset
+        for size in 16 32 128 256 512; do
+          rsvg-convert -w ${size} -h ${size} web/public_html/images/logo.svg -o /tmp/Knot.iconset/icon_${size}x${size}.png
+          rsvg-convert -w $((size*2)) -h $((size*2)) web/public_html/images/logo.svg -o /tmp/Knot.iconset/icon_${size}x${size}@2x.png
+        done
+        iconutil -c icns /tmp/Knot.iconset -o build/darwin/icon.icns
+      - |
+        # Regenerate the Windows exe icon resource
+        rm -rf /tmp/knot-ico && mkdir -p /tmp/knot-ico
+        for size in 16 32 48 256; do
+          rsvg-convert -w ${size} -h ${size} web/public_html/images/logo.svg -o /tmp/knot-ico/${size}.png
+        done
+        go run ./scripts/genico build/windows/icon.ico /tmp/knot-ico/16.png /tmp/knot-ico/32.png /tmp/knot-ico/48.png /tmp/knot-ico/256.png
+        go run github.com/akavel/rsrc@latest -ico build/windows/icon.ico -arch amd64 -o rsrc_windows_amd64.syso
+        go run github.com/akavel/rsrc@latest -ico build/windows/icon.ico -arch arm64 -o rsrc_windows_arm64.syso
 
   run-leaf:
     desc: Run a leaf server for development

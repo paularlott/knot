@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 	"syscall"
 
 	connectcmd "github.com/paularlott/knot/agent/cmd/connect"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/paularlott/cli"
 	"golang.org/x/term"
@@ -106,7 +105,7 @@ var ConnectCmd = &cli.Command{
 		// If using web authentication or server has TOTP enabled then open the server URL in the default browser
 		if totp || cmd.GetBool("use-web-auth") {
 			u.Path = "/api-tokens/create/" + url.PathEscape(hostname)
-			err = open(u.String())
+			err = util.OpenBrowser(u.String())
 			if err != nil {
 				fmt.Println("Failed to open server URL, you will need to generate the API token manually")
 				os.Exit(1)
@@ -167,23 +166,4 @@ var ConnectCmd = &cli.Command{
 		fmt.Println("Successfully connected to server:", server)
 		return nil
 	},
-}
-
-// open opens the specified URL in the default browser of the user.
-// https://stackoverflow.com/questions/39320371/how-start-web-server-to-open-page-in-browser-in-golang
-func open(url string) error {
-	var cmd string
-	var args []string
-
-	switch runtime.GOOS {
-	case "windows":
-		cmd = "cmd"
-		args = []string{"/c", "start"}
-	case "darwin":
-		cmd = "open"
-	default: // "linux", "freebsd", "openbsd", "netbsd"
-		cmd = "xdg-open"
-	}
-	args = append(args, url)
-	return exec.Command(cmd, args...).Start()
 }

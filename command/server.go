@@ -805,515 +805,531 @@ var ServerCmd = &cli.Command{
 		ConfigWizardCmd,
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		logger := log.WithGroup("server")
-		cfg := buildServerConfig(cmd)
+		return RunServer(cmd, nil)
+	},
+}
 
-		listen := util.FixListenAddress(cfg.Listen)
+// ServerFlags returns the flags accepted by the server command. They are also
+// attached to the root command so bare `knot` (desktop mode) accepts them.
+func ServerFlags() []cli.Flag {
+	return ServerCmd.Flags
+}
 
-		// If agent address not given then don't start
-		if cfg.AgentEndpoint == "" {
-			logger.Fatal("agent endpoint not given")
+// RunServer runs the knot server, blocking until a termination signal is
+// received or the quit channel is closed (used by desktop mode to stop the
+// server from the tray). A nil quit channel is valid and blocks forever.
+func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
+	logger := log.WithGroup("server")
+	cfg := buildServerConfig(cmd)
+
+	listen := util.FixListenAddress(cfg.Listen)
+
+	// If agent address not given then don't start
+	if cfg.AgentEndpoint == "" {
+		logger.Fatal("agent endpoint not given")
+	}
+
+	logger.Info("starting knot version", "version", build.Version)
+	logger.Info("starting on", "listen", listen)
+
+	// Initialize the API helpers
+	service.SetUserService(api_utils.NewApiUtilsUsers())
+	service.SetContainerService(containerHelper.NewContainerHelper())
+
+	// Initialize the middleware, test if users are present
+	middleware.Initialize()
+
+	// Start the SSE hub for real-time updates
+	sse.GetHub().Start()
+
+	// Sweep stale chat conversations (retention). Only on full cluster
+	// members — leaf nodes keep chat history in the browser.
+	if !cfg.LeafNode {
+		service.StartConversationRetentionSweep()
+	}
+
+	// Load roles into memory cache
+	roles, err := database.GetInstance().GetRoles()
+	if err != nil {
+		log.WithError(err).Fatal("failed to get roles:")
+	}
+	model.SetRoleCache(roles)
+
+	// Load MCP tools
+	if err := mcptools.LoadTools(cfg.MCPToolsPath, cfg.MCPToolsDisabled); err != nil {
+		logger.Error("Failed to load mcp-tools", "error", err)
+	}
+
+	// Start the DNS server if enabled. It is the single DNS point for
+	// spaces (their agents forward every query here), so always wire up
+	// upstream forwarding — it serves the wildcard zone from dns-records and
+	// forwards the rest using the configured nameservers, or the system
+	// default when none are set.
+	if cmd.GetBool("dns-enabled") {
+		dnsServerCfg := dns.DNSServerConfig{
+			ListenAddr: cmd.GetString("dns-listen"),
+			Records:    cmd.GetStringSlice("dns-records"),
+			DefaultTTL: cmd.GetInt("dns-default-ttl"),
+			Resolver:   dns.GetDefaultResolver(),
 		}
+		dnsServerCfg.Resolver.SetConfig(dns.ResolverConfig{
+			QueryTimeout: 2 * time.Second,
+			EnableCache:  true,
+			MaxCacheTTL:  30,
+		})
 
-		logger.Info("starting knot version", "version", build.Version)
-		logger.Info("starting on", "listen", listen)
-
-		// Initialize the API helpers
-		service.SetUserService(api_utils.NewApiUtilsUsers())
-		service.SetContainerService(containerHelper.NewContainerHelper())
-
-		// Initialize the middleware, test if users are present
-		middleware.Initialize()
-
-		// Start the SSE hub for real-time updates
-		sse.GetHub().Start()
-
-		// Sweep stale chat conversations (retention). Only on full cluster
-		// members — leaf nodes keep chat history in the browser.
-		if !cfg.LeafNode {
-			service.StartConversationRetentionSweep()
-		}
-
-		// Load roles into memory cache
-		roles, err := database.GetInstance().GetRoles()
+		dnsServer, err := dns.NewDNSServer(dnsServerCfg)
 		if err != nil {
-			log.WithError(err).Fatal("failed to get roles:")
-		}
-		model.SetRoleCache(roles)
-
-		// Load MCP tools
-		if err := mcptools.LoadTools(cfg.MCPToolsPath, cfg.MCPToolsDisabled); err != nil {
-			logger.Error("Failed to load mcp-tools", "error", err)
+			log.Fatal("Failed to create DNS server", "error", err)
 		}
 
-		// Start the DNS server if enabled. It is the single DNS point for
-		// spaces (their agents forward every query here), so always wire up
-		// upstream forwarding — it serves the wildcard zone from dns-records and
-		// forwards the rest using the configured nameservers, or the system
-		// default when none are set.
-		if cmd.GetBool("dns-enabled") {
-			dnsServerCfg := dns.DNSServerConfig{
-				ListenAddr: cmd.GetString("dns-listen"),
-				Records:    cmd.GetStringSlice("dns-records"),
-				DefaultTTL: cmd.GetInt("dns-default-ttl"),
-				Resolver:   dns.GetDefaultResolver(),
-			}
-			dnsServerCfg.Resolver.SetConfig(dns.ResolverConfig{
-				QueryTimeout: 2 * time.Second,
-				EnableCache:  true,
-				MaxCacheTTL:  30,
-			})
-
-			dnsServer, err := dns.NewDNSServer(dnsServerCfg)
-			if err != nil {
-				log.Fatal("Failed to create DNS server", "error", err)
-			}
-
-			if err = dnsServer.Start(); err != nil {
-				log.Fatal("Failed to start DNS server", "error", err)
-			}
-			defer dnsServer.Stop()
+		if err = dnsServer.Start(); err != nil {
+			log.Fatal("Failed to start DNS server", "error", err)
 		}
+		defer dnsServer.Stop()
+	}
 
-		var router http.Handler
+	var router http.Handler
 
-		// Get the main host domain & wildcard domain
-		wildcardDomain := cfg.WildcardDomain
-		serverURL := cfg.URL
-		u, err := url.Parse(serverURL)
+	// Get the main host domain & wildcard domain
+	wildcardDomain := cfg.WildcardDomain
+	serverURL := cfg.URL
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	logger.Debug("Host", "host", u.Host)
+
+	var tunnelServerUrl *url.URL = nil
+	if cfg.TunnelServer != "" && cfg.ListenTunnel != "" {
+		tunnelServerUrl, err = url.Parse(cfg.TunnelServer)
 		if err != nil {
-			log.Fatal(err.Error())
+			logger.WithError(err).Fatal("error parsing tunnel server URL:")
+		}
+		logger.Debug("tunnel Server URL", "tunnel", tunnelServerUrl.Host)
+	}
+
+	// Create the application routes & et for MuxClient / direct API calls
+	routes := http.NewServeMux()
+	rest.SetAPIMux(routes)
+
+	api.ApiRoutes(routes)
+	proxy.Routes(routes, cfg)
+	web.Routes(routes, cfg)
+
+	// MCP - Create server if either MCP or chat is enabled
+	var mcpServer *mcp.Server = nil
+	mcpEnabled := cmd.GetBool("mcp-enabled")
+	chatEnabled := cmd.GetBool("chat-enabled")
+	openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
+
+	if mcpEnabled || chatEnabled || openaiEndpointEnabled {
+		mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
+		// Record the server so other packages (e.g. script CRUD handlers) can
+		// emit listChanged notifications when the tool set changes.
+		internal_mcp.SetServer(mcpServer)
+		if !mcpEnabled {
+			logger.Debug("MCP chat-only mode")
+		} else {
+			logger.Info("MCP server enabled")
+		}
+	}
+
+	// If AI chat enabled then initialize chat service
+	// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
+	var openAIClient ai.Client
+	if chatEnabled || openaiEndpointEnabled {
+		logger.Info("AI chat enabled")
+
+		// Load system prompt (from file or embedded default)
+		cfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(cfg.Chat.SystemPromptFile)
+		if cfg.Chat.SystemPromptFile != "" {
+			logger.Info("loaded system prompt from file", "file", cfg.Chat.SystemPromptFile, "length", len(cfg.Chat.SystemPrompt))
+		} else {
+			logger.Info("using embedded system prompt", "length", len(cfg.Chat.SystemPrompt))
 		}
 
-		logger.Debug("Host", "host", u.Host)
-
-		var tunnelServerUrl *url.URL = nil
-		if cfg.TunnelServer != "" && cfg.ListenTunnel != "" {
-			tunnelServerUrl, err = url.Parse(cfg.TunnelServer)
-			if err != nil {
-				logger.WithError(err).Fatal("error parsing tunnel server URL:")
-			}
-			logger.Debug("tunnel Server URL", "tunnel", tunnelServerUrl.Host)
+		// Initialize chat service with main MCP server
+		// The OpenAI client will use forced on-demand mode via context
+		chatService, err := chat.NewService(cfg.Chat, mcpServer)
+		if err != nil {
+			logger.WithError(err).Fatal("failed to create chat service:")
 		}
+		openAIClient = chatService.GetAIClient()
 
-		// Create the application routes & et for MuxClient / direct API calls
-		routes := http.NewServeMux()
-		rest.SetAPIMux(routes)
-
-		api.ApiRoutes(routes)
-		proxy.Routes(routes, cfg)
-		web.Routes(routes, cfg)
-
-		// MCP - Create server if either MCP or chat is enabled
-		var mcpServer *mcp.Server = nil
-		mcpEnabled := cmd.GetBool("mcp-enabled")
-		chatEnabled := cmd.GetBool("chat-enabled")
-		openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
-
-		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
-			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
-			// Record the server so other packages (e.g. script CRUD handlers) can
-			// emit listChanged notifications when the tool set changes.
-			internal_mcp.SetServer(mcpServer)
-			if !mcpEnabled {
-				logger.Debug("MCP chat-only mode")
-			} else {
-				logger.Info("MCP server enabled")
-			}
-		}
-
-		// If AI chat enabled then initialize chat service
-		// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
-		var openAIClient ai.Client
-		if chatEnabled || openaiEndpointEnabled {
-			logger.Info("AI chat enabled")
-
-			// Load system prompt (from file or embedded default)
-			cfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(cfg.Chat.SystemPromptFile)
-			if cfg.Chat.SystemPromptFile != "" {
-				logger.Info("loaded system prompt from file", "file", cfg.Chat.SystemPromptFile, "length", len(cfg.Chat.SystemPrompt))
-			} else {
-				logger.Info("using embedded system prompt", "length", len(cfg.Chat.SystemPrompt))
-			}
-
-			// Initialize chat service with main MCP server
-			// The OpenAI client will use forced on-demand mode via context
-			chatService, err := chat.NewService(cfg.Chat, mcpServer)
-			if err != nil {
-				logger.WithError(err).Fatal("failed to create chat service:")
-			}
-			openAIClient = chatService.GetAIClient()
-
-			// Initialize response worker pool for Responses API
-			if openaiEndpointEnabled || chatEnabled {
-				logger.Info("Initializing response worker pool")
-				// Create gossip callback for response updates
-				gossipFunc := func(response *model.Response) {
-					service.GetTransport().GossipResponse(response)
-				}
-				openai.InitResponseWorker(openAIClient, openai.DefaultResponseWorkerPoolSize, gossipFunc)
-			}
-		}
-
-		// If OpenAI chat enabled then initialize OpenAI service
-		// Note: This is now enabled when either openaiEndpointEnabled or chatEnabled is true
+		// Initialize response worker pool for Responses API
 		if openaiEndpointEnabled || chatEnabled {
-			if openaiEndpointEnabled {
-				logger.Info("OpenAI endpoints enabled")
-			} else {
-				logger.Info("OpenAI endpoints enabled for web chat")
+			logger.Info("Initializing response worker pool")
+			// Create gossip callback for response updates
+			gossipFunc := func(response *model.Response) {
+				service.GetTransport().GossipResponse(response)
 			}
+			openai.InitResponseWorker(openAIClient, openai.DefaultResponseWorkerPoolSize, gossipFunc)
+		}
+	}
 
-			// Create script tools provider for OpenAI endpoints
-			scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
-				if user == nil {
-					return nil
-				}
-				var scriptProvider mcp.ToolProvider
-				if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
-					scriptProvider = internal_mcp.NewScriptToolsProvider(user)
-				}
-				if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user)); mp != nil {
-					return mp
-				}
+	// If OpenAI chat enabled then initialize OpenAI service
+	// Note: This is now enabled when either openaiEndpointEnabled or chatEnabled is true
+	if openaiEndpointEnabled || chatEnabled {
+		if openaiEndpointEnabled {
+			logger.Info("OpenAI endpoints enabled")
+		} else {
+			logger.Info("OpenAI endpoints enabled for web chat")
+		}
+
+		// Create script tools provider for OpenAI endpoints
+		scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
+			if user == nil {
 				return nil
 			}
+			var scriptProvider mcp.ToolProvider
+			if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
+				scriptProvider = internal_mcp.NewScriptToolsProvider(user)
+			}
+			if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user)); mp != nil {
+				return mp
+			}
+			return nil
+		}
 
-			openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
-			// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
-			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
-			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
-			routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
-			routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
-			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
-			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
+		openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
+		// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
+		routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
+		routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
+		routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
+		routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
+		routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
+		routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
 
-			// Mount lmchatkit UI — uses lmchatkit.StandardHost (same as
-			// llmrouter) with the LLM endpoint configured in [server.chat].
-			// StandardHost streams the raw OpenAI response via
-			// TranslateOpenAIStream, which is required because the MCP AI
-			// client suppresses tool-call delta chunks when MCP servers are
-			// present. Per-user tools are injected by AuthMiddleware.
-			chatHost := knotlmchatkit.NewHost(cfg.Chat, mcpServer, scriptToolsProvider)
-			chatAuthMiddleware := knotlmchatkit.AuthMiddleware(
-				func(next http.Handler) http.Handler {
-					return middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(next)))
-				},
-				mcpServer,
-				scriptToolsProvider,
-			)
-			chatEvents := lmchatkit.NewEventBroadcaster()
-			knotlmchatkit.SetEventBroadcaster(chatEvents)
+		// Mount lmchatkit UI — uses lmchatkit.StandardHost (same as
+		// llmrouter) with the LLM endpoint configured in [server.chat].
+		// StandardHost streams the raw OpenAI response via
+		// TranslateOpenAIStream, which is required because the MCP AI
+		// client suppresses tool-call delta chunks when MCP servers are
+		// present. Per-user tools are injected by AuthMiddleware.
+		chatHost := knotlmchatkit.NewHost(cfg.Chat, mcpServer, scriptToolsProvider)
+		chatAuthMiddleware := knotlmchatkit.AuthMiddleware(
+			func(next http.Handler) http.Handler {
+				return middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(next)))
+			},
+			mcpServer,
+			scriptToolsProvider,
+		)
+		chatEvents := lmchatkit.NewEventBroadcaster()
+		knotlmchatkit.SetEventBroadcaster(chatEvents)
 
-			// Server-side chat history is only enabled on full cluster members,
-			// where it replicates over gossip. Leaf nodes connect to an origin
-			// via the leaf protocol (not gossip) and chat history is not carried
-			// over that link, so on a leaf History is nil — the chat UI then
-			// probes /api/conversations, gets a 404, and falls back to browser
-			// sessionStorage for that session.
-			var historyStore lmchatkit.HistoryStore
-			if !cfg.LeafNode {
-				historyStore = knotlmchatkit.NewHistoryStore()
+		// Server-side chat history is only enabled on full cluster members,
+		// where it replicates over gossip. Leaf nodes connect to an origin
+		// via the leaf protocol (not gossip) and chat history is not carried
+		// over that link, so on a leaf History is nil — the chat UI then
+		// probes /api/conversations, gets a 404, and falls back to browser
+		// sessionStorage for that session.
+		var historyStore lmchatkit.HistoryStore
+		if !cfg.LeafNode {
+			historyStore = knotlmchatkit.NewHistoryStore()
+		}
+
+		chatServer, err := lmchatkit.New(lmchatkit.Config{
+			Prefix:         "/chat",
+			PersonaSource:  knotlmchatkit.PersonaSource(),
+			CommandSource:  knotlmchatkit.NewCommandSource(),
+			Host:           chatHost,
+			AuthMiddleware: chatAuthMiddleware,
+			History:        historyStore,
+			Events:         chatEvents,
+		})
+		if err != nil {
+			logger.Warn("failed to initialize lmchatkit UI", "error", err)
+		} else {
+			chatServer.Mount(routes)
+			logger.Info("lmchatkit UI enabled at /chat")
+		}
+	}
+
+	// Add support for page not found
+	appRoutes := web.HandlePageNotFound(routes)
+
+	if cfg.ListenTunnel != "" {
+		tunnel_server.Routes(routes)
+	}
+
+	// Check if listen and tunnel addresses are the same
+	listenAddr := util.FixListenAddress(cfg.Listen)
+	tunnelAddr := util.FixListenAddress(cfg.ListenTunnel)
+	sameAddress := cfg.ListenTunnel != "" && listenAddr == tunnelAddr
+
+	// Get tunnel domain for routing
+	var tunnelDomainMatch *regexp.Regexp = nil
+	if cfg.TunnelDomain != "" {
+		// Create regex to match tunnel domain (always wildcard)
+		tunnelDomainPattern := "^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(cfg.TunnelDomain, ".", "\\.", -1), "*") + "$"
+		tunnelDomainMatch = regexp.MustCompile(tunnelDomainPattern)
+		logger.Debug("tunnel domain pattern", "tunnelDomainPattern", tunnelDomainPattern)
+	}
+
+	// If have a wildcard domain or need tunnel routing, build domain-based routes
+	if wildcardDomain != "" || sameAddress {
+		if wildcardDomain != "" {
+			logger.Debug("wildcard domain", "wildcardDomain", wildcardDomain)
+		}
+		if sameAddress {
+			logger.Debug("using domain routing for tunnel traffic (same listen address)")
+		}
+
+		// Remove the port from the wildcard domain
+		var wildcardMatch *regexp.Regexp = nil
+		if wildcardDomain != "" {
+			if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+				wildcardDomain = host
+			}
+			// Create a regex to match the wildcard domain
+			wildcardMatch = regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+		}
+
+		// Get our hostname without port if present
+		hostname := u.Host
+		if host, _, err := net.SplitHostPort(hostname); err == nil {
+			hostname = host
+		}
+
+		// Get the routes for the wildcard domain and tunnel server
+		wildcardRoutes := proxy.PortRoutes()
+		tunnelRoutes := http.NewServeMux()
+		tunnel_server.Routes(tunnelRoutes)
+
+		domainMux := http.NewServeMux()
+		domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			// Extract hostname without port if present
+			requestHost := r.Host
+			if host, _, err := net.SplitHostPort(requestHost); err == nil {
+				requestHost = host
 			}
 
-			chatServer, err := lmchatkit.New(lmchatkit.Config{
-				Prefix:         "/chat",
-				PersonaSource:  knotlmchatkit.PersonaSource(),
-				CommandSource:  knotlmchatkit.NewCommandSource(),
-				Host:           chatHost,
-				AuthMiddleware: chatAuthMiddleware,
-				History:        historyStore,
-				Events:         chatEvents,
-			})
-			if err != nil {
-				logger.Warn("failed to initialize lmchatkit UI", "error", err)
+			// Check if this is tunnel domain traffic
+			if sameAddress && tunnelDomainMatch != nil && tunnelDomainMatch.MatchString(requestHost) {
+				// Route tunnel domain traffic to tunnel handlers
+				tunnelRoutes.ServeHTTP(w, r)
+			} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Hostname()) {
+				appRoutes.ServeHTTP(w, r)
+			} else if wildcardMatch != nil && wildcardMatch.MatchString(requestHost) {
+				wildcardRoutes.ServeHTTP(w, r)
 			} else {
-				chatServer.Mount(routes)
-				logger.Info("lmchatkit UI enabled at /chat")
-			}
-		}
-
-		// Add support for page not found
-		appRoutes := web.HandlePageNotFound(routes)
-
-		if cfg.ListenTunnel != "" {
-			tunnel_server.Routes(routes)
-		}
-
-		// Check if listen and tunnel addresses are the same
-		listenAddr := util.FixListenAddress(cfg.Listen)
-		tunnelAddr := util.FixListenAddress(cfg.ListenTunnel)
-		sameAddress := cfg.ListenTunnel != "" && listenAddr == tunnelAddr
-
-		// Get tunnel domain for routing
-		var tunnelDomainMatch *regexp.Regexp = nil
-		if cfg.TunnelDomain != "" {
-			// Create regex to match tunnel domain (always wildcard)
-			tunnelDomainPattern := "^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(cfg.TunnelDomain, ".", "\\.", -1), "*") + "$"
-			tunnelDomainMatch = regexp.MustCompile(tunnelDomainPattern)
-			logger.Debug("tunnel domain pattern", "tunnelDomainPattern", tunnelDomainPattern)
-		}
-
-		// If have a wildcard domain or need tunnel routing, build domain-based routes
-		if wildcardDomain != "" || sameAddress {
-			if wildcardDomain != "" {
-				logger.Debug("wildcard domain", "wildcardDomain", wildcardDomain)
-			}
-			if sameAddress {
-				logger.Debug("using domain routing for tunnel traffic (same listen address)")
-			}
-
-			// Remove the port from the wildcard domain
-			var wildcardMatch *regexp.Regexp = nil
-			if wildcardDomain != "" {
-				if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
-					wildcardDomain = host
+				if r.URL.Path == "/health" {
+					web.HandleHealthPage(w, r)
+				} else {
+					http.NotFound(w, r)
 				}
-				// Create a regex to match the wildcard domain
-				wildcardMatch = regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+			}
+		})
+
+		router = domainMux
+	} else {
+		// No wildcard domain and different addresses, just use the app routes
+		router = appRoutes
+	}
+
+	var tlsConfig *tls.Config = nil
+
+	// If server should use TLS
+	if cfg.TLS.UseTLS {
+		logger.Debug("using TLS")
+
+		// If have both a cert and key file, use them
+		certFile := cfg.TLS.CertFile
+		keyFile := cfg.TLS.KeyFile
+		if certFile != "" && keyFile != "" {
+			logger.Info("using cert file", "certFile", certFile)
+			logger.Info("using key file", "keyFile", keyFile)
+
+			serverTLSCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+			if err != nil {
+				logger.WithError(err).Fatal("Error loading certificate and key file")
 			}
 
-			// Get our hostname without port if present
+			tlsConfig = &tls.Config{
+				Certificates: []tls.Certificate{serverTLSCert},
+			}
+		} else {
+			// Otherwise generate a self-signed cert
+			logger.Info("generating self-signed certificate")
+
+			// Build the list of domains to include in the cert
+			var sslDomains []string
+
+			serverURL := cfg.URL
+			u, err := url.Parse(serverURL)
+			if err != nil {
+				logger.Fatal(err.Error())
+			}
 			hostname := u.Host
 			if host, _, err := net.SplitHostPort(hostname); err == nil {
 				hostname = host
 			}
 
-			// Get the routes for the wildcard domain and tunnel server
-			wildcardRoutes := proxy.PortRoutes()
-			tunnelRoutes := http.NewServeMux()
-			tunnel_server.Routes(tunnelRoutes)
+			sslDomains = append(sslDomains, hostname)
+			if hostname != "localhost" {
+				sslDomains = append(sslDomains, "localhost")
+			}
 
-			domainMux := http.NewServeMux()
-			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-				// Extract hostname without port if present
-				requestHost := r.Host
-				if host, _, err := net.SplitHostPort(requestHost); err == nil {
-					requestHost = host
+			if tunnelServerUrl != nil {
+				sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
+			}
+
+			// If wildcard domain given add it
+			wildcardDomain := cfg.WildcardDomain
+			if wildcardDomain != "" {
+				if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+					wildcardDomain = host
 				}
 
-				// Check if this is tunnel domain traffic
-				if sameAddress && tunnelDomainMatch != nil && tunnelDomainMatch.MatchString(requestHost) {
-					// Route tunnel domain traffic to tunnel handlers
-					tunnelRoutes.ServeHTTP(w, r)
-				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Hostname()) {
-					appRoutes.ServeHTTP(w, r)
-				} else if wildcardMatch != nil && wildcardMatch.MatchString(requestHost) {
-					wildcardRoutes.ServeHTTP(w, r)
-				} else {
-					if r.URL.Path == "/health" {
-						web.HandleHealthPage(w, r)
-					} else {
-						http.NotFound(w, r)
-					}
-				}
-			})
+				sslDomains = append(sslDomains, wildcardDomain)
+			}
 
-			router = domainMux
-		} else {
-			// No wildcard domain and different addresses, just use the app routes
-			router = appRoutes
+			cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})
+			if err != nil {
+				logger.WithError(err).Fatal("error generating certificate and key")
+			}
+
+			serverTLSCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
+			if err != nil {
+				logger.WithError(err).Fatal("error generating server TLS cert")
+			}
+
+			tlsConfig = &tls.Config{
+				Certificates: []tls.Certificate{serverTLSCert},
+			}
 		}
+	}
 
-		var tlsConfig *tls.Config = nil
+	// Start the gossip server
+	cluster := cluster.NewCluster(
+		cfg.Cluster.Key,
+		cfg.Cluster.AdvertiseAddr,
+		cfg.Cluster.BindAddr,
+		routes,
+		cfg.Cluster.Compression,
+		cfg.Cluster.AllowLeafNodes,
+		cfg.Cluster.TCPOnly,
+	)
+	service.SetTransport(cluster)
 
-		// If server should use TLS
-		if cfg.TLS.UseTLS {
-			logger.Debug("using TLS")
+	// Create a cancellable context for the server to enable fast shutdown of SSE connections
+	serverCtx, serverCancel := context.WithCancel(context.Background())
 
-			// If have both a cert and key file, use them
-			certFile := cfg.TLS.CertFile
-			keyFile := cfg.TLS.KeyFile
-			if certFile != "" && keyFile != "" {
-				logger.Info("using cert file", "certFile", certFile)
-				logger.Info("using key file", "keyFile", keyFile)
+	// Run the http server
+	server := &http.Server{
+		Addr:              listen,
+		Handler:           router,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      5 * time.Minute, // Extended to support AI thinking time
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		TLSConfig:         tlsConfig,
+		BaseContext: func(l net.Listener) context.Context {
+			return serverCtx
+		},
+	}
 
-				serverTLSCert, err := tls.LoadX509KeyPair(certFile, keyFile)
-				if err != nil {
-					logger.WithError(err).Fatal("Error loading certificate and key file")
-				}
-
-				tlsConfig = &tls.Config{
-					Certificates: []tls.Certificate{serverTLSCert},
+	go func() {
+		for {
+			if cfg.TLS.UseTLS {
+				if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+					logger.WithError(err).Error("web server")
 				}
 			} else {
-				// Otherwise generate a self-signed cert
-				logger.Info("generating self-signed certificate")
-
-				// Build the list of domains to include in the cert
-				var sslDomains []string
-
-				serverURL := cfg.URL
-				u, err := url.Parse(serverURL)
-				if err != nil {
-					logger.Fatal(err.Error())
-				}
-				hostname := u.Host
-				if host, _, err := net.SplitHostPort(hostname); err == nil {
-					hostname = host
-				}
-
-				sslDomains = append(sslDomains, hostname)
-				if hostname != "localhost" {
-					sslDomains = append(sslDomains, "localhost")
-				}
-
-				if tunnelServerUrl != nil {
-					sslDomains = append(sslDomains, tunnelServerUrl.Hostname())
-				}
-
-				// If wildcard domain given add it
-				wildcardDomain := cfg.WildcardDomain
-				if wildcardDomain != "" {
-					if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
-						wildcardDomain = host
-					}
-
-					sslDomains = append(sslDomains, wildcardDomain)
-				}
-
-				cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})
-				if err != nil {
-					logger.WithError(err).Fatal("error generating certificate and key")
-				}
-
-				serverTLSCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
-				if err != nil {
-					logger.WithError(err).Fatal("error generating server TLS cert")
-				}
-
-				tlsConfig = &tls.Config{
-					Certificates: []tls.Certificate{serverTLSCert},
+				if err := server.ListenAndServe(); err != http.ErrServerClosed {
+					logger.WithError(err).Error("web server")
 				}
 			}
 		}
+	}()
 
-		// Start the gossip server
-		cluster := cluster.NewCluster(
-			cfg.Cluster.Key,
-			cfg.Cluster.AdvertiseAddr,
-			cfg.Cluster.BindAddr,
-			routes,
-			cfg.Cluster.Compression,
-			cfg.Cluster.AllowLeafNodes,
-			cfg.Cluster.TCPOnly,
-		)
-		service.SetTransport(cluster)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-		// Create a cancellable context for the server to enable fast shutdown of SSE connections
-		serverCtx, serverCancel := context.WithCancel(context.Background())
+	// Load event sink cache before boot cleanup can fire lifecycle events
+	service.GetEventDispatcher().ReloadSinks()
 
-		// Run the http server
-		server := &http.Server{
-			Addr:              listen,
-			Handler:           router,
-			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      5 * time.Minute, // Extended to support AI thinking time
-			IdleTimeout:       120 * time.Second,
-			ReadHeaderTimeout: 10 * time.Second,
-			TLSConfig:         tlsConfig,
-			BaseContext: func(l net.Listener) context.Context {
-				return serverCtx
-			},
-		}
+	// Inject the .stack.* variable resolver so templates can reference sibling
+	// spaces within a stack (registered after the database is ready).
+	model.SetStackResolver(service.BuildStackVariableData)
 
-		go func() {
-			for {
-				if cfg.TLS.UseTLS {
-					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-						logger.WithError(err).Error("web server")
-					}
-				} else {
-					if err := server.ListenAndServe(); err != http.ErrServerClosed {
-						logger.WithError(err).Error("web server")
-					}
-				}
-			}
-		}()
+	// Stop orphaned runtimes and clean up broken space states before joining the cluster
+	service.GetContainerService().CleanupOnBoot()
 
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	// Start the cluster and join the peers
+	cluster.Start(
+		cfg.Cluster.Peers,
+		cfg.Origin.Server,
+		cfg.Origin.Token,
+	)
 
-		// Load event sink cache before boot cleanup can fire lifecycle events
-		service.GetEventDispatcher().ReloadSinks()
+	// Kick off a one-shot background fetch of the base image manifest from
+	// the update URL (no periodic loop; the catalog only changes on startup
+	// or via an explicit admin refresh). Does nothing unless
+	// --base-images-update-enabled is on and no external manifest file is
+	// configured.
+	specwizard.FetchOnStartup()
 
-		// Inject the .stack.* variable resolver so templates can reference sibling
-		// spaces within a stack (registered after the database is ready).
-		model.SetStackResolver(service.BuildStackVariableData)
+	service.GetPoolService().StartSweep()
+	service.GetPoolService().StartReaper()
+	methods.DefaultRegistry().SetDrainChecker(func(spaceID string) bool {
+		return service.GetPoolService().IsDrained(spaceID)
+	})
 
-		// Stop orphaned runtimes and clean up broken space states before joining the cluster
-		service.GetContainerService().CleanupOnBoot()
+	// Start the agent server
+	agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
 
-		// Start the cluster and join the peers
-		cluster.Start(
-			cfg.Cluster.Peers,
-			cfg.Origin.Server,
-			cfg.Origin.Token,
-		)
+	// Start a tunnel server only if using different addresses
+	if cfg.ListenTunnel != "" && !sameAddress {
+		tunnel_server.ListenAndServe(tunnelAddr, tlsConfig)
+	}
 
-		// Kick off a one-shot background fetch of the base image manifest from
-		// the update URL (no periodic loop; the catalog only changes on startup
-		// or via an explicit admin refresh). Does nothing unless
-		// --base-images-update-enabled is on and no external manifest file is
-		// configured.
-		specwizard.FetchOnStartup()
+	audit.Log(
+		model.AuditActorSystem,
+		model.AuditActorTypeSystem,
+		model.AuditEventSystemStart,
+		"",
+		&map[string]interface{}{
+			"build": build.Version,
+		},
+	)
 
-		service.GetPoolService().StartSweep()
-		service.GetPoolService().StartReaper()
-		methods.DefaultRegistry().SetDrainChecker(func(spaceID string) bool {
-			return service.GetPoolService().IsDrained(spaceID)
-		})
+	// Block until we receive our signal or a programmatic quit.
+	select {
+	case <-c:
+	case <-quit:
+	}
 
-		// Start the agent server
-		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
+	// Cancel the server context to immediately close all SSE connections
+	serverCancel()
 
-		// Start a tunnel server only if using different addresses
-		if cfg.ListenTunnel != "" && !sameAddress {
-			tunnel_server.ListenAndServe(tunnelAddr, tlsConfig)
-		}
+	// Shutdown SSE hub to close all browser connections immediately
+	sse.GetHub().Shutdown()
 
-		audit.Log(
-			model.AuditActorSystem,
-			model.AuditActorTypeSystem,
-			model.AuditEventSystemStart,
-			"",
-			&map[string]interface{}{
-				"build": build.Version,
-			},
-		)
+	// Shutdown response worker pool
+	openai.ShutdownResponseWorker()
 
-		// Block until we receive our signal.
-		<-c
+	// Shutdown the HTTP server with a short timeout
+	// If graceful shutdown takes too long, the timeout will force it
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := server.Shutdown(ctx); err != nil {
+		// Force close if graceful shutdown fails
+		server.Close()
+	}
+	cancel()
 
-		// Cancel the server context to immediately close all SSE connections
-		serverCancel()
+	// Then shutdown the server cluster
+	cluster.Stop()
 
-		// Shutdown SSE hub to close all browser connections immediately
-		sse.GetHub().Shutdown()
+	// Close the shared plugin manager, releasing pooled HTTP transports
+	// used by scriptling.plugin scopes.
+	service.ClosePluginManager()
 
-		// Shutdown response worker pool
-		openai.ShutdownResponseWorker()
-
-		// Shutdown the HTTP server with a short timeout
-		// If graceful shutdown takes too long, the timeout will force it
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		if err := server.Shutdown(ctx); err != nil {
-			// Force close if graceful shutdown fails
-			server.Close()
-		}
-		cancel()
-
-		// Then shutdown the server cluster
-		cluster.Stop()
-
-		// Close the shared plugin manager, releasing pooled HTTP transports
-		// used by scriptling.plugin scopes.
-		service.ClosePluginManager()
-
-		fmt.Print("\r")
-		logger.Info("shutdown")
-		return nil
-	},
+	fmt.Print("\r")
+	logger.Info("shutdown")
+	return nil
 }
 
 // envFallback returns v when non-empty, otherwise the named environment
