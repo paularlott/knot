@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
@@ -44,13 +45,15 @@ It offers both a user-friendly web interface and a command line interface to str
 		ConfigFile: cli_toml.NewConfigFile(&configFile, func() []string {
 			paths := []string{"."}
 
-			home, err := os.UserHomeDir()
-			if err == nil {
+			if home, err := os.UserHomeDir(); err == nil {
 				paths = append(paths, home)
+				paths = append(paths, filepath.Join(home, ".config", config.CONFIG_DIR))
 			}
 
-			paths = append(paths, filepath.Join(home, ".config", config.CONFIG_DIR))
-			paths = append(paths, filepath.Join("/etc", config.CONFIG_DIR))
+			// /etc is not a meaningful location on Windows
+			if runtime.GOOS != "windows" {
+				paths = append(paths, filepath.Join("/etc", config.CONFIG_DIR))
+			}
 
 			return paths
 		}),
