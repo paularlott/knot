@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
@@ -866,9 +867,15 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// forwards the rest using the configured nameservers, or the system
 	// default when none are set.
 	if cmd.GetBool("dns-enabled") {
+		// DNS record values may use the ${{ host_ip }} template (e.g. the
+		// desktop preset's knot.internal records); resolve before parsing.
+		records := cmd.GetStringSlice("dns-records")
+		for i, record := range records {
+			records[i] = util.ResolveHostIP(record)
+		}
 		dnsServerCfg := dns.DNSServerConfig{
-			ListenAddr: cmd.GetString("dns-listen"),
-			Records:    cmd.GetStringSlice("dns-records"),
+			ListenAddr: util.ResolveHostIP(cmd.GetString("dns-listen")),
+			Records:    records,
 			DefaultTTL: cmd.GetInt("dns-default-ttl"),
 			Resolver:   dns.GetDefaultResolver(),
 		}
@@ -1367,7 +1374,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	serverCfg := &config.ServerConfig{
-		Listen:             cmd.GetString("listen"),
+		DesktopMode: cmd.Name == "knot",
+		Listen:      cmd.GetString("listen"),
 		ListenAgent:        cmd.GetString("listen-agent"),
 		URL:                cmd.GetString("url"),
 		AgentEndpoint:      cmd.GetString("agent-endpoint"),
@@ -1596,6 +1604,70 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		serverCfg.Timezone, _ = time.Now().Zone()
 	}
 	logger.Info("timezone", "timezone", serverCfg.Timezone)
+
+	// Desktop mode (bare `knot`, typically launched by double-clicking the
+	// macOS app where no config file is found): apply local-first defaults
+	// so the server starts with zero configuration. Only fills in values
+	// that were not set via flag, config file or environment; `knot server`
+	// keeps its explicit-configuration requirements.
+	if cmd.Name == "knot" {
+		if serverCfg.AgentEndpoint == "" {
+			// Agents connect from containers and cannot reach 127.0.0.1, so
+			// default to the host's IP on the agent listener port.
+			port := "3010"
+			if _, p, err := net.SplitHostPort(serverCfg.ListenAgent); err == nil && p != "" {
+				port = p
+			}
+			serverCfg.AgentEndpoint = util.HostIPToken + ":" + port
+		}
+
+		// Bind the agent listener on the host IP too — a loopback bind is
+		// unreachable from the containers the agents run in.
+		if serverCfg.ListenAgent == "127.0.0.1:3010" {
+			serverCfg.ListenAgent = util.HostIPToken + ":3010"
+		}
+
+		// Local wildcard zone, served by the DNS server when enabled.
+		if serverCfg.WildcardDomain == "" {
+			serverCfg.WildcardDomain = "*.knot.internal"
+		}
+
+		if !serverCfg.MySQL.Enabled && !serverCfg.BadgerDB.Enabled && !serverCfg.Redis.Enabled {
+			if home, err := os.UserHomeDir(); err == nil {
+				serverCfg.BadgerDB.Enabled = true
+				if serverCfg.BadgerDB.Path == "" || serverCfg.BadgerDB.Path == "./badger" {
+					serverCfg.BadgerDB.Path = filepath.Join(home, ".knot", "data")
+				}
+				logger.Info("desktop mode: no database configured, using embedded BadgerDB", "path", serverCfg.BadgerDB.Path)
+			}
+		}
+
+		// Align the listener with the default URL: a desktop app serves the
+		// UI over plain HTTP (no self-signed certificate warnings) and binds
+		// loopback only, since without TLS an all-interfaces bind would
+		// expose the UI unencrypted to the network. Only applies when both
+		// the URL and listen address are still at their defaults.
+		if serverCfg.URL == "http://127.0.0.1:3000" && serverCfg.TLS.UseTLS {
+			serverCfg.TLS.UseTLS = false
+			if serverCfg.Listen == ":3000" {
+				serverCfg.Listen = "127.0.0.1:3000"
+			}
+			logger.Info("desktop mode: serving plain HTTP on loopback (set server.url to https:// or configure server.tls.use_tls to override)")
+		}
+	}
+
+	// Resolve the host IP token in any address so agents in containers get
+	// an endpoint they can actually reach. Applies to desktop and server
+	// modes alike; the token may appear in user configuration.
+	serverCfg.AgentEndpoint = util.ResolveHostIP(serverCfg.AgentEndpoint)
+	serverCfg.ListenAgent = util.ResolveHostIP(serverCfg.ListenAgent)
+	serverCfg.DNSListen = util.ResolveHostIP(serverCfg.DNSListen)
+
+	// Record which config file the server started from; the in-server
+	// setup wizard writes updates back to it.
+	if cmd.ConfigFile != nil {
+		serverCfg.ConfigPath = cmd.ConfigFile.FileUsed()
+	}
 
 	config.SetServerConfig(serverCfg)
 

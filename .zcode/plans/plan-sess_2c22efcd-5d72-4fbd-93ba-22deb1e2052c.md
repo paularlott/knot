@@ -1,61 +1,44 @@
-# Tray-backed desktop mode for knot
+# Desktop setup wizard + host-IP agent endpoint
 
-Bare `knot` = full server (identical to `knot server`) + system tray ("Open knot UI" → default browser at the advertised URL, "Quit" → graceful shutdown). All existing subcommands unchanged. Tray code excluded from `-tags server` builds. No CGO — cross-compilation of all 6 release targets preserved.
+## Behavior
 
-## Code changes
+Bare `knot` (desktop mode) with **no config file found OR no database backend configured** → instead of silently starting, serve the existing config wizard at the advertised address; the tray menu reads "Open knot setup". The wizard is pre-filled from any existing config, validates required fields, writes `~/.knot/knot.toml`, and its success page tells the user to quit and relaunch the app (app stays running until Quit, per decision). Second launch boots the full server from the written config.
 
-### 1. `command/server.go` — factor Run, extract flags
-- Extract `ServerCmd`'s `Flags` slice into `func ServerFlags() []cli.Flag` (llmrouter pattern, proven with this same cli library).
-- Extract the `Run` body (currently inline, ~lines 807–1316) into `func RunServer(cmd *cli.Command, quit <-chan struct{}) error`. The blocking wait at line ~1286 changes from `<-c` to:
-  ```go
-  select {
-  case <-c:      // SIGINT/SIGTERM (Ctrl-C still works everywhere)
-  case <-quit:   // programmatic shutdown from the tray
-  }
-  ```
-  (nil `quit` channel blocks forever — safe for the normal server path.) All existing cleanup (serverCancel, SSE hub, HTTP shutdown, cluster.Stop, plugins) runs identically for both paths.
-- `ServerCmd.Run` becomes a thin wrapper: `return RunServer(cmd, nil)`.
+The `agent-endpoint` gains a `${{ host_ip }}` token resolved at every startup to the host's primary non-loopback IPv4 — required because agents live in containers and cannot reach 127.0.0.1. Users may use the token in their own knot.toml too.
 
-### 2. `main.go` — root command
-- Root `Flags`: current global flags + `command.ServerFlags()` so `knot --url https://x` works in desktop mode.
-- After the root command struct is built, call `applyDesktopMode(cmd)` before `Execute`.
+## Changes
 
-### 3. New build-tagged hook (main package)
-- `desktop_hook.go` (`//go:build !server`): `applyDesktopMode` sets `cmd.Run = desktop.Run`.
-- `desktop_hook_server.go` (`//go:build server`): no-op — bare `knot` keeps printing help in server/Docker builds.
+### 1. Host-IP token — `internal/util/hostip.go` (new)
+- `HostIP() string`: UDP-dial trick (`net.Dial("udp","8.8.8.8:80")`, no packet sent) → fallback first non-loopback interface IPv4 → fallback `127.0.0.1`.
+- `ResolveHostIP(s string) string`: replaces every `${{ host_ip }}` occurrence.
+- Applied in `buildServerConfig` to `AgentEndpoint` for **all** modes (so the token works in server configs too).
 
-### 4. New `internal/desktop/` package (`//go:build !server`)
-- `desktop.go` — `Run(ctx, cmd) error`:
-  - Starts `command.RunServer(cmd, shutdownCh)` in a goroutine, collects its error on `done`.
-  - Reads the URL from `cmd.GetString("url")` (default `http://127.0.0.1:3000`).
-  - Runs the tray on the main thread; on Quit → `close(shutdownCh)`, then `return <-done` (waits for the server's full cleanup before exit).
-  - **Fallbacks** (desktop mode never hard-crashes; worst case = headless server): tray init fails (e.g. GNOME without SNI), or macOS bare binary outside a `.app` bundle (NSApplication needs a bundle — same guard llmrouter uses): log the tray-unavailable message + URL, block on `<-done` (Ctrl-C still works via the signal channel).
-- `tray.go` — the ONLY file importing `github.com/gogpu/systray` (the swap point if the young lib proves unreliable): `Run(icon []byte, tooltip, openLabel string, onOpen, onQuit func()) error`; menu = "Open knot UI" → `onOpen`, separator, "Quit" → `onQuit`.
-- `icon.go` — `//go:embed icon.png`.
+### 2. Desktop fallback rework — `command/server.go` (desktop block)
+- `AgentEndpoint` empty → default to `${{ host_ip }}:` + the port of `listen-agent` (parsed from the flag, default 3010), then resolve the token. Replaces the hardcoded `127.0.0.1:3001`; endpoint port and agent listener can never disagree. (To use 3001, set `listen_agent = "…:3001"`.)
+- BadgerDB `~/.knot/data` and plain-HTTP-loopback fallbacks stay as gap-fillers (wizard normally pre-empts them).
 
-### 5. Browser helper
-- Move `open()` from `command/connect.go:174` to `internal/util/browser.go` as `util.OpenBrowser(url string) error` (behavior identical: `cmd /c start` / `open` / `xdg-open`); `connect.go` calls it.
+### 3. Wizard gate — `internal/desktop/desktop.go`
+- `needsSetup := cmd.ConfigFile.FileUsed() == "" || (!mysql && !badger && !redis enabled)` (flag resolution already folds in config-file values).
+- If `needsSetup`: derive wizard address from the `url` flag (default `127.0.0.1:3000`), run `configwizard.Serve` with desktop options (below); tray shows "Open knot setup". When the wizard returns (saved or shut down): log/notify "Config saved — quit knot from the tray and reopen to apply", keep running until Quit, then exit. The full server is **not** started in this phase.
 
-### 6. Dependencies
-- `go get github.com/gogpu/systray` (+ godbus/dbus/v5 indirect). Pure-Go FFI: Shell_NotifyIconW syscalls (Windows), objc-runtime FFI (macOS), D-Bus SNI (Linux).
+### 4. configwizard upgrades — `internal/configwizard/`
+- `Serve(ctx, addr, opts)` with options: `TargetPath` (desktop forces `~/.knot/knot.toml`), `AllowOverwrite` (skips the existing 409 refuse-to-overwrite; CLI path keeps current behavior), `PrefillFrom`, `DesktopPreset`.
+- **Prefill**: new `FormFromConfig(path)` mapping an existing knot.toml onto the wizard Form (url, listens, agent_endpoint — token rendered verbatim, timezone, db fields, nomad/docker/podman, dns, totp, chat, mcp, tunnel where present).
+- **Validation** in `saveHandler`: parse TOML, then require non-empty `server.url`, `server.agent_endpoint`, `server.listen`, `server.listen_agent`, exactly one db backend with its own fields (badger `path`; mysql host/user/password/database; redis hosts). 400 + field list on failure; wizard JS surfaces it. Client-side `required` attributes on the same fields.
+- **Desktop deployment card** (4th preset in step 1, preselected for desktop): badger at `~/.knot/data` (real path injected server-side), `url = http://127.0.0.1:3000`, `listen = 127.0.0.1:3000`, `listen_agent = 127.0.0.1:3010`, `agent_endpoint = ${{ host_ip }}:3010`, no nomad, local docker/podman sockets, emits `[server.tls] use_tls = false`.
+- Success page: desktop variant message — "Quit knot from the tray menu and reopen it to apply the new configuration."
+- Add `$HOME/.knot` to its `configSearchPaths` (parity with main.go).
 
-### 7. Icons
-- Taskfile `icons` task: `rsvg-convert` `web/public_html/images/logo.svg` → `internal/desktop/icon.png` (single ~44px PNG; per-platform sizing guidance from the lib). Note: macOS menu-bar icons are ideally monochrome "template" icons — colorful logo is fine for v1, template variant is polish.
-
-### 8. Build integration
-- Dockerfile: add `-tags server` to `go build` so container images exclude the tray dependency entirely.
-- Taskfile release targets unchanged (no CGO anywhere).
+### 5. Docs
+- Website Desktop Mode section: first-run wizard behavior + restart step + `~/.knot/knot.toml` location; regenerate okf. In-app Clients page unchanged.
 
 ## Verification
-- `go build` for all 6 platforms, with and without `-tags server`; `go vet ./...`
-- Run bare `knot` on macOS: server starts, tray appears (or documented fallback), "Open knot UI" opens the browser to the URL, "Quit" runs the same cleanup as Ctrl-C; Ctrl-C also still works in both modes
-- `knot server` and all other subcommands behave exactly as before
+- Empty `$HOME` double-click sim: wizard serves at 127.0.0.1:3000, tray label correct; POST incomplete TOML → 400 listing missing fields; POST complete desktop TOML → file at `$HOME/.knot/knot.toml`; process stays alive post-save with restart message; quit/relaunch → full server boots on new config, health 200, `${{ host_ip }}` resolved to real IP in advertised agent endpoint (checked via log/cluster metadata).
+- Config-without-DB (partial knot.toml) → wizard returns prefilled, overwrite allowed.
+- Complete config → no wizard, straight to server. `knot server` behavior unchanged (still fatals on missing config; token resolution still applies).
+- Cross-compile all 6 platforms ± `-tags server`; vet clean.
 
-## Out of scope (follow-ups)
-- macOS `.app` packaging task (Info.plist with `LSUIElement=true`, `.icns`, ad-hoc codesign) — until then macOS desktop mode uses the headless fallback outside a bundle
-- Windows `-H windowsgui` console-less exe variant
-- macOS template (monochrome) tray icon
-- Single-instance handling (port already bound → just open the browser)
-
-## Risk note
-gogpu/systray is ~3 months old with no tagged releases — deliberately contained: it's imported by exactly one wrapper file, and every failure path degrades to a headless server rather than a crash. If it misbehaves, replacing the backend touches only `internal/desktop/tray.go`.
+## Follow-ups (out of scope)
+- Auto-restart in place after wizard save (re-exec)
+- Single-instance guard (second launch while wizard/server already running)
+- Notarization

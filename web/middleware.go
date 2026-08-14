@@ -24,6 +24,19 @@ func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// checkAdmin requires the authenticated user to be an admin.
+func checkAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.IsAdmin() {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)

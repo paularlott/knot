@@ -63,6 +63,16 @@ tasks:
     generates:
       - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
+  build-macos:
+    desc: Build the macOS Knot.app package for the current platform
+    deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
+    cmds:
+      - task: build-platform
+        vars: { PLATFORM: "darwin/{{ARCH}}" }
+      # Extract the app so it can be opened directly for testing
+      - rm -rf {{.OUTPUT_DIR}}/Knot.app
+      - unzip -q {{.OUTPUT_DIR}}/{{.PROJECT_NAME}}_darwin_{{ARCH}}.zip -d {{.OUTPUT_DIR}}
+
   build-amd64:
     desc: Build the binary for the current platform
     deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
@@ -452,6 +462,7 @@ tasks:
         }
         render '#000000' internal/desktop/icon.png
         render '#ffffff' internal/desktop/icon-white.png
+        cp web/public_html/favicon.ico internal/configwizard/static/favicon.ico
       - |
         # Regenerate the macOS .app icon from the full colour logo
         if ! command -v iconutil >/dev/null 2>&1; then

@@ -32,7 +32,13 @@ type ServerConfig struct {
 	Hostname                  string
 	Timezone                  string
 	LeafNode                  bool
-	AuthIPRateLimiting        bool
+	// DesktopMode is set when the server was started by bare `knot`
+	// (desktop / leaf mode) rather than `knot server`.
+	DesktopMode bool
+	// ConfigPath is the config file the server was started from, used by
+	// the in-server setup wizard to write updates back.
+	ConfigPath          string
+	AuthIPRateLimiting  bool
 	DNSEnabled                bool
 	DNSListen                 string
 	Nameservers               []string

@@ -21,10 +21,8 @@ The wizard always starts. When no config exists yet, the editor's Write button
 saves straight to disk; when a config already exists, Write is disabled and the
 generated text is shown for manual copy / merge.
 
-Listens on 127.0.0.1 by default; bind a different address with --listen. A
-one-time bootstrap token is printed to stderr and must be supplied to access the
-UI, so the wizard cannot be driven by someone who cannot already read your
-terminal. Use --config to target a non-default output path.`,
+Listens on 127.0.0.1 by default; bind a different address with --listen. Use
+--config to target a non-default output path.`,
 	MaxArgs: cli.NoArgs,
 	Flags: []cli.Flag{
 		&cli.IntFlag{

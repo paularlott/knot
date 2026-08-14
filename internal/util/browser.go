@@ -6,20 +6,16 @@ import (
 )
 
 // OpenBrowser opens the specified URL in the default browser of the user.
-// https://stackoverflow.com/questions/39320371/how-start-web-server-to-open-page-in-browser-in-golang
+// On Windows rundll32 is used rather than `cmd /c start` because cmd is a
+// console application and would flash (or leave) a console window every
+// time the tray menu opens the UI.
 func OpenBrowser(url string) error {
-	var cmd string
-	var args []string
-
 	switch runtime.GOOS {
 	case "windows":
-		cmd = "cmd"
-		args = []string{"/c", "start"}
+		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	case "darwin":
-		cmd = "open"
+		return exec.Command("open", url).Start()
 	default: // "linux", "freebsd", "openbsd", "netbsd"
-		cmd = "xdg-open"
+		return exec.Command("xdg-open", url).Start()
 	}
-	args = append(args, url)
-	return exec.Command(cmd, args...).Start()
 }

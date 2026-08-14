@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="{{ .BasePath }}static/favicon.ico">
 <title>knot config wizard</title>
-<script src="/static/ace/ace.js"></script>
-<script src="/static/ace/mode-toml.js"></script>
-<script src="/static/ace/theme-github_dark.js"></script>
-<script src="/static/timezones.js"></script>
+<script src="{{ .BasePath }}static/ace/ace.js"></script>
+<script src="{{ .BasePath }}static/ace/mode-toml.js"></script>
+<script src="{{ .BasePath }}static/ace/theme-github_dark.js"></script>
+<script src="{{ .BasePath }}static/timezones.js"></script>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,6 +30,8 @@
 
   .step { display: none; }
   .step.active { display: block; }
+  .step-error { display: none; margin-bottom: 1rem; padding: 0.7rem 0.9rem; border: 1px solid #ef4444; border-radius: 0.5rem; background: rgba(239,68,68,0.12); color: #fca5a5; font-size: 0.85rem; line-height: 1.6; }
+  .step-error ul { margin: 0.2rem 0 0 1rem; padding: 0; }
   .step-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.4rem; }
   .step-desc { color: #94a3b8; font-size: 0.88rem; margin-bottom: 1.25rem; line-height: 1.6; }
 
@@ -107,6 +110,7 @@
 
 <div class="container">
   <div class="progress" id="progress"></div>
+  <div class="step-error" id="step-error"></div>
 
   <!-- STEP 1: Deployment Type -->
   <div class="step" id="step-1">
@@ -121,9 +125,9 @@
         <h3>Cluster</h3>
         <p>Production deployment with multiple servers for high availability and geographic distribution. Uses an external database and Nomad orchestration.</p>
       </div>
-      <div class="card" data-deploy="leaf">
-        <h3>Leaf Node</h3>
-        <p>A local server that connects to an existing cluster. Runs spaces locally using local containers while syncing templates and users from the origin.</p>
+      <div class="card" data-deploy="desktop">
+        <h3>Desktop / Leaf Mode</h3>
+        <p>This machine. Runs the knot server locally with embedded storage, serving the web UI on loopback, managing spaces in local containers, and answering DNS on <code>knot.internal</code> so space addresses resolve without external DNS.</p>
       </div>
     </div>
     <div class="nav"><span></span><button class="btn-primary next" id="next-1" disabled>Next</button></div>
@@ -170,7 +174,7 @@
     </div>
 
     <div id="session-redis-section" style="display:none;margin-top:0.8rem;padding-top:0.6rem;border-top:1px solid #334155">
-      <label class="toggle"><input type="checkbox" id="session_redis_enabled"><span class="slider"></span><span class="toggle-label">Also use Redis for session storage</span></label>
+      <label class="toggle"><input type="checkbox" id="session_redis_enabled" {{ checked .Form.SessionRedis }}><span class="slider"></span><span class="toggle-label">Also use Redis for session storage</span></label>
       <div class="explain">Sessions survive server restarts when stored in Redis. Recommended for production and clustered setups.</div>
     </div>
 
@@ -256,7 +260,7 @@
 
     <div id="ns-custom-fields" class="collapsible">
       <label>Nameservers <span class="hint">(comma-separated, e.g. 192.168.1.1:53, consul/192.168.1.4:8600)</span></label>
-      <input type="text" id="nameservers" placeholder="1.1.1.1, 8.8.8.8">
+      <input type="text" id="nameservers" value="{{ .Form.Nameservers }}" placeholder="1.1.1.1, 8.8.8.8">
     </div>
 
     <div style="margin-top:1.2rem">
@@ -384,6 +388,15 @@
       <label class="toggle"><input type="checkbox" id="enable_mcp" {{ checked .Form.EnableMCP }}><span class="slider"></span><span class="toggle-label">MCP server <span class="hint">(Model Context Protocol)</span></span></label>
     </div>
 
+    <div id="origin-fields" style="display:none;margin-top:1.2rem;padding-top:0.8rem;border-top:1px solid #334155">
+      <label style="font-weight:600">Origin server <span class="hint">(optional, desktop / leaf only)</span></label>
+      <div class="explain" style="margin-bottom:0.5rem">Connect to an existing knot cluster and sync templates and users from it. Leave blank to run standalone.</div>
+      <label>Server URL</label>
+      <input type="url" id="origin_server" value="" placeholder="https://knot.example.com/">
+      <label style="margin-top:0.5rem">Access token</label>
+      <input type="password" id="origin_token" value="" placeholder="API token from the origin server">
+    </div>
+
     <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
   </div>
 
@@ -391,9 +404,9 @@
   <div class="step" id="step-9">
     <div class="step-title">Review and save</div>
     <div class="step-desc">This is your generated configuration. Edit directly if needed, then write to disk or copy.</div>
-    {{ if .ConfigExists }}
+    {{ if .ConfigExists }}{{ if not .EditorWritable }}
     <div class="warning">A config already exists at <code>{{ .ConfigPath }}</code> — write is disabled. Copy the text below to merge by hand.</div>
-    {{ end }}
+    {{ end }}{{ end }}
     <div id="editor"></div>
     <div class="nav" style="margin-top:0.75rem">
       <div style="display:flex;gap:0.4rem">
@@ -402,10 +415,10 @@
       </div>
       <div style="display:flex;align-items:center;gap:0.6rem">
         <span class="status" id="status"></span>
-        {{ if .ConfigExists }}
-        <button class="btn-primary" disabled>write disabled</button>
-        {{ else }}
+        {{ if .EditorWritable }}
         <button class="btn-primary" id="write-btn">write to disk</button>
+        {{ else }}
+        <button class="btn-primary" disabled>write disabled</button>
         {{ end }}
       </div>
     </div>
@@ -440,9 +453,59 @@ function showStep(n) {
   if (n === TOTAL_STEPS) { setEditor(generateTOML()); }
 }
 document.addEventListener("click", function(e) {
-  if (e.target.classList.contains("next") && !e.target.disabled) { showStep(current + 1); return; }
-  if (e.target.classList.contains("prev")) { showStep(current - 1); return; }
+  if (e.target.classList.contains("next") && !e.target.disabled) {
+    var errs = validateStep(current);
+    if (errs.length) { showStepError(errs); return; }
+    showStep(current + 1); return;
+  }
+  if (e.target.classList.contains("prev")) { clearStepError(); showStep(current - 1); return; }
 });
+
+/* ---- Per-step validation: required fields must be filled before Next ---- */
+function validateStep(n) {
+  var errs = [];
+  function req(id, label) { var el = $(id); if (el && !el.value.trim()) errs.push(label + " is required"); }
+
+  if (n === 2) {
+    var db = currentDb();
+    if (db === "badger") req("badger_path", "BadgerDB path");
+    if (db === "mysql") {
+      req("mysql_host", "MySQL host"); req("mysql_user", "MySQL user");
+      req("mysql_password", "MySQL password"); req("mysql_database", "MySQL database");
+    }
+    if (db === "redis") req("redis_hosts", "Redis hosts");
+    if (db !== "redis" && $("session_redis_enabled").checked) req("redis_hosts", "Redis hosts (session storage)");
+  } else if (n === 3) {
+    req("url", "Server URL");
+    req("agent_endpoint", "Agent endpoint");
+    req("listen", "Web listen address");
+    req("listen_agent", "Agent listen address");
+    req("timezone", "Timezone");
+    req("encryption_key", "Encryption key");
+  } else if (n === 4) {
+    if ($("dns_enabled").checked) {
+      req("dns_listen", "DNS listen address");
+      document.querySelectorAll(".dns-record").forEach(function(row) {
+        var name = row.querySelector(".dns-name").value.trim();
+        var value = row.querySelector(".dns-value").value.trim();
+        if (name && !value) errs.push("DNS record '" + name + "' is missing a value");
+        if (value && !name) errs.push("A DNS record is missing a name");
+      });
+    }
+    if (currentNs() === "custom") req("nameservers", "Nameservers");
+  }
+  return errs;
+}
+
+function showStepError(errs) {
+  var box = $("step-error");
+  box.innerHTML = "Please complete this step:" + "<ul>" + errs.map(function(e){ return "<li>" + e + "</li>"; }).join("") + "</ul>";
+  box.style.display = "block";
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function clearStepError() { var box = $("step-error"); box.style.display = "none"; box.innerHTML = ""; }
+document.addEventListener("input", function() { clearStepError(); });
+document.addEventListener("change", function() { clearStepError(); });
 
 /* ---- Step 1: deployment cards ---- */
 document.querySelectorAll("#deploy-cards .card").forEach(function(c) {
@@ -456,6 +519,8 @@ document.querySelectorAll("#deploy-cards .card").forEach(function(c) {
 });
 
 function applyDeploymentDefaults() {
+  // The origin server only applies to desktop / leaf deployments.
+  $("origin-fields").style.display = deployType === "desktop" ? "block" : "none";
   if (deployType === "standalone") {
     selectCard("mysql"); setCheck("session_redis_enabled", true);
     $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
@@ -464,10 +529,19 @@ function applyDeploymentDefaults() {
     selectCard("mysql"); setCheck("session_redis_enabled", true);
     $("nomad_addr").value = "http://127.0.0.1:4646"; $("docker_host").value = ""; $("podman_host").value = "";
     selectNs("custom");
-  } else if (deployType === "leaf") {
+  } else if (deployType === "desktop") {
     selectCard("badger"); setCheck("session_redis_enabled", false);
     $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
     selectNs("system");
+    $("url").value = "http://127.0.0.1:3000";
+    $("listen").value = "127.0.0.1:3000";
+    $("listen_agent").value = "{{ .HostIPToken }}:3010";
+    $("agent_endpoint").value = "{{ .HostIPToken }}:3010";
+    $("wildcard_domain").value = "*.knot.internal";
+    setCheck("dns_enabled", true); $("dns_listen").value = "{{ .HostIPToken }}:3053";
+    $("dns-records").innerHTML = "";
+    addDnsRecord("A", "knot.internal", "{{ .HostIPToken }}", "300");
+    addDnsRecord("A", "*.knot.internal", "{{ .HostIPToken }}", "300");
   }
 }
 
@@ -576,10 +650,25 @@ function generateTOML() {
     var td = $("tunnel_domain").value.trim(); if (td) L.push('tunnel_domain = "' + E(td) + '"');
     var ts = $("tunnel_server").value.trim(); if (ts) L.push('tunnel_server = "' + E(ts) + '"');
   }
+  if (deployType === "desktop") {
+    var os_ = $("origin_server").value.trim();
+    if (os_) {
+      L.push("");
+      L.push("[server.origin]");
+      L.push('server = "' + E(os_) + '"');
+      var ot = $("origin_token").value; if (ot) L.push('token = "' + E(ot) + '"');
+    }
+  }
   L.push("");
   L.push("[server.terminal]");
   L.push("webgl = true");
   L.push("");
+  if (deployType === "desktop") {
+    // Desktop serves the UI over plain HTTP on loopback.
+    L.push("[server.tls]");
+    L.push("use_tls = false");
+    L.push("");
+  }
   L.push("# Database backend (" + db + ")");
   L.push("[server.badgerdb]"); L.push(db === "badger" ? "enabled = true" : "enabled = false");
   if (db === "badger") L.push('path = "' + E($("badger_path").value) + '"');
@@ -644,7 +733,7 @@ window.addEventListener("DOMContentLoaded", function() {
   editor.setTheme("ace/theme/github_dark");
   editor.setOptions({ fontSize: "13px", showPrintMargin: false, useSoftTabs: true, tabSize: 2 });
   editor.$blockScrolling = Infinity;
-  editor.setReadOnly({{ if .ConfigExists }}true{{ else }}false{{ end }});
+  editor.setReadOnly({{ if .EditorWritable }}false{{ else }}true{{ end }});
   $("chat_type").value = "{{ .Form.ChatType }}";
 
   $("regen-key").addEventListener("click", function() { $("encryption_key").value = randomKey(); });
@@ -653,7 +742,7 @@ window.addEventListener("DOMContentLoaded", function() {
   if (wb) {
     wb.addEventListener("click", function() {
       $("status").textContent = "writing...";
-      fetch("/save", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
+      fetch("{{ .BasePath }}save", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
         .then(function(r) {
           if (r.ok) { r.text().then(function(h){ document.open(); document.write(h); document.close(); }); }
           else if (r.status === 409) { r.text().then(function(t){ $("status").textContent = ""; alert(t); }); }
@@ -666,7 +755,20 @@ window.addEventListener("DOMContentLoaded", function() {
     navigator.clipboard.writeText(editor.getValue()).then(function() { $("status").textContent = "copied"; setTimeout(function(){ $("status").textContent = ""; }, 1500); });
   });
 
-  selectCard("mysql"); selectNs("system");
+  // Server-side prefill: select the deployment card and database card from
+  // the form rather than the hard-coded defaults. Values are already in the
+  // inputs, so preset default application is skipped.
+  var preset = "{{ .Form.Deployment }}";
+  if (preset) {
+    var card = document.querySelector('[data-deploy="' + preset + '"]');
+    if (card) { card.classList.add("selected"); deployType = preset; $("next-1").disabled = false; }
+    $("origin-fields").style.display = preset === "desktop" ? "block" : "none";
+  }
+  selectCard({{ if .Form.DBType }}"{{ .Form.DBType }}"{{ else }}"mysql"{{ end }});
+  selectNs({{ if .Form.Nameservers }}"custom"{{ else }}"system"{{ end }});
+  updateRedisVisibility();
+  {{ range .Form.DNSRecords }}addDnsRecord.apply(null, "{{ . }}".split("|"));
+  {{ end }}
   buildProgress(); showStep(1);
 });
 

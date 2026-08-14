@@ -17,6 +17,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/configwizard"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
@@ -350,6 +351,29 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	if cfg.TOTP.Enabled {
 		router.HandleFunc("GET /qrcode/{code}", middleware.WebAuth(HandleCreateQRCode))
+	}
+
+	// Desktop mode: mount the setup wizard on the running server so an
+	// admin can re-run it against the live config. Saving updates the
+	// config file; a restart applies it.
+	if cfg.DesktopMode {
+		target := cfg.ConfigPath
+		if target == "" {
+			if home, err := os.UserHomeDir(); err == nil {
+				target = filepath.Join(home, "."+config.CONFIG_DIR, config.CONFIG_FILE)
+			}
+		}
+		opts := configwizard.Options{
+			TargetPath:    target,
+			AllowOverwrite: true,
+			Desktop:       true,
+			BasePath:      "/setup/",
+		}
+		router.HandleFunc("GET /setup", middleware.WebAuth(checkAdmin(configwizard.PageHandler(opts))))
+		router.HandleFunc("POST /setup/save", middleware.WebAuth(checkAdmin(configwizard.SaveHandler(opts))))
+		router.Handle("GET /setup/static/", middleware.WebAuth(checkAdmin(func(w http.ResponseWriter, r *http.Request) {
+			configwizard.StaticHandler().ServeHTTP(w, r)
+		})))
 	}
 }
 

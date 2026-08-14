@@ -18,17 +18,24 @@ type tray struct {
 	stopOnce sync.Once
 }
 
-func newTray(url string, onQuit func()) *tray {
+func newTray(url string, openLabel string, setupURL string, onQuit func()) *tray {
 	logger := log.WithGroup("desktop")
 
 	t := &tray{}
 
 	menu := systray.NewMenu()
-	menu.Add("Open knot UI", func() {
+	menu.Add(openLabel, func() {
 		if err := util.OpenBrowser(url); err != nil {
 			logger.Error("failed to open browser", "error", err, "url", url)
 		}
 	})
+	if setupURL != "" {
+		menu.Add("Setup", func() {
+			if err := util.OpenBrowser(setupURL); err != nil {
+				logger.Error("failed to open browser", "error", err, "url", setupURL)
+			}
+		})
+	}
 	menu.AddSeparator()
 	menu.Add("Quit", func() {
 		onQuit()
@@ -70,4 +77,9 @@ func (t *tray) stop() {
 	t.stopOnce.Do(func() {
 		go t.sys.Remove()
 	})
+}
+
+// notify shows an OS notification from the tray icon.
+func (t *tray) notify(title, message string) {
+	go t.sys.ShowNotification(title, message)
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/util"
 )
 
 //go:embed templates/wizard.html.tmpl
@@ -15,9 +16,13 @@ var wizardHTML string
 var successHTML string
 
 type wizardView struct {
-	Form         Form
-	ConfigPath   string
-	ConfigExists bool
+	Form           Form
+	ConfigPath     string
+	ConfigExists   bool
+	Desktop        bool
+	EditorWritable bool
+	HostIPToken    string
+	BasePath       string
 }
 
 func htmlTemplate(src string) (*template.Template, error) {
@@ -37,7 +42,7 @@ func htmlTemplate(src string) (*template.Template, error) {
 	}).Parse(src)
 }
 
-func renderWizard(w http.ResponseWriter, form Form, configPath string, configExists bool) {
+func renderWizard(w http.ResponseWriter, form Form, configPath string, configExists bool, o Options) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, err := htmlTemplate(wizardHTML)
 	if err != nil {
@@ -45,12 +50,22 @@ func renderWizard(w http.ResponseWriter, form Form, configPath string, configExi
 		http.Error(w, "template error", http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.Execute(w, wizardView{Form: form, ConfigPath: configPath, ConfigExists: configExists}); err != nil {
+	view := wizardView{Form: form, ConfigPath: configPath, ConfigExists: configExists, HostIPToken: util.HostIPToken, BasePath: o.BasePath}
+	if o.BasePath == "" {
+		view.BasePath = "/"
+	}
+	if o.Desktop {
+		view.Desktop = true
+	}
+	// In desktop overwrite mode the editor starts editable even though a
+	// (partial) config exists.
+	view.EditorWritable = !configExists || o.AllowOverwrite
+	if err := tmpl.Execute(w, view); err != nil {
 		log.Error("executing wizard template", "err", err)
 	}
 }
 
-func renderSuccess(w http.ResponseWriter, configPath string) {
+func renderSuccess(w http.ResponseWriter, configPath string, o Options) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, err := htmlTemplate(successHTML)
 	if err != nil {
@@ -58,7 +73,12 @@ func renderSuccess(w http.ResponseWriter, configPath string) {
 		http.Error(w, "template error", http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.Execute(w, map[string]string{"Path": configPath}); err != nil {
+	basePath := o.BasePath
+	if basePath == "" {
+		basePath = "/"
+	}
+	data := map[string]interface{}{"Path": configPath, "Desktop": o.Desktop, "BasePath": basePath}
+	if err := tmpl.Execute(w, data); err != nil {
 		log.Error("executing success template", "err", err)
 	}
 }

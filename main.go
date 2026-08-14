@@ -47,6 +47,10 @@ It offers both a user-friendly web interface and a command line interface to str
 
 			if home, err := os.UserHomeDir(); err == nil {
 				paths = append(paths, home)
+				// ~/.knot/knot.toml (the wizard's target) takes precedence
+				// over ~/.config/knot/knot.toml, which `knot connect` uses
+				// for client connection data.
+				paths = append(paths, filepath.Join(home, "."+config.CONFIG_DIR))
 				paths = append(paths, filepath.Join(home, ".config", config.CONFIG_DIR))
 			}
 
@@ -62,7 +66,7 @@ It offers both a user-friendly web interface and a command line interface to str
 				Name:        "config",
 				Aliases:     []string{"c"},
 				Usage:       "Name and path to the configuration file to use.",
-				DefaultText: config.CONFIG_FILE + " in the current directory, $HOME/ or $HOME/.config/" + config.CONFIG_DIR + "/" + config.CONFIG_FILE,
+				DefaultText: config.CONFIG_FILE + " in the current directory, $HOME/, $HOME/.config/" + config.CONFIG_DIR + "/ or $HOME/." + config.CONFIG_DIR + "/" + config.CONFIG_FILE,
 				EnvVars:     []string{config.CONFIG_ENV_PREFIX + "_CONFIG"},
 				AssignTo:    &configFile,
 				Global:      true,
