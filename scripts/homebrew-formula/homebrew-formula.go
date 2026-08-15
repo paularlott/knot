@@ -22,19 +22,23 @@ const formulaTemplate = `class Knot < Formula
 	license "Apache-2.0"
 	version "{{ .Version }}"
   conflicts_with "knot-pro", because: "knot-pro is a commercial version of knot and cannot be installed alongside the open-source version"
-	if OS.mac?
-		if Hardware::CPU.arm?
+	on_macos do
+		on_arm do
 			url "https://github.com/paularlott/knot/releases/download/v#{version}/knot_darwin_arm64.zip"
 			sha256 "{{ .Checksum.DarwinArm64 }}"
-		else
+		end
+		on_intel do
 			url "https://github.com/paularlott/knot/releases/download/v#{version}/knot_darwin_amd64.zip"
 			sha256 "{{ .Checksum.DarwinAmd64 }}"
 		end
-	elsif OS.linux?
-		if Hardware::CPU.arm?
+	end
+
+	on_linux do
+		on_arm do
 			url "https://github.com/paularlott/knot/releases/download/v#{version}/knot_linux_arm64.zip"
 			sha256 "{{ .Checksum.LinuxArm64 }}"
-		else
+		end
+		on_intel do
 			url "https://github.com/paularlott/knot/releases/download/v#{version}/knot_linux_amd64.zip"
 			sha256 "{{ .Checksum.LinuxAmd64 }}"
 		end
