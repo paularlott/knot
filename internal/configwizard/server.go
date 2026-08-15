@@ -263,7 +263,10 @@ func saveConfig(w http.ResponseWriter, r *http.Request, configPath string, confi
 	// When overwriting an existing config, merge rather than replace: the
 	// wizard's values win for the keys it manages, but comments, unknown
 	// keys and unknown sections the user added by hand are preserved.
-	if configExists && o.AllowOverwrite {
+	// merged=1 marks content that already IS the merged result (the
+	// review editor's preview) — writing it verbatim honours deletions
+	// the user made in the editor instead of resurrecting them from disk.
+	if configExists && o.AllowOverwrite && r.PostFormValue("merged") != "1" {
 		if existing, err := os.ReadFile(configPath); err == nil {
 			content = mergeConfig(string(existing), content)
 		} else {

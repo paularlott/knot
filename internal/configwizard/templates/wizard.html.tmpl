@@ -403,22 +403,22 @@
   <!-- STEP 9: Review -->
   <div class="step" id="step-9">
     <div class="step-title">Review and save</div>
-    <div class="step-desc">This is your generated configuration. Edit directly if needed, then write to disk or copy.</div>
+    <div class="step-desc">This is the complete configuration, including values the wizard doesn't manage. Edit or remove anything — what you see here is what gets written.</div>
     {{ if .ConfigExists }}{{ if not .EditorWritable }}
     <div class="warning">A config already exists at <code>{{ .ConfigPath }}</code> — write is disabled. Copy the text below to merge by hand.</div>
     {{ end }}{{ end }}
     <div id="editor"></div>
     <div class="nav" style="margin-top:0.75rem">
       <div style="display:flex;gap:0.4rem">
-        <button class="btn-sm" id="copy-btn">copy to clipboard</button>
-        <button class="btn-sm prev">back</button>
+        <button class="btn-sm" id="copy-btn">Copy to Clipboard</button>
+        <button class="btn-sm prev">Back</button>
       </div>
       <div style="display:flex;align-items:center;gap:0.6rem">
         <span class="status" id="status"></span>
         {{ if .EditorWritable }}
-        <button class="btn-primary" id="write-btn">write to disk</button>
+        <button class="btn-primary" id="write-btn">Write to Disk</button>
         {{ else }}
-        <button class="btn-primary" disabled>write disabled</button>
+        <button class="btn-primary" disabled>Write Disabled</button>
         {{ end }}
       </div>
     </div>
@@ -463,10 +463,14 @@ function showStep(n) {
     if (EDITING) refreshPreview();
   }
 }
+// True once the editor holds the merged result. Saving then writes the
+// editor verbatim (no second merge), so deletions made in the editor
+// stick instead of being resurrected from the file on disk.
+var mergedPreview = false;
 function refreshPreview() {
   fetch("{{ .BasePath }}preview", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
     .then(function(r) { if (!r.ok) throw new Error("preview failed"); return r.text(); })
-    .then(function(t) { if (t) setEditor(t); })
+    .then(function(t) { if (t) { mergedPreview = true; setEditor(t); } })
     .catch(function() { /* keep the generated text */ });
 }
 document.addEventListener("click", function(e) {
@@ -761,7 +765,10 @@ window.addEventListener("DOMContentLoaded", function() {
   if (wb) {
     wb.addEventListener("click", function() {
       $("status").textContent = "writing...";
-      fetch("{{ .BasePath }}save", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
+      // merged=1 tells the server the editor already holds the merged
+      // result — write it verbatim so deletions are honoured.
+      var body = "toml=" + encodeURIComponent(editor.getValue()) + (mergedPreview ? "&merged=1" : "");
+      fetch("{{ .BasePath }}save", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: body })
         .then(function(r) {
           if (r.ok) { r.text().then(function(h){ document.open(); document.write(h); document.close(); }); }
           else if (r.status === 409) { r.text().then(function(t){ $("status").textContent = ""; alert(t); }); }
