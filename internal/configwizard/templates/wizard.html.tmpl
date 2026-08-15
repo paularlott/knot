@@ -187,7 +187,7 @@
       <input type="password" id="redis_password" value="{{ .Form.RedisPassword }}">
     </div>
 
-    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+    <div class="nav">{{ if .Editing }}<span></span>{{ else }}<button class="btn-secondary prev">Back</button>{{ end }}<button class="btn-primary next">Next</button></div>
   </div>
 
   <!-- STEP 3: Networking -->
@@ -427,7 +427,11 @@
 
 <script>
 var TOTAL_STEPS = 9;
-var current = 1;
+// When editing an existing config the deployment step is skipped — the
+// fields drive the wizard, not the preset cards.
+var EDITING = {{ if .Editing }}true{{ else }}false{{ end }};
+var FIRST_STEP = EDITING ? 2 : 1;
+var current = FIRST_STEP;
 var editor, lastSet = "";
 var deployType = "";
 
@@ -439,6 +443,7 @@ function buildProgress() {
   var p = $("progress");
   p.innerHTML = "";
   for (var i = 1; i <= TOTAL_STEPS; i++) {
+    if (EDITING && i === 1) continue;
     var d = document.createElement("div");
     d.className = "progress-dot" + (i === current ? " active" : i < current ? " done" : "");
     p.appendChild(d);
@@ -450,7 +455,19 @@ function showStep(n) {
   $("step-" + n).classList.add("active");
   buildProgress();
   window.scrollTo(0, 0);
-  if (n === TOTAL_STEPS) { setEditor(generateTOML()); }
+  if (n === TOTAL_STEPS) {
+    setEditor(generateTOML());
+    // When editing, replace the generated text with the merged result so
+    // the editor shows the real final file — sections the wizard doesn't
+    // manage are preserved by the merge, not lost.
+    if (EDITING) refreshPreview();
+  }
+}
+function refreshPreview() {
+  fetch("{{ .BasePath }}preview", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
+    .then(function(r) { if (!r.ok) throw new Error("preview failed"); return r.text(); })
+    .then(function(t) { if (t) setEditor(t); })
+    .catch(function() { /* keep the generated text */ });
 }
 document.addEventListener("click", function(e) {
   if (e.target.classList.contains("next") && !e.target.disabled) {
@@ -458,7 +475,7 @@ document.addEventListener("click", function(e) {
     if (errs.length) { showStepError(errs); return; }
     showStep(current + 1); return;
   }
-  if (e.target.classList.contains("prev")) { clearStepError(); showStep(current - 1); return; }
+  if (e.target.classList.contains("prev")) { clearStepError(); if (current > FIRST_STEP) { showStep(current - 1); } return; }
 });
 
 /* ---- Per-step validation: required fields must be filled before Next ---- */
@@ -663,8 +680,10 @@ function generateTOML() {
   L.push("[server.terminal]");
   L.push("webgl = true");
   L.push("");
-  if (deployType === "desktop") {
-    // Desktop serves the UI over plain HTTP on loopback.
+  if (deployType === "desktop" && !EDITING) {
+    // Desktop serves the UI over plain HTTP on loopback. Only emitted for
+    // fresh configs — when editing, the config's own [server.tls] (if any)
+    // is preserved by the merge instead of being forced off.
     L.push("[server.tls]");
     L.push("use_tls = false");
     L.push("");
@@ -769,7 +788,7 @@ window.addEventListener("DOMContentLoaded", function() {
   updateRedisVisibility();
   {{ range .Form.DNSRecords }}addDnsRecord.apply(null, "{{ . }}".split("|"));
   {{ end }}
-  buildProgress(); showStep(1);
+  buildProgress(); showStep(FIRST_STEP);
 });
 
 function randomKey() {

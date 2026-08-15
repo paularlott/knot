@@ -23,6 +23,10 @@ type prefillConfig struct {
 		TunnelDomain  string `toml:"tunnel_domain"`
 		TunnelServer  string `toml:"tunnel_server"`
 
+		Origin struct {
+			Server string `toml:"server"`
+		} `toml:"origin"`
+
 		BadgerDB struct {
 			Enabled bool   `toml:"enabled"`
 			Path    string `toml:"path"`
@@ -69,7 +73,11 @@ type prefillConfig struct {
 			Type    string `toml:"type"`
 			APIKey  string `toml:"api_key"`
 			BaseURL string `toml:"base_url"`
-			Model   string `toml:"model"`
+			// Deprecated aliases the server still honours when the
+			// modern keys are absent.
+			OpenAIAPIKey  string `toml:"openai_api_key"`
+			OpenAIBaseURL string `toml:"openai_base_url"`
+			Model         string `toml:"model"`
 		} `toml:"chat"`
 
 		TOTP struct {
@@ -105,6 +113,20 @@ func FormFromConfig(base Form, path string) Form {
 	}
 
 	s := cfg.Server
+
+	// Derive the deployment shape from the config so editing doesn't
+	// re-ask it — the existing fields drive the wizard. A preset from
+	// desktop mode is authoritative.
+	if base.Deployment == "" {
+		switch {
+		case s.Origin.Server != "", s.BadgerDB.Enabled && strings.Contains(s.Wildcard, "knot.internal"):
+			base.Deployment = "desktop"
+		case s.Nomad.Addr != "":
+			base.Deployment = "cluster"
+		default:
+			base.Deployment = "standalone"
+		}
+	}
 	if s.Listen != "" {
 		base.Listen = s.Listen
 	}
@@ -165,6 +187,14 @@ func FormFromConfig(base Form, path string) Form {
 	base.DNSRecords = s.DNS.Records
 	base.ChatEnabled, base.ChatType = s.Chat.Enabled, s.Chat.Type
 	base.ChatAPIKey, base.ChatBaseURL, base.ChatModel = s.Chat.APIKey, s.Chat.BaseURL, s.Chat.Model
+	// Fall back to the deprecated aliases, mirroring how the server
+	// resolves them, so editing an older config doesn't drop the values.
+	if base.ChatAPIKey == "" {
+		base.ChatAPIKey = s.Chat.OpenAIAPIKey
+	}
+	if base.ChatBaseURL == "" {
+		base.ChatBaseURL = s.Chat.OpenAIBaseURL
+	}
 	if base.ChatType == "" {
 		base.ChatType = "openai"
 	}

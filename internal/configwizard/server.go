@@ -81,6 +81,31 @@ func StaticHandler() http.Handler {
 	return http.StripPrefix("/setup/static", staticHandler())
 }
 
+// PreviewHandler returns a handler that merges the submitted TOML with the
+// existing config without writing anything, so the wizard's review step can
+// show the true final file — including sections the wizard doesn't manage.
+func PreviewHandler(o Options) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		configPath, configExists := resolveTarget(o)
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "invalid form", http.StatusBadRequest)
+			return
+		}
+		content := r.PostFormValue("toml")
+		if strings.TrimSpace(content) == "" {
+			http.Error(w, "editor content is empty", http.StatusBadRequest)
+			return
+		}
+		if configExists {
+			if existing, err := os.ReadFile(configPath); err == nil {
+				content = mergeConfig(string(existing), content)
+			}
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprint(w, content)
+	}
+}
+
 // resolveTarget determines the config path for the given options,
 // mirroring Serve's resolution.
 func resolveTarget(o Options) (string, bool) {
@@ -117,6 +142,7 @@ func Serve(ctx context.Context, addr, configFlag string, opts ...Options) error 
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", staticHandler())
 	mux.HandleFunc("GET /", indexHandler(form, configPath, configExists, o))
+	mux.HandleFunc("POST /preview", PreviewHandler(o))
 	mux.HandleFunc("POST /save", func(w http.ResponseWriter, r *http.Request) {
 		saveConfig(w, r, configPath, configExists, o)
 		go closeOnce(stop)

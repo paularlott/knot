@@ -370,6 +370,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 			BasePath:      "/setup/",
 		}
 		router.HandleFunc("GET /setup", middleware.WebAuth(checkAdmin(configwizard.PageHandler(opts))))
+		router.HandleFunc("POST /setup/preview", middleware.WebAuth(checkAdmin(configwizard.PreviewHandler(opts))))
 		router.HandleFunc("POST /setup/save", middleware.WebAuth(checkAdmin(configwizard.SaveHandler(opts))))
 		router.Handle("GET /setup/static/", middleware.WebAuth(checkAdmin(func(w http.ResponseWriter, r *http.Request) {
 			configwizard.StaticHandler().ServeHTTP(w, r)

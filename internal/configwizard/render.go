@@ -23,6 +23,9 @@ type wizardView struct {
 	EditorWritable bool
 	HostIPToken    string
 	BasePath       string
+	// Editing is set when the wizard pre-filled from an existing config;
+	// the deployment question is skipped because the config answers it.
+	Editing bool
 }
 
 func htmlTemplate(src string) (*template.Template, error) {
@@ -60,6 +63,7 @@ func renderWizard(w http.ResponseWriter, form Form, configPath string, configExi
 	// In desktop overwrite mode the editor starts editable even though a
 	// (partial) config exists.
 	view.EditorWritable = !configExists || o.AllowOverwrite
+	view.Editing = configExists
 	if err := tmpl.Execute(w, view); err != nil {
 		log.Error("executing wizard template", "err", err)
 	}
