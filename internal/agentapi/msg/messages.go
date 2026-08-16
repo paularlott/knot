@@ -57,6 +57,7 @@ const (
 	CmdPeerRequestIntro
 	CmdThrottlePort
 	CmdPortForwardNotify
+	CmdMirrorLog
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

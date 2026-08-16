@@ -116,11 +116,8 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventVarUpdate,
 		fmt.Sprintf("Updated variable %s", templateVar.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"var_id":          templateVar.Id,
-			"var_name":        templateVar.Name,
+			"var_id":   templateVar.Id,
+			"var_name": templateVar.Name,
 		},
 	)
 
@@ -195,11 +192,8 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventVarCreate,
 		fmt.Sprintf("Created variable %s", templateVar.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"var_id":          templateVar.Id,
-			"var_name":        templateVar.Name,
+			"var_id":   templateVar.Id,
+			"var_name": templateVar.Name,
 		},
 	)
 
@@ -250,11 +244,8 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventVarDelete,
 		fmt.Sprintf("Deleted variable %s", templateVar.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"var_id":          templateVar.Id,
-			"var_name":        templateVar.Name,
+			"var_id":   templateVar.Id,
+			"var_name": templateVar.Name,
 		},
 	)
 

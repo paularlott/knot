@@ -1374,8 +1374,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	serverCfg := &config.ServerConfig{
-		DesktopMode: cmd.Name == "knot",
-		Listen:      cmd.GetString("listen"),
+		DesktopMode:        cmd.Name == "knot",
+		Listen:             cmd.GetString("listen"),
 		ListenAgent:        cmd.GetString("listen-agent"),
 		URL:                cmd.GetString("url"),
 		AgentEndpoint:      cmd.GetString("agent-endpoint"),

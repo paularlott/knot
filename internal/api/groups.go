@@ -117,11 +117,8 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventGroupUpdate,
 		fmt.Sprintf("Updated group %s", group.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"group_id":        group.Id,
-			"group_name":      group.Name,
+			"group_id":   group.Id,
+			"group_name": group.Name,
 		},
 	)
 
@@ -176,11 +173,8 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventGroupCreate,
 		fmt.Sprintf("Created group %s", group.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"group_id":        group.Id,
-			"group_name":      group.Name,
+			"group_id":   group.Id,
+			"group_name": group.Name,
 		},
 	)
 
@@ -227,11 +221,8 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventGroupDelete,
 		fmt.Sprintf("Deleted group %s", group.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"group_id":        group.Id,
-			"group_name":      group.Name,
+			"group_id":   group.Id,
+			"group_name": group.Name,
 		},
 	)
 

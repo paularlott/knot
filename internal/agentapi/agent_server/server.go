@@ -537,6 +537,11 @@ func removeSession(spaceId string, expected *Session, markUnhealthy bool, queueR
 		methods.DefaultRegistry().UnregisterSpace(spaceId)
 		service.GetEventDispatcher().UnregisterSubscriptions(spaceId)
 
+		// If the space was a log sink (Pro), stop mirroring to it.
+		if LogSinkUnregisterHook != nil {
+			LogSinkUnregisterHook(spaceId)
+		}
+
 		if markUnhealthy || queueReconcile {
 			db := database.GetInstance()
 			space, err := db.GetSpace(spaceId)

@@ -159,12 +159,9 @@ func HandleCreateMCPServer(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventMCPServerCreate,
 		fmt.Sprintf("Created MCP server %s", server.Namespace),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"mcp_server_id":   server.Id,
-			"namespace":       server.Namespace,
-			"user_id":         server.UserId,
+			"mcp_server_id": server.Id,
+			"namespace":     server.Namespace,
+			"user_id":       server.UserId,
 		},
 	)
 
@@ -255,11 +252,8 @@ func HandleUpdateMCPServer(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventMCPServerUpdate,
 		fmt.Sprintf("Updated MCP server %s", server.Namespace),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"mcp_server_id":   server.Id,
-			"namespace":       server.Namespace,
+			"mcp_server_id": server.Id,
+			"namespace":     server.Namespace,
 		},
 	)
 
@@ -315,11 +309,8 @@ func HandleDeleteMCPServer(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventMCPServerDelete,
 		fmt.Sprintf("Deleted MCP server %s", namespace),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"mcp_server_id":   server.Id,
-			"namespace":       namespace,
+			"mcp_server_id": server.Id,
+			"namespace":     namespace,
 		},
 	)
 

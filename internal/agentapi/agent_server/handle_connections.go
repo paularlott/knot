@@ -113,6 +113,9 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create a new session and start listening
 	session = NewSession(registerMsg.SpaceId, registerMsg.Version)
+	session.UserId = space.UserId
+	session.Username = user.Username
+	session.SpaceName = space.Name
 	clearAgentLossFailures(registerMsg.SpaceId)
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
@@ -225,6 +228,12 @@ func handleAgentConnection(conn net.Conn) {
 	}
 
 	logger.Debug("session created", "space_name", space.Name)
+
+	// Log sink registration is Pro-only (hook nil in Core); agents advertise
+	// a sink via the register message regardless of server edition.
+	if registerMsg.LogSinkPort > 0 && LogSinkRegisterHook != nil {
+		LogSinkRegisterHook(session, user, registerMsg.LogSinkPort, registerMsg.LogSinkFormat)
+	}
 
 	// Loop forever waiting for connections on the mux session
 	for {
@@ -378,6 +387,12 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				}
 			}
 			session.LogListenersMutex.RUnlock()
+
+			// Mirror to the owner's log sinks (Pro; hook nil in Core). The
+			// leader gating lives inside the Pro implementation.
+			if LogSinkMirrorHook != nil {
+				LogSinkMirrorHook(session.Id, session.UserId, session.Username, session.SpaceName, &logMsg)
+			}
 
 		case byte(msg.CmdUpdateSpaceNote):
 			var spaceNote msg.SpaceNote

@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -16,19 +18,25 @@ import (
 // the slog JSON handler).  Lines are batched and flushed every flushInterval or
 // when the buffer reaches batchSize entries.
 type httpWriter struct {
-	url     string
-	format  string
-	stream  string
-	headers map[string]string
+	url      string
+	format   string
+	stream   string
+	headers  map[string]string
 	username string // optional HTTP basic auth username
 	password string // optional HTTP basic auth password
 	token    string // optional bearer token (Authorization: Bearer <token>)
-	client  *http.Client
+	client   *http.Client
 
 	mu      sync.Mutex
 	buf     [][]byte
 	stopCh  chan struct{}
 	flushCh chan struct{}
+
+	// stderr is the local fallback: while the endpoint is unreachable the
+	// records are mirrored here so they are never lost from view. A var on
+	// the struct so tests can capture it.
+	stderr   io.Writer
+	degraded bool
 }
 
 const (
@@ -66,7 +74,9 @@ func newHTTPWriter(rawURL, format, stream string, headers map[string]string, use
 		client:   &http.Client{Timeout: 10 * time.Second},
 		stopCh:   make(chan struct{}),
 		flushCh:  make(chan struct{}, 1),
+		stderr:   os.Stderr,
 	}
+	fmt.Fprintf(w.stderr, "knot: started, sending logs to external service %s (format %s)\n", redactURL(rawURL), formatOrDefault(format))
 	go w.run()
 	return w
 }
@@ -83,7 +93,14 @@ func (w *httpWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	w.buf = append(w.buf, line)
 	flush := len(w.buf) >= batchSize
+	degraded := w.degraded
 	w.mu.Unlock()
+
+	// While the endpoint is unreachable, mirror records to stderr as they
+	// arrive so the failure window is fully visible locally.
+	if degraded {
+		w.stderr.Write(append(line, '\n'))
+	}
 
 	if flush {
 		select {
@@ -125,9 +142,44 @@ func (w *httpWriter) flush() {
 		return
 	}
 
+	if w.post(body, contentType) {
+		w.mu.Lock()
+		recovered := w.degraded
+		w.degraded = false
+		w.mu.Unlock()
+		if recovered {
+			fmt.Fprintf(w.stderr, "knot: log output recovered, sending logs to the external service only\n")
+		}
+		return
+	}
+	w.drop(lines)
+}
+
+// flushBackoffs is the pause between delivery attempts for a batch. A var so
+// tests can shorten it.
+var flushBackoffs = []time.Duration{500 * time.Millisecond, 1 * time.Second, 2 * time.Second}
+
+// post delivers the body, retrying with backoff on transport errors and
+// retryable status codes (5xx, 429). A 4xx means the endpoint rejected the
+// payload itself — retrying cannot help, so the batch is dropped. Returns
+// true when the batch was delivered.
+func (w *httpWriter) post(body []byte, contentType string) bool {
+	for attempt := 0; ; attempt++ {
+		delivered, retry := w.tryPost(body, contentType)
+		if delivered {
+			return true
+		}
+		if !retry || attempt >= len(flushBackoffs) {
+			return false
+		}
+		time.Sleep(flushBackoffs[attempt])
+	}
+}
+
+func (w *httpWriter) tryPost(body []byte, contentType string) (delivered, retry bool) {
 	req, err := http.NewRequest(http.MethodPost, w.url, bytes.NewReader(body))
 	if err != nil {
-		return
+		return false, false
 	}
 	req.Header.Set("Content-Type", contentType)
 	// A bearer token takes precedence over basic auth credentials; custom
@@ -143,9 +195,61 @@ func (w *httpWriter) flush() {
 
 	resp, err := w.client.Do(req)
 	if err != nil {
-		return
+		return false, true
 	}
+	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true, false
+	}
+	if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+		return false, true
+	}
+	return false, false
+}
+
+// spoolBatch is a hook for editions with an on-disk spool; the base
+// implementation has nowhere to put failed batches.
+var spoolBatch = func(lines [][]byte) {}
+
+// drop handles a batch that could not be delivered after all retries: the
+// records are mirrored to stderr (the configured destination is the endpoint
+// that just failed) and the writer enters degraded mode, teeing every new
+// record to stderr until a flush succeeds again. State markers are only
+// written on transitions, so a flapping endpoint doesn't spam.
+func (w *httpWriter) drop(lines [][]byte) {
+	spoolBatch(lines)
+
+	w.mu.Lock()
+	already := w.degraded
+	w.degraded = true
+	w.mu.Unlock()
+
+	if !already {
+		fmt.Fprintf(w.stderr, "knot: ERROR: log output endpoint unreachable (%s), mirroring logs to stderr\n", redactURL(w.url))
+	}
+	for _, line := range lines {
+		w.stderr.Write(append(line, '\n'))
+	}
+}
+
+// redactURL strips any embedded credentials so markers can safely name the
+// endpoint.
+func redactURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.User == nil {
+		return rawURL
+	}
+	u.User = url.User(u.User.Username())
+	return u.String()
+}
+
+func formatOrDefault(format string) string {
+	if format == "" {
+		return "ndjson"
+	}
+	return format
 }
 
 func (w *httpWriter) encode(lines [][]byte) ([]byte, string) {
@@ -154,6 +258,8 @@ func (w *httpWriter) encode(lines [][]byte) ([]byte, string) {
 		return w.encodeLoki(lines)
 	case "elasticsearch":
 		return w.encodeElasticsearch(lines)
+	case "gelf":
+		return w.encodeGELF(lines)
 	default: // ndjson
 		return w.encodeNDJSON(lines)
 	}
@@ -277,4 +383,75 @@ func (w *httpWriter) encodeElasticsearch(lines [][]byte) ([]byte, string) {
 		buf.WriteByte('\n')
 	}
 	return buf.Bytes(), "application/x-ndjson"
+}
+
+// encodeGELF produces newline-delimited GELF JSON messages (one per record)
+// for Graylog's GELF HTTP input, which accepts multiple messages separated
+// by newlines in a single request body.
+func (w *httpWriter) encodeGELF(lines [][]byte) ([]byte, string) {
+	var buf bytes.Buffer
+	for _, line := range lines {
+		var rec map[string]any
+		if err := json.Unmarshal(line, &rec); err != nil {
+			rec = map[string]any{"msg": string(line)}
+		}
+
+		gelf := map[string]any{
+			"version": "1.1",
+			"host":    w.streamFor(rec),
+		}
+		if msg, ok := rec["msg"].(string); ok {
+			gelf["short_message"] = msg
+		} else {
+			gelf["short_message"] = string(line)
+		}
+		if t, ok := rec["time"].(string); ok {
+			if parsed, err := time.Parse(time.RFC3339Nano, t); err == nil {
+				gelf["timestamp"] = float64(parsed.UnixNano()) / 1e9
+			}
+		}
+		if lvl, ok := rec["level"].(string); ok {
+			gelf["level"] = gelfLevel(lvl)
+		}
+
+		// Everything else becomes a GELF additional field (underscore
+		// prefix per spec), so stream / space_id / etc. survive the trip.
+		for k, v := range rec {
+			switch k {
+			case "msg", "time", "level", "stream":
+				continue
+			}
+			if s, ok := v.(string); ok {
+				gelf["_"+k] = s
+			} else {
+				gelf["_"+k] = v
+			}
+		}
+		if s, ok := rec["stream"].(string); ok && s != "" {
+			gelf["_stream"] = s
+		}
+
+		b, _ := json.Marshal(gelf)
+		buf.Write(b)
+		buf.WriteByte('\n')
+	}
+	return buf.Bytes(), "application/json"
+}
+
+// gelfLevel maps slog level names to syslog severities (0 emerg – 7 debug).
+func gelfLevel(level string) int {
+	switch strings.ToUpper(level) {
+	case "PANIC":
+		return 1
+	case "FATAL":
+		return 2
+	case "ERROR":
+		return 3
+	case "WARN", "WARNING":
+		return 4
+	case "INFO":
+		return 6
+	default: // DEBUG, TRACE
+		return 7
+	}
 }

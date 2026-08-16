@@ -67,36 +67,48 @@ type Form struct {
 	TotpIssuer  string `json:"totp_issuer"`
 
 	EnableGravatar bool `json:"enable_gravatar"`
+
+	LogOutputEnabled  bool   `json:"log_output_enabled"`
+	LogOutputURL      string `json:"log_output_url"`
+	LogOutputFormat   string `json:"log_output_format"`
+	LogOutputToken    string `json:"log_output_token"`
+	LogOutputUsername string `json:"log_output_username"`
+	LogOutputPassword string `json:"log_output_password"`
+	AuditRouting      string `json:"audit_routing"`
+	AuditRetention    int    `json:"audit_retention"`
 }
 
 func DefaultForm() Form {
 	return Form{
-		Listen:         "0.0.0.0:3000",
-		ListenAgent:    "0.0.0.0:3010",
-		URL:            "",
-		AgentEndpoint:  "",
-		Timezone:       "",
-		NomadAddr:      "http://127.0.0.1:4646",
-		DockerHost:     "unix:///var/run/docker.sock",
-		PodmanHost:     "unix:///run/podman/podman.sock",
-		DBType:         "mysql",
-		BadgerPath:     "./badgerdb/",
-		MySQLHost:      "",
-		MySQLPort:      3306,
-		MySQLUser:      "",
-		MySQLDatabase:  "knot",
-		RedisHosts:     nil,
-		EncryptionKey:  crypt.CreateKey(),
-		EnableMCP:      false,
-		DNSEnabled:     false,
-		DNSListen:      ":3053",
-		ChatEnabled:    false,
-		ChatType:       "openai",
-		ChatBaseURL:    "",
-		TunnelEnabled:  false,
-		TotpEnabled:    false,
-		TotpIssuer:     "Knot",
-		EnableGravatar: true,
+		Listen:          "0.0.0.0:3000",
+		ListenAgent:     "0.0.0.0:3010",
+		URL:             "",
+		AgentEndpoint:   "",
+		Timezone:        "",
+		NomadAddr:       "http://127.0.0.1:4646",
+		DockerHost:      "unix:///var/run/docker.sock",
+		PodmanHost:      "unix:///run/podman/podman.sock",
+		DBType:          "mysql",
+		BadgerPath:      "./badgerdb/",
+		MySQLHost:       "",
+		MySQLPort:       3306,
+		MySQLUser:       "",
+		MySQLDatabase:   "knot",
+		RedisHosts:      nil,
+		EncryptionKey:   crypt.CreateKey(),
+		EnableMCP:       false,
+		DNSEnabled:      false,
+		DNSListen:       ":3053",
+		ChatEnabled:     false,
+		ChatType:        "openai",
+		ChatBaseURL:     "",
+		TunnelEnabled:   false,
+		TotpEnabled:     false,
+		TotpIssuer:      "Knot",
+		EnableGravatar:  true,
+		LogOutputFormat: "ndjson",
+		AuditRouting:    "internal",
+		AuditRetention:  90,
 	}
 }
 

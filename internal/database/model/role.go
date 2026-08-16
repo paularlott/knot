@@ -53,6 +53,10 @@ const (
 	PermissionManageGlobalSlashCommands        // Can Manage Global Slash Commands
 	PermissionManageOwnSlashCommands           // Can Manage Own Slash Commands
 	PermissionManageMCPServers                 // Can Manage MCP Servers
+	// PermissionUseLogSinks is enforced only by Knot Pro (spaces registering
+	// as log sinks); the constant exists in both editions so the permission
+	// ids stay aligned, but Core never grants or checks it.
+	PermissionUseLogSinks // Can register a space as a log sink receiving own space logs
 )
 
 type PermissionName struct {

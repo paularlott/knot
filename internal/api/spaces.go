@@ -273,11 +273,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceDelete,
 		fmt.Sprintf("Deleted space %s", spaceName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        spaceId,
-			"space_name":      spaceName,
+			"space_id":   spaceId,
+			"space_name": spaceName,
 		},
 	)
 
@@ -408,11 +405,8 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceCreate,
 		fmt.Sprintf("Created space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":   space.Id,
+			"space_name": space.Name,
 		},
 	)
 
@@ -557,11 +551,8 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStart,
 		fmt.Sprintf("Started space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":   space.Id,
+			"space_name": space.Name,
 		},
 	)
 
@@ -648,11 +639,8 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStop,
 		fmt.Sprintf("Stopped space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":   space.Id,
+			"space_name": space.Name,
 		},
 	)
 
@@ -722,11 +710,8 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceRestart,
 		fmt.Sprintf("Restarted space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":   space.Id,
+			"space_name": space.Name,
 		},
 	)
 
@@ -876,11 +861,8 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceUpdate,
 		fmt.Sprintf("Updated space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":   space.Id,
+			"space_name": space.Name,
 		},
 	)
 
@@ -951,12 +933,9 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceUpdate,
 		fmt.Sprintf("Set custom field '%s' on space %s", request.Name, spaceName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        spaceId,
-			"space_name":      spaceName,
-			"field_name":      request.Name,
+			"space_id":   spaceId,
+			"space_name": spaceName,
+			"field_name": request.Name,
 		},
 	)
 
@@ -1054,12 +1033,9 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 				model.AuditEventSpaceStop,
 				fmt.Sprintf("Stopped space %s", space.Name),
 				&map[string]interface{}{
-					"agent":           r.UserAgent(),
-					"IP":              r.RemoteAddr,
-					"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-					"space_id":        space.Id,
-					"space_name":      space.Name,
-					"target_user_id":  targetUser.Id,
+					"space_id":       space.Id,
+					"space_name":     space.Name,
+					"target_user_id": targetUser.Id,
 				},
 			)
 		}
@@ -1283,12 +1259,9 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 			model.AuditEventSpaceTransfer,
 			fmt.Sprintf("Transfer space %s to user %s", space.Name, request.UserId),
 			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-				"space_id":        space.Id,
-				"space_name":      space.Name,
-				"user_id":         request.UserId,
+				"space_id":   space.Id,
+				"space_name": space.Name,
+				"user_id":    request.UserId,
 			},
 		)
 
@@ -1402,12 +1375,9 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceShare,
 		fmt.Sprintf("Shared space %s to user %s", space.Name, requestedUserId),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
-			"user_id":         requestedUserId,
+			"space_id":   space.Id,
+			"space_name": space.Name,
+			"user_id":    requestedUserId,
 		},
 	)
 
@@ -1509,11 +1479,8 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStopShare,
 		fmt.Sprintf("Stop space share %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":   space.Id,
+			"space_name": space.Name,
 		},
 	)
 
@@ -1782,10 +1749,7 @@ func HandleStackStart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackStart,
 		fmt.Sprintf("Started stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)
@@ -1806,10 +1770,7 @@ func HandleStackStop(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackStop,
 		fmt.Sprintf("Stopped stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)
@@ -1838,10 +1799,7 @@ func HandleStackRestart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackRestart,
 		fmt.Sprintf("Restarted stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)
@@ -1899,10 +1857,7 @@ func HandleStackDelete(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackDelete,
 		fmt.Sprintf("Deleted stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)

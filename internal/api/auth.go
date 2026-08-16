@@ -193,10 +193,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			model.AuditActorTypeUser,
 			model.AuditEventAuthFailed,
 			"",
-			&map[string]interface{}{
-				"agent": r.UserAgent(),
-				"IP":    clientIP,
-			},
+			&map[string]interface{}{},
 		)
 
 		rest.WriteResponse(code, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
@@ -267,13 +264,12 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	audit.LogWithRequest(r,
-		request.Email,
+		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventAuthOk,
 		"",
 		&map[string]interface{}{
-			"agent": r.UserAgent(),
-			"IP":    clientIP,
+			"email": user.Email,
 		},
 	)
 

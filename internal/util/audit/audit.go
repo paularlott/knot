@@ -19,6 +19,9 @@ func LogWithRequest(r *http.Request, actor, actorType, event, details string, pr
 
 func Log(actor, actorType, event, details string, properties *map[string]interface{}) error {
 	entry := model.NewAuditLogEntry(actor, actorType, event, details, properties)
+	if model.AuditHook != nil {
+		model.AuditHook(entry)
+	}
 	transport := service.GetTransport()
 	if transport != nil {
 		transport.GossipAuditLog(entry)

@@ -327,12 +327,9 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventScriptCreate,
 		fmt.Sprintf("Created script %s", script.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"script_id":       script.Id,
-			"script_name":     script.Name,
-			"is_user_script":  isUserScript,
+			"script_id":      script.Id,
+			"script_name":    script.Name,
+			"is_user_script": isUserScript,
 		},
 	)
 
@@ -440,12 +437,9 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventScriptUpdate,
 		fmt.Sprintf("Updated script %s", script.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"script_id":       script.Id,
-			"script_name":     script.Name,
-			"is_user_script":  script.IsUserScript(),
+			"script_id":      script.Id,
+			"script_name":    script.Name,
+			"is_user_script": script.IsUserScript(),
 		},
 	)
 
@@ -516,12 +510,9 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventScriptDelete,
 		fmt.Sprintf("Deleted script %s", scriptName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"script_id":       scriptId,
-			"script_name":     scriptName,
-			"is_user_script":  script.IsUserScript(),
+			"script_id":      scriptId,
+			"script_name":    scriptName,
+			"is_user_script": script.IsUserScript(),
 		},
 	)
 

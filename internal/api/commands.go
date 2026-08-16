@@ -267,9 +267,6 @@ func HandleCreateCommand(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSlashCommandCreate,
 		fmt.Sprintf("Created slash command %s", command.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
 			"command_id":      command.Id,
 			"command_name":    command.Name,
 			"is_user_command": isUserCommand,
@@ -383,9 +380,6 @@ func HandleUpdateCommand(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSlashCommandUpdate,
 		fmt.Sprintf("Updated slash command %s", command.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
 			"command_id":      command.Id,
 			"command_name":    command.Name,
 			"is_user_command": command.IsUserCommand(),
@@ -461,9 +455,6 @@ func HandleDeleteCommand(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSlashCommandDelete,
 		fmt.Sprintf("Deleted slash command %s", commandName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
 			"command_id":      commandId,
 			"command_name":    commandName,
 			"is_user_command": command.IsUserCommand(),

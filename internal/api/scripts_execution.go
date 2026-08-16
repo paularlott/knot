@@ -129,13 +129,10 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventScriptExecute,
 		fmt.Sprintf("Executed script %s in space %s", scriptName, space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"script_id":       scriptId,
-			"script_name":     scriptName,
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"script_id":   scriptId,
+			"script_name": scriptName,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
 		},
 	)
 

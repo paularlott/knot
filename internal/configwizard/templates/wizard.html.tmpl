@@ -400,8 +400,55 @@
     <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
   </div>
 
-  <!-- STEP 9: Review -->
+  <!-- STEP 9: Logging & Audit -->
   <div class="step" id="step-9">
+    <div class="step-title">Logging &amp; audit</div>
+    <div class="step-desc">Knot logs to the console by default. Send server logs to an external logging service for long-term retention and compliance.</div>
+
+    <label class="toggle"><input type="checkbox" id="log_output_enabled" {{ checked .Form.LogOutputEnabled }}><span class="slider"></span><span class="toggle-label">Send server logs to an external logging service</span></label>
+    <div id="log-output-fields" class="collapsible">
+      <div class="field-group">
+        <label>Endpoint URL</label>
+        <input type="url" id="log_output_url" value="{{ .Form.LogOutputURL }}" placeholder="http://localhost:9428/insert/jsonline">
+        <div class="explain">VictoriaLogs <code>/insert/jsonline</code>, Loki <code>/loki/api/v1/push</code>, or an Elasticsearch <code>/_bulk</code> endpoint. Knot sends structured JSON records with retries on failure.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+        <div><label>Format</label>
+          <select id="log_output_format">
+            <option value="ndjson">ndjson (VictoriaLogs)</option>
+            <option value="loki">loki</option>
+            <option value="elasticsearch">elasticsearch</option>
+            <option value="gelf">gelf (Graylog)</option>
+          </select>
+        </div>
+        <div><label>Bearer token <span class="hint">(optional)</span></label><input type="password" id="log_output_token" value="{{ .Form.LogOutputToken }}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-top:0.4rem">
+        <div><label>Basic auth username <span class="hint">(optional, e.g. VictoriaLogs tenant)</span></label><input type="text" id="log_output_username" value="{{ .Form.LogOutputUsername }}"></div>
+        <div><label>Basic auth password <span class="hint">(optional)</span></label><input type="password" id="log_output_password" value="{{ .Form.LogOutputPassword }}"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.2rem;padding-top:0.8rem;border-top:1px solid #334155">
+      <div id="audit-routing-fields" class="collapsible">
+        <label>Audit log routing</label>
+        <select id="audit_routing">
+          <option value="internal">Internal only</option>
+          <option value="external">External only</option>
+          <option value="both">Both (recommended for compliance)</option>
+        </select>
+        <div class="explain">Audit events (logins, config changes, space lifecycle) can also be sent to the external logging service. The internal store expires entries after the retention period — long-term audit retention is the job of the external service.</div>
+      </div>
+      <label style="margin-top:0.5rem">Internal retention (days)</label>
+      <input type="number" id="audit_retention" value="{{ .Form.AuditRetention }}">
+      <div class="explain">How long audit entries live in the internal store before expiry.</div>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 10: Review -->
+  <div class="step" id="step-10">
     <div class="step-title">Review and save</div>
     <div class="step-desc">This is the complete configuration, including values the wizard doesn't manage. Edit or remove anything — what you see here is what gets written.</div>
     {{ if .ConfigExists }}{{ if not .EditorWritable }}
@@ -426,7 +473,7 @@
 </div>
 
 <script>
-var TOTAL_STEPS = 9;
+var TOTAL_STEPS = 10;
 // When editing an existing config the deployment step is skipped — the
 // fields drive the wizard, not the preset cards.
 var EDITING = {{ if .Editing }}true{{ else }}false{{ end }};
@@ -514,6 +561,12 @@ function validateStep(n) {
       });
     }
     if (currentNs() === "custom") req("nameservers", "Nameservers");
+  } else if (n === 9) {
+    if ($("log_output_enabled").checked) {
+      req("log_output_url", "External logging endpoint URL");
+      var u = $("log_output_url").value.trim();
+      if (u && u.indexOf("http://") !== 0 && u.indexOf("https://") !== 0) errs.push("Endpoint URL must start with http:// or https://");
+    }
   }
   return errs;
 }
@@ -609,7 +662,7 @@ function toggleSection(checkId, sectionId) {
   function upd() { sec.style.display = el.checked ? "block" : "none"; }
   el.addEventListener("change", upd); upd();
 }
-["dns_enabled:dns-fields","chat_enabled:chat-fields","tunnel_enabled:tunnel-fields","totp_enabled:totp-fields"].forEach(function(pair) {
+["dns_enabled:dns-fields","chat_enabled:chat-fields","tunnel_enabled:tunnel-fields","totp_enabled:totp-fields","log_output_enabled:log-output-fields","log_output_enabled:audit-routing-fields"].forEach(function(pair) {
   var p = pair.split(":"); toggleSection(p[0], p[1]);
 });
 
@@ -655,9 +708,6 @@ function currentNs() { var el = document.querySelector("[data-ns].selected"); re
 
 function generateTOML() {
   var E = esc, L = [], db = currentDb();
-  L.push("# knot server configuration — generated by `knot server config-wizard`");
-  L.push("# Edit by hand for advanced options.");
-  L.push("");
   L.push("[server]");
   L.push('listen = "' + E($("listen").value) + '"');
   L.push('listen_agent = "' + E($("listen_agent").value) + '"');
@@ -666,6 +716,9 @@ function generateTOML() {
   var wd = $("wildcard_domain").value.trim(); if (wd) L.push('wildcard_domain = "' + E(wd) + '"');
   var tz = $("timezone").value.trim(); if (tz) L.push('timezone = "' + E(tz) + '"');
   L.push('encrypt = "' + E($("encryption_key").value) + '"');
+  // Routing to an external service only makes sense with one configured.
+  L.push('audit_routing = "' + ($("log_output_enabled").checked ? $("audit_routing").value : "internal") + '"');
+  L.push('audit_retention = ' + parseInt($("audit_retention").value || "90", 10));
   if ($("tunnel_enabled").checked) {
     L.push('listen_tunnel = "' + E($("tunnel_listen").value) + '"');
     var td = $("tunnel_domain").value.trim(); if (td) L.push('tunnel_domain = "' + E(td) + '"');
@@ -743,7 +796,17 @@ function generateTOML() {
   L.push(""); L.push("[server.ui]");
   L.push('enable_gravatar = ' + $("enable_gravatar").checked);
   L.push(""); L.push("[server.mcp]"); L.push("enabled = " + $("enable_mcp").checked);
-  L.push(""); L.push("[log]"); L.push('level = "info"');
+  L.push(""); L.push("[log]");
+  L.push('level = "info"');
+  if ($("log_output_enabled").checked) {
+    L.push("");
+    L.push("[log.output]");
+    if ($("log_output_url").value.trim()) L.push('url = "' + E($("log_output_url").value.trim()) + '"');
+    L.push('format = "' + E($("log_output_format").value) + '"');
+    if ($("log_output_token").value) L.push('token = "' + E($("log_output_token").value) + '"');
+    if ($("log_output_username").value.trim()) L.push('username = "' + E($("log_output_username").value.trim()) + '"');
+    if ($("log_output_password").value) L.push('password = "' + E($("log_output_password").value) + '"');
+  }
   return L.join("\n") + "\n";
 }
 
@@ -758,6 +821,8 @@ window.addEventListener("DOMContentLoaded", function() {
   editor.$blockScrolling = Infinity;
   editor.setReadOnly({{ if .EditorWritable }}false{{ else }}true{{ end }});
   $("chat_type").value = "{{ .Form.ChatType }}";
+  $("log_output_format").value = "{{ .Form.LogOutputFormat }}";
+  $("audit_routing").value = "{{ .Form.AuditRouting }}";
 
   $("regen-key").addEventListener("click", function() { $("encryption_key").value = randomKey(); });
 

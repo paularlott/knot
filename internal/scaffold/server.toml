@@ -114,9 +114,13 @@ level = "info"
 
 # HTTP log driver (unset = stderr only)
 # [log.output]
-#   format = "ndjson"                                          # ndjson | loki | elasticsearch
+#   format = "ndjson"                                          # ndjson | loki | elasticsearch | gelf
 #   stream = "knot"                                            # stream name / identifier
+#   username = ""                                               # optional HTTP basic auth (e.g. VictoriaLogs tenant)
+#   password = ""                                               # optional HTTP basic auth password / token
 #   # VictoriaLogs endpoints:
 #   # url = "http://localhost:9428/insert/jsonline"            # ndjson
 #   # url = "http://localhost:9428/loki/api/v1/push"           # loki
 #   # url = "http://localhost:9428/insert/elasticsearch/_bulk" # elasticsearch
+#   # Graylog:
+#   # url = "http://graylog.example.com:12201/gelf"            # gelf

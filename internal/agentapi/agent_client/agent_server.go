@@ -210,8 +210,10 @@ func (s *agentServer) ConnectAndServe() {
 
 			// Create and send the register message
 			err = msg.WriteMessage(s.conn, &msg.Register{
-				SpaceId: s.spaceId,
-				Version: build.Version,
+				SpaceId:       s.spaceId,
+				Version:       build.Version,
+				LogSinkPort:   s.agentClient.GetLogSinkPort(),
+				LogSinkFormat: s.agentClient.GetLogSinkFormat(),
 			})
 			if err != nil {
 				log.WithError(err).Error("sending register message:")
@@ -611,6 +613,15 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		if s.agentClient.withRunCommand {
 			handleRunCommandExecution(stream, runCmd)
 		}
+
+	case byte(msg.CmdMirrorLog):
+		var batch msg.MirrorLogMessage
+		if err := msg.ReadMessage(stream, &batch); err != nil {
+			log.WithError(err).Error("reading mirror log message:")
+			return
+		}
+
+		go handleMirrorLog(s.agentClient, &batch)
 
 	case byte(msg.CmdCopyFile):
 		var copyCmd msg.CopyFileMessage

@@ -89,7 +89,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			},
 			&cli.StringFlag{
 				Name:         "log-output-format",
-				Usage:        "Log output format: ndjson, loki, or elasticsearch.",
+				Usage:        "Log output format: ndjson, loki, elasticsearch, or gelf.",
 				ConfigPath:   []string{"log.output.format"},
 				EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_FORMAT"},
 				DefaultValue: "ndjson",

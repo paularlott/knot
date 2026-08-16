@@ -27,6 +27,10 @@ const (
 	AuditEventAuthFailed = "Login Failed"
 	AuditEventAuthOk     = "Login Success"
 
+	// Anomaly detection (Knot Pro) — emitted when a detection rule fires over
+	// the audit event stream
+	AuditEventAnomalyDetected = "Anomaly Detected"
+
 	// Groups
 	AuditEventGroupCreate = "Group Create"
 	AuditEventGroupUpdate = "Group Update"
@@ -107,6 +111,11 @@ const (
 	AuditEventEventSinkDeliveryFailed = "Event Sink Delivery Failed"
 	AuditEventEventSinkScriptFailed   = "Event Sink Script Failed"
 	AuditEventEventSinkDropped        = "Event Sink Dropped"
+
+	// Log sinks (Knot Pro) — a space registered to receive the logs of the
+	// owner's other spaces
+	AuditEventLogSinkRegister   = "Log Sink Register"
+	AuditEventLogSinkDeregister = "Log Sink Deregister"
 )
 
 type AuditLogFilter struct {
@@ -128,6 +137,16 @@ type AuditLogEntry struct {
 	Details    string                 `json:"details" db:"details"`
 	Properties map[string]interface{} `json:"properties" db:"properties,json"`
 }
+
+// AuditHook, when set, is invoked synchronously for every audit event — once
+// on the server that emits it and, via cluster gossip, once on every peer
+// that receives it — before the entry is routed or stored. It lives here
+// (rather than in util/audit) so the service and cluster packages can tap
+// the stream without an import cycle. Implementations must be fast, and must
+// skip the events they generate themselves (e.g. AuditEventAnomalyDetected)
+// or they will recurse. Used by Knot Pro to run anomaly detection over the
+// cluster-wide audit stream.
+var AuditHook func(entry *AuditLogEntry)
 
 func NewAuditLogEntry(actor, actorType, event, details string, properties *map[string]interface{}) *AuditLogEntry {
 	cfg := config.GetServerConfig()
@@ -175,6 +194,10 @@ func RequestProperties(r *http.Request, properties *map[string]interface{}) *map
 
 	(*properties)["source_ip"] = ip
 	(*properties)["user_agent"] = ua
+	// Preserve the full forwarding chain — source_ip is only the first hop.
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		(*properties)["x_forwarded_for"] = xff
+	}
 
 	return properties
 }

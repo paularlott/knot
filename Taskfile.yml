@@ -445,6 +445,13 @@ tasks:
       - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages
     ignore_error: true
 
+  run-desktop:
+    desc: Run the desktop app for development
+    deps: [agents, packages, webassets]
+    cmds:
+      - go run . --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages
+    ignore_error: true
+
   icons:
     desc: Generate the monochrome desktop tray icons from the web UI logo SVG
     cmds:

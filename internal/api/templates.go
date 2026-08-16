@@ -229,11 +229,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventTemplateUpdate,
 		fmt.Sprintf("Updated template %s", template.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"template_id":     template.Id,
-			"template_name":   template.Name,
+			"template_id":   template.Id,
+			"template_name": template.Name,
 		},
 	)
 
@@ -337,11 +334,8 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventTemplateCreate,
 		fmt.Sprintf("Created template %s", template.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"template_id":     template.Id,
-			"template_name":   template.Name,
+			"template_id":   template.Id,
+			"template_name": template.Name,
 		},
 	)
 
@@ -421,11 +415,8 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventTemplateDelete,
 		fmt.Sprintf("Deleted template %s", templateName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"template_id":     templateId,
-			"template_name":   templateName,
+			"template_id":   templateId,
+			"template_name": templateName,
 		},
 	)
 

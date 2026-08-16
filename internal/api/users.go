@@ -155,12 +155,9 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 			model.AuditEventUserCreate,
 			fmt.Sprintf("Created user %s (%s)", userNew.Username, userNew.Email),
 			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-				"user_id":         userNew.Id,
-				"user_name":       userNew.Username,
-				"user_email":      userNew.Email,
+				"user_id":    userNew.Id,
+				"user_name":  userNew.Username,
+				"user_email": userNew.Email,
 			},
 		)
 	}
@@ -655,12 +652,9 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventUserUpdate,
 		fmt.Sprintf("Updated user %s (%s)", user.Username, user.Email),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"user_id":         user.Id,
-			"user_name":       user.Username,
-			"user_email":      user.Email,
+			"user_id":    user.Id,
+			"user_name":  user.Username,
+			"user_email": user.Email,
 		},
 	)
 
@@ -719,12 +713,9 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 			model.AuditEventUserDelete,
 			fmt.Sprintf("Deleted user %s (%s)", toDelete.Username, toDelete.Email),
 			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-				"user_id":         toDelete.Id,
-				"user_name":       toDelete.Username,
-				"user_email":      toDelete.Email,
+				"user_id":    toDelete.Id,
+				"user_name":  toDelete.Username,
+				"user_email": toDelete.Email,
 			},
 		)
 	}

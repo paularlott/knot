@@ -17,6 +17,9 @@ type Session struct {
 	Id                    string
 	Version               string
 	PeerPort              uint16
+	UserId                string // owner of the space, used for log sink scoping
+	Username              string // owner's username, attached to mirrored/forwarded logs
+	SpaceName             string // space name, attached to mirrored/forwarded logs
 	HasCodeServer         bool
 	SSHPort               int
 	VNCHttpPort           int
@@ -620,4 +623,19 @@ func (s *Session) SendTunnelList() (*msg.TunnelListResponse, error) {
 		return nil, err
 	}
 	return &response, nil
+}
+
+// SendMirrorLog pushes a batch of mirrored log records to the space's agent
+// (fire and forget — the agent writes them to its local log service).
+func (s *Session) SendMirrorLog(batch *msg.MirrorLogMessage) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdMirrorLog); err != nil {
+		return err
+	}
+	return msg.WriteMessage(conn, batch)
 }

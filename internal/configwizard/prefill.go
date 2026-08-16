@@ -92,7 +92,21 @@ type prefillConfig struct {
 		MCP struct {
 			Enabled bool `toml:"enabled"`
 		} `toml:"mcp"`
+
+		// Audit settings live flat under [server] (server.audit_routing etc).
+		AuditRouting   string `toml:"audit_routing"`
+		AuditRetention int    `toml:"audit_retention"`
 	} `toml:"server"`
+
+	Log struct {
+		Output struct {
+			URL      string `toml:"url"`
+			Format   string `toml:"format"`
+			Token    string `toml:"token"`
+			Username string `toml:"username"`
+			Password string `toml:"password"`
+		} `toml:"output"`
+	} `toml:"log"`
 
 	Resolver struct {
 		Nameservers []string `toml:"nameservers"`
@@ -204,6 +218,22 @@ func FormFromConfig(base Form, path string) Form {
 	}
 	base.EnableGravatar = s.UI.EnableGravatar
 	base.EnableMCP = s.MCP.Enabled
+	if s.AuditRouting != "" {
+		base.AuditRouting = s.AuditRouting
+	}
+	if s.AuditRetention > 0 {
+		base.AuditRetention = s.AuditRetention
+	}
+	if cfg.Log.Output.URL != "" {
+		base.LogOutputEnabled = true
+		base.LogOutputURL = cfg.Log.Output.URL
+	}
+	if cfg.Log.Output.Format != "" {
+		base.LogOutputFormat = cfg.Log.Output.Format
+	}
+	base.LogOutputToken = cfg.Log.Output.Token
+	base.LogOutputUsername = cfg.Log.Output.Username
+	base.LogOutputPassword = cfg.Log.Output.Password
 	if len(cfg.Resolver.Nameservers) > 0 {
 		base.Nameservers = strings.Join(cfg.Resolver.Nameservers, ", ")
 	}

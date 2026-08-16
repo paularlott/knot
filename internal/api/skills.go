@@ -256,12 +256,9 @@ func HandleCreateSkill(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSkillCreate,
 		fmt.Sprintf("Created skill %s", skill.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"skill_id":        skill.Id,
-			"skill_name":      skill.Name,
-			"is_user_skill":   isUserSkill,
+			"skill_id":      skill.Id,
+			"skill_name":    skill.Name,
+			"is_user_skill": isUserSkill,
 		},
 	)
 
@@ -366,12 +363,9 @@ func HandleUpdateSkill(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSkillUpdate,
 		fmt.Sprintf("Updated skill %s", skill.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"skill_id":        skill.Id,
-			"skill_name":      skill.Name,
-			"is_user_skill":   skill.IsUserSkill(),
+			"skill_id":      skill.Id,
+			"skill_name":    skill.Name,
+			"is_user_skill": skill.IsUserSkill(),
 		},
 	)
 
@@ -443,12 +437,9 @@ func HandleDeleteSkill(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSkillDelete,
 		fmt.Sprintf("Deleted skill %s", skillName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"skill_id":        skillId,
-			"skill_name":      skillName,
-			"is_user_skill":   skill.IsUserSkill(),
+			"skill_id":      skillId,
+			"skill_name":    skillName,
+			"is_user_skill": skill.IsUserSkill(),
 		},
 	)
 
