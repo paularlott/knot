@@ -13,22 +13,22 @@ import (
 func TestAuditLogRecordsActivity(t *testing.T) {
 	harness.Feature(t, "audit-log")
 
-	// Generate a distinctive audited action.
-	name := uniqueName("it-audit")
+	// Generate a distinctive audited action: create a space record without
+	// starting it (no container needed; also stays within the pro build's
+	// two-user tier).
+	name := uniqueName("it-audit-space")
 	ctx, cancel := testCtx(30)
 	defer cancel()
-	userId, code, err := admin.Client.CreateUser(ctx, &apiclient.CreateUserRequest{
-		Username: name, Password: "Passw0rd!audit", Email: name + "@knot.test",
-		Active: true, MaxSpaces: 1, ComputeUnits: 1, StorageUnits: 1, MaxTunnels: 1,
-		PreferredShell: "bash", Timezone: "UTC",
+	spaceId, code, err := admin.Client.CreateSpace(ctx, &apiclient.SpaceRequest{
+		Name: name, TemplateId: templateId, UserId: admin.Id, Shell: "bash",
 	})
 	if err != nil {
-		t.Fatalf("create audit user: %v (status %d)", err, code)
+		t.Fatalf("create audit space: %v (status %d)", err, code)
 	}
 	defer func() {
-		ctx, cancel := testCtx(15)
-		_ = admin.Client.DeleteUser(ctx, userId)
-		cancel()
+		dctx, dcancel := testCtx(15)
+		admin.Client.DeleteSpace(dctx, spaceId)
+		dcancel()
 	}()
 
 	// The audit log should contain the creation event.
@@ -37,7 +37,7 @@ func TestAuditLogRecordsActivity(t *testing.T) {
 	for time.Now().Before(deadline) && !found {
 		ctx, cancel := testCtx(15)
 		logs, code, err := admin.Client.GetAuditLogs(ctx, 0, 200, &apiclient.AuditLogFilter{
-			Event: "User Create",
+			Event: "Space Create",
 		})
 		cancel()
 		if err != nil {
@@ -54,7 +54,7 @@ func TestAuditLogRecordsActivity(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("user creation not found in audit log (event user.created, actor admin)")
+		t.Fatal("space creation not found in audit log (event Space Create, actor admin)")
 	}
 
 	// Filter by actor returns only that actor's entries.

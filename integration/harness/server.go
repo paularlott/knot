@@ -150,6 +150,15 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 	}
 	args = append(args, extraArgs...)
 
+	// Under pro builds every non-default server disables the peer mesh:
+	// its published host ports (default 30001+) are global across the docker
+	// daemon, so parallel test servers would collide. The default server
+	// keeps the mesh — that is where the peermesh suite runs.
+	if ProBuild && name != "default" {
+		os.WriteFile(filepath.Join(dataDir, "knot.toml"),
+			[]byte("[server.peermesh]\nenabled = false\n"), 0o644)
+	}
+
 	srv.cmd = exec.Command(bins.Server, args...)
 	// Full config isolation: run from (and with HOME in) the temp data dir so
 	// no knot.toml / .knot.toml from the repo, the user's home or ~/.knot
