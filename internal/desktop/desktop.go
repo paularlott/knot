@@ -91,10 +91,11 @@ func Run(ctx context.Context, cmd *cli.Command) error {
 	return <-done
 }
 
-// needsSetup reports whether the setup wizard should run: only when no
-// configuration file was found. The wizard writes a complete config
-// (required fields are validated on save), and the desktop-mode fallbacks
-// in buildServerConfig fill any remaining gaps such as a missing database.
+// needsSetup reports whether the setup wizard should run: when no
+// configuration file was found, or the file configures no database backend
+// (e.g. it only holds `knot connect` client data). The wizard writes a
+// complete config (required fields are validated on save), and the
+// desktop-mode fallbacks in buildServerConfig fill any remaining gaps.
 func needsSetup(cmd *cli.Command) bool {
 	logger := log.WithGroup("desktop")
 
@@ -104,7 +105,15 @@ func needsSetup(cmd *cli.Command) bool {
 	}
 	logger.Debug("setup check", "config_file", fileUsed)
 
-	return fileUsed == ""
+	if fileUsed == "" {
+		return true
+	}
+
+	// A config file that enables no database backend would leave the server
+	// to fabricate an embedded BadgerDB, so treat it as unconfigured. Same
+	// enabled flags buildServerConfig reads, so flags/env that enable a
+	// backend still start the server directly.
+	return !cmd.GetBool("mysql-enabled") && !cmd.GetBool("badgerdb-enabled") && !cmd.GetBool("redis-enabled")
 }
 
 // runSetup serves the config wizard on the advertised address, pre-filled

@@ -137,6 +137,9 @@ func DesktopForm() Form {
 	form.Deployment = "desktop"
 	form.DBType = "badger"
 	form.SessionRedis = false
+	// A desktop is a single user on loopback — failed-login blocking would
+	// only risk locking them out of their own machine.
+	form.AuthIPRateLimiting = false
 	if home, err := os.UserHomeDir(); err == nil {
 		form.BadgerPath = filepath.Join(home, "."+config.CONFIG_DIR, "data")
 	}

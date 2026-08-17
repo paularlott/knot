@@ -711,15 +711,15 @@ function applyDeploymentDefaults() {
   $("origin-fields").style.display = deployType === "desktop" ? "block" : "none";
   $("cluster-fields").style.display = deployType === "cluster" ? "block" : "none";
   if (deployType === "standalone") {
-    selectCard("mysql"); setCheck("session_redis_enabled", true);
+    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("auth_ip_rate_limiting", true);
     $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
     selectNs("system");
   } else if (deployType === "cluster") {
-    selectCard("mysql"); setCheck("session_redis_enabled", true);
+    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("auth_ip_rate_limiting", true);
     $("nomad_addr").value = "http://127.0.0.1:4646"; $("docker_host").value = ""; $("podman_host").value = "";
     selectNs("custom");
   } else if (deployType === "desktop") {
-    selectCard("badger"); setCheck("session_redis_enabled", false);
+    selectCard("badger"); setCheck("session_redis_enabled", false); setCheck("auth_ip_rate_limiting", false);
     $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
     selectNs("system");
     $("url").value = "http://127.0.0.1:3000";

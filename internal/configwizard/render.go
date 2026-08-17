@@ -30,15 +30,18 @@ type wizardView struct {
 
 func htmlTemplate(src string) (*template.Template, error) {
 	return template.New("page").Funcs(template.FuncMap{
-		"checked": func(b bool) string {
+		// HTMLAttr: the results are whole attribute tokens in tag position,
+		// where a plain string (incl. the empty string for false) is
+		// filtered to the junk attribute ZgotmplZ by html/template.
+		"checked": func(b bool) template.HTMLAttr {
 			if b {
-				return "checked"
+				return template.HTMLAttr("checked")
 			}
 			return ""
 		},
-		"dbSelected": func(formType, option string) string {
+		"dbSelected": func(formType, option string) template.HTMLAttr {
 			if formType == option {
-				return "checked"
+				return template.HTMLAttr("checked")
 			}
 			return ""
 		},
