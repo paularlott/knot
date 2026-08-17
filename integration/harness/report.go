@@ -51,6 +51,8 @@ var featureCatalog = []string{
 	"tunnels",
 	"usage-history",
 	"chat",
+	"cluster-gossip",
+	"leaf-node",
 	// Pro areas (exercised only in the pro fork build):
 	"pro:detection",
 	"pro:log-spool",
@@ -191,7 +193,7 @@ func writeReportLocked() string {
 		}
 	}
 
-	b.WriteString("| Feature | Status | Tests (pass/fail/skip) |\n|---|---|---|\n")
+	b.WriteString("| Feature | Description | Status | Tests (pass/fail/skip) |\n|---|---|---|---|\n")
 	for _, feature := range featureCatalog {
 		if strings.HasPrefix(feature, "pro:") && !ProBuild {
 			continue // pro feature areas only appear in the pro build's report
@@ -202,7 +204,7 @@ func writeReportLocked() string {
 			if strings.HasPrefix(feature, "pro:") {
 				note = "pro only — not yet tested"
 			}
-			fmt.Fprintf(&b, "| `%s` | ⚪ %s | — |\n", feature, note)
+			fmt.Fprintf(&b, "| `%s` | %s | ⚪ %s | — |\n", feature, featureDescription(feature), note)
 			continue
 		}
 		p, f, s := 0, 0, 0
@@ -222,7 +224,7 @@ func writeReportLocked() string {
 		} else if p == 0 {
 			status = "⏭️"
 		}
-		fmt.Fprintf(&b, "| `%s` | %s | %d/%d/%d |\n", feature, status, p, f, s)
+		fmt.Fprintf(&b, "| `%s` | %s | %s | %d/%d/%d |\n", feature, featureDescription(feature), status, p, f, s)
 	}
 	// Any recorded feature not in the catalog (typos, new areas).
 	for _, feature := range features {
@@ -272,6 +274,64 @@ func writeReportLocked() string {
 	}
 	os.Rename(tmp, path) // atomic-ish refresh for tail -f watchers
 	return path
+}
+
+// featureDescriptions gives each catalog area a plain-language name for the
+// final report.
+var featureDescriptions = map[string]string{
+	"server-info":               "Server health, ping, info & cluster nodes",
+	"auth":                      "Login, logout & session lifecycle",
+	"auth-rate-limiting":        "Failed-login rate limiting and admin flush",
+	"totp":                      "TOTP second-factor login",
+	"users":                     "User CRUD",
+	"roles":                     "Role CRUD & permission resolution",
+	"groups":                    "Group CRUD",
+	"permissions":               "Permission enforcement & space isolation",
+	"quotas":                    "Per-user space quotas",
+	"tokens":                    "API tokens, scopes & revocation",
+	"templates":                 "Template CRUD, export & import",
+	"spaces":                    "Spaces (creation & dev URL routing)",
+	"space-lifecycle":           "Space start/stop/restart/update",
+	"space-stacks":              "Stacks of spaces (start/stop/delete)",
+	"run-command":               "Command execution inside spaces",
+	"files":                     "File read/write/grep/find/sed/edit",
+	"logs":                      "Syslog from spaces to the log stream",
+	"sharing":                   "Space sharing between users",
+	"transfer":                  "Space ownership transfer",
+	"volumes":                   "Volume CRUD",
+	"pools":                     "Space pools (scale up/down)",
+	"scripts":                   "Scripts CRUD",
+	"skills":                    "Skills CRUD",
+	"commands":                  "Slash commands CRUD",
+	"stack-definitions":         "Stack definitions & validation",
+	"template-vars":             "Template variables",
+	"events":                    "Server-sent events stream",
+	"event-sinks":               "Event sinks (webhook delivery)",
+	"audit-log":                 "Audit log & filtering",
+	"mcp":                       "MCP servers CRUD",
+	"search":                    "Global search",
+	"port-forwarding":           "Port forwards & throttling",
+	"tunnels":                   "Space web tunnels",
+	"usage-history":             "Space usage history samples",
+	"chat":                      "AI chat (OpenAI-compatible endpoint)",
+	"cluster-gossip":            "Gossip cluster: 2 nodes, config replication",
+	"leaf-node":                 "Leaf node against an origin server",
+	"pro:detection":             "Pro: anomaly detection on audit events",
+	"pro:log-spool":             "Pro: log spool & replay via VictoriaLogs",
+	"pro:space-log-forwarding":  "Pro: space logs forwarded to log output",
+	"pro:log-sinks":             "Pro: per-user log sinks (isolation)",
+	"pro:vault-secrets":         "Pro: Vault secret provider in templates",
+	"pro:user-activity":         "Pro: user activity tracking",
+	"pro:user-access":           "Pro: user access overview",
+	"pro:peermesh":              "Pro: direct agent-to-agent port forwards",
+	"pro:migration":             "Pro: failed-node space migration",
+}
+
+func featureDescription(feature string) string {
+	if d, ok := featureDescriptions[feature]; ok {
+		return d
+	}
+	return "—"
 }
 
 func containsFeature(haystack []string, needle string) (int, bool) {

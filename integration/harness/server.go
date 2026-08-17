@@ -74,11 +74,11 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		return nil, err
 	}
 
-	httpPort, err := freePort()
+	httpPort, err := FreePort()
 	if err != nil {
 		return nil, fmt.Errorf("allocate http port: %w", err)
 	}
-	agentPort, err := freePort()
+	agentPort, err := FreePort()
 	if err != nil {
 		return nil, fmt.Errorf("allocate agent port: %w", err)
 	}

@@ -27,7 +27,7 @@ func runGoEnv(dir string, env map[string]string, args ...string) (string, error)
 // freePort asks the kernel for an unused TCP port. There is an inherent race
 // between closing the listener and the server binding, but tests boot servers
 // sequentially and retries make collisions vanishingly rare.
-func freePort() (int, error) {
+func FreePort() (int, error) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, err

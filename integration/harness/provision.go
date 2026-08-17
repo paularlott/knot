@@ -189,6 +189,7 @@ func TesterPermissions() []uint16 {
 		model.PermissionUseStackDefinitions,
 		model.PermissionManageOwnStackDefinitions,
 		model.PermissionManageEvents,
+		model.PermissionUseLogSinks,
 		model.PermissionUsePools,
 		model.PermissionSetSpaceDependencies,
 		model.PermissionUseSpaceStartupScript,

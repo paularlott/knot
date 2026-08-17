@@ -98,13 +98,19 @@ func statusOf(u *harness.User, path string) int {
 // waitFor polls cond every ~2s until it returns true or the timeout elapses.
 func waitFor(t *testing.T, seconds int, cond func() bool) {
 	t.Helper()
+	waitForCond(seconds, cond)
+}
+
+// waitForCond is waitFor without the testing.T.
+func waitForCond(seconds int, cond func() bool) bool {
 	deadline := time.Now().Add(time.Duration(seconds) * time.Second)
 	for time.Now().Before(deadline) {
 		if cond() {
-			return
+			return true
 		}
 		time.Sleep(2 * time.Second)
 	}
+	return cond()
 }
 
 func indexOf(h, n string) int {
