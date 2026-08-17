@@ -1,7 +1,10 @@
 package api
 
 import (
+	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -33,10 +36,19 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get client IP (consistent with how we got it for rate limiting)
+	// Get client IP (consistent with how we got it for rate limiting).
+	// Normalized the same way as RequestProperties: first X-Forwarded-For
+	// entry, port stripped — otherwise direct connections key the limiter
+	// per TCP connection and never trip.
 	clientIP := r.Header.Get("X-Forwarded-For")
 	if clientIP == "" {
 		clientIP = r.RemoteAddr
+	}
+	if strings.Contains(clientIP, ",") {
+		clientIP = strings.TrimSpace(strings.Split(clientIP, ",")[0])
+	}
+	if host, _, err := net.SplitHostPort(clientIP); err == nil {
+		clientIP = host
 	}
 
 	cfg := config.GetServerConfig()
@@ -45,6 +57,17 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		// Block auth while the IP or the account is rate limited
 		if authratelimit.Blocked(clientIP, request.Email) {
 			log.Warn("Rate limit exceeded for IP:", "clientIP", clientIP, "rate", request.Email)
+			// Evidence of attempts while blocked (rate-limit evasion) belongs
+			// in the audit trail and feeds anomaly detection.
+			audit.LogWithRequest(r,
+				request.Email,
+				model.AuditActorTypeUser,
+				model.AuditEventAuthBlocked,
+				fmt.Sprintf("Blocked login attempt for %s", request.Email),
+				&map[string]interface{}{
+					"email": request.Email,
+				},
+			)
 			rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
 			return
 		}

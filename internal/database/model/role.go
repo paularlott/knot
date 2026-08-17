@@ -261,6 +261,24 @@ func RoleExists(roleId string) bool {
 	return ok
 }
 
+// RoleName resolves a role id to its cached name, falling back to the id for
+// unknown roles (e.g. audit entries emitted before the cache was warm).
+func RoleName(roleId string) string {
+	if role, ok := roleCache[roleId]; ok {
+		return role.Name
+	}
+	return roleId
+}
+
+// RoleNames resolves role ids to cached names for audit properties.
+func RoleNames(roleIds []string) []string {
+	names := make([]string, 0, len(roleIds))
+	for _, id := range roleIds {
+		names = append(names, RoleName(id))
+	}
+	return names
+}
+
 // GetUserPermissions returns all permission integers for a user (resolves from roles)
 func GetUserPermissions(user *User) []uint16 {
 	permissions := make(map[uint16]bool)

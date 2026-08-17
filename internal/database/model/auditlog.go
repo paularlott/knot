@@ -24,8 +24,9 @@ const (
 	AuditEventSystemStart = "System Start"
 
 	// Auth
-	AuditEventAuthFailed = "Login Failed"
-	AuditEventAuthOk     = "Login Success"
+	AuditEventAuthFailed  = "Login Failed"
+	AuditEventAuthOk      = "Login Success"
+	AuditEventAuthBlocked = "Login Blocked"
 
 	// Anomaly detection (Knot Pro) — emitted when a detection rule fires over
 	// the audit event stream
