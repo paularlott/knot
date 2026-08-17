@@ -226,6 +226,28 @@ func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleClearAuthBlocks flushes all auth rate-limit state (failed-login
+// counters and active blocks) so blocked IPs can log in again immediately.
+// Clearing is gossiped so the whole cluster flushes together.
+func HandleClearAuthBlocks(w http.ResponseWriter, r *http.Request) {
+	authratelimit.ClearAll()
+	gossipAuthFailure(&authratelimit.Event{At: time.Now(), ClearAll: true})
+
+	audit.LogWithRequest(r,
+		r.Context().Value("user").(*model.User).Username,
+		model.AuditActorTypeUser,
+		model.AuditEventAuthBlocked,
+		"Cleared all authentication rate limit blocks",
+		nil,
+	)
+
+	rest.WriteResponse(http.StatusOK, w, r, struct {
+		Status bool `json:"status"`
+	}{
+		Status: true,
+	})
+}
+
 // gossipAuthFailure shares rate-limit state with the rest of the cluster so
 // tracking and blocking are cluster-wide. A tripped block carries its
 // deadline; a plain failure just counts everywhere; a clear resets.

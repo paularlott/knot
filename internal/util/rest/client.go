@@ -284,6 +284,11 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= http.StatusBadRequest {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+	}
+
 	if response != nil {
 		contentType := resp.Header.Get("Content-Type")
 		if strings.Contains(contentType, ContentTypeMsgPack) {
@@ -490,6 +495,11 @@ func (c *HTTPClient) GetJSON(ctx context.Context, path string, response interfac
 		return 0, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+	}
 
 	if response != nil {
 		err = json.NewDecoder(resp.Body).Decode(response)

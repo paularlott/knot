@@ -1,6 +1,7 @@
 .DS_Store
 /.codegraph/
-/.env
+/.env*
+!/.env.example
 /bin/*
 !/bin/.gitignore
 /web/agents/*
@@ -32,3 +33,6 @@
 /web/public_html/assets/*
 /knot
 /internal/scriptling/manifest.toml
+
+# integration test artifacts (reports, server logs)
+build/test/

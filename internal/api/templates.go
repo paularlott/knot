@@ -440,7 +440,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		template, err = db.GetTemplateByName(templateId)
 	}
 
-	if err != nil || template == nil {
+	if err != nil || template == nil || template.IsDeleted {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
 		return
 	}

@@ -56,10 +56,14 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	spaces, _ := db.GetSpaces()
-	response := make([]apiclient.ClusterNodeInfo, len(peers))
+	response := make([]apiclient.ClusterNodeInfo, 0, len(peers)+1)
 
-	for i, p := range peers {
+	selfSeen := false
+	for _, p := range peers {
 		nodeId := p.ID.String()
+		if nodeId == localNodeId {
+			selfSeen = true
+		}
 		nodeZone := p.Metadata.GetString("zone")
 		allocated, running := countSpaces(spaces, nodeId, nodeZone)
 
@@ -81,12 +85,34 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		response[i] = apiclient.ClusterNodeInfo{
+		response = append(response, apiclient.ClusterNodeInfo{
 			Id:       nodeId,
 			Address:  p.AdvertisedAddr(),
 			State:    p.GetObservedState().String(),
 			Metadata: metadata,
+		})
+	}
+
+	// A standalone server (or a node whose gossip membership hasn't synced)
+	// never appears in the peer list; report the local node so cluster info
+	// is complete on single-server deployments.
+	if !selfSeen && localNodeId != "" {
+		allocated, running := countSpaces(spaces, localNodeId, cfg.Zone)
+		metadata := map[string]string{
+			"zone":             cfg.Zone,
+			"hostname":         cfg.Hostname,
+			"allocated_spaces": fmt.Sprintf("%d", allocated),
+			"running_spaces":   fmt.Sprintf("%d", running),
 		}
+		if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+			metadata["runtimes"] = strings.Join(runtimes, ",")
+		}
+		response = append(response, apiclient.ClusterNodeInfo{
+			Id:       localNodeId,
+			Address:  cfg.Cluster.AdvertiseAddr,
+			State:    "alive",
+			Metadata: metadata,
+		})
 	}
 
 	sort.Slice(response, func(i, j int) bool {

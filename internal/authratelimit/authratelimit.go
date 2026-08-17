@@ -25,6 +25,9 @@ type Event struct {
 	At         time.Time `msgpack:"at"`
 	BlockUntil time.Time `msgpack:"block_until"`
 	Clear      bool      `msgpack:"clear"`
+	// ClearAll wipes every limiter entry (all IPs and emails); the IP and
+	// Email fields are ignored when set.
+	ClearAll bool `msgpack:"clear_all"`
 }
 
 // loginAttempts tracks failed logins for one key (IP or email) and the
@@ -150,11 +153,29 @@ func Clear(ip, email string) {
 	emailMutex.Unlock()
 }
 
+// ClearAll removes every rate limiter entry (all IPs and emails). It is the
+// in-memory "flush all blocks" used by the admin API; blocks expire on
+// their own otherwise.
+func ClearAll() {
+	ipMutex.Lock()
+	ipLimiters = make(map[string]*loginAttempts)
+	ipMutex.Unlock()
+
+	emailMutex.Lock()
+	emailLimiters = make(map[string]*loginAttempts)
+	emailMutex.Unlock()
+}
+
 // ApplyEvent applies a gossiped state change from another server. Failures
 // count towards the shared budget everywhere; blocks are applied as the
 // maximum of local and remote deadlines; clears remove state.
 func ApplyEvent(evt *Event) {
 	if evt == nil {
+		return
+	}
+
+	if evt.ClearAll {
+		ClearAll()
 		return
 	}
 

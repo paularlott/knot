@@ -61,6 +61,13 @@ func (c *ApiClient) LoginUserToken(ctx context.Context, userId string, token str
 	return nil
 }
 
+// ClearAuthBlocks flushes all auth rate-limit state (failed-login counters
+// and active blocks) cluster-wide. Requires the manage users permission.
+func (c *ApiClient) ClearAuthBlocks(ctx context.Context) error {
+	_, err := c.httpClient.Delete(ctx, "/api/auth/blocked", nil, nil, 200)
+	return err
+}
+
 func (c *ApiClient) UsingTOTP(ctx context.Context) (bool, int, error) {
 	response := UsingTOTPResponse{}
 

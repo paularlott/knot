@@ -1417,6 +1417,35 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/auth/blocked:
+    delete:
+      tags:
+        - Authorization
+      summary: Clear authentication rate limit blocks
+      description: |
+        Flush all authentication rate limiting state (failed login counters
+        and active blocks) so blocked source IPs can authenticate again
+        immediately. The clear is gossiped cluster-wide. Requires the
+        manage users permission.
+      operationId: ClearAuthBlocks
+      responses:
+        "200":
+          description: All auth rate limit blocks cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /.well-known/oauth-authorization-server:
     get:
       tags:
