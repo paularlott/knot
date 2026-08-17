@@ -99,6 +99,9 @@ func RecordFailure(ip, email string) (blockedUntil time.Time, tripped bool) {
 	attempts, window, block := rateLimitConfig()
 	now := time.Now()
 
+	// Each key is recorded against its own budget. The gossiped deadline is
+	// whichever trip happened at all (either key may trip alone), preferring
+	// the later deadline when both did.
 	until, tripped := record(ipLimiters, &ipMutex, ip, attempts, window, block, now)
 	until2, tripped2 := record(emailLimiters, &emailMutex, email, attempts, window, block, now)
 	if tripped2 && until2.After(until) {

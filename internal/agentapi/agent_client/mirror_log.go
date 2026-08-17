@@ -130,9 +130,7 @@ func encodeMirrorVL(batch *msg.MirrorLogMessage) []byte {
 			"service": e.Service,
 			"level":   mirrorLevelName(e.Level),
 		}
-		for k, v := range e.Fields {
-			rec[k] = v
-		}
+		mergeFields(rec, e.Fields)
 		b, _ := json.Marshal(rec)
 		buf.Write(b)
 		buf.WriteByte('\n')
@@ -141,7 +139,9 @@ func encodeMirrorVL(batch *msg.MirrorLogMessage) []byte {
 }
 
 // encodeMirrorLoki renders a batch as a Loki push payload, one stream per
-// source space.
+// source space and service: a stream's labels must be constant for every
+// entry in it, so entries from the same space but different services get
+// their own stream instead of overwriting each other's service label.
 func encodeMirrorLoki(batch *msg.MirrorLogMessage) []byte {
 	type lokiStream struct {
 		Stream map[string]string `json:"stream"`
@@ -151,23 +151,22 @@ func encodeMirrorLoki(batch *msg.MirrorLogMessage) []byte {
 		Streams []lokiStream `json:"streams"`
 	}
 
-	spaces := map[string]*lokiStream{}
+	streams := map[string]*lokiStream{}
 	for _, e := range batch.Entries {
-		s, ok := spaces[e.SpaceId]
+		key := e.SpaceId + "\x00" + e.Service
+		s, ok := streams[key]
 		if !ok {
 			s = &lokiStream{Stream: map[string]string{"space": e.SpaceId, "space_name": e.SpaceName, "user": e.User, "service": e.Service}}
-			spaces[e.SpaceId] = s
+			streams[key] = s
 		}
 		lineRec := map[string]any{"msg": e.Message, "level": mirrorLevelName(e.Level)}
-		for k, v := range e.Fields {
-			lineRec[k] = v
-		}
+		mergeFields(lineRec, e.Fields)
 		line, _ := json.Marshal(lineRec)
 		s.Values = append(s.Values, [2]string{fmt.Sprintf("%d", e.Date.UnixNano()), string(line)})
 	}
 
-	payload := lokiPayload{Streams: make([]lokiStream, 0, len(spaces))}
-	for _, s := range spaces {
+	payload := lokiPayload{Streams: make([]lokiStream, 0, len(streams))}
+	for _, s := range streams {
 		payload.Streams = append(payload.Streams, *s)
 	}
 	b, _ := json.Marshal(payload)
@@ -199,19 +198,42 @@ func postMirrorGelf(url string, batch *msg.MirrorLogMessage, auth sinkAuth) erro
 	return nil
 }
 
-// postMirrorJSON sends each entry to the native /logs endpoint.
+// postMirrorJSON sends each entry to the native /logs endpoint. Keys beyond
+// the endpoint's service/level/message schema are kept as structured fields
+// by the receiving side, so the space/user context and any entry fields ride
+// along instead of being dropped.
 func postMirrorJSON(url string, batch *msg.MirrorLogMessage, auth sinkAuth) error {
 	for _, e := range batch.Entries {
-		body, _ := json.Marshal(map[string]string{
-			"service": e.Service,
-			"level":   mirrorLevelName(e.Level),
-			"message": e.Message,
-		})
+		rec := map[string]string{
+			"service":    e.Service,
+			"level":      mirrorLevelName(e.Level),
+			"message":    e.Message,
+			"space_id":   e.SpaceId,
+			"space_name": e.SpaceName,
+			"user":       e.User,
+		}
+		mergeFields(rec, e.Fields)
+		body, _ := json.Marshal(rec)
 		if err := postMirror(url, "application/json", body, auth); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// mergeFields copies entry fields into a rendered record without touching
+// keys knot itself set: those carry the record's origin (space, user,
+// service, level), and an app field sharing a name would misattribute the
+// record at the sink — and on the VL path, silently re-route its stream. A
+// colliding app field is dropped from the mirrored copy; the original entry
+// inside knot still carries it.
+func mergeFields[V any](rec map[string]V, fields map[string]string) {
+	for k, v := range fields {
+		if _, taken := rec[k]; taken {
+			continue
+		}
+		rec[k] = any(v).(V)
+	}
 }
 
 func mirrorLevelName(level msg.LogLevel) string {

@@ -133,17 +133,19 @@ func victoriaLogLevel(record map[string]any) msg.LogLevel {
 	}
 }
 
-// stringOrNumber maps numeric syslog-style levels to the level names shippers
-// use, returning "" when the value isn't a recognised level.
+// stringOrNumber maps numeric syslog severities (0 emergency … 7 debug) to
+// the level names shippers use, returning "" when the value isn't a
+// recognised level. Warning (4) and notice (5) have no knot equivalent and
+// round down to info.
 func stringOrNumber(v any) string {
 	switch t := v.(type) {
 	case string:
 		return t
 	case float64:
 		switch t {
-		case 0, 1, 2:
+		case 0, 1, 2, 3:
 			return "error"
-		case 3, 4, 5, 6:
+		case 4, 5, 6:
 			return "info"
 		case 7:
 			return "debug"

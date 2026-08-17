@@ -106,7 +106,8 @@ func TestVictoriaLogsLevels(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	want := []msg.LogLevel{msg.LogLevelDebug, msg.LogLevelError, msg.LogLevelInfo, msg.LogLevelInfo}
+	// Numeric level 3 is syslog error — not info.
+	want := []msg.LogLevel{msg.LogLevelDebug, msg.LogLevelError, msg.LogLevelError, msg.LogLevelInfo}
 	if len(*logs) != len(want) {
 		t.Fatalf("expected %d messages, got %d", len(want), len(*logs))
 	}

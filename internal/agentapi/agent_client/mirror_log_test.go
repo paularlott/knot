@@ -198,6 +198,50 @@ func TestMirrorLogJSONFormat(t *testing.T) {
 	if rec["service"] != "web" || rec["level"] != "error" || rec["message"] != "boom" {
 		t.Errorf("unexpected record: %v", rec)
 	}
+	if rec["space_id"] != "space-a" || rec["space_name"] != "frontend" || rec["user"] != "alice" {
+		t.Errorf("record should carry the source space and user: %v", rec)
+	}
+	if rec["request_id"] != "req-1" || rec["status"] != "201" {
+		t.Errorf("record should carry structured fields: %v", rec)
+	}
+}
+
+func TestMirrorLogLokiSplitsServicesPerStream(t *testing.T) {
+	srv, requests, mu := captureServer(t)
+	pointMirrorAt(t, srv)
+
+	handleMirrorLog(sinkClient(t, "loki"), &msg.MirrorLogMessage{Entries: []*msg.MirrorLogEntry{
+		{SpaceId: "space-a", SpaceName: "frontend", User: "alice", Service: "web", Level: msg.LogLevelInfo, Message: "from web", Date: time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)},
+		{SpaceId: "space-a", SpaceName: "frontend", User: "alice", Service: "worker", Level: msg.LogLevelInfo, Message: "from worker", Date: time.Date(2026, 8, 15, 10, 0, 1, 0, time.UTC)},
+	}})
+
+	mu.Lock()
+	defer mu.Unlock()
+	var payload struct {
+		Streams []struct {
+			Stream map[string]string `json:"stream"`
+			Values [][2]string       `json:"values"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal([]byte((*requests)[0].body), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Streams) != 2 {
+		t.Fatalf("one space with two services must yield two streams, got %d: %v", len(payload.Streams), payload.Streams)
+	}
+	services := map[string]string{}
+	for _, s := range payload.Streams {
+		if s.Stream["space"] != "space-a" {
+			t.Fatalf("both streams belong to space-a, got %v", s.Stream)
+		}
+		services[s.Stream["service"]] = s.Values[0][1]
+	}
+	if len(services) != 2 {
+		t.Fatalf("expected web and worker streams, got %v", services)
+	}
+	if !strings.Contains(services["web"], "from web") || !strings.Contains(services["worker"], "from worker") {
+		t.Errorf("each service's entries must be in its own stream, got %v", services)
+	}
 }
 
 func TestMirrorLogRetriesThenSucceeds(t *testing.T) {
@@ -303,5 +347,76 @@ func TestMirrorLogTokenTakesPrecedence(t *testing.T) {
 	defer mu.Unlock()
 	if len(*requests) == 0 || (*requests)[0].auth != "Bearer tok" {
 		t.Errorf("token should take precedence over basic auth, got %+v", *requests)
+	}
+}
+
+func TestMirrorMetadataNotOverwrittenByFields(t *testing.T) {
+	// An app field that collides with knot's origin keys must not
+	// misattribute the record at the sink.
+	entry := &msg.MirrorLogEntry{
+		SpaceId: "space-a", SpaceName: "frontend", User: "alice",
+		Service: "web", Level: msg.LogLevelError, Message: "boom",
+		Date:   time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC),
+		Fields: map[string]string{"service": "evil", "user": "mallory", "level": "debug", "space_id": "space-x", "request_id": "req-9"},
+	}
+	batch := &msg.MirrorLogMessage{Entries: []*msg.MirrorLogEntry{entry}}
+
+	// VL: metadata keys survive, unrelated fields pass through.
+	vl := string(encodeMirrorVL(batch))
+	for _, want := range []string{`"service":"web"`, `"actor":"alice"`, `"request_id":"req-9"`} {
+		if !strings.Contains(vl, want) {
+			t.Errorf("VL record missing %s: %s", want, vl)
+		}
+	}
+	if strings.Contains(vl, `"service":"evil"`) || strings.Contains(vl, `"actor":"mallory"`) {
+		t.Errorf("VL metadata was overwritten by app fields: %s", vl)
+	}
+
+	// Loki: msg and level in the line JSON stay knot's. Origin lives in the
+	// stream labels, so app fields named service/user may appear in the line
+	// without misattributing anything.
+	var payload struct {
+		Streams []struct {
+			Stream map[string]string `json:"stream"`
+			Values [][2]string       `json:"values"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal(encodeMirrorLoki(batch), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Streams) != 1 {
+		t.Fatalf("expected one stream, got %d", len(payload.Streams))
+	}
+	if payload.Streams[0].Stream["service"] != "web" || payload.Streams[0].Stream["user"] != "alice" {
+		t.Errorf("Loki stream labels lost origin: %v", payload.Streams[0].Stream)
+	}
+	var line map[string]any
+	if err := json.Unmarshal([]byte(payload.Streams[0].Values[0][1]), &line); err != nil {
+		t.Fatal(err)
+	}
+	if line["msg"] != "boom" || line["level"] != "error" {
+		t.Errorf("Loki line msg/level were overwritten: %v", line)
+	}
+
+	// JSON native: same rule, through the real delivery path.
+
+	// GELF: app fields are underscore-prefixed, so nothing to clobber.
+	srv, requests, mu := captureServer(t)
+	pointMirrorAt(t, srv)
+	handleMirrorLog(sinkClient(t, "json"), batch)
+	mu.Lock()
+	defer mu.Unlock()
+	if len(*requests) != 1 {
+		t.Fatalf("expected 1 request, got %d", len(*requests))
+	}
+	var native map[string]string
+	if err := json.Unmarshal([]byte((*requests)[0].body), &native); err != nil {
+		t.Fatal(err)
+	}
+	if native["service"] != "web" || native["user"] != "alice" || native["space_id"] != "space-a" || native["level"] != "error" {
+		t.Errorf("native metadata overwritten: %v", native)
+	}
+	if native["request_id"] != "req-9" {
+		t.Errorf("unrelated field should pass through: %v", native)
 	}
 }

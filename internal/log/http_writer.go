@@ -151,6 +151,10 @@ func (w *httpWriter) flush() {
 		if len(undelivered) > 0 {
 			// Same handling as a failed batch: stderr mirror and degraded
 			// mode. Cleared below only once a flush delivers every message.
+			// Delivery is at-least-once: a post that timed out after the
+			// endpoint processed it still gets dropped to stderr, so
+			// exactly-once consumers must deduplicate — GELF carries no
+			// idempotency key to do it for them.
 			w.drop(undelivered)
 			return
 		}

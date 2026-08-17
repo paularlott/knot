@@ -621,6 +621,10 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
+		// Delivery runs off the read loop; the yamux stream delivers
+		// batches in order and the server only sends the next one after
+		// this read, so at most one delivery goroutine is in flight per
+		// sink regardless of how slow the local log service is.
 		go handleMirrorLog(s.agentClient, &batch)
 
 	case byte(msg.CmdCopyFile):
