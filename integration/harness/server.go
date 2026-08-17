@@ -155,18 +155,20 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 	}
 	args = append(args, extraArgs...)
 
-	// Pro builds force-enable the peer mesh, whose published host ports
-	// (default 30001+) are global across the docker daemon — parallel test
-	// servers would collide. Give every non-default server a disjoint range
-	// via knot.toml (explicit ranges survive registerProFeatures; the
-	// enabled flag does not).
+	// Pro builds enable the peer mesh, whose published host ports (default
+	// 30001+) are global across the docker daemon — parallel test servers
+	// would collide. Give every non-default server a disjoint published
+	// range; the default server keeps the default range (the peermesh
+	// suite runs there).
 	if ProBuild && name != "default" {
 		peerMeshRangeMu.Lock()
-		toml := fmt.Sprintf("[server.peermesh]\nport_range_min = %d\nport_range_max = %d\n",
-			31000+peerMeshRangeIdx*100, 31099+peerMeshRangeIdx*100)
-		peerMeshRangeIdx = (peerMeshRangeIdx + 1) % 20
+		min := 31000 + peerMeshRangeIdx*100
+		peerMeshRangeIdx = (peerMeshRangeIdx + 1) % 25
 		peerMeshRangeMu.Unlock()
-		os.WriteFile(filepath.Join(dataDir, "knot.toml"), []byte(toml), 0o644)
+		args = append(args,
+			"--peermesh-port-range-min", fmt.Sprintf("%d", min),
+			"--peermesh-port-range-max", fmt.Sprintf("%d", min+99),
+		)
 	}
 
 	srv.cmd = exec.Command(bins.Server, args...)
