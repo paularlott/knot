@@ -193,11 +193,14 @@ func writeReportLocked() string {
 
 	b.WriteString("| Feature | Status | Tests (pass/fail/skip) |\n|---|---|---|\n")
 	for _, feature := range featureCatalog {
+		if strings.HasPrefix(feature, "pro:") && !ProBuild {
+			continue // pro feature areas only appear in the pro build's report
+		}
 		rs, ok := byFeature[feature]
 		if !ok || len(rs) == 0 {
 			note := "no tests"
 			if strings.HasPrefix(feature, "pro:") {
-				note = "pro only — tested in the pro fork"
+				note = "pro only — not yet tested"
 			}
 			fmt.Fprintf(&b, "| `%s` | ⚪ %s | — |\n", feature, note)
 			continue
@@ -242,6 +245,9 @@ func writeReportLocked() string {
 
 	b.WriteString("\n## Detail\n\n")
 	for _, feature := range featureCatalog {
+		if strings.HasPrefix(feature, "pro:") && !ProBuild {
+			continue
+		}
 		rs, ok := byFeature[feature]
 		if !ok {
 			continue
