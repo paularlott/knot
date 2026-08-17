@@ -266,6 +266,27 @@ func (s *Server) waitHealthy(timeout time.Duration) error {
 	return fmt.Errorf("health check failed: %w", lastErr)
 }
 
+// Kill stops the server process immediately without any cleanup — the
+// data dir and any containers it created are left behind, simulating a
+// crashed node.
+func (s *Server) Kill() {
+	s.mu.Lock()
+	if s.stopped {
+		s.mu.Unlock()
+		return
+	}
+	s.stopped = true
+	s.mu.Unlock()
+
+	if s.cmd != nil && s.cmd.Process != nil {
+		s.cmd.Process.Kill()
+		s.cmd.Wait()
+	}
+	if s.logFile != nil {
+		s.logFile.Close()
+	}
+}
+
 // LogTail returns the last n lines of the server log for diagnostics.
 func (s *Server) LogTail(n int) string {
 	data, err := os.ReadFile(s.LogPath)

@@ -18,6 +18,9 @@ type TemplateOptions struct {
 	Port     uint16
 	// Volumes is the volume definition YAML attached to the template.
 	Volumes string
+	// AllowMigration enables failed-node migration for the template
+	// (AllowNodeMigration + HealthCheckAutoRestart).
+	AllowMigration bool
 }
 
 // TemplateJobYAML renders the docker container spec for a knot-ubuntu space.
@@ -76,7 +79,9 @@ func CreateTemplate(s *Server, client *apiclient.ApiClient, name string, opts Te
 		StorageUnits:    2,
 		MaxUptime:       0,
 		MaxUptimeUnit:   "disabled",
-		HealthCheckType: "none",
+		HealthCheckType:          "none",
+		AllowNodeMigration:       opts.AllowMigration,
+		HealthCheckAutoRestart:   opts.AllowMigration,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
