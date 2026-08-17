@@ -61,20 +61,22 @@ func TestRoleGrantsPermissions(t *testing.T) {
 	ctx, cancel := testCtx(30)
 	defer cancel()
 
-	// user2's role grants space usage only for this check — use a fresh user
-	// whose role has exactly one permission and verify the resolved set.
-	limited, err := harness.CreateUser(server, admin, uniqueName("it-limited"),
+	// A fresh user whose role has exactly one permission; verify the
+	// resolved set. Runs on a dedicated server under pro (2-user cap).
+	target, targetAdmin := crudTarget(t)
+	limited, err := harness.CreateUser(target, targetAdmin, uniqueName("it-limited"),
 		[]uint16{model.PermissionUseSpaces})
 	if err != nil {
 		t.Fatalf("create limited user: %v", err)
 	}
 	defer func() {
 		ctx, cancel := testCtx(30)
-		_ = admin.Client.DeleteUser(ctx, limited.Id)
+		_ = targetAdmin.Client.DeleteUser(ctx, limited.Id)
 		cancel()
 	}()
+	_ = target
 
-	perms, err := admin.Client.GetUserPermissions(ctx, limited.Id)
+	perms, err := targetAdmin.Client.GetUserPermissions(ctx, limited.Id)
 	if err != nil {
 		t.Fatalf("get permissions: %v", err)
 	}

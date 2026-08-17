@@ -91,7 +91,9 @@ func TestUsersCRUD(t *testing.T) {
 	// Duplicate username is rejected.
 	if _, code, err := targetAdmin.Client.CreateUser(ctx, req); err == nil {
 		t.Fatal("duplicate user created")
-	} else if code != 400 {
+	} else if code != 400 && !(harness.ProBuild && code == 403) {
+		// pro's user-limit gate runs before the duplicate check on a
+		// capped server, which also proves the create is refused.
 		t.Fatalf("duplicate user status = %d, want 400", code)
 	}
 
