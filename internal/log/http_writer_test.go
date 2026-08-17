@@ -3,6 +3,7 @@ package log
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -238,5 +239,31 @@ func TestGelfLevelMapping(t *testing.T) {
 		if got := gelfLevel(name); got != want {
 			t.Errorf("%s: expected %d, got %d", name, want, got)
 		}
+	}
+}
+
+func TestGelfPostsOneMessagePerRequest(t *testing.T) {
+	shortBackoffs(t)
+
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		body, _ := io.ReadAll(r.Body)
+		if strings.Contains(strings.TrimSpace(string(body)), "\n") {
+			t.Errorf("gelf body must be a single message, got batch: %s", body)
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	w := newTestWriter(t, srv.URL)
+	w.format = "gelf"
+	for i := 0; i < 3; i++ {
+		w.Write([]byte(`{"msg":"one","time":"2026-08-17T10:00:0` + string(rune('0'+i)) + `Z","level":"INFO"}` + "\n"))
+	}
+	w.flush()
+
+	if got := requests.Load(); got != 3 {
+		t.Fatalf("expected 3 separate gelf posts, got %d", got)
 	}
 }

@@ -52,7 +52,9 @@ func handleMirrorLog(agentClient *AgentClient, batch *msg.MirrorLogMessage) {
 		if agentClient.GetLogSinkFormat() == "json" {
 			err = postMirrorJSON(base+"/logs", batch, auth)
 		} else {
-			err = postMirror(base+"/insert/jsonline", "application/stream+json", encodeMirrorVL(batch), auth)
+			// service and level are declared as stream fields so sink-side
+			// VictoriaLogs indexes them as streams.
+			err = postMirror(base+"/insert/jsonline?_stream_fields=service,level", "application/stream+json", encodeMirrorVL(batch), auth)
 		}
 	}
 	if err != nil {
@@ -128,6 +130,9 @@ func encodeMirrorVL(batch *msg.MirrorLogMessage) []byte {
 			"service": e.Service,
 			"level":   mirrorLevelName(e.Level),
 		}
+		for k, v := range e.Fields {
+			rec[k] = v
+		}
 		b, _ := json.Marshal(rec)
 		buf.Write(b)
 		buf.WriteByte('\n')
@@ -153,7 +158,11 @@ func encodeMirrorLoki(batch *msg.MirrorLogMessage) []byte {
 			s = &lokiStream{Stream: map[string]string{"space": e.SpaceId, "space_name": e.SpaceName, "user": e.User, "service": e.Service}}
 			spaces[e.SpaceId] = s
 		}
-		line, _ := json.Marshal(map[string]any{"msg": e.Message, "level": mirrorLevelName(e.Level)})
+		lineRec := map[string]any{"msg": e.Message, "level": mirrorLevelName(e.Level)}
+		for k, v := range e.Fields {
+			lineRec[k] = v
+		}
+		line, _ := json.Marshal(lineRec)
 		s.Values = append(s.Values, [2]string{fmt.Sprintf("%d", e.Date.UnixNano()), string(line)})
 	}
 
@@ -178,6 +187,9 @@ func postMirrorGelf(url string, batch *msg.MirrorLogMessage, auth sinkAuth) erro
 			"_user":         e.User,
 			"facility":      e.Service,
 			"level":         mirrorGelfLevel(e.Level),
+		}
+		for k, v := range e.Fields {
+			gelf["_"+k] = v
 		}
 		body, _ := json.Marshal(gelf)
 		if err := postMirror(url, "application/json", body, auth); err != nil {

@@ -137,6 +137,25 @@ func (w *httpWriter) flush() {
 	w.buf = nil
 	w.mu.Unlock()
 
+	// GELF is posted one message per request: newline-batched GELF over
+	// HTTP only works with Graylog's non-default "Enable Bulk Receiving"
+	// option, so batching would silently fail on stock inputs.
+	if w.format == "gelf" {
+		for _, line := range lines {
+			if body, contentType := w.encode([][]byte{line}); body != nil {
+				w.post(body, contentType)
+			}
+		}
+		w.mu.Lock()
+		recovered := w.degraded
+		w.degraded = false
+		w.mu.Unlock()
+		if recovered {
+			fmt.Fprintf(w.stderr, "knot: log output recovered, sending logs to the external service only\n")
+		}
+		return
+	}
+
 	body, contentType := w.encode(lines)
 	if body == nil {
 		return

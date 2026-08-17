@@ -1,13 +1,12 @@
 package api
 
 import (
-	"context"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -19,124 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
-
-	"golang.org/x/time/rate"
 )
-
-// Add metadata to track last use
-type rateLimiterEntry struct {
-	limiter  *rate.Limiter
-	lastUsed time.Time
-}
-
-var (
-	// Rate limit by IP address
-	ipLimiters = make(map[string]*rateLimiterEntry)
-	ipMutex    sync.Mutex
-
-	// Rate limit by email address
-	emailLimiters = make(map[string]*rateLimiterEntry)
-	emailMutex    sync.Mutex
-)
-
-const (
-	cleanupInterval = 10 * time.Minute
-	cleanupMaxAge   = 30 * time.Minute
-
-	ipRateLimit  = 5 // requests per minute
-	ipBurstLimit = 3 // burst size
-
-	emailRateLimit  = 3 // requests per minute
-	emailBurstLimit = 3 // burst size
-)
-
-func cleanupLimiters(ctx context.Context) {
-	ticker := time.NewTicker(cleanupInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			cleanupTime := time.Now().Add(-cleanupMaxAge)
-
-			// Cleanup IP limiters
-			ipMutex.Lock()
-			for ip, entry := range ipLimiters {
-				if entry.lastUsed.Before(cleanupTime) {
-					delete(ipLimiters, ip)
-				}
-			}
-			ipMutex.Unlock()
-
-			// Cleanup email limiters
-			emailMutex.Lock()
-			for email, entry := range emailLimiters {
-				if entry.lastUsed.Before(cleanupTime) {
-					delete(emailLimiters, email)
-				}
-			}
-			emailMutex.Unlock()
-
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// Helper function to get or create a rate limiter
-func getIPLimiter(ip string) *rate.Limiter {
-	ipMutex.Lock()
-	defer ipMutex.Unlock()
-
-	entry, exists := ipLimiters[ip]
-	if !exists {
-		// Allow ipRateLimit requests per minute with burst of ipBurstLimit
-		limiter := rate.NewLimiter(rate.Limit(ipRateLimit)/60.0, ipBurstLimit)
-		entry = &rateLimiterEntry{
-			limiter:  limiter,
-			lastUsed: time.Now(),
-		}
-		ipLimiters[ip] = entry
-	} else {
-		entry.lastUsed = time.Now()
-	}
-
-	return entry.limiter
-}
-
-// Similar function for email
-func getEmailLimiter(email string) *rate.Limiter {
-	emailMutex.Lock()
-	defer emailMutex.Unlock()
-
-	entry, exists := emailLimiters[email]
-	if !exists {
-		// Allow emailRateLimit requests per minute with burst of emailBurstLimit
-		limiter := rate.NewLimiter(rate.Limit(emailRateLimit)/60.0, emailBurstLimit)
-		entry = &rateLimiterEntry{
-			limiter:  limiter,
-			lastUsed: time.Now(),
-		}
-		emailLimiters[email] = entry
-	} else {
-		entry.lastUsed = time.Now()
-	}
-
-	return entry.limiter
-}
-
-// Remove limiters on successful login
-func removeRateLimiters(email, ip string) {
-	// Remove IP limiter
-	ipMutex.Lock()
-	delete(ipLimiters, ip)
-	ipMutex.Unlock()
-
-	// Remove email limiter
-	emailMutex.Lock()
-	delete(emailLimiters, email)
-	emailMutex.Unlock()
-}
 
 func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var userId string = ""
@@ -160,21 +42,12 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
 
 	if cfg.AuthIPRateLimiting {
-		// Apply rate limiting by IP
-		ipLimiter := getIPLimiter(clientIP)
-		if !ipLimiter.Allow() {
-			log.Warn("Rate limit exceeded for IP:", "clientIP", clientIP)
+		// Block auth while the IP or the account is rate limited
+		if authratelimit.Blocked(clientIP, request.Email) {
+			log.Warn("Rate limit exceeded for IP:", "clientIP", clientIP, "rate", request.Email)
 			rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
 			return
 		}
-	}
-
-	// Apply rate limiting by email
-	emailLimiter := getEmailLimiter(request.Email)
-	if !emailLimiter.Allow() {
-		log.Warn("Rate limit exceeded for email:", "rate", request.Email)
-		rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
-		return
 	}
 
 	// Validate
@@ -186,6 +59,12 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	// Get the user & check the password
 	user, err := db.GetUserByEmail(request.Email)
 	if err != nil || !user.Active || !user.CheckPassword(request.Password) {
+		if cfg.AuthIPRateLimiting {
+			until, _ := authratelimit.RecordFailure(clientIP, request.Email)
+			gossipAuthFailure(&authratelimit.Event{
+				IP: clientIP, Email: request.Email, At: time.Now(), BlockUntil: until,
+			})
+		}
 		code := http.StatusUnauthorized
 
 		audit.LogWithRequest(r,
@@ -274,7 +153,8 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Remove rate limiters on successful login
-	removeRateLimiters(request.Email, clientIP)
+	authratelimit.Clear(clientIP, request.Email)
+	gossipAuthFailure(&authratelimit.Event{IP: clientIP, Email: request.Email, At: time.Now(), Clear: true})
 
 	// Return the authentication token
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.AuthLoginResponse{
@@ -321,4 +201,13 @@ func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.UsingTOTPResponse{
 		UsingTOTP: cfg.TOTP.Enabled,
 	})
+}
+
+// gossipAuthFailure shares rate-limit state with the rest of the cluster so
+// tracking and blocking are cluster-wide. A tripped block carries its
+// deadline; a plain failure just counts everywhere; a clear resets.
+func gossipAuthFailure(evt *authratelimit.Event) {
+	if transport := service.GetTransport(); transport != nil {
+		transport.GossipAuthFailure(evt)
+	}
 }

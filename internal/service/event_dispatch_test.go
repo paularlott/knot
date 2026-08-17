@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/gossip/hlc"
+	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/database/model"
 )
 
@@ -77,6 +78,7 @@ func (f *fakeTransport) GossipToken(*model.Token)                       {}
 func (f *fakeTransport) GossipVolume(*model.Volume)                     {}
 func (f *fakeTransport) GossipSpaceUsageSample(*model.SpaceUsageSample) {}
 func (f *fakeTransport) GossipAuditLog(*model.AuditLogEntry)            {}
+func (f *fakeTransport) GossipAuthFailure(*authratelimit.Event)         {}
 func (f *fakeTransport) GossipSession(*model.Session)                   {}
 func (f *fakeTransport) GossipScript(*model.Script)                     {}
 func (f *fakeTransport) GossipSkill(*model.Skill)                       {}

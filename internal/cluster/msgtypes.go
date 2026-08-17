@@ -51,4 +51,5 @@ const (
 	ConversationGossipMsg
 	MCPServerFullSyncMsg
 	MCPServerGossipMsg
+	AuthFailureGossipMsg
 )

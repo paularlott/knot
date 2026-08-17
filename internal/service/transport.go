@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/paularlott/gossip"
+	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/database/model"
 )
 
@@ -18,6 +19,7 @@ type Transport interface {
 	GossipVolume(volume *model.Volume)
 	GossipSpaceUsageSample(sample *model.SpaceUsageSample)
 	GossipAuditLog(entry *model.AuditLogEntry)
+	GossipAuthFailure(evt *authratelimit.Event)
 	GossipSession(session *model.Session)
 	GossipScript(script *model.Script)
 	GossipSkill(skill *model.Skill)

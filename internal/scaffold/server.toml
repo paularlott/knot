@@ -34,6 +34,14 @@ url = "https://knot.internal"
 # Stream label used to identify audit log entries in the external log driver
 # Defaults to "audit" to distinguish from the main application log stream
 # audit_stream = "audit"
+#
+# Failed-login blocking (auth_ip_rate_limiting = true): block auth after
+# auth_rate_limit_attempts failures within auth_rate_limit_window seconds,
+# for auth_rate_limit_block seconds.
+# auth_ip_rate_limiting = true
+# auth_rate_limit_attempts = 10
+# auth_rate_limit_window = 60
+# auth_rate_limit_block = 300
 
 [server.terminal]
 webgl = true

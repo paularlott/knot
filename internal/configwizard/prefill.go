@@ -85,6 +85,19 @@ type prefillConfig struct {
 			Issuer  string `toml:"issuer"`
 		} `toml:"totp"`
 
+		Cluster struct {
+			AdvertiseAddr string   `toml:"advertise_addr"`
+			Key           string   `toml:"key"`
+			Peers         []string `toml:"peers"`
+			AllowLeaf     *bool    `toml:"allow_leaf_nodes"`
+		} `toml:"cluster"`
+
+		AuthIPRateLimiting *bool `toml:"auth_ip_rate_limiting"`
+
+		AuthRateLimitAttempts int `toml:"auth_rate_limit_attempts"`
+		AuthRateLimitWindow   int `toml:"auth_rate_limit_window"`
+		AuthRateLimitBlock    int `toml:"auth_rate_limit_block"`
+
 		UI struct {
 			EnableGravatar bool `toml:"enable_gravatar"`
 		} `toml:"ui"`
@@ -213,6 +226,26 @@ func FormFromConfig(base Form, path string) Form {
 		base.ChatType = "openai"
 	}
 	base.TotpEnabled, base.TotpIssuer = s.TOTP.Enabled, s.TOTP.Issuer
+	if s.AuthIPRateLimiting != nil {
+		base.AuthIPRateLimiting = *s.AuthIPRateLimiting
+	}
+	if s.AuthRateLimitAttempts > 0 {
+		base.AuthRateLimitAttempts = s.AuthRateLimitAttempts
+	}
+	if s.AuthRateLimitWindow > 0 {
+		base.AuthRateLimitWindow = s.AuthRateLimitWindow
+	}
+	if s.AuthRateLimitBlock > 0 {
+		base.AuthRateLimitBlock = s.AuthRateLimitBlock
+	}
+	if s.Cluster.Key != "" || s.Cluster.AdvertiseAddr != "" || len(s.Cluster.Peers) > 0 {
+		base.ClusterAdvertiseAddr = s.Cluster.AdvertiseAddr
+		base.ClusterKey = s.Cluster.Key
+		base.ClusterPeers = strings.Join(s.Cluster.Peers, ", ")
+		if s.Cluster.AllowLeaf != nil {
+			base.AllowLeafNodes = *s.Cluster.AllowLeaf
+		}
+	}
 	if base.TotpIssuer == "" {
 		base.TotpIssuer = "Knot"
 	}

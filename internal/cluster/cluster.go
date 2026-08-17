@@ -155,6 +155,7 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(VolumeFullSyncMsg, cluster.handleVolumeFullSync)
 		cluster.gossipCluster.HandleFunc(VolumeGossipMsg, cluster.handleVolumeGossip)
 		cluster.gossipCluster.HandleFunc(AuditLogGossipMsg, cluster.handleAuditLogGossip)
+		cluster.gossipCluster.HandleFunc(AuthFailureGossipMsg, cluster.handleAuthFailureGossip)
 		cluster.gossipCluster.HandleFuncWithReply(ResourceLockFullSyncMsg, cluster.handleResourceLockFullSync)
 		cluster.gossipCluster.HandleFunc(ResourceLockGossipMsg, cluster.handleResourceLockGossip)
 		cluster.gossipCluster.HandleFuncWithReply(ScriptFullSyncMsg, cluster.handleScriptFullSync)

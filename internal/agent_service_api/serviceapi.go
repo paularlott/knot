@@ -16,8 +16,8 @@ var agentClient *agent_client.AgentClient
 
 // sendLogMessage is indirected through a var so tests can capture messages
 // without a live agent client.
-var sendLogMessage = func(service string, level msg.LogLevel, message string) {
-	agentClient.SendLogMessage(service, level, message)
+var sendLogMessage = func(service string, level msg.LogLevel, message string, fields map[string]string) {
+	agentClient.SendStructuredLogMessage(service, level, message, fields)
 }
 
 func ListenAndServe(agent *agent_client.AgentClient) {

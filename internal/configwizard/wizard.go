@@ -63,8 +63,18 @@ type Form struct {
 	TunnelDomain  string `json:"tunnel_domain"`
 	TunnelServer  string `json:"tunnel_server"`
 
-	TotpEnabled bool   `json:"totp_enabled"`
-	TotpIssuer  string `json:"totp_issuer"`
+	TotpEnabled        bool   `json:"totp_enabled"`
+	TotpIssuer         string `json:"totp_issuer"`
+	AuthIPRateLimiting bool   `json:"auth_ip_rate_limiting"`
+
+	AuthRateLimitAttempts int `json:"auth_rate_limit_attempts"`
+	AuthRateLimitWindow   int `json:"auth_rate_limit_window"`
+	AuthRateLimitBlock    int `json:"auth_rate_limit_block"`
+
+	ClusterAdvertiseAddr string `json:"cluster_advertise_addr"`
+	ClusterKey           string `json:"cluster_key"`
+	ClusterPeers         string `json:"cluster_peers"`
+	AllowLeafNodes       bool   `json:"allow_leaf_nodes"`
 
 	EnableGravatar bool `json:"enable_gravatar"`
 
@@ -80,35 +90,40 @@ type Form struct {
 
 func DefaultForm() Form {
 	return Form{
-		Listen:          "0.0.0.0:3000",
-		ListenAgent:     "0.0.0.0:3010",
-		URL:             "",
-		AgentEndpoint:   "",
-		Timezone:        "",
-		NomadAddr:       "http://127.0.0.1:4646",
-		DockerHost:      "unix:///var/run/docker.sock",
-		PodmanHost:      "unix:///run/podman/podman.sock",
-		DBType:          "mysql",
-		BadgerPath:      "./badgerdb/",
-		MySQLHost:       "",
-		MySQLPort:       3306,
-		MySQLUser:       "",
-		MySQLDatabase:   "knot",
-		RedisHosts:      nil,
-		EncryptionKey:   crypt.CreateKey(),
-		EnableMCP:       false,
-		DNSEnabled:      false,
-		DNSListen:       ":3053",
-		ChatEnabled:     false,
-		ChatType:        "openai",
-		ChatBaseURL:     "",
-		TunnelEnabled:   false,
-		TotpEnabled:     false,
-		TotpIssuer:      "Knot",
-		EnableGravatar:  true,
-		LogOutputFormat: "ndjson",
-		AuditRouting:    "internal",
-		AuditRetention:  90,
+		Listen:                "0.0.0.0:3000",
+		ListenAgent:           "0.0.0.0:3010",
+		URL:                   "",
+		AgentEndpoint:         "",
+		Timezone:              "",
+		NomadAddr:             "http://127.0.0.1:4646",
+		DockerHost:            "unix:///var/run/docker.sock",
+		PodmanHost:            "unix:///run/podman/podman.sock",
+		DBType:                "mysql",
+		BadgerPath:            "./badgerdb/",
+		MySQLHost:             "",
+		MySQLPort:             3306,
+		MySQLUser:             "",
+		MySQLDatabase:         "knot",
+		RedisHosts:            nil,
+		EncryptionKey:         crypt.CreateKey(),
+		EnableMCP:             false,
+		DNSEnabled:            false,
+		DNSListen:             ":3053",
+		ChatEnabled:           false,
+		ChatType:              "openai",
+		ChatBaseURL:           "",
+		TunnelEnabled:         false,
+		TotpEnabled:           false,
+		TotpIssuer:            "Knot",
+		EnableGravatar:        true,
+		AuthIPRateLimiting:    true,
+		AuthRateLimitAttempts: 10,
+		AuthRateLimitWindow:   60,
+		AuthRateLimitBlock:    300,
+		AllowLeafNodes:        true,
+		LogOutputFormat:       "ndjson",
+		AuditRouting:          "internal",
+		AuditRetention:        90,
 	}
 }
 

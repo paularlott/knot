@@ -3,6 +3,7 @@ package agent_service_api
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -68,7 +69,7 @@ func handleVictoriaLogs(w http.ResponseWriter, r *http.Request) {
 			message = string(line)
 		}
 
-		sendLogMessage(victoriaServiceName(record, streamFields), victoriaLogLevel(record), message)
+		sendLogMessage(victoriaServiceName(record, streamFields), victoriaLogLevel(record), message, victoriaExtraFields(record, msgField, streamFields))
 	}
 	if err := scanner.Err(); err != nil {
 		log.WithError(err).Error("failed to read victoria logs jsonline:")
@@ -78,6 +79,35 @@ func handleVictoriaLogs(w http.ResponseWriter, r *http.Request) {
 
 	// VictoriaLogs answers 204 on successful insert
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// victoriaExtraFields collects the structured fields that aren't mapped to
+// message/service/level so they ride along to sinks and forwarding.
+func victoriaExtraFields(record map[string]any, msgField string, streamFields []string) map[string]string {
+	skip := map[string]bool{
+		msgField:  true,
+		"_msg":    true,
+		"msg":     true,
+		"_time":   true,
+		"time":    true,
+		"service": true,
+		"level":   true,
+	}
+	for _, f := range streamFields {
+		skip[f] = true
+	}
+
+	var fields map[string]string
+	for k, v := range record {
+		if skip[k] {
+			continue
+		}
+		if fields == nil {
+			fields = make(map[string]string)
+		}
+		fields[k] = fmt.Sprintf("%v", v)
+	}
+	return fields
 }
 
 func victoriaServiceName(record map[string]any, streamFields []string) string {

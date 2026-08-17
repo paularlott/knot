@@ -224,6 +224,27 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUTH_IP_RATE_LIMITING"},
 			DefaultValue: true,
 		},
+		&cli.IntFlag{
+			Name:         "auth-rate-limit-attempts",
+			Usage:        "Failed login attempts per IP/email before auth is blocked.",
+			ConfigPath:   []string{"server.auth_rate_limit_attempts"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUTH_RATE_LIMIT_ATTEMPTS"},
+			DefaultValue: 10,
+		},
+		&cli.IntFlag{
+			Name:         "auth-rate-limit-window",
+			Usage:        "Window in seconds over which failed login attempts are counted.",
+			ConfigPath:   []string{"server.auth_rate_limit_window"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUTH_RATE_LIMIT_WINDOW"},
+			DefaultValue: 60,
+		},
+		&cli.IntFlag{
+			Name:         "auth-rate-limit-block",
+			Usage:        "How long in seconds auth stays blocked after the failed login limit trips.",
+			ConfigPath:   []string{"server.auth_rate_limit_block"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUTH_RATE_LIMIT_BLOCK"},
+			DefaultValue: 300,
+		},
 		&cli.StringFlag{
 			Name:         "public-files-path",
 			Usage:        "The path to the a directory to serve as /public-files.",
@@ -1454,6 +1475,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			MasterName: cmd.GetString("redis-master-name"),
 			KeyPrefix:  cmd.GetString("redis-key-prefix"),
 		},
+		AuthRateLimitAttempts: cmd.GetInt("auth-rate-limit-attempts"),
+		AuthRateLimitWindow:   cmd.GetInt("auth-rate-limit-window"),
+		AuthRateLimitBlock:    cmd.GetInt("auth-rate-limit-block"),
 		Audit: config.AuditConfig{
 			Retention:   cmd.GetInt("audit-retention"),
 			Routing:     cmd.GetString("audit-routing"),

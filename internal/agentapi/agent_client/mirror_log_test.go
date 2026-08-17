@@ -28,7 +28,11 @@ func captureServer(t *testing.T) (*httptest.Server, *[]capturedRequest, *sync.Mu
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		mu.Lock()
-		*requests = append(*requests, capturedRequest{r.URL.Path, r.Header.Get("Content-Type"), r.Header.Get("Authorization"), string(body)})
+		uri := r.URL.Path
+		if r.URL.RawQuery != "" {
+			uri += "?" + r.URL.RawQuery
+		}
+		*requests = append(*requests, capturedRequest{uri, r.Header.Get("Content-Type"), r.Header.Get("Authorization"), string(body)})
 		mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -49,7 +53,7 @@ func sinkClient(t *testing.T, format string) *AgentClient {
 
 func mirrorBatch() *msg.MirrorLogMessage {
 	return &msg.MirrorLogMessage{Entries: []*msg.MirrorLogEntry{
-		{SpaceId: "space-a", SpaceName: "frontend", User: "alice", Service: "web", Level: msg.LogLevelError, Message: "boom", Date: time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)},
+		{SpaceId: "space-a", SpaceName: "frontend", User: "alice", Service: "web", Level: msg.LogLevelError, Message: "boom", Date: time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC), Fields: map[string]string{"request_id": "req-1", "status": "201"}},
 		{SpaceId: "space-b", SpaceName: "backend", User: "alice", Service: "api", Level: msg.LogLevelInfo, Message: "ok", Date: time.Date(2026, 8, 15, 10, 0, 1, 0, time.UTC)},
 	}}
 }
@@ -73,8 +77,8 @@ func TestMirrorLogVLFormat(t *testing.T) {
 		t.Fatalf("expected one batch request, got %d", len(*requests))
 	}
 	req := (*requests)[0]
-	if req.path != "/insert/jsonline" {
-		t.Errorf("expected /insert/jsonline, got %s", req.path)
+	if req.path != "/insert/jsonline?_stream_fields=service,level" {
+		t.Errorf("expected VL insert with stream fields, got %s", req.path)
 	}
 	lines := strings.Split(strings.TrimSpace(req.body), "\n")
 	if len(lines) != 2 {
@@ -93,6 +97,9 @@ func TestMirrorLogVLFormat(t *testing.T) {
 	props, ok := rec["properties"].(map[string]any)
 	if !ok || props["space_id"] != "space-a" || props["space_name"] != "frontend" {
 		t.Errorf("space identity should be nested in properties: %v", rec)
+	}
+	if rec["request_id"] != "req-1" || rec["status"] != "201" {
+		t.Errorf("structured fields should be flattened into the record: %v", rec)
 	}
 	if rec["_time"] != "2026-08-15T10:00:00Z" {
 		t.Errorf("unexpected _time: %v", rec["_time"])
@@ -126,11 +133,21 @@ func TestMirrorLogLokiFormat(t *testing.T) {
 	if len(payload.Streams) != 2 {
 		t.Fatalf("expected one stream per source space, got %d", len(payload.Streams))
 	}
-	if payload.Streams[0].Stream["space"] != "space-a" {
-		t.Errorf("stream should be labelled with the source space, got %v", payload.Streams[0].Stream)
+	// Stream order follows Go map iteration — look the space up, don't index.
+	var spaceA *struct {
+		Stream map[string]string `json:"stream"`
+		Values [][2]string       `json:"values"`
 	}
-	if payload.Streams[0].Stream["space_name"] != "frontend" || payload.Streams[0].Stream["user"] != "alice" {
-		t.Errorf("stream should carry space name and owner: %v", payload.Streams[0].Stream)
+	for i := range payload.Streams {
+		if payload.Streams[i].Stream["space"] == "space-a" {
+			spaceA = &payload.Streams[i]
+		}
+	}
+	if spaceA == nil {
+		t.Fatalf("no stream for space-a: %v", payload.Streams)
+	}
+	if spaceA.Stream["space_name"] != "frontend" || spaceA.Stream["user"] != "alice" {
+		t.Errorf("stream should carry space name and owner: %v", spaceA.Stream)
 	}
 }
 

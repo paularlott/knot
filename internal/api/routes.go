@@ -1,9 +1,9 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
+	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
 )
@@ -224,5 +224,5 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)
 
 	// Start a cleanup job for the rate limiters
-	go cleanupLimiters(context.Background())
+	go authratelimit.StartCleanup(nil)
 }
