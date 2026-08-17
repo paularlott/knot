@@ -267,3 +267,63 @@ func TestGelfPostsOneMessagePerRequest(t *testing.T) {
 		t.Fatalf("expected 3 separate gelf posts, got %d", got)
 	}
 }
+
+func TestGelfFlushFailureMirrorsToStderr(t *testing.T) {
+	shortBackoffs(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	w := newTestWriter(t, srv.URL)
+	w.format = "gelf"
+	stderr := &bytes.Buffer{}
+	w.stderr = stderr
+
+	w.Write([]byte(`{"msg":"gelf one","time":"2026-08-17T10:00:00Z","level":"INFO"}` + "\n"))
+	w.Write([]byte(`{"msg":"gelf two","time":"2026-08-17T10:00:01Z","level":"INFO"}` + "\n"))
+	w.flush()
+
+	out := stderr.String()
+	if !strings.Contains(out, "knot: ERROR: log output endpoint unreachable") {
+		t.Errorf("expected degraded marker on gelf flush failure, got: %s", out)
+	}
+	if !strings.Contains(out, "gelf one") || !strings.Contains(out, "gelf two") {
+		t.Errorf("undelivered gelf messages should be mirrored to stderr, got: %s", out)
+	}
+	if strings.Contains(out, "recovered") {
+		t.Errorf("a fully failed flush must not claim recovery, got: %s", out)
+	}
+}
+
+func TestGelfPartialFailureDropsOnlyFailedMessages(t *testing.T) {
+	shortBackoffs(t)
+
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	w := newTestWriter(t, srv.URL)
+	w.format = "gelf"
+	stderr := &bytes.Buffer{}
+	w.stderr = stderr
+
+	w.Write([]byte(`{"msg":"delivered","time":"2026-08-17T10:00:00Z","level":"INFO"}` + "\n"))
+	w.Write([]byte(`{"msg":"dropped","time":"2026-08-17T10:00:01Z","level":"INFO"}` + "\n"))
+	w.flush()
+
+	out := stderr.String()
+	if !strings.Contains(out, "dropped") {
+		t.Errorf("the failed message should be mirrored to stderr, got: %s", out)
+	}
+	if strings.Contains(out, "\"delivered\"") {
+		t.Errorf("delivered messages must not be mirrored to stderr, got: %s", out)
+	}
+}

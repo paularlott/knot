@@ -141,10 +141,18 @@ func (w *httpWriter) flush() {
 	// HTTP only works with Graylog's non-default "Enable Bulk Receiving"
 	// option, so batching would silently fail on stock inputs.
 	if w.format == "gelf" {
+		var undelivered [][]byte
 		for _, line := range lines {
-			if body, contentType := w.encode([][]byte{line}); body != nil {
-				w.post(body, contentType)
+			if body, contentType := w.encode([][]byte{line}); body != nil && w.post(body, contentType) {
+				continue
 			}
+			undelivered = append(undelivered, line)
+		}
+		if len(undelivered) > 0 {
+			// Same handling as a failed batch: stderr mirror and degraded
+			// mode. Cleared below only once a flush delivers every message.
+			w.drop(undelivered)
+			return
 		}
 		w.mu.Lock()
 		recovered := w.degraded
