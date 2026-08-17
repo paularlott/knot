@@ -75,27 +75,31 @@ func TestSpaceLifecycle(t *testing.T) {
 
 func TestSpaceUserIsolation(t *testing.T) {
 	harness.Feature(t, "permissions")
-	id := workspace(t)
+	workspace(t) // ensure user1 has a space of their own
 
-	// user2 cannot see or run commands in user1's space.
+	// The other user's space (user2 on OSS; the admin on pro, where the
+	// built-in tier caps at two users). All assertions run from user1's
+	// unprivileged side.
+	theirId := harness.CreateSpace(t, user2.Client, "it-other", templateId, user2.Id)
+	harness.DeleteSpaceAsync(t, admin.Client, theirId)
+	harness.WaitForSpaceReady(t, server, user2.Client, theirId)
+
 	ctx, cancel := testCtx(30)
 	defer cancel()
-	if _, _, err := user2.Client.GetSpace(ctx, id); err == nil {
-		t.Fatal("user2 read user1's space")
+	if _, _, err := user1.Client.GetSpace(ctx, theirId); err == nil {
+		t.Fatal("user1 read another user's space")
 	}
-	if _, err := harness.TryRunCommand(user2.Client, id, 15, "echo", "nope"); err == nil {
-		t.Fatal("user2 ran a command in user1's space")
+	if _, err := harness.TryRunCommand(user1.Client, theirId, 15, "echo", "nope"); err == nil {
+		t.Fatal("user1 ran a command in another user's space")
 	}
 
-	// user2's own space list does not include it (the list endpoint needs
-	// the caller's user_id for non-admins).
-	spaces, _, err := user2.Client.GetSpaces(ctx, user2.Id, false)
+	spaces, _, err := user1.Client.GetSpaces(ctx, user1.Id, false)
 	if err != nil {
-		t.Fatalf("list user2 spaces: %v", err)
+		t.Fatalf("list user1 spaces: %v", err)
 	}
 	for _, s := range spaces.Spaces {
-		if s.Id == id {
-			t.Fatal("user1's space leaked into user2's list")
+		if s.Id == theirId {
+			t.Fatal("another user's space leaked into user1's list")
 		}
 	}
 }

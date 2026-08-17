@@ -100,6 +100,19 @@ func ProvisionAdmin(s *Server, username, password string) (*User, error) {
 	return LoginUser(s, username, password)
 }
 
+// NewAnonClient builds an unauthenticated JSON client (login attempts, etc).
+func NewAnonClient(s *Server) *apiclient.ApiClient {
+	c, err := apiclient.NewClient(s.BaseURL, "", true)
+	if err != nil {
+		panic(fmt.Sprintf("harness: NewAnonClient: %v", err))
+	}
+	c.SetContentType("application/json")
+	c.GetRESTClient().SetAccept("application/json")
+	c.UseSessionCookie(true)
+	c.SetTimeout(60 * time.Second)
+	return c
+}
+
 // LoginUser logs in as an existing user and mints an API token, returning a
 // ready-to-use client bundle.
 func LoginUser(s *Server, username, password string) (*User, error) {

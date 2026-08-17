@@ -96,8 +96,8 @@ func TestUserPermissionsEnforced(t *testing.T) {
 	ctx, cancel := testCtx(30)
 	defer cancel()
 
-	// user2 has no user-management permission.
-	_, code, err := user2.Client.CreateUser(ctx, &apiclient.CreateUserRequest{
+	// user1 has no user-management permission.
+	_, code, err := user1.Client.CreateUser(ctx, &apiclient.CreateUserRequest{
 		Username:       uniqueName("it-nope"),
 		Password:       "Passw0rd!nope",
 		Email:          "nope@knot.test",
@@ -110,20 +110,20 @@ func TestUserPermissionsEnforced(t *testing.T) {
 		Timezone:       "UTC",
 	})
 	if err == nil {
-		t.Fatal("user2 created a user without permission")
+		t.Fatal("user1 created a user without permission")
 	}
 	mustEqual(t, "forbidden status", code, 403)
 
 	// Reading templates is allowed for all users (the space form needs the
 	// picker); writing them is not.
-	if _, _, err := user2.Client.GetTemplates(ctx); err != nil {
-		t.Fatalf("user2 should be able to list templates: %v", err)
+	if _, _, err := user1.Client.GetTemplates(ctx); err != nil {
+		t.Fatalf("user1 should be able to list templates: %v", err)
 	}
-	if _, code, err := user2.Client.CreateTemplate(ctx, &apiclient.TemplateCreateRequest{
+	if _, code, err := user1.Client.CreateTemplate(ctx, &apiclient.TemplateCreateRequest{
 		Name: uniqueName("it-nope"), Platform: "container", Active: true,
 		Job: "image: paularlott/knot-ubuntu:26.04", MaxUptimeUnit: "disabled",
 	}); err == nil {
-		t.Fatal("user2 created a template without permission")
+		t.Fatal("user1 created a template without permission")
 	} else if code != 403 {
 		t.Fatalf("template create status = %d, want 403", code)
 	}
@@ -131,47 +131,60 @@ func TestUserPermissionsEnforced(t *testing.T) {
 
 func TestUserQuotaMaxSpaces(t *testing.T) {
 	harness.Feature(t, "quotas")
-	ctx, cancel := testCtx(60)
+	ctx, cancel := testCtx(120)
 	defer cancel()
 
-	// user2 default quota is 20; create a dedicated user with quota 1.
-	quotaUser, err := harness.CreateUser(server, admin, uniqueName("it-quota"), harness.TesterPermissions())
+	// Apply the quota to user1 (this runs before the workhorse exists, so
+	// user1 starts at zero spaces; on pro the 2-user cap prevents creating
+	// a dedicated quota user).
+	info, err := admin.Client.GetUser(ctx, user1.Id)
 	if err != nil {
-		t.Fatalf("create quota user: %v", err)
+		t.Fatalf("get user1: %v", err)
 	}
-	defer func() {
-		ctx, cancel := testCtx(60)
-		_ = admin.Client.DeleteUser(ctx, quotaUser.Id)
-		cancel()
-	}()
-
-	// Shrink the quota to 1 (already has zero spaces).
-	quotaUserInfo, err := admin.Client.GetUser(ctx, quotaUser.Id)
-	if err != nil {
-		t.Fatalf("get quota user: %v", err)
-	}
-	upd := &apiclient.UpdateUserRequest{
-		Username:       quotaUser.Username,
-		Email:          quotaUser.Email,
-		Roles:          quotaUserInfo.Roles,
-		Groups:         quotaUserInfo.Groups,
+	info.MaxSpaces = 1
+	if err := admin.Client.UpdateUser(ctx, user1.Id, &apiclient.UpdateUserRequest{
+		Username:       info.Username,
+		Email:          info.Email,
+		Password:       "Passw0rd!test",
+		Roles:          info.Roles,
+		Groups:         info.Groups,
 		Active:         true,
 		MaxSpaces:      1,
-		ComputeUnits:   5,
-		StorageUnits:   5,
-		MaxTunnels:     2,
+		ComputeUnits:   20,
+		StorageUnits:   20,
+		MaxTunnels:     10,
 		PreferredShell: "bash",
 		Timezone:       "UTC",
+	}); err != nil {
+		t.Fatalf("shrink quota: %v", err)
 	}
-	if err := admin.Client.UpdateUser(ctx, quotaUser.Id, upd); err != nil {
-		t.Fatalf("update quota user: %v", err)
-	}
+	// Restore the quota whatever happens.
+	t.Cleanup(func() {
+		rctx, rcancel := testCtx(30)
+		rinfo, err := admin.Client.GetUser(rctx, user1.Id)
+		if err == nil {
+			admin.Client.UpdateUser(rctx, user1.Id, &apiclient.UpdateUserRequest{
+				Username:       rinfo.Username,
+				Email:          rinfo.Email,
+				Roles:          rinfo.Roles,
+				Groups:         rinfo.Groups,
+				Active:         true,
+				MaxSpaces:      20,
+				ComputeUnits:   20,
+				StorageUnits:   20,
+				MaxTunnels:     10,
+				PreferredShell: "bash",
+				Timezone:       "UTC",
+			})
+		}
+		rcancel()
+	})
 
-	first := harness.CreateSpace(t, quotaUser.Client, "it-quota-1", templateId, quotaUser.Id)
+	first := harness.CreateSpace(t, user1.Client, "it-quota-1", templateId, user1.Id)
 	harness.DeleteSpaceAsync(t, admin.Client, first)
 
-	if _, code, err := quotaUser.Client.CreateSpace(ctx, &apiclient.SpaceRequest{
-		Name: "it-quota-2", TemplateId: templateId, UserId: quotaUser.Id, Shell: "bash",
+	if _, code, err := user1.Client.CreateSpace(ctx, &apiclient.SpaceRequest{
+		Name: "it-quota-2", TemplateId: templateId, UserId: user1.Id, Shell: "bash",
 	}); err == nil {
 		t.Fatal("space beyond quota was created")
 	} else if code != 403 && code != 400 {

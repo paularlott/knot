@@ -10,42 +10,46 @@ import (
 
 func TestSpaceSharing(t *testing.T) {
 	harness.Feature(t, "sharing")
-	id := spaceFixture(t, "it-share", user1.Id, user1.Client)
+
+	// The shared space belongs to the OTHER user (user2 on OSS; the admin
+	// on pro) and gets shared with user1, so the access assertions are
+	// meaningful from user1's unprivileged side on both editions.
+	id := spaceFixture(t, "it-share", user2.Id, user2.Client)
 
 	ctx, cancel := testCtx(60)
 	defer cancel()
 
-	// Not visible to user2 before sharing.
-	if _, _, err := user2.Client.GetSpace(ctx, id); err == nil {
-		t.Fatal("space visible to user2 before share")
+	// Not visible to user1 before sharing.
+	if _, _, err := user1.Client.GetSpace(ctx, id); err == nil {
+		t.Fatal("space visible to user1 before share")
 	}
 
-	// Share with user2.
-	if code, err := user1.Client.AddShare(ctx, id, user2.Id); err != nil {
+	// Share with user1.
+	if code, err := user2.Client.AddShare(ctx, id, user1.Id); err != nil {
 		t.Fatalf("add share: %v (status %d)", err, code)
 	}
 
-	space, _, err := user2.Client.GetSpace(ctx, id)
+	space, _, err := user1.Client.GetSpace(ctx, id)
 	if err != nil {
-		t.Fatalf("shared space not readable by user2: %v", err)
+		t.Fatalf("shared space not readable by user1: %v", err)
 	}
-	if len(space.Shares) != 1 || space.Shares[0] != user2.Id {
+	if len(space.Shares) != 1 || space.Shares[0] != user1.Id {
 		t.Fatalf("shares = %v", space.Shares)
 	}
 
-	// user2 can run commands in the shared space.
-	out, err := harness.TryRunCommand(user2.Client, id, 60, "echo", "shared-access")
+	// user1 can run commands in the shared space.
+	out, err := harness.TryRunCommand(user1.Client, id, 60, "echo", "shared-access")
 	if err != nil {
-		t.Fatalf("user2 run command in shared space: %v", err)
+		t.Fatalf("user1 run command in shared space: %v", err)
 	}
 	if out != "shared-access\n" {
 		t.Fatalf("shared command output = %q", out)
 	}
 
-	// Appears in user2's own space list.
-	spaces, _, err := user2.Client.GetSpaces(ctx, user2.Id, false)
+	// Appears in user1's own space list.
+	spaces, _, err := user1.Client.GetSpaces(ctx, user1.Id, false)
 	if err != nil {
-		t.Fatalf("user2 list spaces: %v", err)
+		t.Fatalf("user1 list spaces: %v", err)
 	}
 	found := false
 	for _, s := range spaces.Spaces {
@@ -54,14 +58,14 @@ func TestSpaceSharing(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("shared space missing from user2's list")
+		t.Fatal("shared space missing from user1's list")
 	}
 
 	// Unshare.
-	if code, err := user1.Client.RemoveShare(ctx, id); err != nil {
+	if code, err := user2.Client.RemoveShare(ctx, id); err != nil {
 		t.Fatalf("remove share: %v (status %d)", err, code)
 	}
-	if _, _, err := user2.Client.GetSpace(ctx, id); err == nil {
+	if _, _, err := user1.Client.GetSpace(ctx, id); err == nil {
 		t.Fatal("space still readable after unshare")
 	}
 }

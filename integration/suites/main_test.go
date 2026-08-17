@@ -110,10 +110,17 @@ func TestMain(m *testing.M) {
 		}
 	}
 	if !setupFailed {
-		user2, err = harness.CreateUser(server, admin, "user2", harness.TesterPermissions())
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "provision user2 failed: %v\n", err)
-			setupFailed = true
+		if harness.ProBuild {
+			// The pro built-in tier is capped at two users (admin + user1),
+			// so the admin acts as the second party in cross-user tests;
+			// those tests assert from user1's unprivileged side.
+			user2 = admin
+		} else {
+			user2, err = harness.CreateUser(server, admin, "user2", harness.TesterPermissions())
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "provision user2 failed: %v\n", err)
+				setupFailed = true
+			}
 		}
 	}
 	if !setupFailed {
