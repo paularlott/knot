@@ -9,8 +9,32 @@ import (
 	"github.com/paularlott/knot/integration/harness"
 )
 
+// crudTarget returns the server/user pair for user-lifecycle tests. On
+// pro the shared server is capped at two users, so those tests boot their
+// own server; on OSS they reuse the shared one.
+func crudTarget(t *testing.T) (*harness.Server, *harness.User) {
+	t.Helper()
+	if !harness.ProBuild {
+		return server, admin
+	}
+	s, err := harness.StartServer(cfg, bins, "usercrud")
+	if err != nil {
+		t.Fatalf("boot usercrud server: %v", err)
+	}
+	t.Cleanup(s.Stop)
+	u, err := harness.ProvisionAdmin(s, "admin", "AdminPassw0rd!")
+	if err != nil {
+		t.Fatalf("provision usercrud admin: %v", err)
+	}
+	return s, u
+}
+
 func TestUsersCRUD(t *testing.T) {
 	harness.Feature(t, "users")
+	// On pro the shared server is capped at two users, so the full CRUD
+	// lifecycle runs on a dedicated server.
+	target, targetAdmin := crudTarget(t)
+	_ = target
 	name := uniqueName("it-user")
 	ctx, cancel := testCtx(30)
 	defer cancel()
@@ -28,12 +52,12 @@ func TestUsersCRUD(t *testing.T) {
 		PreferredShell: "bash",
 		Timezone:       "UTC",
 	}
-	userId, code, err := admin.Client.CreateUser(ctx, req)
+	userId, code, err := targetAdmin.Client.CreateUser(ctx, req)
 	if err != nil {
 		t.Fatalf("create user: %v (status %d)", err, code)
 	}
 
-	user, err := admin.Client.GetUser(ctx, userId)
+	user, err := targetAdmin.Client.GetUser(ctx, userId)
 	if err != nil {
 		t.Fatalf("get user: %v", err)
 	}
@@ -55,24 +79,24 @@ func TestUsersCRUD(t *testing.T) {
 		PreferredShell: "bash",
 		Timezone:       "UTC",
 	}
-	if err := admin.Client.UpdateUser(ctx, userId, upd); err != nil {
+	if err := targetAdmin.Client.UpdateUser(ctx, userId, upd); err != nil {
 		t.Fatalf("update user: %v", err)
 	}
-	user, err = admin.Client.GetUser(ctx, userId)
+	user, err = targetAdmin.Client.GetUser(ctx, userId)
 	if err != nil {
 		t.Fatalf("get user after update: %v", err)
 	}
 	mustEqual(t, "max spaces after update", int(user.MaxSpaces), 9)
 
 	// Duplicate username is rejected.
-	if _, code, err := admin.Client.CreateUser(ctx, req); err == nil {
+	if _, code, err := targetAdmin.Client.CreateUser(ctx, req); err == nil {
 		t.Fatal("duplicate user created")
 	} else if code != 400 {
 		t.Fatalf("duplicate user status = %d, want 400", code)
 	}
 
 	// List contains the user.
-	users, err := admin.Client.GetUsers(ctx, "", "")
+	users, err := targetAdmin.Client.GetUsers(ctx, "", "")
 	if err != nil {
 		t.Fatalf("list users: %v", err)
 	}
@@ -86,7 +110,7 @@ func TestUsersCRUD(t *testing.T) {
 		t.Fatal("created user missing from list")
 	}
 
-	if err := admin.Client.DeleteUser(ctx, userId); err != nil {
+	if err := targetAdmin.Client.DeleteUser(ctx, userId); err != nil {
 		t.Fatalf("delete user: %v", err)
 	}
 }

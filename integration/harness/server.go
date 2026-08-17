@@ -16,6 +16,11 @@ import (
 	"time"
 )
 
+var (
+	peerMeshRangeMu  sync.Mutex
+	peerMeshRangeIdx int
+)
+
 // Server is a knot server subprocess booted for testing, with its own
 // badgerdb data dir and dynamically allocated ports.
 type Server struct {
@@ -150,13 +155,18 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 	}
 	args = append(args, extraArgs...)
 
-	// Under pro builds every non-default server disables the peer mesh:
-	// its published host ports (default 30001+) are global across the docker
-	// daemon, so parallel test servers would collide. The default server
-	// keeps the mesh — that is where the peermesh suite runs.
+	// Pro builds force-enable the peer mesh, whose published host ports
+	// (default 30001+) are global across the docker daemon — parallel test
+	// servers would collide. Give every non-default server a disjoint range
+	// via knot.toml (explicit ranges survive registerProFeatures; the
+	// enabled flag does not).
 	if ProBuild && name != "default" {
-		os.WriteFile(filepath.Join(dataDir, "knot.toml"),
-			[]byte("[server.peermesh]\nenabled = false\n"), 0o644)
+		peerMeshRangeMu.Lock()
+		toml := fmt.Sprintf("[server.peermesh]\nport_range_min = %d\nport_range_max = %d\n",
+			31000+peerMeshRangeIdx*100, 31099+peerMeshRangeIdx*100)
+		peerMeshRangeIdx = (peerMeshRangeIdx + 1) % 20
+		peerMeshRangeMu.Unlock()
+		os.WriteFile(filepath.Join(dataDir, "knot.toml"), []byte(toml), 0o644)
 	}
 
 	srv.cmd = exec.Command(bins.Server, args...)
