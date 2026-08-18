@@ -69,9 +69,9 @@ func (c *ApiClient) UpdateScript(ctx context.Context, scriptId string, req Scrip
 }
 
 func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string, args []string) (string, int, error) {
-	req := ScriptExecuteRequest{Arguments: args}
+	req := UnifiedScriptExecuteRequest{ScriptId: scriptId, Arguments: args}
 	var resp ScriptExecuteResponse
-	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/scripts/"+scriptId+"/execute", req, &resp, 0)
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script", req, &resp, 0)
 	if err != nil {
 		return "", 0, err
 	}
@@ -97,9 +97,9 @@ func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, 
 }
 
 func (c *ApiClient) ExecuteScriptContent(ctx context.Context, spaceId, content string, args []string) (string, int, error) {
-	req := ScriptContentExecuteRequest{Content: content, Arguments: args}
+	req := UnifiedScriptExecuteRequest{Content: content, Arguments: args}
 	var resp ScriptExecuteResponse
-	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-content", req, &resp, 0)
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script", req, &resp, 0)
 	if err != nil {
 		return "", 0, err
 	}
