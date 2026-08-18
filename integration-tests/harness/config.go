@@ -6,7 +6,6 @@ package harness
 import (
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -23,9 +22,9 @@ type Config struct {
 	ImageNamespace string
 	// Image is the base image (name:tag) used for test spaces.
 	Image string
-	// ContainerHost is the host address as seen from inside containers.
-	// Docker Desktop provides "host.docker.internal"; on Linux the bridge IP
-	// (e.g. 172.17.0.1) or a real hostname is needed.
+	// ContainerHost overrides the host address handed to spaces (agent
+	// endpoint / server URL). Empty means the server resolves its own IP
+	// via the ${{ host_ip }} token — its primary physical interface.
 	ContainerHost string
 	// Zone is the knot zone name for test servers.
 	Zone string
@@ -84,17 +83,17 @@ func LoadConfig() *Config {
 		DockerCache:              envOr("KNOT_TEST_DOCKER_CACHE", ""),
 		ImageNamespace:           envOr("KNOT_TEST_IMAGE_NAMESPACE", "paularlott"),
 		Image:                    envOr("KNOT_TEST_IMAGE", "knot-ubuntu:26.04"),
-		ContainerHost:            envOr("KNOT_TEST_CONTAINER_HOST", "host.docker.internal"),
+		// ContainerHost overrides the address handed to spaces for the
+		// agent endpoint / server URL. Empty means knot's own ${{
+		// host_ip }} resolution: the server picks its primary physical
+		// interface IP at startup, so no per-platform hostname (e.g.
+		// host.docker.internal) is assumed.
+		ContainerHost:            envOr("KNOT_TEST_CONTAINER_HOST", ""),
 		Zone:                     envOr("KNOT_TEST_ZONE", "core"),
 		Keep:                     envBool("KNOT_TEST_KEEP", false),
 		VerboseServer:            envBool("KNOT_TEST_VERBOSE_SERVER", false),
 		NoBuild:                  envBool("KNOT_TEST_NO_BUILD", false),
 		SpaceReadyTimeoutSeconds: envInt("KNOT_TEST_SPACE_READY_TIMEOUT", 600),
-	}
-
-	if runtime.GOOS != "darwin" && os.Getenv("KNOT_TEST_CONTAINER_HOST") == "" {
-		// Linux containers reach the host via the default bridge gateway.
-		cfg.ContainerHost = "172.17.0.1"
 	}
 
 	if cfg.Runtime == "docker" {

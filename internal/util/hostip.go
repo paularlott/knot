@@ -15,11 +15,19 @@ import (
 // them works.
 const HostIPToken = "${{ host_ip }}"
 
-// HostIP returns the host's primary outbound IPv4 address. It prefers the
-// address the routing table would use for an external destination (UDP dial
-// sends no packets), then falls back to the first non-loopback interface
-// address, then to loopback.
+// HostIP returns the host's primary outbound IPv4 address. Physical
+// interfaces are preferred — virtual interfaces (VPN/tailscale tunnels,
+// docker/veth bridges) and their address ranges (CGNAT 100.64/10,
+// link-local) are skipped first so advertised endpoints stay on durable
+// addresses. If no physical candidate exists (e.g. a host only reachable
+// via VPN) it falls back to the address the routing table would use for an
+// external destination (UDP dial sends no packets), then to any
+// non-loopback IPv4, then to loopback.
 func HostIP() string {
+	if ip, ok := physicalInterfaceIP(); ok {
+		return ip
+	}
+
 	if conn, err := net.Dial("udp", "8.8.8.8:80"); err == nil {
 		defer conn.Close()
 		if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok && addr.IP != nil && !addr.IP.IsLoopback() {
@@ -46,6 +54,61 @@ func HostIP() string {
 	}
 
 	return "127.0.0.1"
+}
+
+// virtualInterfacePrefixes lists interface-name prefixes that carry
+// non-durable addresses (VPN tunnels, container bridges).
+var virtualInterfacePrefixes = []string{
+	"utun", "tun", "tap", "tailscale", "wg", "vpn",
+	"docker", "veth", "br-", "bridge", "ziti", "llk",
+}
+
+// physicalInterfaceIP scans interfaces for an IPv4 address on a physical
+// (non-virtual, non-loopback) interface, skipping the CGNAT and
+// link-local ranges used by VPN overlays.
+func physicalInterfaceIP() (string, bool) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", false
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		name := strings.ToLower(iface.Name)
+		virtual := false
+		for _, prefix := range virtualInterfacePrefixes {
+			if strings.HasPrefix(name, prefix) {
+				virtual = true
+				break
+			}
+		}
+		if virtual {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipnet, ok := addr.(*net.IPNet)
+			if !ok || ipnet.IP.To4() == nil || ipnet.IP.IsLoopback() {
+				continue
+			}
+			if ipnet.IP.IsLinkLocalUnicast() || isCGNAT(ipnet.IP) {
+				continue
+			}
+			return ipnet.IP.String(), true
+		}
+	}
+	return "", false
+}
+
+// isCGNAT reports whether the address is inside the RFC 6598 carrier-grade
+// NAT range used by VPN overlays such as Tailscale (100.64.0.0/10).
+func isCGNAT(ip net.IP) bool {
+	cgnat := net.IPNet{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)}
+	return cgnat.Contains(ip)
 }
 
 // ResolveHostIP renders any template functions in an address using the

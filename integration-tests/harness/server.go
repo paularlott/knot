@@ -73,6 +73,13 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 	if hostAddr != "" {
 		containerHost = hostAddr
 	}
+	if containerHost == "" {
+		// Let the server hand out its own IP: the token resolves to the
+		// primary physical interface address at startup (same mechanism
+		// production configs use), instead of assuming a per-runtime
+		// hostname like host.docker.internal.
+		containerHost = "${{ host_ip }}"
+	}
 
 	repoRoot, err := findRepoRoot()
 	if err != nil {
@@ -117,7 +124,10 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		bins:             bins,
 	}
 
-	listenHost := "127.0.0.1"
+	// The HTTP listener binds all interfaces when spaces get the host's
+	// real IP: containers reach it via the resolved agent-endpoint/URL
+	// host, while the harness keeps using 127.0.0.1 (see baseListenHost).
+	listenHost := "0.0.0.0"
 	if hostAddr != "" {
 		listenHost = hostAddr
 	}

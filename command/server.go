@@ -1686,6 +1686,11 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	serverCfg.AgentEndpoint = util.ResolveHostIP(serverCfg.AgentEndpoint)
 	serverCfg.ListenAgent = util.ResolveHostIP(serverCfg.ListenAgent)
 	serverCfg.DNSListen = util.ResolveHostIP(serverCfg.DNSListen)
+	// The advertised URL reaches spaces too (it renders into KNOT_SERVER),
+	// so the token is valid there as well — and in the tunnel server URL,
+	// which defaults from it.
+	serverCfg.URL = util.ResolveHostIP(serverCfg.URL)
+	serverCfg.TunnelServer = util.ResolveHostIP(serverCfg.TunnelServer)
 
 	// Record which config file the server started from; the in-server
 	// setup wizard writes updates back to it.
