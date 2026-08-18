@@ -290,7 +290,7 @@ var featureDescriptions = map[string]string{
 	"quotas":                    "Per-user space quotas",
 	"tokens":                    "API tokens, scopes & revocation",
 	"templates":                 "Template CRUD, export & import",
-	"spaces":                    "Spaces (creation & dev URL routing)",
+	"spaces":                    "Spaces (creation & deployment)",
 	"space-lifecycle":           "Space start/stop/restart/update",
 	"space-stacks":              "Stacks of spaces (start/stop/delete)",
 	"run-command":               "Command execution inside spaces",

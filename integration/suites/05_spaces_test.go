@@ -20,6 +20,7 @@ func spaceFixture(t *testing.T, name, userId string, client *apiclient.ApiClient
 }
 
 func TestSpaceLifecycle(t *testing.T) {
+	harness.Feature(t, "spaces")
 	harness.Feature(t, "space-lifecycle")
 	id := spaceFixture(t, "it-life", user1.Id, user1.Client)
 	ctx, cancel := testCtx(60)
