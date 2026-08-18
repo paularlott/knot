@@ -5,7 +5,7 @@ package suites
 import (
 	"testing"
 
-	"github.com/paularlott/knot/integration/harness"
+	"github.com/paularlott/knot/integration-tests/harness"
 )
 
 func TestHealthEndpoint(t *testing.T) {

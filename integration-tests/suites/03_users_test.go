@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/integration/harness"
+	"github.com/paularlott/knot/integration-tests/harness"
 )
 
 // crudTarget returns the server/user pair for user-lifecycle tests. On

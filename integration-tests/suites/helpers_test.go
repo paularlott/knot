@@ -5,7 +5,7 @@ package suites
 import (
 	"context"
 
-	"github.com/paularlott/knot/integration/harness"
+	"github.com/paularlott/knot/integration-tests/harness"
 	"fmt"
 	"io"
 	"math/rand"

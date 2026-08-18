@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/paularlott/cli/env"
-	"github.com/paularlott/knot/integration/harness"
+	"github.com/paularlott/knot/integration-tests/harness"
 )
 
 // bootDedicated starts a purpose-configured server and provisions its admin.

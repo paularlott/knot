@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/integration/harness"
+	"github.com/paularlott/knot/integration-tests/harness"
 )
 
 func TestPortForwarding(t *testing.T) {

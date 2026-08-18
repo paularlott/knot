@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/integration/harness"
+	"github.com/paularlott/knot/integration-tests/harness"
 )
 
 // TestLeafNode boots an origin server (allowing leaf nodes) and a leaf

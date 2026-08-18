@@ -53,8 +53,8 @@ func findRepoRoot() (string, error) {
 	}
 	for i := 0; i < 10; i++ {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			if strings.HasSuffix(filepath.ToSlash(dir), "integration/harness") ||
-				strings.HasSuffix(filepath.ToSlash(dir), "integration/suites") {
+			if strings.HasSuffix(filepath.ToSlash(dir), "integration-tests/harness") ||
+				strings.HasSuffix(filepath.ToSlash(dir), "integration-tests/suites") {
 				dir = filepath.Dir(filepath.Dir(dir))
 				continue
 			}

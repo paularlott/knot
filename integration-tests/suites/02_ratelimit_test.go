@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/integration/harness"
+	"github.com/paularlott/knot/integration-tests/harness"
 )
 
 // TestAuthRateLimitAndFlush runs on the shared server: exhaust the failed

@@ -347,14 +347,14 @@ tasks:
   test:integration:
     desc: Run the API integration suite (builds knot, boots a server + docker spaces, writes build/test/integration-report.md)
     cmds:
-      - go test -tags integration -count=1 -timeout 2h -v ./integration/suites
+      - go test -tags integration -count=1 -timeout 2h -v ./integration-tests/suites
 
   test:integration-fast:
     desc: Run the integration suite reusing the existing bin/knot (skips task build)
     env:
       KNOT_TEST_NO_BUILD: "1"
     cmds:
-      - go test -tags integration -count=1 -timeout 2h -v ./integration/suites
+      - go test -tags integration -count=1 -timeout 2h -v ./integration-tests/suites
 
   test-mcptools:
     desc: Run MCP tool tests (schema sweep + in-process execution against mock API)
