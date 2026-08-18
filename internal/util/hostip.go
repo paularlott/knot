@@ -3,6 +3,7 @@ package util
 import (
 	"net"
 	"strings"
+	"sync"
 	"text/template"
 )
 
@@ -15,6 +16,11 @@ import (
 // them works.
 const HostIPToken = "${{ host_ip }}"
 
+// hostIP caches the discovered address: it is resolved once at first use
+// and is stable for the process lifetime, so repeated token renders (agent
+// endpoint, URL, DNS listen, tunnel server) don't re-enumerate interfaces.
+var hostIP = sync.OnceValue(discoverHostIP)
+
 // HostIP returns the host's primary outbound IPv4 address. Physical
 // interfaces are preferred — virtual interfaces (VPN/tailscale tunnels,
 // docker/veth bridges) and their address ranges (CGNAT 100.64/10,
@@ -24,6 +30,10 @@ const HostIPToken = "${{ host_ip }}"
 // external destination (UDP dial sends no packets), then to any
 // non-loopback IPv4, then to loopback.
 func HostIP() string {
+	return hostIP()
+}
+
+func discoverHostIP() string {
 	if ip, ok := physicalInterfaceIP(); ok {
 		return ip
 	}

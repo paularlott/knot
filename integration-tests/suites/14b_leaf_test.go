@@ -115,5 +115,36 @@ func TestLeafNode(t *testing.T) {
 	if out != "leaf-space-ok\n" {
 		t.Fatalf("leaf space command output = %q", out)
 	}
+
+	// Writes on the leaf stay local: a template created on the leaf must
+	// never appear on the origin, while a fresh origin template still
+	// replicates down — proving replication is one-directional.
+	leafTmpl := uniqueName("it-leaf-local")
+	if _, err := harness.CreateTemplate(leaf, leafClient, leafTmpl, harness.TemplateOptions{}); err != nil {
+		t.Fatalf("create leaf-local template: %v", err)
+	}
+	downTmpl := uniqueName("it-leaf-down")
+	if _, err := harness.CreateTemplate(origin, originAdmin.Client, downTmpl, harness.TemplateOptions{}); err != nil {
+		t.Fatalf("create origin template: %v", err)
+	}
+	if !waitForCond(60, func() bool {
+		dctx, dcancel := testCtx(15)
+		defer dcancel()
+		_, err := leafClient.GetTemplateByName(dctx, downTmpl)
+		return err == nil
+	}) {
+		t.Fatal("origin template never replicated down to the leaf (control check)")
+	}
+	// The leaf-only template must not have flowed upstream; re-check over
+	// a window so a delayed replication can't slip past the first look.
+	for i := 0; i < 3; i++ {
+		uctx, ucancel := testCtx(15)
+		_, err := originAdmin.Client.GetTemplateByName(uctx, leafTmpl)
+		ucancel()
+		if err == nil {
+			t.Fatal("leaf-local template replicated back to the origin — leaf writes must stay local")
+		}
+		time.Sleep(2 * time.Second)
+	}
 }
 
