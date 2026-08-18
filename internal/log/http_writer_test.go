@@ -187,7 +187,7 @@ func TestEncodeGELF(t *testing.T) {
 	w := &httpWriter{format: "gelf", stream: "knot"}
 
 	body, contentType := w.encode([][]byte{
-		[]byte(`{"time":"2026-08-15T10:00:00Z","level":"ERROR","msg":"boom","stream":"audit","space_id":"s1"}` + "\n"),
+		[]byte(`{"time":"2026-08-15T10:00:00Z","level":"ERROR","msg":"boom","service":"audit","space_id":"s1"}` + "\n"),
 		[]byte(`{"time":"2026-08-15T10:00:01Z","level":"INFO","msg":"ok"}` + "\n"),
 	})
 
@@ -210,12 +210,12 @@ func TestEncodeGELF(t *testing.T) {
 		t.Errorf("ERROR should map to gelf level 3, got %v", rec["level"])
 	}
 	if rec["host"] != "audit" {
-		t.Errorf("stream field should become host, got %v", rec["host"])
+		t.Errorf("service field should become host, got %v", rec["host"])
 	}
 	if ts, ok := rec["timestamp"].(float64); !ok || ts < 1.7e9 {
 		t.Errorf("timestamp should be unix seconds, got %v", rec["timestamp"])
 	}
-	if rec["_space_id"] != "s1" || rec["_stream"] != "audit" {
+	if rec["_space_id"] != "s1" || rec["_service"] != "audit" {
 		t.Errorf("additional fields should be underscore-prefixed: %v", rec)
 	}
 
@@ -226,7 +226,7 @@ func TestEncodeGELF(t *testing.T) {
 		t.Errorf("INFO should map to gelf level 6, got %v", rec["level"])
 	}
 	if rec["host"] != "knot" {
-		t.Errorf("writer default stream should be host fallback, got %v", rec["host"])
+		t.Errorf("writer default service should be host fallback, got %v", rec["host"])
 	}
 }
 

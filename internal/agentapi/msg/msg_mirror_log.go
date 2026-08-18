@@ -3,7 +3,9 @@ package msg
 import "time"
 
 // MirrorLogEntry is a single log record mirrored to a log sink space, tagged
-// with the space it came from.
+// with the space it came from. Service is the single selector, matching the
+// agent's in-space ingest and the external logger: the space's service name
+// for space records, or "tunnel" for tunnel records.
 type MirrorLogEntry struct {
 	SpaceId   string            `msgpack:"space_id"`
 	SpaceName string            `msgpack:"space_name"`

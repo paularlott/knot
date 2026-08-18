@@ -88,7 +88,7 @@ func TestMirrorLogVLFormat(t *testing.T) {
 	if err := json.Unmarshal([]byte(lines[0]), &rec); err != nil {
 		t.Fatal(err)
 	}
-	if rec["_msg"] != "boom" || rec["service"] != "web" || rec["level"] != "error" {
+	if rec["_msg"] != "boom" || rec["service"] != "web" || rec["level"] != "ERROR" {
 		t.Errorf("unexpected record: %v", rec)
 	}
 	if rec["actor"] != "alice" {
@@ -195,7 +195,7 @@ func TestMirrorLogJSONFormat(t *testing.T) {
 	if err := json.Unmarshal([]byte((*requests)[0].body), &rec); err != nil {
 		t.Fatal(err)
 	}
-	if rec["service"] != "web" || rec["level"] != "error" || rec["message"] != "boom" {
+	if rec["service"] != "web" || rec["level"] != "ERROR" || rec["message"] != "boom" {
 		t.Errorf("unexpected record: %v", rec)
 	}
 	if rec["space_id"] != "space-a" || rec["space_name"] != "frontend" || rec["user"] != "alice" {
@@ -229,18 +229,18 @@ func TestMirrorLogLokiSplitsServicesPerStream(t *testing.T) {
 	if len(payload.Streams) != 2 {
 		t.Fatalf("one space with two services must yield two streams, got %d: %v", len(payload.Streams), payload.Streams)
 	}
-	services := map[string]string{}
+	streams := map[string]string{}
 	for _, s := range payload.Streams {
 		if s.Stream["space"] != "space-a" {
 			t.Fatalf("both streams belong to space-a, got %v", s.Stream)
 		}
-		services[s.Stream["service"]] = s.Values[0][1]
+		streams[s.Stream["service"]] = s.Values[0][1]
 	}
-	if len(services) != 2 {
-		t.Fatalf("expected web and worker streams, got %v", services)
+	if len(streams) != 2 {
+		t.Fatalf("expected web and worker streams, got %v", streams)
 	}
-	if !strings.Contains(services["web"], "from web") || !strings.Contains(services["worker"], "from worker") {
-		t.Errorf("each service's entries must be in its own stream, got %v", services)
+	if !strings.Contains(streams["web"], "from web") || !strings.Contains(streams["worker"], "from worker") {
+		t.Errorf("each stream's entries must be in its own stream, got %v", streams)
 	}
 }
 
@@ -394,7 +394,7 @@ func TestMirrorMetadataNotOverwrittenByFields(t *testing.T) {
 	if err := json.Unmarshal([]byte(payload.Streams[0].Values[0][1]), &line); err != nil {
 		t.Fatal(err)
 	}
-	if line["msg"] != "boom" || line["level"] != "error" {
+	if line["msg"] != "boom" || line["level"] != "ERROR" {
 		t.Errorf("Loki line msg/level were overwritten: %v", line)
 	}
 
@@ -413,7 +413,7 @@ func TestMirrorMetadataNotOverwrittenByFields(t *testing.T) {
 	if err := json.Unmarshal([]byte((*requests)[0].body), &native); err != nil {
 		t.Fatal(err)
 	}
-	if native["service"] != "web" || native["user"] != "alice" || native["space_id"] != "space-a" || native["level"] != "error" {
+	if native["service"] != "web" || native["user"] != "alice" || native["space_id"] != "space-a" || native["level"] != "ERROR" {
 		t.Errorf("native metadata overwritten: %v", native)
 	}
 	if native["request_id"] != "req-9" {

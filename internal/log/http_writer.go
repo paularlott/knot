@@ -296,10 +296,13 @@ func (w *httpWriter) encode(lines [][]byte) ([]byte, string) {
 	}
 }
 
-// streamFor returns the stream value for a record: uses the record's own
-// "stream" field if present, otherwise falls back to the writer default.
+// streamFor returns the service value for a record: uses the record's own
+// "service" field if present (the in-space service for space logs, "tunnel"
+// for tunnel records), otherwise falls back to the writer default. The field
+// name matches the agent's in-space ingest, so the same selector works
+// against space logs, sinks and the external output.
 func (w *httpWriter) streamFor(rec map[string]any) string {
-	if s, ok := rec["stream"].(string); ok && s != "" {
+	if s, ok := rec["service"].(string); ok && s != "" {
 		return s
 	}
 	return w.stream
@@ -322,9 +325,9 @@ func (w *httpWriter) encodeNDJSON(lines [][]byte) ([]byte, string) {
 			rec["_time"] = t
 			delete(rec, "time")
 		}
-		// "stream" is declared as a _stream_field via query param;
+		// "service" is declared as a _stream_field via query param;
 		// honour a per-record value, otherwise apply the writer default.
-		rec["stream"] = w.streamFor(rec)
+		rec["service"] = w.streamFor(rec)
 		b, _ := json.Marshal(rec)
 		buf.Write(b)
 		buf.WriteByte('\n')
@@ -367,7 +370,7 @@ func (w *httpWriter) encodeLoki(lines [][]byte) ([]byte, string) {
 			delete(rec, "msg")
 		}
 		streamLabel := w.streamFor(rec)
-		delete(rec, "stream")
+		delete(rec, "service")
 
 		if _, ok := groups[streamLabel]; !ok {
 			groups[streamLabel] = &group{stream: map[string]string{"job": streamLabel}}
@@ -405,7 +408,7 @@ func (w *httpWriter) encodeElasticsearch(lines [][]byte) ([]byte, string) {
 		if index == "" {
 			index = "knot"
 		}
-		rec["stream"] = index
+		rec["service"] = index
 		meta, _ := json.Marshal(map[string]any{"index": map[string]string{"_index": index}})
 		b, _ := json.Marshal(rec)
 		buf.Write(meta)
@@ -449,7 +452,7 @@ func (w *httpWriter) encodeGELF(lines [][]byte) ([]byte, string) {
 		// prefix per spec), so stream / space_id / etc. survive the trip.
 		for k, v := range rec {
 			switch k {
-			case "msg", "time", "level", "stream":
+			case "msg", "time", "level", "service":
 				continue
 			}
 			if s, ok := v.(string); ok {
@@ -458,8 +461,8 @@ func (w *httpWriter) encodeGELF(lines [][]byte) ([]byte, string) {
 				gelf["_"+k] = v
 			}
 		}
-		if s, ok := rec["stream"].(string); ok && s != "" {
-			gelf["_stream"] = s
+		if s, ok := rec["service"].(string); ok && s != "" {
+			gelf["_service"] = s
 		}
 
 		b, _ := json.Marshal(gelf)

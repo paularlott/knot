@@ -53,7 +53,8 @@ func handleMirrorLog(agentClient *AgentClient, batch *msg.MirrorLogMessage) {
 			err = postMirrorJSON(base+"/logs", batch, auth)
 		} else {
 			// service and level are declared as stream fields so sink-side
-			// VictoriaLogs indexes them as streams.
+			// VictoriaLogs indexes them as streams — the same selectors as
+			// the agent's in-space ingest and the external logger.
 			err = postMirror(base+"/insert/jsonline?_stream_fields=service,level", "application/stream+json", encodeMirrorVL(batch), auth)
 		}
 	}
@@ -156,7 +157,7 @@ func encodeMirrorLoki(batch *msg.MirrorLogMessage) []byte {
 		key := e.SpaceId + "\x00" + e.Service
 		s, ok := streams[key]
 		if !ok {
-			s = &lokiStream{Stream: map[string]string{"space": e.SpaceId, "space_name": e.SpaceName, "user": e.User, "service": e.Service}}
+			s = &lokiStream{Stream: map[string]string{"service": e.Service, "space": e.SpaceId, "space_name": e.SpaceName, "user": e.User}}
 			streams[key] = s
 		}
 		lineRec := map[string]any{"msg": e.Message, "level": mirrorLevelName(e.Level)}
@@ -236,14 +237,16 @@ func mergeFields[V any](rec map[string]V, fields map[string]string) {
 	}
 }
 
+// mirrorLevelName matches the external logger's slog casing (INFO, WARN,
+// ERROR) so the same level value selects records at either destination.
 func mirrorLevelName(level msg.LogLevel) string {
 	switch level {
 	case msg.LogLevelDebug:
-		return "debug"
+		return "DEBUG"
 	case msg.LogLevelError:
-		return "error"
+		return "ERROR"
 	default:
-		return "info"
+		return "INFO"
 	}
 }
 

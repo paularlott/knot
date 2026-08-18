@@ -57,7 +57,7 @@ func logToExternal(entry *model.AuditLogEntry, cfg *config.ServerConfig) {
 	}
 
 	args := []any{
-		"stream", stream,
+		"service", stream,
 		"type", "audit",
 		"_time", entry.When.UTC().Format(time.RFC3339Nano),
 		"zone", entry.Zone,
