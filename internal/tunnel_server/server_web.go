@@ -14,6 +14,18 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
+// TunnelRequestLogHook is called after each request proxied through a web
+// tunnel, carrying the tunnel owner and the request outcome. The pro build
+// assigns it (system-log forwarding + log-sink mirroring); the OSS build
+// leaves it nil and tunnel requests are unlogged.
+var TunnelRequestLogHook func(userId, username, tunnelName, method, path, host string, status int, duration time.Duration)
+
+// TunnelLifecycleLogHook is called when a tunnel opens or closes, so the
+// pro build can mirror the lifecycle into the owner's log sinks (the audit
+// events cover the audit trail; sinks only ever see log records). The OSS
+// build leaves it nil.
+var TunnelLifecycleLogHook func(userId, username, tunnelLabel string, opened bool)
+
 // HandleWebTunnel handles web tunnel requests for domain-based routing
 func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
 	logger := log.WithGroup("tunnel")
@@ -56,7 +68,31 @@ func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpProxy := reverseProxy(targetURL, stream, nil, r.Host)
-	httpProxy.ServeHTTP(w, r)
+	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+	start := time.Now()
+	httpProxy.ServeHTTP(rec, r)
+	if TunnelRequestLogHook != nil {
+		TunnelRequestLogHook(session.user.Id, session.user.Username, session.tunnelName,
+			r.Method, r.URL.Path, r.Host, rec.status, time.Since(start))
+	}
+}
+
+// statusRecorder captures the response status for request logging while
+// delegating everything else to the wrapped writer.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *statusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // Start a web server to listen for connections to tunnels, the left most part of the domain is the <username>--<tunnel name>

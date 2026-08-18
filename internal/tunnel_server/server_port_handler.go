@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/hashicorp/yamux"
@@ -21,8 +22,6 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 	var err error
 
 	tunnelName := fmt.Sprintf("--%s:%d", agentSessionId, port)
-
-	logger.Info("new tunnel :", "tunnel_name", space.Name)
 
 	// Upgrade to a websocket
 	ws := util.UpgradeToWS(w, r)
@@ -65,6 +64,23 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 	tunnels[tunnelName] = session
 	tunnelMutex.Unlock()
 
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTunnelCreate,
+		fmt.Sprintf("Opened tunnel to port %d of space %s", port, space.Name),
+		&map[string]interface{}{
+			"tunnel":      tunnelName,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"port":        port,
+			"tunnel_type": "port",
+		},
+	)
+	if TunnelLifecycleLogHook != nil {
+		TunnelLifecycleLogHook(user.Id, user.Username, fmt.Sprintf("%s:%d", space.Name, port), true)
+	}
+
 	defer func() {
 		logger.Debug("detected connection closing :", "tunnel_name", space.Name)
 
@@ -75,7 +91,21 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 		tunnelMutex.Lock()
 		delete(tunnels, tunnelName)
 		tunnelMutex.Unlock()
-		logger.Info("closed :", "tunnel_name", space.Name)
+		audit.Log(user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventTunnelDelete,
+			fmt.Sprintf("Closed tunnel to port %d of space %s", port, space.Name),
+			&map[string]interface{}{
+				"tunnel":      tunnelName,
+				"space_id":    space.Id,
+				"space_name":  space.Name,
+				"port":        port,
+				"tunnel_type": "port",
+			},
+		)
+		if TunnelLifecycleLogHook != nil {
+			TunnelLifecycleLogHook(user.Id, user.Username, fmt.Sprintf("%s:%d", space.Name, port), false)
+		}
 	}()
 
 	// Open a new stream to the agent, we hold the stream open to keep the session locked to this server

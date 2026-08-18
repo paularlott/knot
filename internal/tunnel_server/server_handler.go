@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/validate"
 	"github.com/paularlott/knot/internal/wsconn"
 
@@ -84,8 +85,6 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	tunnelName = strings.ToLower(tunnelName)
 	webName := strings.ToLower(fmt.Sprintf("%s--%s", user.Username, tunnelName))
 
-	logger.Info("new tunnel", "webName", webName)
-
 	// Upgrade to a websocket
 	ws := util.UpgradeToWS(w, r)
 	if ws == nil {
@@ -134,7 +133,18 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 		tunnelMutex.Lock()
 		delete(tunnels, webName)
 		tunnelMutex.Unlock()
-		logger.Info("closed", "webName", webName)
+		audit.Log(session.user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventTunnelDelete,
+			fmt.Sprintf("Closed tunnel %s", webName),
+			&map[string]interface{}{
+				"tunnel":      webName,
+				"tunnel_type": "web",
+			},
+		)
+		if TunnelLifecycleLogHook != nil {
+			TunnelLifecycleLogHook(session.user.Id, session.user.Username, webName, false)
+		}
 
 		// Notify clients the tunnel is gone.
 		sse.PublishTunnelsDeleted(webName, session.user.Id)
@@ -144,6 +154,21 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	tunnelMutex.Lock()
 	tunnels[webName] = session
 	tunnelMutex.Unlock()
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTunnelCreate,
+		fmt.Sprintf("Opened tunnel %s", webName),
+		&map[string]interface{}{
+			"tunnel":      webName,
+			"tunnel_name": tunnelName,
+			"tunnel_type": "web",
+		},
+	)
+	if TunnelLifecycleLogHook != nil {
+		TunnelLifecycleLogHook(user.Id, user.Username, webName, true)
+	}
 
 	// Notify clients (the owning user's browser) that the tunnel list changed.
 	sse.PublishTunnelsChanged(user.Id)

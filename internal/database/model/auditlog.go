@@ -42,6 +42,10 @@ const (
 	AuditEventRoleUpdate = "Role Update"
 	AuditEventRoleDelete = "Role Delete"
 
+	// Tunnels
+	AuditEventTunnelCreate = "Tunnel Create"
+	AuditEventTunnelDelete = "Tunnel Close"
+
 	// Spaces
 	AuditEventSpaceCreate    = "Space Create"
 	AuditEventSpaceUpdate    = "Space Update"
