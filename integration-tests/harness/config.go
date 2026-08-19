@@ -15,8 +15,10 @@ import (
 type Config struct {
 	// Runtime is the local container runtime: "docker" or "apple".
 	Runtime string
-	// DockerCache is the registry cache prefix for image pulls, e.g.
-	// "hub.anaconda.ovh/docker". Empty means pull from Docker Hub directly.
+	// DockerCache is the registry cache prefix for image pulls, defaulting
+	// to the anaconda hub pull-through cache so first-run image fetches are
+	// fast and repeat runs reuse the local layers. Empty means pull from
+	// Docker Hub directly.
 	DockerCache string
 	// ImageNamespace is the registry namespace holding the knot base images.
 	ImageNamespace string
@@ -79,10 +81,10 @@ func (c *Config) CacheImageRef(ref string) string {
 // with defaults suitable for a Docker Desktop dev machine.
 func LoadConfig() *Config {
 	cfg := &Config{
-		Runtime:                  envOr("KNOT_TEST_RUNTIME", "docker"),
-		DockerCache:              envOr("KNOT_TEST_DOCKER_CACHE", ""),
-		ImageNamespace:           envOr("KNOT_TEST_IMAGE_NAMESPACE", "paularlott"),
-		Image:                    envOr("KNOT_TEST_IMAGE", "knot-ubuntu:26.04"),
+		Runtime:        envOr("KNOT_TEST_RUNTIME", "docker"),
+		DockerCache:    envOr("KNOT_TEST_DOCKER_CACHE", "hub.anaconda.ovh/docker"),
+		ImageNamespace: envOr("KNOT_TEST_IMAGE_NAMESPACE", "paularlott"),
+		Image:          envOr("KNOT_TEST_IMAGE", "knot-ubuntu:26.04"),
 		// ContainerHost overrides the address handed to spaces for the
 		// agent endpoint / server URL. Empty means knot's own ${{
 		// host_ip }} resolution: the server picks its primary physical

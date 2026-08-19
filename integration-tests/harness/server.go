@@ -24,10 +24,10 @@ var (
 // Server is a knot server subprocess booted for testing, with its own
 // badgerdb data dir and dynamically allocated ports.
 type Server struct {
-	Name string
+	Name   string
 	Config *Config
 
-	HTTPPort int
+	HTTPPort  int
 	AgentPort int
 
 	// BaseURL is the server URL for host-side clients (apiclient).
@@ -360,7 +360,9 @@ func EnsureImageAvailable(cfg *Config, refs ...string) error {
 		return nil
 	}
 	for _, ref := range refs {
-		if imageExistsLocally(ref) && cfg.DockerCache == "" {
+		// Present locally means a previous run already fetched it; the
+		// daemon can run it as-is, so skip the pull entirely.
+		if imageExistsLocally(ref) {
 			continue
 		}
 		err := dockerPull(ref, 20*time.Minute)

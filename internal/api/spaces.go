@@ -1066,6 +1066,15 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A deleted space is gone: the record lingers (renamed to its id) so
+	// gossip can propagate the deletion and references stay intact, but the
+	// API must not hand it back. Spaces still on the deletion path
+	// (is_deleting, state transitions) remain visible.
+	if space.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
 	// Now use GetSpaceDetails with the resolved ID
 	data, err := api_utils.GetSpaceDetails(space.Id, user)
 	if err != nil {

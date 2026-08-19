@@ -20,7 +20,6 @@ func spaceFixture(t *testing.T, name, userId string, client *apiclient.ApiClient
 }
 
 func TestSpaceLifecycle(t *testing.T) {
-	harness.Feature(t, "spaces")
 	harness.Feature(t, "space-lifecycle")
 	id := spaceFixture(t, "it-life", user1.Id, user1.Client)
 	ctx, cancel := testCtx(60)
@@ -75,7 +74,7 @@ func TestSpaceLifecycle(t *testing.T) {
 }
 
 func TestSpaceUserIsolation(t *testing.T) {
-	harness.Feature(t, "permissions")
+	harness.Feature(t, "spaces")
 	workspace(t) // ensure user1 has a space of their own
 
 	// The other user's space (user2 on OSS; the admin on pro, where the
@@ -113,11 +112,11 @@ func TestSpaceStacks(t *testing.T) {
 	stackName := uniqueName("it-stack")
 	mk := func(n string) string {
 		id, code, err := user1.Client.CreateSpace(ctx, &apiclient.SpaceRequest{
-			Name:   n,
-			Stack:  stackName,
+			Name:       n,
+			Stack:      stackName,
 			TemplateId: templateId,
-			UserId: user1.Id,
-			Shell:  "bash",
+			UserId:     user1.Id,
+			Shell:      "bash",
 		})
 		if err != nil {
 			t.Fatalf("create stack space %s: %v (status %d)", n, err, code)
@@ -163,7 +162,7 @@ func TestSpaceStacks(t *testing.T) {
 		if allStopped {
 			break
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	// DeleteStack removes every space in the stack.
@@ -172,13 +171,35 @@ func TestSpaceStacks(t *testing.T) {
 		t.Fatalf("delete stack: %v (status %d)", err, code)
 	}
 	user1.Client.SetTimeout(60e9)
+	// DeleteStack marks every space is_deleting before returning; deletion
+	// continues async, so is_deleting (with nothing running) is the done
+	// signal for this loop.
 	for _, id := range []string{web, db} {
 		deadline := time.Now().Add(60 * time.Second)
 		for time.Now().Before(deadline) {
-			if _, _, err := user1.Client.GetSpace(ctx, id); err != nil {
+			space, _, err := user1.Client.GetSpace(ctx, id)
+			if err != nil || (space != nil && space.IsDeleting && !space.IsDeployed && !space.IsPending) {
 				break
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
+	// Once deletion completes the spaces must not be retrievable: the
+	// records linger (renamed to their ids) so gossip can propagate the
+	// deletion, but the API returns 404 for them.
+	goneDeadline := time.Now().Add(60 * time.Second)
+	for _, id := range []string{web, db} {
+		gone := false
+		for time.Now().Before(goneDeadline) {
+			if _, _, err := user1.Client.GetSpace(ctx, id); err != nil {
+				gone = true
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		if !gone {
+			t.Errorf("space %s still retrievable after delete", id)
 		}
 	}
 }

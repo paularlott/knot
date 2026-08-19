@@ -62,6 +62,13 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "build failed: %v\n", err)
 			os.Exit(1)
 		}
+	} else {
+		var err error
+		bins, err = harness.LocateBinaries()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "locate binaries: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	harness.Progress("ensuring image available: " + cfg.ImageRef())

@@ -46,6 +46,20 @@ func BuildBinaries() (*Binaries, error) {
 	return &Binaries{Server: serverBin}, nil
 }
 
+// LocateBinaries returns the binaries from a previous build without
+// rebuilding, for KNOT_TEST_NO_BUILD runs.
+func LocateBinaries() (*Binaries, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return nil, err
+	}
+	serverBin := filepath.Join(repoRoot, "bin", "knot")
+	if _, err := os.Stat(serverBin); err != nil {
+		return nil, fmt.Errorf("no prebuilt %s (run once without KNOT_TEST_NO_BUILD): %w", serverBin, err)
+	}
+	return &Binaries{Server: serverBin}, nil
+}
+
 func findRepoRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {

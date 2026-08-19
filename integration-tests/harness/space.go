@@ -65,7 +65,7 @@ func WaitForSpaceReady(t *testing.T, s *Server, client *apiclient.ApiClient, spa
 		if err != nil {
 			t.Logf("waiting for space %s: %v", spaceId, err)
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 	}
 	t.Logf("space %s deployed after %.1fs", spaceId, time.Since(start).Seconds())
 
@@ -82,7 +82,7 @@ func WaitForSpaceReady(t *testing.T, s *Server, client *apiclient.ApiClient, spa
 			t.Logf("space %s agent not answering yet (err=%v out=%q, %s left)", spaceId, err, out, remaining)
 			Progress(fmt.Sprintf("waiting for space %s agent to answer commands (%s left)", spaceId, remaining))
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	t.Fatalf("space %s never became ready within %s\nserver log tail:\n%s\n%s",
@@ -179,7 +179,7 @@ func stopAndDelete(ctx context.Context, client *apiclient.ApiClient, spaceId str
 		if err != nil || space == nil || (!space.IsDeployed && !space.IsPending) {
 			break
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	dctx, dcancel := context.WithTimeout(ctx, 30*time.Second)
 	client.DeleteSpace(dctx, spaceId)
@@ -187,26 +187,49 @@ func stopAndDelete(ctx context.Context, client *apiclient.ApiClient, spaceId str
 }
 
 // DeleteSpaceAndWait stops the space (the API refuses to delete a deployed
-// space with 423) and then removes it, waiting until it disappears.
+// space with 423) and then removes it, waiting until it disappears. A space
+// already on the deletion path (is_deleting — e.g. removed by a stack delete)
+// is left alone: deletion is async server-side and the record stays
+// retrievable for a while, so is_deleting is the "done touching it" signal.
 func DeleteSpaceAndWait(t *testing.T, client *apiclient.ApiClient, spaceId string) {
 	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	space, _, err := client.GetSpace(ctx, spaceId)
+	cancel()
+	if err != nil {
+		return // already gone
+	}
+	if space != nil && space.IsDeleting {
+		waitForSpaceDeleting(t, client, spaceId)
+		return
+	}
 	StopSpaceAndWait(t, client, spaceId)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	if code, err := client.DeleteSpace(ctx, spaceId); err != nil {
+	dctx, dcancel := context.WithTimeout(context.Background(), 120*time.Second)
+	if code, err := client.DeleteSpace(dctx, spaceId); err != nil {
 		t.Logf("delete space %s: %v (status %d) — continuing", spaceId, err, code)
 	}
-	cancel()
+	dcancel()
 
+	waitForSpaceDeleting(t, client, spaceId)
+}
+
+// waitForSpaceDeleting blocks until the space is gone (404) or marked
+// is_deleting with nothing running.
+func waitForSpaceDeleting(t *testing.T, client *apiclient.ApiClient, spaceId string) {
+	t.Helper()
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		_, _, err := client.GetSpace(ctx, spaceId)
+		space, _, err := client.GetSpace(ctx, spaceId)
 		cancel()
 		if err != nil {
 			return // gone
 		}
-		time.Sleep(2 * time.Second)
+		if space != nil && space.IsDeleting && !space.IsDeployed && !space.IsPending {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
 	t.Logf("space %s still listed after delete window (continuing)", spaceId)
 }
@@ -229,6 +252,6 @@ func StopSpaceAndWait(t *testing.T, client *apiclient.ApiClient, spaceId string)
 		if err != nil || space == nil || (!space.IsDeployed && !space.IsPending) {
 			return
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 	}
 }

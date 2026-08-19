@@ -9,8 +9,7 @@ are documented in `PRO-TESTS.md` in the pro repository.
 ## Quick start
 
 ```sh
-task test:integration        # build + full suite
-task test:integration-fast   # reuse the existing bin/knot
+task test:integration        # incremental build, then the full suite
 ```
 
 While it runs, the feature-matrix report is rewritten live at
@@ -26,7 +25,7 @@ Copy `.env.example` to `.env`. The knobs:
 |---|---|
 | `KNOT_TEST_RUNTIME` | `docker` (default) or `apple` containers |
 | `KNOT_TEST_IMAGE_NAMESPACE` / `KNOT_TEST_IMAGE` | base image for spaces |
-| `KNOT_TEST_DOCKER_CACHE` | optional registry-cache prefix; empty = docker hub direct |
+| `KNOT_TEST_DOCKER_CACHE` | registry-cache prefix (default `hub.anaconda.ovh/docker`; falls back to docker hub when the cache is unreachable; empty = docker hub direct) |
 | `KNOT_TEST_CONTAINER_HOST` | host address as seen from inside containers |
 | `KNOT_TEST_ZONE` | zone name for test servers |
 | `KNOT_TEST_KEEP` | `1` = keep servers/data dirs for debugging |
