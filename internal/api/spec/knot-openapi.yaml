@@ -3098,6 +3098,133 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /space-io/{space_id}/jobs/list:
+    get:
+      summary: List the scheduled jobs of a space
+      description: >-
+        List the jobs defined in the space's ~/.knot-jobs.toml, including their
+        schedule, next run, and recent run history. The jobs file lives in the
+        space so the space must be running.
+      operationId: jobsList
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsListSuccess"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/jobs/run:
+    post:
+      summary: Trigger a job in a space now
+      description: >-
+        Start a job immediately by name. Manual triggering also works for
+        disabled and manual-only jobs; `enabled` only gates automatic firing.
+      operationId: jobsRun
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobRunRequest"
+      responses:
+        "200":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsSuccess"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/jobs/enable:
+    post:
+      summary: Start or stop the job runner of a space
+      description: >-
+        Start or stop the space's job runner (scheduled firing). The state is
+        in memory only: it is not persisted, and on the next agent start the
+        runner defaults to running when ~/.knot-jobs.toml exists and stopped
+        when it does not. Enabling requires the jobs file to exist.
+      operationId: jobsEnable
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobSetEnabledRequest"
+      responses:
+        "200":
+          description: Job updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsSuccess"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/templates:
     get:
       summary: Get Templates
@@ -6564,6 +6691,12 @@ components:
         has_terminal:
           type: boolean
           description: If the space can support a web terminal.
+        has_jobs:
+          type: boolean
+          description: True when the space's agent reports a ~/.knot-jobs.toml file.
+        jobs_enabled:
+          type: boolean
+          description: True when the space's job runner (scheduled firing) is enabled.
         has_vscode_tunnel:
           type: boolean
           description: If the space has a running VSCode tunnel.
@@ -8915,6 +9048,123 @@ components:
           items:
             $ref: "#/components/schemas/PortForwardInfo"
           description: List of active port forwards.
+
+    JobsListSuccess:
+      type: object
+      properties:
+        found:
+          type: boolean
+          example: true
+          description: True when the space has a ~/.knot-jobs.toml file.
+        enabled:
+          type: boolean
+          example: true
+          description: Job runner state; defaults at agent start to whether the jobs file exists, changed only in memory by start/stop.
+        error:
+          type: string
+          description: File-level parse error; when set the agent keeps using the last good configuration.
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobInfo"
+          description: Jobs defined in the space's ~/.knot-jobs.toml.
+
+    JobInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: backup
+          description: The job name (its [jobs.<name>] table key).
+        command:
+          type: string
+          example: ./scripts/backup.sh
+          description: The shell command the job runs in the space's home directory.
+        schedule:
+          type: string
+          example: "0 2 * * *"
+          description: Normalized 5-field cron expression; empty for manual-only jobs.
+        manual_only:
+          type: boolean
+          example: false
+          description: True when the job defines no schedule and only runs when triggered.
+        enabled:
+          type: boolean
+          example: true
+          description: The job's authored enabled value (defaults to true); false means it never fires automatically.
+        running:
+          type: boolean
+          example: false
+          description: True while the job's command is executing.
+        next_run:
+          type: string
+          format: date-time
+          description: Next scheduled fire time in the space's timezone; omitted when disabled or manual-only.
+        last_run:
+          $ref: "#/components/schemas/JobRunRecord"
+        error:
+          type: string
+          description: Validation error for this job definition; invalid jobs are listed but never fired.
+
+    JobRunRecord:
+      type: object
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          description: When the run started.
+        finished_at:
+          type: string
+          format: date-time
+          description: When the run finished.
+        duration_ms:
+          type: integer
+          example: 1250
+          description: Run duration in milliseconds.
+        status:
+          type: string
+          enum: [running, success, failed, skipped]
+          example: success
+          description: Outcome of the run; skipped means the previous run was still active at fire time.
+        trigger:
+          type: string
+          enum: [schedule, manual]
+          example: schedule
+          description: What started the run.
+        error:
+          type: string
+          description: Error message for failed runs.
+
+    JobRunRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: backup
+          description: The name of the job to run.
+
+    JobSetEnabledRequest:
+      type: object
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          example: false
+          description: True to start the job runner, false to stop it.
+
+    JobsSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: The status of the operation, true if successful.
+        error:
+          type: string
+          description: Error message if the operation failed.
 
     PortStopRequest:
       type: object

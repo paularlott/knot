@@ -98,11 +98,11 @@ func TestGroupsCRUD(t *testing.T) {
 
 	name := uniqueName("it-group")
 	id, code, err := admin.Client.CreateGroup(ctx, &apiclient.GroupRequest{
-		Name:          name,
-		MaxSpaces:     3,
-		ComputeUnits:  4,
-		StorageUnits:  4,
-		MaxTunnels:    1,
+		Name:         name,
+		MaxSpaces:    3,
+		ComputeUnits: 4,
+		StorageUnits: 4,
+		MaxTunnels:   1,
 	})
 	if err != nil {
 		t.Fatalf("create group: %v (status %d)", err, code)

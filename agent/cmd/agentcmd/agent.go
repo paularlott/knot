@@ -19,6 +19,7 @@ import (
 	"github.com/paularlott/knot/internal/methods"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spacejobs"
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/paularlott/cli"
@@ -233,6 +234,13 @@ var agentServerCmd = &cli.Command{
 		methodsRunner := buildMethodsScriptRunner(agentClient)
 		agentlink.SetMethodsScriptRunner(methodsRunner)
 
+		// Start the scheduled jobs service (reads ~/.knot-jobs.toml, fires due
+		// jobs while the space is running; manual trigger via RPC). Run
+		// activity and output go to the space's log window via the agent
+		// client's log channel, like scripts.
+		spacejobs.SetLogger(agent_client.NewAgentClientLogger(agentClient, "jobs"))
+		spacejobs.Start()
+
 		// Install the methods registrar globally for the lifetime of the daemon.
 		// Any script that runs in the agent (startup scripts, `knot methods
 		// register file.py`) can call knot.methods Server.register(); the call
@@ -277,6 +285,7 @@ var agentServerCmd = &cli.Command{
 		<-c
 
 		agenttunnel.StopAll()
+		spacejobs.Stop()
 		agentlink.StopCommandSocket()
 		agentlink.SetMethodsScriptRunner(nil)
 		agentClient.Shutdown()

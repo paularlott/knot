@@ -154,5 +154,14 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandThrottlePort:
 		handleThrottlePort(conn, msg)
+
+	case CommandJobsList:
+		handleJobsList(conn)
+
+	case CommandJobsRun:
+		handleJobsRun(conn, msg)
+
+	case CommandJobsSetEnabled:
+		handleJobsSetEnabled(conn, msg)
 	}
 }

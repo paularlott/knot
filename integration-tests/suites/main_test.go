@@ -19,17 +19,17 @@ import (
 )
 
 var (
-	cfg       *harness.Config
-	bins      *harness.Binaries
-	server    *harness.Server
-	admin     *harness.User
-	user1     *harness.User
-	user2     *harness.User
+	cfg        *harness.Config
+	bins       *harness.Binaries
+	server     *harness.Server
+	admin      *harness.User
+	user1      *harness.User
+	user2      *harness.User
 	templateId string
 	// workhorseId is a long-lived space shared by the read-only suites
 	// (files, commands, usage, logs, isolation, port-forward target);
 	// booting and tearing down a space per test costs a minute each way.
-	workhorseId string
+	workhorseId   string
 	workhorseOnce sync.Once
 )
 

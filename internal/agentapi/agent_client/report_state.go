@@ -14,6 +14,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/spacejobs"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/knot/internal/log"
@@ -167,7 +168,7 @@ func (c *AgentClient) reportState() {
 				healthy := c.healthy
 				c.healthMu.RUnlock()
 
-				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy, cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes, activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, activityBucketStartUnix, activityBucketFinalized, lastActivityAtUnix, c.methodCallsTotal.Load(), c.httpRequestsTotal.Load(), c.tcpConnectionsTotal.Load())
+				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy, cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes, activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, activityBucketStartUnix, activityBucketFinalized, lastActivityAtUnix, c.methodCallsTotal.Load(), c.httpRequestsTotal.Load(), c.tcpConnectionsTotal.Load(), spacejobs.HasJobsFile(), spacejobs.RunnerEnabled())
 				if err != nil {
 					log.Error("failed to send state to server", "server", server.address)
 					server.reportingConn.Close()

@@ -305,6 +305,8 @@ func handleAgentSession(stream net.Conn, session *Session) {
 					session.SSHPort != state.SSHPort ||
 					session.VNCHttpPort != state.VNCHttpPort ||
 					session.HasTerminal != state.HasTerminal ||
+					session.HasJobs != state.HasJobs ||
+					session.JobsEnabled != state.JobsEnabled ||
 					session.HasVSCodeTunnel != state.HasVSCodeTunnel ||
 					session.VSCodeTunnelName != state.VSCodeTunnelName ||
 					!mapsEqual(session.TcpPorts, state.TcpPorts) ||
@@ -314,6 +316,8 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.SSHPort = state.SSHPort
 				session.VNCHttpPort = state.VNCHttpPort
 				session.HasTerminal = state.HasTerminal
+				session.HasJobs = state.HasJobs
+				session.JobsEnabled = state.JobsEnabled
 				session.TcpPorts = state.TcpPorts
 				session.HttpPorts = state.HttpPorts
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel

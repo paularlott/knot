@@ -129,4 +129,3 @@ func TestEventsSSE(t *testing.T) {
 	}
 	t.Fatalf("groups:changed not seen on SSE stream")
 }
-

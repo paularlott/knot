@@ -93,4 +93,3 @@ func TestChatOpenAIEndpoint(t *testing.T) {
 		t.Fatal("expected reply content in chat completion stream")
 	}
 }
-

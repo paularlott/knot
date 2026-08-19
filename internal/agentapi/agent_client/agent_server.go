@@ -820,6 +820,25 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdTunnelList):
 		handleTunnelListExecution(stream)
 
+	case byte(msg.CmdJobsList):
+		handleJobsListExecution(stream)
+
+	case byte(msg.CmdJobsRun):
+		var runMsg msg.JobsRunMessage
+		if err := msg.ReadMessage(stream, &runMsg); err != nil {
+			log.WithError(err).Error("reading jobs run message:")
+			return
+		}
+		handleJobsRunExecution(stream, runMsg)
+
+	case byte(msg.CmdJobsSetEnabled):
+		var enableMsg msg.JobsSetEnabledMessage
+		if err := msg.ReadMessage(stream, &enableMsg); err != nil {
+			log.WithError(err).Error("reading jobs set-enabled message:")
+			return
+		}
+		handleJobsSetEnabledExecution(stream, enableMsg)
+
 	default:
 		log.Error("unknown command:", "cmd", cmd)
 	}

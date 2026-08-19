@@ -23,10 +23,10 @@ func TestFetchDecision(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                                string
-		m, a, u                             bool
-		wantOK                              bool
-		wantDefault                         bool // true → expect DefaultUpdateURL
+		name        string
+		m, a, u     bool
+		wantOK      bool
+		wantDefault bool // true → expect DefaultUpdateURL
 	}{
 		// Gate off → never fetch, regardless of M/U.
 		{"A=F !M !U", false, false, false, false, false},

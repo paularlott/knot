@@ -34,6 +34,9 @@ const (
 	CommandStopTunnel
 	CommandListTunnels
 	CommandThrottlePort
+	CommandJobsList
+	CommandJobsRun
+	CommandJobsSetEnabled
 )
 
 type CommandMsg struct {

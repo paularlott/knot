@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/spacejobs"
 
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/knot/internal/log"
@@ -24,6 +25,8 @@ type Session struct {
 	SSHPort               int
 	VNCHttpPort           int
 	HasTerminal           bool
+	HasJobs               bool
+	JobsEnabled           bool
 	TcpPorts              map[string]string
 	HttpPorts             map[string]string
 	HasVSCodeTunnel       bool
@@ -638,4 +641,75 @@ func (s *Session) SendMirrorLog(batch *msg.MirrorLogMessage) error {
 		return err
 	}
 	return msg.WriteMessage(conn, batch)
+}
+
+// SendJobsList asks the space's agent for its scheduled jobs snapshot.
+func (s *Session) SendJobsList() (*spacejobs.JobsSnapshot, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdJobsList); err != nil {
+		s.logger.WithError(err).Error("writing jobs list command:")
+		return nil, err
+	}
+
+	var response spacejobs.JobsSnapshot
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading jobs list response:")
+		return nil, err
+	}
+	return &response, nil
+}
+
+// SendJobsRun asks the space's agent to start a job immediately.
+func (s *Session) SendJobsRun(name string) (*msg.JobsResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdJobsRun); err != nil {
+		s.logger.WithError(err).Error("writing jobs run command:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+	if err := msg.WriteMessage(conn, &msg.JobsRunMessage{Name: name}); err != nil {
+		s.logger.WithError(err).Error("writing jobs run message:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to send message to agent"}, nil
+	}
+
+	var response msg.JobsResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading jobs run response:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+	return &response, nil
+}
+
+// SendJobsSetEnabled starts or stops the job runner in the space's agent.
+func (s *Session) SendJobsSetEnabled(enabled bool) (*msg.JobsResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdJobsSetEnabled); err != nil {
+		s.logger.WithError(err).Error("writing jobs set-enabled command:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+	if err := msg.WriteMessage(conn, &msg.JobsSetEnabledMessage{Enabled: enabled}); err != nil {
+		s.logger.WithError(err).Error("writing jobs set-enabled message:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to send message to agent"}, nil
+	}
+
+	var response msg.JobsResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading jobs set-enabled response:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+	return &response, nil
 }

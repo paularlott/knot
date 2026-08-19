@@ -9,11 +9,11 @@ import (
 
 func TestTemplateExportRoundTrip(t *testing.T) {
 	exp := &TemplateExport{
-		Name:        "Ubuntu Desktop",
-		Description: "Base Ubuntu 26.04",
-		Platform:    "nomad",
-		IconURL:     "/icons/ubuntu.svg",
-		Active:      true,
+		Name:         "Ubuntu Desktop",
+		Description:  "Base Ubuntu 26.04",
+		Platform:     "nomad",
+		IconURL:      "/icons/ubuntu.svg",
+		Active:       true,
 		ComputeUnits: 1,
 		Features: TemplateExportFeatures{
 			WithTerminal: true,

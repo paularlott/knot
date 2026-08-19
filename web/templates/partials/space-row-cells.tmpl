@@ -219,6 +219,16 @@
                           <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Logs</div>
                         </div>
                         {{ end }}
+
+                        <!-- Jobs -->
+                        <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_jobs">
+                          <button @click="openJobs(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5" :class="s.jobs_enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                            <span class="sr-only">Jobs</span>
+                          </button>
+                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak x-text="s.jobs_enabled ? 'Jobs (running)' : 'Jobs (stopped)'"></div>
+                        </div>
+
                       </div>
                     </div>
                   </div>
@@ -322,6 +332,16 @@
                       <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Logs</div>
                     </div>
                     {{ end }}
+
+                    <!-- Jobs -->
+                    <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_jobs">
+                      <button @click="openJobs(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5" :class="s.jobs_enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <span class="sr-only">Jobs</span>
+                      </button>
+                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak x-text="s.jobs_enabled ? 'Jobs (running)' : 'Jobs (stopped)'"></div>
+                    </div>
+
                   </div>
                 </td>
 
@@ -464,6 +484,7 @@
                           <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7.5 15l3-3 2.25 2.25L16.5 9" />
                         </svg> Usage
                       </button>
+
 
                       {{ if .permissionUseSSH }}
                       <button x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_ssh" @click="$refs.panel2.toggle" class="group nav-item text-sm px-4 w-full" role="menuitem">

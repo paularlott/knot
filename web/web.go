@@ -321,6 +321,9 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("POST /space-io/{space_id}/tunnel/start", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleTunnelStart)))
 	router.HandleFunc("GET /space-io/{space_id}/tunnel/list", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleTunnelList)))
 	router.HandleFunc("POST /space-io/{space_id}/tunnel/stop", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleTunnelStop)))
+	router.HandleFunc("GET /space-io/{space_id}/jobs/list", middleware.ApiAuth(HandleJobsList))
+	router.HandleFunc("POST /space-io/{space_id}/jobs/run", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleJobsRun)))
+	router.HandleFunc("POST /space-io/{space_id}/jobs/enable", middleware.ApiAuth(HandleJobsSetEnabled))
 
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 

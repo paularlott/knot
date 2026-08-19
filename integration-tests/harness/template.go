@@ -62,26 +62,26 @@ func CreateTemplate(s *Server, client *apiclient.ApiClient, name string, opts Te
 	}
 
 	req := &apiclient.TemplateCreateRequest{
-		Name:            name,
-		Job:             TemplateJobYAML(s.Config, opts),
-		Ports:           ports,
+		Name:  name,
+		Job:   TemplateJobYAML(s.Config, opts),
+		Ports: ports,
 		CustomFields: []apiclient.CustomFieldDef{
 			{Name: "env", Description: "integration test custom field"},
 		},
-		Volumes:         opts.Volumes,
-		Description:     "integration test template",
-		Platform:        "container",
-		Active:          true,
-		WithTerminal:    true,
-		WithSSH:         true,
-		WithRunCommand:  true,
-		ComputeUnits:    2,
-		StorageUnits:    2,
-		MaxUptime:       0,
-		MaxUptimeUnit:   "disabled",
-		HealthCheckType:          "none",
-		AllowNodeMigration:       opts.AllowMigration,
-		HealthCheckAutoRestart:   opts.AllowMigration,
+		Volumes:                opts.Volumes,
+		Description:            "integration test template",
+		Platform:               "container",
+		Active:                 true,
+		WithTerminal:           true,
+		WithSSH:                true,
+		WithRunCommand:         true,
+		ComputeUnits:           2,
+		StorageUnits:           2,
+		MaxUptime:              0,
+		MaxUptimeUnit:          "disabled",
+		HealthCheckType:        "none",
+		AllowNodeMigration:     opts.AllowMigration,
+		HealthCheckAutoRestart: opts.AllowMigration,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

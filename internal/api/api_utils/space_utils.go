@@ -138,6 +138,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	var hasCodeServer, hasSSH, hasTerminal, hasHttpVNC, hasVSCodeTunnel, hasState bool
 	var tcpPorts, httpPorts map[string]string
 	var vscodeTunnel string
+	var hasJobs bool
+	var jobsEnabled bool
 
 	if state == nil {
 		hasCodeServer = false
@@ -153,6 +155,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		hasCodeServer = state.HasCodeServer
 		hasSSH = state.SSHPort > 0
 		hasTerminal = state.HasTerminal
+		hasJobs = state.HasJobs
+		jobsEnabled = state.JobsEnabled
 		hasHttpVNC = state.VNCHttpPort > 0
 		tcpPorts = state.TcpPorts
 		hasState = true
@@ -231,6 +235,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		HasCodeServer:      hasCodeServer,
 		HasSSH:             hasSSH,
 		HasTerminal:        hasTerminal,
+		HasJobs:            hasJobs,
+		JobsEnabled:        jobsEnabled,
 		HasHttpVNC:         hasHttpVNC,
 		HasState:           hasState,
 		TcpPorts:           tcpPorts,

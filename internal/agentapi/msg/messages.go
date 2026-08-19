@@ -58,6 +58,9 @@ const (
 	CmdThrottlePort
 	CmdPortForwardNotify
 	CmdMirrorLog
+	CmdJobsList
+	CmdJobsRun
+	CmdJobsSetEnabled
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

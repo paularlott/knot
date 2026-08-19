@@ -165,6 +165,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.HasCodeServer = false
 			s.HasSSH = false
 			s.HasTerminal = false
+			s.HasJobs = false
+			s.JobsEnabled = false
 			s.HasHttpVNC = false
 			s.TcpPorts = make(map[string]string)
 			s.HttpPorts = make(map[string]string)
@@ -176,6 +178,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.HasCodeServer = state.HasCodeServer
 			s.HasSSH = state.SSHPort > 0
 			s.HasTerminal = state.HasTerminal
+			s.HasJobs = state.HasJobs
+			s.JobsEnabled = state.JobsEnabled
 			s.HasHttpVNC = state.VNCHttpPort > 0
 			s.TcpPorts = state.TcpPorts
 			s.HasState = true

@@ -92,6 +92,18 @@ window.spacesListComponent = function (
       spaceId: "",
       spaceName: "",
     },
+    jobsModal: {
+      show: false,
+      spaceId: "",
+      jobs: [],
+      found: true,
+      enabled: true,
+      togglingRunner: false,
+      loading: false,
+      error: "",
+      warning: "",
+      runningJob: "",
+    },
 
     showingSpecificUser: userId !== forUserId,
     forUserId:
@@ -737,6 +749,8 @@ window.spacesListComponent = function (
       target.has_code_server = space.has_code_server;
       target.has_ssh = space.has_ssh;
       target.has_terminal = space.has_terminal;
+      target.has_jobs = space.has_jobs === true;
+      target.jobs_enabled = space.jobs_enabled === true;
       target.is_deployed = space.is_deployed;
       target.is_pending = space.is_pending;
       target.is_deleting = space.is_deleting;
@@ -1090,6 +1104,164 @@ window.spacesListComponent = function (
       this.spaceUsageModal.show = false;
       this.spaceUsageModal.spaceId = "";
       this.spaceUsageModal.spaceName = "";
+    },
+    openJobs(spaceId) {
+      this.jobsModal.spaceId = spaceId;
+      this.jobsModal.show = true;
+      this.loadJobs(spaceId);
+      this.startJobsPolling(spaceId);
+    },
+    closeJobs() {
+      this.stopJobsPolling();
+      this.jobsModal.show = false;
+      this.jobsModal.spaceId = "";
+      this.jobsModal.jobs = [];
+      this.jobsModal.found = true;
+      this.jobsModal.enabled = true;
+      this.jobsModal.error = "";
+      this.jobsModal.warning = "";
+      this.jobsModal.runningJob = "";
+    },
+    // The SSE space stream only carries space-level flags (has_jobs,
+    // jobs_enabled — the icon colour); the job list itself is polled while
+    // the popup is open so history and running badges stay current.
+    startJobsPolling(spaceId) {
+      this.stopJobsPolling();
+      this.jobsPollTimer = setInterval(() => {
+        if (this.jobsModal.show && this.jobsModal.spaceId === spaceId && !this.jobsModal.loading) {
+          // Silent: a background refresh must not flash the loading state.
+          this.loadJobs(spaceId, true);
+        }
+      }, 5000);
+    },
+    stopJobsPolling() {
+      if (this.jobsPollTimer) {
+        clearInterval(this.jobsPollTimer);
+        this.jobsPollTimer = null;
+      }
+    },
+    async loadJobs(spaceId, silent = false) {
+      const self = this;
+      if (!silent) {
+        self.jobsModal.loading = true;
+      }
+      self.jobsModal.error = "";
+      self.jobsModal.warning = "";
+      try {
+        const response = await fetch(`/space-io/${spaceId}/jobs/list`);
+        if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          self.jobsModal.error = body.error || `Failed to load jobs (${response.status})`;
+          self.jobsModal.jobs = [];
+          return;
+        }
+        const data = await response.json();
+        self.jobsModal.jobs = data.jobs || [];
+        self.jobsModal.found = data.found !== false;
+        self.jobsModal.enabled = data.enabled !== false;
+        self.jobsModal.warning = data.error ? `${data.error} (using last good configuration)` : "";
+      } catch (error) {
+        self.jobsModal.error = `Failed to load jobs: ${error}`;
+      } finally {
+        if (!silent) {
+          self.jobsModal.loading = false;
+        }
+      }
+    },
+    async toggleJobRunner() {
+      const self = this;
+      const spaceId = this.jobsModal.spaceId;
+      if (!spaceId || self.jobsModal.togglingRunner) return;
+      self.jobsModal.togglingRunner = true;
+      const enabled = !self.jobsModal.enabled;
+      try {
+        const response = await fetch(`/space-io/${spaceId}/jobs/enable`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled }),
+        });
+        if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body.success === false) {
+          self.$dispatch("show-alert", {
+            msg: body.error || `Job runner could not be ${enabled ? "enabled" : "disabled"}`,
+            type: "error",
+          });
+        } else {
+          self.$dispatch("show-alert", {
+            msg: `Job runner ${enabled ? "enabled" : "disabled"}`,
+            type: "success",
+          });
+        }
+      } catch (error) {
+        self.$dispatch("show-alert", {
+          msg: `Job runner could not be updated: ${error}`,
+          type: "error",
+        });
+      } finally {
+        self.jobsModal.togglingRunner = false;
+        // Reload so the switch reflects the agent's actual state (the
+        // runner may have been stopped by a deleted jobs file, etc).
+        if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
+          self.loadJobs(spaceId);
+        }
+      }
+    },
+    async runJobNow(name) {
+      const self = this;
+      const spaceId = this.jobsModal.spaceId;
+      if (!spaceId) return;
+      self.jobsModal.runningJob = name;
+      try {
+        const response = await fetch(`/space-io/${spaceId}/jobs/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body.success === false) {
+          self.$dispatch("show-alert", {
+            msg: body.error || `Job '${name}' could not be started`,
+            type: "error",
+          });
+        } else {
+          self.$dispatch("show-alert", {
+            msg: `Job '${name}' started`,
+            type: "success",
+          });
+        }
+      } catch (error) {
+        self.$dispatch("show-alert", {
+          msg: `Job '${name}' could not be started: ${error}`,
+          type: "error",
+        });
+      } finally {
+        self.jobsModal.runningJob = "";
+      }
+    },
+    formatJobDuration(ms) {
+      const seconds = Math.round(ms / 1000);
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+      return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    },
+    formatJobTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString();
     },
     searchChanged() {
       const term = this.searchTerm.toLowerCase();

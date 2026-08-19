@@ -1872,7 +1872,6 @@ func emitConfigMountsForDriver(driver string, templates []apiclient.NomadTemplat
 	return emitConfigMountBlocks(templates) + emitConfigBindMounts(storage)
 }
 
-
 func emitNetworkBlock(ports []apiclient.PortMapping, mode string) string {
 	if len(ports) == 0 && mode == "" {
 		return ""
