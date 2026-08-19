@@ -8,6 +8,34 @@ import (
 	"github.com/paularlott/knot/internal/service"
 )
 
+// CheckTemplateAccess enforces the same visibility as the template read
+// path: template managers see everything; everyone else only templates
+// returned by their permission-filtered, zone-restricted list. Callers map
+// the error to a 404 so template existence isn't leaked.
+func CheckTemplateAccess(templateId string, user *model.User) error {
+	if user.HasPermission(model.PermissionManageTemplates) {
+		return nil
+	}
+
+	templates, err := service.GetTemplateService().ListTemplates(service.TemplateListOptions{
+		User:                 user,
+		IncludeInactive:      false,
+		IncludeDeleted:       false,
+		CheckPermissions:     true,
+		CheckZoneRestriction: true,
+	})
+	if err != nil {
+		return fmt.Errorf("Failed to check template permissions: %v", err)
+	}
+
+	for _, t := range templates {
+		if t.Id == templateId {
+			return nil
+		}
+	}
+	return fmt.Errorf("No permission to access this template")
+}
+
 // GetTemplateDetails returns detailed template information with permission checks
 func GetTemplateDetails(templateId string, user *model.User) (*apiclient.TemplateDetails, error) {
 	if templateId == "" {
@@ -21,30 +49,8 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 	}
 
 	// Check if user has permission to view this template
-	if !user.HasPermission(model.PermissionManageTemplates) {
-		// For non-admin users, check if they can use this template
-		templates, err := templateService.ListTemplates(service.TemplateListOptions{
-			User:                 user,
-			IncludeInactive:      false,
-			IncludeDeleted:       false,
-			CheckPermissions:     true,
-			CheckZoneRestriction: true,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("Failed to check template permissions: %v", err)
-		}
-
-		// Check if this template is in the user's accessible templates
-		hasAccess := false
-		for _, t := range templates {
-			if t.Id == templateId {
-				hasAccess = true
-				break
-			}
-		}
-		if !hasAccess {
-			return nil, fmt.Errorf("No permission to access this template")
-		}
+	if err := CheckTemplateAccess(templateId, user); err != nil {
+		return nil, err
 	}
 
 	// Get template usage

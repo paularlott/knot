@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -17,6 +18,7 @@ import (
 // HandleExportTemplate returns a portable YAML representation of a template
 // suitable for version control and cross-instance import.
 func HandleExportTemplate(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
 	templateId := r.PathValue("template_id")
 	db := database.GetInstance()
 
@@ -27,7 +29,16 @@ func HandleExportTemplate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		template, err = db.GetTemplateByName(templateId)
 	}
-	if err != nil || template == nil {
+	if err != nil || template == nil || template.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	// Same visibility as the read path: an export is a full read of the
+	// template (job, volumes — including any registry auth in the job), so
+	// users without template-manage permission may only export templates
+	// they are allowed to see.
+	if err := api_utils.CheckTemplateAccess(template.Id, user); err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
 		return
 	}
