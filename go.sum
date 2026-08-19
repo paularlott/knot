@@ -72,6 +72,8 @@ github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 h1:eveIIGn4BGM3qk
 github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5/go.mod h1:autxFIvghDt3jPTLoqZ9OZ7s9qTGNAWmYCjVFWPX/zg=
 github.com/miekg/dns v1.1.72 h1:vhmr+TF2A3tuoGNkLDFK9zi36F2LS+hKTRW0Uf8kbzI=
 github.com/miekg/dns v1.1.72/go.mod h1:+EuEPhdHOsfk6Wk5TT2CzssZdqkmFhf8r+aVyDEToIs=
+github.com/miekg/dns v1.1.73 h1:uhT8nJxmTrPJYClxVxTCX+CVn6qnzSiybRk72Z6DgrE=
+github.com/miekg/dns v1.1.73/go.mod h1:RW2Obtfd5NZHvOFe3zYG0W8koWOQtAzyHaLo8vASBuQ=
 github.com/paularlott/cli v0.8.5 h1:IENwmGHySmOhHRlu2it0hbweK8G+Dlfb/Y2OpM3i6AM=
 github.com/paularlott/cli v0.8.5/go.mod h1:sfRR24eVVblmv5gq9Enpk/9ZFfJWMovfo/7dNlqgDSM=
 github.com/paularlott/cli v0.9.0 h1:Xzhyl5craY+HauT0JGwKCYdZEZMq7SVdZ+rIJybOJZ8=
