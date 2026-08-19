@@ -34,6 +34,8 @@
       <input type="hidden" name="redirect_uri" value="{{ .redirectURI }}">
       <input type="hidden" name="scope" value="{{ .scope }}">
       <input type="hidden" name="state" value="{{ .state }}">
+      <input type="hidden" name="code_challenge" value="{{ .codeChallenge }}">
+      <input type="hidden" name="code_challenge_method" value="{{ .codeChallengeMethod }}">
 
       <div class="flex space-x-4">
         <button type="submit" name="action" value="approve" class="flex-1 btn-primary">

@@ -22,6 +22,8 @@ func HandleOAuth2GrantPage(w http.ResponseWriter, r *http.Request) {
 	data["redirectURI"] = r.URL.Query().Get("redirect_uri")
 	data["scope"] = r.URL.Query().Get("scope")
 	data["state"] = r.URL.Query().Get("state")
+	data["codeChallenge"] = r.URL.Query().Get("code_challenge")
+	data["codeChallengeMethod"] = r.URL.Query().Get("code_challenge_method")
 
 	if u, err := url.Parse(r.URL.Query().Get("redirect_uri")); err == nil {
 		data["redirectDomain"] = u.Hostname()

@@ -124,6 +124,8 @@ var migrations = []string{
 	`ALTER TABLE mcp_servers ADD COLUMN IF NOT EXISTS env JSON NOT NULL DEFAULT '[]'`,
 	// 59: add generic preferences JSON column to users (UI prefs, e.g. pinned nav items)
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSON DEFAULT NULL`,
+	// 60: mark tokens issued via the OAuth2 flow (refreshable via /token)
+	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS refresh_token TINYINT(1) NOT NULL DEFAULT 0`,
 }
 
 func (db *MySQLDriver) runMigrations() error {
