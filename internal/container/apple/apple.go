@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -184,6 +185,10 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		// Inject port env vars from template, overwriting any existing values
 		spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
 		spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
+
+		// Provision the agent's registration credentials, and refuse proof-less
+		// registration for this space from now on.
+		spec.Environment = append(spec.Environment, container.AgentRegistrationEnv(config.GetServerConfig(), space.Id)...)
 
 		for _, env := range spec.Environment {
 			args = append(args, "-e", env)

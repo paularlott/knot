@@ -14,6 +14,14 @@ type AgentConfig struct {
 	DNSResolver          bool
 	Port                 PortConfig
 	TLS                  TLSConfig
+
+	// Registration handshake: the per-space key proving the agent may
+	// register for SpaceID, and the pinned fingerprint (sha256 of the
+	// server certificate's public key) authenticating the agent listener.
+	// Injected into containers at create time; passed by hand for manual
+	// agents. Either may be empty for pre-upgrade provisioning.
+	RegistrationKey       string
+	ServerCertFingerprint string
 }
 
 type PortConfig struct {

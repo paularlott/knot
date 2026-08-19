@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
 	"sync"
 	"time"
 
@@ -434,15 +433,14 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 
 	go func() {
 
-		// Open the agent listener
-		var listener net.Listener
-		var err error
-
+		// Open the agent listener. TLS only: the channel carries
+		// registration secrets and the space owner's credentials, and the
+		// registration handshake assumes an authenticated server.
 		if tlsConfig == nil {
-			listener, err = net.Listen("tcp", listen)
-		} else {
-			listener, err = tls.Listen("tcp", listen, tlsConfig)
+			logger.Fatal("agent listener requires a TLS configuration")
 		}
+
+		listener, err := tls.Listen("tcp", listen, tlsConfig)
 		if err != nil {
 			logger.Fatal("Error starting agent listener", "err", err)
 		}

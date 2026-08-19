@@ -40,28 +40,31 @@ type SpaceShareUpdateRequest struct {
 }
 
 type SpaceInfo struct {
-	Id                      string               `json:"space_id"`
-	Name                    string               `json:"name"`
-	Description             string               `json:"description"`
-	Note                    string               `json:"note"`
-	TemplateName            string               `json:"template_name"`
-	TemplateId              string               `json:"template_id"`
-	PoolId                  string               `json:"pool_id"`
-	PoolName                string               `json:"pool_name"`
-	Zone                    string               `json:"zone"`
-	Username                string               `json:"username"`
-	UserId                  string               `json:"user_id"`
-	Platform                string               `json:"platform"`
-	Shares                  []string             `json:"shares"`
-	DependsOn               []string             `json:"depends_on"`
-	HasCodeServer           bool                 `json:"has_code_server"`
-	HasSSH                  bool                 `json:"has_ssh"`
-	HasHttpVNC              bool                 `json:"has_http_vnc"`
-	HasTerminal             bool                 `json:"has_terminal"`
-	HasState                bool                 `json:"has_state"`
-	IsDeployed              bool                 `json:"is_deployed"`
-	IsPending               bool                 `json:"is_pending"`
-	IsDeleting              bool                 `json:"is_deleting"`
+	Id            string   `json:"space_id"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	Note          string   `json:"note"`
+	TemplateName  string   `json:"template_name"`
+	TemplateId    string   `json:"template_id"`
+	PoolId        string   `json:"pool_id"`
+	PoolName      string   `json:"pool_name"`
+	Zone          string   `json:"zone"`
+	Username      string   `json:"username"`
+	UserId        string   `json:"user_id"`
+	Platform      string   `json:"platform"`
+	Shares        []string `json:"shares"`
+	DependsOn     []string `json:"depends_on"`
+	HasCodeServer bool     `json:"has_code_server"`
+	HasSSH        bool     `json:"has_ssh"`
+	HasHttpVNC    bool     `json:"has_http_vnc"`
+	HasTerminal   bool     `json:"has_terminal"`
+	HasState      bool     `json:"has_state"`
+	IsDeployed    bool     `json:"is_deployed"`
+	IsPending     bool     `json:"is_pending"`
+	IsDeleting    bool     `json:"is_deleting"`
+	// Manual-agent registration key, only present for manual spaces the
+	// caller owns or manages: its holder can run the space's agent.
+	RegistrationKey         string               `json:"registration_key,omitempty"`
 	TcpPorts                map[string]string    `json:"tcp_ports"`
 	HttpPorts               map[string]string    `json:"http_ports"`
 	UpdateAvailable         bool                 `json:"update_available"`
@@ -105,11 +108,16 @@ type GetCustomFieldResponse struct {
 }
 
 type SpaceDefinition struct {
-	SpaceId            string                       `json:"space_id"`
-	UserId             string                       `json:"user_id"`
-	TemplateId         string                       `json:"template_id"`
-	Shares             []string                     `json:"shares"`
-	DependsOn          []string                     `json:"depends_on"`
+	SpaceId    string   `json:"space_id"`
+	UserId     string   `json:"user_id"`
+	TemplateId string   `json:"template_id"`
+	Shares     []string `json:"shares"`
+	DependsOn  []string `json:"depends_on"`
+	// Agent registration credentials, only returned to the space owner or
+	// users with manage permission: the key lets its holder run the space's
+	// agent, the fingerprint verifies the zone's agent TLS certificate.
+	RegistrationKey    string                       `json:"registration_key,omitempty"`
+	CertFingerprint    string                       `json:"agent_cert_fingerprint,omitempty"`
 	Name               string                       `json:"name"`
 	Description        string                       `json:"description"`
 	Note               string                       `json:"note"`

@@ -131,11 +131,10 @@ type ClusterConfig struct {
 }
 
 type TLSConfig struct {
-	CertFile    string
-	KeyFile     string
-	UseTLS      bool
-	AgentUseTLS bool
-	SkipVerify  bool
+	CertFile   string
+	KeyFile    string
+	UseTLS     bool
+	SkipVerify bool
 }
 
 type MySQLConfig struct {

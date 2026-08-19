@@ -2,7 +2,10 @@ package agent_client
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +22,7 @@ import (
 	"github.com/paularlott/knot/internal/portforward"
 	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/knot/internal/log"
@@ -181,25 +185,28 @@ func (s *agentServer) ConnectAndServe() {
 
 			var err error
 
-			// Open the connection
+			// Open the connection. The server's agent listener is TLS-only,
+			// so the agent connection is always TLS; the server is
+			// authenticated by pinning the certificate fingerprint the agent
+			// was provisioned with (all servers in a zone share one
+			// certificate, so one pin covers them).
 			cfg := config.GetAgentConfig()
 			var conn net.Conn
-			if cfg.TLS.UseTLS {
-				dialer := &tls.Dialer{
-					NetDialer: &net.Dialer{
-						Timeout: 3 * time.Second,
-					},
-					Config: &tls.Config{
-						InsecureSkipVerify: cfg.TLS.SkipVerify,
-					},
-				}
-				conn, err = dialer.Dial("tcp", serverAddr)
-			} else {
-				dialer := &net.Dialer{
-					Timeout: 3 * time.Second,
-				}
-				conn, err = dialer.Dial("tcp", serverAddr)
+			tlsConfig := &tls.Config{
+				InsecureSkipVerify:    true,
+				MinVersion:            tls.VersionTLS12,
+				VerifyPeerCertificate: pinnedCertVerifier(cfg.ServerCertFingerprint),
 			}
+			if cfg.ServerCertFingerprint == "" {
+				log.Warn("no server certificate fingerprint: agent connection is encrypted but the server is not verified")
+			}
+			dialer := &tls.Dialer{
+				NetDialer: &net.Dialer{
+					Timeout: 3 * time.Second,
+				},
+				Config: tlsConfig,
+			}
+			conn, err = dialer.Dial("tcp", serverAddr)
 			if err != nil {
 				log.WithError(err).Error("connecting to server:")
 				time.Sleep(connectRetryDelay)
@@ -208,13 +215,28 @@ func (s *agentServer) ConnectAndServe() {
 			}
 			s.setConn(conn)
 
-			// Create and send the register message
-			err = msg.WriteMessage(s.conn, &msg.Register{
+			// Registration proves possession of the space's registration
+			// key via a challenge-response: offer a nonce when we hold a
+			// key, answer the server's nonce with an HMAC proof that never
+			// reveals the key itself.
+			register := msg.Register{
 				SpaceId:       s.spaceId,
 				Version:       build.Version,
 				LogSinkPort:   s.agentClient.GetLogSinkPort(),
 				LogSinkFormat: s.agentClient.GetLogSinkFormat(),
-			})
+			}
+			if cfg.RegistrationKey != "" {
+				register.Nonce, err = crypt.NewAgentNonce()
+				if err != nil {
+					log.WithError(err).Error("generating registration nonce:")
+					s.conn.Close()
+					time.Sleep(connectRetryDelay)
+					s.connectionAttempts++
+					continue
+				}
+			}
+
+			err = msg.WriteMessage(s.conn, &register)
 			if err != nil {
 				log.WithError(err).Error("sending register message:")
 				s.conn.Close()
@@ -223,15 +245,34 @@ func (s *agentServer) ConnectAndServe() {
 				continue
 			}
 
-			// Wait for the register response
-			var response msg.RegisterResponse
-			err = msg.ReadMessage(s.conn, &response)
+			// The reply is either the challenge, or the final response
+			// (from a pre-handshake server).
+			challenge, response, err := msg.ReadRegistrationReply(s.conn)
 			if err != nil {
-				log.WithError(err).Error("decoding register response:")
+				log.WithError(err).Error("decoding registration reply:")
 				s.conn.Close()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
+			}
+			if challenge != nil {
+				register.Proof = crypt.AgentRegistrationProof(cfg.RegistrationKey, s.spaceId, register.Nonce, challenge.ServerNonce)
+				if err := msg.WriteMessage(s.conn, &register); err != nil {
+					log.WithError(err).Error("sending registration proof:")
+					s.conn.Close()
+					time.Sleep(connectRetryDelay)
+					s.connectionAttempts++
+					continue
+				}
+
+				response = &msg.RegisterResponse{}
+				if err := msg.ReadMessage(s.conn, response); err != nil {
+					log.WithError(err).Error("decoding register response:")
+					s.conn.Close()
+					time.Sleep(connectRetryDelay)
+					s.connectionAttempts++
+					continue
+				}
 			}
 
 			// If get a freeze then spin here as server going to reboot
@@ -243,7 +284,11 @@ func (s *agentServer) ConnectAndServe() {
 
 			// If registration rejected, log and exit
 			if !response.Success {
-				log.Error("registration rejected")
+				if response.Error != "" {
+					log.Error("registration rejected", "reason", response.Error)
+				} else {
+					log.Error("registration rejected")
+				}
 				s.conn.Close()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
@@ -819,5 +864,33 @@ func (s *agentServer) restorePortForwards(forwards []model.PortForwardEntry) {
 		}(entry)
 
 		log.Info("restored persistent port forward", "local_port", entry.LocalPort, "space", entry.Space, "remote_port", entry.RemotePort)
+	}
+}
+
+// pinnedCertVerifier returns a TLS VerifyPeerCertificate callback that
+// accepts the certificate whose public key hashes to the pinned sha256
+// fingerprint (hex). An empty pin verifies nothing beyond TLS itself —
+// used by agents provisioned before pinning, where the registration proof
+// remains the real gate.
+func pinnedCertVerifier(fingerprint string) func([][]byte, [][]*x509.Certificate) error {
+	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		if fingerprint == "" {
+			return nil
+		}
+		for _, raw := range rawCerts {
+			cert, err := x509.ParseCertificate(raw)
+			if err != nil {
+				continue
+			}
+			spki, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+			if err != nil {
+				continue
+			}
+			sum := sha256.Sum256(spki)
+			if hex.EncodeToString(sum[:]) == strings.ToLower(fingerprint) {
+				return nil
+			}
+		}
+		return fmt.Errorf("server certificate does not match the pinned fingerprint")
 	}
 }

@@ -117,6 +117,7 @@ resources → events → ports → logs → clustering.
 |---|---|
 | `TestChatOpenAIEndpoint` | a chat-enabled server streams a reply from a fake OpenAI-compatible endpoint |
 | `TestSpaceTunnels` | an http tunnel declared by a template port publishes and proxies a space web port |
+| `TestAgentRegistrationRequiresProof` | a peer with no registration key — or a forged proof — cannot register as a space, gets no secrets, and cannot disturb the live agent session |
 
 ### Clustering
 

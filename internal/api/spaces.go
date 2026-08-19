@@ -20,6 +20,7 @@ import (
 	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/crypt"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
@@ -216,6 +217,14 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.Healthy = hs.Healthy
 		} else {
 			s.Healthy = true
+		}
+
+		// Manual agents are started by hand, so their operator needs the
+		// registration key next to the space id. Only for the owner or
+		// managers: the key lets its holder run the space's agent.
+		if !s.IsRemote && template != nil && template.IsManual() &&
+			(user.Id == space.UserId || user.HasPermission(model.PermissionManageSpaces)) {
+			s.RegistrationKey = crypt.AgentRegistrationKey(cfg.EncryptionKey, space.Id)
 		}
 
 		spaceData.Spaces = append(spaceData.Spaces, s)

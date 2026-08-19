@@ -52,6 +52,25 @@ type Server struct {
 }
 
 // StartServer boots a fresh server. name is used for logs and identification.
+// zoneEncryptionKey returns the one encryption key shared by every server
+// the harness boots in this run: zone members must share it, and the agent
+// TLS certificate and registration keys are derived from it.
+var (
+	zoneEncKeyOnce sync.Once
+	zoneEncKey     []byte
+	zoneEncKeyErr  error
+)
+
+func zoneEncryptionKey() ([]byte, error) {
+	zoneEncKeyOnce.Do(func() {
+		zoneEncKey = make([]byte, 16)
+		if _, err := rand.Read(zoneEncKey); err != nil {
+			zoneEncKeyErr = err
+		}
+	})
+	return zoneEncKey, zoneEncKeyErr
+}
+
 func StartServer(cfg *Config, bins *Binaries, name string, extraArgs ...string) (*Server, error) {
 	return StartServerAt(cfg, bins, name, "", extraArgs...)
 }
@@ -108,8 +127,10 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		return nil, fmt.Errorf("create log file: %w", err)
 	}
 
-	encKey := make([]byte, 16)
-	rand.Read(encKey)
+	encKey, err := zoneEncryptionKey()
+	if err != nil {
+		return nil, fmt.Errorf("zone encryption key: %w", err)
+	}
 
 	srv := &Server{
 		Name:             name,
@@ -138,7 +159,6 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		"--agent-endpoint", fmt.Sprintf("%s:%d", containerHost, agentPort),
 		"--url", srv.ContainerBaseURL,
 		"--use-tls=false",
-		"--agent-use-tls=false",
 		"--badgerdb-enabled",
 		"--badgerdb-path", filepath.Join(dataDir, "badger"),
 		"--zone", cfg.Zone,

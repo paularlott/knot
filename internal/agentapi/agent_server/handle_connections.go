@@ -2,6 +2,7 @@ package agent_server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/logger"
 )
 
 const (
@@ -53,6 +55,17 @@ func handleAgentConnection(conn net.Conn) {
 		WithCodeServer:   false,
 		WithSSH:          false,
 		Freeze:           false,
+	}
+
+	// Registration must prove possession of the space's registration key
+	// before anything else — not even the live-session check below — so an
+	// unauthenticated peer can neither obtain the register response nor
+	// evict a connected agent.
+	if err := authenticateRegistration(conn, logger, &registerMsg); err != nil {
+		logger.Warn("agent registration rejected", "space", registerMsg.SpaceId, "reason", err.Error())
+		response.Error = err.Error()
+		msg.WriteMessage(conn, &response)
+		return
 	}
 
 	// Check if the agent is already registered
@@ -1172,4 +1185,41 @@ func handleRemovePortForward(stream net.Conn, session *Session) {
 
 	service.GetTransport().GossipSpace(space)
 	log.Info("removed persistent port forward from space", "space_id", session.Id, "local_port", removeMsg.LocalPort)
+}
+
+// authenticateRegistration runs the registration proof-of-possession
+// handshake before any space state is touched. An agent that presents a
+// nonce gets a server nonce and must answer with a proof derived from the
+// space's registration key. Agents without a nonce are legacy (pre-key
+// spaces) and only pass while the space has not been provisioned with a key.
+func authenticateRegistration(conn net.Conn, logger logger.Logger, registerMsg *msg.Register) error {
+	cfg := config.GetServerConfig()
+
+	if registerMsg.Nonce == "" {
+		// Agents are provisioned with their key at container create (manual
+		// agents get it shown next to the space id); the TLS-only listener
+		// already excludes pre-upgrade agents, so a key-less registration is
+		// an impostor or an outdated manual-agent command.
+		return fmt.Errorf("registration key required")
+	}
+
+	serverNonce, err := crypt.NewAgentNonce()
+	if err != nil {
+		return fmt.Errorf("nonce generation failed")
+	}
+	if err := msg.WriteMessage(conn, &msg.RegisterChallenge{ServerNonce: serverNonce}); err != nil {
+		return fmt.Errorf("challenge write failed")
+	}
+
+	var proofMsg msg.Register
+	if err := msg.ReadMessage(conn, &proofMsg); err != nil {
+		return fmt.Errorf("proof read failed")
+	}
+
+	key := crypt.AgentRegistrationKey(cfg.EncryptionKey, registerMsg.SpaceId)
+	expected := crypt.AgentRegistrationProof(key, registerMsg.SpaceId, registerMsg.Nonce, serverNonce)
+	if !crypt.VerifyAgentRegistrationProof(expected, proofMsg.Proof) {
+		return fmt.Errorf("invalid registration proof")
+	}
+	return nil
 }

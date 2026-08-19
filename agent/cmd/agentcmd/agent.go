@@ -156,6 +156,18 @@ var agentServerCmd = &cli.Command{
 			ConfigPath: []string{"agent.tls.key_file"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_KEY_FILE"},
 		},
+		&cli.StringFlag{
+			Name:       "registration-key",
+			Usage:      "The space's registration key, required to register with the server (shown in the web UI next to the space ID).",
+			ConfigPath: []string{"agent.registration_key"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_REGISTRATION_KEY"},
+		},
+		&cli.StringFlag{
+			Name:       "server-cert-fingerprint",
+			Usage:      "The sha256 fingerprint of the server's agent certificate public key, to verify the TLS connection.",
+			ConfigPath: []string{"agent.server_cert_fingerprint"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SERVER_CERT_FINGERPRINT"},
+		},
 		&cli.BoolFlag{
 			Name:         "use-tls",
 			Usage:        "Enable TLS.",
@@ -363,6 +375,8 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 			UseTLS:     cmd.GetBool("use-tls"),
 			SkipVerify: cmd.GetBool("tls-skip-verify"),
 		},
+		RegistrationKey:       cmd.GetString("registration-key"),
+		ServerCertFingerprint: cmd.GetString("server-cert-fingerprint"),
 	}
 	config.SetAgentConfig(agentCfg)
 

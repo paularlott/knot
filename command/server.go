@@ -39,6 +39,7 @@ import (
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/crypt"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/web"
 
@@ -431,13 +432,6 @@ var ServerCmd = &cli.Command{
 			Usage:        "Enable TLS.",
 			ConfigPath:   []string{"server.tls.use_tls"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_USE_TLS"},
-			DefaultValue: true,
-		},
-		&cli.BoolFlag{
-			Name:         "agent-use-tls",
-			Usage:        "Enable TLS when talking to agents.",
-			ConfigPath:   []string{"server.tls.agent_use_tls"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AGENT_USE_TLS"},
 			DefaultValue: true,
 		},
 		&cli.BoolFlag{
@@ -1307,7 +1301,18 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	})
 
 	// Start the agent server
-	agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
+	// The agent listener is TLS-only, with the zone's deterministic
+	// certificate: every server in the zone derives the same key pair from
+	// the shared encryption key, so one pinned fingerprint authenticates
+	// whichever server an agent connects to.
+	agentCert, err := crypt.AgentTLSCert(cfg.EncryptionKey)
+	if err != nil {
+		logger.WithError(err).Fatal("failed to build agent TLS certificate")
+	}
+	agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), &tls.Config{
+		Certificates: []tls.Certificate{agentCert},
+		MinVersion:   tls.VersionTLS12,
+	})
 
 	// Start a tunnel server only if using different addresses
 	if cfg.ListenTunnel != "" && !sameAddress {
@@ -1499,11 +1504,10 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			Region: envFallback(cmd.GetString("nomad-region"), "NOMAD_REGION"),
 		},
 		TLS: config.TLSConfig{
-			CertFile:    cmd.GetString("cert-file"),
-			KeyFile:     cmd.GetString("key-file"),
-			UseTLS:      cmd.GetBool("use-tls"),
-			AgentUseTLS: cmd.GetBool("agent-use-tls"),
-			SkipVerify:  cmd.GetBool("tls-skip-verify"),
+			CertFile:   cmd.GetString("cert-file"),
+			KeyFile:    cmd.GetString("key-file"),
+			UseTLS:     cmd.GetBool("use-tls"),
+			SkipVerify: cmd.GetBool("tls-skip-verify"),
 		},
 		MCP: func() config.MCPConfig {
 			mcpConfig := config.MCPConfig{
@@ -1699,6 +1703,13 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	config.SetServerConfig(serverCfg)
+
+	// The encryption key underpins agent registration keys, agent tokens
+	// and the zone's agent TLS certificate. Every member of a zone must run
+	// with the same key.
+	if serverCfg.EncryptionKey == "" {
+		log.Fatal("an encryption key is required (server.encrypt / --encrypt); all members of a zone must use the same encryption key")
+	}
 
 	return serverCfg
 }
