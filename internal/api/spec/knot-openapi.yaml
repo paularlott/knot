@@ -6579,6 +6579,9 @@ components:
         is_deleting:
           type: boolean
           description: If the space is being deleted.
+        registration_key:
+          type: string
+          description: The space's agent registration key. Present only for manual-platform spaces the caller owns or manages; its holder can run the space's agent.
         tcp_ports:
           type: object
           additionalProperties:
@@ -6820,6 +6823,12 @@ components:
         is_deleting:
           type: boolean
           description: If the space is being deleted.
+        registration_key:
+          type: string
+          description: The space's agent registration key. Present only for the space owner or users with manage permission; its holder can run the space's agent.
+        agent_cert_fingerprint:
+          type: string
+          description: The sha256 fingerprint of the zone's agent TLS certificate public key, for verifying the agent connection. Present only for the space owner or users with manage permission.
         has_ever_started:
           type: boolean
           description: Whether the space has ever successfully started before.

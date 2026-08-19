@@ -502,14 +502,17 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		default:
 		}
 
-		if c.imageExists(ctx, spec.Image) {
-			c.Logger.Debug("image present locally, skipping pull", "image", spec.Image)
-		} else {
-			c.Logger.Debug("pulling image", "image", spec.Image)
-			if err := c.imagePull(ctx, spec.Image, authHeader); err != nil {
+		c.Logger.Debug("pulling image", "image", spec.Image)
+		if err := c.imagePull(ctx, spec.Image, authHeader); err != nil {
+			// A failed pull is fatal only when the image isn't available
+			// locally: the registry may be unreachable or refuse the
+			// daemon's credentials, and a present image (possibly a
+			// slightly older tag) beats a space that can't start at all.
+			if !c.imageExists(ctx, spec.Image) {
 				c.Logger.Error("pulling image error", "image", spec.Image, "error", err)
 				return
 			}
+			c.Logger.Warn("image pull failed, using local image", "image", spec.Image, "error", err)
 		}
 
 		select {
