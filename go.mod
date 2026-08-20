@@ -32,7 +32,7 @@ require (
 	github.com/paularlott/lmchatkit v0.9.1
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.24.0
-	github.com/paularlott/scriptling v0.20.1
+	github.com/paularlott/scriptling v0.20.2
 	github.com/pkg/sftp v1.13.11
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/shamaton/msgpack/v3 v3.2.0
@@ -40,7 +40,7 @@ require (
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	golang.org/x/crypto v0.55.0
-	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297
+	golang.org/x/exp v0.0.0-20260820142414-ca536658362e
 	golang.org/x/net v0.58.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.45.0

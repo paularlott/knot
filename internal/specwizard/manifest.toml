@@ -28,7 +28,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026081001"
+manifest_version = "2026082001"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -56,6 +56,23 @@ image           = "${{ .server.base_image_registry }}/knot-ubuntu:24.04"
 icon            = "/icons/ubuntu-linux-alt.svg"
 category        = "base"
 default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory (user files, projects, shell config)."
+
+# ── Base Alpine ────────────────────────────────────────────────────────────
+
+[[image]]
+name            = "alpine-3.24"
+display_name    = "Alpine 3.24"
+description     = "Base Alpine 3.24 image with knot startup scripts and common dev tools. Use this when you just want a smaller shell."
+image           = "${{ .server.base_image_registry }}/knot-alpine:3.24"
+icon            = "/icons/alpine-linux.svg"
+category        = "base"
+default_memory  = "2G"
+recommended     = true
 
 [[image.volume]]
 path        = "/home"
@@ -203,7 +220,7 @@ name            = "frankenscriptling-8.5"
 display_name    = "FrankenScriptling 8.5"
 description     = "FrankenPHP 8.5 with the Scriptling PHP extension."
 image           = "${{ .server.base_image_registry }}/knot-frankenscriptling:8.5"
-icon            = "/icons/frankenscriptling.svg"
+icon            = "/icons/scriptling.svg"
 category        = "web"
 default_memory  = "2G"
 
@@ -222,7 +239,7 @@ name            = "frankenscriptling-8.4"
 display_name    = "FrankenScriptling 8.4"
 description     = "FrankenPHP 8.4 with the Scriptling PHP extension."
 image           = "${{ .server.base_image_registry }}/knot-frankenscriptling:8.4"
-icon            = "/icons/frankenscriptling.svg"
+icon            = "/icons/scriptling.svg"
 category        = "web"
 default_memory  = "2G"
 
@@ -296,6 +313,35 @@ default_memory  = "2G"
 path        = "/home"
 name        = "${{ .space.id }}-home"
 description = "Persistent home directory (projects, node_modules)."
+
+[[image]]
+name            = "scriptling-0.20"
+display_name    = "Scriptling 0.20"
+description     = "Ubuntu with the Scriptling interpreter and CLI. Pure runtime image — run scripts or serve them over HTTP / MCP."
+image           = "${{ .server.base_image_registry }}/knot-scriptling:0.20"
+icon            = "/icons/scriptling.svg"
+category        = "base"
+default_memory  = "2G"
+recommended     = true
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory (projects, scripts)."
+
+[[image]]
+name            = "scriptling-0.20-alpine"
+display_name    = "Scriptling 0.20 (Alpine)"
+description     = "Alpine with the Scriptling interpreter and CLI. Pure runtime image — run scripts or serve them over HTTP / MCP."
+image           = "${{ .server.base_image_registry }}/knot-scriptling:0.20-alpine"
+icon            = "/icons/scriptling.svg"
+category        = "base"
+default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory (projects, scripts)."
 
 # ── Datastores ──────────────────────────────────────────────────────────────
 
