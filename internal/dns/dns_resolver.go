@@ -163,6 +163,15 @@ func (r *DNSResolver) getResolvers(record string) []string {
 	}
 }
 
+// Nameservers returns the general (non-domain-specific) nameservers in
+// host:port form. Consumers use it to share this resolver's servers with
+// other resolution paths.
+func (r *DNSResolver) Nameservers() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]string(nil), r.nameservers...)
+}
+
 // checkCache looks up a query in the cache
 func (r *DNSResolver) checkCache(key string) ([]DNSRecord, bool) {
 	if !r.config.EnableCache {

@@ -24,6 +24,7 @@ import (
 	scriptlingconsole "github.com/paularlott/scriptling/extlibs/console"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	scriptlingresolve "github.com/paularlott/scriptling/extlibs/net/resolve"
+	"github.com/paularlott/scriptling/extlibs/netsecurity"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
@@ -40,12 +41,26 @@ var (
 
 // registerBaseLibraries registers common libraries shared across all environments
 // customLogger is optional - pass nil to use the default logger
+// scriptNetConfig shares knot's configured nameservers with scriptling's
+// dial paths (requests, wait_for, websocket) via a resolver-only network
+// configuration — no address checks, full access. Nil when no nameservers
+// are configured (e.g. on the agent, where the container's system resolver
+// already forwards through the resident resolver), leaving the system
+// resolver in place.
+func scriptNetConfig() *netsecurity.Config {
+	if ns := dns.GetDefaultResolver().Nameservers(); len(ns) > 0 {
+		return &netsecurity.Config{AllowAll: true, DNSServers: ns}
+	}
+	return nil
+}
+
 func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger) {
+	netPolicy := scriptNetConfig()
 	stdlib.RegisterAll(env)
-	extlibs.RegisterRequestsLibrary(env)
+	extlibs.RegisterRequestsLibrary(env, netPolicy)
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterHTMLParserLibrary(env)
-	extlibs.RegisterWaitForLibrary(env)
+	extlibs.RegisterWaitForLibrary(env, netPolicy)
 	extlibs.RegisterYAMLLibrary(env)
 	extlibs.RegisterFSLibrary(env, nil)
 	extlibs.RegisterMarkdownLibrary(env)
@@ -64,7 +79,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	scriptlingmcp.RegisterToolHelpers(env)
 	scriptlingresolve.Register(env, dns.GetDefaultResolver())
 	extlibs.RegisterTOMLLibrary(env)
-	extlibs.RegisterWebSocketLibrary(env)
+	extlibs.RegisterWebSocketLibrary(env, netPolicy)
 	extlibs.RegisterTemplateHTMLLibrary(env)
 	extlibs.RegisterTemplateTextLibrary(env)
 	extlibs.RegisterShlexLibrary(env) // shlex — pure string processing, no filesystem access
