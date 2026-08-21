@@ -128,6 +128,12 @@ type ClusterConfig struct {
 	AllowLeafNodes bool
 	Compression    bool
 	TCPOnly        bool
+	// MinClusterSize is the leader-election quorum floor: the fewest nodes
+	// that must be visible before a zone leader can be elected or kept.
+	// Set it to the majority of the smallest zone you will run — 2 for
+	// two- or three-server production zones. The default of 1 suits
+	// single-machine testing, where a lone server must elect itself.
+	MinClusterSize int
 }
 
 type TLSConfig struct {

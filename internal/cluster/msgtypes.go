@@ -22,10 +22,6 @@ const (
 	VolumeFullSyncMsg
 	VolumeGossipMsg
 	AuditLogGossipMsg
-	ResourceLockFullSyncMsg
-	ResourceLockGossipMsg
-	ResourceLockMsg
-	ResourceUnlockMsg
 	ScriptFullSyncMsg
 	ScriptGossipMsg
 	SkillFullSyncMsg

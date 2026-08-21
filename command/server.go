@@ -359,6 +359,13 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ALLOW_LEAF_NODES"},
 			DefaultValue: true,
 		},
+		&cli.IntFlag{
+			Name:         "min-cluster-size",
+			Usage:        "Minimum nodes required for leader election quorum; set to the majority of the smallest zone (2 for production, 1 for single-machine testing).",
+			ConfigPath:   []string{"server.cluster.min_cluster_size"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_MIN_CLUSTER_SIZE"},
+			DefaultValue: 1,
+		},
 		&cli.BoolFlag{
 			Name:         "cluster-compression",
 			Usage:        "Enable compression for cluster communication.",
@@ -1454,6 +1461,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			BindAddr:       cmd.GetString("cluster-bind-addr"),
 			Peers:          cmd.GetStringSlice("cluster-peer"),
 			AllowLeafNodes: cmd.GetBool("allow-leaf-nodes"),
+			MinClusterSize: cmd.GetInt("min-cluster-size"),
 			Compression:    cmd.GetBool("cluster-compression"),
 			TCPOnly:        cmd.GetBool("cluster-tcp-only"),
 		},

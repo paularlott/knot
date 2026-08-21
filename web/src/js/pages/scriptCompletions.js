@@ -3332,7 +3332,7 @@ const scriptLibraries = [
           },
           {
             name: "create_leader_election",
-            signature: 'create_leader_election(check_interval="1s", leader_timeout="3s", heartbeat_msg_type=65, quorum_percentage=60, metadata_criteria=None)',
+            signature: 'create_leader_election(check_interval="1s", leader_timeout="3s", heartbeat_msg_type=65, min_cluster_size=0, metadata_criteria=None)',
             description: "Create a leader election for the cluster",
             returns: "LeaderElection - Leader election instance",
             returnType: "LeaderElection",
@@ -6926,6 +6926,87 @@ const scriptLibraries = [
         description: "Script arguments",
       },
     ],
+  },
+  {
+    module: "sys.stdin",
+    description: "Standard input stream",
+    functions: [
+      {
+        name: "read",
+        signature: "read()",
+        description: "Read all remaining data from stdin",
+        returns: "str",
+      },
+      {
+        name: "readline",
+        signature: "readline()",
+        description: "Read one line from stdin (includes newline)",
+        returns: "str",
+      },
+    ],
+    constants: [],
+  },
+  {
+    module: "sys.stdout",
+    description: "Standard output stream (same destination as print)",
+    functions: [
+      {
+        name: "write",
+        signature: "write(s)",
+        description: "Write string s to the stream",
+        returns: "int - number of characters written",
+      },
+      {
+        name: "writelines",
+        signature: "writelines(lines)",
+        description: "Write each string in lines to the stream (no separators added)",
+        returns: "None",
+      },
+      {
+        name: "flush",
+        signature: "flush()",
+        description: "Flush the stream's write buffer (no-op for unbuffered streams)",
+        returns: "None",
+      },
+      {
+        name: "isatty",
+        signature: "isatty()",
+        description: "Check if the stream is a terminal",
+        returns: "bool",
+      },
+    ],
+    constants: [],
+  },
+  {
+    module: "sys.stderr",
+    description: "Standard error stream, for warnings and errors",
+    functions: [
+      {
+        name: "write",
+        signature: "write(s)",
+        description: "Write string s to the error stream",
+        returns: "int - number of characters written",
+      },
+      {
+        name: "writelines",
+        signature: "writelines(lines)",
+        description: "Write each string in lines to the error stream (no separators added)",
+        returns: "None",
+      },
+      {
+        name: "flush",
+        signature: "flush()",
+        description: "Flush the stream's write buffer (no-op for unbuffered streams)",
+        returns: "None",
+      },
+      {
+        name: "isatty",
+        signature: "isatty()",
+        description: "Check if the stream is a terminal",
+        returns: "bool",
+      },
+    ],
+    constants: [],
   },
   {
     module: "scriptling.wait_for",
