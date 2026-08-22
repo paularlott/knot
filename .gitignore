@@ -37,3 +37,4 @@
 
 # integration test artifacts (reports, server logs)
 build/test/
+__pycache__/

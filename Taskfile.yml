@@ -221,11 +221,15 @@ tasks:
     desc: Build the scriptling packages
     cmds:
       - mkdir -p web/packages
+      # Start from a clean archive: zip merges into an existing archive and
+      # never removes entries, so a renamed/deleted lib would linger as a
+      # ghost. The explicit glob (no -r) keeps anything unexpected out.
+      - rm -f web/packages/knot.zip
       - |
         echo 'name = "knot"' > internal/scriptling/manifest.toml
         echo 'version = "{{.VERSION}}"' >> internal/scriptling/manifest.toml
         echo 'description = "Knot API client library for scriptling"' >> internal/scriptling/manifest.toml
-        cd internal/scriptling && zip -r ../../web/packages/knot.zip manifest.toml lib/
+        cd internal/scriptling && zip ../../web/packages/knot.zip manifest.toml lib/knot/*.py
       - shasum -a 256 web/packages/knot.zip | cut -d' ' -f1 > web/packages/knot.zip.sha256
     sources:
       - ./internal/scriptling/lib/knot/*.py

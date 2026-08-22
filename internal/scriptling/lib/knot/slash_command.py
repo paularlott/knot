@@ -1,14 +1,14 @@
-# knot.command - Slash command management library for Knot server
+# knot.slash_command - Slash command management library for Knot server
 #
 # This library provides functions for managing slash commands in Knot.
 # Requires knot.apiclient to be configured first.
 #
 # Usage:
 #   import knot.apiclient
-#   import knot.command
+#   import knot.slash_command
 #
 #   knot.apiclient.configure("https://knot.example.com", "your-token")
-#   commands = knot.command.list()
+#   commands = knot.slash_command.list()
 
 import knot.apiclient as api
 import urllib.parse

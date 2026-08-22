@@ -3,13 +3,10 @@ package agent_service_api
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/agentpackages"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/paularlott/knot/internal/log"
@@ -26,10 +23,6 @@ var sendLogMessage = func(service string, level msg.LogLevel, message string, fi
 func ListenAndServe(agent *agent_client.AgentClient) {
 	cfg := config.GetAgentConfig()
 	agentClient = agent
-
-	if home, err := os.UserHomeDir(); err == nil {
-		agentpackages.Init(filepath.Join(home, ".knot", "cache"))
-	}
 
 	log.Debug("starting agent service api", "port", cfg.APIPort)
 

@@ -19,15 +19,23 @@ var (
 	persisted = make(map[string][]byte)
 )
 
-// Init sets the cache directory (e.g. ~/.knot/cache) and drops any previously
-// cached content held in memory.
+// Init sets the cache directory (e.g. ~/.knot/cache) and clears it — both the
+// in-memory entries and any files a previous agent run left behind — so every
+// agent start serves the latest packages fetched fresh from the server.
 func Init(dir string) {
 	mu.Lock()
 	defer mu.Unlock()
 	cacheDir = dir
 	invalid = make(map[string]bool)
 	persisted = make(map[string][]byte)
-	_ = os.MkdirAll(dir, 0o700)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return
+	}
+	if entries, err := os.ReadDir(dir); err == nil {
+		for _, e := range entries {
+			_ = os.RemoveAll(filepath.Join(dir, e.Name()))
+		}
+	}
 }
 
 // Invalidate drops the cached package with the given name (e.g. "libs.zip").

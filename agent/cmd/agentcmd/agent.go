@@ -15,6 +15,7 @@ import (
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
+	"github.com/paularlott/knot/internal/agentpackages"
 	"github.com/paularlott/knot/internal/agenttunnel"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/methods"
@@ -223,6 +224,13 @@ var agentServerCmd = &cli.Command{
 		// Start the syslog server if enabled
 		if cfg.SyslogPort > 0 {
 			go syslogd.StartSyslogd(agentClient, cfg.SyslogPort)
+		}
+
+		// Clear the scriptling package cache (~/.knot/cache) so every run
+		// starts fresh — spaces always serve the latest knot.zip/libs.zip
+		// fetched from the server after an agent restart.
+		if home, err := os.UserHomeDir(); err == nil {
+			agentpackages.Init(filepath.Join(home, ".knot", "cache"))
 		}
 
 		// Start the http rest and log sink if enabled
