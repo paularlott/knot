@@ -303,51 +303,6 @@ result = "provision_fetch_imported"
 	}
 }
 
-// TestMCPScriptlingEnv_PluginScope verifies that the per-execution plugin scope
-// is registered in the MCP environment, that scriptling.plugin is importable,
-// and that the HTTP-only transport restriction blocks loading executables.
-func TestMCPScriptlingEnv_PluginScope(t *testing.T) {
-	user := &model.User{
-		Id:       "test-user",
-		Username: "testuser",
-		Email:    "test@example.com",
-	}
-
-	t.Run("importable_and_list_works", func(t *testing.T) {
-		env, _, cleanup, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
-		if err != nil {
-			t.Fatalf("NewServerScriptlingEnv() failed: %v", err)
-		}
-		defer cleanup()
-
-		_, err = env.Eval(`
-import scriptling.plugin
-# list() returns a list (empty when no plugins loaded)
-result = scriptling.plugin.list()
-`)
-		if err != nil {
-			t.Errorf("scriptling.plugin should be importable in MCP env: %v", err)
-		}
-	})
-
-	t.Run("executable_plugins_blocked", func(t *testing.T) {
-		env, _, cleanup, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
-		if err != nil {
-			t.Fatalf("NewServerScriptlingEnv() failed: %v", err)
-		}
-		defer cleanup()
-
-		// Loading a stdio/executable path must be rejected in the HTTP-only scope.
-		_, err = env.Eval(`
-import scriptling.plugin
-scriptling.plugin.load("blocked", "/bin/true")
-`)
-		if err == nil {
-			t.Error("expected error loading executable plugin in HTTP-only MCP scope, got nil")
-		}
-	})
-}
-
 // TestMCPScriptlingEnv_FSNotRegisteredByDefault verifies the fs library is not
 // available in server-side environments unless ScriptFSAllowedPaths is set.
 func TestMCPScriptlingEnv_FSNotRegisteredByDefault(t *testing.T) {

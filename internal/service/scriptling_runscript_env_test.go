@@ -37,25 +37,20 @@ func TestRunScriptEvalEnv_ContainerAndNomadUnavailable(t *testing.T) {
 func TestRunScriptEvalEnv_LibrariesPresent(t *testing.T) {
 	libs := []string{
 		// data / text
-		"yaml", "toml", "scriptling.csv", "scriptling.xml", "scriptling.markdown",
+		"yaml", "toml", "scriptling.csv", "scriptling.xml",
 		"scriptling.template.html", "scriptling.template.text", "shlex",
 		// network
-		"requests", "scriptling.wait_for", "scriptling.net.websocket",
-		"scriptling.net.resolve", "scriptling.net.multicast", "scriptling.net.unicast",
-		"scriptling.net.gossip",
+		"requests", "scriptling.wait_for",
 		// system
 		"subprocess", "os", "pathlib", "sys", "glob", "tempfile", "shutil",
 		"zipfile", "tarfile", "fs", "scriptling.grep", "scriptling.find", "scriptling.sed",
-		// runtime
-		"scriptling.runtime", "scriptling.runtime.kv", "scriptling.runtime.sync",
-		"scriptling.runtime.sandbox", "scriptling.runtime.plugin",
 		// ai / mcp / messaging
 		"scriptling.ai", "scriptling.ai.agent", "scriptling.ai.tools", "scriptling.ai.memory",
 		"scriptling.mcp", "scriptling.toon", "scriptling.mcp.tool",
 		"scriptling.messaging.telegram", "scriptling.messaging.discord",
-		"scriptling.messaging.slack", "scriptling.messaging.console",
+		"scriptling.messaging.slack",
 		// misc
-		"scriptling.similarity", "scriptling.console", "scriptling.secret",
+		"scriptling.similarity",
 		"scriptling.provision.file", "scriptling.provision.fetch", "logging",
 	}
 	for _, lib := range libs {
@@ -78,7 +73,16 @@ func TestAgentScriptlingEnv_NoServingSubLibs(t *testing.T) {
 	}
 	defer cleanup()
 
-	for _, lib := range []string{"scriptling.runtime.http", "scriptling.runtime.jsonrpc", "scriptling.runtime.mcp"} {
+	for _, lib := range []string{
+		"scriptling.runtime",                       // the whole runtime family — real scriptling CLI only
+		"scriptling.container", "scriptling.nomad", // container ops go via knot.space
+		"scriptling.secret",      // no secret providers on the agent
+		"scriptling.net.resolve", // resolver wired into requests/wait_for instead
+		"scriptling.net.multicast", "scriptling.net.unicast", "scriptling.net.gossip",
+		"scriptling.net.websocket", "scriptling.markdown",
+		"scriptling.console", "scriptling.messaging.console",
+		"scriptling.plugin",
+	} {
 		if _, err := env.Eval("import " + lib); err == nil {
 			t.Errorf("import %s succeeded in agent env, want unavailable (serving is real-scriptling only)", lib)
 		}

@@ -23,23 +23,16 @@ import (
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	aimemory "github.com/paularlott/scriptling/extlibs/ai/memory"
 	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
-	scriptlingconsole "github.com/paularlott/scriptling/extlibs/console"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
-	messagingconsole "github.com/paularlott/scriptling/extlibs/messaging/console"
 	"github.com/paularlott/scriptling/extlibs/messaging/discord"
 	"github.com/paularlott/scriptling/extlibs/messaging/slack"
 	"github.com/paularlott/scriptling/extlibs/messaging/telegram"
-	scriptlinggossip "github.com/paularlott/scriptling/extlibs/net/gossip"
-	scriptlingmulticast "github.com/paularlott/scriptling/extlibs/net/multicast"
-	scriptlingresolve "github.com/paularlott/scriptling/extlibs/net/resolve"
-	scriptlingunicast "github.com/paularlott/scriptling/extlibs/net/unicast"
 	"github.com/paularlott/scriptling/extlibs/netsecurity"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
-	"github.com/paularlott/scriptling/plugin"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
@@ -70,7 +63,6 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterHTMLParserLibrary(env)
 	extlibs.RegisterWaitForLibrary(env, netPolicy)
 	extlibs.RegisterYAMLLibrary(env)
-	extlibs.RegisterMarkdownLibrary(env)
 	if customLogger != nil {
 		extlibs.RegisterLoggingLibrary(env, customLogger)
 	} else {
@@ -84,9 +76,13 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
-	scriptlingresolve.Register(env, dns.GetDefaultResolver())
+
+	// Outbound messaging sends (telegram, discord, slack) — safe server-side.
+	telegram.Register(env, nil)
+	discord.Register(env, nil)
+	slack.Register(env, nil)
+
 	extlibs.RegisterTOMLLibrary(env)
-	extlibs.RegisterWebSocketLibrary(env, netPolicy)
 	extlibs.RegisterTemplateHTMLLibrary(env)
 	extlibs.RegisterTemplateTextLibrary(env)
 	extlibs.RegisterShlexLibrary(env) // shlex — pure string processing, no filesystem access
@@ -164,14 +160,6 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterLoggingLibrary(env, log)
-	// scriptling.runtime (core, .kv, .sync, .sandbox) — the serving sub-libs
-	// (.http/.jsonrpc/.mcp) are deliberately absent: serving belongs to the real
-	// scriptling CLI in the space, not the embedded eval runtime.
-	extlibs.RegisterRuntimeLibrary(env)
-	extlibs.RegisterRuntimeKVLibrary(env)
-	extlibs.RegisterRuntimeSyncLibrary(env)
-	extlibs.RegisterRuntimeSandboxLibrary(env, nil)
-	extlibs.RegisterSecretLibrary(env, nil)
 	extlibs.RegisterSubprocessLibrary(env)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil)
@@ -187,15 +175,9 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	extlibs.RegisterFindLibrary(env, nil)
 	extlibs.RegisterSedLibrary(env, nil)
 	extlibs.RegisterWaitForLibrary(env, netPolicy)
-	extlibs.RegisterWebSocketLibrary(env, netPolicy)
 	extlibs.RegisterTemplateHTMLLibrary(env)
 	extlibs.RegisterTemplateTextLibrary(env)
-	extlibs.RegisterMarkdownLibrary(env)
 
-	scriptlingmulticast.Register(env)
-	scriptlingunicast.Register(env)
-	scriptlinggossip.Register(env, aux)
-	scriptlingresolve.Register(env, dns.GetDefaultResolver())
 	provisionfile.Register(env)
 	provisionfetch.Register(env)
 
@@ -203,45 +185,15 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	aimemory.Register(env, aux)
 	agent.Register(env)
 	scriptlingaitools.Register(env) // scriptling.ai.tools — knot registers this in every env
-	extlibs.RegisterRuntimePluginLibrary(env)
 	scriptlingsimilarity.Register(env)
-	scriptlingconsole.Register(env)
 
 	telegram.Register(env, aux)
 	discord.Register(env, aux)
 	slack.Register(env, aux)
-	messagingconsole.Register(env)
 
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
-}
-
-// registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob, scriptling.grep, scriptling.sed)
-// and interactive agent support
-func registerFullSystemLibraries(env *scriptling.Scriptling) {
-	extlibs.RegisterSubprocessLibrary(env)
-
-	// Register only the core runtime library (background function)
-	extlibs.RegisterRuntimeLibrary(env)
-	extlibs.RegisterRuntimeKVLibrary(env)           // Key-value store
-	extlibs.RegisterRuntimeSyncLibrary(env)         // Concurrency primitives
-	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
-	extlibs.RegisterRuntimePluginLibrary(env)
-
-	scriptlingconsole.Register(env)       // scriptling.console
-	extlibs.RegisterGrepLibrary(env, nil) // scriptling.grep
-	extlibs.RegisterFindLibrary(env, nil) // scriptling.find
-	extlibs.RegisterSedLibrary(env, nil)  // scriptling.sed
-	extlibs.RegisterOSLibrary(env, nil)
-	extlibs.RegisterPathlibLibrary(env, nil)
-	extlibs.RegisterGlobLibrary(env, nil)     // scriptling.glob
-	extlibs.RegisterTempfileLibrary(env, nil) // tempfile
-	extlibs.RegisterShutilLibrary(env, nil)   // shutil
-	extlibs.RegisterZipfileLibrary(env, nil)  // zipfile
-	extlibs.RegisterTarfileLibrary(env, nil)  // tarfile
-	provisionfile.Register(env)
-	provisionfetch.Register(env)
 }
 
 // newServerLibraryLoader creates a FuncLoader that fetches libraries from the server API
@@ -418,8 +370,7 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 	registerBaseLibraries(env, nil)
 	registerServerFSPaths(env)
 
-	pluginScope := registerPluginScope(env, plugin.TransportHTTP)
-	cleanup := func() { _ = pluginScope.Close() }
+	cleanup := func() {}
 
 	aiClient := createServerAIClient(client, opts.User)
 	if aiClient != nil {
@@ -495,8 +446,7 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
 	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
 
-	pluginScope := registerPluginScope(env, plugin.TransportAll)
-	cleanup := func() { _ = pluginScope.Close() }
+	cleanup := func() {}
 
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, opts.Argv, opts.Input)

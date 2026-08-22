@@ -27,8 +27,8 @@ var restErrPrefix = regexp.MustCompile(`^unexpected status code: \d+: `)
 // server-to-server content sync — so the whole fleet converges on the same
 // (newest) catalog without gossip.
 var RefreshBaseImagesCmd = &cli.Command{
-	Name:        "refresh-base-images",
-	Usage:       "Force a base image manifest refresh across the cluster",
+	Name:  "refresh-base-images",
+	Usage: "Force a base image manifest refresh across the cluster",
 	Description: `Force every server to fetch the base image manifest from its update URL immediately.
 
 Each server keeps the fetched copy only if it is newer than its active catalog. By default the command fans out to all servers in the cluster (via cluster-info); pass --local-only to refresh just the connected server. Each server must have --base-images-update-enabled on; if a server uses a manifest file it must also have --base-images-update-url set, otherwise that server reports a conflict and keeps using its file.`,

@@ -10,7 +10,6 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/scriptling/extlibs"
-	"github.com/paularlott/scriptling/extlibs/agent"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -26,9 +25,6 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// controlIn receives inbound FrameControl messages for the console stub
-	controlIn := make(chan string, 16)
-
 	// Pipe for inbound stdio frames → script stdin
 	stdinR, stdinW := io.Pipe()
 
@@ -38,7 +34,6 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 		for {
 			frameType, payload, err := ReadFrame(stream)
 			if err != nil {
-				close(controlIn)
 				return
 			}
 			switch frameType {
@@ -60,10 +55,6 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 					stdinW.Close()
 					return
 				}
-				select {
-				case controlIn <- msg:
-				default:
-				}
 			}
 		}
 	}()
@@ -84,9 +75,6 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 	env.SetInputReader(stdinR)
 	extlibs.RegisterSysLibrary(env, execMsg.Arguments, stdinR)
 	env.SetObjectVar("input", extlibs.NewInputBuiltin(stdinR))
-
-	registerConsoleStub(env, stream, controlIn)
-	agent.RegisterInteract(env)
 
 	result, err := env.EvalWithContext(ctx, execMsg.Content)
 
