@@ -136,7 +136,12 @@ var RunScriptCmd = &cli.Command{
 		// publishes to the daemon (same path as `knot methods register`).
 		wireMethodsRegistrar()
 
-		env, cleanup, err := service.NewRunScriptEvalEnv(argv, client, userId, agentlink.NewScriptLogger("script"), os.Stdout, os.Stdin)
+		env, cleanup, err := service.NewAgentScriptlingEnv(client, userId, service.AgentScriptlingOptions{
+			Argv:   argv,
+			Logger: agentlink.NewScriptLogger("script"),
+			Output: os.Stdout,
+			Input:  os.Stdin,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)
 		}

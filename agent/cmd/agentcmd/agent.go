@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -311,7 +312,7 @@ func buildMethodsScriptRunner(agentClient *agent_client.AgentClient) func(conten
 		if agentClient == nil {
 			return errors.New("agent is not connected")
 		}
-		env, cleanup, err := service.NewRemoteScriptlingEnv(args, nil, "", nil, true)
+		env, cleanup, err := service.NewAgentScriptlingEnv(nil, "", service.AgentScriptlingOptions{Argv: args, Output: io.Discard})
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)
 		}

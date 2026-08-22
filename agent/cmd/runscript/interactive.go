@@ -66,7 +66,12 @@ func runInteractiveMode(ctx context.Context, cmd *cli.Command) error {
 
 	wireMethodsRegistrar()
 
-	env, cleanup, err := service.NewRunScriptEvalEnv([]string{"knot"}, client, userId, agentlink.NewScriptLogger("script"), os.Stdout, os.Stdin)
+	env, cleanup, err := service.NewAgentScriptlingEnv(client, userId, service.AgentScriptlingOptions{
+		Argv:   []string{"knot"},
+		Logger: agentlink.NewScriptLogger("script"),
+		Output: os.Stdout,
+		Input:  os.Stdin,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create script environment: %w", err)
 	}

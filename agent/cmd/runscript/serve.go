@@ -15,8 +15,9 @@ import (
 )
 
 // serveFlags are the run-script flags that put it into a long-running server
-// mode, mirroring the scriptling CLI's serve modes. Container runtime support
-// is deliberately excluded (no docker/podman sockets are ever wired up).
+// mode, mirroring the scriptling CLI's serve modes. Container and nomad
+// library support is deliberately excluded — spaces manage containers via
+// knot.space, never the runtime directly.
 var serveFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:  "json-rpc",
@@ -82,10 +83,13 @@ func serveRequested(cmd *cli.Command) bool {
 
 // runServe runs the script in a long-running server mode using the scriptling
 // server runtime. scriptFile must be a path on disk (the caller materialises
-// named scripts to a temp file). Container libraries are always disabled and no
-// docker/podman sockets are configured, so served scripts cannot drive a
-// container runtime.
+// named scripts to a temp file). Container and nomad libraries are always
+// disabled and no docker/podman sockets are configured, so served scripts
+// cannot drive a container runtime or Nomad cluster.
 func runServe(ctx context.Context, cmd *cli.Command, scriptFile string, client *apiclient.ApiClient, userId string) error {
+	// Served handlers run agent-side — wire knot.methods register() to the
+	// agentlink command socket, same as eval mode.
+	wireMethodsRegistrar()
 	// Route the server's own logs and the Python logging library (registered
 	// via setup.Scriptling using this Log) to the agent uplink when running
 	// inside a space, otherwise to stderr.
@@ -101,9 +105,9 @@ func runServe(ctx context.Context, cmd *cli.Command, scriptFile string, client *
 	cfg := server.ServerConfig{
 		ScriptFile:    scriptFile,
 		Address:       cmd.GetString("listen"),
+		DisabledLibs:  append(cmd.GetStringSlice("disable-lib"), extlibs.ContainerLibraryName, extlibs.NomadLibraryName),
 		LibDirs:       bootstrap.BuildLibDirs(baseDir, cmd.GetStringSlice("lib-dir")),
 		AllowedPaths:  cmd.GetStringSlice("allowed-path"),
-		DisabledLibs:  append(cmd.GetStringSlice("disable-lib"), extlibs.ContainerLibraryName),
 		BearerToken:   cmd.GetString("bearer-token"),
 		WebRoot:       cmd.GetString("web-root"),
 		KVStoragePath: cmd.GetString("kv-storage"),

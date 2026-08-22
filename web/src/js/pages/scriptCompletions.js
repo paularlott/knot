@@ -591,6 +591,52 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "knot.apiclient",
+    description:
+      "Knot API transport - automatic in embedded contexts, explicit configuration for standalone scripts",
+    functions: [
+      {
+        name: "configure",
+        signature:
+          'configure(url, token, insecure=False, ai_url="", ai_token="", ai_model="", ai_provider="")',
+        description:
+          "Configure the API client for standalone scripts. No-op in embedded contexts (MCP tools, space scripts, run-script) where the Go runtime provides the transport automatically",
+        returns: "bool - True if configured",
+      },
+      {
+        name: "is_configured",
+        signature: "is_configured()",
+        description: "Check whether the API client is configured",
+        returns: "bool - True if configured",
+      },
+      {
+        name: "get",
+        signature: "get(path, params=None)",
+        description:
+          "GET request to the Knot API. params is an optional dict of query parameters",
+        returns: "dict - Decoded JSON response",
+      },
+      {
+        name: "post",
+        signature: "post(path, body)",
+        description: "POST request to the Knot API. body is a dict",
+        returns: "dict - Decoded JSON response",
+      },
+      {
+        name: "put",
+        signature: "put(path, body)",
+        description: "PUT request to the Knot API. body is a dict",
+        returns: "dict - Decoded JSON response",
+      },
+      {
+        name: "delete",
+        signature: "delete(path)",
+        description: "DELETE request to the Knot API",
+        returns: "dict - Decoded JSON response",
+      },
+    ],
+  },
+  {
     module: "knot.methods",
     description: "Register JSON-RPC space methods from a running space",
     classes: [
@@ -1220,6 +1266,47 @@ const scriptLibraries = [
         signature: "search(query)",
         description: "Fuzzy search skills by name/description",
         returns: "list - List of matching skill dicts",
+      },
+    ],
+  },
+  {
+    module: "knot.slash_command",
+    description: "Knot slash command management functions",
+    functions: [
+      {
+        name: "list",
+        signature: "list(owner=None, all_zones=False)",
+        description:
+          "List slash commands the user has access to. Pass owner to filter to a user's own commands, all_zones=True to include other zones",
+        returns:
+          "list - Command dicts with id, name, description, argument_hint, allowed_tools, user_id, groups, zones, active, is_managed",
+      },
+      {
+        name: "get",
+        signature: "get(name_or_id)",
+        description: "Get a slash command by name or UUID",
+        returns: "dict - Command details",
+      },
+      {
+        name: "create",
+        signature:
+          "create(content, is_global=False, groups=None, zones=None, active=True)",
+        description:
+          "Create a slash command from markdown content with YAML frontmatter (name, description, argument-hint, allowed-tools). Use is_global=True for admin (requires permission)",
+        returns: "str - New command ID",
+      },
+      {
+        name: "update",
+        signature:
+          "update(name_or_id, content=None, groups=None, zones=None, active=None)",
+        description: "Update a slash command while preserving fields not passed",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "delete",
+        signature: "delete(name_or_id)",
+        description: "Delete a slash command by name or UUID",
+        returns: "bool - True if successful",
       },
     ],
   },
@@ -2018,165 +2105,6 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "scriptling.nomad",
-    description:
-      "HashiCorp Nomad client covering CSI volumes, dynamic host volumes, and jobs",
-    functions: [
-      {
-        name: "Client",
-        signature:
-          'Client(addr, *, token="", insecure=False, timeout=10)',
-        description:
-          "Create a Nomad client bound to a Nomad HTTP API endpoint",
-        returns: "NomadClient - A client instance",
-      },
-    ],
-    classes: [
-      {
-        name: "NomadClient",
-        description:
-          "Client for a Nomad cluster's HTTP API. Obtain via nomad.Client(addr, token=...)",
-        methods: [
-          {
-            name: "csi_volumes_list",
-            signature: 'csi_volumes_list(*, namespace="*", plugin_id="")',
-            description: "List CSI volumes",
-            returns:
-              "list - List of dicts with id, name, namespace, plugin_id, provider, schedulable, controllers_healthy, nodes_healthy",
-          },
-          {
-            name: "csi_volume_get",
-            signature: 'csi_volume_get(id, *, namespace="")',
-            description: "Get details for a CSI volume",
-            returns: "dict - Full volume specification and status",
-          },
-          {
-            name: "csi_volume_register",
-            signature: 'csi_volume_register(id, volume, *, namespace="")',
-            description:
-              "Register a pre-existing CSI volume with Nomad (backing storage must already exist)",
-            returns: "None",
-          },
-          {
-            name: "csi_volume_create",
-            signature: 'csi_volume_create(id, volume, *, namespace="")',
-            description:
-              "Create a CSI volume via the CSI controller plugin, provisioning backing storage",
-            returns: "None",
-          },
-          {
-            name: "csi_volume_deregister",
-            signature: 'csi_volume_deregister(id, *, namespace="", force=False)',
-            description:
-              "Deregister a CSI volume from Nomad (backing storage is preserved)",
-            returns: "None",
-          },
-          {
-            name: "csi_volume_delete",
-            signature: 'csi_volume_delete(id, *, namespace="")',
-            description:
-              "Delete a CSI volume and its backing storage via the CSI controller plugin",
-            returns: "None",
-          },
-          {
-            name: "host_volumes_list",
-            signature:
-              'host_volumes_list(*, namespace="*", node_id="", node_pool="", plugin_id="")',
-            description: "List dynamic host volumes",
-            returns:
-              "list - List of dicts with id, name, namespace, plugin_id, node_id, node_pool, state",
-          },
-          {
-            name: "host_volume_get",
-            signature: 'host_volume_get(id, *, namespace="")',
-            description: "Get details for a dynamic host volume",
-            returns: "dict - Full volume specification and status",
-          },
-          {
-            name: "host_volume_register",
-            signature: 'host_volume_register(id, volume, *, namespace="")',
-            description:
-              "Register a pre-existing dynamic host volume with Nomad",
-            returns: "None",
-          },
-          {
-            name: "host_volume_create",
-            signature: 'host_volume_create(id, volume, *, namespace="")',
-            description:
-              "Create a dynamic host volume via a host volume plugin",
-            returns: "None",
-          },
-          {
-            name: "host_volume_delete",
-            signature: 'host_volume_delete(id, *, namespace="")',
-            description:
-              "Delete a dynamic host volume and its backing storage",
-            returns: "None",
-          },
-          {
-            name: "jobs_list",
-            signature: 'jobs_list(*, namespace="*", prefix="")',
-            description: "List jobs",
-            returns:
-              "list - List of dicts with id, name, namespace, type, status, priority",
-          },
-          {
-            name: "job_get",
-            signature: 'job_get(id, *, namespace="")',
-            description:
-              "Get the full specification and status for a job",
-            returns: "dict - Job specification and status",
-          },
-          {
-            name: "job_register",
-            signature: "job_register(job)",
-            description: "Register (create or update) a job",
-            returns:
-              "dict - {EvalID, EvalCreateIndex, JobModifyIndex, Warnings}",
-          },
-          {
-            name: "job_stop",
-            signature: 'job_stop(id, *, namespace="", purge=False)',
-            description: "Stop a job",
-            returns:
-              "dict - {EvalID, EvalCreateIndex, JobModifyIndex}",
-          },
-          {
-            name: "wait_job_stopped",
-            signature: 'wait_job_stopped(id, *, namespace="", timeout=30)',
-            description:
-              "Wait for a job to reach the dead status",
-            returns:
-              "bool - True if stopped, False if timeout reached",
-          },
-          {
-            name: "job_validate",
-            signature: "job_validate(job)",
-            description:
-              "Validate a job specification without submitting it",
-            returns:
-              "dict - {DriverConfigValidated, ValidationErrors, Warnings}",
-          },
-          {
-            name: "job_plan",
-            signature: "job_plan(id, job, *, diff=False)",
-            description:
-              "Dry-run a job registration and return the scheduler plan",
-            returns:
-              "dict - Plan result with JobModifyIndex, Annotations, FailedTGAllocs",
-          },
-          {
-            name: "jobs_parse",
-            signature: "jobs_parse(hcl, *, canonicalize=False)",
-            description:
-              "Convert an HCL job spec into Nomad's JSON job format",
-            returns: "dict - JSON job spec for job_register/validate/plan",
-          },
-        ],
-      },
-    ],
-  },
-  {
     module: "scriptling.csv",
     description: "CSV parsing and formatting — string-based, no filesystem access (all environments)",
     functions: [
@@ -2548,76 +2476,6 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "scriptling.websocket",
-    description: "WebSocket client for connecting to WebSocket servers (all environments)",
-    functions: [
-      {
-        name: "connect",
-        signature: 'connect(url, timeout=10, headers=None)',
-        description: "Connect to a WebSocket server (ws:// or wss://)",
-        returns: "WebSocketClientConn - Connection object",
-        returnType: "WebSocketClientConn",
-      },
-      {
-        name: "is_text",
-        signature: "is_text(message)",
-        description: "Check if a received message is a text message",
-        returns: "bool - True if text message",
-      },
-      {
-        name: "is_binary",
-        signature: "is_binary(message)",
-        description: "Check if a received message is a binary message",
-        returns: "bool - True if binary message",
-      },
-    ],
-    classes: [
-      {
-        name: "WebSocketClientConn",
-        description: "WebSocket client connection for sending/receiving messages",
-        methods: [
-          {
-            name: "send",
-            signature: "send(message)",
-            description:
-              "Send a text message (str or dict, dicts are JSON-encoded)",
-            returns: "None on success, or error if send fails",
-          },
-          {
-            name: "send_binary",
-            signature: "send_binary(data)",
-            description: "Send binary data (list of byte values 0-255)",
-            returns: "None on success, or error if send fails",
-          },
-          {
-            name: "receive",
-            signature: "receive(timeout=30)",
-            description: "Receive a message from the server",
-            returns: "WebSocketMessage or None - Message, or None if timeout/closed",
-          },
-          {
-            name: "connected",
-            signature: "connected()",
-            description: "Check if the connection is still open",
-            returns: "bool - True if connected",
-          },
-          {
-            name: "close",
-            signature: "close()",
-            description: "Close the WebSocket connection",
-            returns: "None",
-          },
-        ],
-        properties: [
-          {
-            name: "remote_addr",
-            description: "Remote address of the connected server",
-          },
-        ],
-      },
-    ],
-  },
-  {
     module: "scriptling.messaging",
     description:
       "Messaging library for building cross-platform bots (Telegram, Discord, Slack, Console)",
@@ -2823,124 +2681,6 @@ const scriptLibraries = [
         signature: "keyboard(rows)",
         description: "Build a console keyboard",
         returns: "Keyboard - Button keyboard",
-      },
-    ],
-  },
-  {
-    module: "scriptling.container",
-    description: "Container runtime management (Docker, Podman, etc.)",
-    functions: [
-      {
-        name: "runtimes",
-        signature: "runtimes()",
-        description: "List available container runtimes",
-        returns: "list - List of runtime name strings",
-      },
-      {
-        name: "Client",
-        signature: 'Client(driver, *, socket="")',
-        description:
-          "Create a container client. Driver can be 'docker' or 'podman'",
-        returns: "ContainerClient - Client instance",
-        returnType: "ContainerClient",
-      },
-    ],
-    classes: [
-      {
-        name: "ContainerClient",
-        description: "Container runtime client for managing containers and images",
-        methods: [
-          {
-            name: "driver",
-            signature: "driver()",
-            description: "Get the container driver name",
-            returns: "str - Driver name (docker or podman)",
-          },
-          {
-            name: "login",
-            signature: "login(server, username, password)",
-            description: "Login to a container registry",
-            returns: "None",
-          },
-          {
-            name: "image_list",
-            signature: "image_list()",
-            description: "List all container images",
-            returns: "list - List of image dicts",
-          },
-          {
-            name: "image_pull",
-            signature: "image_pull(image)",
-            description: "Pull a container image from registry",
-            returns: "None",
-          },
-          {
-            name: "image_remove",
-            signature: "image_remove(image)",
-            description: "Remove a container image",
-            returns: "None",
-          },
-          {
-            name: "exec",
-            signature: 'exec(name_or_id, command, *, env=[], workdir="", user="")',
-            description: "Execute a command in a running container",
-            returns: "dict - Dict with exit_code and output",
-          },
-          {
-            name: "exec_stream",
-            signature: "exec_stream(name_or_id, command, callback, *, env=[], workdir='', user='')",
-            description: "Execute a command with streaming output via callback",
-            returns: "dict - Dict with exit_code",
-          },
-          {
-            name: "run",
-            signature: "run(image, *, name='', ports=[], env=[], volumes=[], command=[], network='', privileged=False)",
-            description: "Run a new container from an image",
-            returns: "str - Container ID",
-          },
-          {
-            name: "stop",
-            signature: "stop(name_or_id)",
-            description: "Stop a running container",
-            returns: "None",
-          },
-          {
-            name: "remove",
-            signature: "remove(name_or_id)",
-            description: "Remove a container",
-            returns: "None",
-          },
-          {
-            name: "inspect",
-            signature: "inspect(name_or_id)",
-            description: "Get container details",
-            returns: "dict - Container details",
-          },
-          {
-            name: "list",
-            signature: "list()",
-            description: "List all containers",
-            returns: "list - List of container dicts",
-          },
-          {
-            name: "volume_create",
-            signature: 'volume_create(name, *, size="")',
-            description: "Create a named volume",
-            returns: "None",
-          },
-          {
-            name: "volume_remove",
-            signature: "volume_remove(name)",
-            description: "Remove a named volume",
-            returns: "None",
-          },
-          {
-            name: "volume_list",
-            signature: "volume_list()",
-            description: "List all volumes",
-            returns: "list - List of volume name strings",
-          },
-        ],
       },
     ],
   },
@@ -3682,6 +3422,12 @@ const scriptLibraries = [
         returnType: "Agent",
       },
     ],
+  },
+  {
+    module: "scriptling.ai.agent.interact",
+    description:
+      "Interactive agent UI hooks. Import it (no functions called directly) in interactive sessions - streaming space scripts and knot run-script --interactive - to render agent activity, thinking, and tool results in the console",
+    functions: [],
   },
   {
     module: "scriptling.ai.memory",
@@ -4611,32 +4357,6 @@ const scriptLibraries = [
         name: "fromtimestamp",
         description: "Create datetime from Unix timestamp",
         signature: "datetime.fromtimestamp(timestamp)",
-      },
-    ],
-  },
-  {
-    module: "glob",
-    description: "Unix shell-style wildcards for file path matching (Remote environments)",
-    functions: [
-      {
-        name: "glob",
-        signature: "glob(pattern[, root_dir='.''])",
-        description:
-          "Find all pathnames matching a shell-style pattern. Supports *, ?, [seq] wildcards",
-        returns: "list - List of matching paths",
-      },
-      {
-        name: "iglob",
-        signature: "iglob(pattern[, root_dir='.''])",
-        description: "Memory-efficient iterator version of glob",
-        returns: "iterator - Iterator of matching paths",
-      },
-      {
-        name: "escape",
-        signature: "escape(pattern)",
-        description:
-          "Escape special characters (*, ?, [, ]) to treat them as literals",
-        returns: "str - Escaped pattern string",
       },
     ],
   },
@@ -7112,6 +6832,21 @@ const scriptLibraries = [
         signature: "error(code, message, data=None)",
         description: "Build a JSON-RPC error response to return from a handler.",
         returns: "dict - JSON-RPC error object",
+      },
+    ],
+  },
+  {
+    module: "scriptling.runtime.mcp",
+    description:
+      "MCP tool registration decorators for knot run-script --mcp-tools server mode",
+    functions: [
+      {
+        name: "tool",
+        signature:
+          "tool(description, params=None, keywords=None, discoverable=False)",
+        description:
+          "Decorator that registers a function as an MCP tool. The function's parameters become the input schema (type inferred from defaults); each params value is a description string or a dict with type, description, required",
+        returns: "callable - Decorator that registers the tool and returns the function",
       },
     ],
   },

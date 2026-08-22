@@ -182,7 +182,7 @@ func buildHealthCheckScript(hcType, hcConfig string, skipSSL bool, timeout uint3
 }
 
 func runHealthCheckScript(script string) *knotscriptling.HealthCheckResult {
-	env, cleanup, err := service.NewHealthCheckScriptlingEnv()
+	env, cleanup, err := service.NewAgentScriptlingEnv(nil, "", service.AgentScriptlingOptions{})
 	if err != nil {
 		return &knotscriptling.HealthCheckResult{Healthy: false}
 	}
