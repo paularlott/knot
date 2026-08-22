@@ -58,6 +58,7 @@ const (
 	CmdThrottlePort
 	CmdPortForwardNotify
 	CmdMirrorLog
+	CmdScriptLibsChanged
 	CmdJobsList
 	CmdJobsRun
 	CmdJobsSetEnabled

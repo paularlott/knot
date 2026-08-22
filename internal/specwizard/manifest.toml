@@ -315,10 +315,10 @@ name        = "${{ .space.id }}-home"
 description = "Persistent home directory (projects, node_modules)."
 
 [[image]]
-name            = "scriptling-0.20"
-display_name    = "Scriptling 0.20"
+name            = "scriptling-0.21"
+display_name    = "Scriptling 0.21"
 description     = "Ubuntu with the Scriptling interpreter and CLI. Pure runtime image — run scripts or serve them over HTTP / MCP."
-image           = "${{ .server.base_image_registry }}/knot-scriptling:0.20"
+image           = "${{ .server.base_image_registry }}/knot-scriptling:0.21"
 icon            = "/icons/scriptling.svg"
 category        = "base"
 default_memory  = "2G"

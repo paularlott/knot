@@ -164,7 +164,13 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterLoggingLibrary(env, log)
-	extlibs.RegisterRuntimeLibraryAll(env, nil)
+	// scriptling.runtime (core, .kv, .sync, .sandbox) — the serving sub-libs
+	// (.http/.jsonrpc/.mcp) are deliberately absent: serving belongs to the real
+	// scriptling CLI in the space, not the embedded eval runtime.
+	extlibs.RegisterRuntimeLibrary(env)
+	extlibs.RegisterRuntimeKVLibrary(env)
+	extlibs.RegisterRuntimeSyncLibrary(env)
+	extlibs.RegisterRuntimeSandboxLibrary(env, nil)
 	extlibs.RegisterSecretLibrary(env, nil)
 	extlibs.RegisterSubprocessLibrary(env)
 	extlibs.RegisterPathlibLibrary(env, nil)
@@ -498,25 +504,4 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 		env.SetObjectVar("input", extlibs.NewInputBuiltin(opts.Input))
 	}
 	return env, cleanup, nil
-}
-
-// RegisterKnotServeLibraries adds knot's libraries to an environment created by
-// the scriptling server runtime (used as the ServerConfig.ExtraLibs hook for
-// `knot run-script` server modes). It registers the Go-backed knot libraries
-// (knot.apiclient transport, knot.ai, knot.mcptools, knot.healthcheck) and
-// chains knot's Python-library loader in front of the server's existing loader
-// so `import knot.space` etc. resolve without losing the server's handler-module
-// loader. knot.methods is registered — served handlers run agent-side and may
-// register or re-register methods like any other agent-side script.
-func RegisterKnotServeLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string) {
-	aiClient := createServerAIClient(client, nil)
-	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
-	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
-
-	knotLoader := newKnotLibsLoader()
-	if existing := env.GetLibraryLoader(); existing != nil {
-		env.SetLibraryLoader(libloader.NewChain(knotLoader, existing))
-	} else {
-		env.SetLibraryLoader(knotLoader)
-	}
 }

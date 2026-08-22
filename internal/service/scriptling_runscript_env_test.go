@@ -48,8 +48,7 @@ func TestRunScriptEvalEnv_LibrariesPresent(t *testing.T) {
 		"zipfile", "tarfile", "fs", "scriptling.grep", "scriptling.find", "scriptling.sed",
 		// runtime
 		"scriptling.runtime", "scriptling.runtime.kv", "scriptling.runtime.sync",
-		"scriptling.runtime.sandbox", "scriptling.runtime.http", "scriptling.runtime.jsonrpc",
-		"scriptling.runtime.mcp", "scriptling.runtime.plugin",
+		"scriptling.runtime.sandbox", "scriptling.runtime.plugin",
 		// ai / mcp / messaging
 		"scriptling.ai", "scriptling.ai.agent", "scriptling.ai.tools", "scriptling.ai.memory",
 		"scriptling.mcp", "scriptling.toon", "scriptling.mcp.tool",
@@ -69,6 +68,23 @@ func TestRunScriptEvalEnv_LibrariesPresent(t *testing.T) {
 	}
 }
 
+// TestAgentScriptlingEnv_NoServingSubLibs verifies the serving runtime
+// sub-libraries are absent from the agent environment — serving belongs to the
+// real scriptling CLI in the space, not the embedded eval runtime.
+func TestAgentScriptlingEnv_NoServingSubLibs(t *testing.T) {
+	env, cleanup, err := NewAgentScriptlingEnv(nil, "", AgentScriptlingOptions{})
+	if err != nil {
+		t.Fatalf("NewAgentScriptlingEnv() failed: %v", err)
+	}
+	defer cleanup()
+
+	for _, lib := range []string{"scriptling.runtime.http", "scriptling.runtime.jsonrpc", "scriptling.runtime.mcp"} {
+		if _, err := env.Eval("import " + lib); err == nil {
+			t.Errorf("import %s succeeded in agent env, want unavailable (serving is real-scriptling only)", lib)
+		}
+	}
+}
+
 // TestAgentScriptlingEnv_SharedSurface pins the consolidation: every
 // agent-side context (startup scripts, streaming, run-script, health checks,
 // methods registration) gets the same environment — including knot.healthcheck
@@ -81,7 +97,7 @@ func TestAgentScriptlingEnv_SharedSurface(t *testing.T) {
 	}
 	defer cleanup()
 
-	for _, lib := range []string{"requests", "knot.healthcheck", "scriptling.runtime.http", "scriptling.messaging.telegram"} {
+	for _, lib := range []string{"requests", "knot.healthcheck", "scriptling.messaging.telegram"} {
 		if _, err := env.Eval("import " + lib); err != nil {
 			t.Errorf("import %s failed in agent env: %v", lib, err)
 		}

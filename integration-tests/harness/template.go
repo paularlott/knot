@@ -16,11 +16,24 @@ type TemplateOptions struct {
 	// Port, if > 0, declares a named http port on the template.
 	PortName string
 	Port     uint16
+	// Image, when set, overrides the container image for the template
+	// (fully qualified reference). Defaults to the harness base image.
+	Image string
+
 	// Volumes is the volume definition YAML attached to the template.
 	Volumes string
 	// AllowMigration enables failed-node migration for the template
 	// (AllowNodeMigration + HealthCheckAutoRestart).
 	AllowMigration bool
+}
+
+// imageRef resolves the template image: an explicit override or the harness
+// base image.
+func (o TemplateOptions) imageRef(cfg *Config) string {
+	if o.Image != "" {
+		return o.Image
+	}
+	return cfg.ImageRef()
 }
 
 // TemplateJobYAML renders the docker container spec for a knot-ubuntu space.
@@ -36,7 +49,7 @@ environment:
   - KNOT_LOGLEVEL=info
   - KNOT_USE_TLS=false
   - TZ=${{ .user.timezone }}
-`, cfg.ImageRef())
+`, opts.imageRef(cfg))
 
 	for _, e := range opts.ExtraEnv {
 		job += "  - " + e + "\n"
