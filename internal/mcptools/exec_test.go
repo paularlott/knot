@@ -87,9 +87,9 @@ func runTool(t *testing.T, toolName string, serverURL string, params map[string]
 	}
 
 	// Create the scriptling env exactly as the MCP server would
-	env, _, cleanup, err := service.NewMCPScriptlingEnv(client, mcpParams, user)
+	env, _, cleanup, err := service.NewServerScriptlingEnv(client, service.ServerScriptlingOptions{User: user, MCPParams: mcpParams})
 	if err != nil {
-		t.Fatalf("NewMCPScriptlingEnv failed: %v", err)
+		t.Fatalf("NewServerScriptlingEnv failed: %v", err)
 	}
 	defer cleanup()
 
@@ -317,9 +317,9 @@ func TestExecute_UrlEncoding(t *testing.T) {
 		t.Fatalf("apiclient.NewClient failed: %v", err)
 	}
 	user := &model.User{Id: "u1", Username: "tester", Email: "tester@example.com"}
-	env, _, cleanup, err := service.NewMCPScriptlingEnv(client, nil, user)
+	env, _, cleanup, err := service.NewServerScriptlingEnv(client, service.ServerScriptlingOptions{User: user})
 	if err != nil {
-		t.Fatalf("NewMCPScriptlingEnv failed: %v", err)
+		t.Fatalf("NewServerScriptlingEnv failed: %v", err)
 	}
 	defer cleanup()
 

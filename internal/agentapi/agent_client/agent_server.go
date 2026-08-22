@@ -16,6 +16,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/agentproxy"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/agentpackages"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
@@ -106,6 +107,10 @@ func (s *agentServer) setMux(mux *yamux.Session) {
 	s.agentClient.serverListMutex.Lock()
 	s.muxSession = mux
 	s.agentClient.serverListMutex.Unlock()
+
+	// A new server session means any previous server (and its knot.zip
+	// package) may be gone — drop the cached package so it is fetched fresh.
+	agentpackages.Invalidate("knot.zip")
 }
 
 // teardownConnectionsLocked closes and clears all per-connection state. The
@@ -518,6 +523,12 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		if err != nil {
 			log.WithError(err).Error("sending pong:")
 		}
+
+	case byte(msg.CmdScriptLibsChanged):
+		// A lib-type script changed on the server — drop the cached libs.zip
+		// package; the next request rebuilds it from the server.
+		agentpackages.Invalidate("libs.zip")
+		log.Info("script libraries changed on server; libs.zip cache dropped")
 
 	case byte(msg.CmdUpdateHealthConfig):
 		var healthConfig msg.HealthConfig

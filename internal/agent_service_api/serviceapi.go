@@ -3,10 +3,13 @@ package agent_service_api
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/agentpackages"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/paularlott/knot/internal/log"
@@ -24,6 +27,10 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 	cfg := config.GetAgentConfig()
 	agentClient = agent
 
+	if home, err := os.UserHomeDir(); err == nil {
+		agentpackages.Init(filepath.Join(home, ".knot", "cache"))
+	}
+
 	log.Debug("starting agent service api", "port", cfg.APIPort)
 
 	go func() {
@@ -34,6 +41,9 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 		router.HandleFunc("POST /loki/api/v1/push", handleLoki)
 		router.HandleFunc("POST /insert/jsonline", handleVictoriaLogs)
 		router.HandleFunc("POST /event", handleEvent)
+		router.HandleFunc("GET /packages/knot.zip", handlePackageKnotZip)
+		router.HandleFunc("GET /packages/libs.zip", handlePackageLibsZip)
+		router.HandleFunc("GET /connect", handleConnect)
 
 		// Run the http server
 		server := &http.Server{

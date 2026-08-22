@@ -91,7 +91,7 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 
 	client := apiclient.NewMuxClient(user)
 
-	env, _, cleanup, err := NewMCPScriptlingEnv(client, mcpParams, user)
+	env, _, cleanup, err := NewServerScriptlingEnv(client, ServerScriptlingOptions{User: user, MCPParams: mcpParams})
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}

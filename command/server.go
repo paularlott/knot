@@ -211,6 +211,12 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOL_TIMEOUT"},
 			DefaultValue: 180,
 		},
+		&cli.StringSliceFlag{
+			Name:       "script-fs-allowed-paths",
+			Usage:      "Comma-separated list of directory paths server-side scripts (MCP tools, event sinks) may access via the fs library. The fs library is not registered on the server unless this is set.",
+			ConfigPath: []string{"server.script_fs_allowed_paths"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SCRIPT_FS_ALLOWED_PATHS"},
+		},
 		&cli.BoolFlag{
 			Name:         "disable-space-create",
 			Usage:        "Disable the ability to create spaces.",
@@ -1363,10 +1369,6 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// Then shutdown the server cluster
 	cluster.Stop()
 
-	// Close the shared plugin manager, releasing pooled HTTP transports
-	// used by scriptling.plugin scopes.
-	service.ClosePluginManager()
-
 	fmt.Print("\r")
 	logger.Info("shutdown")
 	return nil
@@ -1407,36 +1409,37 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	serverCfg := &config.ServerConfig{
-		DesktopMode:        cmd.Name == "knot",
-		Listen:             cmd.GetString("listen"),
-		ListenAgent:        cmd.GetString("listen-agent"),
-		URL:                cmd.GetString("url"),
-		AgentEndpoint:      cmd.GetString("agent-endpoint"),
-		WildcardDomain:     cmd.GetString("wildcard-domain"),
-		HTMLPath:           cmd.GetString("html-path"),
-		TemplatePath:       cmd.GetString("template-path"),
-		AgentPath:          cmd.GetString("agent-path"),
-		PackagePath:        cmd.GetString("package-path"),
-		PrivateFilesPath:   cmd.GetString("private-files-path"),
-		PublicFilesPath:    cmd.GetString("public-files-path"),
-		MCPToolsPath:       cmd.GetString("mcp-tools-path"),
-		MCPToolsDisabled:   cmd.GetStringSlice("mcp-disable-builtin-tools"),
-		DownloadPath:       cmd.GetString("download-path"),
-		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
-		ListenTunnel:       cmd.GetString("listen-tunnel"),
-		TunnelDomain:       cmd.GetString("tunnel-domain"),
-		TunnelServer:       cmd.GetString("tunnel-server"),
-		TerminalWebGL:      cmd.GetBool("terminal-webgl"),
-		EncryptionKey:      cmd.GetString("encrypt"),
-		Zone:               zone,
-		Hostname:           hostname,
-		Timezone:           cmd.GetString("timezone"),
-		LeafNode:           cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
-		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),
-		DNSEnabled:         cmd.GetBool("dns-enabled"),
-		DNSListen:          cmd.GetString("dns-listen"),
-		Nameservers:        cmd.GetStringSlice("nameservers"),
-		MCPToolTimeout:     cmd.GetInt("mcp-tool-timeout"),
+		DesktopMode:          cmd.Name == "knot",
+		Listen:               cmd.GetString("listen"),
+		ListenAgent:          cmd.GetString("listen-agent"),
+		URL:                  cmd.GetString("url"),
+		AgentEndpoint:        cmd.GetString("agent-endpoint"),
+		WildcardDomain:       cmd.GetString("wildcard-domain"),
+		HTMLPath:             cmd.GetString("html-path"),
+		TemplatePath:         cmd.GetString("template-path"),
+		AgentPath:            cmd.GetString("agent-path"),
+		PackagePath:          cmd.GetString("package-path"),
+		PrivateFilesPath:     cmd.GetString("private-files-path"),
+		PublicFilesPath:      cmd.GetString("public-files-path"),
+		MCPToolsPath:         cmd.GetString("mcp-tools-path"),
+		MCPToolsDisabled:     cmd.GetStringSlice("mcp-disable-builtin-tools"),
+		DownloadPath:         cmd.GetString("download-path"),
+		DisableSpaceCreate:   cmd.GetBool("disable-space-create"),
+		ListenTunnel:         cmd.GetString("listen-tunnel"),
+		TunnelDomain:         cmd.GetString("tunnel-domain"),
+		TunnelServer:         cmd.GetString("tunnel-server"),
+		TerminalWebGL:        cmd.GetBool("terminal-webgl"),
+		EncryptionKey:        cmd.GetString("encrypt"),
+		Zone:                 zone,
+		Hostname:             hostname,
+		Timezone:             cmd.GetString("timezone"),
+		LeafNode:             cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
+		AuthIPRateLimiting:   cmd.GetBool("auth-ip-rate-limiting"),
+		DNSEnabled:           cmd.GetBool("dns-enabled"),
+		DNSListen:            cmd.GetString("dns-listen"),
+		Nameservers:          cmd.GetStringSlice("nameservers"),
+		MCPToolTimeout:       cmd.GetInt("mcp-tool-timeout"),
+		ScriptFSAllowedPaths: cmd.GetStringSlice("script-fs-allowed-paths"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),

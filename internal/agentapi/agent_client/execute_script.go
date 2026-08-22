@@ -3,6 +3,7 @@ package agent_client
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -73,7 +74,11 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 		if agentClient != nil {
 			customLogger = NewAgentClientLogger(agentClient, "script")
 		}
-		env, cleanup, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger, true)
+		env, cleanup, err = service.NewAgentScriptlingEnv(client, userId, service.AgentScriptlingOptions{
+			Argv:   execMsg.Arguments,
+			Logger: customLogger,
+			Output: io.Discard, // system scripts (startup/shutdown) — output discarded
+		})
 		if cleanup != nil {
 			defer cleanup()
 		}

@@ -15,6 +15,7 @@
 /.knot*.toml
 /.parcel-cache
 /.task
+/.zcode
 /knot
 /knot-server.nomad
 /web/public_html/api-docs/*

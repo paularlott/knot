@@ -19,9 +19,9 @@ func TestScriptDialsUseConfiguredNameservers(t *testing.T) {
 	user := &model.User{Id: "test-user", Username: "testuser", Email: "test@example.com"}
 
 	// No nameservers configured: full access via the system resolver.
-	env, _, cleanup, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, cleanup, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
 	if err != nil {
-		t.Fatalf("NewMCPScriptlingEnv: %v", err)
+		t.Fatalf("NewServerScriptlingEnv: %v", err)
 	}
 	if _, err := env.Eval("import requests\nresp = requests.get('http://localhost:1/', timeout=1)\nresp.status_code"); err == nil {
 		cleanup()
@@ -34,9 +34,9 @@ func TestScriptDialsUseConfiguredNameservers(t *testing.T) {
 
 	// Dead nameserver: the dial path must resolve through it.
 	dns.UpdateNameservers([]string{"127.0.0.1:1"})
-	env2, _, cleanup2, err := NewMCPScriptlingEnv(nil, nil, user)
+	env2, _, cleanup2, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
 	if err != nil {
-		t.Fatalf("NewMCPScriptlingEnv: %v", err)
+		t.Fatalf("NewServerScriptlingEnv: %v", err)
 	}
 	defer cleanup2()
 	_, err = env2.Eval("import requests\nresp = requests.get('http://not-in-hosts.test/', timeout=2)\nresp.status_code")
