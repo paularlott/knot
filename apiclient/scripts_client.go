@@ -186,75 +186,21 @@ func (c *ApiClient) executeScriptStream(ctx context.Context, spaceId, scriptName
 		ws.Close()
 	}()
 
-	// Read loop: plain stdout until tui:start or exit.
-	tuiCtx, tuiCancel := context.WithCancel(context.Background())
-	defer tuiCancel()
-
-	var pendingMsgs []tuiMsg
-	isTUI := false
-
-	processMsg := func(mt int, d []byte) {
-		if mt == websocket.BinaryMessage {
-			if isTUI {
-				pendingMsgs = append(pendingMsgs, tuiMsg{stdout: d})
-			} else {
-				os.Stdout.Write(d)
-			}
-			return
-		}
-		s := string(d)
-		if strings.HasPrefix(s, "exit:") {
-			fmt.Sscanf(s, "exit:%d", &exitCode)
-			tuiCancel()
-			return
-		}
-		if s == "tui:start" {
-			isTUI = true
-		}
-		pendingMsgs = append(pendingMsgs, tuiMsg{ctrl: s})
-	}
-
-	// Buffer messages until tui:start or exit, printing plain stdout along the way.
-	for !isTUI {
-		select {
-		case <-tuiCtx.Done():
-			return exitCode, nil
-		default:
-		}
+	// Read loop: mirror script stdout to the local terminal until the agent
+	// reports the exit code. (The interactive TUI mode is gone — the agent no
+	// longer serves consoles; streaming scripts print plain output.)
+	for {
 		mt, d, err := ws.ReadMessage()
 		if err != nil {
 			return exitCode, nil
 		}
-		processMsg(mt, d)
+		if mt == websocket.BinaryMessage {
+			os.Stdout.Write(d)
+			continue
+		}
+		if s := string(d); strings.HasPrefix(s, "exit:") {
+			fmt.Sscanf(s, "exit:%d", &exitCode)
+			return exitCode, nil
+		}
 	}
-
-	// TUI mode.
-	t, tuiIn, tuiDone := startTUI(ws)
-	go func() {
-		defer close(tuiIn)
-		for _, m := range pendingMsgs {
-			tuiIn <- m
-		}
-		for {
-			mt, d, err := ws.ReadMessage()
-			if err != nil {
-				tuiCancel()
-				return
-			}
-			if mt == websocket.BinaryMessage {
-				tuiIn <- tuiMsg{stdout: d}
-			} else {
-				s := string(d)
-				if strings.HasPrefix(s, "exit:") {
-					fmt.Sscanf(s, "exit:%d", &exitCode)
-					tuiCancel()
-					return
-				}
-				tuiIn <- tuiMsg{ctrl: s}
-			}
-		}
-	}()
-	t.Run(tuiCtx)
-	<-tuiDone
-	return exitCode, nil
 }

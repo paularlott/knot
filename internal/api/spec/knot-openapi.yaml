@@ -4267,6 +4267,33 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/scripts/libs.zip:
+    get:
+      tags:
+        - Scripts
+      summary: Get Script Library Package
+      description: |
+        Returns the requesting user's `lib` type scripts (their own plus global
+        libraries, user overriding global on name collisions) packaged as a
+        scriptling library zip: `manifest.toml` plus `lib/<name>.py` entries.
+        Agents fetch and cache this package and re-serve it to in-space
+        Scriptling as `/packages/libs.zip`. Supports ETag / If-None-Match
+        conditional requests.
+      operationId: getScriptLibsZip
+      responses:
+        "200":
+          description: OK - library package zip
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "304":
+          description: Not Modified - ETag matches
+        "401":
+          description: Unauthorized
+      security: [BearerAuth: []]
+
   /api/scripts/global:
     get:
       summary: Get Global Scripts

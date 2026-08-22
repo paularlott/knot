@@ -246,8 +246,8 @@ var agentServerCmd = &cli.Command{
 		// Any script that runs in the agent (startup scripts, `knot methods
 		// register file.py`) can call knot.methods Server.register(); the call
 		// lands here, in-process, with no further IPC. CLI-side scripts (`knot
-		// run-script`) do not register knot.methods at all, so they cannot reach
-		// this hook.
+		// run-script`) register via the agentlink command socket instead —
+		// wireMethodsRegistrar in the CLI — so they never hit this in-process hook.
 		knotscriptling.SetMethodsRegistrar(agentClient.RegisterMethods)
 		knotscriptling.SetMethodsUnregisterAll(agentClient.UnregisterAllMethods)
 
