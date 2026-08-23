@@ -49,6 +49,7 @@ type TemplateExport struct {
 
 	DisableUserActivity bool                 `yaml:"disable_user_activity,omitempty"`
 	Ports               []model.TemplatePort `yaml:"ports,omitempty"`
+	Jobs                []model.SpaceJob     `yaml:"jobs,omitempty"`
 
 	Job     string `yaml:"job,omitempty"`
 	Volumes string `yaml:"volumes,omitempty"`
@@ -144,6 +145,7 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 		HealthCheckAutoRestart:   e.HealthCheckAutoRestart,
 		DisableUserActivity:      e.DisableUserActivity,
 		Ports:                    defaultPorts(e.Ports),
+		Jobs:                     defaultJobs(e.Jobs),
 	}
 	req.CustomFields = defaultCustomFields(e.CustomFields)
 	if len(e.Schedule) > 0 {
@@ -184,6 +186,7 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 		HealthCheckAutoRestart:   d.HealthCheckAutoRestart,
 		DisableUserActivity:      d.DisableUserActivity,
 		Ports:                    d.Ports,
+		Jobs:                     d.Jobs,
 		Job:                      d.Job,
 		Volumes:                  d.Volumes,
 		Features: TemplateExportFeatures{
@@ -224,6 +227,13 @@ func defaultPorts(p []model.TemplatePort) []model.TemplatePort {
 		return []model.TemplatePort{}
 	}
 	return p
+}
+
+func defaultJobs(j []model.SpaceJob) []model.SpaceJob {
+	if j == nil {
+		return []model.SpaceJob{}
+	}
+	return j
 }
 
 func defaultCustomFields(cf []TemplateExportCustomField) []CustomFieldDef {

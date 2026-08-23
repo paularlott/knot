@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/integration-tests/harness"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 func TestTemplatesCRUD(t *testing.T) {
@@ -18,6 +19,9 @@ func TestTemplatesCRUD(t *testing.T) {
 	name := uniqueName("it-tmpl")
 	id, err := harness.CreateTemplate(server, admin.Client, name, harness.TemplateOptions{
 		ExtraEnv: []string{"IT_VAR=hello"},
+		Jobs: []model.SpaceJob{
+			{Name: "backup", Command: "knot run-script backup", Schedule: "0 2 * * *", Enabled: true},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +51,8 @@ func TestTemplatesCRUD(t *testing.T) {
 		t.Fatal("created template missing from list")
 	}
 
-	// Update description.
+	// Update description. The update is a full replace, so carry the
+	// fields the test cares about (jobs) through the request.
 	details.Description = "updated description"
 	upd := &apiclient.TemplateUpdateRequest{
 		Name:            details.Name,
@@ -64,12 +69,16 @@ func TestTemplatesCRUD(t *testing.T) {
 		MaxUptime:       0,
 		MaxUptimeUnit:   "disabled",
 		HealthCheckType: "none",
+		Jobs:            details.Jobs,
 	}
 	if code, err := admin.Client.UpdateTemplate(ctx, id, upd); err != nil {
 		t.Fatalf("update template: %v (status %d)", err, code)
 	}
 	details, _, _ = admin.Client.GetTemplate(ctx, id)
 	mustEqual(t, "description after update", details.Description, "updated description")
+	if len(details.Jobs) != 1 || details.Jobs[0].Name != "backup" {
+		t.Fatalf("jobs after update mismatch: %+v", details.Jobs)
+	}
 
 	// By name.
 	byName, err := admin.Client.GetTemplateByName(ctx, name)
@@ -84,6 +93,7 @@ func TestTemplatesCRUD(t *testing.T) {
 		t.Fatalf("export template: %v (status %d)", err, code)
 	}
 	mustContain(t, "export yaml", yamlText, name)
+	mustContain(t, "export yaml jobs", yamlText, "knot run-script backup")
 	// Import under a different name so a new template is created.
 	importedId, code, err := admin.Client.ImportTemplate(ctx,
 		strings.Replace(yamlText, "name: "+name, "name: "+name+"-imported", 1))
@@ -92,6 +102,13 @@ func TestTemplatesCRUD(t *testing.T) {
 	}
 	if importedId == "" || importedId == id {
 		t.Fatalf("import returned bad id %q", importedId)
+	}
+	imported, code, err := admin.Client.GetTemplate(ctx, importedId)
+	if err != nil {
+		t.Fatalf("get imported template: %v (status %d)", err, code)
+	}
+	if len(imported.Jobs) != 1 || imported.Jobs[0].Name != "backup" || imported.Jobs[0].Schedule != "0 2 * * *" || !imported.Jobs[0].Enabled {
+		t.Fatalf("imported template jobs mismatch: %+v", imported.Jobs)
 	}
 	admin.Client.DeleteTemplate(ctx, importedId)
 

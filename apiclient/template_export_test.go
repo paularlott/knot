@@ -25,6 +25,13 @@ func TestTemplateExportRoundTrip(t *testing.T) {
 			{Name: "branch", Description: "Git branch"},
 		},
 		StartupScript: "install-tools.sh",
+		Ports: []model.TemplatePort{
+			{Name: "web", Port: 8080, Protocol: "http"},
+		},
+		Jobs: []model.SpaceJob{
+			{Name: "backup", Command: "knot run-script backup", Schedule: "0 2 * * *", Enabled: true},
+			{Name: "cleanup", Command: "/usr/local/bin/cleanup", Enabled: false},
+		},
 		Job: `job "${{.space.name}}" {
   group "app" {
     task "app" {
@@ -87,6 +94,18 @@ func TestTemplateExportRoundTrip(t *testing.T) {
 	if !parsed.Features.WithTerminal || !parsed.Features.WithSSH {
 		t.Errorf("features mismatch: %+v", parsed.Features)
 	}
+	if len(parsed.Ports) != 1 || parsed.Ports[0].Name != "web" {
+		t.Errorf("ports mismatch: %+v", parsed.Ports)
+	}
+	if len(parsed.Jobs) != 2 {
+		t.Fatalf("jobs mismatch: %+v", parsed.Jobs)
+	}
+	if parsed.Jobs[0].Name != "backup" || parsed.Jobs[0].Schedule != "0 2 * * *" || !parsed.Jobs[0].Enabled {
+		t.Errorf("job[0] mismatch: %+v", parsed.Jobs[0])
+	}
+	if parsed.Jobs[1].Name != "cleanup" || parsed.Jobs[1].Enabled {
+		t.Errorf("job[1] mismatch: %+v", parsed.Jobs[1])
+	}
 }
 
 func TestExportFromDetails(t *testing.T) {
@@ -104,6 +123,9 @@ func TestExportFromDetails(t *testing.T) {
 		},
 		Ports: []model.TemplatePort{
 			{Name: "web", Port: 80, Protocol: "http"},
+		},
+		Jobs: []model.SpaceJob{
+			{Name: "sync", Command: "sync-data", Schedule: "*/5 * * * *", Enabled: true},
 		},
 	}
 
@@ -129,6 +151,9 @@ func TestExportFromDetails(t *testing.T) {
 	if len(exp.Ports) != 1 || exp.Ports[0].Name != "web" {
 		t.Errorf("ports: %+v", exp.Ports)
 	}
+	if len(exp.Jobs) != 1 || exp.Jobs[0].Name != "sync" {
+		t.Errorf("jobs: %+v", exp.Jobs)
+	}
 }
 
 func TestToCreateRequest(t *testing.T) {
@@ -145,6 +170,9 @@ func TestToCreateRequest(t *testing.T) {
 		},
 		Schedule: []TemplateExportScheduleDay{
 			{Enabled: true, From: "9:00am", To: "5:00pm"},
+		},
+		Jobs: []model.SpaceJob{
+			{Name: "backup", Command: "knot run-script backup", Schedule: "0 2 * * *", Enabled: true},
 		},
 	}
 
@@ -166,6 +194,12 @@ func TestToCreateRequest(t *testing.T) {
 	}
 	if len(req.Schedule) != 1 || !req.Schedule[0].Enabled {
 		t.Errorf("schedule: %+v", req.Schedule)
+	}
+	if len(req.Jobs) != 1 || req.Jobs[0].Name != "backup" || req.Jobs[0].Schedule != "0 2 * * *" {
+		t.Errorf("jobs: %+v", req.Jobs)
+	}
+	if req.Ports == nil || req.Jobs == nil {
+		t.Error("ports/jobs should default to empty slices, not nil")
 	}
 }
 

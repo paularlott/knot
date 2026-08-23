@@ -166,6 +166,7 @@ func buildTemplateExportDetails(template *model.Template, db database.DbDriver) 
 		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
 		DisableUserActivity:      template.DisableUserActivity,
 		Ports:                    template.Ports,
+		Jobs:                     template.Jobs,
 	}
 	if len(template.CustomFields) > 0 {
 		details.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))

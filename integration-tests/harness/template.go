@@ -25,6 +25,9 @@ type TemplateOptions struct {
 	// AllowMigration enables failed-node migration for the template
 	// (AllowNodeMigration + HealthCheckAutoRestart).
 	AllowMigration bool
+	// Jobs declares space jobs on the template; spaces created from it
+	// inherit them.
+	Jobs []model.SpaceJob
 }
 
 // imageRef resolves the template image: an explicit override or the harness
@@ -95,6 +98,7 @@ func CreateTemplate(s *Server, client *apiclient.ApiClient, name string, opts Te
 		HealthCheckType:        "none",
 		AllowNodeMigration:     opts.AllowMigration,
 		HealthCheckAutoRestart: opts.AllowMigration,
+		Jobs:                   opts.Jobs,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
