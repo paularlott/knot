@@ -130,6 +130,12 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 	space.Zone = cfg.Zone
 	space.NormalizeDependsOn()
 
+	// Copy the template's job definitions so the space owns an editable
+	// copy; later template changes do not propagate to existing spaces.
+	if len(template.Jobs) > 0 {
+		space.Jobs = append([]model.SpaceJob{}, template.Jobs...)
+	}
+
 	if err := s.ValidateDependencies(space); err != nil {
 		return err
 	}
@@ -314,6 +320,45 @@ func (s *SpaceService) SetSpaceCustomField(spaceId string, fieldName string, fie
 
 	// Save to database
 	if err := db.SaveSpace(space, []string{"CustomFields", "UpdatedAt"}); err != nil {
+		return fmt.Errorf("failed to save space: %v", err)
+	}
+
+	// Gossip the space and notify SSE clients
+	if transport := GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
+	sse.PublishSpaceChanged(space.Id, space.UserId)
+
+	return nil
+}
+
+// SetSpaceJobs replaces the space's job definitions and runner state. The
+// definitions are validated before the call; the caller is responsible for
+// pushing them to a connected agent.
+func (s *SpaceService) SetSpaceJobs(spaceId string, jobs []model.SpaceJob, jobsEnabled bool, user *model.User) error {
+	// Validate permissions
+	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
+		return fmt.Errorf("no permission to manage or use spaces")
+	}
+
+	// Get existing space to check ownership and zone
+	space, err := s.GetSpace(spaceId, user)
+	if err != nil {
+		return err
+	}
+
+	cfg := config.GetServerConfig()
+	if space.Zone != "" && space.Zone != cfg.Zone {
+		return fmt.Errorf("space not on this server")
+	}
+
+	space.Jobs = jobs
+	space.JobsEnabled = jobsEnabled
+	space.UpdatedAt = hlc.Now()
+
+	// Save to database
+	db := database.GetInstance()
+	if err := db.SaveSpace(space, []string{"Jobs", "JobsEnabled", "UpdatedAt"}); err != nil {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 

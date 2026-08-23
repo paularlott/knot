@@ -37,6 +37,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       zones: [],
       custom_fields: [],
       ports: [],
+      jobs: [],
+      jobsTouched: [],
       platform: "nomad",
       with_terminal: false,
       with_vscode_tunnel: false,
@@ -215,6 +217,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.icon_url = template.icon_url;
           this.formData.custom_fields = template.custom_fields;
           this.formData.ports = template.ports || [];
+          this.formData.jobs = (template.jobs || []).map((job) => ({ ...job }));
+          this.formData.jobsTouched = this.formData.jobs.map(() => ({}));
           this.formData.startup_script_id = template.startup_script_id || "";
           this.formData.shutdown_script_id = template.shutdown_script_id || "";
           this.formData.is_managed = template.is_managed || false;
@@ -565,6 +569,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       err = !this.checkPlatform() || err;
       err = !this.checkZonesValid() || err;
       err = !this.checkCustomFieldsValid() || err;
+      err = !this.checkJobsValid() || err;
       if (err) {
         this.$dispatch("show-alert", {
           msg: "Please fix the validation errors before saving",
@@ -634,6 +639,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         icon_url: this.formData.icon_url,
         custom_fields: this.formData.custom_fields,
         ports: this.formData.ports,
+        jobs: this.formData.jobs,
         health_check_type: this.formData.platform === "manual" ? "none" : this.formData.health_check_type,
         health_check_config: ["none", "agent"].includes(this.formData.health_check_type) ? "" : this.formData.health_check_config,
         health_check_skip_ssl_verify: this.formData.health_check_skip_ssl_verify,
@@ -783,6 +789,44 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     },
     removePort(index) {
       this.formData.ports.splice(index, 1);
+    },
+    addJob() {
+      this.formData.jobs.push({ name: "", command: "", schedule: "", enabled: true });
+      this.formData.jobsTouched.push({});
+    },
+    removeJob(index) {
+      this.formData.jobs.splice(index, 1);
+      this.formData.jobsTouched.splice(index, 1);
+    },
+    touchJob(index, field) {
+      if (this.formData.jobsTouched[index]) {
+        this.formData.jobsTouched[index][field] = true;
+      }
+    },
+    jobNameValid(index) {
+      const job = this.formData.jobs[index];
+      if (!job || !job.name.trim()) return false;
+      return !this.formData.jobs.some((other, i) => i !== index && other.name.trim() === job.name.trim());
+    },
+    jobCommandValid(index) {
+      const job = this.formData.jobs[index];
+      return !!job && !!job.command.trim();
+    },
+    jobScheduleValid(index) {
+      const job = this.formData.jobs[index];
+      return !!job && (!job.schedule.trim() || validate.cron(job.schedule));
+    },
+    jobShowError(index, field) {
+      if (!this.formData.jobsTouched[index] || !this.formData.jobsTouched[index][field]) return false;
+      if (field === "name") return !this.jobNameValid(index);
+      if (field === "command") return !this.jobCommandValid(index);
+      if (field === "schedule") return !this.jobScheduleValid(index);
+      return false;
+    },
+    checkJobsValid() {
+      return this.formData.jobs.every((job, index) =>
+        this.jobNameValid(index) && this.jobCommandValid(index) && this.jobScheduleValid(index),
+      );
     },
     checkPort(index) {
       if (index >= 0 && index < this.formData.ports.length) {

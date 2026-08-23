@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/util"
 
@@ -58,13 +58,10 @@ type JobStatus struct {
 }
 
 // JobsSnapshot is the full view returned by list commands and the API.
-// Enabled reports the job runner state: it defaults to whether the jobs file
-// existed when the agent started, and enable/disable change it in memory only
-// — it is not persisted and resets on the next start.
+// Enabled reports the job runner state pushed from the server: the space
+// record is the source of truth and every change is pushed live.
 type JobsSnapshot struct {
-	Found   bool        `json:"found" msgpack:"found"`
 	Enabled bool        `json:"enabled" msgpack:"enabled"`
-	Error   string      `json:"error,omitempty" msgpack:"error,omitempty"`
 	Jobs    []JobStatus `json:"jobs" msgpack:"jobs"`
 }
 
@@ -77,15 +74,12 @@ type runningJob struct {
 type scheduler struct {
 	mu sync.Mutex
 
-	home     string
-	jobsFile string
+	home string
 
 	config *jobsConfig
-	found  bool
-	// runnerEnabled defaults to whether the jobs file existed at start; the
-	// enable/disable commands change it in memory only (never persisted).
+	// runnerEnabled mirrors the space's persisted jobs_enabled flag, pushed
+	// from the server with the job definitions.
 	runnerEnabled bool
-	fileErr       string
 	running       map[string]*runningJob
 	history       map[string][]RunRecord
 	lastTick      int64 // minute bucket of the last evaluated tick
@@ -117,8 +111,9 @@ func SetLogger(l logger.Logger) {
 }
 
 // Start starts the default scheduler in the user's home directory and begins
-// firing due jobs every minute. Safe to call once per process; the agent
-// daemon calls it at startup.
+// firing due jobs every minute. Jobs themselves arrive later: the server
+// pushes them on registration and on every change. Safe to call once per
+// process; the agent daemon calls it at startup.
 func Start() {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -134,31 +129,9 @@ func Stop() {
 	defaultScheduler.stop()
 }
 
-// Snapshot returns the current state of all jobs, reloading the jobs file
-// first so callers always see the latest definitions.
+// Snapshot returns the current state of all jobs.
 func Snapshot() (*JobsSnapshot, error) {
 	return defaultScheduler.snapshot()
-}
-
-// HasJobsFile reports whether the jobs definition file exists. Used by the
-// agent's state reporting so the UI only offers the jobs view when the space
-// actually has a ~/.knot-jobs.toml.
-func HasJobsFile() bool {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false
-	}
-	_, err = os.Stat(filepath.Join(home, JobsFileName))
-	return err == nil
-}
-
-// RunnerEnabled reports whether the job runner is currently enabled. Used
-// by the agent's state reporting so the space's API state (and the UI icon)
-// can show enabled vs stopped without querying the jobs list.
-func RunnerEnabled() bool {
-	defaultScheduler.mu.Lock()
-	defer defaultScheduler.mu.Unlock()
-	return defaultScheduler.runnerEnabled
 }
 
 // RunJob starts a job immediately by name. Manual triggering always works —
@@ -168,12 +141,12 @@ func RunJob(name string) error {
 	return defaultScheduler.runJob(name)
 }
 
-// SetEnabled starts or stops the job runner. The state is in memory only:
-// it is not persisted, and the next start defaults to running when the jobs
-// file exists and stopped when it does not. Enabling requires the jobs file
-// to exist; disabling always succeeds.
-func SetEnabled(enabled bool) error {
-	return defaultScheduler.setEnabled(enabled)
+// Update replaces the scheduler's job definitions and runner state with the
+// latest push from the server. Valid jobs are applied immediately; entries
+// that fail validation are skipped and reported in the snapshot rather than
+// blocking the rest.
+func Update(defs []model.SpaceJob, runnerEnabled bool) {
+	defaultScheduler.update(defs, runnerEnabled)
 }
 
 func (s *scheduler) start(home string, tickInterval time.Duration) {
@@ -181,19 +154,22 @@ func (s *scheduler) start(home string, tickInterval time.Duration) {
 	defer s.mu.Unlock()
 
 	s.home = home
-	s.jobsFile = filepath.Join(home, JobsFileName)
 	s.tickInterval = tickInterval
 	s.stopCh = make(chan struct{})
 	s.stopOnce = sync.Once{}
-	s.reloadLocked()
-
-	// The runner defaults to running when the jobs file is present at start,
-	// stopped otherwise. This is not persisted: enable/disable changes live
-	// only for this run of the agent.
-	s.runnerEnabled = s.found
+	s.config = &jobsConfig{errors: map[string]string{}}
 
 	go s.loop()
-	jobLogger.Info("jobs: scheduler started", "file", s.jobsFile, "found", s.found, "runner_enabled", s.runnerEnabled)
+	jobLogger.Info("jobs: scheduler started", "runner_enabled", s.runnerEnabled)
+}
+
+func (s *scheduler) update(defs []model.SpaceJob, runnerEnabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.config = buildConfig(defs)
+	s.runnerEnabled = runnerEnabled
+	jobLogger.Info("jobs: definitions updated", "jobs", len(s.config.jobs), "invalid", len(s.config.errors), "runner_enabled", runnerEnabled)
 }
 
 func (s *scheduler) stop() {
@@ -251,14 +227,12 @@ func (s *scheduler) tick() {
 	}
 	s.lastTick = bucket
 
-	s.reloadLocked()
-
 	if !s.runnerEnabled {
 		return
 	}
 
 	for _, job := range s.config.jobs {
-		if job.ManualOnly || !job.EnabledDefault {
+		if job.ManualOnly || !job.Enabled {
 			continue
 		}
 		if !job.sched.matches(now) {
@@ -285,9 +259,7 @@ func (s *scheduler) snapshot() (*JobsSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.reloadLocked()
-
-	snap := &JobsSnapshot{Found: s.found, Enabled: s.runnerEnabled, Error: s.fileErr}
+	snap := &JobsSnapshot{Enabled: s.runnerEnabled}
 
 	if s.config != nil {
 		now := s.now()
@@ -297,7 +269,7 @@ func (s *scheduler) snapshot() (*JobsSnapshot, error) {
 				Command:    job.Command,
 				Schedule:   job.Cron,
 				ManualOnly: job.ManualOnly,
-				Enabled:    job.EnabledDefault,
+				Enabled:    job.Enabled,
 				Running:    false,
 				Error:      s.config.errors[job.Name],
 			}
@@ -344,10 +316,8 @@ func (s *scheduler) runJob(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.reloadLocked()
-
-	if s.config == nil || !s.found {
-		return errors.New("no jobs file found")
+	if s.config == nil || len(s.config.jobs) == 0 {
+		return errors.New("no jobs defined")
 	}
 	if msg, ok := s.config.errors[name]; ok {
 		return fmt.Errorf("job %q is invalid: %s", name, msg)
@@ -369,23 +339,6 @@ func (s *scheduler) runJob(name string) error {
 
 	s.startRunLocked(job, TriggerManual)
 
-	return nil
-}
-
-func (s *scheduler) setEnabled(enabled bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.reloadLocked()
-
-	// Enabling needs something to run; disabling always succeeds so a stopped
-	// runner can be stopped again without error.
-	if enabled && !s.found {
-		return errors.New("no jobs file found")
-	}
-
-	s.runnerEnabled = enabled
-	jobLogger.Info("jobs: job runner " + map[bool]string{true: "enabled", false: "disabled"}[enabled])
 	return nil
 }
 
@@ -506,42 +459,4 @@ func (s *scheduler) hasJobLocked(name string) bool {
 		}
 	}
 	return false
-}
-
-// reloadLocked re-reads the jobs file. On a file-level error the previous
-// good configuration is kept so a broken edit never stops the other jobs.
-// Deleting the file stops the job runner; recreating it leaves the runner
-// stopped until explicitly enabled, matching the started-without-a-file case.
-func (s *scheduler) reloadLocked() {
-	if s.jobsFile == "" {
-		return
-	}
-
-	data, err := os.ReadFile(s.jobsFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			s.found = false
-			s.fileErr = ""
-			s.config = &jobsConfig{errors: map[string]string{}}
-			if s.runnerEnabled {
-				s.runnerEnabled = false
-				jobLogger.Info("jobs file removed, job runner stopped")
-			}
-			return
-		}
-		s.fileErr = fmt.Sprintf("failed to read %s: %v", JobsFileName, err)
-		return
-	}
-
-	config, err := parseJobsFile(data)
-	if err != nil {
-		s.found = true
-		s.fileErr = err.Error()
-		jobLogger.Error("jobs: failed to parse jobs file, keeping previous configuration", "error", err.Error())
-		return
-	}
-
-	s.found = true
-	s.fileErr = ""
-	s.config = config
 }

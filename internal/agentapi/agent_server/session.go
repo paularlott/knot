@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/spacejobs"
 
 	"github.com/hashicorp/yamux"
@@ -25,8 +26,6 @@ type Session struct {
 	SSHPort               int
 	VNCHttpPort           int
 	HasTerminal           bool
-	HasJobs               bool
-	JobsEnabled           bool
 	TcpPorts              map[string]string
 	HttpPorts             map[string]string
 	HasVSCodeTunnel       bool
@@ -689,27 +688,15 @@ func (s *Session) SendJobsRun(name string) (*msg.JobsResponse, error) {
 	return &response, nil
 }
 
-// SendJobsSetEnabled starts or stops the job runner in the space's agent.
-func (s *Session) SendJobsSetEnabled(enabled bool) (*msg.JobsResponse, error) {
+// SendUpdateJobs pushes the space's persisted job definitions and runner
+// state to the agent. Fire-and-forget: if the agent is unreachable the push
+// is skipped and the definitions re-arrive in its next registration response.
+func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
 	conn, err := s.MuxSession.Open()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer conn.Close()
 
-	if err := msg.WriteCommand(conn, msg.CmdJobsSetEnabled); err != nil {
-		s.logger.WithError(err).Error("writing jobs set-enabled command:")
-		return &msg.JobsResponse{Success: false, Error: "Failed to send command to agent"}, nil
-	}
-	if err := msg.WriteMessage(conn, &msg.JobsSetEnabledMessage{Enabled: enabled}); err != nil {
-		s.logger.WithError(err).Error("writing jobs set-enabled message:")
-		return &msg.JobsResponse{Success: false, Error: "Failed to send message to agent"}, nil
-	}
-
-	var response msg.JobsResponse
-	if err := msg.ReadMessage(conn, &response); err != nil {
-		s.logger.WithError(err).Error("reading jobs set-enabled response:")
-		return &msg.JobsResponse{Success: false, Error: "Failed to read response from agent"}, nil
-	}
-	return &response, nil
+	return msg.SendUpdateJobs(conn, jobs, enabled)
 }

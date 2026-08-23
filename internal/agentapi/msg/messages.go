@@ -61,7 +61,7 @@ const (
 	CmdScriptLibsChanged
 	CmdJobsList
 	CmdJobsRun
-	CmdJobsSetEnabled
+	CmdUpdateJobs
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

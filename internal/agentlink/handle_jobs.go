@@ -39,22 +39,3 @@ func handleJobsRun(conn net.Conn, msg *CommandMsg) {
 		log.WithError(err).Error("Failed to send jobs run response")
 	}
 }
-
-// handleJobsSetEnabled starts or stops the job runner.
-func handleJobsSetEnabled(conn net.Conn, msg *CommandMsg) {
-	var req JobsSetEnabledRequest
-	if err := msg.Unmarshal(&req); err != nil {
-		log.WithError(err).Error("Failed to unmarshal jobs set-enabled request")
-		return
-	}
-
-	response := JobsResponse{Success: true}
-	if err := spacejobs.SetEnabled(req.Enabled); err != nil {
-		response.Success = false
-		response.Error = err.Error()
-	}
-
-	if err := sendMsg(conn, CommandNil, response); err != nil {
-		log.WithError(err).Error("Failed to send jobs set-enabled response")
-	}
-}

@@ -21,6 +21,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/portforward"
+	"github.com/paularlott/knot/internal/spacejobs"
 	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/crypt"
@@ -362,6 +363,10 @@ func (s *agentServer) ConnectAndServe() {
 				}
 			}
 			s.agentClient.firstRegistrationMutex.Unlock()
+
+			// Apply the space's job definitions on every registration so a
+			// reconnect picks up changes made while the agent was offline.
+			spacejobs.Update(response.Jobs, response.JobsEnabled)
 
 			// Update health check config on every registration (template may have changed)
 			s.agentClient.UpdateHealthCheckConfig(msg.HealthConfig{
@@ -842,13 +847,13 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 		handleJobsRunExecution(stream, runMsg)
 
-	case byte(msg.CmdJobsSetEnabled):
-		var enableMsg msg.JobsSetEnabledMessage
-		if err := msg.ReadMessage(stream, &enableMsg); err != nil {
-			log.WithError(err).Error("reading jobs set-enabled message:")
+	case byte(msg.CmdUpdateJobs):
+		var updateMsg msg.UpdateJobsMessage
+		if err := msg.ReadMessage(stream, &updateMsg); err != nil {
+			log.WithError(err).Error("reading update jobs message:")
 			return
 		}
-		handleJobsSetEnabledExecution(stream, enableMsg)
+		handleUpdateJobsExecution(updateMsg)
 
 	default:
 		log.Error("unknown command:", "cmd", cmd)

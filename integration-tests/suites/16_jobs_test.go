@@ -8,11 +8,12 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/integration-tests/harness"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
-// TestSpaceJobs covers the scheduled jobs feature end to end: a jobs file
-// written into the space is picked up by the agent, listed and triggered via
-// the space-io API, and the job's effect is visible in the space.
+// TestSpaceJobs covers the scheduled jobs feature end to end: definitions are
+// stored on the space and pushed to the agent, listed and triggered via the
+// API, and the job's effect is visible in the space.
 func TestSpaceJobs(t *testing.T) {
 	harness.Feature(t, "jobs")
 
@@ -21,59 +22,84 @@ func TestSpaceJobs(t *testing.T) {
 	ctx, cancel := testCtx(180)
 	defer cancel()
 
-	// Before any file exists the list reports found=false.
-	jobs, code, err := c.ListJobs(ctx, id)
+	// Before any jobs are defined the space reports none and the runner
+	// state is carried by the space record.
+	defs, code, err := c.GetSpaceJobs(ctx, id)
 	if err != nil {
-		t.Fatalf("list jobs: %v (status %d)", err, code)
+		t.Fatalf("get jobs: %v (status %d)", err, code)
 	}
-	if jobs.Found {
-		t.Fatal("expected found=false before a jobs file exists")
+	if len(defs.Jobs) != 0 {
+		t.Fatalf("expected no jobs at start, got %+v", defs.Jobs)
 	}
-
-	// Write a jobs file: one manual-only job, one scheduled job.
-	if err := c.WriteSpaceFile(ctx, id, ".knot-jobs.toml", `
-[jobs.marker]
-command = "echo jobs-it-ran > jobs-it-marker.txt"
-
-[jobs.nightly]
-command = "true"
-hour = 2
-minute = 0
-
-[jobs.broken]
-command = "./broken.sh"
-minute = "not-a-number"
-`); err != nil {
-		t.Fatalf("write jobs file: %v", err)
+	space, _, err := c.GetSpace(ctx, id)
+	if err != nil {
+		t.Fatalf("get space: %v", err)
+	}
+	if space.HasJobs || space.JobsEnabled {
+		t.Fatalf("space should report no jobs: has=%v enabled=%v", space.HasJobs, space.JobsEnabled)
 	}
 
-	// The agent reports the jobs file in its state (drives the UI icon),
-	// with the job runner disabled — it defaulted off because the file was
-	// created after the space started.
+	// Invalid definitions are rejected wholesale with per-job errors.
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "good", Command: "true", Enabled: true},
+			{Name: "broken", Command: "true", Schedule: "not-a-cron", Enabled: true},
+		},
+		Enabled: true,
+	}); err == nil {
+		t.Fatal("expected invalid definitions to be rejected")
+	} else {
+		mustEqual(t, "invalid update status", code, 400)
+		if !strings.Contains(err.Error(), "broken") {
+			t.Errorf("error should name the bad job: %v", err)
+		}
+	}
+
+	// Nothing was saved by the rejected update.
+	defs, _, err = c.GetSpaceJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("get jobs: %v", err)
+	}
+	if len(defs.Jobs) != 0 {
+		t.Fatalf("rejected update must not save, got %+v", defs.Jobs)
+	}
+
+	// Define jobs: one manual-only, one scheduled.
+	defs, code, err = c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "marker", Command: "echo jobs-it-ran > jobs-it-marker.txt", Enabled: true},
+			{Name: "nightly", Command: "true", Schedule: "0 2 * * *", Enabled: true},
+		},
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("update jobs: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 2 || !defs.Enabled {
+		t.Fatalf("unexpected definitions: %+v", defs)
+	}
+
+	// The space now reports jobs (drives the UI icon).
 	waitFor(t, 60, func() bool {
 		ctx, cancel := testCtx(15)
 		defer cancel()
 		space, _, err := c.GetSpace(ctx, id)
-		return err == nil && space != nil && space.HasJobs && !space.JobsEnabled
+		return err == nil && space != nil && space.HasJobs && space.JobsEnabled
 	})
 
-	// The runner started stopped (no file at space start) — the list shows
-	// the jobs but reports the runner as disabled.
-	jobs, code, err = c.ListJobs(ctx, id)
+	// The agent lists the pushed jobs with the runner enabled.
+	jobs, code, err := c.ListJobs(ctx, id)
 	if err != nil {
 		t.Fatalf("list jobs: %v (status %d)", err, code)
 	}
-	if !jobs.Found {
-		t.Fatal("expected found=true after writing the jobs file")
-	}
-	if jobs.Enabled {
-		t.Fatal("runner should default to stopped when the file was created after start")
+	if !jobs.Enabled {
+		t.Fatal("runner should be enabled")
 	}
 	byName := map[string]apiclient.JobInfo{}
 	for _, job := range jobs.Jobs {
 		byName[job.Name] = job
 	}
-	mustEqual(t, "job count", len(jobs.Jobs), 3)
+	mustEqual(t, "job count", len(jobs.Jobs), 2)
 
 	marker := byName["marker"]
 	if !marker.ManualOnly || marker.Schedule != "" {
@@ -82,42 +108,13 @@ minute = "not-a-number"
 	if marker.NextRun != nil {
 		t.Errorf("manual-only job should have no next run, got %v", marker.NextRun)
 	}
-
-	// Enable the runner (the add-file-to-running-space flow); scheduled jobs
-	// now report a next run.
-	resp, code, err := c.SetJobEnabled(ctx, id, &apiclient.JobSetEnabledRequest{Enabled: true})
-	if err != nil {
-		t.Fatalf("enable job runner: %v (status %d)", err, code)
-	}
-	if !resp.Success {
-		t.Fatalf("enable job runner failed: %s", resp.Error)
-	}
-
-	jobs, _, err = c.ListJobs(ctx, id)
-	if err != nil {
-		t.Fatalf("list jobs: %v", err)
-	}
-	if !jobs.Enabled {
-		t.Fatal("runner should be enabled after the enable call")
-	}
-
-	// The space state reports the runner as enabled too (the UI's query path).
-	waitFor(t, 60, func() bool {
-		ctx, cancel := testCtx(15)
-		defer cancel()
-		space, _, err := c.GetSpace(ctx, id)
-		return err == nil && space != nil && space.JobsEnabled
-	})
-
-	nightly := byName["nightly"]
-	mustEqual(t, "nightly schedule", nightly.Schedule, "0 2 * * *")
-
-	if byName["broken"].Error == "" {
-		t.Error("broken job should report a validation error")
+	mustEqual(t, "nightly schedule", byName["nightly"].Schedule, "0 2 * * *")
+	if byName["nightly"].NextRun == nil {
+		t.Error("scheduled job should report a next run")
 	}
 
 	// Trigger the manual job and wait for a successful run record.
-	resp, code, err = c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "marker"})
+	resp, code, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "marker"})
 	if err != nil {
 		t.Fatalf("run job: %v (status %d)", err, code)
 	}
@@ -156,28 +153,39 @@ minute = "not-a-number"
 		t.Errorf("marker file content = %q, want %q", content, "jobs-it-ran")
 	}
 
-	// Disable the runner via the API; scheduled firing stops but the jobs
-	// stay listed and manual triggering keeps working.
-	resp, code, err = c.SetJobEnabled(ctx, id, &apiclient.JobSetEnabledRequest{Enabled: false})
-	if err != nil {
+	// Disable the runner via the definitions; scheduled firing stops but the
+	// jobs stay listed and manual triggering keeps working.
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "marker", Command: "echo jobs-it-ran > jobs-it-marker.txt", Enabled: true},
+			{Name: "nightly", Command: "true", Schedule: "0 2 * * *", Enabled: true},
+		},
+		Enabled: false,
+	}); err != nil {
 		t.Fatalf("disable job runner: %v (status %d)", err, code)
-	}
-	if !resp.Success {
-		t.Fatalf("disable job runner failed: %s", resp.Error)
 	}
 
 	waitFor(t, 30, func() bool {
 		ctx, cancel := testCtx(15)
 		defer cancel()
 		jobs, _, err := c.ListJobs(ctx, id)
-		if err != nil || !jobs.Found || jobs.Enabled {
+		if err != nil || jobs.Enabled || len(jobs.Jobs) != 2 {
 			return false
 		}
-		ctx2, cancel2 := testCtx(15)
-		defer cancel2()
-		space, _, err := c.GetSpace(ctx2, id)
-		return err == nil && space != nil && space.HasJobs && !space.JobsEnabled
+		for _, job := range jobs.Jobs {
+			if job.Name == "nightly" && job.NextRun != nil {
+				return false
+			}
+		}
+		return true
 	})
+	space, _, err = c.GetSpace(ctx, id)
+	if err != nil {
+		t.Fatalf("get space: %v", err)
+	}
+	if !space.HasJobs || space.JobsEnabled {
+		t.Fatalf("space should report jobs with runner stopped: has=%v enabled=%v", space.HasJobs, space.JobsEnabled)
+	}
 
 	// Manual trigger still works with the runner stopped.
 	if _, code, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "marker"}); err != nil {
@@ -185,32 +193,53 @@ minute = "not-a-number"
 	}
 
 	// Unknown jobs are rejected.
-	if _, code, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "does-not-exist"}); err == nil {
+	if _, _, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "does-not-exist"}); err == nil {
 		t.Error("expected error running unknown job")
-	} else {
-		_ = code
-	}
-
-	// Unknown jobs are rejected.
-	if _, code, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "does-not-exist"}); err == nil {
-		t.Error("expected error running unknown job")
-	} else {
-		_ = code
 	}
 }
 
-// TestSpaceJobsStoppedSpace proves the endpoints behave when the space is not
-// running: there is no agent to answer, so the API returns a conflict.
+// TestSpaceJobsStoppedSpace proves the definition endpoints work while the
+// space is stopped (definitions live on the space record), while the live
+// endpoints need a running agent and return a conflict.
 func TestSpaceJobsStoppedSpace(t *testing.T) {
 	harness.Feature(t, "jobs")
 
 	id := spaceFixture(t, "it-jobs-stopped", user1.Id, user1.Client)
 	c := user1.Client
 
-	harness.StopSpaceAndWait(t, c, id)
-
+	// Define a job and stop the space; the definitions survive.
 	ctx, cancel := testCtx(60)
 	defer cancel()
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "marker", Command: "true", Enabled: true},
+		},
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("update jobs: %v (status %d)", err, code)
+	}
+
+	harness.StopSpaceAndWait(t, c, id)
+
+	defs, code, err := c.GetSpaceJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("get jobs of stopped space: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 1 || !defs.Enabled {
+		t.Fatalf("definitions should be readable while stopped: %+v", defs)
+	}
+
+	// Definitions can be updated while stopped; the agent picks them up on
+	// its next registration.
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "marker", Command: "true", Enabled: true},
+			{Name: "added", Command: "true", Schedule: "*/5 * * * *", Enabled: true},
+		},
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("update jobs of stopped space: %v (status %d)", err, code)
+	}
 
 	if _, code, err := c.ListJobs(ctx, id); err == nil {
 		t.Fatal("expected error listing jobs of stopped space")

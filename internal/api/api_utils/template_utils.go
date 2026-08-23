@@ -99,6 +99,7 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
 		DisableUserActivity:      template.DisableUserActivity,
 		Ports:                    template.Ports,
+		Jobs:                     template.Jobs,
 	}
 
 	// Handle schedule

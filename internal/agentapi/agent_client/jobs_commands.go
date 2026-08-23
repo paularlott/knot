@@ -14,7 +14,7 @@ import (
 func handleJobsListExecution(stream net.Conn) {
 	snapshot, err := spacejobs.Snapshot()
 	if err != nil {
-		log.WithError(err).Error("jobs: failed to build snapshot")
+		log.WithError(err).Error("jobs: failed to build jobs snapshot")
 		snapshot = &spacejobs.JobsSnapshot{}
 	}
 
@@ -36,15 +36,9 @@ func handleJobsRunExecution(stream net.Conn, req msg.JobsRunMessage) {
 	}
 }
 
-// handleJobsSetEnabledExecution starts or stops the job runner.
-func handleJobsSetEnabledExecution(stream net.Conn, req msg.JobsSetEnabledMessage) {
-	response := msg.JobsResponse{Success: true}
-	if err := spacejobs.SetEnabled(req.Enabled); err != nil {
-		response.Success = false
-		response.Error = err.Error()
-	}
-
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("jobs set-enabled: failed to write response")
-	}
+// handleUpdateJobsExecution replaces the scheduler's job definitions with the
+// latest push from the server. Fire-and-forget: no reply is written, the
+// stream closes when the handler returns.
+func handleUpdateJobsExecution(req msg.UpdateJobsMessage) {
+	spacejobs.Update(req.Jobs, req.Enabled)
 }

@@ -165,8 +165,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.HasCodeServer = false
 			s.HasSSH = false
 			s.HasTerminal = false
-			s.HasJobs = false
-			s.JobsEnabled = false
 			s.HasHttpVNC = false
 			s.TcpPorts = make(map[string]string)
 			s.HttpPorts = make(map[string]string)
@@ -178,8 +176,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.HasCodeServer = state.HasCodeServer
 			s.HasSSH = state.SSHPort > 0
 			s.HasTerminal = state.HasTerminal
-			s.HasJobs = state.HasJobs
-			s.JobsEnabled = state.JobsEnabled
 			s.HasHttpVNC = state.VNCHttpPort > 0
 			s.TcpPorts = state.TcpPorts
 			s.HasState = true
@@ -222,6 +218,11 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		} else {
 			s.Healthy = true
 		}
+
+		// Jobs live on the space record, so they are known even when the
+		// space is stopped — unlike the agent-reported state above.
+		s.HasJobs = len(space.Jobs) > 0
+		s.JobsEnabled = space.JobsEnabled && s.HasJobs
 
 		// Manual agents are started by hand, so their operator needs the
 		// registration key next to the space id. Only for the owner or

@@ -136,14 +136,7 @@ type JobsRunRequest struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// JobsSetEnabledRequest starts or stops the job runner. The state is in
-// memory only and resets on the next agent start (running when the jobs file
-// exists, stopped when it does not).
-type JobsSetEnabledRequest struct {
-	Enabled bool `json:"enabled" msgpack:"enabled"`
-}
-
-// JobsResponse carries the outcome of a run/enable/disable request.
+// JobsResponse carries the outcome of a run request.
 type JobsResponse struct {
 	Success bool   `json:"success" msgpack:"success"`
 	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`

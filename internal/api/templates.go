@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spacejobs"
 	"github.com/paularlott/knot/internal/specvalidate"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -86,6 +87,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.MaxUptimeUnit = template.MaxUptimeUnit
 		templateData.IconURL = template.IconURL
 		templateData.Ports = template.Ports
+		templateData.Jobs = template.Jobs
 
 		templateData.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))
 		for i, field := range template.CustomFields {
@@ -131,6 +133,14 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if errs := spacejobs.ValidateJobs(request.Jobs); len(errs) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, JobsErrorResponse{
+			Error:     "invalid job definitions: " + summarizeJobErrors(errs),
+			JobErrors: errs,
+		})
 		return
 	}
 
@@ -196,6 +206,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.Jobs = request.Jobs
 
 	// Convert schedule
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
@@ -242,6 +253,14 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if errs := spacejobs.ValidateJobs(request.Jobs); len(errs) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, JobsErrorResponse{
+			Error:     "invalid job definitions: " + summarizeJobErrors(errs),
+			JobErrors: errs,
+		})
 		return
 	}
 
@@ -319,6 +338,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.Jobs = request.Jobs
 
 	templateService := service.GetTemplateService()
 	err = templateService.CreateTemplate(template, user)

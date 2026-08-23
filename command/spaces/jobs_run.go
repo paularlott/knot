@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/command/cmdutil"
 
 	"github.com/paularlott/cli"
 )
@@ -31,27 +30,14 @@ var JobsRunCmd = &cli.Command{
 		spaceName := cmd.GetStringArg("space")
 		jobName := cmd.GetStringArg("job")
 
-		// Get the space ID from the space name
-		client, err := cmdutil.GetClient(cmd)
+		client, err := jobsClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
-		spaces, _, err := client.GetSpaces(ctx, "", false)
+		spaceId, err := jobsSpaceId(ctx, client, spaceName)
 		if err != nil {
-			return fmt.Errorf("failed to get spaces: %w", err)
-		}
-
-		var spaceId string
-		for _, s := range spaces.Spaces {
-			if s.Name == spaceName {
-				spaceId = s.Id
-				break
-			}
-		}
-
-		if spaceId == "" {
-			return fmt.Errorf("space '%s' not found", spaceName)
+			return err
 		}
 
 		// Send the job run request

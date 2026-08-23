@@ -47,6 +47,7 @@ type TemplateCreateRequest struct {
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
 	Ports                    []model.TemplatePort `json:"ports"`
+	Jobs                     []model.SpaceJob     `json:"jobs"`
 }
 
 type TemplateUpdateRequest struct {
@@ -84,6 +85,7 @@ type TemplateUpdateRequest struct {
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
 	Ports                    []model.TemplatePort `json:"ports"`
+	Jobs                     []model.SpaceJob     `json:"jobs"`
 }
 
 type TemplateCreateResponse struct {
@@ -112,6 +114,7 @@ type TemplateInfo struct {
 	MaxUptimeUnit      string               `json:"max_uptime_unit"`
 	IconURL            string               `json:"icon_url"`
 	Ports              []model.TemplatePort `json:"ports"`
+	Jobs               []model.SpaceJob     `json:"jobs"`
 	CustomFields       []CustomFieldDef     `json:"custom_fields"`
 }
 
@@ -166,6 +169,7 @@ type TemplateDetails struct {
 	HealthCheckAutoRestart   bool                 `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
 	Ports                    []model.TemplatePort `json:"ports"`
+	Jobs                     []model.SpaceJob     `json:"jobs"`
 }
 
 func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {

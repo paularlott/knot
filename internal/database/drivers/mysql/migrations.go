@@ -126,6 +126,12 @@ var migrations = []string{
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSON DEFAULT NULL`,
 	// 60: mark tokens issued via the OAuth2 flow (refreshable via /token)
 	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS refresh_token TINYINT(1) NOT NULL DEFAULT 0`,
+	// 61: add space jobs (definitions stored on the space, pushed to the agent)
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT '[]'`,
+	// 62: add space jobs runner state
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS jobs_enabled TINYINT(1) NOT NULL DEFAULT 1`,
+	// 63: add template jobs (copied into new spaces)
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

@@ -6,13 +6,11 @@ import (
 
 var JobsCmd = &cli.Command{
 	Name:        "jobs",
-	Usage:       "Manage scheduled jobs",
-	Description: "Manage the jobs defined in ~/.knot-jobs.toml.",
+	Usage:       "Inspect scheduled jobs",
+	Description: "Inspect and trigger the jobs defined for this space. Jobs are managed from the web UI, the knot CLI or the scriptling jobs library.",
 	MaxArgs:     cli.NoArgs,
 	Commands: []*cli.Command{
 		ListJobsCmd,
 		RunJobCmd,
-		EnableJobCmd,
-		DisableJobCmd,
 	},
 }

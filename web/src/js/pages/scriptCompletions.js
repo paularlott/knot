@@ -293,6 +293,70 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "knot.jobs",
+    description: "Knot space scheduled jobs functions",
+    functions: [
+      {
+        name: "list",
+        signature: "list(space)",
+        description:
+          "List a space's job definitions and runner state. Works while the space is stopped.",
+        returns: "dict - {jobs: [{name, command, schedule, enabled}], enabled: bool}",
+      },
+      {
+        name: "run",
+        signature: "run(space, name)",
+        description:
+          "Trigger a job immediately by name. Works for disabled and manual-only jobs; the space must be running.",
+        returns: "bool - True if the job was started",
+      },
+      {
+        name: "add",
+        signature: "add(space, name, command, schedule='', enabled=True)",
+        description:
+          'Add a job to a space. Schedule is a 5-field cron expression, e.g. "0 2 * * *"; empty for a manual-only job.',
+        returns: "bool - True if successful",
+      },
+      {
+        name: "update",
+        signature: "update(space, name, command=None, schedule=None, enabled=None)",
+        description:
+          "Update a job's command, schedule or enabled state; only given arguments change. Pass schedule='' for manual-only.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "remove",
+        signature: "remove(space, name)",
+        description: "Remove a job from a space.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "enable",
+        signature: "enable(space, name)",
+        description: "Enable a job so it fires automatically.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "disable",
+        signature: "disable(space, name)",
+        description: "Disable a job so it does not fire automatically. Manual runs still work.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "enable_runner",
+        signature: "enable_runner(space)",
+        description: "Start the space's job runner: scheduled jobs fire.",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "disable_runner",
+        signature: "disable_runner(space)",
+        description: "Stop the space's job runner. Manual runs still work.",
+        returns: "bool - True if successful",
+      },
+    ],
+  },
+  {
     module: "knot.pool",
     description: "Knot space pool management and utilization functions",
     functions: [
@@ -1091,14 +1155,14 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, job, ..., health_check_type='none', ports=None)",
-        description: "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects.",
+        signature: "create(name, job, ..., health_check_type='none', ports=None, jobs=None)",
+        description: "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects; jobs is a list of {name, command, schedule, enabled} objects copied into new spaces.",
         returns: "str - ID of the newly created template",
       },
       {
         name: "update",
-        signature: "update(template_id, ..., health_check_type=None, ports=None)",
-        description: "Update template properties, including health_check_type, health_check_auto_restart, and ports",
+        signature: "update(template_id, ..., health_check_type=None, ports=None, jobs=None)",
+        description: "Update template properties, including health_check_type, health_check_auto_restart, ports and jobs",
         returns: "bool - True if successfully updated",
       },
       {

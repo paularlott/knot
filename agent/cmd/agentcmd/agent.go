@@ -243,10 +243,11 @@ var agentServerCmd = &cli.Command{
 		methodsRunner := buildMethodsScriptRunner(agentClient)
 		agentlink.SetMethodsScriptRunner(methodsRunner)
 
-		// Start the scheduled jobs service (reads ~/.knot-jobs.toml, fires due
-		// jobs while the space is running; manual trigger via RPC). Run
-		// activity and output go to the space's log window via the agent
-		// client's log channel, like scripts.
+		// Start the scheduled jobs service (fires due jobs while the space
+		// is running; definitions are pushed by the server on registration
+		// and on change, manual trigger via RPC). Run activity and output go
+		// to the space's log window via the agent client's log channel, like
+		// scripts.
 		spacejobs.SetLogger(agent_client.NewAgentClientLogger(agentClient, "jobs"))
 		spacejobs.Start()
 

@@ -160,8 +160,5 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandJobsRun:
 		handleJobsRun(conn, msg)
-
-	case CommandJobsSetEnabled:
-		handleJobsSetEnabled(conn, msg)
 	}
 }

@@ -138,8 +138,11 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	var hasCodeServer, hasSSH, hasTerminal, hasHttpVNC, hasVSCodeTunnel, hasState bool
 	var tcpPorts, httpPorts map[string]string
 	var vscodeTunnel string
-	var hasJobs bool
-	var jobsEnabled bool
+
+	// Jobs live on the space record, so they are known even when the space
+	// is stopped — unlike the agent-reported state below.
+	hasJobs := len(space.Jobs) > 0
+	jobsEnabled := space.JobsEnabled && hasJobs
 
 	if state == nil {
 		hasCodeServer = false
@@ -155,8 +158,6 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		hasCodeServer = state.HasCodeServer
 		hasSSH = state.SSHPort > 0
 		hasTerminal = state.HasTerminal
-		hasJobs = state.HasJobs
-		jobsEnabled = state.JobsEnabled
 		hasHttpVNC = state.VNCHttpPort > 0
 		tcpPorts = state.TcpPorts
 		hasState = true

@@ -2,135 +2,61 @@ package spacejobs
 
 import (
 	"testing"
+
+	"github.com/paularlott/knot/internal/database/model"
 )
 
-func TestParseJobsFile(t *testing.T) {
-	config, err := parseJobsFile([]byte(`
-[jobs.backup]
-command = "./backup.sh"
-hour = 2
-minute = 0
+func TestValidateJobs(t *testing.T) {
+	errs := ValidateJobs([]model.SpaceJob{
+		{Name: "backup", Command: "./backup.sh", Schedule: "0 2 * * *", Enabled: true},
+		{Name: "build", Command: "make nightly", Schedule: "30 9 * * 1-5", Enabled: false},
+		{Name: "cleanup", Command: "./clean.sh", Enabled: true},
+		{Name: "broken", Command: "./broken.sh", Schedule: "not-a-cron", Enabled: true},
+		{Name: "nocommand", Schedule: "30 * * * *", Enabled: true},
+		{Name: "", Command: "true", Enabled: true},
+	})
 
-[jobs.build]
-command = "make nightly"
-schedule = "30 9 * * 1-5"
-enabled = false
-
-[jobs.cleanup]
-command = "./clean.sh"
-
-[jobs.pulse]
-command = "./pulse.sh"
-minute = "*/5"
-
-[jobs.broken]
-command = "./broken.sh"
-minute = "not-a-number"
-
-[jobs.both]
-command = "true"
-schedule = "* * * * *"
-minute = 5
-
-[jobs.nocommand]
-minute = 30
-`))
-	if err != nil {
-		t.Fatalf("parseJobsFile: %v", err)
+	if len(errs) != 3 {
+		t.Fatalf("expected 3 invalid jobs, got %d: %v", len(errs), errs)
 	}
+	if errs["broken"] == "" {
+		t.Error("expected error for job 'broken' (invalid cron)")
+	}
+	if errs["nocommand"] == "" {
+		t.Error("expected error for job 'nocommand' (missing command)")
+	}
+	if errs[""] == "" {
+		t.Error("expected error for the unnamed job")
+	}
+}
+
+func TestValidateJobsEmpty(t *testing.T) {
+	if errs := ValidateJobs(nil); len(errs) != 0 {
+		t.Errorf("expected no errors for no jobs, got %v", errs)
+	}
+	if errs := ValidateJobs([]model.SpaceJob{}); len(errs) != 0 {
+		t.Errorf("expected no errors for empty jobs, got %v", errs)
+	}
+}
+
+func TestBuildConfigNormalizesSchedule(t *testing.T) {
+	config := buildConfig([]model.SpaceJob{
+		{Name: "spaced", Command: "true", Schedule: "  */5   *  * *  * ", Enabled: true},
+		{Name: "manual", Command: "true", Enabled: true},
+	})
 
 	byName := map[string]*Job{}
 	for _, job := range config.jobs {
 		byName[job.Name] = job
 	}
-
-	if len(byName) != 4 {
-		t.Fatalf("expected 4 valid jobs, got %d: %v", len(byName), byName)
+	if len(byName) != 2 {
+		t.Fatalf("expected 2 valid jobs, got %d", len(byName))
 	}
 
-	backup := byName["backup"]
-	if backup.Cron != "0 2 * * *" {
-		t.Errorf("backup.Cron = %q, want %q", backup.Cron, "0 2 * * *")
+	if got := byName["spaced"].Cron; got != "*/5 * * * *" {
+		t.Errorf("spaced.Cron = %q, want normalized %q", got, "*/5 * * * *")
 	}
-	if !backup.EnabledDefault {
-		t.Error("backup should default to enabled")
-	}
-
-	build := byName["build"]
-	if build.Cron != "30 9 * * 1-5" {
-		t.Errorf("build.Cron = %q, want %q", build.Cron, "30 9 * * 1-5")
-	}
-	if build.EnabledDefault {
-		t.Error("build should be disabled by authored default")
-	}
-
-	cleanup := byName["cleanup"]
-	if !cleanup.ManualOnly || cleanup.Cron != "" {
-		t.Errorf("cleanup should be manual-only, got cron %q", cleanup.Cron)
-	}
-
-	pulse := byName["pulse"]
-	if pulse.Cron != "*/5 * * * *" {
-		t.Errorf("pulse.Cron = %q, want %q", pulse.Cron, "*/5 * * * *")
-	}
-
-	// Invalid jobs are reported, not fatal.
-	if config.errors["broken"] == "" {
-		t.Error("expected error for job 'broken'")
-	}
-	if config.errors["both"] == "" {
-		t.Error("expected error for job 'both' (schedule + named fields)")
-	}
-	if config.errors["nocommand"] == "" {
-		t.Error("expected error for job 'nocommand' (missing command)")
-	}
-}
-
-func TestParseJobsFileInvalidTOML(t *testing.T) {
-	if _, err := parseJobsFile([]byte("this is not [valid toml")); err == nil {
-		t.Error("expected error for invalid TOML")
-	}
-}
-
-func TestParseJobsFileEmpty(t *testing.T) {
-	config, err := parseJobsFile([]byte(""))
-	if err != nil {
-		t.Fatalf("parseJobsFile: %v", err)
-	}
-	if len(config.jobs) != 0 {
-		t.Errorf("expected no jobs, got %d", len(config.jobs))
-	}
-}
-
-func TestNormalizeField(t *testing.T) {
-	tests := []struct {
-		value any
-		want  string
-		ok    bool
-	}{
-		{nil, "", true},
-		{"5", "5", true},
-		{" */5 ", "*/5", true},
-		{int64(5), "5", true},
-		{uint64(5), "5", true},
-		{float64(5), "5", true},
-		{float64(5.5), "", false},
-		{true, "", false},
-	}
-	for _, tc := range tests {
-		got, err := normalizeField(tc.value)
-		if tc.ok && err != nil {
-			t.Errorf("normalizeField(%v): unexpected error %v", tc.value, err)
-			continue
-		}
-		if !tc.ok {
-			if err == nil {
-				t.Errorf("normalizeField(%v): expected error", tc.value)
-			}
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("normalizeField(%v) = %q, want %q", tc.value, got, tc.want)
-		}
+	if !byName["manual"].ManualOnly || byName["manual"].Cron != "" {
+		t.Errorf("job without a schedule should be manual-only, got cron %q", byName["manual"].Cron)
 	}
 }

@@ -5,30 +5,25 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 // newTestScheduler builds a scheduler over a temp home with a controllable
-// clock, mirroring how Start() configures the default scheduler.
-func newTestScheduler(t *testing.T, jobsFile string) *scheduler {
+// clock, mirroring how Start() configures the default scheduler. Jobs arrive
+// via update(), as they do from the server.
+func newTestScheduler(t *testing.T, jobs []model.SpaceJob, runnerEnabled bool) *scheduler {
 	t.Helper()
-	home := t.TempDir()
-	if jobsFile != "" {
-		if err := os.WriteFile(filepath.Join(home, JobsFileName), []byte(jobsFile), 0o644); err != nil {
-			t.Fatalf("write jobs file: %v", err)
-		}
-	}
 
 	s := &scheduler{
-		home:     home,
-		jobsFile: filepath.Join(home, JobsFileName),
-		running:  map[string]*runningJob{},
-		history:  map[string][]RunRecord{},
-		now:      time.Now,
+		home:          t.TempDir(),
+		running:       map[string]*runningJob{},
+		history:       map[string][]RunRecord{},
+		now:           time.Now,
+		config:        &jobsConfig{errors: map[string]string{}},
+		runnerEnabled: runnerEnabled,
 	}
-	s.reloadLocked()
-	// Mirror start(): the runner defaults to running when the file exists at
-	// startup, stopped when it does not.
-	s.runnerEnabled = s.found
+	s.update(jobs, runnerEnabled)
 	return s
 }
 
@@ -46,7 +41,7 @@ func waitFor(t *testing.T, timeout time.Duration, cond func() bool) {
 
 func TestSchedulerManualRun(t *testing.T) {
 	marker := filepath.Join(t.TempDir(), "ran")
-	s := newTestScheduler(t, "[jobs.touch]\ncommand = \"echo hello > "+marker+"\"\n")
+	s := newTestScheduler(t, []model.SpaceJob{{Name: "touch", Command: "echo hello > " + marker, Enabled: true}}, true)
 
 	if err := s.runJob("touch"); err != nil {
 		t.Fatalf("runJob: %v", err)
@@ -74,16 +69,10 @@ func TestSchedulerManualRun(t *testing.T) {
 }
 
 func TestSchedulerManualOnlyJobHasNoNextRun(t *testing.T) {
-	s := newTestScheduler(t, `
-[jobs.manual]
-command = "true"
-`)
+	s := newTestScheduler(t, []model.SpaceJob{{Name: "manual", Command: "true", Enabled: true}}, true)
 	snap, err := s.snapshot()
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
-	}
-	if !snap.Found {
-		t.Error("expected file to be found")
 	}
 	job := snap.Jobs[0]
 	if !job.ManualOnly || job.NextRun != nil {
@@ -93,11 +82,7 @@ command = "true"
 
 func TestSchedulerScheduledFiring(t *testing.T) {
 	// A job due "every minute" fired by tick() at a controlled time.
-	s := newTestScheduler(t, `
-[jobs.always]
-command = "true"
-minute = "*"
-`)
+	s := newTestScheduler(t, []model.SpaceJob{{Name: "always", Command: "true", Schedule: "* * * * *", Enabled: true}}, true)
 
 	now := time.Date(2026, 8, 19, 10, 30, 5, 0, time.Local)
 	s.now = func() time.Time { return now }
@@ -124,12 +109,7 @@ minute = "*"
 }
 
 func TestSchedulerDisabledJobDoesNotFire(t *testing.T) {
-	s := newTestScheduler(t, `
-[jobs.off]
-command = "true"
-minute = "*"
-enabled = false
-`)
+	s := newTestScheduler(t, []model.SpaceJob{{Name: "off", Command: "true", Schedule: "* * * * *", Enabled: false}}, true)
 
 	now := time.Date(2026, 8, 19, 10, 30, 0, 0, time.Local)
 	s.now = func() time.Time { return now }
@@ -145,17 +125,14 @@ enabled = false
 }
 
 func TestSchedulerRunnerEnableDisable(t *testing.T) {
-	// Runner starts enabled because the file exists at start.
-	s := newTestScheduler(t, "[jobs.job]\ncommand = \"true\"\nminute = \"*\"\n")
+	s := newTestScheduler(t, []model.SpaceJob{{Name: "job", Command: "true", Schedule: "* * * * *", Enabled: true}}, true)
 	snap, _ := s.snapshot()
 	if !snap.Enabled {
-		t.Fatal("runner should default to enabled when the file exists at start")
+		t.Fatal("runner should start enabled when pushed enabled")
 	}
 
 	// Disabling stops scheduled firing but keeps the job listed.
-	if err := s.setEnabled(false); err != nil {
-		t.Fatalf("disable: %v", err)
-	}
+	s.update([]model.SpaceJob{{Name: "job", Command: "true", Schedule: "* * * * *", Enabled: true}}, false)
 	now := time.Date(2026, 8, 19, 10, 30, 0, 0, time.Local)
 	s.now = func() time.Time { return now }
 	s.tick()
@@ -180,9 +157,7 @@ func TestSchedulerRunnerEnableDisable(t *testing.T) {
 
 	// Re-enabling resumes firing (advance the clock past the minute already
 	// consumed by the tick above; the manual run is not a scheduled fire).
-	if err := s.setEnabled(true); err != nil {
-		t.Fatalf("enable: %v", err)
-	}
+	s.update([]model.SpaceJob{{Name: "job", Command: "true", Schedule: "* * * * *", Enabled: true}}, true)
 	now = now.Add(time.Minute)
 	s.now = func() time.Time { return now }
 	s.tick()
@@ -197,219 +172,95 @@ func TestSchedulerRunnerEnableDisable(t *testing.T) {
 	}
 }
 
-func TestSchedulerRunnerDefaultNotPersisted(t *testing.T) {
-	// A jobs file created after start leaves the runner stopped until enabled;
-	// restarting the agent (new scheduler over the same home) picks the file
-	// up and defaults to running — nothing is persisted anywhere.
-	s := newTestScheduler(t, "")
-	if err := os.WriteFile(s.jobsFile, []byte("[jobs.late]\ncommand = \"true\"\n"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+func TestSchedulerUpdateReplacesDefinitions(t *testing.T) {
+	// Jobs pushed after start are live immediately; a later push replaces the
+	// set entirely (the space record is the source of truth).
+	s := newTestScheduler(t, nil, false)
 	snap, _ := s.snapshot()
-	if snap.Enabled {
-		t.Fatal("runner should stay stopped when the file appears after start")
+	if len(snap.Jobs) != 0 {
+		t.Fatalf("expected no jobs at start: %+v", snap)
 	}
 
-	s2 := newTestScheduler(t, "[jobs.late]\ncommand = \"true\"\n")
-	s2.home = s.home
-	s2.jobsFile = s.jobsFile
-	s2.reloadLocked()
-	s2.runnerEnabled = s2.found
-	snap2, _ := s2.snapshot()
-	if !snap2.Enabled {
-		t.Fatal("runner should default to enabled after a restart with the file present")
+	s.update([]model.SpaceJob{{Name: "late", Command: "true", Schedule: "* * * * *", Enabled: true}}, true)
+	snap, err := s.snapshot()
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
 	}
-}
+	if !snap.Enabled || len(snap.Jobs) != 1 || snap.Jobs[0].Name != "late" {
+		t.Fatalf("pushed jobs should be live: %+v", snap)
+	}
 
-func TestSchedulerEnableRequiresFile(t *testing.T) {
-	s := newTestScheduler(t, "")
-	if err := s.setEnabled(true); err == nil {
-		t.Error("enabling without a jobs file should error")
+	// A push removing the job stops it firing.
+	now := time.Date(2026, 8, 19, 11, 0, 0, 0, time.Local)
+	s.now = func() time.Time { return now }
+	s.update(nil, true)
+	s.tick()
+	if hist := s.history["late"]; len(hist) != 0 {
+		t.Errorf("removed job must not fire, history: %+v", hist)
 	}
-	if err := s.setEnabled(false); err != nil {
-		t.Errorf("disabling without a jobs file should succeed: %v", err)
+	snap, _ = s.snapshot()
+	if len(snap.Jobs) != 0 {
+		t.Errorf("expected no jobs after empty push: %+v", snap)
+	}
+	if err := s.runJob("late"); err == nil {
+		t.Error("running with no jobs should error")
 	}
 }
 
 func TestSchedulerUnknownJob(t *testing.T) {
-	s := newTestScheduler(t, `[jobs.real]
-command = "true"
-`)
+	s := newTestScheduler(t, []model.SpaceJob{{Name: "real", Command: "true", Enabled: true}}, true)
 	if err := s.runJob("nope"); err == nil {
 		t.Error("expected error running unknown job")
 	}
 }
 
-func TestSchedulerBrokenFileKeepsPreviousJobs(t *testing.T) {
-	s := newTestScheduler(t, `
-[jobs.good]
-command = "true"
-minute = "*"
-`)
-
-	// Corrupt the file — the previous good config must stay active.
-	if err := os.WriteFile(s.jobsFile, []byte("not [valid"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	s.reloadLocked()
+func TestSchedulerInvalidPushSkipsBadJobs(t *testing.T) {
+	// The server validates before pushing, but a bad entry that slips through
+	// is skipped and reported rather than blocking the valid ones.
+	s := newTestScheduler(t, []model.SpaceJob{
+		{Name: "good", Command: "true", Schedule: "* * * * *", Enabled: true},
+		{Name: "broken", Command: "true", Schedule: "not-a-cron", Enabled: true},
+		{Name: "empty", Enabled: true},
+	}, true)
 
 	snap, err := s.snapshot()
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
-	if snap.Error == "" {
-		t.Error("expected file-level error to be reported")
-	}
-	if len(snap.Jobs) != 1 || snap.Jobs[0].Name != "good" {
-		t.Errorf("previous good config should be kept, jobs: %+v", snap.Jobs)
-	}
-}
-
-func TestSchedulerMissingFile(t *testing.T) {
-	// No jobs file written, so the scheduler starts with none present.
-	s := newTestScheduler(t, "")
-	s.reloadLocked()
-
-	snap, err := s.snapshot()
-	if err != nil {
-		t.Fatalf("snapshot: %v", err)
-	}
-	if snap.Found {
-		t.Error("file should be reported as not found")
-	}
-	if len(snap.Jobs) != 0 {
-		t.Errorf("expected no jobs, got %+v", snap.Jobs)
-	}
-	if err := s.runJob("anything"); err == nil {
-		t.Error("running without a jobs file should error")
-	}
-}
-
-func TestSchedulerFileCreatedAfterStart(t *testing.T) {
-	// Space starts with no jobs file; the user creates one afterwards.
-	s := newTestScheduler(t, "")
-
-	snap, _ := s.snapshot()
-	if snap.Found || len(snap.Jobs) != 0 {
-		t.Fatalf("expected no file and no jobs at start: %+v", snap)
+	if len(snap.Jobs) != 3 {
+		t.Fatalf("expected all three jobs listed (invalid ones with errors): %+v", snap.Jobs)
 	}
 
-	if err := os.WriteFile(s.jobsFile, []byte("[jobs.late]\ncommand = \"true\"\nminute = \"*\"\n"), 0o644); err != nil {
-		t.Fatalf("write jobs file: %v", err)
-	}
-
-	// The next snapshot (or tick) picks the file up without a restart.
-	snap, err := s.snapshot()
-	if err != nil {
-		t.Fatalf("snapshot: %v", err)
-	}
-	if !snap.Found || len(snap.Jobs) != 1 || snap.Jobs[0].Name != "late" {
-		t.Fatalf("created file should be picked up: %+v", snap)
-	}
-
-	// The runner defaulted off (no file at start), so nothing fires yet.
 	now := time.Date(2026, 8, 19, 11, 0, 0, 0, time.Local)
 	s.now = func() time.Time { return now }
 	s.tick()
-	if hist := s.history["late"]; len(hist) != 0 {
-		t.Errorf("runner should be stopped until enabled, history: %+v", hist)
+	if hist := s.history["good"]; len(hist) != 1 {
+		t.Errorf("valid job should fire, history: %+v", hist)
+	}
+	if hist := s.history["broken"]; len(hist) != 0 {
+		t.Errorf("invalid job must not fire, history: %+v", hist)
 	}
 
-	// Enabling starts scheduled firing (advance the clock past the minute
-	// already consumed by the tick above).
-	if err := s.setEnabled(true); err != nil {
-		t.Fatalf("enable after file creation: %v", err)
+	// The invalid entries report their validation error in the snapshot.
+	byName := map[string]JobStatus{}
+	for _, j := range snap.Jobs {
+		byName[j.Name] = j
 	}
-	now = now.Add(time.Minute)
-	s.now = func() time.Time { return now }
-	s.tick()
-	if hist := s.history["late"]; len(hist) != 1 {
-		t.Errorf("created job should fire once enabled, history: %+v", hist)
+	if byName["broken"].Error == "" {
+		t.Error("broken job should carry a validation error")
 	}
+	if byName["empty"].Error == "" {
+		t.Error("job without a command should carry a validation error")
+	}
+}
 
-	// Manual run works too (wait for the tick-fired run to finish so the
-	// manual run isn't rejected by the overlap guard).
-	waitFor(t, 5*time.Second, func() bool {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		_, running := s.running["late"]
-		return !running
+func TestSchedulerDuplicateNamesRejected(t *testing.T) {
+	errs := ValidateJobs([]model.SpaceJob{
+		{Name: "dup", Command: "true", Enabled: true},
+		{Name: "dup", Command: "true", Enabled: true},
 	})
-	if err := s.runJob("late"); err != nil {
-		t.Errorf("runJob after file creation: %v", err)
-	}
-}
-
-func TestSchedulerFileDeletedAfterStart(t *testing.T) {
-	// Space starts with jobs; the user deletes the file afterwards.
-	s := newTestScheduler(t, "[jobs.gone]\ncommand = \"true\"\nminute = \"*\"\n")
-
-	snap, _ := s.snapshot()
-	if !snap.Found || len(snap.Jobs) != 1 {
-		t.Fatalf("expected the job at start: %+v", snap)
-	}
-
-	if err := os.Remove(s.jobsFile); err != nil {
-		t.Fatalf("remove jobs file: %v", err)
-	}
-
-	// The next snapshot (or tick) drops the jobs, reports not found, and
-	// stops the runner.
-	snap, err := s.snapshot()
-	if err != nil {
-		t.Fatalf("snapshot: %v", err)
-	}
-	if snap.Found || len(snap.Jobs) != 0 {
-		t.Fatalf("deleted file should remove all jobs: %+v", snap)
-	}
-	if snap.Enabled {
-		t.Fatal("deleting the jobs file should stop the runner")
-	}
-
-	// Nothing fires on ticks any more.
-	now := time.Date(2026, 8, 19, 11, 0, 0, 0, time.Local)
-	s.now = func() time.Time { return now }
-	s.tick()
-	if hist := s.history["gone"]; len(hist) != 0 {
-		t.Errorf("deleted job must not fire, history: %+v", hist)
-	}
-
-	// Running reports the missing file; enabling requires the file, disabling
-	// always succeeds.
-	if err := s.runJob("gone"); err == nil || err.Error() != "no jobs file found" {
-		t.Errorf("runJob after deletion = %v, want 'no jobs file found'", err)
-	}
-	if err := s.setEnabled(true); err == nil || err.Error() != "no jobs file found" {
-		t.Errorf("enable after deletion = %v, want 'no jobs file found'", err)
-	}
-	if err := s.setEnabled(false); err != nil {
-		t.Errorf("disable after deletion should succeed: %v", err)
-	}
-
-	// Recreating the file brings the jobs back but leaves the runner
-	// stopped until explicitly enabled.
-	if err := os.WriteFile(s.jobsFile, []byte("[jobs.gone]\ncommand = \"true\"\nminute = \"*\"\n"), 0o644); err != nil {
-		t.Fatalf("recreate jobs file: %v", err)
-	}
-	snap, err = s.snapshot()
-	if err != nil {
-		t.Fatalf("snapshot: %v", err)
-	}
-	if !snap.Found || len(snap.Jobs) != 1 || snap.Enabled {
-		t.Fatalf("recreated file should list jobs with the runner still stopped: %+v", snap)
-	}
-	s.tick()
-	if hist := s.history["gone"]; len(hist) != 0 {
-		t.Errorf("recreated job must not fire while the runner is stopped, history: %+v", hist)
-	}
-	if err := s.setEnabled(true); err != nil {
-		t.Fatalf("enable after recreation: %v", err)
-	}
-	now = now.Add(time.Minute)
-	s.now = func() time.Time { return now }
-	s.tick()
-	if hist := s.history["gone"]; len(hist) != 1 {
-		t.Errorf("job should fire once the runner is re-enabled, history: %+v", hist)
+	if errs["dup"] == "" {
+		t.Error("duplicate job name should be reported")
 	}
 }
 
@@ -417,7 +268,7 @@ func TestSchedulerLoopTicksAlignedToBoundary(t *testing.T) {
 	// The tick loop must fire aligned to the interval boundary, not to the
 	// scheduler's start offset: a ticker anchored at start time would delay
 	// every scheduled job by up to a full interval.
-	s := newTestScheduler(t, "")
+	s := newTestScheduler(t, nil, false)
 	s.tickInterval = 500 * time.Millisecond
 
 	observed := make(chan time.Time, 32)

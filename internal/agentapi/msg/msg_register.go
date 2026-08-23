@@ -49,6 +49,8 @@ type RegisterResponse struct {
 	HealthCheckMaxFailures   uint32
 	HealthCheckAutoRestart   bool
 	PortForwards             []model.PortForwardEntry
+	Jobs                     []model.SpaceJob
+	JobsEnabled              bool
 	DirectEnabled            bool   // if true, server supports direct agent-to-agent connections
 	PeerSecret               string // zone-wide shared secret for direct peer auth
 }

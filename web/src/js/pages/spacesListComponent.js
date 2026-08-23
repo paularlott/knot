@@ -95,13 +95,25 @@ window.spacesListComponent = function (
     jobsModal: {
       show: false,
       spaceId: "",
-      jobs: [],
-      found: true,
-      enabled: true,
+      spaceName: "",
+      jobs: [],          // live status from the agent (empty when not running)
+      definitions: [],   // persisted definitions from the space record
+      enabled: true,     // persisted runner state
+      // Add/edit job form, stacked over the list like the port editor.
+      showJobForm: false,
+      jobFormIsEdit: false,
+      editingJobName: "",
+      jobForm: { name: "", command: "", schedule: "", enabled: true },
+      jobFormTouched: {},
+      savingJob: false,
+      // Delete confirmation, stacked over the list.
+      deleteConfirmShow: false,
+      deleteConfirmJob: "",
+      togglingJob: "",   // name of the job being toggled in the list
       togglingRunner: false,
       loading: false,
       error: "",
-      warning: "",
+      liveUnavailable: false,
       runningJob: "",
     },
 
@@ -1105,30 +1117,52 @@ window.spacesListComponent = function (
       this.spaceUsageModal.spaceId = "";
       this.spaceUsageModal.spaceName = "";
     },
-    openJobs(spaceId) {
+    openJobs(spaceId, edit = false) {
+      const space = this.spaces.find((s) => s.space_id === spaceId);
       this.jobsModal.spaceId = spaceId;
+      this.jobsModal.spaceName = space?.name || "";
       this.jobsModal.show = true;
-      this.loadJobs(spaceId);
+      this.jobsModal.showJobForm = false;
+      this.jobsModal.deleteConfirmShow = false;
+      this.jobsModal.jobForm = { name: "", command: "", schedule: "", enabled: true };
+      this.jobsModal.jobFormTouched = {};
+      this.loadJobs(spaceId).then(() => {
+        // Opened via "Edit Jobs" on a space with no jobs yet: offer the add
+        // form straight away; with existing jobs the list is the entry point.
+        if (edit && this.jobsModal.show && this.jobsModal.spaceId === spaceId && this.canEditJobs() && this.jobsModal.definitions.length === 0) {
+          this.addJob();
+        }
+      });
       this.startJobsPolling(spaceId);
     },
     closeJobs() {
       this.stopJobsPolling();
       this.jobsModal.show = false;
       this.jobsModal.spaceId = "";
+      this.jobsModal.spaceName = "";
       this.jobsModal.jobs = [];
-      this.jobsModal.found = true;
+      this.jobsModal.definitions = [];
       this.jobsModal.enabled = true;
+      this.jobsModal.showJobForm = false;
+      this.jobsModal.deleteConfirmShow = false;
+      this.jobsModal.jobForm = { name: "", command: "", schedule: "", enabled: true };
+      this.jobsModal.jobFormTouched = {};
+      this.jobsModal.togglingJob = "";
       this.jobsModal.error = "";
-      this.jobsModal.warning = "";
+      this.jobsModal.liveUnavailable = false;
       this.jobsModal.runningJob = "";
     },
+    canEditJobs() {
+      const space = this.spaces.find((s) => s.space_id === this.jobsModal.spaceId);
+      return !!space && space.user_id === forUserId;
+    },
     // The SSE space stream only carries space-level flags (has_jobs,
-    // jobs_enabled — the icon colour); the job list itself is polled while
+    // jobs_enabled — the icon colour); the live job status is polled while
     // the popup is open so history and running badges stay current.
     startJobsPolling(spaceId) {
       this.stopJobsPolling();
       this.jobsPollTimer = setInterval(() => {
-        if (this.jobsModal.show && this.jobsModal.spaceId === spaceId && !this.jobsModal.loading) {
+        if (this.jobsModal.show && this.jobsModal.spaceId === spaceId && !this.jobsModal.loading && !this.jobsModal.showJobForm && !this.jobsModal.deleteConfirmShow) {
           // Silent: a background refresh must not flash the loading state.
           this.loadJobs(spaceId, true);
         }
@@ -1140,30 +1174,65 @@ window.spacesListComponent = function (
         this.jobsPollTimer = null;
       }
     },
+    // The display list: live status from the agent when the space is running,
+    // otherwise the persisted definitions alone.
+    jobViewList() {
+      if (!this.jobsModal.liveUnavailable) {
+        return this.jobsModal.jobs;
+      }
+      return this.jobsModal.definitions.map((job) => ({
+        name: job.name,
+        command: job.command,
+        schedule: job.schedule || "",
+        manual_only: !job.schedule,
+        enabled: job.enabled,
+        running: false,
+      }));
+    },
     async loadJobs(spaceId, silent = false) {
       const self = this;
       if (!silent) {
         self.jobsModal.loading = true;
       }
       self.jobsModal.error = "";
-      self.jobsModal.warning = "";
       try {
+        // Definitions live on the space record and are always available.
+        const defResponse = await fetch(`/api/spaces/${spaceId}/jobs`);
+        if (defResponse.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        if (!defResponse.ok) {
+          const body = await defResponse.json().catch(() => ({}));
+          self.jobsModal.error = body.error || `Failed to load jobs (${defResponse.status})`;
+          self.jobsModal.definitions = [];
+          self.jobsModal.jobs = [];
+          return;
+        }
+        const defs = await defResponse.json();
+        self.jobsModal.definitions = defs.jobs || [];
+        self.jobsModal.enabled = defs.enabled !== false;
+
+        // Live status needs a running agent; a 409 just means stopped.
         const response = await fetch(`/space-io/${spaceId}/jobs/list`);
         if (response.status === 401) {
           window.location.href = "/logout";
           return;
         }
+        if (response.status === 409) {
+          self.jobsModal.liveUnavailable = true;
+          self.jobsModal.jobs = [];
+          return;
+        }
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
-          self.jobsModal.error = body.error || `Failed to load jobs (${response.status})`;
+          self.jobsModal.error = body.error || `Failed to load job status (${response.status})`;
           self.jobsModal.jobs = [];
           return;
         }
         const data = await response.json();
+        self.jobsModal.liveUnavailable = false;
         self.jobsModal.jobs = data.jobs || [];
-        self.jobsModal.found = data.found !== false;
-        self.jobsModal.enabled = data.enabled !== false;
-        self.jobsModal.warning = data.error ? `${data.error} (using last good configuration)` : "";
       } catch (error) {
         self.jobsModal.error = `Failed to load jobs: ${error}`;
       } finally {
@@ -1179,17 +1248,17 @@ window.spacesListComponent = function (
       self.jobsModal.togglingRunner = true;
       const enabled = !self.jobsModal.enabled;
       try {
-        const response = await fetch(`/space-io/${spaceId}/jobs/enable`, {
-          method: "POST",
+        const response = await fetch(`/api/spaces/${spaceId}/jobs`, {
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled }),
+          body: JSON.stringify({ jobs: self.jobsModal.definitions, enabled }),
         });
         if (response.status === 401) {
           window.location.href = "/logout";
           return;
         }
         const body = await response.json().catch(() => ({}));
-        if (!response.ok || body.success === false) {
+        if (!response.ok) {
           self.$dispatch("show-alert", {
             msg: body.error || `Job runner could not be ${enabled ? "enabled" : "disabled"}`,
             type: "error",
@@ -1207,10 +1276,203 @@ window.spacesListComponent = function (
         });
       } finally {
         self.jobsModal.togglingRunner = false;
-        // Reload so the switch reflects the agent's actual state (the
-        // runner may have been stopped by a deleted jobs file, etc).
         if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
-          self.loadJobs(spaceId);
+          self.loadJobs(spaceId, true);
+        }
+      }
+    },
+    addJob() {
+      this.jobsModal.jobFormIsEdit = false;
+      this.jobsModal.editingJobName = "";
+      this.jobsModal.jobForm = { name: "", command: "", schedule: "", enabled: true };
+      this.jobsModal.jobFormTouched = {};
+      this.jobsModal.showJobForm = true;
+    },
+    // Close the add/edit form, confirming first when there are unsaved
+    // changes (the panel carries data-dirty-form, so Esc and the X close
+    // button are intercepted by the shared dirty-form guard).
+    cancelJobForm() {
+      const panel = this.$refs.jobFormPanel;
+      if (panel && panel.hasAttribute("data-dirty")) {
+        Alpine.store("discardDialog").ask(() => {
+          this.jobsModal.showJobForm = false;
+        });
+        return;
+      }
+      this.jobsModal.showJobForm = false;
+    },
+    editJob(name) {
+      const job = this.jobsModal.definitions.find((j) => j.name === name);
+      if (!job) return;
+      this.jobsModal.jobFormIsEdit = true;
+      this.jobsModal.editingJobName = name;
+      this.jobsModal.jobForm = { ...job };
+      this.jobsModal.jobFormTouched = {};
+      this.jobsModal.showJobForm = true;
+    },
+    // Field validation, mirroring the server's rules. Errors only show once a
+    // field has been touched (blur) or a save has been attempted.
+    jobFormNameValid() {
+      const name = this.jobsModal.jobForm.name.trim();
+      if (!name) {
+        return false;
+      }
+      return !this.jobsModal.definitions.some((job) => job.name === name && job.name !== this.jobsModal.editingJobName);
+    },
+    jobFormCommandValid() {
+      return !!this.jobsModal.jobForm.command.trim();
+    },
+    jobFormScheduleValid() {
+      const schedule = this.jobsModal.jobForm.schedule.trim();
+      return !schedule || validate.cron(schedule);
+    },
+    jobFormFieldShowError(field) {
+      if (!this.jobsModal.jobFormTouched[field]) {
+        return false;
+      }
+      if (field === "name") return !this.jobFormNameValid();
+      if (field === "command") return !this.jobFormCommandValid();
+      if (field === "schedule") return !this.jobFormScheduleValid();
+      return false;
+    },
+    touchJobFormField(field) {
+      this.jobsModal.jobFormTouched[field] = true;
+    },
+    jobFormValid() {
+      return this.jobFormNameValid() && this.jobFormCommandValid() && this.jobFormScheduleValid();
+    },
+    async saveJob() {
+      const self = this;
+      const spaceId = this.jobsModal.spaceId;
+      if (!spaceId || self.jobsModal.savingJob) return;
+      ["name", "command", "schedule"].forEach((field) => {
+        self.jobsModal.jobFormTouched[field] = true;
+      });
+      if (!self.jobFormValid()) {
+        self.$dispatch("show-alert", {
+          msg: "Please fix the validation errors before saving",
+          type: "error",
+        });
+        return;
+      }
+      self.jobsModal.savingJob = true;
+      const form = { ...self.jobsModal.jobForm };
+      const jobs = self.jobsModal.definitions
+        .filter((job) => job.name !== self.jobsModal.editingJobName)
+        .map((job) => ({ ...job }));
+      jobs.push(form);
+      try {
+        const response = await fetch(`/api/spaces/${spaceId}/jobs`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobs, enabled: self.jobsModal.enabled }),
+        });
+        if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          self.$dispatch("show-alert", {
+            msg: body.error || "Job could not be saved",
+            type: "error",
+          });
+        } else {
+          self.jobsModal.showJobForm = false;
+          self.$dispatch("show-alert", { msg: self.jobsModal.jobFormIsEdit ? "Job updated" : "Job added", type: "success" });
+        }
+      } catch (error) {
+        self.$dispatch("show-alert", {
+          msg: `Job could not be saved: ${error}`,
+          type: "error",
+        });
+      } finally {
+        self.jobsModal.savingJob = false;
+        if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
+          self.loadJobs(spaceId, true);
+        }
+      }
+    },
+    confirmDeleteJob(name) {
+      this.jobsModal.deleteConfirmJob = name;
+      this.jobsModal.deleteConfirmShow = true;
+    },
+    async deleteJob(name) {
+      const self = this;
+      const spaceId = this.jobsModal.spaceId;
+      if (!spaceId) return;
+      const jobs = self.jobsModal.definitions.filter((job) => job.name !== name).map((job) => ({ ...job }));
+      try {
+        const response = await fetch(`/api/spaces/${spaceId}/jobs`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobs, enabled: self.jobsModal.enabled }),
+        });
+        if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          self.$dispatch("show-alert", {
+            msg: body.error || `Job '${name}' could not be removed`,
+            type: "error",
+          });
+        } else {
+          self.$dispatch("show-alert", { msg: `Job '${name}' removed`, type: "success" });
+        }
+      } catch (error) {
+        self.$dispatch("show-alert", {
+          msg: `Job '${name}' could not be removed: ${error}`,
+          type: "error",
+        });
+      } finally {
+        if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
+          self.loadJobs(spaceId, true);
+        }
+      }
+    },
+    // Flip one job's enabled flag from the view list: PUT the definitions
+    // with that job toggled, keeping everything else as-is.
+    async toggleJobEnabled(name) {
+      const self = this;
+      const spaceId = this.jobsModal.spaceId;
+      if (!spaceId || self.jobsModal.togglingJob) return;
+      self.jobsModal.togglingJob = name;
+      const jobs = self.jobsModal.definitions.map((job) =>
+        job.name === name ? { ...job, enabled: !job.enabled } : { ...job },
+      );
+      try {
+        const response = await fetch(`/api/spaces/${spaceId}/jobs`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobs, enabled: self.jobsModal.enabled }),
+        });
+        if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          self.$dispatch("show-alert", {
+            msg: body.error || `Job '${name}' could not be updated`,
+            type: "error",
+          });
+        } else {
+          self.$dispatch("show-alert", {
+            msg: `Job '${name}' ${jobs.find((j) => j.name === name)?.enabled ? "enabled" : "disabled"}`,
+            type: "success",
+          });
+        }
+      } catch (error) {
+        self.$dispatch("show-alert", {
+          msg: `Job '${name}' could not be updated: ${error}`,
+          type: "error",
+        });
+      } finally {
+        self.jobsModal.togglingJob = "";
+        if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
+          self.loadJobs(spaceId, true);
         }
       }
     },

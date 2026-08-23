@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/paularlott/knot/command/cmdutil"
-
 	"github.com/paularlott/cli"
 )
 
 var JobsListCmd = &cli.Command{
 	Name:        "list",
 	Usage:       "List the scheduled jobs of a space",
-	Description: "List the jobs defined in a space's ~/.knot-jobs.toml with their schedule, next run and last run.",
+	Description: "List a space's jobs with their schedule, next run and last run. Definitions come from the space record; run status needs the space to be running.",
 	Arguments: []cli.Argument{
 		&cli.StringArg{
 			Name:     "space",
@@ -25,31 +23,25 @@ var JobsListCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		spaceName := cmd.GetStringArg("space")
 
-		// Get the space ID from the space name
-		client, err := cmdutil.GetClient(cmd)
+		client, err := jobsClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
-		spaces, _, err := client.GetSpaces(ctx, "", false)
+		spaceId, err := jobsSpaceId(ctx, client, spaceName)
 		if err != nil {
-			return fmt.Errorf("failed to get spaces: %w", err)
+			return err
 		}
 
-		var spaceId string
-		for _, s := range spaces.Spaces {
-			if s.Name == spaceName {
-				spaceId = s.Id
-				break
-			}
+		// Live snapshot from the agent when the space is running, for next
+		// run / last run / running state; otherwise fall back to the
+		// persisted definitions alone.
+		live, _, liveErr := client.ListJobs(ctx, spaceId)
+		if liveErr != nil {
+			live = nil
 		}
 
-		if spaceId == "" {
-			return fmt.Errorf("space '%s' not found", spaceName)
-		}
-
-		// Get the list of jobs
-		response, code, err := client.ListJobs(ctx, spaceId)
+		definitions, code, err := client.GetSpaceJobs(ctx, spaceId)
 		if err != nil {
 			if code == 401 {
 				return fmt.Errorf("failed to authenticate with server, check token")
@@ -57,59 +49,62 @@ var JobsListCmd = &cli.Command{
 				return fmt.Errorf("no permission to list jobs")
 			} else if code == 404 {
 				return fmt.Errorf("space not found")
-			} else if code == 409 {
-				return fmt.Errorf("space is not running")
 			}
 			return fmt.Errorf("failed to list jobs: %w", err)
 		}
 
-		if !response.Found {
-			fmt.Printf("No jobs file found in space '%s', create ~/.knot-jobs.toml in the space to define jobs.\n", spaceName)
-			return nil
-		}
-		if response.Enabled {
-			fmt.Printf("Job runner: enabled\n")
-		} else {
-			fmt.Printf("Job runner: disabled (scheduled jobs are not firing, run 'knot space jobs enable %s' to start)\n", spaceName)
-		}
-		if response.Error != "" {
-			fmt.Printf("Warning: %s (using last good configuration)\n", response.Error)
-		}
-		if len(response.Jobs) == 0 {
+		if len(definitions.Jobs) == 0 {
 			fmt.Printf("No jobs defined in space '%s'.\n", spaceName)
 			return nil
 		}
 
 		fmt.Printf("Jobs in space '%s':\n", spaceName)
-		for _, job := range response.Jobs {
+		if definitions.Enabled {
+			fmt.Printf("  job runner: enabled\n")
+		} else {
+			fmt.Printf("  job runner: disabled (scheduled jobs are not firing, manual runs still work)\n")
+		}
+
+		for _, job := range definitions.Jobs {
 			fmt.Printf("  %s", job.Name)
-			if job.ManualOnly {
+			if job.Schedule == "" {
 				fmt.Print(" (manual only)")
-			} else if job.Schedule != "" {
+			} else {
 				fmt.Printf(" (%s)", job.Schedule)
 			}
 			if !job.Enabled {
 				fmt.Print(" [disabled]")
 			}
-			if job.Running {
-				fmt.Print(" [running]")
-			}
 			fmt.Println()
 
 			fmt.Printf("    command: %s\n", job.Command)
-			if job.NextRun != nil {
-				fmt.Printf("    next run: %s\n", job.NextRun.Local().Format(time.RFC3339))
-			}
-			if job.LastRun != nil {
-				lastRun := fmt.Sprintf("    last run: %s (%s", job.LastRun.StartedAt.Local().Format(time.RFC3339), job.LastRun.Status)
-				if job.LastRun.DurationMs > 0 {
-					lastRun += fmt.Sprintf(", %s", (time.Duration(job.LastRun.DurationMs) * time.Millisecond).Round(time.Second))
+
+			if live != nil {
+				for _, status := range live.Jobs {
+					if status.Name != job.Name {
+						continue
+					}
+					if status.Running {
+						fmt.Printf("    running now\n")
+					}
+					if status.NextRun != nil {
+						fmt.Printf("    next run: %s\n", status.NextRun.Local().Format(time.RFC3339))
+					}
+					if status.LastRun != nil {
+						lastRun := fmt.Sprintf("    last run: %s (%s", status.LastRun.StartedAt.Local().Format(time.RFC3339), status.LastRun.Status)
+						if status.LastRun.DurationMs > 0 {
+							lastRun += fmt.Sprintf(", %s", (time.Duration(status.LastRun.DurationMs) * time.Millisecond).Round(time.Second))
+						}
+						fmt.Println(lastRun + ")")
+					}
+					if status.Error != "" {
+						fmt.Printf("    error: %s\n", status.Error)
+					}
 				}
-				fmt.Println(lastRun + ")")
 			}
-			if job.Error != "" {
-				fmt.Printf("    error: %s\n", job.Error)
-			}
+		}
+		if live == nil && liveErr != nil {
+			fmt.Printf("\n(space not running, showing definitions without run status)\n")
 		}
 		return nil
 	},

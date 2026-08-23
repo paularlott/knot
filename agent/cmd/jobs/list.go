@@ -14,7 +14,7 @@ import (
 var ListJobsCmd = &cli.Command{
 	Name:        "list",
 	Usage:       "List scheduled jobs",
-	Description: "List the jobs defined in ~/.knot-jobs.toml with their schedule, next run and last run.",
+	Description: "List this space's jobs with their schedule, next run and last run. Jobs are managed from the web UI, the knot CLI or the scriptling jobs library.",
 	MaxArgs:     cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		var snapshot spacejobs.JobsSnapshot
@@ -23,21 +23,14 @@ var ListJobsCmd = &cli.Command{
 			return fmt.Errorf("error listing jobs: %w", err)
 		}
 
-		if !snapshot.Found {
-			fmt.Println("No jobs file found, create ~/.knot-jobs.toml to define jobs.")
+		if len(snapshot.Jobs) == 0 {
+			fmt.Println("No jobs defined.")
 			return nil
 		}
 		if snapshot.Enabled {
 			fmt.Println("Job runner: enabled")
 		} else {
-			fmt.Println("Job runner: disabled (scheduled jobs are not firing, run 'knot jobs enable' to start)")
-		}
-		if snapshot.Error != "" {
-			fmt.Printf("Warning: %s (using last good configuration)\n", snapshot.Error)
-		}
-		if len(snapshot.Jobs) == 0 {
-			fmt.Println("No jobs defined.")
-			return nil
+			fmt.Println("Job runner: disabled (scheduled jobs are not firing, manual runs still work)")
 		}
 
 		for _, job := range snapshot.Jobs {

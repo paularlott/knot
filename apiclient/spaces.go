@@ -264,17 +264,21 @@ type JobRunRequest struct {
 	Name string `json:"name"`
 }
 
-type JobSetEnabledRequest struct {
-	Enabled bool `json:"enabled"`
+// SpaceJobsRequest replaces the space's job definitions and runner state.
+type SpaceJobsRequest struct {
+	Jobs    []model.SpaceJob `json:"jobs"`
+	Enabled bool             `json:"enabled"`
+}
+
+type SpaceJobsResponse struct {
+	Jobs    []model.SpaceJob `json:"jobs"`
+	Enabled bool             `json:"enabled"`
 }
 
 type JobsListResponse struct {
-	Found   bool      `json:"found"`
 	Enabled bool      `json:"enabled"`
-	Error   string    `json:"error,omitempty"`
 	Jobs    []JobInfo `json:"jobs"`
 }
-
 type JobInfo struct {
 	Name       string        `json:"name"`
 	Command    string        `json:"command"`
@@ -519,9 +523,18 @@ func (c *ApiClient) RunJob(ctx context.Context, spaceId string, request *JobRunR
 	return response, code, nil
 }
 
-func (c *ApiClient) SetJobEnabled(ctx context.Context, spaceId string, request *JobSetEnabledRequest) (*JobsResponse, int, error) {
-	response := &JobsResponse{}
-	code, err := c.httpClient.Post(ctx, "/space-io/"+spaceId+"/jobs/enable", request, response, 200)
+func (c *ApiClient) GetSpaceJobs(ctx context.Context, spaceId string) (*SpaceJobsResponse, int, error) {
+	response := &SpaceJobsResponse{}
+	code, err := c.httpClient.Get(ctx, "/api/spaces/"+spaceId+"/jobs", &response)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
+}
+
+func (c *ApiClient) UpdateSpaceJobs(ctx context.Context, spaceId string, request *SpaceJobsRequest) (*SpaceJobsResponse, int, error) {
+	response := &SpaceJobsResponse{}
+	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId+"/jobs", request, response, 200)
 	if err != nil {
 		return nil, code, err
 	}
