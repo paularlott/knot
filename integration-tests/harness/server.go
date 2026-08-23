@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -436,15 +437,42 @@ func truncate(s string, n int) string {
 }
 
 // PruneTestContainers force-removes any containers left behind by the run
-// (safety net when server-side deletion failed). Only docker is supported.
+// (safety net when server-side deletion failed). Space containers belong to
+// the runtime under test, so both docker and apple containers are pruned —
+// a docker-only prune would leak apple containers into the next run.
 func PruneTestContainers(namePrefix string) {
 	out, err := exec.Command("docker", "ps", "-a", "--filter", "name="+namePrefix,
 		"--format", "{{.ID}}").Output()
+	if err == nil {
+		for _, id := range strings.Fields(string(out)) {
+			exec.Command("docker", "rm", "-f", id).Run()
+		}
+	}
+
+	pruneAppleTestContainers(namePrefix)
+}
+
+// pruneAppleTestContainers removes apple containers whose name contains the
+// prefix. The apple CLI has no name filter, so list everything (JSON) and
+// match on configuration.id, which is the container name.
+func pruneAppleTestContainers(namePrefix string) {
+	out, err := exec.Command("container", "list", "-a", "--format", "json").Output()
 	if err != nil {
 		return
 	}
-	for _, id := range strings.Fields(string(out)) {
-		exec.Command("docker", "rm", "-f", id).Run()
+
+	var containers []struct {
+		Configuration struct {
+			ID string `json:"id"`
+		} `json:"configuration"`
+	}
+	if err := json.Unmarshal(out, &containers); err != nil {
+		return
+	}
+	for _, c := range containers {
+		if strings.Contains(c.Configuration.ID, namePrefix) {
+			exec.Command("container", "rm", "-f", c.Configuration.ID).Run()
+		}
 	}
 }
 
