@@ -1861,8 +1861,10 @@ paths:
         validated first (invalid jobs are rejected with per-job errors), then
         persisted on the space and pushed to the agent when it is connected;
         a stopped space picks them up on its next start. Requires the Edit
-        Space Jobs permission (or Manage Spaces); the space owner can always
-        read definitions via the GET above.
+        Space Jobs permission — held by the owner or a user the space is
+        shared with — or Manage Spaces; those users can always read
+        definitions via the GET above. Leaf nodes imply the permission for
+        their local spaces.
       operationId: updateSpaceJobs
       tags:
         - Spaces

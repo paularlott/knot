@@ -325,6 +325,37 @@ func TestSpaceJobsEditPermission(t *testing.T) {
 		t.Fatalf("definitions after manager update: %+v", defs.Jobs)
 	}
 
+	// A user the space is shared with edits like the owner when they hold
+	// the permission. Spaces carry a single share, so walk it through
+	// editor → viewer.
+	editor, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-editor"), harness.TesterPermissions())
+	if err != nil {
+		t.Fatalf("create editor user: %v", err)
+	}
+	if code, err := noEdit.Client.AddShare(ctx, spaceId, editor.Id); err != nil {
+		t.Fatalf("share with editor: %v (status %d)", err, code)
+	}
+	if _, code, err := editor.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err != nil {
+		t.Fatalf("shared editor update: %v (status %d)", err, code)
+	}
+
+	// A shared user without the permission still reads but cannot write.
+	viewer, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-viewer"), restricted)
+	if err != nil {
+		t.Fatalf("create viewer user: %v", err)
+	}
+	if code, err := noEdit.Client.AddShare(ctx, spaceId, viewer.Id); err != nil {
+		t.Fatalf("share with viewer: %v (status %d)", err, code)
+	}
+	if _, code, err := viewer.Client.GetSpaceJobs(ctx, spaceId); err != nil {
+		t.Fatalf("shared viewer get jobs: %v (status %d)", err, code)
+	}
+	if _, code, err := viewer.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err == nil {
+		t.Fatal("expected shared viewer without Edit Space Jobs to be rejected")
+	} else {
+		mustEqual(t, "shared viewer update status", code, 403)
+	}
+
 	// Admin carries both permissions and can edit directly too.
 	if _, code, err := adminUser.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err != nil {
 		t.Fatalf("admin update: %v (status %d)", err, code)

@@ -80,11 +80,12 @@ func HandleUpdateSpaceJobs(w http.ResponseWriter, r *http.Request) {
 	}
 	spaceId = space.Id
 
-	// Editing job definitions requires the Edit Space Jobs permission;
-	// managing any space (admins) also grants it, and leaf nodes imply it
-	// like other leaf-local features. Viewing — the GET above — stays open
-	// to the owner regardless.
-	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+	// Editing job definitions requires the Edit Space Jobs permission. A
+	// space shared with the user works like ownership, and managing any
+	// space (admins) also grants it; leaf nodes imply the permission like
+	// other leaf-local features. Viewing — the GET above — stays open to
+	// owner and shared users regardless.
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}

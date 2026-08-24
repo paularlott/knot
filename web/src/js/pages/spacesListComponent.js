@@ -1156,7 +1156,7 @@ window.spacesListComponent = function (
     },
     canEditJobs() {
       const space = this.spaces.find((s) => s.space_id === this.jobsModal.spaceId);
-      return !!space && space.user_id === forUserId && this.permissionEditSpaceJobs;
+      return !!space && (space.user_id === forUserId || this.isSharedWithCurrentUser(space)) && this.permissionEditSpaceJobs;
     },
     // The SSE space stream only carries space-level flags (has_jobs,
     // jobs_enabled — the icon colour); the live job status is polled while

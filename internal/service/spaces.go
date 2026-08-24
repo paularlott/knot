@@ -341,10 +341,16 @@ func (s *SpaceService) SetSpaceJobs(spaceId string, jobs []model.SpaceJob, jobsE
 		return fmt.Errorf("no permission to manage or use spaces")
 	}
 
-	// Get existing space to check ownership and zone
-	space, err := s.GetSpace(spaceId, user)
-	if err != nil {
-		return err
+	// Load the space directly rather than via GetSpace: shared users may
+	// edit jobs (the API handler authorized them), and GetSpace only admits
+	// owners and space managers.
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceId)
+	if err != nil || space == nil {
+		return fmt.Errorf("space not found")
+	}
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
+		return fmt.Errorf("space not found")
 	}
 
 	cfg := config.GetServerConfig()
@@ -357,7 +363,6 @@ func (s *SpaceService) SetSpaceJobs(spaceId string, jobs []model.SpaceJob, jobsE
 	space.UpdatedAt = hlc.Now()
 
 	// Save to database
-	db := database.GetInstance()
 	if err := db.SaveSpace(space, []string{"Jobs", "JobsEnabled", "UpdatedAt"}); err != nil {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
