@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Spaces{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }}, {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .permissionUseStackDefinitions }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }}, {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .permissionUseStackDefinitions }}, {{ .permissionEditSpaceJobs }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="col-span-full">
@@ -748,7 +748,7 @@
 
           <div class="ui-modal-body-scroll max-h-[75vh]">
             <div class="flex items-center mb-4">
-              <label class="flex items-center cursor-pointer" :class="jobsModal.definitions.length > 0 ? '' : 'opacity-60 pointer-events-none'">
+              <label class="flex items-center cursor-pointer" :class="canEditJobs() && jobsModal.definitions.length > 0 ? '' : 'opacity-60 pointer-events-none'">
                 <span class="me-3 text-sm font-medium text-gray-900 dark:text-gray-300">Job Runner Enabled:</span>
                 <input type="checkbox" class="sr-only peer" :checked="jobsModal.enabled" :disabled="jobsModal.togglingRunner || !canEditJobs()" @change="toggleJobRunner">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>

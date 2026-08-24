@@ -57,6 +57,9 @@ const (
 	// as log sinks); the constant exists in both editions so the permission
 	// ids stay aligned, but Core never grants or checks it.
 	PermissionUseLogSinks // Can register a space as a log sink receiving own space logs
+	// PermissionEditSpaceJobs gates editing job definitions (and the runner
+	// toggle) on the user's own spaces; viewing them is always allowed.
+	PermissionEditSpaceJobs // Can edit the scheduled jobs of own spaces
 )
 
 type PermissionName struct {
@@ -111,6 +114,7 @@ var PermissionNames = []PermissionName{
 	{PermissionUseSpaces, "Space Operations", "Use Spaces", "Create and run spaces."},
 	{PermissionUsePools, "Space Operations", "Use Space Pools", "Create and run space pools."},
 	{PermissionSetSpaceDependencies, "Space Operations", "Set Space Dependencies", "Configure dependencies between spaces."},
+	{PermissionEditSpaceJobs, "Space Operations", "Edit Space Jobs", "Edit the scheduled jobs of your own spaces."},
 	{PermissionUseSpaceStartupScript, "Space Operations", "Use User Startup Script", "Set a user startup script that runs when a space starts."},
 	{PermissionShareSpaces, "Space Operations", "Share Spaces", "Share your spaces with other users."},
 	{PermissionTransferSpaces, "Space Operations", "Transfer Spaces", "Transfer ownership of your spaces to another user."},
@@ -165,6 +169,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageVariables,
 			PermissionUseSpaces,
 			PermissionSetSpaceDependencies,
+			PermissionEditSpaceJobs,
 			PermissionUseSpaceStartupScript,
 			PermissionUseTunnels,
 			PermissionViewAuditLogs,

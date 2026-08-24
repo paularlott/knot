@@ -29,6 +29,7 @@ window.spacesListComponent = function (
   permissionManageStackDefinitions,
   permissionManageOwnStackDefinitions,
   permissionUseStackDefinitions,
+  permissionEditSpaceJobs,
 ) {
   return {
     loading: true,
@@ -130,6 +131,7 @@ window.spacesListComponent = function (
     permissionManageStackDefinitions: permissionManageStackDefinitions || false,
     permissionManageOwnStackDefinitions: permissionManageOwnStackDefinitions || false,
     permissionUseStackDefinitions: permissionUseStackDefinitions || false,
+    permissionEditSpaceJobs: permissionEditSpaceJobs || false,
     users: [],
     forUsersList: [],
     shareUsers: [],
@@ -1154,7 +1156,7 @@ window.spacesListComponent = function (
     },
     canEditJobs() {
       const space = this.spaces.find((s) => s.space_id === this.jobsModal.spaceId);
-      return !!space && space.user_id === forUserId;
+      return !!space && space.user_id === forUserId && this.permissionEditSpaceJobs;
     },
     // The SSE space stream only carries space-level flags (has_jobs,
     // jobs_enabled — the icon colour); the live job status is polled while

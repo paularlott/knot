@@ -253,3 +253,80 @@ func TestSpaceJobsStoppedSpace(t *testing.T) {
 		mustEqual(t, "run job status", code, 409)
 	}
 }
+
+// TestSpaceJobsEditPermission proves the Edit Space Jobs permission gates
+// writing job definitions while reading them stays open to the owner, and
+// that Manage Spaces grants the write for any space. Runs on a dedicated
+// server (pro caps the shared server's users).
+func TestSpaceJobsEditPermission(t *testing.T) {
+	harness.Feature(t, "jobs")
+
+	s, err := harness.StartServer(cfg, bins, "jobsperm")
+	if err != nil {
+		t.Fatalf("boot jobsperm server: %v", err)
+	}
+	t.Cleanup(s.Stop)
+	adminUser, err := harness.ProvisionAdmin(s, "admin", "AdminPassw0rd!")
+	if err != nil {
+		t.Fatalf("provision jobsperm admin: %v", err)
+	}
+
+	// A tester without Edit Space Jobs, and one with only Manage Spaces.
+	testerPerms := harness.TesterPermissions()
+	restricted := make([]uint16, 0, len(testerPerms))
+	for _, p := range testerPerms {
+		if p != model.PermissionEditSpaceJobs {
+			restricted = append(restricted, p)
+		}
+	}
+	noEdit, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-noedit"), restricted)
+	if err != nil {
+		t.Fatalf("create restricted user: %v", err)
+	}
+	manager, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-manager"), []uint16{
+		model.PermissionManageSpaces,
+	})
+	if err != nil {
+		t.Fatalf("create manager user: %v", err)
+	}
+
+	templateId, err := harness.CreateTemplate(s, adminUser.Client, uniqueName("it-jobs-perm"), harness.TemplateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	spaceId := harness.CreateSpace(t, noEdit.Client, uniqueName("it-jobs-perm"), templateId, noEdit.Id)
+	harness.WaitForSpaceReady(t, s, noEdit.Client, spaceId)
+
+	ctx, cancel := testCtx(60)
+	defer cancel()
+	jobs := &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{{Name: "marker", Command: "true", Enabled: true}},
+	}
+
+	// The owner reads definitions fine but cannot write them.
+	if _, code, err := noEdit.Client.GetSpaceJobs(ctx, spaceId); err != nil {
+		t.Fatalf("get jobs without permission: %v (status %d)", err, code)
+	}
+	if _, code, err := noEdit.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err == nil {
+		t.Fatal("expected update without Edit Space Jobs to be rejected")
+	} else {
+		mustEqual(t, "update without permission status", code, 403)
+	}
+
+	// Manage Spaces edits any space's jobs; the owner then reads them back.
+	if _, code, err := manager.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err != nil {
+		t.Fatalf("update with Manage Spaces: %v (status %d)", err, code)
+	}
+	defs, code, err := noEdit.Client.GetSpaceJobs(ctx, spaceId)
+	if err != nil {
+		t.Fatalf("get jobs after manager update: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 1 || defs.Jobs[0].Name != "marker" {
+		t.Fatalf("definitions after manager update: %+v", defs.Jobs)
+	}
+
+	// Admin carries both permissions and can edit directly too.
+	if _, code, err := adminUser.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err != nil {
+		t.Fatalf("admin update: %v (status %d)", err, code)
+	}
+}

@@ -205,6 +205,7 @@ func TesterPermissions() []uint16 {
 		model.PermissionUseLogSinks,
 		model.PermissionUsePools,
 		model.PermissionSetSpaceDependencies,
+		model.PermissionEditSpaceJobs,
 		model.PermissionUseSpaceStartupScript,
 	}
 }

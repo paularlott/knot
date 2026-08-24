@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
@@ -78,6 +79,19 @@ func HandleUpdateSpaceJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	spaceId = space.Id
+
+	// Editing job definitions requires the Edit Space Jobs permission;
+	// managing any space (admins) also grants it, and leaf nodes imply it
+	// like other leaf-local features. Viewing — the GET above — stays open
+	// to the owner regardless.
+	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+	if !config.GetServerConfig().LeafNode && !user.HasPermission(model.PermissionEditSpaceJobs) && !user.HasPermission(model.PermissionManageSpaces) {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit space jobs"})
+		return
+	}
 
 	request := apiclient.SpaceJobsRequest{}
 	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
