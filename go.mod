@@ -27,7 +27,7 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.73
 	github.com/paularlott/cli v0.9.0
-	github.com/paularlott/gossip v0.21.0
+	github.com/paularlott/gossip v0.22.0
 	github.com/paularlott/jsonrpc v0.2.0
 	github.com/paularlott/lmchatkit v0.9.1
 	github.com/paularlott/logger v0.3.0
