@@ -1119,7 +1119,7 @@ window.spacesListComponent = function (
       this.spaceUsageModal.spaceId = "";
       this.spaceUsageModal.spaceName = "";
     },
-    openJobs(spaceId, edit = false) {
+    openJobs(spaceId) {
       const space = this.spaces.find((s) => s.space_id === spaceId);
       this.jobsModal.spaceId = spaceId;
       this.jobsModal.spaceName = space?.name || "";
@@ -1128,13 +1128,7 @@ window.spacesListComponent = function (
       this.jobsModal.deleteConfirmShow = false;
       this.jobsModal.jobForm = { name: "", command: "", schedule: "", enabled: true };
       this.jobsModal.jobFormTouched = {};
-      this.loadJobs(spaceId).then(() => {
-        // Opened via "Edit Jobs" on a space with no jobs yet: offer the add
-        // form straight away; with existing jobs the list is the entry point.
-        if (edit && this.jobsModal.show && this.jobsModal.spaceId === spaceId && this.canEditJobs() && this.jobsModal.definitions.length === 0) {
-          this.addJob();
-        }
-      });
+      this.loadJobs(spaceId);
       this.startJobsPolling(spaceId);
     },
     closeJobs() {
