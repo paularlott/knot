@@ -855,7 +855,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
                 <label class="form-label" for="job-name">Name</label>
-                <input type="text" id="job-name" x-model="jobsModal.jobForm.name" @blur="touchJobFormField('name')" class="form-field" :class="{'form-field-error': jobFormFieldShowError('name')}" placeholder="backup" :disabled="jobsModal.jobFormIsEdit">
+                <input type="text" id="job-name" x-model="jobsModal.jobForm.name" @blur="touchJobFormField('name')" class="form-field" :class="{'form-field-error': jobFormFieldShowError('name')}" placeholder="backup">
                 <div x-show="jobFormFieldShowError('name')" class="error-message" x-cloak x-text="jobFormNameValid() ? '' : (jobsModal.jobForm.name.trim() ? 'Job name is already used.' : 'Job name is required.')"></div>
               </div>
               <div>

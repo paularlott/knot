@@ -169,6 +169,25 @@ func (s *scheduler) update(defs []model.SpaceJob, runnerEnabled bool) {
 
 	s.config = buildConfig(defs)
 	s.runnerEnabled = runnerEnabled
+
+	// History only exists for current jobs: drop entries whose names left
+	// the config, whether deleted or renamed. Invalid definitions keep
+	// their names in errors and still count as current. A run executing
+	// under a removed name when the update lands re-adds its final record
+	// on completion — bounded by the history limit.
+	current := make(map[string]struct{}, len(s.config.jobs)+len(s.config.errors))
+	for _, job := range s.config.jobs {
+		current[job.Name] = struct{}{}
+	}
+	for name := range s.config.errors {
+		current[name] = struct{}{}
+	}
+	for name := range s.history {
+		if _, ok := current[name]; !ok {
+			delete(s.history, name)
+		}
+	}
+
 	jobLogger.Info("jobs: definitions updated", "jobs", len(s.config.jobs), "invalid", len(s.config.errors), "runner_enabled", runnerEnabled)
 }
 

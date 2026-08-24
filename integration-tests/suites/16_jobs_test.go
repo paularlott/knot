@@ -230,15 +230,27 @@ func TestSpaceJobsStoppedSpace(t *testing.T) {
 	}
 
 	// Definitions can be updated while stopped; the agent picks them up on
-	// its next registration.
+	// its next registration. Renaming is a definition update like any other.
 	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
 		Jobs: []model.SpaceJob{
-			{Name: "marker", Command: "true", Enabled: true},
+			{Name: "renamed", Command: "true", Enabled: true},
 			{Name: "added", Command: "true", Schedule: "*/5 * * * *", Enabled: true},
 		},
 		Enabled: true,
 	}); err != nil {
 		t.Fatalf("update jobs of stopped space: %v (status %d)", err, code)
+	}
+	defs, code, err = c.GetSpaceJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("get jobs of stopped space after rename: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 2 {
+		t.Fatalf("definitions after rename: %+v", defs.Jobs)
+	}
+	for _, job := range defs.Jobs {
+		if job.Name == "marker" {
+			t.Fatal("old job name should be gone after rename")
+		}
 	}
 
 	if _, code, err := c.ListJobs(ctx, id); err == nil {

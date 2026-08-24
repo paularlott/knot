@@ -207,6 +207,65 @@ func TestSchedulerUpdateReplacesDefinitions(t *testing.T) {
 	}
 }
 
+func TestSchedulerUpdatePrunesOrphanedHistory(t *testing.T) {
+	// History only exists for current jobs: renaming or deleting a job
+	// drops its old-name history instead of leaving it as invisible
+	// baggage until the agent restarts.
+	s := newTestScheduler(t, []model.SpaceJob{
+		{Name: "old", Command: "true", Enabled: true},
+		{Name: "kept", Command: "true", Enabled: true},
+	}, false)
+
+	record := func(name string) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.recordLocked(name, RunRecord{Status: StatusSuccess, Trigger: TriggerManual})
+	}
+	record("old")
+	record("kept")
+	record("gone") // never a current job (e.g. renamed away earlier)
+
+	// Rename "old" → "new" and delete nothing else: old-name history goes,
+	// the new name starts fresh, other jobs keep theirs.
+	s.update([]model.SpaceJob{
+		{Name: "new", Command: "true", Enabled: true},
+		{Name: "kept", Command: "true", Enabled: true},
+	}, false)
+	if _, ok := s.history["old"]; ok {
+		t.Error("renamed job's old-name history should be pruned")
+	}
+	if _, ok := s.history["gone"]; ok {
+		t.Error("history for a name with no job should be pruned")
+	}
+	if hist := s.history["kept"]; len(hist) != 1 {
+		t.Errorf("current job's history must survive the update: %+v", hist)
+	}
+	if hist := s.history["new"]; len(hist) != 0 {
+		t.Errorf("renamed job should start with fresh history: %+v", hist)
+	}
+
+	// An invalid definition still counts as current: its name keeps its
+	// history (the entry is listed with an error, not removed).
+	s.update([]model.SpaceJob{
+		{Name: "new", Command: "true", Schedule: "not-a-cron", Enabled: true},
+		{Name: "kept", Command: "true", Enabled: true},
+	}, false)
+	record("new")
+	s.update([]model.SpaceJob{
+		{Name: "new", Command: "true", Enabled: true},
+		{Name: "kept", Command: "true", Enabled: true},
+	}, false)
+	if hist := s.history["new"]; len(hist) != 1 {
+		t.Errorf("history of a job that was invalid in between should survive: %+v", hist)
+	}
+
+	// Deleting every job clears history entirely.
+	s.update(nil, false)
+	if len(s.history) != 0 {
+		t.Errorf("empty definition set should clear all history: %+v", s.history)
+	}
+}
+
 func TestSchedulerUnknownJob(t *testing.T) {
 	s := newTestScheduler(t, []model.SpaceJob{{Name: "real", Command: "true", Enabled: true}}, true)
 	if err := s.runJob("nope"); err == nil {
