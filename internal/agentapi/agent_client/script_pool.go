@@ -111,7 +111,7 @@ func createPooledEnv() (*scriptling.Scriptling, func(), error) {
 
 	var customLogger logger.Logger
 	if agentClient != nil {
-		customLogger = NewAgentClientLogger(agentClient, "script")
+		customLogger = NewAgentClientLogger(agentClient, "knot_script")
 	}
 
 	// Pooled agent environments with discarded I/O. Per-call argv is set via

@@ -248,7 +248,7 @@ var agentServerCmd = &cli.Command{
 		// and on change, manual trigger via RPC). Run activity and output go
 		// to the space's log window via the agent client's log channel, like
 		// scripts.
-		spacejobs.SetLogger(agent_client.NewAgentClientLogger(agentClient, "jobs"))
+		spacejobs.SetLogger(agent_client.NewAgentClientLogger(agentClient, "knot_jobs"))
 		spacejobs.Start()
 
 		// Install the methods registrar globally for the lifetime of the daemon.

@@ -130,6 +130,9 @@ func encodeMirrorVL(batch *msg.MirrorLogMessage) []byte {
 			},
 			"service": e.Service,
 			"level":   mirrorLevelName(e.Level),
+			// One selector (source:knot) sifts knot-delivered records in a
+			// shared logging service.
+			"source": "knot",
 		}
 		mergeFields(rec, e.Fields)
 		b, _ := json.Marshal(rec)
@@ -157,7 +160,7 @@ func encodeMirrorLoki(batch *msg.MirrorLogMessage) []byte {
 		key := e.SpaceId + "\x00" + e.Service
 		s, ok := streams[key]
 		if !ok {
-			s = &lokiStream{Stream: map[string]string{"service": e.Service, "space": e.SpaceId, "space_name": e.SpaceName, "user": e.User}}
+			s = &lokiStream{Stream: map[string]string{"service": e.Service, "source": "knot", "space": e.SpaceId, "space_name": e.SpaceName, "user": e.User}}
 			streams[key] = s
 		}
 		lineRec := map[string]any{"msg": e.Message, "level": mirrorLevelName(e.Level)}
@@ -187,6 +190,7 @@ func postMirrorGelf(url string, batch *msg.MirrorLogMessage, auth sinkAuth) erro
 			"_user":         e.User,
 			"facility":      e.Service,
 			"level":         mirrorGelfLevel(e.Level),
+			"_source":       "knot",
 		}
 		for k, v := range e.Fields {
 			gelf["_"+k] = v
@@ -212,6 +216,7 @@ func postMirrorJSON(url string, batch *msg.MirrorLogMessage, auth sinkAuth) erro
 			"space_id":   e.SpaceId,
 			"space_name": e.SpaceName,
 			"user":       e.User,
+			"source":     "knot",
 		}
 		mergeFields(rec, e.Fields)
 		body, _ := json.Marshal(rec)

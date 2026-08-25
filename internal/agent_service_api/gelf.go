@@ -109,7 +109,7 @@ func handleGelf(w http.ResponseWriter, r *http.Request) {
 	// Use the facility as the service name if it's present
 	service := logMessage.Facility
 	if service == "" {
-		service = "gelf"
+		service = "knot_syslog"
 	}
 
 	// Send the log message to the server, carrying _-prefixed additional

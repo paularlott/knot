@@ -119,7 +119,7 @@ func victoriaServiceName(record map[string]any, streamFields []string) string {
 			return s
 		}
 	}
-	return "victorialogs"
+	return "knot_syslog"
 }
 
 func victoriaLogLevel(record map[string]any) msg.LogLevel {

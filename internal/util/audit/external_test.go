@@ -32,7 +32,7 @@ func TestAuditReachesExternalAtWarnLevel(t *testing.T) {
 
 	prev := config.GetServerConfig()
 	config.SetServerConfig(&config.ServerConfig{
-		Audit: config.AuditConfig{Routing: "external", AuditStream: "audit"},
+		Audit: config.AuditConfig{Routing: "external"},
 	})
 	t.Cleanup(func() { config.SetServerConfig(prev) })
 
@@ -47,7 +47,7 @@ func TestAuditReachesExternalAtWarnLevel(t *testing.T) {
 	if len(bodies) != 1 || !strings.Contains(bodies[0], "Started space web") {
 		t.Fatalf("audit entry missing from external delivery: %v", bodies)
 	}
-	if !strings.Contains(bodies[0], `"service":"audit"`) {
-		t.Errorf("audit stream label missing: %s", bodies[0])
+	if !strings.Contains(bodies[0], `"service":"knot_audit"`) {
+		t.Errorf("audit stream label (default knot_audit) missing: %s", bodies[0])
 	}
 }

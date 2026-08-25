@@ -51,7 +51,7 @@ func Log(actor, actorType, event, details string, properties *map[string]interfa
 }
 
 func logToExternal(entry *model.AuditLogEntry, cfg *config.ServerConfig) {
-	stream := "audit"
+	stream := "knot_audit"
 	if cfg != nil && cfg.Audit.AuditStream != "" {
 		stream = cfg.Audit.AuditStream
 	}

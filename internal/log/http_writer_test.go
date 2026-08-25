@@ -327,3 +327,34 @@ func TestGelfPartialFailureDropsOnlyFailedMessages(t *testing.T) {
 		t.Errorf("delivered messages must not be mirrored to stderr, got: %s", out)
 	}
 }
+
+// Every format carries source=knot so a shared logging service can sift
+// knot-delivered records with one selector, and the VL query param names
+// fields that actually exist.
+func TestEncodedRecordsCarrySource(t *testing.T) {
+	w := newTestWriter(t, "http://ignored.example")
+	lines := [][]byte{[]byte(`{"msg":"one","service":"web","level":"INFO"}\n`)}
+
+	body, _ := w.encode(lines)
+	if !strings.Contains(string(body), `"source":"knot"`) {
+		t.Errorf("ndjson body missing source: %s", body)
+	}
+
+	w.format = "elasticsearch"
+	body, _ = w.encode(lines)
+	if !strings.Contains(string(body), `"source":"knot"`) {
+		t.Errorf("elasticsearch body missing source: %s", body)
+	}
+
+	w.format = "gelf"
+	body, _ = w.encode(lines)
+	if !strings.Contains(string(body), `"_source":"knot"`) {
+		t.Errorf("gelf body missing _source: %s", body)
+	}
+
+	w.format = "loki"
+	body, _ = w.encode(lines)
+	if !strings.Contains(string(body), `"source":"knot"`) {
+		t.Errorf("loki labels missing source: %s", body)
+	}
+}

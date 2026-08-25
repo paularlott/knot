@@ -363,7 +363,7 @@ func TestMirrorMetadataNotOverwrittenByFields(t *testing.T) {
 
 	// VL: metadata keys survive, unrelated fields pass through.
 	vl := string(encodeMirrorVL(batch))
-	for _, want := range []string{`"service":"web"`, `"actor":"alice"`, `"request_id":"req-9"`} {
+	for _, want := range []string{`"service":"web"`, `"actor":"alice"`, `"request_id":"req-9"`, `"source":"knot"`} {
 		if !strings.Contains(vl, want) {
 			t.Errorf("VL record missing %s: %s", want, vl)
 		}

@@ -55,7 +55,7 @@ func TestVictoriaLogsDefaults(t *testing.T) {
 	if len(*logs) != 2 {
 		t.Fatalf("expected 2 messages, got %d", len(*logs))
 	}
-	if (*logs)[0].message != "hello world" || (*logs)[0].service != "victorialogs" || (*logs)[0].level != msg.LogLevelInfo {
+	if (*logs)[0].message != "hello world" || (*logs)[0].service != "knot_syslog" || (*logs)[0].level != msg.LogLevelInfo {
 		t.Errorf("unexpected first message: %+v", (*logs)[0])
 	}
 }

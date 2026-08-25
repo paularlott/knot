@@ -71,7 +71,7 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 		// Get the service name from a conventional label if present else
 		// use "loki": knot's documented "label", or the standard
 		// "service" / "job" label names most shippers set.
-		service := "loki"
+		service := "knot_syslog"
 		for _, label := range []string{"label", "service", "job"} {
 			if val, ok := stream.Stream[label]; ok && val != "" {
 				service = val

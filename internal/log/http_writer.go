@@ -56,7 +56,7 @@ func newHTTPWriter(rawURL, format, stream string, headers map[string]string, use
 				q.Set("_time_field", "_time")
 			}
 			if stream != "" && q.Get("_stream_fields") == "" {
-				q.Set("_stream_fields", "stream")
+				q.Set("_stream_fields", "source,service,level")
 			}
 			u.RawQuery = q.Encode()
 			rawURL = u.String()
@@ -328,6 +328,10 @@ func (w *httpWriter) encodeNDJSON(lines [][]byte) ([]byte, string) {
 		// "service" is declared as a _stream_field via query param;
 		// honour a per-record value, otherwise apply the writer default.
 		rec["service"] = w.streamFor(rec)
+		// Everything this writer ships came from a knot: one selector
+		// (source:knot) sifts knot-delivered records from everything else a
+		// shared logging service holds.
+		rec["source"] = "knot"
 		b, _ := json.Marshal(rec)
 		buf.Write(b)
 		buf.WriteByte('\n')
@@ -373,7 +377,7 @@ func (w *httpWriter) encodeLoki(lines [][]byte) ([]byte, string) {
 		delete(rec, "service")
 
 		if _, ok := groups[streamLabel]; !ok {
-			groups[streamLabel] = &group{stream: map[string]string{"job": streamLabel}}
+			groups[streamLabel] = &group{stream: map[string]string{"job": streamLabel, "source": "knot"}}
 		}
 		b, _ := json.Marshal(rec)
 		groups[streamLabel].values = append(groups[streamLabel].values, [2]string{ts, string(b)})
@@ -409,6 +413,7 @@ func (w *httpWriter) encodeElasticsearch(lines [][]byte) ([]byte, string) {
 			index = "knot"
 		}
 		rec["service"] = index
+		rec["source"] = "knot"
 		meta, _ := json.Marshal(map[string]any{"index": map[string]string{"_index": index}})
 		b, _ := json.Marshal(rec)
 		buf.Write(meta)
@@ -433,6 +438,9 @@ func (w *httpWriter) encodeGELF(lines [][]byte) ([]byte, string) {
 		gelf := map[string]any{
 			"version": "1.1",
 			"host":    w.streamFor(rec),
+			// Additional field (underscore per spec): one selector sifts
+			// knot-delivered records in a shared Graylog.
+			"_source": "knot",
 		}
 		if msg, ok := rec["msg"].(string); ok {
 			gelf["short_message"] = msg

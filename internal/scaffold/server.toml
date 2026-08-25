@@ -40,7 +40,7 @@ url = "https://knot.internal"
 # routing = "internal"
 # retention = 90
 # Stream label used when routing audit logs to the external log driver.
-# stream = "audit"
+# stream = "knot_audit"
 
 # Data-access auditing for spaces holding production data copies — both off
 # by default (noisy for local development). File operations record path and

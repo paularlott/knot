@@ -216,7 +216,7 @@ var ServerCmd = &cli.Command{
 			Usage:        "Stream label used when routing audit logs to the external log driver.",
 			ConfigPath:   []string{"server.audit_stream", "server.audit.stream"}, // flat key kept as fallback
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_STREAM"},
-			DefaultValue: "audit",
+			DefaultValue: "knot_audit",
 		},
 		&cli.IntFlag{
 			Name:         "mcp-tool-timeout",
