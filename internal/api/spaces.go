@@ -419,8 +419,10 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceCreate,
 		fmt.Sprintf("Created space %s", space.Name),
 		&map[string]interface{}{
-			"space_id":   space.Id,
-			"space_name": space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    template.Name,
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -432,6 +434,19 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		Status:  true,
 		SpaceID: space.Id,
 	})
+}
+
+// auditTemplateName resolves a space's template name for audit entries,
+// falling back to the template id when the template has since been deleted.
+func auditTemplateName(db database.DbDriver, space *model.Space) string {
+	return auditTemplateNameForId(db, space.TemplateId)
+}
+
+func auditTemplateNameForId(db database.DbDriver, templateId string) string {
+	if template, err := db.GetTemplate(templateId); err == nil && template.Name != "" {
+		return template.Name
+	}
+	return templateId
 }
 
 func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
@@ -565,8 +580,10 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStart,
 		fmt.Sprintf("Started space %s", space.Name),
 		&map[string]interface{}{
-			"space_id":   space.Id,
-			"space_name": space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    template.Name,
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -653,8 +670,10 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStop,
 		fmt.Sprintf("Stopped space %s", space.Name),
 		&map[string]interface{}{
-			"space_id":   space.Id,
-			"space_name": space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    auditTemplateName(db, space),
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -724,8 +743,10 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceRestart,
 		fmt.Sprintf("Restarted space %s", space.Name),
 		&map[string]interface{}{
-			"space_id":   space.Id,
-			"space_name": space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    auditTemplateName(db, space),
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -805,6 +826,9 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the space with request data
+	// The previous template is captured first: a template change on update is
+	// recorded on the audit entry.
+	previousTemplateId := space.TemplateId
 	space.Name = request.Name
 	space.Description = request.Description
 	space.TemplateId = request.TemplateId
@@ -869,15 +893,22 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auditProperties := &map[string]interface{}{
+		"space_id":    space.Id,
+		"space_name":  space.Name,
+		"template":    auditTemplateName(db, space),
+		"template_id": space.TemplateId,
+	}
+	if previousTemplateId != "" && previousTemplateId != space.TemplateId {
+		(*auditProperties)["template_previous"] = auditTemplateNameForId(db, previousTemplateId)
+	}
+
 	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceUpdate,
 		fmt.Sprintf("Updated space %s", space.Name),
-		&map[string]interface{}{
-			"space_id":   space.Id,
-			"space_name": space.Name,
-		},
+		auditProperties,
 	)
 
 	if cleanupSpace != nil && template.IsLocalContainer() {
@@ -947,9 +978,11 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceUpdate,
 		fmt.Sprintf("Set custom field '%s' on space %s", request.Name, spaceName),
 		&map[string]interface{}{
-			"space_id":   spaceId,
-			"space_name": spaceName,
-			"field_name": request.Name,
+			"space_id":    spaceId,
+			"space_name":  spaceName,
+			"field_name":  request.Name,
+			"template":    auditTemplateName(db, space),
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -1049,6 +1082,8 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 				&map[string]interface{}{
 					"space_id":       space.Id,
 					"space_name":     space.Name,
+					"template":       auditTemplateName(db, space),
+					"template_id":    space.TemplateId,
 					"target_user_id": targetUser.Id,
 				},
 			)
