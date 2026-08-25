@@ -106,9 +106,19 @@ type prefillConfig struct {
 			Enabled bool `toml:"enabled"`
 		} `toml:"mcp"`
 
-		// Audit settings live flat under [server] (server.audit_routing etc).
+		// Audit settings live under [server.audit]; the older flat
+		// server.audit_* keys are still read as fallbacks.
 		AuditRouting   string `toml:"audit_routing"`
 		AuditRetention int    `toml:"audit_retention"`
+		AuditFileOps   *bool  `toml:"audit_file_operations"`
+		AuditSessions  *bool  `toml:"audit_space_sessions"`
+		AuditTable     struct {
+			Routing        string `toml:"routing"`
+			Retention      int    `toml:"retention"`
+			Stream         string `toml:"stream"`
+			FileOperations *bool  `toml:"file_operations"`
+			SpaceSessions  *bool  `toml:"space_sessions"`
+		} `toml:"audit"`
 	} `toml:"server"`
 
 	Log struct {
@@ -254,8 +264,26 @@ func FormFromConfig(base Form, path string) Form {
 	if s.AuditRouting != "" {
 		base.AuditRouting = s.AuditRouting
 	}
+	if s.AuditFileOps != nil {
+		base.AuditFileOps = *s.AuditFileOps
+	}
+	if s.AuditSessions != nil {
+		base.AuditSessions = *s.AuditSessions
+	}
 	if s.AuditRetention > 0 {
 		base.AuditRetention = s.AuditRetention
+	}
+	if s.AuditTable.FileOperations != nil {
+		base.AuditFileOps = *s.AuditTable.FileOperations
+	}
+	if s.AuditTable.SpaceSessions != nil {
+		base.AuditSessions = *s.AuditTable.SpaceSessions
+	}
+	if s.AuditTable.Retention > 0 {
+		base.AuditRetention = s.AuditTable.Retention
+	}
+	if s.AuditTable.Routing != "" {
+		base.AuditRouting = s.AuditTable.Routing
 	}
 	if cfg.Log.Output.URL != "" {
 		base.LogOutputEnabled = true

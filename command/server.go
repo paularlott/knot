@@ -186,21 +186,35 @@ var ServerCmd = &cli.Command{
 		&cli.IntFlag{
 			Name:         "audit-retention",
 			Usage:        "The number of days to keep audit logs.",
-			ConfigPath:   []string{"server.audit_retention"},
+			ConfigPath:   []string{"server.audit_retention", "server.audit.retention"}, // flat key kept as fallback
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_RETENTION"},
 			DefaultValue: 90,
 		},
 		&cli.StringFlag{
 			Name:         "audit-routing",
 			Usage:        "Audit log routing: internal, external, or both.",
-			ConfigPath:   []string{"server.audit_routing"},
+			ConfigPath:   []string{"server.audit_routing", "server.audit.routing"}, // flat key kept as fallback
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_ROUTING"},
 			DefaultValue: "internal",
+		},
+		&cli.BoolFlag{
+			Name:         "audit-file-operations",
+			Usage:        "Audit space file read, write and copy operations (path and byte count only, never content). Off by default — noisy for local development.",
+			ConfigPath:   []string{"server.audit_file_operations", "server.audit.file_operations"}, // flat key kept as fallback
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_FILE_OPERATIONS"},
+			DefaultValue: false,
+		},
+		&cli.BoolFlag{
+			Name:         "audit-space-sessions",
+			Usage:        "Audit interactive space session opens (web terminal, SSH, VS Code tunnel). Off by default — noisy for local development.",
+			ConfigPath:   []string{"server.audit_space_sessions", "server.audit.space_sessions"}, // flat key kept as fallback
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_SPACE_SESSIONS"},
+			DefaultValue: false,
 		},
 		&cli.StringFlag{
 			Name:         "audit-stream",
 			Usage:        "Stream label used when routing audit logs to the external log driver.",
-			ConfigPath:   []string{"server.audit_stream"},
+			ConfigPath:   []string{"server.audit_stream", "server.audit.stream"}, // flat key kept as fallback
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_STREAM"},
 			DefaultValue: "audit",
 		},
@@ -1495,9 +1509,11 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		AuthRateLimitWindow:   cmd.GetInt("auth-rate-limit-window"),
 		AuthRateLimitBlock:    cmd.GetInt("auth-rate-limit-block"),
 		Audit: config.AuditConfig{
-			Retention:   cmd.GetInt("audit-retention"),
-			Routing:     cmd.GetString("audit-routing"),
-			AuditStream: cmd.GetString("audit-stream"),
+			Retention:      cmd.GetInt("audit-retention"),
+			Routing:        cmd.GetString("audit-routing"),
+			AuditStream:    cmd.GetString("audit-stream"),
+			FileOperations: cmd.GetBool("audit-file-operations"),
+			SpaceSessions:  cmd.GetBool("audit-space-sessions"),
 		},
 		Docker: config.DockerConfig{
 			Host: cmd.GetString("docker-host"),

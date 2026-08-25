@@ -4,6 +4,8 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/audit"
 	"io/fs"
 	"net/http"
 	"os"
@@ -36,6 +38,10 @@ type Options struct {
 	// Desktop selects the local-machine preset and desktop success
 	// messaging (restart the app rather than run knot server).
 	Desktop bool
+	// AuditConfigWrites emits a Config Update audit event when the wizard
+	// saves. Set for the in-server /setup mount, where config changes happen
+	// at runtime; the standalone pre-config wizard has no audit trail yet.
+	AuditConfigWrites bool
 	// BasePath is the URL prefix the wizard is served under ("/" for the
 	// standalone server, "/setup/" when embedded in a running server).
 	BasePath string
@@ -294,6 +300,19 @@ func saveConfig(w http.ResponseWriter, r *http.Request, configPath string, confi
 	}
 
 	log.Info("config wizard wrote config", "path", configPath)
+
+	if o.AuditConfigWrites {
+		actor := "system"
+		actorType := model.AuditActorTypeSystem
+		if user, ok := r.Context().Value("user").(*model.User); ok && user != nil {
+			actor = user.Username
+			actorType = model.AuditActorTypeUser
+		}
+		audit.LogWithRequest(r, actor, actorType, model.AuditEventConfigUpdate,
+			"Server configuration updated via setup wizard",
+			&map[string]interface{}{"path": configPath},
+		)
+	}
 	renderSuccess(w, configPath, o)
 }
 

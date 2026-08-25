@@ -46,6 +46,7 @@ type agentServer struct {
 	reportingConn      net.Conn // Connection for reporting state
 	logConn            net.Conn // Connection for logging messages
 	logChannel         chan *msg.LogMessage
+	authChannel        chan *msg.SSHAuthResultMessage // SSH auth results, sent on logConn by logWorker
 
 	// aliases is the set of addresses this server contributed to the client's
 	// knownServerAddresses set: its dial address plus any canonical endpoint it
@@ -66,6 +67,7 @@ func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentSer
 		cancel:             cancel,
 		muxSession:         nil,
 		logChannel:         make(chan *msg.LogMessage, logChannelBufferSize),
+		authChannel:        make(chan *msg.SSHAuthResultMessage, 64),
 		aliases:            map[string]bool{address: true},
 	}
 	go s.logWorker()
@@ -339,6 +341,12 @@ func (s *agentServer) ConnectAndServe() {
 					// Test if the ssh port is open
 					conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", s.agentClient.sshPort))
 					if err != nil {
+						// Report public-key auth attempts to the servers for
+						// audit; only the agent-managed sshd can see them —
+						// templates running their own sshd are not covered.
+						sshd.AuthResultFunc = func(success bool, fingerprint, remoteAddr string) {
+							s.agentClient.SendSSHAuthResult(success, fingerprint, remoteAddr)
+						}
 						sshd.ListenAndServe(s.agentClient.sshPort, response.SSHHostSigner)
 						s.agentClient.usingInternalSSH = true
 					} else {
@@ -476,35 +484,43 @@ func (s *agentServer) logWorker() {
 			if logMsg == nil {
 				continue
 			}
-
-			// muxSession/logConn are mutated by the connection goroutine under
-			// serverListMutex; read them under the same lock so a reconnect is
-			// observed and we don't race the teardown.
-			s.agentClient.serverListMutex.RLock()
-			if s.muxSession != nil && !s.muxSession.IsClosed() {
-				if s.logConn == nil {
-					log.Debug("opening logging connection to", "agent", s.address)
-
-					var err error
-					s.logConn, err = s.muxSession.Open()
-					if err != nil {
-						log.Error("failed to open mux session for server", "server", s.address)
-						s.agentClient.serverListMutex.RUnlock()
-						continue
-					}
-				}
-
-				if s.logConn != nil {
-					err := msg.SendLogMessage(s.logConn, logMsg)
-					if err != nil {
-						log.Error("failed to send log message to server", "server", s.address)
-						s.logConn.Close()
-						s.logConn = nil
-					}
-				}
+			s.sendOnLogConn(func(conn net.Conn) error { return msg.SendLogMessage(conn, logMsg) })
+		case authResult := <-s.authChannel:
+			if authResult == nil {
+				continue
 			}
-			s.agentClient.serverListMutex.RUnlock()
+			s.sendOnLogConn(func(conn net.Conn) error { return msg.SendSSHAuthResult(conn, authResult) })
 		}
+	}
+}
+
+// sendOnLogConn delivers a message on this server's log stream, opening the
+// stream lazily. logWorker is the only writer, so frames never interleave;
+// muxSession/logConn are mutated by the connection goroutine under
+// serverListMutex, so they are read under the same lock to observe
+// reconnects and not race the teardown.
+func (s *agentServer) sendOnLogConn(send func(net.Conn) error) {
+	s.agentClient.serverListMutex.RLock()
+	defer s.agentClient.serverListMutex.RUnlock()
+
+	if s.muxSession == nil || s.muxSession.IsClosed() {
+		return
+	}
+	if s.logConn == nil {
+		log.Debug("opening logging connection to", "agent", s.address)
+
+		var err error
+		s.logConn, err = s.muxSession.Open()
+		if err != nil {
+			log.Error("failed to open mux session for server", "server", s.address)
+			return
+		}
+	}
+
+	if err := send(s.logConn); err != nil {
+		log.Error("failed to send message to server", "server", s.address)
+		s.logConn.Close()
+		s.logConn = nil
 	}
 }
 

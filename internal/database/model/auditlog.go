@@ -121,6 +121,22 @@ const (
 	// owner's other spaces
 	AuditEventLogSinkRegister   = "Log Sink Register"
 	AuditEventLogSinkDeregister = "Log Sink Deregister"
+
+	// Space data access — gated by server.audit.file_operations. Paths and
+	// byte counts only; file contents never enter the audit trail.
+	AuditEventSpaceFileOp = "Space File Op"
+
+	// Interactive access to a running space — gated by
+	// server.audit.space_sessions.
+	AuditEventSpaceSessionOpen = "Space Session Open"
+
+	// API tokens (user-managed; OAuth flow tokens are not audited)
+	AuditEventTokenCreate = "Token Create"
+	AuditEventTokenUpdate = "Token Update"
+	AuditEventTokenDelete = "Token Delete"
+
+	// Runtime configuration changes
+	AuditEventConfigUpdate = "Config Update"
 )
 
 type AuditLogFilter struct {

@@ -3,6 +3,7 @@ package agent_server
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/paularlott/knot/internal/util/audit"
 	"net"
 	"strings"
 	"time"
@@ -376,6 +377,15 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				log.WithError(err).Error("writing agent state reply:")
 				return
 			}
+
+		case byte(msg.CmdSSHPortAuthResult):
+			var authResult msg.SSHAuthResultMessage
+			if err := msg.ReadMessage(stream, &authResult); err != nil {
+				log.WithError(err).Error("reading ssh auth result:")
+				return
+			}
+
+			session.auditSSHAuth(authResult)
 
 		case byte(msg.CmdLogMessage):
 			var logMsg msg.LogMessage
@@ -1224,4 +1234,55 @@ func authenticateRegistration(conn net.Conn, logger logger.Logger, registerMsg *
 		return fmt.Errorf("invalid registration proof")
 	}
 	return nil
+}
+
+// auditSSHAuth records a public-key authentication attempt against a space's
+// agent-managed SSH server when server.audit.space_sessions is enabled. The
+// agent reports one result per key offered, so a client trying several keys
+// yields a failure per key plus a final success. Only the zone leader emits —
+// every server receives the report, but the entry gossips to all stores, so
+// leaderless gating keeps one entry per attempt cluster-wide.
+func (s *Session) auditSSHAuth(result msg.SSHAuthResultMessage) {
+	cfg := config.GetServerConfig()
+	if cfg == nil || !cfg.Audit.SpaceSessions {
+		return
+	}
+	if t := service.GetTransport(); t != nil && !t.IsLeader() {
+		return
+	}
+
+	props := map[string]interface{}{
+		"space_id":   s.Id,
+		"space_name": s.SpaceName,
+		"method":     "ssh",
+		"auth":       "failed",
+		"key":        result.KeyFingerprint,
+	}
+	if result.Success {
+		props["auth"] = "success"
+	}
+	if result.RemoteAddr != "" {
+		if host, _, err := net.SplitHostPort(result.RemoteAddr); err == nil {
+			props["source_ip"] = host
+		} else {
+			props["source_ip"] = result.RemoteAddr
+		}
+	}
+	// The template answers "what was running" when the space is later gone.
+	if db := database.GetInstance(); db != nil {
+		if space, err := db.GetSpace(s.Id); err == nil && space != nil {
+			if template, err := db.GetTemplate(space.TemplateId); err == nil && template.Name != "" {
+				props["template"] = template.Name
+			} else {
+				props["template"] = space.TemplateId
+			}
+		}
+	}
+
+	details := fmt.Sprintf("SSH login failed for space %s", s.SpaceName)
+	if result.Success {
+		details = fmt.Sprintf("SSH login succeeded for space %s", s.SpaceName)
+	}
+	audit.Log(s.Username, model.AuditActorTypeUser, model.AuditEventSpaceSessionOpen,
+		details, &props)
 }

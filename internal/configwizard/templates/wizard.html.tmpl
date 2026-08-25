@@ -533,6 +533,10 @@
       <label style="margin-top:0.5rem">Internal retention (days)</label>
       <input type="number" id="audit_retention" value="{{ .Form.AuditRetention }}">
       <div class="explain">How long audit entries live in the internal store before expiry.</div>
+      <label class="toggle" style="margin-top:0.9rem"><input type="checkbox" id="audit_file_operations" {{ checked .Form.AuditFileOps }}><span class="slider"></span><span class="toggle-label">Log space file operations</span></label>
+      <div class="explain">Records every file read, write and copy against a space — who moved which data in or out, path and byte count only. Recommended when spaces hold copies of production data. Off by default: noisy for local development.</div>
+      <label class="toggle" style="margin-top:0.9rem"><input type="checkbox" id="audit_space_sessions" {{ checked .Form.AuditSessions }}><span class="slider"></span><span class="toggle-label">Log interactive space sessions</span></label>
+      <div class="explain">Records terminal, SSH and VS Code tunnel session opens per space and user. Off by default for the same reason.</div>
     </div>
 
     <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
@@ -831,9 +835,6 @@ function generateTOML() {
   var wd = $("wildcard_domain").value.trim(); if (wd) L.push('wildcard_domain = "' + E(wd) + '"');
   var tz = $("timezone").value.trim(); if (tz) L.push('timezone = "' + E(tz) + '"');
   L.push('encrypt = "' + E($("encryption_key").value) + '"');
-  // Routing to an external service only makes sense with one configured.
-  L.push('audit_routing = "' + ($("log_output_enabled").checked ? $("audit_routing").value : "internal") + '"');
-  L.push('audit_retention = ' + parseInt($("audit_retention").value || "90", 10));
   L.push('auth_ip_rate_limiting = ' + $("auth_ip_rate_limiting").checked);
   if ($("auth_ip_rate_limiting").checked) {
     var arla = parseInt($("auth_rate_limit_attempts").value || "10", 10); if (arla > 0) L.push("auth_rate_limit_attempts = " + arla);
@@ -864,6 +865,13 @@ function generateTOML() {
     L.push("allow_leaf_nodes = " + $("allow_leaf_nodes").checked);
     L.push("");
   }
+  L.push("[server.audit]");
+  // Routing to an external service only makes sense with one configured.
+  L.push('routing = "' + ($("log_output_enabled").checked ? $("audit_routing").value : "internal") + '"');
+  L.push('retention = ' + parseInt($("audit_retention").value || "90", 10));
+  if ($("audit_file_operations").checked) L.push('file_operations = true');
+  if ($("audit_space_sessions").checked) L.push('space_sessions = true');
+  L.push("");
   L.push("[server.terminal]");
   L.push("webgl = true");
   L.push("");

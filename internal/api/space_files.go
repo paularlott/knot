@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/util/audit"
 	"net/http"
 	"strings"
 
@@ -49,6 +51,39 @@ type WriteFileResponse struct {
 	Success      bool   `json:"success" msgpack:"success"`
 	BytesWritten int    `json:"bytes_written,omitempty" msgpack:"bytes_written,omitempty"`
 	Error        string `json:"error,omitempty" msgpack:"error,omitempty"`
+}
+
+// auditSpaceFileOp records a file operation against a space when
+// server.audit.file_operations is enabled. The space lookup happens only when
+// auditing is on. Paths and byte counts only — file contents never enter the
+// audit trail.
+func auditSpaceFileOp(r *http.Request, op, path string, success bool, size int64) {
+	cfg := config.GetServerConfig()
+	if cfg == nil || !cfg.Audit.FileOperations {
+		return
+	}
+	user, _ := r.Context().Value("user").(*model.User)
+	if user == nil {
+		return
+	}
+	db := database.GetInstance()
+	space, err := db.GetSpace(r.PathValue("space_id"))
+	if err != nil || space == nil {
+		return
+	}
+	props := map[string]interface{}{
+		"space_id":   space.Id,
+		"space_name": space.Name,
+		"template":   auditTemplateName(db, space),
+		"op":         op,
+		"path":       path,
+		"success":    success,
+	}
+	if size >= 0 {
+		props["size"] = size
+	}
+	audit.LogWithRequest(r, user.Username, model.AuditActorTypeUser, model.AuditEventSpaceFileOp,
+		fmt.Sprintf("%s %s in space %s", op, path, space.Name), &props)
 }
 
 func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +177,12 @@ func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
 		}
 		result.Content = content
 		result.Size = len(content)
+	}
+
+	if response.Success {
+		auditSpaceFileOp(r, "read", req.Path, true, int64(result.Size))
+	} else {
+		auditSpaceFileOp(r, "read", req.Path, false, -1)
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, result)
@@ -269,8 +310,10 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 
 	if !response.Success {
 		result.Error = response.Error
+		auditSpaceFileOp(r, "write", req.Path, false, -1)
 	} else {
 		result.BytesWritten = len(req.Content)
+		auditSpaceFileOp(r, "write", req.Path, true, int64(result.BytesWritten))
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, result)

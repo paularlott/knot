@@ -7,6 +7,7 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/paularlott/knot/internal/log"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 var (
@@ -44,9 +45,23 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	return nil
 }
 
+// AuthResultFunc, when set, is called with the outcome of every public-key
+// authentication attempt, the key's SHA256 fingerprint and the client
+// address. The agent wires it to report attempts to the knot servers; a
+// client offering several keys produces one call per key.
+var AuthResultFunc func(success bool, fingerprint, remoteAddr string)
+
 func publicKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
 	log.Debug("testing public key")
 
+	ok := authorizeKey(key)
+	if AuthResultFunc != nil {
+		AuthResultFunc(ok, gossh.FingerprintSHA256(key), ctx.RemoteAddr().String())
+	}
+	return ok
+}
+
+func authorizeKey(key ssh.PublicKey) bool {
 	authorizedKeysMutex.RLock()
 	defer authorizedKeysMutex.RUnlock()
 

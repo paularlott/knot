@@ -38,5 +38,9 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// SSH sessions are audited at authentication time: the agent-managed sshd
+	// reports each public-key attempt (success or failure, with the key
+	// fingerprint), which is the signal a raw TCP proxy cannot see.
+
 	proxyAgentPort(w, r, agentSession, uint16(agentSession.SSHPort))
 }

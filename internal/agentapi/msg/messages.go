@@ -58,6 +58,7 @@ const (
 	CmdThrottlePort
 	CmdPortForwardNotify
 	CmdMirrorLog
+	CmdSSHPortAuthResult
 	CmdScriptLibsChanged
 	CmdJobsList
 	CmdJobsRun

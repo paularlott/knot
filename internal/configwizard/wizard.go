@@ -86,6 +86,8 @@ type Form struct {
 	LogOutputPassword string `json:"log_output_password"`
 	AuditRouting      string `json:"audit_routing"`
 	AuditRetention    int    `json:"audit_retention"`
+	AuditFileOps      bool   `json:"audit_file_operations"`
+	AuditSessions     bool   `json:"audit_space_sessions"`
 }
 
 func DefaultForm() Form {
@@ -124,6 +126,8 @@ func DefaultForm() Form {
 		LogOutputFormat:       "ndjson",
 		AuditRouting:          "internal",
 		AuditRetention:        90,
+		AuditFileOps:          false,
+		AuditSessions:         false,
 	}
 }
 

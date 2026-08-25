@@ -366,10 +366,11 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 			}
 		}
 		opts := configwizard.Options{
-			TargetPath:     target,
-			AllowOverwrite: true,
-			Desktop:        true,
-			BasePath:       "/setup/",
+			TargetPath:        target,
+			AllowOverwrite:    true,
+			Desktop:           true,
+			BasePath:          "/setup/",
+			AuditConfigWrites: true,
 		}
 		router.HandleFunc("GET /setup", middleware.WebAuth(checkAdmin(configwizard.PageHandler(opts))))
 		router.HandleFunc("POST /setup/preview", middleware.WebAuth(checkAdmin(configwizard.PreviewHandler(opts))))

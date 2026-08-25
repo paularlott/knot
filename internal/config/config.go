@@ -174,6 +174,11 @@ type AuditConfig struct {
 	Retention   int
 	Routing     string // "internal" | "external" | "both"
 	AuditStream string // stream label for external log driver, defaults to "audit"
+
+	// Data-access auditing for environments holding production data copies.
+	// Both default off — noisy for local development.
+	FileOperations bool // audit space file read/write/copy operations
+	SpaceSessions  bool // audit interactive session opens (terminal, code-server)
 }
 
 type LogOutputConfig struct {

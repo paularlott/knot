@@ -171,7 +171,8 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventAuthOk,
 		"",
 		&map[string]interface{}{
-			"email": user.Email,
+			"email":    user.Email,
+			"provider": "password",
 		},
 	)
 

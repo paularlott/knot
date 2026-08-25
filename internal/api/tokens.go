@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/paularlott/knot/internal/util/audit"
 	"net/http"
 
 	"github.com/paularlott/gossip/hlc"
@@ -67,6 +68,17 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipToken(token)
 	sse.PublishTokensChanged("")
 
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTokenDelete,
+		fmt.Sprintf("Deleted token %s", token.Name),
+		&map[string]interface{}{
+			"token_id":   token.Id,
+			"token_name": token.Name,
+		},
+	)
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -109,6 +121,18 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipToken(token)
 	sse.PublishTokensChanged("")
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTokenCreate,
+		fmt.Sprintf("Created token %s", token.Name),
+		&map[string]interface{}{
+			"token_id":   token.Id,
+			"token_name": token.Name,
+			"scopes":     token.Scopes,
+		},
+	)
 
 	rest.WriteResponse(http.StatusCreated, w, r, apiclient.CreateTokenResponse{
 		Status:  true,
@@ -171,6 +195,18 @@ func HandleUpdateToken(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipToken(token)
 	sse.PublishTokensChanged("")
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTokenUpdate,
+		fmt.Sprintf("Updated token %s", token.Name),
+		&map[string]interface{}{
+			"token_id":   token.Id,
+			"token_name": token.Name,
+			"scopes":     token.Scopes,
+		},
+	)
 
 	w.WriteHeader(http.StatusOK)
 }
