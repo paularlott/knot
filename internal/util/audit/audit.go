@@ -69,5 +69,7 @@ func logToExternal(entry *model.AuditLogEntry, cfg *config.ServerConfig) {
 	if entry.Properties != nil {
 		args = append(args, "properties", entry.Properties)
 	}
-	log.Info(entry.Event, args...)
+	// Pipeline: the record must reach the external service regardless of
+	// log.level — level filtering is for diagnostics, not the audit trail.
+	log.Pipeline(entry.Event, args...)
 }

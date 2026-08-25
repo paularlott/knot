@@ -8,7 +8,14 @@ import (
 	logslog "github.com/paularlott/logger/slog"
 )
 
-var defaultLogger logger.Logger
+var (
+	defaultLogger  logger.Logger
+	pipelineLogger logger.Logger
+
+	// externalWriter holds the httpWriter when external logging is
+	// configured, so Flush can drain it.
+	externalWriter io.Writer
+)
 
 func init() {
 	// Initialize with default configuration
@@ -17,6 +24,11 @@ func init() {
 		Format: "console",
 		Writer: os.Stderr,
 	})
+	// The pipeline logger carries records promised to the external service
+	// (audit events, forwarded space logs, tunnel requests). It shares the
+	// main logger's writer but is never level-filtered: log.level filters
+	// server diagnostics, not data the operator asked to be delivered.
+	pipelineLogger = defaultLogger
 }
 
 // Configure sets up the logger with the given settings
@@ -31,6 +43,12 @@ func Configure(level, format string, writer io.Writer) {
 		Format: format,
 		Writer: writer,
 	})
+	pipelineLogger = logslog.New(logslog.Config{
+		Level:  "info",
+		Format: format,
+		Writer: writer,
+	})
+	externalWriter = nil
 }
 
 // ConfigureWithHTTP sets up the logger to send JSON-formatted records to the
@@ -48,11 +66,30 @@ func ConfigureWithHTTP(level, url, format, stream, username, password, token str
 		stream = "knot"
 	}
 
+	// One writer instance shared by both loggers: a single batching, retry,
+	// spool and degraded-mode pipeline for everything the external service
+	// receives.
+	writer := newHTTPWriter(url, format, stream, nil, username, password, token)
+	externalWriter = writer
+
 	defaultLogger = logslog.New(logslog.Config{
 		Level:  level,
 		Format: "json",
-		Writer: newHTTPWriter(url, format, stream, nil, username, password, token),
+		Writer: writer,
 	})
+	pipelineLogger = logslog.New(logslog.Config{
+		Level:  "info",
+		Format: "json",
+		Writer: writer,
+	})
+}
+
+// Flush drains the external log writer when one is configured. A no-op
+// otherwise.
+func Flush() {
+	if w, ok := externalWriter.(*httpWriter); ok {
+		w.flush()
+	}
 }
 
 // GetLogger returns the configured logger instance
@@ -72,6 +109,14 @@ func Debug(msg string, keysAndValues ...any) {
 
 func Info(msg string, keysAndValues ...any) {
 	defaultLogger.Info(msg, keysAndValues...)
+}
+
+// Pipeline emits a record that must reach the external logging service
+// regardless of log.level — audit events, forwarded space logs, tunnel
+// requests. Level filtering is for server diagnostics; these are data the
+// operator asked to be delivered.
+func Pipeline(msg string, keysAndValues ...any) {
+	pipelineLogger.Info(msg, keysAndValues...)
 }
 
 func Warn(msg string, keysAndValues ...any) {
