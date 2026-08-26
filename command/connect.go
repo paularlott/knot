@@ -10,6 +10,7 @@ import (
 
 	connectcmd "github.com/paularlott/knot/agent/cmd/connect"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util"
 
@@ -116,6 +117,10 @@ var ConnectCmd = &cli.Command{
 				fmt.Println("Failed to read token, you will need to generate the API token manually")
 				os.Exit(1)
 			}
+
+			// Check the server is compatible before saving the connection
+			client.SetAuthToken(token)
+			requireCompatibleServer(client)
 		} else {
 			username := cmd.GetString("username")
 			var password []byte
@@ -150,6 +155,11 @@ var ConnectCmd = &cli.Command{
 
 			client.UseSessionCookie(true).SetAuthToken(response.Token)
 
+			// Refuse servers too old to talk to this client before the token
+			// creation fails with an unexplained error. No version reported
+			// means a server from before version checking existed.
+			requireCompatibleServer(client)
+
 			token, _, err = client.CreateToken(context.Background(), hostname, nil)
 			if err != nil || token == "" {
 				fmt.Println("Failed to create token")
@@ -166,4 +176,23 @@ var ConnectCmd = &cli.Command{
 		fmt.Println("Successfully connected to server:", server)
 		return nil
 	},
+}
+
+// requireCompatibleServer checks the authenticated server reports a version
+// this client is compatible with, exiting with guidance when it doesn't.
+func requireCompatibleServer(client *apiclient.ApiClient) {
+	ping, err := client.Ping(context.Background())
+	if err != nil {
+		fmt.Println("Failed to check server version:", err)
+		os.Exit(1)
+	}
+
+	if !build.IsCompatible(ping.Version) {
+		if ping.Version == "" {
+			fmt.Println("Client and server are not compatible, the server did not report a version")
+		} else {
+			fmt.Printf("Client and server are not compatible, client version %s, server version %s\n", build.Version, ping.Version)
+		}
+		os.Exit(1)
+	}
 }

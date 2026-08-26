@@ -17,13 +17,6 @@ func GetSessionFromCookie(r *http.Request) (*model.Session, error) {
 		return session, err
 	}
 
-	key := r.Header.Get(model.WebSessionCookie)
-	if key != "" {
-		db := database.GetSessionStorage()
-		session, err := db.GetSession(key)
-		return session, err
-	}
-
 	return nil, nil
 }
 

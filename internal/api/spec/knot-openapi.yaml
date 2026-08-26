@@ -18,7 +18,7 @@ tags:
     description: |
       This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
 
-      A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
+      A token can be obtained by logging in with the login endpoint and providing a valid username and password, then calling the create token endpoint. The login response returns a session ID which must be sent as a cookie (`__KNOT_WEBUI_SESSION`) when calling the create token endpoint, after which all requests use the returned token as a Bearer token. Tokens can also be created directly in the web interface.
   - name: OpenAI
     description: |
       OpenAI-compatible endpoints for AI chat functionality.

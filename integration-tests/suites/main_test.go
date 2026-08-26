@@ -46,7 +46,13 @@ func workspace(t *testing.T) string {
 }
 
 func TestMain(m *testing.M) {
-	_ = env.Load()
+	// go test runs the binary with the package directory as cwd, so plain
+	// ".env" misses the repo root — and Task does not export .env values as
+	// process environment. Load the root file explicitly; a suites-local
+	// .env (direct runs) is loaded last so it wins, matching dotenv
+	// precedence. Missing files are ignored.
+	_ = env.Load("../../.env")
+	_ = env.Load(".env")
 	cfg = harness.LoadConfig()
 
 	fmt.Printf("integration config: runtime=%s registry=%s image=%s container-host=%s\n",
