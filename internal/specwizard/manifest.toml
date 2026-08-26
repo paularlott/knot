@@ -28,7 +28,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026082001"
+manifest_version = "2026082701"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -478,7 +478,23 @@ default_memory  = "512M"
 [[image.volume]]
 path        = "/data"
 name        = "${{ .space.id }}-data"
-description = "Redis working directory (RDB snapshots / AOF). Persist for durable data."
+description = "Redis working directory (RDB snapshots / AOF)."
+
+# ── Database management ─────────────────────────────────────────────────────
+
+[[image]]
+name            = "adminer-6.0"
+display_name    = "Adminer 6.0"
+description     = "Adminer database management UI on FrankenPHP. Connect to MySQL / MariaDB, PostgreSQL, Redis / Valkey, SQLite and more."
+image           = "${{ .server.base_image_registry }}/knot-adminer:latest"
+icon            = "/icons/adminer.svg"
+category        = "datastore"
+default_memory  = "1024M"
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
 
 # ── Mail ────────────────────────────────────────────────────────────────────
 
