@@ -5416,7 +5416,7 @@ const scriptLibraries = [
         name: "middleware",
         signature: "middleware(handler)",
         description:
-          "Register middleware that runs before every route handler; return None to continue or a response to short-circuit",
+          "Register middleware that runs before every route handler and, when enabled, the /mcp and /json-rpc endpoints; return None to continue or a response to short-circuit",
         returns: "None",
       },
       {
