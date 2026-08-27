@@ -32,7 +32,7 @@ require (
 	github.com/paularlott/lmchatkit v0.9.1
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.25.0
-	github.com/paularlott/scriptling v0.21.2
+	github.com/paularlott/scriptling v0.21.4
 	github.com/pkg/sftp v1.13.11
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/shamaton/msgpack/v3 v3.2.0
