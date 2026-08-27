@@ -32,7 +32,7 @@ require (
 	github.com/paularlott/lmchatkit v0.9.1
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.25.0
-	github.com/paularlott/scriptling v0.21.1
+	github.com/paularlott/scriptling v0.21.2
 	github.com/pkg/sftp v1.13.11
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/shamaton/msgpack/v3 v3.2.0
@@ -76,9 +76,9 @@ require (
 	github.com/yuin/goldmark v1.8.5 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.45.0 // indirect
-	go.opentelemetry.io/otel/metric v1.45.0 // indirect
-	go.opentelemetry.io/otel/trace v1.45.0 // indirect
+	go.opentelemetry.io/otel v1.46.0 // indirect
+	go.opentelemetry.io/otel/metric v1.46.0 // indirect
+	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/image v0.45.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect

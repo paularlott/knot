@@ -19,6 +19,15 @@
   let debugMode = false;
 
   /**
+   * Handler parameter conventions: a function parameter with one of these
+   * names gets the matching class's completions when a def in the file
+   * declares it (e.g., "def get_user(request):" -> request is a Request).
+   */
+  const parameterTypes = {
+    request: "Request",
+  };
+
+  /**
    * Setup custom completions for an ACE editor.
    * Can be called multiple times - completions are merged, completer registered once.
    */
@@ -167,8 +176,31 @@
     }
 
     if (debugMode) {
-      console.log("ACE Completer: No type found for variable:", varName);
+      console.log("ACE Completer: No assignment type for variable:", varName);
     }
+
+    // Handler-parameter convention: if a def above the cursor declares this
+    // variable as a parameter and the name has a known type, use it.
+    const paramType = parameterTypes[varName.toLowerCase()];
+    if (paramType) {
+      const paramPattern = new RegExp(
+        "^\\s*def\\s+\\w+\\s*\\([^)]*\\b" + varName + "\\b[^)]*\\)"
+      );
+      for (let row = currentRow; row >= 0; row--) {
+        if (paramPattern.test(session.getLine(row))) {
+          if (debugMode) {
+            console.log(
+              "ACE Completer: Matched handler parameter:",
+              varName,
+              "-> type:",
+              paramType
+            );
+          }
+          return paramType;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -357,6 +389,24 @@
                       });
                     }
                   });
+                  if (cls.properties) {
+                    cls.properties.forEach(function (prop) {
+                      if (prop.name.toLowerCase().startsWith(methodPrefix)) {
+                        completionResults.push({
+                          caption: prop.name,
+                          value: prop.name,
+                          score: 940,
+                          meta: cls.name,
+                          docHTML: buildDocHTML(
+                            prop.name,
+                            null,
+                            prop.description,
+                            null
+                          ),
+                        });
+                      }
+                    });
+                  }
                 }
               });
             }

@@ -5370,6 +5370,213 @@ const scriptLibraries = [
       },
     ],
   },
+  {
+    module: "scriptling.runtime.http",
+    description:
+      "HTTP server route registration and response helpers (import scriptling.runtime.http as http)",
+    functions: [
+      {
+        name: "get",
+        signature: "get(path, handler=None)",
+        description:
+          'Register a GET route, or use as decorator (@http.get("/api/users/{id}")). Paths support {name} for one segment and {name...} for the rest',
+        returns: "None (imperative) or decorator",
+      },
+      {
+        name: "post",
+        signature: "post(path, handler=None)",
+        description: "Register a POST route, or use as decorator",
+        returns: "None (imperative) or decorator",
+      },
+      {
+        name: "put",
+        signature: "put(path, handler=None)",
+        description: "Register a PUT route, or use as decorator",
+        returns: "None (imperative) or decorator",
+      },
+      {
+        name: "patch",
+        signature: "patch(path, handler=None)",
+        description: "Register a PATCH route, or use as decorator",
+        returns: "None (imperative) or decorator",
+      },
+      {
+        name: "delete",
+        signature: "delete(path, handler=None)",
+        description: "Register a DELETE route, or use as decorator",
+        returns: "None (imperative) or decorator",
+      },
+      {
+        name: "route",
+        signature: 'route(path, handler=None, methods=["GET", "POST", "PUT", "DELETE"])',
+        description: "Register a route for multiple methods, or use as decorator",
+        returns: "None (imperative) or decorator",
+      },
+      {
+        name: "middleware",
+        signature: "middleware(handler)",
+        description:
+          "Register middleware that runs before every route handler; return None to continue or a response to short-circuit",
+        returns: "None",
+      },
+      {
+        name: "not_found",
+        signature: "not_found(handler)",
+        description: "Register a custom 404 handler for unmatched requests",
+        returns: "None",
+      },
+      {
+        name: "static",
+        signature: "static(path, directory)",
+        description: "Register a static file serving route under a path prefix",
+        returns: "None",
+      },
+      {
+        name: "websocket",
+        signature: "websocket(path, handler)",
+        description:
+          "Register a WebSocket route; the handler receives a WebSocketClient for the connection lifetime",
+        returns: "None",
+      },
+      {
+        name: "json",
+        signature: "json(status_code, data)",
+        description: "Create a JSON response",
+        returns: "dict - Response dict for the handler to return",
+      },
+      {
+        name: "html",
+        signature: "html(status_code, content)",
+        description: "Create an HTML response",
+        returns: "dict - Response dict for the handler to return",
+      },
+      {
+        name: "text",
+        signature: "text(status_code, content)",
+        description: "Create a plain text response",
+        returns: "dict - Response dict for the handler to return",
+      },
+      {
+        name: "redirect",
+        signature: "redirect(location, status=302)",
+        description: "Create a redirect response",
+        returns: "dict - Response dict for the handler to return",
+      },
+      {
+        name: "parse_query",
+        signature: "parse_query(query_string)",
+        description: "Parse a URL query string into a dict",
+        returns: "dict - key-value pairs",
+      },
+    ],
+    classes: [
+      {
+        name: "Request",
+        description: "HTTP request object passed to route handlers and middleware",
+        methods: [
+          {
+            name: "path_param",
+            signature: "path_param(name, default=None)",
+            description:
+              'Get a path parameter captured from a route wildcard ("/api/users/{id}" captures id), percent-decoded',
+            returns: "str - Captured value, default, or None",
+          },
+          {
+            name: "query_param",
+            signature: "query_param(name, default=None)",
+            description: "Get the first value of a query parameter",
+            returns: "str - Value, default, or None",
+          },
+          {
+            name: "header",
+            signature: "header(name, default=None)",
+            description: "Get a request header; names are case-insensitive",
+            returns: "str - Header value, default, or None",
+          },
+          {
+            name: "json",
+            signature: "json()",
+            description: "Parse request body as JSON",
+            returns: "dict/list - Parsed JSON, or None if body is empty",
+          },
+        ],
+        properties: [
+          {
+            name: "method",
+            description: "HTTP method (str)",
+          },
+          {
+            name: "path",
+            description: "Request path (str)",
+          },
+          {
+            name: "body",
+            description: "Request body as string (str)",
+          },
+          {
+            name: "headers",
+            description: "Request headers with lowercase keys (dict)",
+          },
+          {
+            name: "query",
+            description: "Query parameters (dict)",
+          },
+          {
+            name: "path_params",
+            description: "Path parameters captured from route wildcards (dict)",
+          },
+          {
+            name: "remote_addr",
+            description: "Remote address of the client (str)",
+          },
+        ],
+      },
+      {
+        name: "WebSocketClient",
+        description:
+          "Server-side WebSocket connection passed to runtime.http.websocket handlers",
+        methods: [
+          {
+            name: "connected",
+            signature: "connected()",
+            description: "Check if the connection is still open",
+            returns: "bool",
+          },
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description:
+              "Receive the next message; returns str for text, list of bytes for binary, or None on timeout/disconnect",
+            returns: "str/list/None",
+          },
+          {
+            name: "send",
+            signature: "send(message)",
+            description: "Send a text message; dicts are JSON encoded",
+            returns: "None",
+          },
+          {
+            name: "send_binary",
+            signature: "send_binary(data)",
+            description: "Send a list of byte values (0-255) as a binary message",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the connection",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "remote_addr",
+            description: "Remote address of the connected client (str)",
+          },
+        ],
+      },
+    ],
+  },
   // ============================================================================
   // Additional Scriptling + stdlib libraries
   // ============================================================================
@@ -5719,6 +5926,11 @@ const typePatterns = [
   {
     regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.sync\.Shared\s*\(/,
     type: "Shared",
+  },
+  // HTTP handler/middleware definitions take a Request parameter
+  {
+    regex: /def\s+\w+\s*\(\s*(request)\s*[,)]/,
+    type: "Request",
   },
 ];
 
