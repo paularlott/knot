@@ -332,13 +332,25 @@ tasks:
     cmds:
       - npx @redocly/cli preview-docs internal/api/spec/knot-openapi.yaml
 
+  scriptling-completions:
+    desc: Regenerate Scriptling completions from the scriptling-vscode stubs
+    cmds:
+      - |
+        if [ -d ../scriptling-vscode/stubs ]; then
+          node scripts/generate-scriptling-completions.mjs
+        else
+          echo "../scriptling-vscode not found - skipping completion regeneration (using the committed web/src/js/pages/scriptlingCompletions.js)"
+        fi
+
   webassets:
     desc: Compile LESS/CSS and JavaScript
+    deps: [scriptling-completions]
     cmds:
       - npx vite build
     sources:
       - vite.config.js # Or relevant config
       - src/**/* # Assuming source files are here
+      - ../scriptling-vscode/stubs/**/*.pyi
     generates:
       - web/public_html/css/*
       - web/public_html/js/*

@@ -25,6 +25,7 @@
    */
   const parameterTypes = {
     request: "Request",
+    client: "WebSocketClient",
   };
 
   /**
