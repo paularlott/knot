@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	command_scriptling "github.com/paularlott/knot/agent/cmd/scriptlingserver"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
@@ -30,6 +31,16 @@ import (
 )
 
 func main() {
+	// A bare invocation spawned by scriptling as a plugin peer runs the
+	// plugin server instead of the CLI or the desktop.
+	if command_scriptling.ShouldAutoStart() {
+		if err := command_scriptling.AutoStart(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Logger will be configured with proper level in PreRun
 	log.Configure("info", "console", os.Stderr)
 

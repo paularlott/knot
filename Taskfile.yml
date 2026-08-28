@@ -333,13 +333,19 @@ tasks:
       - npx @redocly/cli preview-docs internal/api/spec/knot-openapi.yaml
 
   scriptling-completions:
-    desc: Regenerate Scriptling completions from the scriptling-vscode stubs
+    desc: Regenerate all completions (scriptling + knot) from the vscode stubs
     cmds:
       - |
         if [ -d ../scriptling-vscode/stubs ]; then
           node scripts/generate-scriptling-completions.mjs
         else
-          echo "../scriptling-vscode not found - skipping completion regeneration (using the committed web/src/js/pages/scriptlingCompletions.js)"
+          echo "../scriptling-vscode not found - skipping scriptling completions"
+        fi
+      - |
+        if [ -d ../knot-vscode/stubs/knot ]; then
+          node scripts/generate-knot-completions.mjs
+        else
+          echo "../knot-vscode not found - skipping knot completions"
         fi
 
   webassets:

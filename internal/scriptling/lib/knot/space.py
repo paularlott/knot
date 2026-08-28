@@ -217,6 +217,34 @@ def delete(name):
     return True
 
 
+def wait_for_start(name, timeout=30, interval=2):
+    """Wait for a space to reach the running state.
+
+    If the space is already running this returns True immediately — the
+    space is never stopped or restarted. If the space is not running, this
+    polls the API until it reports running or the timeout expires.
+
+    Args:
+        name: Space name or ID
+        timeout: Maximum seconds to wait (default 30)
+        interval: Seconds between polls (default 2)
+
+    Returns:
+        True if the space is running, False if the timeout expired
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    import time
+    deadline = time.time() + timeout
+    while True:
+        if is_running(name):
+            return True
+        if time.time() >= deadline:
+            return False
+        time.sleep(interval)
+
+
 def start(name):
     """Start a space.
 

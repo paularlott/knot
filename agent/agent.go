@@ -12,6 +12,7 @@ import (
 	command_methods "github.com/paularlott/knot/agent/cmd/methods"
 	"github.com/paularlott/knot/agent/cmd/port"
 	command_runscript "github.com/paularlott/knot/agent/cmd/runscript"
+	command_scriptling "github.com/paularlott/knot/agent/cmd/scriptlingserver"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
@@ -22,6 +23,14 @@ import (
 )
 
 func main() {
+	if command_scriptling.ShouldAutoStart() {
+		if err := command_scriptling.AutoStart(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Logger will be configured with proper level in PreRun
 	log.Configure("info", "console", os.Stderr)
 
