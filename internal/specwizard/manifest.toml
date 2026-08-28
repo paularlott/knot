@@ -28,7 +28,7 @@ version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
 # whether a manifest fetched from getknot.dev is newer than the one compiled
 # into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026082703"
+manifest_version = "2026082704"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -127,27 +127,6 @@ port     = 80
 protocol = "http"
 
 [[image]]
-name            = "php-8.3"
-display_name    = "PHP 8.3"
-description     = "Ubuntu with Caddy and PHP 8.3."
-image           = "${{ .server.base_image_registry }}/knot-php:8.3"
-icon            = "/icons/php.svg"
-category        = "web"
-default_memory  = "2G"
-default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
-
-[[image.volume]]
-path        = "/home"
-name        = "${{ .space.id }}-home"
-description = "Persistent home directory. Web root is ~/public_html."
-
-[[image.default_port]]
-name     = "Web"
-port     = 80
-protocol = "http"
-
-
-[[image]]
 name            = "frankenphp-8.5"
 display_name    = "FrankenPHP 8.5"
 description     = "Ubuntu with FrankenPHP 8.5."
@@ -156,25 +135,6 @@ icon            = "/icons/frankenphp.svg"
 category        = "web"
 default_memory  = "2G"
 recommended     = true
-
-[[image.volume]]
-path        = "/home"
-name        = "${{ .space.id }}-home"
-description = "Persistent home directory. Web root is ~/public_html."
-
-[[image.default_port]]
-name     = "Web"
-port     = 80
-protocol = "http"
-
-[[image]]
-name            = "frankenphp-8.4"
-display_name    = "FrankenPHP 8.4"
-description     = "Ubuntu with FrankenPHP 8.4."
-image           = "${{ .server.base_image_registry }}/knot-frankenphp:8.4"
-icon            = "/icons/frankenphp.svg"
-category        = "web"
-default_memory  = "2G"
 
 [[image.volume]]
 path        = "/home"
@@ -206,48 +166,10 @@ port     = 80
 protocol = "http"
 
 [[image]]
-name            = "frankenscriptling-8.4"
-display_name    = "FrankenScriptling 8.4"
-description     = "FrankenPHP 8.4 with the Scriptling PHP extension."
-image           = "${{ .server.base_image_registry }}/knot-frankenscriptling:8.4"
-icon            = "/icons/scriptling.svg"
-category        = "web"
-default_memory  = "2G"
-
-[[image.volume]]
-path        = "/home"
-name        = "${{ .space.id }}-home"
-description = "Persistent home directory. Web root is ~/public_html."
-
-[[image.default_port]]
-name     = "Web"
-port     = 80
-protocol = "http"
-
-[[image]]
 name            = "frankenscriptling-runtime-8.5"
 display_name    = "FrankenScriptling Runtime 8.5"
 description     = "FrankenPHP 8.5 with the Scriptling PHP extension, no dev tools. Lean runtime for serving apps."
 image           = "${{ .server.base_image_registry }}/knot-frankenscriptling-runtime:8.5"
-icon            = "/icons/scriptling.svg"
-category        = "web"
-default_memory  = "2G"
-
-[[image.volume]]
-path        = "/home"
-name        = "${{ .space.id }}-home"
-description = "Persistent home directory. Web root is ~/public_html."
-
-[[image.default_port]]
-name     = "Web"
-port     = 80
-protocol = "http"
-
-[[image]]
-name            = "frankenscriptling-runtime-8.4"
-display_name    = "FrankenScriptling Runtime 8.4"
-description     = "FrankenPHP 8.4 with the Scriptling PHP extension, no dev tools. Lean runtime for serving apps."
-image           = "${{ .server.base_image_registry }}/knot-frankenscriptling-runtime:8.4"
 icon            = "/icons/scriptling.svg"
 category        = "web"
 default_memory  = "2G"
