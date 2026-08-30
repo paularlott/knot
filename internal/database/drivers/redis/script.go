@@ -16,7 +16,7 @@ func (db *RedisDbDriver) SaveScript(script *model.Script, updateFields []string)
 	if existingScript != nil {
 		// If name or user_id changed, delete old index
 		if (existingScript.Name != script.Name || existingScript.UserId != script.UserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Name") || util.InArray(updateFields, "UserId")) {
-			db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, existingScript.UserId, existingScript.Name))
+			db.del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, existingScript.UserId, existingScript.Name))
 		}
 
 		if len(updateFields) > 0 {
@@ -30,24 +30,24 @@ func (db *RedisDbDriver) SaveScript(script *model.Script, updateFields []string)
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id), data, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id), data, 0)
 	if err != nil {
 		return err
 	}
 
 	// Create composite index with user_id:name
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name), script.Id, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name), script.Id, 0)
 }
 
 func (db *RedisDbDriver) DeleteScript(script *model.Script) error {
-	db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name))
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id)).Err()
+	db.del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name))
+	return db.del(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id))
 }
 
 func (db *RedisDbDriver) GetScript(id string) (*model.Script, error) {
 	var script = &model.Script{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -63,7 +63,7 @@ func (db *RedisDbDriver) GetScript(id string) (*model.Script, error) {
 func (db *RedisDbDriver) GetScripts() ([]*model.Script, error) {
 	var scripts []*model.Script
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sScripts:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sScripts:*", db.prefix))
 	for iter.Next(context.Background()) {
 		script, err := db.GetScript(iter.Val()[len(fmt.Sprintf("%sScripts:", db.prefix)):])
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/knot/internal/database/model"
 )
@@ -14,12 +15,12 @@ func (db *RedisDbDriver) SaveSession(session *model.Session) error {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id), data, model.SessionExpiryDuration).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id), data, model.SessionExpiryDuration)
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id), session.Id, model.SessionExpiryDuration).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id), session.Id, model.SessionExpiryDuration)
 	if err != nil {
 		return err
 	}
@@ -28,12 +29,12 @@ func (db *RedisDbDriver) SaveSession(session *model.Session) error {
 }
 
 func (db *RedisDbDriver) DeleteSession(session *model.Session) error {
-	err := db.connection.Del(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id)).Err()
+	err := db.del(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id))
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id)).Err()
+	err = db.del(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id))
 	if err != nil {
 		return err
 	}
@@ -44,7 +45,7 @@ func (db *RedisDbDriver) DeleteSession(session *model.Session) error {
 func (db *RedisDbDriver) GetSession(id string) (*model.Session, error) {
 	var session = &model.Session{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -60,11 +61,15 @@ func (db *RedisDbDriver) GetSession(id string) (*model.Session, error) {
 func (db *RedisDbDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
 	var sessions []*model.Session
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSessionsByUserId:%s:*", db.prefix, userId), 0).Iterator()
+	prefix := fmt.Sprintf("%sSessionsByUserId:%s:", db.prefix, userId)
+	iter := db.scan(context.Background(), prefix+"*")
 	for iter.Next(context.Background()) {
-		session, err := db.GetSession(iter.Val()[len(fmt.Sprintf("%sSessionsByUserId:00000000-0000-0000-0000-000000000000:", db.prefix)):])
+		session, err := db.GetSession(strings.TrimPrefix(iter.Val(), prefix))
 		if err != nil {
 			return nil, err
+		}
+		if session == nil {
+			continue // expired between the scan and the get
 		}
 
 		sessions = append(sessions, session)
@@ -79,11 +84,14 @@ func (db *RedisDbDriver) GetSessionsForUser(userId string) ([]*model.Session, er
 func (db *RedisDbDriver) GetSessions() ([]*model.Session, error) {
 	var sessions []*model.Session
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSessions:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sSessions:*", db.prefix))
 	for iter.Next(context.Background()) {
 		session, err := db.GetSession(iter.Val()[len(fmt.Sprintf("%sSessions:", db.prefix)):])
 		if err != nil {
 			return nil, err
+		}
+		if session == nil {
+			continue // expired between the scan and the get
 		}
 
 		sessions = append(sessions, session)

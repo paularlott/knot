@@ -3,6 +3,7 @@ package driver_redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,7 +14,7 @@ import (
 	"github.com/paularlott/logger"
 
 	"github.com/paularlott/knot/internal/log"
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
 )
 
 const (
@@ -22,26 +23,14 @@ const (
 	garbageMaxAge       = 3 * 24 * time.Hour
 )
 
-// redisLogger adapts our logger to Redis's logging interface
-type redisLogger struct {
-	logGroup logger.Logger
-}
-
-func newRedisLogger() *redisLogger {
-	return &redisLogger{
-		logGroup: log.WithGroup("redis"),
-	}
-}
-
-func (l *redisLogger) Printf(ctx context.Context, format string, v ...interface{}) {
-	l.logGroup.Debug(fmt.Sprintf(format, v...))
-}
+// connectRetryDelay is a var so tests can shorten it; realConnect retries
+// indefinitely, mirroring how the lazy go-redis client behaved.
+var connectRetryDelay = 3 * time.Second
 
 type RedisDbDriver struct {
-	prefix      string
-	connection  redis.UniversalClient
-	logger      logger.Logger
-	redisLogger *redisLogger
+	prefix     string
+	connection valkey.Client
+	logger     logger.Logger
 }
 
 type legacySpaceRecord struct {
@@ -49,17 +38,10 @@ type legacySpaceRecord struct {
 	SharedWithUserId string `json:"shared_with_user_id"`
 }
 
-func convertRedisError(err error) error {
-	if err == redis.Nil {
-		return nil
-	}
-	return err
-}
-
 func (db *RedisDbDriver) keyExists(key string) (bool, error) {
 	var exists = false
 
-	v, err := db.connection.Get(context.Background(), key).Result()
+	v, err := db.get(context.Background(), key)
 	if err == nil {
 		exists = v != ""
 	}
@@ -95,20 +77,39 @@ func (db *RedisDbDriver) realConnect() {
 
 	db.logger.Debug("connecting to redis server: , db:", "db", cfg.Redis.DB)
 
-	db.connection = redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:      hosts,
-		Password:   cfg.Redis.Password,
-		DB:         cfg.Redis.DB,
-		MasterName: cfg.Redis.MasterName,
-	})
-	redis.SetLogger(db.redisLogger)
+	options := valkey.ClientOption{
+		InitAddress:  hosts,
+		Password:     cfg.Redis.Password,
+		SelectDB:     cfg.Redis.DB,
+		DisableCache: true, // we only use plain Do, and it keeps odd/old servers happy
+	}
+
+	// With a master name configure for sentinel, otherwise addresses are the
+	// server (or cluster, which the client detects automatically).
+	if cfg.Redis.MasterName != "" {
+		options.Sentinel = valkey.SentinelOption{
+			MasterSet: cfg.Redis.MasterName,
+		}
+	}
+
+	// valkey.NewClient connects eagerly, so retry until the server is
+	// reachable: a Redis that is briefly down at startup (or after a
+	// failover) must not take the process down with it.
+	for {
+		client, err := valkey.NewClient(options)
+		if err == nil {
+			db.connection = client
+			break
+		}
+		db.logger.WithError(err).Error("failed to connect to Redis, retrying")
+		time.Sleep(connectRetryDelay)
+	}
 
 	db.logger.Debug("connected to Redis")
 }
 
 func (db *RedisDbDriver) Connect() error {
 	db.logger = log.WithGroup("db")
-	db.redisLogger = newRedisLogger()
 
 	// If prefix doesn't end with : append it
 	cfg := config.GetServerConfig()
@@ -131,8 +132,7 @@ func (db *RedisDbDriver) Connect() error {
 		for range interval.C {
 			db.logger.Debug("testing Redis connection")
 
-			_, err := db.connection.Ping(context.Background()).Result()
-			if err != nil {
+			if err := db.connection.Do(context.Background(), db.connection.B().Ping().Build()).Error(); err != nil {
 				db.logger.WithError(err).Error("redis connection lost")
 				db.connection.Close()
 				db.realConnect()
@@ -259,17 +259,17 @@ func (db *RedisDbDriver) migrateSpaceShares() error {
 
 	var spaces []*model.Space
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpaces:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sSpaces:*", db.prefix))
 	for iter.Next(context.Background()) {
 		key := iter.Val()
 
-		data, err := db.connection.Get(context.Background(), key).Bytes()
+		data, err := db.get(context.Background(), key)
 		if err != nil {
 			return err
 		}
 
 		var legacy legacySpaceRecord
-		if err := json.Unmarshal(data, &legacy); err != nil {
+		if err := json.Unmarshal([]byte(data), &legacy); err != nil {
 			return err
 		}
 
@@ -308,7 +308,7 @@ func (db *RedisDbDriver) migrateSpaceShares() error {
 // cleanupObjectType iterates through keys of a given object type and deletes old soft-deleted entries
 func (db *RedisDbDriver) cleanupObjectType(objectType string, before time.Time, checkFunc func([]byte) (bool, time.Time, error)) {
 	prefix := fmt.Sprintf("%s%s:", db.prefix, objectType)
-	iter := db.connection.Scan(context.Background(), 0, prefix+"*", 0).Iterator()
+	iter := db.scan(context.Background(), prefix+"*")
 
 	for iter.Next(context.Background()) {
 		key := iter.Val()
@@ -321,16 +321,16 @@ func (db *RedisDbDriver) cleanupObjectType(objectType string, before time.Time, 
 		}
 
 		// Get the object data
-		data, err := db.connection.Get(context.Background(), key).Bytes()
+		data, err := db.get(context.Background(), key)
 		if err != nil {
-			if err != redis.Nil {
+			if !errors.Is(err, valkey.Nil) {
 				db.logger.WithError(err).Error("failed to get object for cleanup", "object_type", objectType, "key", key)
 			}
 			continue
 		}
 
 		// Check if it should be deleted
-		isDeleted, updatedAt, err := checkFunc(data)
+		isDeleted, updatedAt, err := checkFunc([]byte(data))
 		if err != nil {
 			db.logger.WithError(err).Error("failed to unmarshal object for cleanup", "object_type", objectType, "key", key)
 			continue
@@ -338,7 +338,7 @@ func (db *RedisDbDriver) cleanupObjectType(objectType string, before time.Time, 
 
 		if isDeleted && updatedAt.Before(before) {
 			// Delete the key
-			if err := db.connection.Del(context.Background(), key).Err(); err != nil {
+			if err := db.del(context.Background(), key); err != nil {
 				db.logger.Error("failed to delete expired object", "error", err, "object_type", objectType, "id", id)
 			}
 		}

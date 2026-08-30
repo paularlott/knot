@@ -15,7 +15,7 @@ func (db *RedisDbDriver) SaveCommand(command *model.Command, updateFields []stri
 
 	if existingCommand != nil {
 		if (existingCommand.Name != command.Name || existingCommand.UserId != command.UserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Name") || util.InArray(updateFields, "UserId")) {
-			db.connection.Del(context.Background(), fmt.Sprintf("%sCommandsByName:%s:%s", db.prefix, existingCommand.UserId, existingCommand.Name))
+			db.del(context.Background(), fmt.Sprintf("%sCommandsByName:%s:%s", db.prefix, existingCommand.UserId, existingCommand.Name))
 		}
 
 		if len(updateFields) > 0 {
@@ -29,23 +29,23 @@ func (db *RedisDbDriver) SaveCommand(command *model.Command, updateFields []stri
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sCommands:%s", db.prefix, command.Id), data, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sCommands:%s", db.prefix, command.Id), data, 0)
 	if err != nil {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sCommandsByName:%s:%s", db.prefix, command.UserId, command.Name), command.Id, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sCommandsByName:%s:%s", db.prefix, command.UserId, command.Name), command.Id, 0)
 }
 
 func (db *RedisDbDriver) DeleteCommand(command *model.Command) error {
-	db.connection.Del(context.Background(), fmt.Sprintf("%sCommandsByName:%s:%s", db.prefix, command.UserId, command.Name))
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sCommands:%s", db.prefix, command.Id)).Err()
+	db.del(context.Background(), fmt.Sprintf("%sCommandsByName:%s:%s", db.prefix, command.UserId, command.Name))
+	return db.del(context.Background(), fmt.Sprintf("%sCommands:%s", db.prefix, command.Id))
 }
 
 func (db *RedisDbDriver) GetCommand(id string) (*model.Command, error) {
 	var command = &model.Command{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sCommands:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sCommands:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -61,7 +61,7 @@ func (db *RedisDbDriver) GetCommand(id string) (*model.Command, error) {
 func (db *RedisDbDriver) GetCommands() ([]*model.Command, error) {
 	var commands []*model.Command
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sCommands:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sCommands:*", db.prefix))
 	for iter.Next(context.Background()) {
 		command, err := db.GetCommand(iter.Val()[len(fmt.Sprintf("%sCommands:", db.prefix)):])
 		if err != nil {
