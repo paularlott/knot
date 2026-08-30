@@ -93,6 +93,8 @@ github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0t
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/shamaton/msgpack/v3 v3.2.0 h1:1q2Ms+MWmuRju+PuDMSFDB7p7621npeX4zprJN5Zck8=
 github.com/shamaton/msgpack/v3 v3.2.0/go.mod h1:sgBYvEiyz8JR1NC3yGRoPVME9xXovpnh3l/plW1nfRo=
+github.com/shamaton/msgpack/v3 v3.2.1 h1:jjRACetPv+OlUzQt+nRmkS1cKhtV67I2xvvSQUwRTik=
+github.com/shamaton/msgpack/v3 v3.2.1/go.mod h1:sgBYvEiyz8JR1NC3yGRoPVME9xXovpnh3l/plW1nfRo=
 github.com/shirou/gopsutil/v3 v3.24.5 h1:i0t8kL+kQTvpAYToeuiVk3TgDeKOFioZO3Ztz/iZ9pI=
 github.com/shirou/gopsutil/v3 v3.24.5/go.mod h1:bsoOS1aStSs9ErQ1WWfxllSeS1K5D+U30r2NfcubMVk=
 github.com/shoenig/go-m1cpu v0.2.2 h1:4nc55oVv7nygGnfI9bhLCLzUEs4794y0Bkqx4q2zy7Y=
