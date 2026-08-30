@@ -1,12 +1,18 @@
 package driver_redis
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/paularlott/logger"
+	"github.com/valkey-io/valkey-go"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
@@ -113,5 +119,50 @@ func TestRealConnectRetriesWhenServerDown(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("realConnect did not recover once the server came up")
+	}
+}
+
+// TestLiveClusterConnectSetDelete runs against a real cluster when
+// KNOT_REDIS_CLUSTER_ADDRS (comma separated) and optionally
+// KNOT_REDIS_CLUSTER_PASSWORD are set. It touches nothing but its own
+// single uniquely named key, which it deletes again; the 5 minute TTL is a
+// safety net in case the test dies before cleanup.
+func TestLiveClusterConnectSetDelete(t *testing.T) {
+	addrs := strings.Split(os.Getenv("KNOT_REDIS_CLUSTER_ADDRS"), ",")
+	if len(addrs) == 0 || addrs[0] == "" {
+		t.Skip("KNOT_REDIS_CLUSTER_ADDRS not set")
+	}
+	password := os.Getenv("KNOT_REDIS_CLUSTER_PASSWORD")
+
+	prevCfg := config.GetServerConfig()
+	config.SetServerConfig(&config.ServerConfig{Redis: config.RedisConfig{
+		Enabled:  true,
+		Hosts:    addrs,
+		Password: password,
+	}})
+	defer config.SetServerConfig(prevCfg)
+
+	db := &RedisDbDriver{logger: logger.NewNullLogger()}
+	db.realConnect()
+	defer db.connection.Close()
+
+	if mode := db.connection.Mode(); mode != valkey.ClientModeCluster {
+		t.Fatalf("expected cluster mode, got %q", mode)
+	}
+
+	ctx := context.Background()
+	key := fmt.Sprintf("knot-valkey-test:%d", time.Now().UnixNano())
+	if err := db.set(ctx, key, "migration-check", 5*time.Minute); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	v, err := db.get(ctx, key)
+	if err != nil || v != "migration-check" {
+		t.Fatalf("get: %q %v", v, err)
+	}
+	if err := db.del(ctx, key); err != nil {
+		t.Fatalf("del: %v", err)
+	}
+	if _, err := db.get(ctx, key); !errors.Is(err, valkey.Nil) {
+		t.Fatalf("key should be gone after del, got %v", err)
 	}
 }
