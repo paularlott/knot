@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -300,9 +301,10 @@ func TestAPIFunctionToleratesEmptyBody(t *testing.T) {
 // TestWaitForStart exercises knot.space.wait_for_start through the full
 // plugin transport (HTTP, so the manager owns the client and proxy libraries
 // register correctly): already-running returns immediately, timeout returns
-// False, and a transition from stopped to running is detected.
+// False, a transition from stopped to running is detected, and a space that
+// reports running before its agent registers is not treated as ready.
 func TestWaitForStart(t *testing.T) {
-	running := false
+	var running, agentState atomic.Bool
 
 	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test-token" {
@@ -314,7 +316,8 @@ func TestWaitForStart(t *testing.T) {
 			w.Write(jsonBody(t, map[string]interface{}{
 				"space_id":   "testspace",
 				"name":       "testspace",
-				"is_running": running,
+				"is_running": running.Load(),
+				"has_state":  agentState.Load(),
 			}))
 		case r.URL.Path == "/api/scripts":
 			w.Write(jsonBody(t, map[string]interface{}{"count": 0, "scripts": []interface{}{}}))
@@ -366,7 +369,8 @@ func TestWaitForStart(t *testing.T) {
 	p.SetLibraryLoader(loader)
 
 	t.Run("already running returns immediately", func(t *testing.T) {
-		running = true
+		running.Store(true)
+		agentState.Store(true)
 		result, err := p.Eval(`import knot.space
 knot.space.wait_for_start("testspace", timeout=5, interval=0.1)`)
 		if err != nil {
@@ -378,7 +382,8 @@ knot.space.wait_for_start("testspace", timeout=5, interval=0.1)`)
 	})
 
 	t.Run("timeout returns False", func(t *testing.T) {
-		running = false
+		running.Store(false)
+		agentState.Store(false)
 		result, err := p.Eval(`knot.space.wait_for_start("testspace", timeout=1, interval=0.2)`)
 		if err != nil {
 			t.Fatalf("eval: %v", err)
@@ -389,10 +394,12 @@ knot.space.wait_for_start("testspace", timeout=5, interval=0.1)`)
 	})
 
 	t.Run("transition detected", func(t *testing.T) {
-		running = false
+		running.Store(false)
+		agentState.Store(false)
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			running = true
+			running.Store(true)
+			agentState.Store(true)
 		}()
 		result, err := p.Eval(`knot.space.wait_for_start("testspace", timeout=5, interval=0.2)`)
 		if err != nil {
@@ -400,6 +407,37 @@ knot.space.wait_for_start("testspace", timeout=5, interval=0.1)`)
 		}
 		if result.Inspect() != "True" {
 			t.Fatalf("expected True (transition detected), got %s", result.Inspect())
+		}
+	})
+
+	// Regression: the container runtime reports a space running before the
+	// in-container agent connects back. wait_for_start must keep polling
+	// until has_state flips, or run() races into "Agent session not found".
+	t.Run("running without agent session is not ready", func(t *testing.T) {
+		running.Store(true)
+		agentState.Store(false)
+		result, err := p.Eval(`knot.space.wait_for_start("testspace", timeout=1, interval=0.2)`)
+		if err != nil {
+			t.Fatalf("eval: %v", err)
+		}
+		if result.Inspect() != "False" {
+			t.Fatalf("expected False (agent never connected), got %s", result.Inspect())
+		}
+	})
+
+	t.Run("agent connecting after start is detected", func(t *testing.T) {
+		running.Store(true)
+		agentState.Store(false)
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			agentState.Store(true)
+		}()
+		result, err := p.Eval(`knot.space.wait_for_start("testspace", timeout=5, interval=0.2)`)
+		if err != nil {
+			t.Fatalf("eval: %v", err)
+		}
+		if result.Inspect() != "True" {
+			t.Fatalf("expected True (agent connected), got %s", result.Inspect())
 		}
 	})
 }

@@ -688,13 +688,19 @@ export const knotLibraries = [
       {
         "name": "is_running",
         "signature": "is_running(name)",
-        "description": "Check if a space is running",
+        "description": "Check if a space is running. A freshly started space reports running before its agent connects — see is_ready() for the state required by run() and file operations.",
+        "returns": "bool"
+      },
+      {
+        "name": "is_ready",
+        "signature": "is_ready(name)",
+        "description": "Check if a space is running with its agent connected. True only when run(), read_file(), and other agent-backed calls will succeed; false while a starting space's agent is still connecting.",
         "returns": "bool"
       },
       {
         "name": "wait_for_start",
         "signature": "wait_for_start(name, timeout, interval)",
-        "description": "Wait for a space to reach the running state. Returns True immediately if already running (never stops the space); polls every interval seconds until running or timeout expires. Returns False on timeout.",
+        "description": "Wait for a space to be running with its agent connected (ready). Returns True immediately if already ready (never stops the space); polls every interval seconds until the agent registers or timeout expires. Returns False on timeout.",
         "returns": "bool"
       },
       {
