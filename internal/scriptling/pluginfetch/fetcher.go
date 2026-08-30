@@ -89,33 +89,30 @@ func (f *Fetcher) Read(ctx context.Context, source, path string) ([]byte, error)
 	return nil, fmt.Errorf("%w: %s", errNotFound, path)
 }
 
-// List implements plugin.Fetcher. Listings enumerate the lib/ directory:
-// the knot/ subdirectory plus the user's and global library names.
-func (f *Fetcher) List(ctx context.Context, source, path string) ([]Entry, error) {
-	switch path {
-	case "", ".":
-		return []Entry{{Name: "lib", IsDir: true}}, nil
-	case "lib":
-		names, err := f.libraryNames(ctx)
-		if err != nil {
-			return nil, err
-		}
-		entries := []Entry{{Name: "knot", IsDir: true}}
-		for _, name := range names {
-			entries = append(entries, Entry{Name: name + ".py"})
-		}
-		return entries, nil
-	case "lib/knot":
-		entries := make([]Entry, 0, 20)
-		for _, name := range embeddedModuleNames() {
-			if name != "apiclient" {
-				entries = append(entries, Entry{Name: name + ".py"})
-			}
-		}
-		sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
-		return entries, nil
+// Tree enumerates the served tree with full slash paths, directories
+// included: lib/, lib/knot/ with the embedded modules, and lib/<name>.py for
+// the user's and global library scripts. The command filters it against
+// fetch glob patterns, so one enumeration answers existence probes,
+// listings and subtree matches alike.
+func (f *Fetcher) Tree(ctx context.Context) ([]Entry, error) {
+	names, err := f.libraryNames(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("%w: %s in %s", errNotFound, path, source)
+	entries := []Entry{
+		{Name: "lib", IsDir: true},
+		{Name: "lib/knot", IsDir: true},
+	}
+	for _, name := range embeddedModuleNames() {
+		if name != "apiclient" {
+			entries = append(entries, Entry{Name: "lib/knot/" + name + ".py"})
+		}
+	}
+	for _, name := range names {
+		entries = append(entries, Entry{Name: "lib/" + name + ".py"})
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
+	return entries, nil
 }
 
 // Entry mirrors plugin.FetchEntry without importing the scriptling module

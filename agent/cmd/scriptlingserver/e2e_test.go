@@ -39,13 +39,24 @@ func (m *minimalPluginFS) ReadFile(name string) ([]byte, error) {
 }
 
 func (m *minimalPluginFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	entries, err := m.client.FetchList(context.Background(), m.source, name)
+	pattern := name + "/*"
+	if name == "." {
+		pattern = "*"
+	}
+	entries, err := m.client.FetchGlob(context.Background(), m.source, pattern)
 	if err != nil {
 		return nil, fs.ErrNotExist
 	}
-	out := make([]fs.DirEntry, len(entries))
-	for i, e := range entries {
-		out[i] = &minimalEntry{name: e.Name, isDir: e.IsDir}
+	prefix := ""
+	if name != "." {
+		prefix = name + "/"
+	}
+	out := []fs.DirEntry{}
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name, prefix) || strings.Contains(strings.TrimPrefix(e.Name, prefix), "/") {
+			continue
+		}
+		out = append(out, &minimalEntry{name: strings.TrimPrefix(e.Name, prefix), isDir: e.IsDir})
 	}
 	return out, nil
 }

@@ -149,14 +149,16 @@ func (a fetcherAdapter) Read(ctx context.Context, source, path string) ([]byte, 
 	return a.Fetcher.Read(ctx, source, path)
 }
 
-func (a fetcherAdapter) List(ctx context.Context, source, path string) ([]plugin.FetchEntry, error) {
-	entries, err := a.Fetcher.List(ctx, source, path)
+func (a fetcherAdapter) Glob(ctx context.Context, source, pattern string) ([]plugin.FetchEntry, error) {
+	tree, err := a.Fetcher.Tree(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]plugin.FetchEntry, len(entries))
-	for i, e := range entries {
-		out[i] = plugin.FetchEntry{Name: e.Name, IsDir: e.IsDir}
+	out := []plugin.FetchEntry{}
+	for _, e := range tree {
+		if plugin.MatchGlob(pattern, e.Name) {
+			out = append(out, plugin.FetchEntry{Name: e.Name, IsDir: e.IsDir})
+		}
 	}
 	return out, nil
 }

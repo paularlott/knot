@@ -101,18 +101,18 @@ func TestFetcherServesUserLibs(t *testing.T) {
 		t.Fatalf("expected server content, got %q", data)
 	}
 
-	entries, err := f.List(context.Background(), "knot://libs", "lib")
+	entries, err := f.Tree(context.Background())
 	if err != nil {
-		t.Fatalf("List(lib): %v", err)
+		t.Fatalf("Tree: %v", err)
 	}
 	found := false
 	for _, e := range entries {
-		if e.Name == "mylib.py" {
+		if e.Name == "lib/mylib.py" && !e.IsDir {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("expected mylib.py in lib listing, got %v", entries)
+		t.Fatalf("expected lib/mylib.py in the tree, got %v", entries)
 	}
 }
 

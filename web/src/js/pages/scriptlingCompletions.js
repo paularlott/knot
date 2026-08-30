@@ -983,6 +983,146 @@ const scriptlingLibraries = [
     ],
   },
   {
+    module: "scriptling.badgerdb",
+    description: "BadgerDB plugin — embedded key/value store.",
+    functions: [
+      {
+        name: "open",
+        signature: "open(path)",
+        description: "Open (creating if needed) a BadgerDB database directory.",
+        returns: "Client",
+      },
+    ],
+    classes: [
+      {
+        name: "Client",
+        description: "A handle to an open BadgerDB database.",
+        methods: [
+          {
+            name: "get",
+            signature: "get(key)",
+            description: "Value stored at key, or None when the key does not exist.",
+            returns: "str",
+          },
+          {
+            name: "set",
+            signature: "set(key, value, ttl_seconds=0)",
+            description: "Store a string value. ttl_seconds of 0 (default) means no expiry.",
+            returns: "None",
+          },
+          {
+            name: "set_if_absent",
+            signature: "set_if_absent(key, value, ttl_seconds=0)",
+            description: "Store only when the key does not exist; whether it was stored.",
+            returns: "bool",
+          },
+          {
+            name: "mget",
+            signature: "mget(*keys)",
+            description: "Values for the keys in one call, in order; None where missing.",
+            returns: "List[Optional[str]]",
+          },
+          {
+            name: "mset",
+            signature: "mset(mapping, ttl_seconds=0)",
+            description: "Store every entry of a dict in one call.",
+            returns: "None",
+          },
+          {
+            name: "delete",
+            signature: "delete(*keys)",
+            description: "Delete keys, returning how many existed.",
+            returns: "int",
+          },
+          {
+            name: "exists",
+            signature: "exists(*keys)",
+            description: "Return how many of the keys exist.",
+            returns: "int",
+          },
+          {
+            name: "expire",
+            signature: "expire(key, ttl_seconds)",
+            description: "Set a key's time to live. False when the key is missing.",
+            returns: "bool",
+          },
+          {
+            name: "persist",
+            signature: "persist(key)",
+            description: "Remove a key's expiry so it lives forever. False when missing.",
+            returns: "bool",
+          },
+          {
+            name: "ttl",
+            signature: "ttl(key)",
+            description: "Remaining seconds before expiry; None when missing, -1 when no expiry.",
+            returns: "int",
+          },
+          {
+            name: "incr",
+            signature: "incr(key, amount=1)",
+            description: "Add amount to the integer stored at key, returning the new value.",
+            returns: "int",
+          },
+          {
+            name: "decr",
+            signature: "decr(key, amount=1)",
+            description: "Subtract amount from the integer stored at key.",
+            returns: "int",
+          },
+          {
+            name: "hash_set",
+            signature: "hash_set(key, field, value)",
+            description: "Set one hash field; 1 when the field was new, 0 when it overwrote.",
+            returns: "int",
+          },
+          {
+            name: "hash_get",
+            signature: "hash_get(key, field)",
+            description: "The field's value, or None when the key or field is missing.",
+            returns: "str",
+          },
+          {
+            name: "hash_delete",
+            signature: "hash_delete(key, *fields)",
+            description: "Delete fields, returning how many existed.",
+            returns: "int",
+          },
+          {
+            name: "hash_all",
+            signature: "hash_all(key)",
+            description: "Every field and value; an empty dict when the key is missing.",
+            returns: "Dict[str, str]",
+          },
+          {
+            name: "hash_size",
+            signature: "hash_size(key)",
+            description: "How many fields the hash holds. 0 when the key is missing.",
+            returns: "int",
+          },
+          {
+            name: "keys",
+            signature: "keys(pattern)",
+            description: "Keys matching a glob pattern (* and ?).",
+            returns: "List[str]",
+          },
+          {
+            name: "ping",
+            signature: "ping()",
+            description: "Check the store is reachable, raising on failure.",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the database and release its lock.",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+  },
+  {
     module: "scriptling.console",
     description: "Scriptling Console Library - Type stubs for IntelliSense support.",
     functions: [
@@ -4341,6 +4481,486 @@ const scriptlingLibraries = [
     ],
   },
   {
+    module: "scriptling.sql",
+    description: "SQL plugin — MySQL, MariaDB and PostgreSQL client.",
+    functions: [
+      {
+        name: "connect",
+        signature: "connect(dsn)",
+        description: "Connect to a relational database server.",
+        returns: "Connection",
+      },
+    ],
+    classes: [
+      {
+        name: "ExecResult",
+        description: "Result of Connection.execute(). last_insert_id is 0 on postgres.",
+        properties: [
+        {
+          name: "last_insert_id",
+          description: "int",
+        },
+        {
+          name: "rows_affected",
+          description: "int",
+        },
+        ],
+      },
+      {
+        name: "Connection",
+        description: "A handle to an open database connection.",
+        methods: [
+          {
+            name: "query",
+            signature: "query(sql, *params)",
+            description: "Execute a SELECT-style statement.",
+            returns: "List[_Row]",
+          },
+          {
+            name: "query_iter",
+            signature: "query_iter(sql, *params)",
+            description: "Run a query and stream rows via a Cursor instead of a list.",
+            returns: "Cursor",
+          },
+          {
+            name: "execute",
+            signature: "execute(sql, *params)",
+            description: "Execute a statement that changes rows (INSERT/UPDATE/DELETE/DDL).",
+            returns: "ExecResult",
+          },
+          {
+            name: "get_orm",
+            signature: "get_orm()",
+            description: "Return the ORM bound to this connection.",
+            returns: "ORM",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the connection.",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "ORM",
+        description: "Table helper from Connection.get_orm(): query builders, quick forms, models.",
+        methods: [
+          {
+            name: "insert",
+            signature: "insert(table, values, pk=\"id\")",
+            description: "Insert one row from a dict of column to value.",
+            returns: "ExecResult",
+          },
+          {
+            name: "tables",
+            signature: "tables()",
+            description: "User table names in the current database, sorted.",
+            returns: "List[str]",
+          },
+          {
+            name: "create_table",
+            signature: "create_table(table)",
+            description: "Start a CREATE TABLE builder; .execute() runs the DDL.",
+            returns: "\"TableBuilder\"",
+          },
+          {
+            name: "drop_table",
+            signature: "drop_table(table)",
+            description: "DROP TABLE IF EXISTS.",
+            returns: "ExecResult",
+          },
+          {
+            name: "select",
+            signature: "select(table, *columns)",
+            description: "Start a chained query; .fetch() runs it. Columns optional (all).",
+            returns: "\"QueryBuilder\"",
+          },
+          {
+            name: "update",
+            signature: "update(table, values)",
+            description: "Start a chained update; .where(...) then .execute(). Where required.",
+            returns: "\"UpdateQuery\"",
+          },
+          {
+            name: "delete",
+            signature: "delete(table)",
+            description: "Start a chained delete; .where(...) then .execute(). Where required.",
+            returns: "\"DeleteQuery\"",
+          },
+          {
+            name: "table",
+            signature: "table(factory, table, pk=\"id\", columns=...)",
+            description: "Bind a row factory to a table.",
+            returns: "\"ModelGateway\"",
+          },
+        ],
+      },
+      {
+        name: "TableBuilder",
+        description: "A CREATE TABLE builder from orm.create_table(); every method returns the builder.",
+        methods: [
+          {
+            name: "column",
+            signature: "column(name, col_type, primary_key=False, autoincrement=False, nullable=True, unique=False, default=...)",
+            description: "Add a column; col_type is raw SQL (\"text\", \"varchar(100)\", ...).",
+            returns: "\"TableBuilder\"",
+          },
+        ],
+      },
+      {
+        name: "Cursor",
+        description: "Row stream from Connection.query_iter().",
+        methods: [
+          {
+            name: "next",
+            signature: "next()",
+            description: "The next row as a dict, or None when exhausted.",
+            returns: "Dict[str, Any]",
+          },
+        ],
+      },
+      {
+        name: "RowIterator",
+        description: "Row stream from QueryBuilder.iterate(); supports for-in.",
+      },
+      {
+        name: "Criterion",
+        description: "A composable condition from the orm.eq()/any_of()/... constructors.",
+      },
+      {
+        name: "QueryBuilder",
+        description: "A chained query from orm.select(); every method returns the query.",
+        methods: [
+          {
+            name: "where",
+            signature: "where(criterion)",
+            description: "Add an AND condition from orm.eq()/any_of()/... .",
+            returns: "\"QueryBuilder\"",
+          },
+          {
+            name: "where_sql",
+            signature: "where_sql(fragment, *params)",
+            description: "Escape hatch: raw SQL fragment with ? placeholders.",
+            returns: "\"QueryBuilder\"",
+          },
+        ],
+      },
+      {
+        name: "UpdateQuery",
+        description: "A chained update from orm.update(table, values); every method returns the query.",
+        methods: [
+          {
+            name: "where",
+            signature: "where(criterion)",
+            description: "Add an AND condition from orm.eq()/any_of()/... .",
+            returns: "\"UpdateQuery\"",
+          },
+          {
+            name: "where_sql",
+            signature: "where_sql(fragment, *params)",
+            description: "Escape hatch: raw SQL fragment with ? placeholders.",
+            returns: "\"UpdateQuery\"",
+          },
+          {
+            name: "execute",
+            signature: "execute()",
+            description: "Run the update. Refuses to run without a where clause.",
+            returns: "ExecResult",
+          },
+        ],
+      },
+      {
+        name: "DeleteQuery",
+        description: "A chained delete from orm.delete(table); every method returns the query.",
+        methods: [
+          {
+            name: "where",
+            signature: "where(criterion)",
+            description: "Add an AND condition from orm.eq()/any_of()/... .",
+            returns: "\"DeleteQuery\"",
+          },
+          {
+            name: "where_sql",
+            signature: "where_sql(fragment, *params)",
+            description: "Escape hatch: raw SQL fragment with ? placeholders.",
+            returns: "\"DeleteQuery\"",
+          },
+          {
+            name: "execute",
+            signature: "execute()",
+            description: "Run the delete. Refuses to run without a where clause.",
+            returns: "ExecResult",
+          },
+        ],
+      },
+      {
+        name: "ModelGateway",
+        description: "Row-object mapping from orm.table(factory, table, ...).",
+        methods: [
+          {
+            name: "get",
+            signature: "get(pk_value)",
+            description: "Factory(row) for the primary key, or None.",
+            returns: "Any",
+          },
+          {
+            name: "save",
+            signature: "save(obj)",
+            description: "Update by primary key.",
+            returns: "ExecResult",
+          },
+          {
+            name: "delete",
+            signature: "delete(target)",
+            description: "Delete by instance (pk field) or raw primary key.",
+            returns: "ExecResult",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.sqlite",
+    description: "SQLite plugin — embedded relational database (pure Go).",
+    functions: [
+      {
+        name: "connect",
+        signature: "connect(path=..., timeout_ms=5000)",
+        description: "Open a SQLite database file and return a Connection.",
+        returns: "Connection",
+      },
+    ],
+    classes: [
+      {
+        name: "ExecResult",
+        description: "Result of Connection.execute().",
+        properties: [
+        {
+          name: "last_insert_id",
+          description: "int",
+        },
+        {
+          name: "rows_affected",
+          description: "int",
+        },
+        ],
+      },
+      {
+        name: "Connection",
+        description: "A handle to an open SQLite database.",
+        methods: [
+          {
+            name: "query",
+            signature: "query(sql, *params)",
+            description: "Execute a SELECT-style statement.",
+            returns: "List[_Row]",
+          },
+          {
+            name: "query_iter",
+            signature: "query_iter(sql, *params)",
+            description: "Run a query and stream rows via a Cursor instead of a list.",
+            returns: "Cursor",
+          },
+          {
+            name: "execute",
+            signature: "execute(sql, *params)",
+            description: "Execute a statement that changes rows (INSERT/UPDATE/DELETE/DDL).",
+            returns: "ExecResult",
+          },
+          {
+            name: "get_orm",
+            signature: "get_orm()",
+            description: "Return the ORM bound to this connection.",
+            returns: "ORM",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the connection and release the database handle.",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "ORM",
+        description: "Table helper from Connection.get_orm(): query builders, quick forms, models.",
+        methods: [
+          {
+            name: "insert",
+            signature: "insert(table, values, pk=\"id\")",
+            description: "Insert one row from a dict of column to value.",
+            returns: "ExecResult",
+          },
+          {
+            name: "tables",
+            signature: "tables()",
+            description: "User table names in the current database, sorted.",
+            returns: "List[str]",
+          },
+          {
+            name: "create_table",
+            signature: "create_table(table)",
+            description: "Start a CREATE TABLE builder; .execute() runs the DDL.",
+            returns: "\"TableBuilder\"",
+          },
+          {
+            name: "drop_table",
+            signature: "drop_table(table)",
+            description: "DROP TABLE IF EXISTS.",
+            returns: "ExecResult",
+          },
+          {
+            name: "select",
+            signature: "select(table, *columns)",
+            description: "Start a chained query; .fetch() runs it. Columns optional (all).",
+            returns: "\"QueryBuilder\"",
+          },
+          {
+            name: "update",
+            signature: "update(table, values)",
+            description: "Start a chained update; .where(...) then .execute(). Where required.",
+            returns: "\"UpdateQuery\"",
+          },
+          {
+            name: "delete",
+            signature: "delete(table)",
+            description: "Start a chained delete; .where(...) then .execute(). Where required.",
+            returns: "\"DeleteQuery\"",
+          },
+          {
+            name: "table",
+            signature: "table(factory, table, pk=\"id\", columns=...)",
+            description: "Bind a row factory to a table.",
+            returns: "\"ModelGateway\"",
+          },
+        ],
+      },
+      {
+        name: "TableBuilder",
+        description: "A CREATE TABLE builder from orm.create_table(); every method returns the builder.",
+        methods: [
+          {
+            name: "column",
+            signature: "column(name, col_type, primary_key=False, autoincrement=False, nullable=True, unique=False, default=...)",
+            description: "Add a column; col_type is raw SQL (\"text\", \"varchar(100)\", ...).",
+            returns: "\"TableBuilder\"",
+          },
+        ],
+      },
+      {
+        name: "Cursor",
+        description: "Row stream from Connection.query_iter().",
+        methods: [
+          {
+            name: "next",
+            signature: "next()",
+            description: "The next row as a dict, or None when exhausted.",
+            returns: "Dict[str, Any]",
+          },
+        ],
+      },
+      {
+        name: "RowIterator",
+        description: "Row stream from QueryBuilder.iterate(); supports for-in.",
+      },
+      {
+        name: "Criterion",
+        description: "A composable condition from the orm.eq()/any_of()/... constructors.",
+      },
+      {
+        name: "QueryBuilder",
+        description: "A chained query from orm.select(); every method returns the query.",
+        methods: [
+          {
+            name: "where",
+            signature: "where(criterion)",
+            description: "Add an AND condition from orm.eq()/any_of()/... .",
+            returns: "\"QueryBuilder\"",
+          },
+          {
+            name: "where_sql",
+            signature: "where_sql(fragment, *params)",
+            description: "Escape hatch: raw SQL fragment with ? placeholders.",
+            returns: "\"QueryBuilder\"",
+          },
+        ],
+      },
+      {
+        name: "UpdateQuery",
+        description: "A chained update from orm.update(table, values); every method returns the query.",
+        methods: [
+          {
+            name: "where",
+            signature: "where(criterion)",
+            description: "Add an AND condition from orm.eq()/any_of()/... .",
+            returns: "\"UpdateQuery\"",
+          },
+          {
+            name: "where_sql",
+            signature: "where_sql(fragment, *params)",
+            description: "Escape hatch: raw SQL fragment with ? placeholders.",
+            returns: "\"UpdateQuery\"",
+          },
+          {
+            name: "execute",
+            signature: "execute()",
+            description: "Run the update. Refuses to run without a where clause.",
+            returns: "ExecResult",
+          },
+        ],
+      },
+      {
+        name: "DeleteQuery",
+        description: "A chained delete from orm.delete(table); every method returns the query.",
+        methods: [
+          {
+            name: "where",
+            signature: "where(criterion)",
+            description: "Add an AND condition from orm.eq()/any_of()/... .",
+            returns: "\"DeleteQuery\"",
+          },
+          {
+            name: "where_sql",
+            signature: "where_sql(fragment, *params)",
+            description: "Escape hatch: raw SQL fragment with ? placeholders.",
+            returns: "\"DeleteQuery\"",
+          },
+          {
+            name: "execute",
+            signature: "execute()",
+            description: "Run the delete. Refuses to run without a where clause.",
+            returns: "ExecResult",
+          },
+        ],
+      },
+      {
+        name: "ModelGateway",
+        description: "Row-object mapping from orm.table(factory, table, ...).",
+        methods: [
+          {
+            name: "get",
+            signature: "get(pk_value)",
+            description: "Factory(row) for the primary key, or None.",
+            returns: "Any",
+          },
+          {
+            name: "save",
+            signature: "save(obj)",
+            description: "Update by primary key.",
+            returns: "ExecResult",
+          },
+          {
+            name: "delete",
+            signature: "delete(target)",
+            description: "Delete by instance (pk field) or raw primary key.",
+            returns: "ExecResult",
+          },
+        ],
+      },
+    ],
+  },
+  {
     module: "scriptling.template.html",
     description: "Scriptling Template HTML Library - Type stubs for IntelliSense support.",
     functions: [
@@ -4431,6 +5051,242 @@ const scriptlingLibraries = [
         signature: "decode_options(text, strict, indent_size)",
         description: "Decode TOON format with custom options.",
         returns: "Any - Decoded scriptling value",
+      },
+    ],
+  },
+  {
+    module: "scriptling.valkey",
+    description: "Valkey / Redis plugin — key/value client.",
+    functions: [
+      {
+        name: "connect",
+        signature: "connect(url=\"valkey://localhost:6379\", mode=\"single\", master_set=\"mymaster\")",
+        description: "Connect to a Valkey or Redis server, cluster or sentinel.",
+        returns: "Client",
+      },
+    ],
+    classes: [
+      {
+        name: "Client",
+        description: "A handle to a connected Valkey or Redis server.",
+        methods: [
+          {
+            name: "get",
+            signature: "get(key)",
+            description: "Value stored at key, or None when the key does not exist.",
+            returns: "str",
+          },
+          {
+            name: "set",
+            signature: "set(key, value, ttl_seconds=0)",
+            description: "Store a string value. ttl_seconds of 0 (default) means no expiry.",
+            returns: "None",
+          },
+          {
+            name: "set_if_absent",
+            signature: "set_if_absent(key, value, ttl_seconds=0)",
+            description: "Store only when the key does not exist; whether it was stored.",
+            returns: "bool",
+          },
+          {
+            name: "mget",
+            signature: "mget(*keys)",
+            description: "Values for the keys in one round trip, in order; None where missing.",
+            returns: "List[Optional[str]]",
+          },
+          {
+            name: "mset",
+            signature: "mset(mapping, ttl_seconds=0)",
+            description: "Store every entry of a dict in one round trip.",
+            returns: "None",
+          },
+          {
+            name: "delete",
+            signature: "delete(*keys)",
+            description: "Delete keys, returning how many existed.",
+            returns: "int",
+          },
+          {
+            name: "exists",
+            signature: "exists(*keys)",
+            description: "Return how many of the keys exist.",
+            returns: "int",
+          },
+          {
+            name: "expire",
+            signature: "expire(key, ttl_seconds)",
+            description: "Set a key's time to live. False when the key is missing.",
+            returns: "bool",
+          },
+          {
+            name: "persist",
+            signature: "persist(key)",
+            description: "Remove a key's expiry so it lives forever. False when missing.",
+            returns: "bool",
+          },
+          {
+            name: "ttl",
+            signature: "ttl(key)",
+            description: "Remaining seconds before expiry; None when missing, -1 when no expiry.",
+            returns: "int",
+          },
+          {
+            name: "incr",
+            signature: "incr(key, amount=1)",
+            description: "Add amount to the integer stored at key, returning the new value.",
+            returns: "int",
+          },
+          {
+            name: "decr",
+            signature: "decr(key, amount=1)",
+            description: "Subtract amount from the integer stored at key.",
+            returns: "int",
+          },
+          {
+            name: "hash_set",
+            signature: "hash_set(key, field, value)",
+            description: "Set one hash field; 1 when the field was new, 0 when it overwrote.",
+            returns: "int",
+          },
+          {
+            name: "hash_get",
+            signature: "hash_get(key, field)",
+            description: "The field's value, or None when the key or field is missing.",
+            returns: "str",
+          },
+          {
+            name: "hash_delete",
+            signature: "hash_delete(key, *fields)",
+            description: "Delete fields, returning how many existed.",
+            returns: "int",
+          },
+          {
+            name: "hash_all",
+            signature: "hash_all(key)",
+            description: "Every field and value; an empty dict when the key is missing.",
+            returns: "Dict[str, str]",
+          },
+          {
+            name: "hash_size",
+            signature: "hash_size(key)",
+            description: "How many fields the hash holds. 0 when the key is missing.",
+            returns: "int",
+          },
+          {
+            name: "keys",
+            signature: "keys(pattern)",
+            description: "Keys matching a glob pattern (* and ?).",
+            returns: "List[str]",
+          },
+          {
+            name: "ping",
+            signature: "ping()",
+            description: "Check the server is reachable, raising on failure.",
+            returns: "None",
+          },
+          {
+            name: "select",
+            signature: "select(index)",
+            description: "Switch the connection to a different database (cheap reconnect).",
+            returns: "None",
+          },
+          {
+            name: "db",
+            signature: "db()",
+            description: "The database index this client currently addresses.",
+            returns: "int",
+          },
+          {
+            name: "mode",
+            signature: "mode()",
+            description: "How the client talks to the server: \"standalone\", \"cluster\" or \"sentinel\".",
+            returns: "str",
+          },
+          {
+            name: "flushdb",
+            signature: "flushdb()",
+            description: "Delete every key in the current database. Destructive.",
+            returns: "None",
+          },
+          {
+            name: "flushall",
+            signature: "flushall()",
+            description: "Delete every key in every database on the server. Destructive.",
+            returns: "None",
+          },
+          {
+            name: "set_add",
+            signature: "set_add(key, *members)",
+            description: "Add members to a set; returns how many were new.",
+            returns: "int",
+          },
+          {
+            name: "set_remove",
+            signature: "set_remove(key, *members)",
+            description: "Remove members from a set; returns how many existed.",
+            returns: "int",
+          },
+          {
+            name: "set_members",
+            signature: "set_members(key)",
+            description: "Every member of the set, unordered.",
+            returns: "List[str]",
+          },
+          {
+            name: "set_contains",
+            signature: "set_contains(key, member)",
+            description: "Whether member is in the set.",
+            returns: "bool",
+          },
+          {
+            name: "set_size",
+            signature: "set_size(key)",
+            description: "Number of members in the set.",
+            returns: "int",
+          },
+          {
+            name: "queue_push",
+            signature: "queue_push(key, *values)",
+            description: "Push values onto the queue's tail; returns the queue length.",
+            returns: "int",
+          },
+          {
+            name: "queue_pop",
+            signature: "queue_pop(key)",
+            description: "Pop the value at the queue's head, or None when empty.",
+            returns: "str",
+          },
+          {
+            name: "queue_wait",
+            signature: "queue_wait(key, timeout)",
+            description: "Pop the head value, waiting up to timeout seconds; None on timeout.",
+            returns: "str",
+          },
+          {
+            name: "queue_peek",
+            signature: "queue_peek(key)",
+            description: "The value at the queue's head without removing it.",
+            returns: "str",
+          },
+          {
+            name: "queue_size",
+            signature: "queue_size(key)",
+            description: "Number of values in the queue.",
+            returns: "int",
+          },
+          {
+            name: "queue_range",
+            signature: "queue_range(key, start=0, stop=-1)",
+            description: "Values from the queue in order, head first, without removing them.",
+            returns: "List[str]",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the client and release its connections.",
+            returns: "None",
+          },
+        ],
       },
     ],
   },

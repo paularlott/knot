@@ -126,22 +126,28 @@ func TestPluginProtocolCycle(t *testing.T) {
 		}
 	})
 
-	t.Run("directory listing", func(t *testing.T) {
-		entries, err := pc.FetchList(ctx, "knot://libs", "lib")
+	t.Run("glob", func(t *testing.T) {
+		entries, err := pc.FetchGlob(ctx, "knot://libs", "lib/*")
 		if err != nil {
-			t.Fatalf("FetchList(lib): %v", err)
+			t.Fatalf("FetchGlob(lib/*): %v", err)
 		}
 		foundKnot, foundLib := false, false
 		for _, e := range entries {
-			if e.Name == "knot" && e.IsDir {
+			if e.Name == "lib/knot" && e.IsDir {
 				foundKnot = true
 			}
-			if e.Name == "mylib.py" {
+			if e.Name == "lib/mylib.py" && !e.IsDir {
 				foundLib = true
 			}
 		}
 		if !foundKnot || !foundLib {
-			t.Fatalf("expected knot dir and mylib.py in listing, got %v", entries)
+			t.Fatalf("expected lib/knot dir and lib/mylib.py in matches, got %v", entries)
+		}
+
+		// An exact-path probe answers the directory entry itself.
+		exact, err := pc.FetchGlob(ctx, "knot://libs", "lib/knot")
+		if err != nil || len(exact) != 1 || !exact[0].IsDir {
+			t.Fatalf("FetchGlob(lib/knot) = %v, %v; want the directory entry", exact, err)
 		}
 	})
 
