@@ -10,7 +10,7 @@ toolchain go1.26.5
 
 //replace github.com/paularlott/mcp => ../mcp
 
-replace github.com/paularlott/scriptling => ../scriptling/
+//replace github.com/paularlott/scriptling => ../scriptling/
 
 //replace github.com/paularlott/lmchatkit => ../lmchatkit
 
@@ -22,7 +22,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.10.0
-	github.com/gogpu/systray v0.2.8
+	github.com/gogpu/systray v0.3.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
@@ -33,7 +33,7 @@ require (
 	github.com/paularlott/lmchatkit v0.9.1
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.25.0
-	github.com/paularlott/scriptling v0.22.0
+	github.com/paularlott/scriptling v0.23.0
 	github.com/pkg/sftp v1.13.11
 	github.com/shamaton/msgpack/v3 v3.2.1
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -64,7 +64,6 @@ require (
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/kr/fs v0.1.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect
 	github.com/paularlott/snapshotkv v0.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
