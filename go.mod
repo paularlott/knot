@@ -33,7 +33,7 @@ require (
 	github.com/paularlott/lmchatkit v0.9.1
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.25.0
-	github.com/paularlott/scriptling v0.23.0
+	github.com/paularlott/scriptling v0.24.0
 	github.com/pkg/sftp v1.13.11
 	github.com/shamaton/msgpack/v3 v3.2.1
 	github.com/shirou/gopsutil/v3 v3.24.5

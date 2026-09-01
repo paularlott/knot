@@ -4705,8 +4705,14 @@ const scriptlingLibraries = [
             returns: "Any",
           },
           {
+            name: "insert",
+            signature: "insert(obj, columns=None)",
+            description: "Insert one row from the object.",
+            returns: "ExecResult",
+          },
+          {
             name: "save",
-            signature: "save(obj)",
+            signature: "save(obj, columns=None)",
             description: "Update by primary key.",
             returns: "ExecResult",
           },
@@ -4945,8 +4951,14 @@ const scriptlingLibraries = [
             returns: "Any",
           },
           {
+            name: "insert",
+            signature: "insert(obj, columns=None)",
+            description: "Insert one row from the object.",
+            returns: "ExecResult",
+          },
+          {
             name: "save",
-            signature: "save(obj)",
+            signature: "save(obj, columns=None)",
             description: "Update by primary key.",
             returns: "ExecResult",
           },
