@@ -345,6 +345,10 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		injectNomadEnvVars(jobJSON, portEnvs)
 	}
 
+	// Provision the agent's registration credentials, and refuse proof-less
+	// registration for this space from now on.
+	injectNomadEnvVars(jobJSON, container.AgentRegistrationEnv(cfg, space.Id))
+
 	// When agent DNS is enabled, signal the in-container agent to run its
 	// resolver, hand it the upstream nameservers, expose KNOT_SERVER_RESOLVE
 	// for the agent fetch, and route each docker-driver task's DNS at the

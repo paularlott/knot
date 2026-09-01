@@ -111,11 +111,14 @@ func createPooledEnv() (*scriptling.Scriptling, func(), error) {
 
 	var customLogger logger.Logger
 	if agentClient != nil {
-		customLogger = NewAgentClientLogger(agentClient, "script")
+		customLogger = NewAgentClientLogger(agentClient, "knot_script")
 	}
 
-	// Use NewRemoteStreamingScriptlingEnv with Discard/nil I/O. It registers
-	// the full library superset. Per-call argv is set via RegisterSysLibrary
-	// after Acquire; per-call I/O is swapped via SetOutputWriter/SetInputReader.
-	return service.NewRemoteStreamingScriptlingEnv(nil, client, userId, customLogger, io.Discard, nil)
+	// Pooled agent environments with discarded I/O. Per-call argv is set via
+	// RegisterSysLibrary after Acquire; per-call I/O is swapped via
+	// SetOutputWriter/SetInputReader.
+	return service.NewAgentScriptlingEnv(client, userId, service.AgentScriptlingOptions{
+		Logger: customLogger,
+		Output: io.Discard,
+	})
 }

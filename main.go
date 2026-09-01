@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	command_scriptling "github.com/paularlott/knot/agent/cmd/scriptlingserver"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
@@ -29,6 +31,16 @@ import (
 )
 
 func main() {
+	// A process spawned by scriptling as a plugin peer runs the plugin
+	// server instead of the CLI or the desktop.
+	if command_scriptling.ShouldAutoStart() {
+		if err := command_scriptling.AutoStartCmd().Execute(context.Background()); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Logger will be configured with proper level in PreRun
 	log.Configure("info", "console", os.Stderr)
 
@@ -44,22 +56,28 @@ It offers both a user-friendly web interface and a command line interface to str
 		ConfigFile: cli_toml.NewConfigFile(&configFile, func() []string {
 			paths := []string{"."}
 
-			home, err := os.UserHomeDir()
-			if err == nil {
+			if home, err := os.UserHomeDir(); err == nil {
 				paths = append(paths, home)
+				// ~/.knot/knot.toml (the wizard's target) takes precedence
+				// over ~/.config/knot/knot.toml, which `knot connect` uses
+				// for client connection data.
+				paths = append(paths, filepath.Join(home, "."+config.CONFIG_DIR))
+				paths = append(paths, filepath.Join(home, ".config", config.CONFIG_DIR))
 			}
 
-			paths = append(paths, filepath.Join(home, ".config", config.CONFIG_DIR))
-			paths = append(paths, filepath.Join("/etc", config.CONFIG_DIR))
+			// /etc is not a meaningful location on Windows
+			if runtime.GOOS != "windows" {
+				paths = append(paths, filepath.Join("/etc", config.CONFIG_DIR))
+			}
 
 			return paths
 		}),
-		Flags: []cli.Flag{
+		Flags: append([]cli.Flag{
 			&cli.StringFlag{
 				Name:        "config",
 				Aliases:     []string{"c"},
 				Usage:       "Name and path to the configuration file to use.",
-				DefaultText: config.CONFIG_FILE + " in the current directory, $HOME/ or $HOME/.config/" + config.CONFIG_DIR + "/" + config.CONFIG_FILE,
+				DefaultText: config.CONFIG_FILE + " in the current directory, $HOME/, $HOME/.config/" + config.CONFIG_DIR + "/ or $HOME/." + config.CONFIG_DIR + "/" + config.CONFIG_FILE,
 				EnvVars:     []string{config.CONFIG_ENV_PREFIX + "_CONFIG"},
 				AssignTo:    &configFile,
 				Global:      true,
@@ -82,7 +100,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			},
 			&cli.StringFlag{
 				Name:         "log-output-format",
-				Usage:        "Log output format: ndjson, loki, or elasticsearch.",
+				Usage:        "Log output format: ndjson, loki, elasticsearch, or gelf.",
 				ConfigPath:   []string{"log.output.format"},
 				EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOG_OUTPUT_FORMAT"},
 				DefaultValue: "ndjson",
@@ -124,7 +142,7 @@ It offers both a user-friendly web interface and a command line interface to str
 				EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_NAMESERVERS"},
 				Global:     true,
 			},
-		},
+		}, command.ServerFlags()...),
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command.ConnectCmd,
@@ -152,6 +170,10 @@ It offers both a user-friendly web interface and a command line interface to str
 			return ctx, nil
 		},
 	}
+
+	// Desktop mode: bare `knot` (no subcommand) runs the server with a system
+	// tray icon. No-op in -tags server builds, where bare `knot` shows help.
+	applyDesktopMode(cmd)
 
 	err := cmd.Execute(context.Background())
 	if err != nil {

@@ -18,7 +18,7 @@ tags:
     description: |
       This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
 
-      A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
+      A token can be obtained by logging in with the login endpoint and providing a valid username and password, then calling the create token endpoint. The login response returns a session ID which must be sent as a cookie (`__KNOT_WEBUI_SESSION`) when calling the create token endpoint, after which all requests use the returned token as a Bearer token. Tokens can also be created directly in the web interface.
   - name: OpenAI
     description: |
       OpenAI-compatible endpoints for AI chat functionality.
@@ -1417,6 +1417,35 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/auth/blocked:
+    delete:
+      tags:
+        - Authorization
+      summary: Clear authentication rate limit blocks
+      description: |
+        Flush all authentication rate limiting state (failed login counters
+        and active blocks) so blocked source IPs can authenticate again
+        immediately. The clear is gossiped cluster-wide. Requires the
+        manage users permission.
+      operationId: ClearAuthBlocks
+      responses:
+        "200":
+          description: All auth rate limit blocks cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /.well-known/oauth-authorization-server:
     get:
       tags:
@@ -1785,6 +1814,92 @@ paths:
                   $ref: "#/components/schemas/SpaceDefinition"
         "401":
           $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/jobs:
+    get:
+      summary: Get a Space's Job Definitions
+      description: >-
+        Retrieve the space's job definitions and runner state from the space
+        record. Works while the space is stopped; only live run status needs
+        the space-io jobs list endpoint.
+      operationId: getSpaceJobs
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+      responses:
+        "200":
+          description: Job definitions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceJobsResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+    put:
+      summary: Replace a Space's Job Definitions
+      description: >-
+        Replace the space's job definitions and runner state. Definitions are
+        validated first (invalid jobs are rejected with per-job errors), then
+        persisted on the space and pushed to the agent when it is connected;
+        a stopped space picks them up on its next start. Requires the Edit
+        Space Jobs permission — held by the owner or a user the space is
+        shared with — or Manage Spaces; those users can always read
+        definitions via the GET above. Leaf nodes imply the permission for
+        their local spaces.
+      operationId: updateSpaceJobs
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceJobsRequest"
+      responses:
+        "200":
+          description: Job definitions saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceJobsResponse"
+        "400":
+          description: >-
+            Invalid job definitions; the body carries a summary error and a
+            job_errors map keyed by job name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsErrorResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
         "404":
           $ref: "#/components/responses/not-found"
         "500":
@@ -3069,6 +3184,88 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /space-io/{space_id}/jobs/list:
+    get:
+      summary: List a space's jobs with live status
+      description: >-
+        List the space's jobs as the agent sees them: definitions plus live
+        run status (running state, next run, last run). The agent answers, so
+        the space must be running; the persisted definitions are available
+        from /api/spaces/{space_id}/jobs while it is stopped.
+      operationId: jobsList
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsListSuccess"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/jobs/run:
+    post:
+      summary: Trigger a job in a space now
+      description: >-
+        Start a job immediately by name. Manual triggering also works for
+        disabled and manual-only jobs; `enabled` only gates automatic firing.
+      operationId: jobsRun
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobRunRequest"
+      responses:
+        "200":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsSuccess"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/templates:
     get:
       summary: Get Templates
@@ -4109,6 +4306,33 @@ paths:
           $ref: "#/components/responses/not-found"
         "500":
           $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/scripts/libs.zip:
+    get:
+      tags:
+        - Scripts
+      summary: Get Script Library Package
+      description: |
+        Returns the requesting user's `lib` type scripts (their own plus global
+        libraries, user overriding global on name collisions) packaged as a
+        scriptling library zip: `manifest.toml` plus `lib/<name>.py` entries.
+        Agents fetch and cache this package and re-serve it to in-space
+        Scriptling as `/packages/libs.zip`. Supports ETag / If-None-Match
+        conditional requests.
+      operationId: getScriptLibsZip
+      responses:
+        "200":
+          description: OK - library package zip
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "304":
+          description: Not Modified - ETag matches
+        "401":
+          description: Unauthorized
       security: [BearerAuth: []]
 
   /api/scripts/global:
@@ -6535,6 +6759,12 @@ components:
         has_terminal:
           type: boolean
           description: If the space can support a web terminal.
+        has_jobs:
+          type: boolean
+          description: True when the space has job definitions; known from the space record, so also reported while the space is stopped.
+        jobs_enabled:
+          type: boolean
+          description: True when the space's job runner (scheduled firing) is enabled.
         has_vscode_tunnel:
           type: boolean
           description: If the space has a running VSCode tunnel.
@@ -6550,6 +6780,9 @@ components:
         is_deleting:
           type: boolean
           description: If the space is being deleted.
+        registration_key:
+          type: string
+          description: The space's agent registration key. Present only for manual-platform spaces the caller owns or manages; its holder can run the space's agent.
         tcp_ports:
           type: object
           additionalProperties:
@@ -6791,6 +7024,12 @@ components:
         is_deleting:
           type: boolean
           description: If the space is being deleted.
+        registration_key:
+          type: string
+          description: The space's agent registration key. Present only for the space owner or users with manage permission; its holder can run the space's agent.
+        agent_cert_fingerprint:
+          type: string
+          description: The sha256 fingerprint of the zone's agent TLS certificate public key, for verifying the agent connection. Present only for the space owner or users with manage permission.
         has_ever_started:
           type: boolean
           description: Whether the space has ever successfully started before.
@@ -7047,6 +7286,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceJob"
+          description: The jobs copied into spaces created from this template, where they can be edited or removed.
         custom_fields:
           type: array
           items:
@@ -7235,6 +7479,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceJob"
+          description: The jobs copied into spaces created from this template, where they can be edited or removed.
 
     TemplateCreateResponse:
       type: object
@@ -7389,6 +7638,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceJob"
+          description: The jobs copied into spaces created from this template, where they can be edited or removed.
 
     TemplateDetails:
       type: object
@@ -7546,6 +7800,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceJob"
+          description: The jobs copied into spaces created from this template, where they can be edited or removed.
 
     TemplateDetailsDay:
       type: object
@@ -8877,6 +9136,169 @@ components:
           items:
             $ref: "#/components/schemas/PortForwardInfo"
           description: List of active port forwards.
+
+    JobsListSuccess:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          example: true
+          description: Job runner state pushed from the space record; false means scheduled jobs do not fire.
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobInfo"
+          description: The space's jobs as the agent holds them.
+
+    SpaceJob:
+      type: object
+      required:
+        - name
+        - command
+      properties:
+        name:
+          type: string
+          example: backup
+          description: The job name, unique within the space.
+        command:
+          type: string
+          example: ./scripts/backup.sh
+          description: The shell command the job runs in the space's home directory.
+        schedule:
+          type: string
+          example: "0 2 * * *"
+          description: 5-field cron expression (minute hour day month weekday); empty or omitted for a manual-only job.
+        enabled:
+          type: boolean
+          example: true
+          description: Whether the job fires automatically; false means it only runs when triggered manually.
+
+    SpaceJobsRequest:
+      type: object
+      required:
+        - jobs
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceJob"
+          description: The full replacement set of job definitions.
+        enabled:
+          type: boolean
+          example: true
+          description: Job runner state; false stops scheduled firing while manual runs keep working.
+
+    SpaceJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpaceJob"
+          description: The space's persisted job definitions.
+        enabled:
+          type: boolean
+          example: true
+          description: Job runner state.
+
+    JobsErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Summary of why the definitions were rejected.
+        job_errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Per-job validation errors keyed by job name.
+
+    JobInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: backup
+          description: The job name.
+        command:
+          type: string
+          example: ./scripts/backup.sh
+          description: The shell command the job runs in the space's home directory.
+        schedule:
+          type: string
+          example: "0 2 * * *"
+          description: Normalized 5-field cron expression; empty for manual-only jobs.
+        manual_only:
+          type: boolean
+          example: false
+          description: True when the job defines no schedule and only runs when triggered.
+        enabled:
+          type: boolean
+          example: true
+          description: The job's enabled value; false means it never fires automatically.
+        running:
+          type: boolean
+          example: false
+          description: True while the job's command is executing.
+        next_run:
+          type: string
+          format: date-time
+          description: Next scheduled fire time in the space's timezone; omitted when disabled or manual-only.
+        last_run:
+          $ref: "#/components/schemas/JobRunRecord"
+        error:
+          type: string
+          description: Validation error for this job definition; invalid jobs are listed but never fired.
+
+    JobRunRecord:
+      type: object
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          description: When the run started.
+        finished_at:
+          type: string
+          format: date-time
+          description: When the run finished.
+        duration_ms:
+          type: integer
+          example: 1250
+          description: Run duration in milliseconds.
+        status:
+          type: string
+          enum: [running, success, failed, skipped]
+          example: success
+          description: Outcome of the run; skipped means the previous run was still active at fire time.
+        trigger:
+          type: string
+          enum: [schedule, manual]
+          example: schedule
+          description: What started the run.
+        error:
+          type: string
+          description: Error message for failed runs.
+
+    JobRunRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: backup
+          description: The name of the job to run.
+
+    JobsSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: The status of the operation, true if successful.
+        error:
+          type: string
+          description: Error message if the operation failed.
 
     PortStopRequest:
       type: object

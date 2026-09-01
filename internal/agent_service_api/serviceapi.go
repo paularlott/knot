@@ -6,12 +6,19 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
+	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/paularlott/knot/internal/log"
 )
 
 var agentClient *agent_client.AgentClient
+
+// sendLogMessage is indirected through a var so tests can capture messages
+// without a live agent client.
+var sendLogMessage = func(service string, level msg.LogLevel, message string, fields map[string]string) {
+	agentClient.SendStructuredLogMessage(service, level, message, fields)
+}
 
 func ListenAndServe(agent *agent_client.AgentClient) {
 	cfg := config.GetAgentConfig()
@@ -25,7 +32,11 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 		router.HandleFunc("POST /logs", handleLogMessage)
 		router.HandleFunc("POST /gelf", handleGelf)
 		router.HandleFunc("POST /loki/api/v1/push", handleLoki)
+		router.HandleFunc("POST /insert/jsonline", handleVictoriaLogs)
 		router.HandleFunc("POST /event", handleEvent)
+		router.HandleFunc("GET /packages/knot.zip", handlePackageKnotZip)
+		router.HandleFunc("GET /packages/libs.zip", handlePackageLibsZip)
+		router.HandleFunc("GET /connect", handleConnect)
 
 		// Run the http server
 		server := &http.Server{

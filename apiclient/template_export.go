@@ -30,36 +30,37 @@ type TemplateExport struct {
 	MaxUptime     uint32 `yaml:"max_uptime,omitempty"`
 	MaxUptimeUnit string `yaml:"max_uptime_unit,omitempty"`
 
-	ScheduleEnabled bool                         `yaml:"schedule_enabled,omitempty"`
-	Schedule        []TemplateExportScheduleDay  `yaml:"schedule,omitempty"`
-	AutoStart       bool                         `yaml:"auto_start,omitempty"`
+	ScheduleEnabled bool                        `yaml:"schedule_enabled,omitempty"`
+	Schedule        []TemplateExportScheduleDay `yaml:"schedule,omitempty"`
+	AutoStart       bool                        `yaml:"auto_start,omitempty"`
 
 	CustomFields []TemplateExportCustomField `yaml:"custom_fields,omitempty"`
 
 	StartupScript  string `yaml:"startup_script,omitempty"`
 	ShutdownScript string `yaml:"shutdown_script,omitempty"`
 
-	HealthCheckType             string `yaml:"health_check_type,omitempty"`
-	HealthCheckConfig           string `yaml:"health_check_config,omitempty"`
-	HealthCheckSkipSSLVerify    bool   `yaml:"health_check_skip_ssl_verify,omitempty"`
-	HealthCheckTimeout          uint32 `yaml:"health_check_timeout,omitempty"`
-	HealthCheckInterval         uint32 `yaml:"health_check_interval,omitempty"`
-	HealthCheckMaxFailures      uint32 `yaml:"health_check_max_failures,omitempty"`
-	HealthCheckAutoRestart      bool   `yaml:"health_check_auto_restart,omitempty"`
+	HealthCheckType          string `yaml:"health_check_type,omitempty"`
+	HealthCheckConfig        string `yaml:"health_check_config,omitempty"`
+	HealthCheckSkipSSLVerify bool   `yaml:"health_check_skip_ssl_verify,omitempty"`
+	HealthCheckTimeout       uint32 `yaml:"health_check_timeout,omitempty"`
+	HealthCheckInterval      uint32 `yaml:"health_check_interval,omitempty"`
+	HealthCheckMaxFailures   uint32 `yaml:"health_check_max_failures,omitempty"`
+	HealthCheckAutoRestart   bool   `yaml:"health_check_auto_restart,omitempty"`
 
-	DisableUserActivity bool           `yaml:"disable_user_activity,omitempty"`
+	DisableUserActivity bool                 `yaml:"disable_user_activity,omitempty"`
 	Ports               []model.TemplatePort `yaml:"ports,omitempty"`
+	Jobs                []model.SpaceJob     `yaml:"jobs,omitempty"`
 
 	Job     string `yaml:"job,omitempty"`
 	Volumes string `yaml:"volumes,omitempty"`
 }
 
 type TemplateExportFeatures struct {
-	WithTerminal      bool `yaml:"with_terminal,omitempty"`
-	WithVSCodeTunnel  bool `yaml:"with_vscode_tunnel,omitempty"`
-	WithCodeServer    bool `yaml:"with_code_server,omitempty"`
-	WithSSH           bool `yaml:"with_ssh,omitempty"`
-	WithRunCommand    bool `yaml:"with_run_command,omitempty"`
+	WithTerminal       bool `yaml:"with_terminal,omitempty"`
+	WithVSCodeTunnel   bool `yaml:"with_vscode_tunnel,omitempty"`
+	WithCodeServer     bool `yaml:"with_code_server,omitempty"`
+	WithSSH            bool `yaml:"with_ssh,omitempty"`
+	WithRunCommand     bool `yaml:"with_run_command,omitempty"`
 	AllowNodeMigration bool `yaml:"allow_node_migration,omitempty"`
 }
 
@@ -112,38 +113,39 @@ func ParseTemplateExport(data []byte) (*TemplateExport, error) {
 // the caller.
 func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 	req := &TemplateCreateRequest{
-		Name:                       e.Name,
-		Description:                e.Description,
-		Job:                        e.Job,
-		Volumes:                    e.Volumes,
-		Groups:                     defaultSlice(e.Groups),
-		Platform:                   e.Platform,
-		IconURL:                    e.IconURL,
-		Active:                     e.Active,
-		WithTerminal:               e.Features.WithTerminal,
-		WithVSCodeTunnel:           e.Features.WithVSCodeTunnel,
-		WithCodeServer:             e.Features.WithCodeServer,
-		WithSSH:                    e.Features.WithSSH,
-		WithRunCommand:             e.Features.WithRunCommand,
-		AllowNodeMigration:         e.Features.AllowNodeMigration,
-		StartupScriptId:            e.StartupScript,
-		ShutdownScriptId:           e.ShutdownScript,
-		ComputeUnits:               e.ComputeUnits,
-		StorageUnits:               e.StorageUnits,
-		ScheduleEnabled:            e.ScheduleEnabled,
-		AutoStart:                  e.AutoStart,
-		Zones:                      defaultSlice(e.Zones),
-		MaxUptime:                  e.MaxUptime,
-		MaxUptimeUnit:              e.MaxUptimeUnit,
-		HealthCheckType:            e.HealthCheckType,
-		HealthCheckConfig:          e.HealthCheckConfig,
-		HealthCheckSkipSSLVerify:   e.HealthCheckSkipSSLVerify,
-		HealthCheckTimeout:         e.HealthCheckTimeout,
-		HealthCheckInterval:        e.HealthCheckInterval,
-		HealthCheckMaxFailures:     e.HealthCheckMaxFailures,
-		HealthCheckAutoRestart:     e.HealthCheckAutoRestart,
-		DisableUserActivity:        e.DisableUserActivity,
-		Ports:                      defaultPorts(e.Ports),
+		Name:                     e.Name,
+		Description:              e.Description,
+		Job:                      e.Job,
+		Volumes:                  e.Volumes,
+		Groups:                   defaultSlice(e.Groups),
+		Platform:                 e.Platform,
+		IconURL:                  e.IconURL,
+		Active:                   e.Active,
+		WithTerminal:             e.Features.WithTerminal,
+		WithVSCodeTunnel:         e.Features.WithVSCodeTunnel,
+		WithCodeServer:           e.Features.WithCodeServer,
+		WithSSH:                  e.Features.WithSSH,
+		WithRunCommand:           e.Features.WithRunCommand,
+		AllowNodeMigration:       e.Features.AllowNodeMigration,
+		StartupScriptId:          e.StartupScript,
+		ShutdownScriptId:         e.ShutdownScript,
+		ComputeUnits:             e.ComputeUnits,
+		StorageUnits:             e.StorageUnits,
+		ScheduleEnabled:          e.ScheduleEnabled,
+		AutoStart:                e.AutoStart,
+		Zones:                    defaultSlice(e.Zones),
+		MaxUptime:                e.MaxUptime,
+		MaxUptimeUnit:            e.MaxUptimeUnit,
+		HealthCheckType:          e.HealthCheckType,
+		HealthCheckConfig:        e.HealthCheckConfig,
+		HealthCheckSkipSSLVerify: e.HealthCheckSkipSSLVerify,
+		HealthCheckTimeout:       e.HealthCheckTimeout,
+		HealthCheckInterval:      e.HealthCheckInterval,
+		HealthCheckMaxFailures:   e.HealthCheckMaxFailures,
+		HealthCheckAutoRestart:   e.HealthCheckAutoRestart,
+		DisableUserActivity:      e.DisableUserActivity,
+		Ports:                    defaultPorts(e.Ports),
+		Jobs:                     defaultJobs(e.Jobs),
 	}
 	req.CustomFields = defaultCustomFields(e.CustomFields)
 	if len(e.Schedule) > 0 {
@@ -160,32 +162,33 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 // this (set StartupScript/ShutdownScript on the returned struct).
 func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 	exp := &TemplateExport{
-		Name:                        d.Name,
-		Description:                 d.Description,
-		Platform:                    d.Platform,
-		IconURL:                     d.IconURL,
-		Active:                      d.Active,
-		ComputeUnits:                d.ComputeUnits,
-		StorageUnits:                d.StorageUnits,
-		Groups:                      d.Groups,
-		Zones:                       d.Zones,
-		MaxUptime:                   d.MaxUptime,
-		MaxUptimeUnit:               d.MaxUptimeUnit,
-		ScheduleEnabled:             d.ScheduleEnabled,
-		AutoStart:                   d.AutoStart,
-		StartupScript:               d.StartupScriptId,
-		ShutdownScript:              d.ShutdownScriptId,
-		HealthCheckType:             d.HealthCheckType,
-		HealthCheckConfig:           d.HealthCheckConfig,
-		HealthCheckSkipSSLVerify:    d.HealthCheckSkipSSLVerify,
-		HealthCheckTimeout:          d.HealthCheckTimeout,
-		HealthCheckInterval:         d.HealthCheckInterval,
-		HealthCheckMaxFailures:      d.HealthCheckMaxFailures,
-		HealthCheckAutoRestart:      d.HealthCheckAutoRestart,
-		DisableUserActivity:         d.DisableUserActivity,
-		Ports:                       d.Ports,
-		Job:                         d.Job,
-		Volumes:                     d.Volumes,
+		Name:                     d.Name,
+		Description:              d.Description,
+		Platform:                 d.Platform,
+		IconURL:                  d.IconURL,
+		Active:                   d.Active,
+		ComputeUnits:             d.ComputeUnits,
+		StorageUnits:             d.StorageUnits,
+		Groups:                   d.Groups,
+		Zones:                    d.Zones,
+		MaxUptime:                d.MaxUptime,
+		MaxUptimeUnit:            d.MaxUptimeUnit,
+		ScheduleEnabled:          d.ScheduleEnabled,
+		AutoStart:                d.AutoStart,
+		StartupScript:            d.StartupScriptId,
+		ShutdownScript:           d.ShutdownScriptId,
+		HealthCheckType:          d.HealthCheckType,
+		HealthCheckConfig:        d.HealthCheckConfig,
+		HealthCheckSkipSSLVerify: d.HealthCheckSkipSSLVerify,
+		HealthCheckTimeout:       d.HealthCheckTimeout,
+		HealthCheckInterval:      d.HealthCheckInterval,
+		HealthCheckMaxFailures:   d.HealthCheckMaxFailures,
+		HealthCheckAutoRestart:   d.HealthCheckAutoRestart,
+		DisableUserActivity:      d.DisableUserActivity,
+		Ports:                    d.Ports,
+		Jobs:                     d.Jobs,
+		Job:                      d.Job,
+		Volumes:                  d.Volumes,
 		Features: TemplateExportFeatures{
 			WithTerminal:       d.WithTerminal,
 			WithVSCodeTunnel:   d.WithVSCodeTunnel,
@@ -224,6 +227,13 @@ func defaultPorts(p []model.TemplatePort) []model.TemplatePort {
 		return []model.TemplatePort{}
 	}
 	return p
+}
+
+func defaultJobs(j []model.SpaceJob) []model.SpaceJob {
+	if j == nil {
+		return []model.SpaceJob{}
+	}
+	return j
 }
 
 func defaultCustomFields(cf []TemplateExportCustomField) []CustomFieldDef {

@@ -57,6 +57,12 @@ const (
 	CmdPeerRequestIntro
 	CmdThrottlePort
 	CmdPortForwardNotify
+	CmdMirrorLog
+	CmdSSHPortAuthResult
+	CmdScriptLibsChanged
+	CmdJobsList
+	CmdJobsRun
+	CmdUpdateJobs
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {
@@ -98,6 +104,20 @@ func ReadMessage(conn net.Conn, v interface{}) error {
 }
 
 func ReadMessageWithTimeout(conn net.Conn, v interface{}, timeout time.Duration) error {
+	payloadBuf, err := readPayload(conn, timeout)
+	if err != nil {
+		return err
+	}
+
+	// Deserialize the payload into v
+	if err := msgpack.Unmarshal(payloadBuf, v); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func readPayload(conn net.Conn, timeout time.Duration) ([]byte, error) {
 	// Set a read deadline
 	conn.SetReadDeadline(time.Now().Add(timeout))
 	defer conn.SetReadDeadline(time.Time{})
@@ -105,7 +125,7 @@ func ReadMessageWithTimeout(conn net.Conn, v interface{}, timeout time.Duration)
 	// Read the size of the payload
 	sizeBytes := make([]byte, 4)
 	if _, err := conn.Read(sizeBytes); err != nil {
-		return err
+		return nil, err
 	}
 	payloadSize := binary.BigEndian.Uint32(sizeBytes)
 
@@ -116,15 +136,42 @@ func ReadMessageWithTimeout(conn net.Conn, v interface{}, timeout time.Duration)
 	for totalRead < payloadSize {
 		n, err := conn.Read(payloadBuf[totalRead:])
 		if err != nil {
-			return err
+			return nil, err
 		}
 		totalRead += uint32(n)
 	}
 
-	// Deserialize the payload into v
-	if err := msgpack.Unmarshal(payloadBuf, v); err != nil {
-		return err
+	return payloadBuf, nil
+}
+
+// ReadRegistrationReply reads the next message after a Register and returns
+// whichever arrives: a RegisterChallenge from a key-checking server, or the
+// final RegisterResponse — including one sent directly by a pre-handshake
+// server during a rolling upgrade. The two are told apart by their shape
+// (a challenge carries ServerNonce and no Success).
+func ReadRegistrationReply(conn net.Conn) (*RegisterChallenge, *RegisterResponse, error) {
+	payload, err := readPayload(conn, 5*time.Second)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return nil
+	var shape map[string]interface{}
+	if err := msgpack.Unmarshal(payload, &shape); err != nil {
+		return nil, nil, err
+	}
+	if _, isChallenge := shape["ServerNonce"]; isChallenge {
+		if _, hasSuccess := shape["Success"]; !hasSuccess {
+			challenge := &RegisterChallenge{}
+			if err := msgpack.Unmarshal(payload, challenge); err != nil {
+				return nil, nil, err
+			}
+			return challenge, nil, nil
+		}
+	}
+
+	response := &RegisterResponse{}
+	if err := msgpack.Unmarshal(payload, response); err != nil {
+		return nil, nil, err
+	}
+	return nil, response, nil
 }

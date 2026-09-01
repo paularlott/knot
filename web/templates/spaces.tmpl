@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Spaces{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }}, {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .permissionUseStackDefinitions }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }}, {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .permissionUseStackDefinitions }}, {{ .permissionEditSpaceJobs }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="col-span-full">
@@ -728,6 +728,197 @@
           </div>
         </div>
       </div>
+
+      <!-- Modal: Space Jobs -->
+      <div x-cloak x-show="jobsModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="jobsModal.show && !jobsModal.showJobForm && !jobsModal.deleteConfirmShow" @keydown.esc.window="if (!jobsModal.showJobForm && !jobsModal.deleteConfirmShow) closeJobs()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceJobsTitle">
+        <div x-show="jobsModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide overflow-hidden">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <h3 id="spaceJobsTitle" class="ui-modal-title">Jobs - <span x-text="jobsModal.spaceName"></span><span x-show="jobsModal.liveUnavailable" class="text-gray-400 dark:text-gray-500 font-normal"> (Space Not Running)</span></h3>
+            <button @click="closeJobs()" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="ui-modal-body-scroll max-h-[75vh]">
+            <div class="flex items-center mb-4">
+              <label class="flex items-center cursor-pointer" :class="canEditJobs() && jobsModal.definitions.length > 0 ? '' : 'opacity-60 pointer-events-none'">
+                <span class="me-3 text-sm font-medium text-gray-900 dark:text-gray-300">Job Runner Enabled:</span>
+                <input type="checkbox" class="sr-only peer" :checked="jobsModal.enabled" :disabled="jobsModal.togglingRunner || !canEditJobs()" @change="toggleJobRunner">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              </label>
+            </div>
+
+            <div x-show="jobsModal.loading && !jobsModal.error" x-cloak class="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">Loading…</div>
+            <div x-show="!jobsModal.loading && jobsModal.error" x-cloak role="alert" class="text-sm mb-3 p-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded" x-text="jobsModal.error"></div>
+            <div x-show="!jobsModal.loading && !jobsModal.error && jobViewList().length === 0" x-cloak class="text-gray-500 dark:text-gray-400 text-sm py-4 text-center">No jobs defined.</div>
+
+            <div x-show="jobViewList().length > 0" class="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <div class="overflow-x-auto">
+                <table aria-label="Space jobs" class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                  <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                      <th scope="col" class="px-3 py-2">Job</th>
+                      <th scope="col" class="px-3 py-2">Schedule</th>
+                      <th scope="col" class="px-3 py-2">Enabled</th>
+                      <th scope="col" class="px-3 py-2">Runs</th>
+                      <th scope="col" class="px-3 py-2"><span class="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="job in jobViewList()" :key="job.name">
+                      <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                        <td class="px-3 py-2">
+                          <div class="flex items-center gap-2">
+                            <span class="font-medium text-gray-900 dark:text-white" x-text="job.name" :title="job.command"></span>
+                            <span x-show="job.running" class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                              <svg class="size-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path>
+                              </svg>
+                              running
+                            </span>
+                          </div>
+                          <div x-show="job.error" x-cloak class="text-xs text-red-600 dark:text-red-400" x-text="job.error"></div>
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap">
+                          <span x-show="job.schedule" class="font-mono text-xs" x-text="job.schedule"></span>
+                          <span x-show="!job.schedule" class="text-xs">manual only</span>
+                        </td>
+                        <td class="px-3 py-2">
+                          <label class="flex items-center cursor-pointer" :class="canEditJobs() && jobsModal.togglingJob !== job.name ? '' : 'opacity-60 pointer-events-none'">
+                            <span class="sr-only" x-text="(job.enabled ? 'Disable job ' : 'Enable job ') + job.name"></span>
+                            <input type="checkbox" class="sr-only peer" :checked="job.enabled" :disabled="jobsModal.togglingJob === job.name" @change="toggleJobEnabled(job.name)">
+                            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                          </label>
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-xs">
+                          <div x-text="'Next: ' + (job.next_run ? formatJobTime(job.next_run) : '—')"></div>
+                          <div x-text="'Last: ' + (job.last_run ? formatJobTime(job.last_run.started_at) : '—')"></div>
+                          <div x-show="job.last_run" :class="job.last_run && job.last_run.status === 'success' ? 'text-emerald-600 dark:text-emerald-400' : (job.last_run && job.last_run.status === 'failed' ? 'text-red-600 dark:text-red-400' : '')" x-text="job.last_run ? '(' + job.last_run.status + (job.last_run.duration_ms > 0 ? ', ' + formatJobDuration(job.last_run.duration_ms) : '') + ')' : ''"></div>
+                        </td>
+                        <td class="px-3 py-2 text-right whitespace-nowrap">
+                          <button x-show="!jobsModal.liveUnavailable" @click="runJobNow(job.name); $el.blur()" :aria-label="'Run job ' + job.name + ' now'" :disabled="job.running || jobsModal.runningJob === job.name" title="Run now" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 flex-shrink-0 disabled:opacity-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.985V5.653Z"/></svg>
+                          </button>
+                          <button x-show="canEditJobs()" @click="editJob(job.name); $el.blur()" :aria-label="'Edit job ' + job.name" title="Edit" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg>
+                          </button>
+                          <button x-show="canEditJobs()" @click="confirmDeleteJob(job.name); $el.blur()" :aria-label="'Delete job ' + job.name" title="Delete" class="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1 flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l.3 7.5a.75.75 0 101.5.06l-.3-7.5z" clip-rule="evenodd"/></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="ui-modal-footer">
+            <button type="button" @click="closeJobs()" class="ui-button-secondary sm:mr-auto">Close</button>
+            <button x-show="canEditJobs()" @click="addJob()" type="button" class="ui-button-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true">
+                <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+              </svg>
+              Add Job
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Space Job Form (stacks over the jobs list) -->
+      <div x-cloak x-show="jobsModal.showJobForm" x-transition.opacity.duration.200ms x-trap.inert.noscroll="jobsModal.showJobForm" @keydown.esc.window="cancelJobForm()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceJobFormTitle">
+        <div x-show="jobsModal.showJobForm" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel" data-dirty-form x-ref="jobFormPanel">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </div>
+            <h3 id="spaceJobFormTitle" class="ui-modal-title" x-text="jobsModal.jobFormIsEdit ? 'Edit Job' : 'Add Job'"></h3>
+            <button @click="jobsModal.showJobForm = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="ui-modal-body">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="form-label" for="job-name">Name</label>
+                <input type="text" id="job-name" x-model="jobsModal.jobForm.name" @blur="touchJobFormField('name')" class="form-field" :class="{'form-field-error': jobFormFieldShowError('name')}" placeholder="backup">
+                <div x-show="jobFormFieldShowError('name')" class="error-message" x-cloak x-text="jobFormNameValid() ? '' : (jobsModal.jobForm.name.trim() ? 'Job name is already used.' : 'Job name is required.')"></div>
+              </div>
+              <div>
+                <label class="form-label" for="job-schedule">Schedule</label>
+                <input type="text" id="job-schedule" x-model="jobsModal.jobForm.schedule" @blur="touchJobFormField('schedule')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('schedule')}" placeholder="*/5 * * * *">
+                <div x-show="jobFormFieldShowError('schedule')" class="error-message" x-cloak>Schedule must be a 5-field cron expression (minute hour day month weekday), e.g. <code>0 2 * * *</code>. Leave empty for a manual-only job.</div>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="form-label" for="job-command">Command</label>
+                <input type="text" id="job-command" x-model="jobsModal.jobForm.command" @blur="touchJobFormField('command')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('command')}" placeholder="./scripts/backup.sh">
+                <div x-show="jobFormFieldShowError('command')" class="error-message" x-cloak>Command is required.</div>
+              </div>
+            </div>
+
+            <label class="inline-flex items-center cursor-pointer">
+              <input type="checkbox" x-model="jobsModal.jobForm.enabled" class="sr-only peer">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Enabled <span class="text-gray-500 dark:text-gray-400">(fires automatically; manual runs always work)</span></span>
+            </label>
+          </div>
+
+          <div class="ui-modal-footer">
+            <button @click="cancelJobForm()" type="button" class="ui-button-secondary sm:mr-auto">Cancel</button>
+            <button @click="saveJob()" :disabled="jobsModal.savingJob" type="button" class="ui-button-primary disabled:opacity-50" x-text="jobsModal.savingJob ? 'Saving…' : (jobsModal.jobFormIsEdit ? 'Save Job' : 'Add Job')"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Space Job Delete Confirm (stacks over the jobs list) -->
+      <template x-if="jobsModal.deleteConfirmShow">
+        <div x-show="jobsModal.deleteConfirmShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="jobsModal.deleteConfirmShow" @keydown.esc.window="jobsModal.deleteConfirmShow = false" @click.self="jobsModal.deleteConfirmShow = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceJobDeleteTitle">
+          <div x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+            <div class="ui-modal-header">
+              <div class="ui-modal-icon-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg>
+              </div>
+              <h3 id="spaceJobDeleteTitle" class="ui-modal-title">Confirm Delete</h3>
+              <button @click="jobsModal.deleteConfirmShow = false" aria-label="close modal" class="ui-modal-close">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ui-modal-body text-center">
+              <p>Are you sure you want to delete this job?</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                <strong class="text-gray-900 dark:text-white" x-text="jobsModal.deleteConfirmJob"></strong>
+              </p>
+            </div>
+            <div class="ui-modal-footer">
+              <button @click="jobsModal.deleteConfirmShow = false" type="button" class="ui-button-secondary">Keep Job</button>
+              <button @click="deleteJob(jobsModal.deleteConfirmJob); jobsModal.deleteConfirmShow = false" type="button" class="ui-button-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg>
+                Delete Job
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
 
       <!-- Modal: Space Form -->
       <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @keydown.esc.window="spaceFormModal.show = false" @close-space-form.window="spaceFormModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceFormTitle">

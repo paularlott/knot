@@ -15,7 +15,7 @@ func (db *RedisDbDriver) SaveStackDefinition(def *model.StackDefinition, updateF
 
 	if existingDef != nil {
 		if (existingDef.Name != def.Name || existingDef.UserId != def.UserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Name") || util.InArray(updateFields, "UserId")) {
-			db.connection.Del(context.Background(), fmt.Sprintf("%sStackDefsByName:%s:%s", db.prefix, existingDef.UserId, existingDef.Name))
+			db.del(context.Background(), fmt.Sprintf("%sStackDefsByName:%s:%s", db.prefix, existingDef.UserId, existingDef.Name))
 		}
 
 		if len(updateFields) > 0 {
@@ -29,23 +29,23 @@ func (db *RedisDbDriver) SaveStackDefinition(def *model.StackDefinition, updateF
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sStackDefs:%s", db.prefix, def.Id), data, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sStackDefs:%s", db.prefix, def.Id), data, 0)
 	if err != nil {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sStackDefsByName:%s:%s", db.prefix, def.UserId, def.Name), def.Id, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sStackDefsByName:%s:%s", db.prefix, def.UserId, def.Name), def.Id, 0)
 }
 
 func (db *RedisDbDriver) DeleteStackDefinition(def *model.StackDefinition) error {
-	db.connection.Del(context.Background(), fmt.Sprintf("%sStackDefsByName:%s:%s", db.prefix, def.UserId, def.Name))
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sStackDefs:%s", db.prefix, def.Id)).Err()
+	db.del(context.Background(), fmt.Sprintf("%sStackDefsByName:%s:%s", db.prefix, def.UserId, def.Name))
+	return db.del(context.Background(), fmt.Sprintf("%sStackDefs:%s", db.prefix, def.Id))
 }
 
 func (db *RedisDbDriver) GetStackDefinition(id string) (*model.StackDefinition, error) {
 	var def = &model.StackDefinition{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sStackDefs:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sStackDefs:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -61,7 +61,7 @@ func (db *RedisDbDriver) GetStackDefinition(id string) (*model.StackDefinition, 
 func (db *RedisDbDriver) GetStackDefinitions() ([]*model.StackDefinition, error) {
 	var defs []*model.StackDefinition
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sStackDefs:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sStackDefs:*", db.prefix))
 	for iter.Next(context.Background()) {
 		def, err := db.GetStackDefinition(iter.Val()[len(fmt.Sprintf("%sStackDefs:", db.prefix)):])
 		if err != nil {

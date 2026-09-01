@@ -29,14 +29,16 @@ export const popup = {
     const subdomain = `${window.location.protocol}//${username.toLowerCase()}--${spaceName.toLowerCase()}--vnc`;
     const maxWidth = Math.min(window.innerWidth, 1440);
     const maxHeight = window.innerHeight;
+    const portSuffix = window.location.port ? `:${window.location.port}` : '';
 
-    window.open(domain.replace(/^\*/, subdomain), `spaces_${spaceId}_vnc`, `width=${maxWidth},height=${maxHeight}`);
+    window.open(domain.replace(/^\*/, subdomain) + portSuffix, `spaces_${spaceId}_vnc`, `width=${maxWidth},height=${maxHeight}`);
     return false;
   },
 
   openPortWindow(spaceId, domain, username, spaceName, port) {
     const subdomain = `${window.location.protocol}//${username.toLowerCase()}--${spaceName.toLowerCase()}--${port}`;
-    window.open(domain.replace(/^\*/, subdomain), `spaces_${spaceId}_http_port_${port}`);
+    const portSuffix = window.location.port ? `:${window.location.port}` : '';
+    window.open(domain.replace(/^\*/, subdomain) + portSuffix, `spaces_${spaceId}_http_port_${port}`);
     return false;
   },
 

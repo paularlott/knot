@@ -121,7 +121,7 @@ window.templateListComponent = function(canManageSpaces, zone, isLeafNode = fals
       }).then((response) => {
         if (response.status === 200) {
           response.json().then((groupsList) => {
-            this.groups = groupsList.groups;
+            this.groups = groupsList.groups || [];
           });
         } else if (response.status === 401) {
           window.location.href = '/logout';
@@ -140,10 +140,11 @@ window.templateListComponent = function(canManageSpaces, zone, isLeafNode = fals
       }).then((response) => {
         if (response.status === 200) {
           response.json().then((data) => {
-            const templateList = templateId ? [data] : data.templates;
+            const templateList = templateId ? [data] : (data.templates || []);
 
             templateList.forEach(template => {
               template.showIdPopup = false;
+              template.groups = template.groups || [];
               template.icon_url_exists = this.imageExists(template.icon_url);
 
               // Convert group IDs to names

@@ -92,11 +92,8 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventRoleUpdate,
 		fmt.Sprintf("Updated role %s", role.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"role_id":         role.Id,
-			"role_name":       role.Name,
+			"role_id":   role.Id,
+			"role_name": role.Name,
 		},
 	)
 
@@ -140,11 +137,8 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventRoleCreate,
 		fmt.Sprintf("Created role %s", role.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"role_id":         role.Id,
-			"role_name":       role.Name,
+			"role_id":   role.Id,
+			"role_name": role.Name,
 		},
 	)
 
@@ -197,11 +191,8 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventRoleDelete,
 		fmt.Sprintf("Deleted role %s", role.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"role_id":         role.Id,
-			"role_name":       role.Name,
+			"role_id":   role.Id,
+			"role_name": role.Name,
 		},
 	)
 

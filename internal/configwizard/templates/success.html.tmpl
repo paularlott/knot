@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="{{ .BasePath }}static/favicon.ico">
 <title>knot setup complete</title>
 <style>
   :root { color-scheme: dark; }
@@ -21,8 +22,12 @@
 <div class="card">
   <h1>Configuration written</h1>
   <p>Saved to <code>{{ .Path }}</code>.</p>
+  {{ if .Desktop }}
+  <p style="margin:1rem 0 0.5rem"><strong>Restart knot to apply it:</strong> quit knot from the tray menu (menu bar icon → Quit), then open Knot again.</p>
+  {{ else }}
   <p style="margin:1rem 0 0.5rem">Start the server:</p>
   <pre>knot server</pre>
+  {{ end }}
   <p style="margin-top:1rem;color:#94a3b8;font-size:0.85rem">On first launch the web UI will prompt you to create the initial admin user.</p>
 </div>
 </body>

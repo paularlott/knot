@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"net/http"
 	"strings"
 
@@ -22,6 +23,7 @@ type AvailableNode struct {
 }
 
 func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
 	templateId := r.PathValue("template_id")
 
 	db := database.GetInstance()
@@ -34,7 +36,14 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 	} else {
 		template, err = db.GetTemplateByName(templateId)
 	}
-	if err != nil || template == nil {
+	if err != nil || template == nil || template.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	// Same visibility as the read path (node/usage detail is not for
+	// templates the caller cannot see).
+	if err := api_utils.CheckTemplateAccess(template.Id, user); err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
 		return
 	}

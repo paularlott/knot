@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -17,6 +18,7 @@ import (
 // HandleExportTemplate returns a portable YAML representation of a template
 // suitable for version control and cross-instance import.
 func HandleExportTemplate(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
 	templateId := r.PathValue("template_id")
 	db := database.GetInstance()
 
@@ -27,7 +29,16 @@ func HandleExportTemplate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		template, err = db.GetTemplateByName(templateId)
 	}
-	if err != nil || template == nil {
+	if err != nil || template == nil || template.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	// Same visibility as the read path: an export is a full read of the
+	// template (job, volumes — including any registry auth in the job), so
+	// users without template-manage permission may only export templates
+	// they are allowed to see.
+	if err := api_utils.CheckTemplateAccess(template.Id, user); err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
 		return
 	}
@@ -125,36 +136,37 @@ func HandleImportTemplate(w http.ResponseWriter, r *http.Request) {
 // format, resolving script IDs to names.
 func buildTemplateExportDetails(template *model.Template, db database.DbDriver) *apiclient.TemplateExport {
 	details := &apiclient.TemplateDetails{
-		Name:                       template.Name,
-		Description:                template.Description,
-		Platform:                   template.Platform,
-		IconURL:                    template.IconURL,
-		Active:                     template.Active,
-		Job:                        template.Job,
-		Volumes:                    template.Volumes,
-		Groups:                     template.Groups,
-		Zones:                      template.Zones,
-		ComputeUnits:               template.ComputeUnits,
-		StorageUnits:               template.StorageUnits,
-		MaxUptime:                  template.MaxUptime,
-		MaxUptimeUnit:              template.MaxUptimeUnit,
-		ScheduleEnabled:            template.ScheduleEnabled,
-		AutoStart:                  template.AutoStart,
-		WithTerminal:               template.WithTerminal,
-		WithVSCodeTunnel:           template.WithVSCodeTunnel,
-		WithCodeServer:             template.WithCodeServer,
-		WithSSH:                    template.WithSSH,
-		WithRunCommand:             template.WithRunCommand,
-		AllowNodeMigration:         template.AllowNodeMigration,
-		HealthCheckType:            template.HealthCheckType,
-		HealthCheckConfig:          template.HealthCheckConfig,
-		HealthCheckSkipSSLVerify:   template.HealthCheckSkipSSLVerify,
-		HealthCheckTimeout:         template.HealthCheckTimeout,
-		HealthCheckInterval:        template.HealthCheckInterval,
-		HealthCheckMaxFailures:     template.HealthCheckMaxFailures,
-		HealthCheckAutoRestart:     template.HealthCheckAutoRestart,
-		DisableUserActivity:        template.DisableUserActivity,
-		Ports:                      template.Ports,
+		Name:                     template.Name,
+		Description:              template.Description,
+		Platform:                 template.Platform,
+		IconURL:                  template.IconURL,
+		Active:                   template.Active,
+		Job:                      template.Job,
+		Volumes:                  template.Volumes,
+		Groups:                   template.Groups,
+		Zones:                    template.Zones,
+		ComputeUnits:             template.ComputeUnits,
+		StorageUnits:             template.StorageUnits,
+		MaxUptime:                template.MaxUptime,
+		MaxUptimeUnit:            template.MaxUptimeUnit,
+		ScheduleEnabled:          template.ScheduleEnabled,
+		AutoStart:                template.AutoStart,
+		WithTerminal:             template.WithTerminal,
+		WithVSCodeTunnel:         template.WithVSCodeTunnel,
+		WithCodeServer:           template.WithCodeServer,
+		WithSSH:                  template.WithSSH,
+		WithRunCommand:           template.WithRunCommand,
+		AllowNodeMigration:       template.AllowNodeMigration,
+		HealthCheckType:          template.HealthCheckType,
+		HealthCheckConfig:        template.HealthCheckConfig,
+		HealthCheckSkipSSLVerify: template.HealthCheckSkipSSLVerify,
+		HealthCheckTimeout:       template.HealthCheckTimeout,
+		HealthCheckInterval:      template.HealthCheckInterval,
+		HealthCheckMaxFailures:   template.HealthCheckMaxFailures,
+		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
+		DisableUserActivity:      template.DisableUserActivity,
+		Ports:                    template.Ports,
+		Jobs:                     template.Jobs,
 	}
 	if len(template.CustomFields) > 0 {
 		details.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))

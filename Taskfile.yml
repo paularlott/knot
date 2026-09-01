@@ -63,6 +63,16 @@ tasks:
     generates:
       - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
+  build-macos:
+    desc: Build the macOS Knot.app package for the current platform
+    deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
+    cmds:
+      - task: build-platform
+        vars: { PLATFORM: "darwin/{{ARCH}}" }
+      # Extract the app so it can be opened directly for testing
+      - rm -rf {{.OUTPUT_DIR}}/Knot.app
+      - unzip -q {{.OUTPUT_DIR}}/{{.PROJECT_NAME}}_darwin_{{ARCH}}.zip -d {{.OUTPUT_DIR}}
+
   build-amd64:
     desc: Build the binary for the current platform
     deps: [agents, packages, apidocs, webassets, legal-license, legal-notice]
@@ -163,9 +173,23 @@ tasks:
     cmds:
       - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} .
       - |
-        cd {{$.OUTPUT_DIR}} && \
-        mv {{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}} {{.FINAL_NAME}} && \
-        zip {{.ZIP_FILE}} {{.FINAL_NAME}}
+        if [ "{{.GOOS}}" = "darwin" ]; then
+          # macOS builds ship as a .app bundle (menu bar tray desktop mode)
+          APP="{{$.OUTPUT_DIR}}/Knot.app"
+          rm -rf "$APP"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp "{{.OUTPUT_FILE}}" "$APP/Contents/MacOS/{{$.PROJECT_NAME}}"
+          cp build/darwin/icon.icns "$APP/Contents/Resources/"
+          sed "s/0\.0\.0/{{$.VERSION}}/g" build/darwin/Info.plist > "$APP/Contents/Info.plist"
+          codesign --force --deep --sign - "$APP" 2>/dev/null || true
+          rm -f "{{$.OUTPUT_DIR}}/{{.ZIP_FILE}}"
+          cd {{$.OUTPUT_DIR}} && zip -r --symlinks "{{.ZIP_FILE}}" "Knot.app"
+          rm -rf "$APP"
+        else
+          cd {{$.OUTPUT_DIR}} && \
+          mv {{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}} {{.FINAL_NAME}} && \
+          zip {{.ZIP_FILE}} {{.FINAL_NAME}}
+        fi
     sources:
       - ./**/*.go
       - go.mod
@@ -197,11 +221,15 @@ tasks:
     desc: Build the scriptling packages
     cmds:
       - mkdir -p web/packages
+      # Start from a clean archive: zip merges into an existing archive and
+      # never removes entries, so a renamed/deleted lib would linger as a
+      # ghost. The explicit glob (no -r) keeps anything unexpected out.
+      - rm -f web/packages/knot.zip
       - |
         echo 'name = "knot"' > internal/scriptling/manifest.toml
         echo 'version = "{{.VERSION}}"' >> internal/scriptling/manifest.toml
         echo 'description = "Knot API client library for scriptling"' >> internal/scriptling/manifest.toml
-        cd internal/scriptling && zip -r ../../web/packages/knot.zip manifest.toml lib/
+        cd internal/scriptling && zip ../../web/packages/knot.zip manifest.toml lib/knot/*.py
       - shasum -a 256 web/packages/knot.zip | cut -d' ' -f1 > web/packages/knot.zip.sha256
     sources:
       - ./internal/scriptling/lib/knot/*.py
@@ -244,14 +272,15 @@ tasks:
       - shasum -a 256 {{.OUTPUT_DIR}}/*.zip
 
   homebrew-formula:
-    desc: Generate the Homebrew formula
+    desc: Generate the Homebrew formula and cask
     method: none
     cmds:
-      - go run ./scripts/homebrew-formula/ > ../homebrew-tap/Formula/knot.rb
+      - go run ./scripts/homebrew-formula/ -out ../homebrew-tap
     sources:
       - ./scripts/homebrew-formula/**/*.go
     generates:
       - ../homebrew-tap/Formula/knot.rb
+      - ../homebrew-tap/Casks/knot.rb
 
   legal:
     desc: Generate the third-party license report in the project root
@@ -303,13 +332,31 @@ tasks:
     cmds:
       - npx @redocly/cli preview-docs internal/api/spec/knot-openapi.yaml
 
+  scriptling-completions:
+    desc: Regenerate all completions (scriptling + knot) from the vscode stubs
+    cmds:
+      - |
+        if [ -d ../scriptling-vscode/stubs ]; then
+          node scripts/generate-scriptling-completions.mjs
+        else
+          echo "../scriptling-vscode not found - skipping scriptling completions"
+        fi
+      - |
+        if [ -d ../knot-vscode/stubs/knot ]; then
+          node scripts/generate-knot-completions.mjs
+        else
+          echo "../knot-vscode not found - skipping knot completions"
+        fi
+
   webassets:
     desc: Compile LESS/CSS and JavaScript
+    deps: [scriptling-completions]
     cmds:
       - npx vite build
     sources:
       - vite.config.js # Or relevant config
       - src/**/* # Assuming source files are here
+      - ../scriptling-vscode/stubs/**/*.pyi
     generates:
       - web/public_html/css/*
       - web/public_html/js/*
@@ -318,6 +365,11 @@ tasks:
     desc: Run all Go tests
     cmds:
       - go test ./...
+
+  test:integration:
+    desc: Run the API integration suite (incremental task build, boots a server + spaces from bin/knot, writes build/test/integration-report.md)
+    cmds:
+      - go test -tags integration -count=1 -timeout 2h -v ./integration-tests/suites
 
   test-mcptools:
     desc: Run MCP tool tests (schema sweep + in-process execution against mock API)
@@ -419,6 +471,53 @@ tasks:
     cmds:
       - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages
     ignore_error: true
+
+  run-desktop:
+    desc: Run the desktop app for development
+    deps: [agents, packages, webassets]
+    cmds:
+      - go run . --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages
+    ignore_error: true
+
+  icons:
+    desc: Generate the monochrome desktop tray icons from the web UI logo SVG
+    cmds:
+      - |
+        if ! command -v rsvg-convert >/dev/null 2>&1; then
+          echo "rsvg-convert not found (brew install librsvg) — note: qlmanage is NOT a usable fallback, it flattens transparency" >&2
+          exit 1
+        fi
+        render() {
+          sed "s/fill:url(#[A-Za-z0-9_]*)/fill:${1}/g" web/public_html/images/logo.svg > /tmp/knot-icon.svg
+          # Render large, thin the strokes (erosion), then downsample — a
+          # straight 44px render of the logo is too blocky for the menu bar.
+          rsvg-convert -w 1006 -h 1006 /tmp/knot-icon.svg -o /tmp/knot-icon-src.png
+          go run ./scripts/iconthin -size 44 -erode 12 /tmp/knot-icon-src.png "${2}"
+        }
+        render '#000000' internal/desktop/icon.png
+        render '#ffffff' internal/desktop/icon-white.png
+        cp web/public_html/favicon.ico internal/configwizard/static/favicon.ico
+      - |
+        # Regenerate the macOS .app icon from the full colour logo
+        if ! command -v iconutil >/dev/null 2>&1; then
+          echo "iconutil not found (macOS only) — skipping build/darwin/icon.icns" >&2
+          exit 0
+        fi
+        rm -rf /tmp/Knot.iconset && mkdir -p /tmp/Knot.iconset
+        for size in 16 32 128 256 512; do
+          rsvg-convert -w ${size} -h ${size} web/public_html/images/logo.svg -o /tmp/Knot.iconset/icon_${size}x${size}.png
+          rsvg-convert -w $((size*2)) -h $((size*2)) web/public_html/images/logo.svg -o /tmp/Knot.iconset/icon_${size}x${size}@2x.png
+        done
+        iconutil -c icns /tmp/Knot.iconset -o build/darwin/icon.icns
+      - |
+        # Regenerate the Windows exe icon resource
+        rm -rf /tmp/knot-ico && mkdir -p /tmp/knot-ico
+        for size in 16 32 48 256; do
+          rsvg-convert -w ${size} -h ${size} web/public_html/images/logo.svg -o /tmp/knot-ico/${size}.png
+        done
+        go run ./scripts/genico build/windows/icon.ico /tmp/knot-ico/16.png /tmp/knot-ico/32.png /tmp/knot-ico/48.png /tmp/knot-ico/256.png
+        go run github.com/akavel/rsrc@latest -ico build/windows/icon.ico -arch amd64 -o rsrc_windows_amd64.syso
+        go run github.com/akavel/rsrc@latest -ico build/windows/icon.ico -arch arm64 -o rsrc_windows_arm64.syso
 
   run-leaf:
     desc: Run a leaf server for development

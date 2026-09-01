@@ -15,7 +15,7 @@ func (db *RedisDbDriver) SaveSkill(skill *model.Skill, updateFields []string) er
 
 	if existingSkill != nil {
 		if (existingSkill.Name != skill.Name || existingSkill.UserId != skill.UserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Name") || util.InArray(updateFields, "UserId")) {
-			db.connection.Del(context.Background(), fmt.Sprintf("%sSkillsByName:%s:%s", db.prefix, existingSkill.UserId, existingSkill.Name))
+			db.del(context.Background(), fmt.Sprintf("%sSkillsByName:%s:%s", db.prefix, existingSkill.UserId, existingSkill.Name))
 		}
 
 		if len(updateFields) > 0 {
@@ -29,23 +29,23 @@ func (db *RedisDbDriver) SaveSkill(skill *model.Skill, updateFields []string) er
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSkills:%s", db.prefix, skill.Id), data, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sSkills:%s", db.prefix, skill.Id), data, 0)
 	if err != nil {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sSkillsByName:%s:%s", db.prefix, skill.UserId, skill.Name), skill.Id, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sSkillsByName:%s:%s", db.prefix, skill.UserId, skill.Name), skill.Id, 0)
 }
 
 func (db *RedisDbDriver) DeleteSkill(skill *model.Skill) error {
-	db.connection.Del(context.Background(), fmt.Sprintf("%sSkillsByName:%s:%s", db.prefix, skill.UserId, skill.Name))
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sSkills:%s", db.prefix, skill.Id)).Err()
+	db.del(context.Background(), fmt.Sprintf("%sSkillsByName:%s:%s", db.prefix, skill.UserId, skill.Name))
+	return db.del(context.Background(), fmt.Sprintf("%sSkills:%s", db.prefix, skill.Id))
 }
 
 func (db *RedisDbDriver) GetSkill(id string) (*model.Skill, error) {
 	var skill = &model.Skill{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSkills:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sSkills:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -61,7 +61,7 @@ func (db *RedisDbDriver) GetSkill(id string) (*model.Skill, error) {
 func (db *RedisDbDriver) GetSkills() ([]*model.Skill, error) {
 	var skills []*model.Skill
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSkills:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sSkills:*", db.prefix))
 	for iter.Next(context.Background()) {
 		skill, err := db.GetSkill(iter.Val()[len(fmt.Sprintf("%sSkills:", db.prefix)):])
 		if err != nil {

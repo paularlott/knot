@@ -1,11 +1,17 @@
 package api
 
 import (
+	"archive/zip"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -320,6 +326,9 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipScript(script)
 	sse.PublishScriptsChanged(script.Id)
+	if script.ScriptType == "lib" {
+		agent_server.NotifyScriptLibsChanged(script.UserId)
+	}
 
 	audit.LogWithRequest(r,
 		user.Username,
@@ -327,12 +336,9 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventScriptCreate,
 		fmt.Sprintf("Created script %s", script.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"script_id":       script.Id,
-			"script_name":     script.Name,
-			"is_user_script":  isUserScript,
+			"script_id":      script.Id,
+			"script_name":    script.Name,
+			"is_user_script": isUserScript,
 		},
 	)
 
@@ -433,6 +439,9 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipScript(script)
 	sse.PublishScriptsChanged(script.Id)
+	if script.ScriptType == "lib" {
+		agent_server.NotifyScriptLibsChanged(script.UserId)
+	}
 
 	audit.LogWithRequest(r,
 		user.Username,
@@ -440,12 +449,9 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventScriptUpdate,
 		fmt.Sprintf("Updated script %s", script.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"script_id":       script.Id,
-			"script_name":     script.Name,
-			"is_user_script":  script.IsUserScript(),
+			"script_id":      script.Id,
+			"script_name":    script.Name,
+			"is_user_script": script.IsUserScript(),
 		},
 	)
 
@@ -509,6 +515,9 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipScript(script)
 	sse.PublishScriptsDeleted(script.Id)
+	if script.ScriptType == "lib" {
+		agent_server.NotifyScriptLibsChanged(script.UserId)
+	}
 
 	audit.LogWithRequest(r,
 		user.Username,
@@ -516,12 +525,9 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventScriptDelete,
 		fmt.Sprintf("Deleted script %s", scriptName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"script_id":       scriptId,
-			"script_name":     scriptName,
-			"is_user_script":  script.IsUserScript(),
+			"script_id":      scriptId,
+			"script_name":    scriptName,
+			"is_user_script": script.IsUserScript(),
 		},
 	)
 
@@ -592,4 +598,73 @@ func HandleGetScriptByName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, script.Content)
+}
+
+// HandleGetScriptLibsZip serves the requesting user's `lib` scripts (their own
+// plus global libraries, user overriding global on name collisions) packaged
+// as a scriptling library zip: manifest.toml + lib/<name>.py. Agents fetch and
+// cache this and re-serve it to in-space scriptling as /packages/libs.zip.
+func HandleGetScriptLibsZip(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	scripts, err := db.GetScripts()
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Select active, non-deleted lib scripts visible to this user; a user lib
+	// overrides a global lib with the same name.
+	libs := make(map[string]*model.Script, len(scripts))
+	for _, script := range scripts {
+		if script.ScriptType != "lib" || !script.Active || script.IsDeleted {
+			continue
+		}
+		if script.UserId != "" && script.UserId != user.Id {
+			continue
+		}
+		if existing, ok := libs[script.Name]; ok && script.UserId == "" && existing.UserId != "" {
+			continue
+		}
+		libs[script.Name] = script
+	}
+
+	names := make([]string, 0, len(libs))
+	for name := range libs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	manifest, err := zw.Create("manifest.toml")
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	manifest.Write([]byte("name = \"knot-libs\"\nversion = \"1\"\ndescription = \"User and global script libraries\"\n"))
+	for _, name := range names {
+		file, err := zw.Create("lib/" + name + ".py")
+		if err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+		file.Write([]byte(libs[name].Content))
+	}
+	if err := zw.Close(); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	sum := sha256.Sum256(buf.Bytes())
+	etag := `"` + hex.EncodeToString(sum[:]) + `"`
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="libs.zip"`)
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Write(buf.Bytes())
 }

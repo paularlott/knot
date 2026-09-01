@@ -30,11 +30,16 @@ window.tunnelsListComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           response.json().then((tunnels) => {
-            this.tunnels = tunnels;
+            this.tunnels = tunnels || [];
             this.loading = false;
           });
         } else if (response.status === 401) {
           window.location.href = '/logout';
+        } else {
+          // e.g. the tunnel server is not enabled: show the empty state
+          // instead of spinning forever
+          this.tunnels = [];
+          this.loading = false;
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively

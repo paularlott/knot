@@ -1,9 +1,9 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
+	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
 )
@@ -73,6 +73,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/spaces/{space_id}/custom-field/{field_name}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceCustomField)))
 	router.HandleFunc("DELETE /api/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleDeleteSpace)))
 	router.HandleFunc("GET /api/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpace)))
+	router.HandleFunc("GET /api/spaces/{space_id}/jobs", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceJobs)))
+	router.HandleFunc("PUT /api/spaces/{space_id}/jobs", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleUpdateSpaceJobs)))
 	router.HandleFunc("GET /api/spaces/{space_id}/usage/current", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceUsageCurrent)))
 	router.HandleFunc("GET /api/spaces/{space_id}/usage/history", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceUsageHistory)))
 	router.HandleFunc("POST /api/spaces/{space_id}/start", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStart)))
@@ -144,6 +146,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Scripts
 	router.HandleFunc("GET /api/scripts", middleware.ApiAuth(HandleGetScripts))
+	router.HandleFunc("GET /api/scripts/libs.zip", middleware.ApiAuth(HandleGetScriptLibsZip))
 	router.HandleFunc("GET /api/scripts/global", middleware.ApiAuth(HandleGetGlobalScripts))
 	router.HandleFunc("GET /api/scripts/{script_id}", middleware.ApiAuth(HandleGetScript))
 	router.HandleFunc("GET /api/scripts/name/{script_name}", middleware.ApiAuth(HandleGetScriptDetailsByName))
@@ -215,6 +218,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)
 	router.HandleFunc("GET /api/auth/using-totp", HandleUsingTotp)
+	router.HandleFunc("DELETE /api/auth/blocked", middleware.ApiAuth(middleware.ApiPermissionManageUsers(HandleClearAuthBlocks)))
 
 	// OAuth2 routes
 	router.HandleFunc("GET /authorize", middleware.WebAuth(oauth2.HandleAuthorize))
@@ -224,5 +228,5 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)
 
 	// Start a cleanup job for the rate limiters
-	go cleanupLimiters(context.Background())
+	go authratelimit.StartCleanup(nil)
 }

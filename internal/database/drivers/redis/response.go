@@ -30,17 +30,17 @@ func (db *RedisDbDriver) SaveResponse(response *model.Response) error {
 		}
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sResponses:%s", db.prefix, response.Id), data, ttl).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sResponses:%s", db.prefix, response.Id), data, ttl)
 }
 
 func (db *RedisDbDriver) DeleteResponse(response *model.Response) error {
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sResponses:%s", db.prefix, response.Id)).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sResponses:%s", db.prefix, response.Id))
 }
 
 func (db *RedisDbDriver) GetResponse(id string) (*model.Response, error) {
 	var response = &model.Response{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sResponses:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sResponses:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -56,7 +56,7 @@ func (db *RedisDbDriver) GetResponse(id string) (*model.Response, error) {
 func (db *RedisDbDriver) GetResponses() ([]*model.Response, error) {
 	var responses []*model.Response
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sResponses:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sResponses:*", db.prefix))
 	for iter.Next(context.Background()) {
 		response, err := db.GetResponse(iter.Val()[len(fmt.Sprintf("%sResponses:", db.prefix)):])
 		if err != nil {

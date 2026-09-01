@@ -20,6 +20,7 @@ import (
 	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/crypt"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
@@ -218,6 +219,19 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.Healthy = true
 		}
 
+		// Jobs live on the space record, so they are known even when the
+		// space is stopped — unlike the agent-reported state above.
+		s.HasJobs = len(space.Jobs) > 0
+		s.JobsEnabled = space.JobsEnabled && s.HasJobs
+
+		// Manual agents are started by hand, so their operator needs the
+		// registration key next to the space id. Only for the owner or
+		// managers: the key lets its holder run the space's agent.
+		if !s.IsRemote && template != nil && template.IsManual() &&
+			(user.Id == space.UserId || user.HasPermission(model.PermissionManageSpaces)) {
+			s.RegistrationKey = crypt.AgentRegistrationKey(cfg.EncryptionKey, space.Id)
+		}
+
 		spaceData.Spaces = append(spaceData.Spaces, s)
 		spaceData.Count++
 	}
@@ -273,11 +287,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceDelete,
 		fmt.Sprintf("Deleted space %s", spaceName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        spaceId,
-			"space_name":      spaceName,
+			"space_id":   spaceId,
+			"space_name": spaceName,
 		},
 	)
 
@@ -408,11 +419,10 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceCreate,
 		fmt.Sprintf("Created space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    template.Name,
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -424,6 +434,19 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		Status:  true,
 		SpaceID: space.Id,
 	})
+}
+
+// auditTemplateName resolves a space's template name for audit entries,
+// falling back to the template id when the template has since been deleted.
+func auditTemplateName(db database.DbDriver, space *model.Space) string {
+	return auditTemplateNameForId(db, space.TemplateId)
+}
+
+func auditTemplateNameForId(db database.DbDriver, templateId string) string {
+	if template, err := db.GetTemplate(templateId); err == nil && template.Name != "" {
+		return template.Name
+	}
+	return templateId
 }
 
 func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
@@ -557,11 +580,10 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStart,
 		fmt.Sprintf("Started space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    template.Name,
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -648,11 +670,10 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStop,
 		fmt.Sprintf("Stopped space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    auditTemplateName(db, space),
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -722,11 +743,10 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceRestart,
 		fmt.Sprintf("Restarted space %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":    space.Id,
+			"space_name":  space.Name,
+			"template":    auditTemplateName(db, space),
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -806,6 +826,9 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the space with request data
+	// The previous template is captured first: a template change on update is
+	// recorded on the audit entry.
+	previousTemplateId := space.TemplateId
 	space.Name = request.Name
 	space.Description = request.Description
 	space.TemplateId = request.TemplateId
@@ -870,18 +893,22 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auditProperties := &map[string]interface{}{
+		"space_id":    space.Id,
+		"space_name":  space.Name,
+		"template":    auditTemplateName(db, space),
+		"template_id": space.TemplateId,
+	}
+	if previousTemplateId != "" && previousTemplateId != space.TemplateId {
+		(*auditProperties)["template_previous"] = auditTemplateNameForId(db, previousTemplateId)
+	}
+
 	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceUpdate,
 		fmt.Sprintf("Updated space %s", space.Name),
-		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
-		},
+		auditProperties,
 	)
 
 	if cleanupSpace != nil && template.IsLocalContainer() {
@@ -951,12 +978,11 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceUpdate,
 		fmt.Sprintf("Set custom field '%s' on space %s", request.Name, spaceName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        spaceId,
-			"space_name":      spaceName,
-			"field_name":      request.Name,
+			"space_id":    spaceId,
+			"space_name":  spaceName,
+			"field_name":  request.Name,
+			"template":    auditTemplateName(db, space),
+			"template_id": space.TemplateId,
 		},
 	)
 
@@ -1054,12 +1080,11 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 				model.AuditEventSpaceStop,
 				fmt.Sprintf("Stopped space %s", space.Name),
 				&map[string]interface{}{
-					"agent":           r.UserAgent(),
-					"IP":              r.RemoteAddr,
-					"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-					"space_id":        space.Id,
-					"space_name":      space.Name,
-					"target_user_id":  targetUser.Id,
+					"space_id":       space.Id,
+					"space_name":     space.Name,
+					"template":       auditTemplateName(db, space),
+					"template_id":    space.TemplateId,
+					"target_user_id": targetUser.Id,
 				},
 			)
 		}
@@ -1086,6 +1111,15 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil || space == nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// A deleted space is gone: the record lingers (renamed to its id) so
+	// gossip can propagate the deletion and references stay intact, but the
+	// API must not hand it back. Spaces still on the deletion path
+	// (is_deleting, state transitions) remain visible.
+	if space.IsDeleted {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -1283,12 +1317,9 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 			model.AuditEventSpaceTransfer,
 			fmt.Sprintf("Transfer space %s to user %s", space.Name, request.UserId),
 			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-				"space_id":        space.Id,
-				"space_name":      space.Name,
-				"user_id":         request.UserId,
+				"space_id":   space.Id,
+				"space_name": space.Name,
+				"user_id":    request.UserId,
 			},
 		)
 
@@ -1402,12 +1433,9 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceShare,
 		fmt.Sprintf("Shared space %s to user %s", space.Name, requestedUserId),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
-			"user_id":         requestedUserId,
+			"space_id":   space.Id,
+			"space_name": space.Name,
+			"user_id":    requestedUserId,
 		},
 	)
 
@@ -1509,11 +1537,8 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventSpaceStopShare,
 		fmt.Sprintf("Stop space share %s", space.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":   space.Id,
+			"space_name": space.Name,
 		},
 	)
 
@@ -1782,10 +1807,7 @@ func HandleStackStart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackStart,
 		fmt.Sprintf("Started stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)
@@ -1806,10 +1828,7 @@ func HandleStackStop(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackStop,
 		fmt.Sprintf("Stopped stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)
@@ -1838,10 +1857,7 @@ func HandleStackRestart(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackRestart,
 		fmt.Sprintf("Restarted stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)
@@ -1899,10 +1915,7 @@ func HandleStackDelete(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackDelete,
 		fmt.Sprintf("Deleted stack %s", stackName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"stack_name":      stackName,
+			"stack_name": stackName,
 		},
 	)
 	w.WriteHeader(http.StatusAccepted)

@@ -14,12 +14,14 @@ const (
 )
 
 type AuthCode struct {
-	Code        string
-	UserId      string
-	ClientId    string
-	RedirectURI string
-	Scope       string
-	ExpiresAt   time.Time
+	Code                string
+	UserId              string
+	ClientId            string
+	RedirectURI         string
+	Scope               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	ExpiresAt           time.Time
 }
 
 type AuthCodeStore struct {
@@ -35,19 +37,21 @@ func GetAuthCodeStore() *AuthCodeStore {
 	return authCodeStore
 }
 
-func (s *AuthCodeStore) CreateAuthCode(userId, clientId, redirectURI, scope string) (*AuthCode, error) {
+func (s *AuthCodeStore) CreateAuthCode(userId, clientId, redirectURI, scope, codeChallenge, codeChallengeMethod string) (*AuthCode, error) {
 	code, err := crypt.GenerateAPIKey()
 	if err != nil {
 		return nil, err
 	}
 
 	authCode := &AuthCode{
-		Code:        code,
-		UserId:      userId,
-		ClientId:    clientId,
-		RedirectURI: redirectURI,
-		Scope:       scope,
-		ExpiresAt:   time.Now().Add(AuthCodeExpiry),
+		Code:                code,
+		UserId:              userId,
+		ClientId:            clientId,
+		RedirectURI:         redirectURI,
+		Scope:               scope,
+		CodeChallenge:       codeChallenge,
+		CodeChallengeMethod: codeChallengeMethod,
+		ExpiresAt:           time.Now().Add(AuthCodeExpiry),
 	}
 
 	s.mutex.Lock()

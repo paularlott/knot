@@ -441,7 +441,7 @@ func (w *stderrLogWriter) Write(p []byte) (int, error) {
 		}
 		line := string(w.buf[:i])
 		w.buf = w.buf[i+1:]
-		_ = w.c.SendLogMessage("method-server", msg.LogLevelInfo, line)
+		_ = w.c.SendLogMessage("knot_method_server", msg.LogLevelInfo, line)
 	}
 	return len(p), nil
 }
@@ -453,6 +453,6 @@ func (w *stderrLogWriter) flush() {
 		w.buf = nil
 		return
 	}
-	_ = w.c.SendLogMessage("method-server", msg.LogLevelInfo, string(w.buf))
+	_ = w.c.SendLogMessage("knot_method_server", msg.LogLevelInfo, string(w.buf))
 	w.buf = nil
 }

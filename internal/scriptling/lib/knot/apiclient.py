@@ -26,6 +26,32 @@
 _client = None
 
 
+def _load_from_agent():
+    """Configure from the in-space agent when running inside a knot space.
+
+    The agent listens on 127.0.0.1:KNOT_API_PORT inside the space and hands
+    out the server URL plus a token that acts as the space owner — the HTTP
+    equivalent of the agentlink socket connect the knot CLI uses. Returns
+    True if successful.
+    """
+    import os
+    port = os.environ.get("KNOT_API_PORT", "")
+    if not port:
+        return False
+    try:
+        import requests
+        resp = requests.get("http://127.0.0.1:" + port + "/connect", timeout=5)
+        if resp.status_code != 200:
+            return False
+        info = resp.json()
+        if not info.get("server") or not info.get("token"):
+            return False
+        configure(info["server"], info["token"])
+        return True
+    except Exception:
+        return False
+
+
 def _load_from_env():
     """Try to configure from environment variables. Returns True if successful."""
     import os
@@ -45,10 +71,11 @@ def _load_from_env():
 
 
 def _get_client():
-    """Get the client config, loading from env vars if not yet configured."""
+    """Get the client config, loading from the agent or env vars if not yet configured."""
     global _client
     if _client is None:
-        _load_from_env()
+        if not _load_from_agent():
+            _load_from_env()
     return _client
 
 

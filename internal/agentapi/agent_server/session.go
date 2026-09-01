@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/spacejobs"
 
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/knot/internal/log"
@@ -17,6 +19,9 @@ type Session struct {
 	Id                    string
 	Version               string
 	PeerPort              uint16
+	UserId                string // owner of the space, used for log sink scoping
+	Username              string // owner's username, attached to mirrored/forwarded logs
+	SpaceName             string // space name, attached to mirrored/forwarded logs
 	HasCodeServer         bool
 	SSHPort               int
 	VNCHttpPort           int
@@ -620,4 +625,78 @@ func (s *Session) SendTunnelList() (*msg.TunnelListResponse, error) {
 		return nil, err
 	}
 	return &response, nil
+}
+
+// SendMirrorLog pushes a batch of mirrored log records to the space's agent
+// (fire and forget — the agent writes them to its local log service).
+func (s *Session) SendMirrorLog(batch *msg.MirrorLogMessage) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdMirrorLog); err != nil {
+		return err
+	}
+	return msg.WriteMessage(conn, batch)
+}
+
+// SendJobsList asks the space's agent for its scheduled jobs snapshot.
+func (s *Session) SendJobsList() (*spacejobs.JobsSnapshot, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdJobsList); err != nil {
+		s.logger.WithError(err).Error("writing jobs list command:")
+		return nil, err
+	}
+
+	var response spacejobs.JobsSnapshot
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading jobs list response:")
+		return nil, err
+	}
+	return &response, nil
+}
+
+// SendJobsRun asks the space's agent to start a job immediately.
+func (s *Session) SendJobsRun(name string) (*msg.JobsResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := msg.WriteCommand(conn, msg.CmdJobsRun); err != nil {
+		s.logger.WithError(err).Error("writing jobs run command:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+	if err := msg.WriteMessage(conn, &msg.JobsRunMessage{Name: name}); err != nil {
+		s.logger.WithError(err).Error("writing jobs run message:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to send message to agent"}, nil
+	}
+
+	var response msg.JobsResponse
+	if err := msg.ReadMessage(conn, &response); err != nil {
+		s.logger.WithError(err).Error("reading jobs run response:")
+		return &msg.JobsResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+	return &response, nil
+}
+
+// SendUpdateJobs pushes the space's persisted job definitions and runner
+// state to the agent. Fire-and-forget: if the agent is unreachable the push
+// is skipped and the definitions re-arrive in its next registration response.
+func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	return msg.SendUpdateJobs(conn, jobs, enabled)
 }

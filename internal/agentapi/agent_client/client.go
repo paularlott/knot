@@ -1,6 +1,8 @@
 package agent_client
 
 import (
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -85,10 +87,20 @@ type AgentClient struct {
 	// knot-server restart doesn't lose the space's methods.
 	lastRegMu sync.RWMutex
 	lastReg   *methods.Registration
+
+	// Log sink advertisement — from KNOT_LOG_SINK_PORT / KNOT_LOG_SINK_FORMAT.
+	// 0 means the space is not a log sink. Pro servers mirror the owner's
+	// other space logs here as CmdMirrorLog batches. The auth credentials are
+	// agent-side only — they are never sent to the server or audited.
+	logSinkPort     int
+	logSinkFormat   string
+	logSinkToken    string
+	logSinkUsername string
+	logSinkPassword string
 }
 
 func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
-	return &AgentClient{
+	client := &AgentClient{
 		defaultServerAddress: defaultServerAddress,
 		spaceId:              spaceId,
 		serverList:           make(map[string]*agentServer),
@@ -109,6 +121,37 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		tcpPortMap:           make(map[string]string),
 		logChannel:           make(chan *msg.LogMessage, logChannelBufferSize),
 		healthy:              true,
+		logSinkFormat:        defaultLogSinkFormat(),
+	}
+	if port, err := strconv.Atoi(os.Getenv("KNOT_LOG_SINK_PORT")); err == nil && port > 0 && port < 65536 {
+		client.logSinkPort = port
+	}
+	client.logSinkToken = os.Getenv("KNOT_LOG_SINK_TOKEN")
+	client.logSinkUsername = os.Getenv("KNOT_LOG_SINK_USERNAME")
+	client.logSinkPassword = os.Getenv("KNOT_LOG_SINK_PASSWORD")
+	return client
+}
+
+// GetLogSinkPort returns the advertised log sink port (0 = not a sink).
+func (c *AgentClient) GetLogSinkPort() int {
+	return c.logSinkPort
+}
+
+// GetLogSinkFormat returns the format mirrored logs are written in.
+func (c *AgentClient) GetLogSinkFormat() string {
+	return c.logSinkFormat
+}
+
+func defaultLogSinkFormat() string {
+	format := strings.ToLower(strings.TrimSpace(os.Getenv("KNOT_LOG_SINK_FORMAT")))
+	switch format {
+	case "vl", "victorialogs", "loki", "gelf", "json":
+		if format == "victorialogs" {
+			format = "vl"
+		}
+		return format
+	default:
+		return "vl"
 	}
 }
 

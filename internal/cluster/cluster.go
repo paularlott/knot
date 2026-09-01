@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"errors"
+	"context"
 	"math"
 	"net/http"
 	"net/url"
@@ -15,6 +15,7 @@ import (
 	"github.com/paularlott/gossip/encryption/aes"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/gossip/leader"
+	"github.com/paularlott/gossip/lock"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/runtime"
@@ -46,7 +47,13 @@ type Cluster struct {
 	electionMux      sync.Mutex
 	resourceLocksMux sync.RWMutex
 	resourceLocks    map[string]*ResourceLock
-	logger           logger.Logger
+	// lockPool coordinates distributed resource locks through the zone
+	// leader; heldLocks maps the opaque unlock tokens handed to callers back
+	// to their lock handles.
+	lockPool    *lock.Pool
+	heldLocksMu sync.Mutex
+	heldLocks   map[string]*lock.Lock
+	logger      logger.Logger
 }
 
 func NewCluster(
@@ -66,6 +73,7 @@ func NewCluster(
 		tunnelServers:    []string{},
 		sessionGossip:    !database.IsSessionDriverShared(),
 		resourceLocks:    make(map[string]*ResourceLock),
+		heldLocks:        make(map[string]*lock.Lock),
 		logger:           log.WithGroup("cluster"),
 	}
 
@@ -155,8 +163,7 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(VolumeFullSyncMsg, cluster.handleVolumeFullSync)
 		cluster.gossipCluster.HandleFunc(VolumeGossipMsg, cluster.handleVolumeGossip)
 		cluster.gossipCluster.HandleFunc(AuditLogGossipMsg, cluster.handleAuditLogGossip)
-		cluster.gossipCluster.HandleFuncWithReply(ResourceLockFullSyncMsg, cluster.handleResourceLockFullSync)
-		cluster.gossipCluster.HandleFunc(ResourceLockGossipMsg, cluster.handleResourceLockGossip)
+		cluster.gossipCluster.HandleFunc(AuthFailureGossipMsg, cluster.handleAuthFailureGossip)
 		cluster.gossipCluster.HandleFuncWithReply(ScriptFullSyncMsg, cluster.handleScriptFullSync)
 		cluster.gossipCluster.HandleFunc(ScriptGossipMsg, cluster.handleScriptGossip)
 		cluster.gossipCluster.HandleFuncWithReply(SkillFullSyncMsg, cluster.handleSkillFullSync)
@@ -186,9 +193,6 @@ func NewCluster(
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
 		}
 
-		cluster.gossipCluster.HandleFuncWithReply(ResourceLockMsg, cluster.handleResourceLock)
-		cluster.gossipCluster.HandleFunc(ResourceUnlockMsg, cluster.handleResourceUnlock)
-
 		// Capture server state changes and maintain a list of nodes in our zone
 		cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
 			cluster.trackClusterEndpoints()
@@ -209,7 +213,6 @@ func NewCluster(
 			cluster.gossipUsers()
 			cluster.gossipTokens()
 			cluster.gossipVolumes()
-			cluster.gossipResourceLocks()
 			cluster.gossipScripts()
 			cluster.gossipSkills()
 			cluster.gossipCommands()
@@ -256,11 +259,23 @@ func NewCluster(
 		electionCfg.MetadataCriteria = map[string]string{
 			"zone": cfg.Zone,
 		}
+		electionCfg.MinClusterSize = cfg.Cluster.MinClusterSize
 		cluster.election = leader.NewLeaderElection(cluster.gossipCluster, electionCfg)
 
 		cluster.election.HandleEventFunc(leader.BecameLeaderEvent, func(_ leader.EventType, _ gossip.NodeID) {
 			cluster.logger.Info("became leader, replaying pending event deliveries")
 			service.GetEventDispatcher().ReplayPending()
+		})
+
+		// Distributed resource locks, coordinated by the zone's leader and
+		// replicated across the zone: grants survive leader failover and carry
+		// fencing tokens. The pool name is zone-scoped so gossip for other
+		// zones' locks is ignored by nodes that do not hold that pool.
+		cluster.lockPool = lock.NewPool(cluster.gossipCluster, cluster.election, &lock.Config{
+			Name:          "resources-" + cfg.Zone,
+			MinTTL:        time.Second,
+			MaxTTL:        10 * time.Minute,
+			RetryInterval: 100 * time.Millisecond,
 		})
 	}
 
@@ -412,10 +427,6 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						c.logger.WithError(err).Error("failed to sync volumes with node")
 					}
 
-					if err := c.DoResourceLockFullSync(node); err != nil {
-						c.logger.WithError(err).Error("failed to sync resource locks with node")
-					}
-
 					if err := c.DoScriptFullSync(node); err != nil {
 						c.logger.WithError(err).Error("failed to sync scripts with node")
 					}
@@ -478,6 +489,10 @@ func (c *Cluster) Stop() {
 	if c.gossipCluster != nil {
 		c.logger.Info("stopping gossip cluster")
 
+		if c.lockPool != nil {
+			c.lockPool.Close()
+		}
+
 		c.electionMux.Lock()
 		if c.electionRunning {
 			c.election.Stop()
@@ -538,124 +553,87 @@ func (c *Cluster) GetLocalNodeId() (string, error) {
 	return nodeIdCfg.Value, nil
 }
 
+// LockResource takes a distributed lock on the given resource. In cluster
+// mode the lock is granted by the zone's elected leader and replicated across
+// the zone, so it survives leader failover; the returned token is opaque and
+// must be passed to UnlockResource. An empty token means the lock was not
+// acquired — either it is held elsewhere or leadership is unavailable.
+//
+// Outside cluster mode (leaf nodes, and zones of one server where the election
+// never starts) the lock is local to this process, which is sufficient because
+// no other process contends for it.
 func (c *Cluster) LockResource(resourceId string) string {
-	// If in cluster mode and not the leader then we have to ask the leader to lock the resource
-	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
-		c.logger.Debug("asking leader to lock resource")
+	if c.lockPool != nil && c.electionRunning {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 
-		leaderNode := c.election.GetLeader()
-		if leaderNode != nil {
-			request := &ResourceLockRequestMsg{
-				ResourceId: resourceId,
-			}
-			response := &ResourceLockResponseMsg{}
-			if err := c.gossipCluster.SendToWithResponse(leaderNode, ResourceLockMsg, request, response); err != nil {
-				c.logger.WithError(err).Error("failed to request resource lock from leader")
-				return ""
-			}
-
-			return response.UnlockToken
+		lk, err := c.lockPool.Acquire(ctx, resourceId, ResourceLockTTL)
+		if err != nil {
+			c.logger.WithError(err).Debug("failed to lock resource", "resource_id", resourceId)
+			return ""
 		}
+
+		token := crypt.CreateKey()
+		c.heldLocksMu.Lock()
+		c.heldLocks[token] = lk
+		c.heldLocksMu.Unlock()
+		return token
 	}
 
 	return c.lockResourceLocally(resourceId)
+}
+
+// UnlockResource releases a lock previously granted by LockResource.
+func (c *Cluster) UnlockResource(resourceId, unlockToken string) {
+	if c.lockPool != nil && c.electionRunning {
+		c.heldLocksMu.Lock()
+		lk, ok := c.heldLocks[unlockToken]
+		if ok {
+			delete(c.heldLocks, unlockToken)
+		}
+		c.heldLocksMu.Unlock()
+
+		if ok {
+			if err := lk.Release(); err != nil {
+				c.logger.WithError(err).Debug("failed to release resource lock", "resource_id", resourceId)
+			}
+		}
+		return
+	}
+
+	c.unlockResourceLocally(resourceId, unlockToken)
 }
 
 func (c *Cluster) lockResourceLocally(resourceId string) string {
 	c.resourceLocksMux.Lock()
 	defer c.resourceLocksMux.Unlock()
 
-	if lock, exists := c.resourceLocks[resourceId]; exists {
-		if lock.ExpiresAfter.After(time.Now().UTC()) && !lock.IsDeleted {
+	if rl, exists := c.resourceLocks[resourceId]; exists {
+		if rl.ExpiresAfter.After(time.Now().UTC()) && !rl.IsDeleted {
 			return ""
 		}
 	}
 
-	lock := &ResourceLock{
+	rl := &ResourceLock{
 		Id:           resourceId,
 		UnlockToken:  crypt.CreateKey(),
 		UpdatedAt:    hlc.Now(),
 		ExpiresAfter: time.Now().UTC().Add(ResourceLockTTL),
 	}
-	c.resourceLocks[resourceId] = lock
-	c.GossipResourceLock(lock)
+	c.resourceLocks[resourceId] = rl
 
-	return lock.UnlockToken
-}
-
-func (c *Cluster) UnlockResource(resourceId, unlockToken string) {
-	// If in cluster mode and not the leader then we have to ask the leader to unlock the resource
-	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
-		c.logger.Debug("asking leader to unlock resource")
-
-		leaderNode := c.election.GetLeader()
-		if leaderNode != nil {
-			request := &ResourceUnlockRequestMsg{
-				ResourceId:  resourceId,
-				UnlockToken: unlockToken,
-			}
-			if err := c.gossipCluster.SendTo(leaderNode, ResourceUnlockMsg, request); err != nil {
-				c.logger.WithError(err).Error("failed to request resource unlock from leader")
-			}
-
-			return
-		}
-	}
-
-	c.unlockResourceLocally(resourceId, unlockToken)
+	return rl.UnlockToken
 }
 
 func (c *Cluster) unlockResourceLocally(resourceId, unlockToken string) {
 	c.resourceLocksMux.Lock()
 	defer c.resourceLocksMux.Unlock()
 
-	if lock, exists := c.resourceLocks[resourceId]; exists {
-		if lock.UnlockToken == unlockToken {
-			lock.IsDeleted = true
-			lock.ExpiresAfter = time.Now().UTC().Add(ResourceLockTTL)
-			lock.UpdatedAt = hlc.Now()
-			c.GossipResourceLock(lock)
+	if rl, exists := c.resourceLocks[resourceId]; exists {
+		if rl.UnlockToken == unlockToken {
+			rl.IsDeleted = true
+			rl.ExpiresAfter = time.Now().UTC().Add(ResourceLockTTL)
+			rl.UpdatedAt = hlc.Now()
 		}
 	}
-}
-
-func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	// If the sender doesn't match our zone then ignore the request
-	cfg := config.GetServerConfig()
-	if sender.Metadata.GetString("zone") != cfg.Zone {
-		c.logger.Debug("ignoring resource lock request from a different zone")
-		return nil, errors.New("resource lock request from different zone")
-	}
-
-	request := ResourceLockRequestMsg{}
-	if err := packet.Unmarshal(&request); err != nil {
-		c.logger.WithError(err).Error("failed to unmarshal resource lock request")
-		return nil, err
-	}
-
-	response := &ResourceLockResponseMsg{
-		UnlockToken: c.lockResourceLocally(request.ResourceId),
-	}
-
-	// Return the full dataset directly as response
-	return response, nil
-}
-
-func (c *Cluster) handleResourceUnlock(sender *gossip.Node, packet *gossip.Packet) error {
-	// If the sender doesn't match our zone then ignore the request
-	cfg := config.GetServerConfig()
-	if sender.Metadata.GetString("zone") != cfg.Zone {
-		c.logger.Debug("ignoring resource unlock request from a different zone")
-		return errors.New("resource unlock request from different zone")
-	}
-
-	request := ResourceUnlockRequestMsg{}
-	if err := packet.Unmarshal(&request); err != nil {
-		c.logger.WithError(err).Error("failed to unmarshal resource unlock request")
-		return err
-	}
-
-	c.unlockResourceLocally(request.ResourceId, request.UnlockToken)
-
-	return nil
 }

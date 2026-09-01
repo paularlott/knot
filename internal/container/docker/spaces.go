@@ -175,6 +175,18 @@ func registryAuthHeader(username, password string) (string, error) {
 
 // ---- Docker API calls ----
 
+// imageExists reports whether the image is already in the daemon's local
+// store. Space starts skip the registry pull when it is: pulling on every
+// create costs a registry round-trip per boot, and against caches that
+// require credentials the daemon doesn't hold, the pull of an image that is
+// already local would fail outright.
+func (c *DockerClient) imageExists(ctx context.Context, image string) bool {
+	// '/' must not be encoded in image references (see imagePull).
+	escaped := strings.ReplaceAll(url.QueryEscape(image), "%2F", "/")
+	code, err := c.httpClient.GetJSON(ctx, "/v1.41/images/"+escaped+"/json", &struct{}{})
+	return err == nil && code == http.StatusOK
+}
+
 // imagePull calls POST /images/create and scans the streaming response for errors.
 // Docker returns HTTP 200 immediately and streams JSON progress objects; auth failures
 // and other errors appear as {"error":"..."} objects in the stream, not as HTTP error codes.
@@ -249,18 +261,21 @@ func (c *DockerClient) containerStart(ctx context.Context, id string) error {
 }
 
 func (c *DockerClient) containerStop(ctx context.Context, id string) error {
-	// POST /containers/{id}/stop blocks for the container's grace period (default 10s)
-	// before Docker sends SIGKILL and responds. We need a client with no timeout so
-	// only the caller's context deadline applies. Build a separate http.Client that
-	// shares the same transport (connection pool) but has Timeout=0, avoiding any
-	// mutation of the shared client and the data race that would cause.
+	// POST /containers/{id}/stop blocks for the container's grace period
+	// before Docker sends SIGKILL and responds. Space entrypoints run as PID 1
+	// under a shell that ignores SIGTERM, so the default 10s grace always
+	// elapses in full; t=2 caps it without cutting short any entrypoint that
+	// does trap and exit promptly. We need a client with no timeout so only
+	// the caller's context deadline applies. Build a separate http.Client that
+	// shares the same transport (connection pool) but has Timeout=0, avoiding
+	// any mutation of the shared client and the data race that would cause.
 	blockingClient := &http.Client{
 		Transport: c.httpClient.HTTPClient.Transport,
 		Timeout:   0,
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.httpClient.GetBaseURL()+fmt.Sprintf("/v1.41/containers/%s/stop", id), nil)
+		c.httpClient.GetBaseURL()+fmt.Sprintf("/v1.41/containers/%s/stop?t=2", id), nil)
 	if err != nil {
 		return err
 	}
@@ -395,6 +410,10 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	spec.Environment = container.RemoveExistingPortEnvVars(spec.Environment)
 	spec.Environment = append(spec.Environment, container.BuildPortEnvVars(template)...)
 
+	// Provision the agent's registration credentials, and refuse proof-less
+	// registration for this space from now on.
+	spec.Environment = append(spec.Environment, container.AgentRegistrationEnv(config.GetServerConfig(), space.Id)...)
+
 	// When agent DNS is enabled, point the container's sole nameserver at the
 	// in-container agent resolver (127.0.0.1) and expose KNOT_SERVER_RESOLVE so
 	// the entrypoint's agent fetch reaches the server without DNS. If the
@@ -485,8 +504,15 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 
 		c.Logger.Debug("pulling image", "image", spec.Image)
 		if err := c.imagePull(ctx, spec.Image, authHeader); err != nil {
-			c.Logger.Error("pulling image error", "image", spec.Image, "error", err)
-			return
+			// A failed pull is fatal only when the image isn't available
+			// locally: the registry may be unreachable or refuse the
+			// daemon's credentials, and a present image (possibly a
+			// slightly older tag) beats a space that can't start at all.
+			if !c.imageExists(ctx, spec.Image) {
+				c.Logger.Error("pulling image error", "image", spec.Image, "error", err)
+				return
+			}
+			c.Logger.Warn("image pull failed, using local image", "image", spec.Image, "error", err)
 		}
 
 		select {

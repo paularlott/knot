@@ -2,6 +2,8 @@ package agent_server
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/paularlott/knot/internal/util/audit"
 	"net"
 	"strings"
 	"time"
@@ -23,6 +25,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/logger"
 )
 
 const (
@@ -53,6 +56,17 @@ func handleAgentConnection(conn net.Conn) {
 		WithCodeServer:   false,
 		WithSSH:          false,
 		Freeze:           false,
+	}
+
+	// Registration must prove possession of the space's registration key
+	// before anything else — not even the live-session check below — so an
+	// unauthenticated peer can neither obtain the register response nor
+	// evict a connected agent.
+	if err := authenticateRegistration(conn, logger, &registerMsg); err != nil {
+		logger.Warn("agent registration rejected", "space", registerMsg.SpaceId, "reason", err.Error())
+		response.Error = err.Error()
+		msg.WriteMessage(conn, &response)
+		return
 	}
 
 	// Check if the agent is already registered
@@ -113,6 +127,9 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create a new session and start listening
 	session = NewSession(registerMsg.SpaceId, registerMsg.Version)
+	session.UserId = space.UserId
+	session.Username = user.Username
+	session.SpaceName = space.Name
 	clearAgentLossFailures(registerMsg.SpaceId)
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
@@ -190,6 +207,8 @@ func handleAgentConnection(conn net.Conn) {
 		})
 	}
 	response.PortForwards = portForwards
+	response.Jobs = space.Jobs
+	response.JobsEnabled = space.JobsEnabled
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -225,6 +244,12 @@ func handleAgentConnection(conn net.Conn) {
 	}
 
 	logger.Debug("session created", "space_name", space.Name)
+
+	// Log sink registration is Pro-only (hook nil in Core); agents advertise
+	// a sink via the register message regardless of server edition.
+	if registerMsg.LogSinkPort > 0 && LogSinkRegisterHook != nil {
+		LogSinkRegisterHook(session, user, registerMsg.LogSinkPort, registerMsg.LogSinkFormat)
+	}
 
 	// Loop forever waiting for connections on the mux session
 	for {
@@ -353,6 +378,15 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				return
 			}
 
+		case byte(msg.CmdSSHPortAuthResult):
+			var authResult msg.SSHAuthResultMessage
+			if err := msg.ReadMessage(stream, &authResult); err != nil {
+				log.WithError(err).Error("reading ssh auth result:")
+				return
+			}
+
+			session.auditSSHAuth(authResult)
+
 		case byte(msg.CmdLogMessage):
 			var logMsg msg.LogMessage
 			if err := msg.ReadMessage(stream, &logMsg); err != nil {
@@ -378,6 +412,12 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				}
 			}
 			session.LogListenersMutex.RUnlock()
+
+			// Mirror to the owner's log sinks (Pro; hook nil in Core). The
+			// leader gating lives inside the Pro implementation.
+			if LogSinkMirrorHook != nil {
+				LogSinkMirrorHook(session.Id, session.UserId, session.Username, session.SpaceName, &logMsg)
+			}
 
 		case byte(msg.CmdUpdateSpaceNote):
 			var spaceNote msg.SpaceNote
@@ -1157,4 +1197,92 @@ func handleRemovePortForward(stream net.Conn, session *Session) {
 
 	service.GetTransport().GossipSpace(space)
 	log.Info("removed persistent port forward from space", "space_id", session.Id, "local_port", removeMsg.LocalPort)
+}
+
+// authenticateRegistration runs the registration proof-of-possession
+// handshake before any space state is touched. An agent that presents a
+// nonce gets a server nonce and must answer with a proof derived from the
+// space's registration key. Agents without a nonce are legacy (pre-key
+// spaces) and only pass while the space has not been provisioned with a key.
+func authenticateRegistration(conn net.Conn, logger logger.Logger, registerMsg *msg.Register) error {
+	cfg := config.GetServerConfig()
+
+	if registerMsg.Nonce == "" {
+		// Agents are provisioned with their key at container create (manual
+		// agents get it shown next to the space id); the TLS-only listener
+		// already excludes pre-upgrade agents, so a key-less registration is
+		// an impostor or an outdated manual-agent command.
+		return fmt.Errorf("registration key required")
+	}
+
+	serverNonce, err := crypt.NewAgentNonce()
+	if err != nil {
+		return fmt.Errorf("nonce generation failed")
+	}
+	if err := msg.WriteMessage(conn, &msg.RegisterChallenge{ServerNonce: serverNonce}); err != nil {
+		return fmt.Errorf("challenge write failed")
+	}
+
+	var proofMsg msg.Register
+	if err := msg.ReadMessage(conn, &proofMsg); err != nil {
+		return fmt.Errorf("proof read failed")
+	}
+
+	key := crypt.AgentRegistrationKey(cfg.EncryptionKey, registerMsg.SpaceId)
+	expected := crypt.AgentRegistrationProof(key, registerMsg.SpaceId, registerMsg.Nonce, serverNonce)
+	if !crypt.VerifyAgentRegistrationProof(expected, proofMsg.Proof) {
+		return fmt.Errorf("invalid registration proof")
+	}
+	return nil
+}
+
+// auditSSHAuth records a public-key authentication attempt against a space's
+// agent-managed SSH server when server.audit.space_sessions is enabled. The
+// agent reports one result per key offered, so a client trying several keys
+// yields a failure per key plus a final success. Only the zone leader emits —
+// every server receives the report, but the entry gossips to all stores, so
+// leaderless gating keeps one entry per attempt cluster-wide.
+func (s *Session) auditSSHAuth(result msg.SSHAuthResultMessage) {
+	cfg := config.GetServerConfig()
+	if cfg == nil || !cfg.Audit.SpaceSessions {
+		return
+	}
+	if t := service.GetTransport(); t != nil && !t.IsLeader() {
+		return
+	}
+
+	props := map[string]interface{}{
+		"space_id":   s.Id,
+		"space_name": s.SpaceName,
+		"method":     "ssh",
+		"auth":       "failed",
+		"key":        result.KeyFingerprint,
+	}
+	if result.Success {
+		props["auth"] = "success"
+	}
+	if result.RemoteAddr != "" {
+		if host, _, err := net.SplitHostPort(result.RemoteAddr); err == nil {
+			props["source_ip"] = host
+		} else {
+			props["source_ip"] = result.RemoteAddr
+		}
+	}
+	// The template answers "what was running" when the space is later gone.
+	if db := database.GetInstance(); db != nil {
+		if space, err := db.GetSpace(s.Id); err == nil && space != nil {
+			if template, err := db.GetTemplate(space.TemplateId); err == nil && template.Name != "" {
+				props["template"] = template.Name
+			} else {
+				props["template"] = space.TemplateId
+			}
+		}
+	}
+
+	details := fmt.Sprintf("SSH login failed for space %s", s.SpaceName)
+	if result.Success {
+		details = fmt.Sprintf("SSH login succeeded for space %s", s.SpaceName)
+	}
+	audit.Log(s.Username, model.AuditActorTypeUser, model.AuditEventSpaceSessionOpen,
+		details, &props)
 }

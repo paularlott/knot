@@ -19,6 +19,9 @@ func LogWithRequest(r *http.Request, actor, actorType, event, details string, pr
 
 func Log(actor, actorType, event, details string, properties *map[string]interface{}) error {
 	entry := model.NewAuditLogEntry(actor, actorType, event, details, properties)
+	if model.AuditHook != nil {
+		model.AuditHook(entry)
+	}
 	transport := service.GetTransport()
 	if transport != nil {
 		transport.GossipAuditLog(entry)
@@ -48,13 +51,13 @@ func Log(actor, actorType, event, details string, properties *map[string]interfa
 }
 
 func logToExternal(entry *model.AuditLogEntry, cfg *config.ServerConfig) {
-	stream := "audit"
+	stream := "knot_audit"
 	if cfg != nil && cfg.Audit.AuditStream != "" {
 		stream = cfg.Audit.AuditStream
 	}
 
 	args := []any{
-		"stream", stream,
+		"service", stream,
 		"type", "audit",
 		"_time", entry.When.UTC().Format(time.RFC3339Nano),
 		"zone", entry.Zone,
@@ -66,5 +69,7 @@ func logToExternal(entry *model.AuditLogEntry, cfg *config.ServerConfig) {
 	if entry.Properties != nil {
 		args = append(args, "properties", entry.Properties)
 	}
-	log.Info(entry.Event, args...)
+	// Pipeline: the record must reach the external service regardless of
+	// log.level — level filtering is for diagnostics, not the audit trail.
+	log.Pipeline(entry.Event, args...)
 }

@@ -3,6 +3,7 @@ package driver_redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,14 +12,14 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
 )
 
 // Function to take a mutex lock on the redis database so we can do save operations without overwrites
 func (db *RedisDbDriver) mutexLock() error {
 
 	for i := 0; i < 10; i++ {
-		set, err := db.connection.SetNX(context.Background(), fmt.Sprintf("%sSpacesWriteLock", db.prefix), "1", 10*time.Second).Result()
+		set, err := db.setNX(context.Background(), fmt.Sprintf("%sSpacesWriteLock", db.prefix), "1", 10*time.Second)
 		if err == nil && set {
 			return nil
 		}
@@ -29,7 +30,7 @@ func (db *RedisDbDriver) mutexLock() error {
 
 // Function to release the mutex lock on the redis database
 func (db *RedisDbDriver) mutexUnlock() error {
-	_, err := db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesWriteLock", db.prefix)).Result()
+	err := db.del(context.Background(), fmt.Sprintf("%sSpacesWriteLock", db.prefix))
 	return err
 }
 
@@ -90,24 +91,24 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 
 	if existingSpace != nil {
 		if existingSpace.UserId != space.UserId && (len(updateFields) == 0 || util.InArray(updateFields, "UserId")) {
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, existingSpace.UserId, space.Id)).Err()
+			err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, existingSpace.UserId, space.Id))
 			if err != nil {
 				return err
 			}
 
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(existingSpace.Name))).Err()
+			err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(existingSpace.Name)))
 			if err != nil {
 				return err
 			}
 
 			// Delete alternate names
 			for _, altName := range existingSpace.AltNames {
-				err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(altName.Name))).Err()
+				err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(altName.Name)))
 				if err != nil {
 					return err
 				}
 
-				err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name)), space.Id, 0).Err()
+				err = db.set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name)), space.Id, 0)
 				if err != nil {
 					return err
 				}
@@ -116,7 +117,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 
 		for _, sharedUserId := range existingSpace.SharedUserIds() {
 			if !space.IsSharedWith(sharedUserId) {
-				err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id)).Err()
+				err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id))
 				if err != nil {
 					return err
 				}
@@ -124,7 +125,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 		}
 
 		if existingSpace.Name != space.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name")) {
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(existingSpace.Name))).Err()
+			err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(existingSpace.Name)))
 			if err != nil {
 				return err
 			}
@@ -144,30 +145,30 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, space.Id), data, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, space.Id), data, 0)
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.UserId, space.Id), space.Id, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.UserId, space.Id), space.Id, 0)
 	if err != nil {
 		return err
 	}
 
 	// If shared with then add space under shared user
 	for _, sharedUserId := range space.SharedUserIds() {
-		err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id), space.Id, 0).Err()
+		err = db.set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id), space.Id, 0)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name)), space.Id, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name)), space.Id, 0)
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByTemplateId:%s:%s", db.prefix, space.TemplateId, space.Id), space.Id, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sSpacesByTemplateId:%s:%s", db.prefix, space.TemplateId, space.Id), space.Id, 0)
 	if err != nil {
 		return err
 	}
@@ -185,7 +186,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 				}
 			}
 			if !found {
-				err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name))).Err()
+				err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name)))
 				if err != nil {
 					return err
 				}
@@ -206,7 +207,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 		}
 
 		if !found {
-			err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(name.Name)), space.Id, 0).Err()
+			err = db.set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(name.Name)), space.Id, 0)
 			if err != nil {
 				return err
 			}
@@ -217,37 +218,37 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 }
 
 func (db *RedisDbDriver) DeleteSpace(space *model.Space) error {
-	err := db.connection.Del(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, space.Id)).Err()
+	err := db.del(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, space.Id))
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.UserId, space.Id)).Err()
+	err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.UserId, space.Id))
 	if err != nil {
 		return err
 	}
 
 	// If shared with a user then delete space under shared user
 	for _, sharedUserId := range space.SharedUserIds() {
-		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id)).Err()
+		err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id))
 		if err != nil {
 			return err
 		}
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name))).Err()
+	err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name)))
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByTemplateId:%s:%s", db.prefix, space.TemplateId, space.Id)).Err()
+	err = db.del(context.Background(), fmt.Sprintf("%sSpacesByTemplateId:%s:%s", db.prefix, space.TemplateId, space.Id))
 	if err != nil {
 		return err
 	}
 
 	// Delete alternate names
 	for _, altName := range space.AltNames {
-		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name))).Err()
+		err = db.del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName.Name)))
 		if err != nil {
 			return err
 		}
@@ -259,9 +260,9 @@ func (db *RedisDbDriver) DeleteSpace(space *model.Space) error {
 func (db *RedisDbDriver) GetSpace(id string) (*model.Space, error) {
 	var space = &model.Space{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, id))
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, valkey.Nil) {
 			return nil, fmt.Errorf("space not found")
 		}
 		return nil, convertRedisError(err)
@@ -280,9 +281,10 @@ func (db *RedisDbDriver) GetSpace(id string) (*model.Space, error) {
 func (db *RedisDbDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 	var spaces []*model.Space
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpacesByUserId:%s:*", db.prefix, userId), 0).Iterator()
+	prefix := fmt.Sprintf("%sSpacesByUserId:%s:", db.prefix, userId)
+	iter := db.scan(context.Background(), prefix+"*")
 	for iter.Next(context.Background()) {
-		space, err := db.GetSpace(iter.Val()[len(fmt.Sprintf("%sSpacesByUserId:00000000-0000-0000-0000-000000000000:", db.prefix)):])
+		space, err := db.GetSpace(strings.TrimPrefix(iter.Val(), prefix))
 		if err != nil {
 			return nil, err
 		}
@@ -302,7 +304,7 @@ func (db *RedisDbDriver) GetSpacesForUser(userId string) ([]*model.Space, error)
 }
 
 func (db *RedisDbDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, userId, strings.ToLower(spaceName))).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, userId, strings.ToLower(spaceName)))
 	if err != nil {
 		// Try getting all the spaces and see if it's a shared space
 		spaces, err2 := db.GetSpacesForUser(userId)
@@ -325,9 +327,10 @@ func (db *RedisDbDriver) GetSpaceByName(userId string, spaceName string) (*model
 func (db *RedisDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space, error) {
 	var spaces []*model.Space
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpacesByTemplateId:%s:*", db.prefix, templateId), 0).Iterator()
+	prefix := fmt.Sprintf("%sSpacesByTemplateId:%s:", db.prefix, templateId)
+	iter := db.scan(context.Background(), prefix+"*")
 	for iter.Next(context.Background()) {
-		space, err := db.GetSpace(iter.Val()[len(fmt.Sprintf("%sSpacesByTemplateId:00000000-0000-0000-0000-000000000000:", db.prefix)):])
+		space, err := db.GetSpace(strings.TrimPrefix(iter.Val(), prefix))
 		if err != nil {
 			return nil, err
 		}
@@ -349,7 +352,7 @@ func (db *RedisDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Spac
 func (db *RedisDbDriver) GetSpaces() ([]*model.Space, error) {
 	var spaces []*model.Space
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpaces:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sSpaces:*", db.prefix))
 	for iter.Next(context.Background()) {
 		space, err := db.GetSpace(iter.Val()[len(fmt.Sprintf("%sSpaces:", db.prefix)):])
 		if err != nil {

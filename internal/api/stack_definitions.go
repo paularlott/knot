@@ -217,9 +217,6 @@ func HandleCreateStackDefinition(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackDefCreate,
 		fmt.Sprintf("Created stack definition %s", def.Name),
 		&map[string]interface{}{
-			"agent":                 r.UserAgent(),
-			"IP":                    r.RemoteAddr,
-			"X-Forwarded-For":       r.Header.Get("X-Forwarded-For"),
 			"stack_definition_id":   def.Id,
 			"stack_definition_name": def.Name,
 		},
@@ -331,9 +328,6 @@ func HandleUpdateStackDefinition(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackDefUpdate,
 		fmt.Sprintf("Updated stack definition %s", def.Name),
 		&map[string]interface{}{
-			"agent":                 r.UserAgent(),
-			"IP":                    r.RemoteAddr,
-			"X-Forwarded-For":       r.Header.Get("X-Forwarded-For"),
 			"stack_definition_id":   def.Id,
 			"stack_definition_name": def.Name,
 		},
@@ -412,9 +406,6 @@ func HandleDeleteStackDefinition(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventStackDefDelete,
 		fmt.Sprintf("Deleted stack definition %s", defName),
 		&map[string]interface{}{
-			"agent":                 r.UserAgent(),
-			"IP":                    r.RemoteAddr,
-			"X-Forwarded-For":       r.Header.Get("X-Forwarded-For"),
 			"stack_definition_id":   defId,
 			"stack_definition_name": defName,
 		},

@@ -10,34 +10,47 @@ import (
 )
 
 type ServerConfig struct {
-	Listen                    string
-	ListenAgent               string
-	URL                       string
-	AgentEndpoint             string
-	WildcardDomain            string
-	HTMLPath                  string
-	TemplatePath              string
-	AgentPath                 string
-	PackagePath               string
-	PrivateFilesPath          string
-	PublicFilesPath           string
-	DownloadPath              string
-	DisableSpaceCreate        bool
-	ListenTunnel              string
-	TunnelDomain              string
-	TunnelServer              string
-	TerminalWebGL             bool
-	EncryptionKey             string
-	Zone                      string
-	Hostname                  string
-	Timezone                  string
-	LeafNode                  bool
-	AuthIPRateLimiting        bool
+	Listen             string
+	ListenAgent        string
+	URL                string
+	AgentEndpoint      string
+	WildcardDomain     string
+	HTMLPath           string
+	TemplatePath       string
+	AgentPath          string
+	PackagePath        string
+	PrivateFilesPath   string
+	PublicFilesPath    string
+	DownloadPath       string
+	DisableSpaceCreate bool
+	ListenTunnel       string
+	TunnelDomain       string
+	TunnelServer       string
+	TerminalWebGL      bool
+	EncryptionKey      string
+	Zone               string
+	Hostname           string
+	Timezone           string
+	LeafNode           bool
+	// DesktopMode is set when the server was started by bare `knot`
+	// (desktop / leaf mode) rather than `knot server`.
+	DesktopMode bool
+	// ConfigPath is the config file the server was started from, used by
+	// the in-server setup wizard to write updates back.
+	ConfigPath         string
+	AuthIPRateLimiting bool
+	// Failed-login rate limiting: block auth after AuthRateLimitAttempts
+	// failures within AuthRateLimitWindow seconds, for AuthRateLimitBlock
+	// seconds.
+	AuthRateLimitAttempts     int
+	AuthRateLimitWindow       int // seconds
+	AuthRateLimitBlock        int // seconds
 	DNSEnabled                bool
 	DNSListen                 string
 	Nameservers               []string
 	LocalContainerRuntimePref []string
 	MCPToolTimeout            int
+	ScriptFSAllowedPaths      []string
 	Origin                    OriginConfig
 	TOTP                      TOTPConfig
 	UI                        UIConfig
@@ -116,14 +129,19 @@ type ClusterConfig struct {
 	AllowLeafNodes bool
 	Compression    bool
 	TCPOnly        bool
+	// MinClusterSize is the leader-election quorum floor: the fewest nodes
+	// that must be visible before a zone leader can be elected or kept.
+	// Set it to the majority of the smallest zone you will run — 2 for
+	// two- or three-server production zones. The default of 1 suits
+	// single-machine testing, where a lone server must elect itself.
+	MinClusterSize int
 }
 
 type TLSConfig struct {
-	CertFile    string
-	KeyFile     string
-	UseTLS      bool
-	AgentUseTLS bool
-	SkipVerify  bool
+	CertFile   string
+	KeyFile    string
+	UseTLS     bool
+	SkipVerify bool
 }
 
 type MySQLConfig struct {
@@ -156,6 +174,11 @@ type AuditConfig struct {
 	Retention   int
 	Routing     string // "internal" | "external" | "both"
 	AuditStream string // stream label for external log driver, defaults to "audit"
+
+	// Data-access auditing for environments holding production data copies.
+	// Both default off — noisy for local development.
+	FileOperations bool // audit space file read/write/copy operations
+	SpaceSessions  bool // audit interactive session opens (terminal, code-server)
 }
 
 type LogOutputConfig struct {

@@ -30,11 +30,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 	# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 	go mod download
 
-# Build the clients for all platforms and the application for the target architecture
+# Build the clients for all platforms and the application for the target architecture.
+# GOFLAGS excludes the desktop tray code (-tags server) from container images.
 RUN echo "Building for target platform: ${TARGETPLATFORM}" \
   && case ${TARGETPLATFORM} in \
-    'linux/amd64') task build-amd64 ;; \
-    'linux/arm64'*) task build-arm64 ;; \
+    'linux/amd64') GOFLAGS="-tags=server" task build-amd64 ;; \
+    'linux/arm64'*) GOFLAGS="-tags=server" task build-arm64 ;; \
     *) echo "Unsupported target platform: ${TARGETPLATFORM}" && exit 1 ;; \
   esac
 

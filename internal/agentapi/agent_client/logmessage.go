@@ -31,6 +31,10 @@ func (c *AgentClient) initLogMessages() {
 }
 
 func (c *AgentClient) SendLogMessage(service string, level msg.LogLevel, message string) error {
+	return c.SendStructuredLogMessage(service, level, message, nil)
+}
+
+func (c *AgentClient) SendStructuredLogMessage(service string, level msg.LogLevel, message string, fields map[string]string) error {
 	// replace all \n without a \r with \r\n
 	message = strings.ReplaceAll(message, "\n", "\r\n")
 
@@ -43,6 +47,7 @@ func (c *AgentClient) SendLogMessage(service string, level msg.LogLevel, message
 		Level:   level,
 		Message: message,
 		Date:    time.Now(),
+		Fields:  fields,
 	}:
 	default:
 		// Queue full, drop message

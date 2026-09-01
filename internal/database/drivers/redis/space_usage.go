@@ -18,15 +18,15 @@ func (db *RedisDbDriver) SaveSpaceUsageSample(sample *model.SpaceUsageSample) er
 
 	retention := model.SpaceUsageRetentionForKind(sample.BucketKind)
 
-	if err := db.connection.Set(context.Background(), fmt.Sprintf("%sSpaceUsage:%s", db.prefix, sample.Id), data, retention).Err(); err != nil {
+	if err := db.set(context.Background(), fmt.Sprintf("%sSpaceUsage:%s", db.prefix, sample.Id), data, retention); err != nil {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sSpaceUsageBySpace:%s:%s", db.prefix, sample.SpaceId, sample.Id), sample.Id, retention).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sSpaceUsageBySpace:%s:%s", db.prefix, sample.SpaceId, sample.Id), sample.Id, retention)
 }
 
 func (db *RedisDbDriver) GetSpaceUsageSample(id string) (*model.SpaceUsageSample, error) {
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSpaceUsage:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sSpaceUsage:%s", db.prefix, id))
 	if err != nil {
 		return nil, err
 	}
@@ -46,13 +46,13 @@ func (db *RedisDbDriver) GetSpaceUsageSamples(spaceId string, bucketKind string,
 	if spaceId != "" {
 		pattern = fmt.Sprintf("%sSpaceUsageBySpace:%s:*", db.prefix, spaceId)
 	}
-	iter := db.connection.Scan(context.Background(), 0, pattern, 0).Iterator()
+	iter := db.scan(context.Background(), pattern)
 	for iter.Next(context.Background()) {
 		id := iter.Val()[len(fmt.Sprintf("%sSpaceUsage:", db.prefix)):]
 		if spaceId != "" {
 			id = iter.Val()[len(fmt.Sprintf("%sSpaceUsageBySpace:%s:", db.prefix, spaceId)):]
 		}
-		v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSpaceUsage:%s", db.prefix, id)).Result()
+		v, err := db.get(context.Background(), fmt.Sprintf("%sSpaceUsage:%s", db.prefix, id))
 		if err != nil {
 			continue
 		}

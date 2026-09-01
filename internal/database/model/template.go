@@ -72,6 +72,7 @@ type Template struct {
 	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
 	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
 	Ports                    []TemplatePort         `json:"ports" db:"ports,json"`
+	Jobs                     []SpaceJob             `json:"jobs" db:"jobs,json"`
 	CreatedUserId            string                 `json:"created_user_id" db:"created_user_id"`
 	CreatedAt                time.Time              `json:"created_at" db:"created_at"`
 	UpdatedUserId            string                 `json:"updated_user_id" db:"updated_user_id"`

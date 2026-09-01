@@ -41,6 +41,7 @@ def _parse_space(space):
         "platform": space.get("platform", ""),
         "zone": space.get("zone", ""),
         "is_running": space.get("is_deployed", space.get("is_running", False)),
+        "has_state": space.get("has_state", False),
         "is_pending": space.get("is_pending", False),
         "is_deleting": space.get("is_deleting", False),
         "has_code_server": space.get("has_code_server", False),
@@ -217,6 +218,41 @@ def delete(name):
     return True
 
 
+def wait_for_start(name, timeout=30, interval=2):
+    """Wait for a space to be running with its agent connected.
+
+    Returns True only once the space is running AND its agent has registered
+    with the server — the point from which run(), file operations, and other
+    agent-backed calls will succeed. The container runtime marks a space
+    running as soon as the container process launches, which can be seconds
+    before the in-container agent connects back, so waiting on is_running
+    alone races (run() fails with "Agent session not found for space").
+
+    If the space is already running with a live agent this returns True
+    immediately — the space is never stopped or restarted.
+
+    Args:
+        name: Space name or ID
+        timeout: Maximum seconds to wait (default 30)
+        interval: Seconds between polls (default 2)
+
+    Returns:
+        True if the space is running with its agent connected, False if the
+        timeout expired
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    import time
+    deadline = time.time() + timeout
+    while True:
+        if is_ready(name):
+            return True
+        if time.time() >= deadline:
+            return False
+        time.sleep(interval)
+
+
 def start(name):
     """Start a space.
 
@@ -268,6 +304,9 @@ def restart(name):
 def is_running(name):
     """Check if a space is running.
 
+    Note that a space can report running before its agent has connected —
+    see is_ready() for the state required by run() and file operations.
+
     Args:
         name: Space name or ID
 
@@ -279,6 +318,28 @@ def is_running(name):
     """
     space = get(name)
     return space.get("is_running", False)
+
+
+def is_ready(name):
+    """Check if a space is running with its agent connected to the server.
+
+    True only when the space is running AND its agent session is live. This
+    is the state required by run(), read_file(), and other agent-backed
+    calls — a freshly started space reports running before its agent
+    finishes connecting, and those calls fail with "Agent session not found
+    for space" until it does.
+
+    Args:
+        name: Space name or ID
+
+    Returns:
+        True if the space is running with a live agent session, False otherwise
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    space = get(name)
+    return space.get("is_running", False) and space.get("has_state", False)
 
 
 def usage_current(name):

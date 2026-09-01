@@ -4,6 +4,8 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/audit"
 	"io/fs"
 	"net/http"
 	"os"
@@ -23,21 +25,141 @@ var staticFS embed.FS
 
 const shutdownTimeout = 5 * time.Second
 
-func Serve(ctx context.Context, addr, configFlag string) error {
-	configPath, configExists := resolveConfig(configFlag)
+// Options tunes wizard behaviour. The zero value matches the historical
+// `knot server config-wizard` behaviour.
+type Options struct {
+	// TargetPath forces the output path instead of resolving via the
+	// config search paths. Used by desktop mode (~/.knot/knot.toml).
+	TargetPath string
+	// AllowOverwrite permits saving when the target file already exists.
+	// Used by desktop mode, which pre-fills the wizard from the existing
+	// (incomplete) config and completes it.
+	AllowOverwrite bool
+	// Desktop selects the local-machine preset and desktop success
+	// messaging (restart the app rather than run knot server).
+	Desktop bool
+	// AuditConfigWrites emits a Config Update audit event when the wizard
+	// saves. Set for the in-server /setup mount, where config changes happen
+	// at runtime; the standalone pre-config wizard has no audit trail yet.
+	AuditConfigWrites bool
+	// BasePath is the URL prefix the wizard is served under ("/" for the
+	// standalone server, "/setup/" when embedded in a running server).
+	BasePath string
+}
+
+// buildForm composes the wizard form: desktop preset when requested,
+// pre-filled from any existing config so an incomplete setup can be
+// completed or a running setup re-edited.
+func buildForm(o Options, configPath string, configExists bool) Form {
+	form := DefaultForm()
+	if o.Desktop {
+		form = DesktopForm()
+	}
+	if configExists {
+		form = FormFromConfig(form, configPath)
+	}
+	return form
+}
+
+// PageHandler returns a handler that renders the wizard page, building the
+// form from the config file at request time (so re-runs reflect the current
+// file). Intended for embedding in a running server behind its own auth.
+func PageHandler(o Options) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		configPath, configExists := resolveTarget(o)
+		renderWizard(w, buildForm(o, configPath, configExists), configPath, configExists, o)
+	}
+}
+
+// SaveHandler returns a handler that validates and writes the submitted
+// config to the target path. Intended for embedding in a running server
+// behind its own auth; it does not stop anything.
+func SaveHandler(o Options) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		configPath, configExists := resolveTarget(o)
+		saveConfig(w, r, configPath, configExists, o)
+	}
+}
+
+// StaticHandler returns a handler serving the wizard's embedded static
+// assets; the mount prefix is stripped from the request path.
+func StaticHandler() http.Handler {
+	return http.StripPrefix("/setup/static", staticHandler())
+}
+
+// PreviewHandler returns a handler that merges the submitted TOML with the
+// existing config without writing anything, so the wizard's review step can
+// show the true final file — including sections the wizard doesn't manage.
+func PreviewHandler(o Options) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		configPath, configExists := resolveTarget(o)
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "invalid form", http.StatusBadRequest)
+			return
+		}
+		content := r.PostFormValue("toml")
+		if strings.TrimSpace(content) == "" {
+			http.Error(w, "editor content is empty", http.StatusBadRequest)
+			return
+		}
+		if configExists {
+			if existing, err := os.ReadFile(configPath); err == nil {
+				content = mergeConfig(string(existing), content)
+			}
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprint(w, content)
+	}
+}
+
+// resolveTarget determines the config path for the given options,
+// mirroring Serve's resolution.
+func resolveTarget(o Options) (string, bool) {
+	if o.TargetPath != "" {
+		_, err := os.Stat(o.TargetPath)
+		return o.TargetPath, err == nil
+	}
+	return resolveConfig("")
+}
+
+func Serve(ctx context.Context, addr, configFlag string, opts ...Options) error {
+	var o Options
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	if o.BasePath == "" {
+		o.BasePath = "/"
+	}
+
+	var configPath string
+	var configExists bool
+	if o.TargetPath != "" {
+		configPath = o.TargetPath
+		_, err := os.Stat(configPath)
+		configExists = err == nil
+	} else {
+		configPath, configExists = resolveConfig(configFlag)
+	}
+
+	form := buildForm(o, configPath, configExists)
+
 	stop := make(chan struct{})
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", staticHandler())
-	mux.HandleFunc("GET /", indexHandler(configPath, configExists))
-	mux.HandleFunc("POST /save", saveHandler(configPath, configExists, stop))
+	mux.HandleFunc("GET /", indexHandler(form, configPath, configExists, o))
+	mux.HandleFunc("POST /preview", PreviewHandler(o))
+	mux.HandleFunc("POST /save", func(w http.ResponseWriter, r *http.Request) {
+		saveConfig(w, r, configPath, configExists, o)
+		go closeOnce(stop)
+	})
 	mux.HandleFunc("GET /shutdown", shutdownHandler(stop))
 
 	server := &http.Server{Addr: addr, Handler: logging(mux)}
 
 	url := fmt.Sprintf("http://%s/", addr)
 	fmt.Fprintf(os.Stderr, "\n  knot config wizard\n  Open this URL in your browser:\n    %s\n  (Ctrl+C to cancel)\n\n", url)
-	log.Info("config wizard listening", "addr", addr, "config_target", configPath, "config_exists", configExists)
+	log.Info("config wizard listening", "addr", addr, "config_target", configPath, "config_exists", configExists, "desktop", o.Desktop)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -52,7 +174,11 @@ func Serve(ctx context.Context, addr, configFlag string) error {
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
 	case <-stop:
-		fmt.Fprintf(os.Stderr, "\n  Configuration written to %s\n  You can now start the server: knot server\n\n", configPath)
+		if o.Desktop {
+			fmt.Fprintf(os.Stderr, "\n  Configuration written to %s\n  Quit knot from the tray menu and reopen it to apply.\n\n", configPath)
+		} else {
+			fmt.Fprintf(os.Stderr, "\n  Configuration written to %s\n  You can now start the server: knot server\n\n", configPath)
+		}
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
@@ -77,6 +203,7 @@ func configSearchPaths() []string {
 	paths := []string{"."}
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		paths = append(paths, home)
+		paths = append(paths, filepath.Join(home, "."+config.CONFIG_DIR))
 		paths = append(paths, filepath.Join(home, ".config", config.CONFIG_DIR))
 	}
 	paths = append(paths, filepath.Join("/etc", config.CONFIG_DIR))
@@ -104,52 +231,89 @@ func staticHandler() http.Handler {
 	})
 }
 
-func indexHandler(configPath string, configExists bool) http.HandlerFunc {
+func indexHandler(form Form, configPath string, configExists bool, o Options) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// The wizard shares its port with the server's advertised address,
+		// so browsers with stale URLs from a previous server session (e.g.
+		// /login) land here — send them to the wizard instead of a 404.
 		if r.URL.Path != "/" {
-			http.NotFound(w, r)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
-		renderWizard(w, DefaultForm(), configPath, configExists)
+		renderWizard(w, form, configPath, configExists, o)
 	}
 }
 
-func saveHandler(configPath string, configExists bool, stop chan struct{}) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if configExists {
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprintf(w, "A configuration file already exists at %s — the wizard will not overwrite it.", configPath)
-			return
-		}
-
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "invalid form", http.StatusBadRequest)
-			return
-		}
-
-		content := r.PostFormValue("toml")
-		if strings.TrimSpace(content) == "" {
-			http.Error(w, "editor content is empty", http.StatusBadRequest)
-			return
-		}
-
-		var probe map[string]interface{}
-		if err := toml.Unmarshal([]byte(content), &probe); err != nil {
-			http.Error(w, "invalid TOML: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if err := writeConfig(configPath, content); err != nil {
-			log.Error("writing config", "err", err)
-			http.Error(w, "failed to write config file: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		log.Info("config wizard wrote config", "path", configPath)
-		renderSuccess(w, configPath)
-		go closeOnce(stop)
+// saveConfig validates and writes the submitted TOML, rendering either the
+// success page or an error response. Shared by the standalone wizard and
+// the in-server /setup mount.
+func saveConfig(w http.ResponseWriter, r *http.Request, configPath string, configExists bool, o Options) {
+	if configExists && !o.AllowOverwrite {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusConflict)
+		fmt.Fprintf(w, "A configuration file already exists at %s — the wizard will not overwrite it.", configPath)
+		return
 	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	content := r.PostFormValue("toml")
+	if strings.TrimSpace(content) == "" {
+		http.Error(w, "editor content is empty", http.StatusBadRequest)
+		return
+	}
+
+	// When overwriting an existing config, merge rather than replace: the
+	// wizard's values win for the keys it manages, but comments, unknown
+	// keys and unknown sections the user added by hand are preserved.
+	// merged=1 marks content that already IS the merged result (the
+	// review editor's preview) — writing it verbatim honours deletions
+	// the user made in the editor instead of resurrecting them from disk.
+	if configExists && o.AllowOverwrite && r.PostFormValue("merged") != "1" {
+		if existing, err := os.ReadFile(configPath); err == nil {
+			content = mergeConfig(string(existing), content)
+		} else {
+			log.Error("reading existing config for merge, replacing it", "err", err, "path", configPath)
+		}
+	}
+
+	var probe map[string]interface{}
+	if err := toml.Unmarshal([]byte(content), &probe); err != nil {
+		http.Error(w, "invalid TOML: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if problems := validateTomlConfig(probe); len(problems) > 0 {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Configuration is incomplete:\n  - %s", strings.Join(problems, "\n  - "))
+		return
+	}
+
+	if err := writeConfig(configPath, content); err != nil {
+		log.Error("writing config", "err", err)
+		http.Error(w, "failed to write config file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("config wizard wrote config", "path", configPath)
+
+	if o.AuditConfigWrites {
+		actor := "system"
+		actorType := model.AuditActorTypeSystem
+		if user, ok := r.Context().Value("user").(*model.User); ok && user != nil {
+			actor = user.Username
+			actorType = model.AuditActorTypeUser
+		}
+		audit.LogWithRequest(r, actor, actorType, model.AuditEventConfigUpdate,
+			"Server configuration updated via setup wizard",
+			&map[string]interface{}{"path": configPath},
+		)
+	}
+	renderSuccess(w, configPath, o)
 }
 
 func shutdownHandler(stop chan struct{}) http.HandlerFunc {

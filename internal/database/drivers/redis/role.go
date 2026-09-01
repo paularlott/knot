@@ -15,17 +15,17 @@ func (db *RedisDbDriver) SaveRole(role *model.Role) error {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sRoles:%s", db.prefix, role.Id), data, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sRoles:%s", db.prefix, role.Id), data, 0)
 }
 
 func (db *RedisDbDriver) DeleteRole(role *model.Role) error {
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sRoles:%s", db.prefix, role.Id)).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sRoles:%s", db.prefix, role.Id))
 }
 
 func (db *RedisDbDriver) GetRole(id string) (*model.Role, error) {
 	var role = &model.Role{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sRoles:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sRoles:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -41,7 +41,7 @@ func (db *RedisDbDriver) GetRole(id string) (*model.Role, error) {
 func (db *RedisDbDriver) GetRoles() ([]*model.Role, error) {
 	var roles []*model.Role
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sRoles:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sRoles:*", db.prefix))
 	for iter.Next(context.Background()) {
 		role, err := db.GetRole(iter.Val()[len(fmt.Sprintf("%sRoles:", db.prefix)):])
 		if err != nil {

@@ -2,7 +2,10 @@ package agent_client
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -13,12 +16,15 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/agentproxy"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/agentpackages"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/portforward"
+	"github.com/paularlott/knot/internal/spacejobs"
 	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/knot/internal/log"
@@ -40,6 +46,7 @@ type agentServer struct {
 	reportingConn      net.Conn // Connection for reporting state
 	logConn            net.Conn // Connection for logging messages
 	logChannel         chan *msg.LogMessage
+	authChannel        chan *msg.SSHAuthResultMessage // SSH auth results, sent on logConn by logWorker
 
 	// aliases is the set of addresses this server contributed to the client's
 	// knownServerAddresses set: its dial address plus any canonical endpoint it
@@ -60,6 +67,7 @@ func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentSer
 		cancel:             cancel,
 		muxSession:         nil,
 		logChannel:         make(chan *msg.LogMessage, logChannelBufferSize),
+		authChannel:        make(chan *msg.SSHAuthResultMessage, 64),
 		aliases:            map[string]bool{address: true},
 	}
 	go s.logWorker()
@@ -102,6 +110,10 @@ func (s *agentServer) setMux(mux *yamux.Session) {
 	s.agentClient.serverListMutex.Lock()
 	s.muxSession = mux
 	s.agentClient.serverListMutex.Unlock()
+
+	// A new server session means any previous server (and its knot.zip
+	// package) may be gone — drop the cached package so it is fetched fresh.
+	agentpackages.Invalidate("knot.zip")
 }
 
 // teardownConnectionsLocked closes and clears all per-connection state. The
@@ -181,25 +193,28 @@ func (s *agentServer) ConnectAndServe() {
 
 			var err error
 
-			// Open the connection
+			// Open the connection. The server's agent listener is TLS-only,
+			// so the agent connection is always TLS; the server is
+			// authenticated by pinning the certificate fingerprint the agent
+			// was provisioned with (all servers in a zone share one
+			// certificate, so one pin covers them).
 			cfg := config.GetAgentConfig()
 			var conn net.Conn
-			if cfg.TLS.UseTLS {
-				dialer := &tls.Dialer{
-					NetDialer: &net.Dialer{
-						Timeout: 3 * time.Second,
-					},
-					Config: &tls.Config{
-						InsecureSkipVerify: cfg.TLS.SkipVerify,
-					},
-				}
-				conn, err = dialer.Dial("tcp", serverAddr)
-			} else {
-				dialer := &net.Dialer{
-					Timeout: 3 * time.Second,
-				}
-				conn, err = dialer.Dial("tcp", serverAddr)
+			tlsConfig := &tls.Config{
+				InsecureSkipVerify:    true,
+				MinVersion:            tls.VersionTLS12,
+				VerifyPeerCertificate: pinnedCertVerifier(cfg.ServerCertFingerprint),
 			}
+			if cfg.ServerCertFingerprint == "" {
+				log.Warn("no server certificate fingerprint: agent connection is encrypted but the server is not verified")
+			}
+			dialer := &tls.Dialer{
+				NetDialer: &net.Dialer{
+					Timeout: 3 * time.Second,
+				},
+				Config: tlsConfig,
+			}
+			conn, err = dialer.Dial("tcp", serverAddr)
 			if err != nil {
 				log.WithError(err).Error("connecting to server:")
 				time.Sleep(connectRetryDelay)
@@ -208,11 +223,28 @@ func (s *agentServer) ConnectAndServe() {
 			}
 			s.setConn(conn)
 
-			// Create and send the register message
-			err = msg.WriteMessage(s.conn, &msg.Register{
-				SpaceId: s.spaceId,
-				Version: build.Version,
-			})
+			// Registration proves possession of the space's registration
+			// key via a challenge-response: offer a nonce when we hold a
+			// key, answer the server's nonce with an HMAC proof that never
+			// reveals the key itself.
+			register := msg.Register{
+				SpaceId:       s.spaceId,
+				Version:       build.Version,
+				LogSinkPort:   s.agentClient.GetLogSinkPort(),
+				LogSinkFormat: s.agentClient.GetLogSinkFormat(),
+			}
+			if cfg.RegistrationKey != "" {
+				register.Nonce, err = crypt.NewAgentNonce()
+				if err != nil {
+					log.WithError(err).Error("generating registration nonce:")
+					s.conn.Close()
+					time.Sleep(connectRetryDelay)
+					s.connectionAttempts++
+					continue
+				}
+			}
+
+			err = msg.WriteMessage(s.conn, &register)
 			if err != nil {
 				log.WithError(err).Error("sending register message:")
 				s.conn.Close()
@@ -221,15 +253,34 @@ func (s *agentServer) ConnectAndServe() {
 				continue
 			}
 
-			// Wait for the register response
-			var response msg.RegisterResponse
-			err = msg.ReadMessage(s.conn, &response)
+			// The reply is either the challenge, or the final response
+			// (from a pre-handshake server).
+			challenge, response, err := msg.ReadRegistrationReply(s.conn)
 			if err != nil {
-				log.WithError(err).Error("decoding register response:")
+				log.WithError(err).Error("decoding registration reply:")
 				s.conn.Close()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
+			}
+			if challenge != nil {
+				register.Proof = crypt.AgentRegistrationProof(cfg.RegistrationKey, s.spaceId, register.Nonce, challenge.ServerNonce)
+				if err := msg.WriteMessage(s.conn, &register); err != nil {
+					log.WithError(err).Error("sending registration proof:")
+					s.conn.Close()
+					time.Sleep(connectRetryDelay)
+					s.connectionAttempts++
+					continue
+				}
+
+				response = &msg.RegisterResponse{}
+				if err := msg.ReadMessage(s.conn, response); err != nil {
+					log.WithError(err).Error("decoding register response:")
+					s.conn.Close()
+					time.Sleep(connectRetryDelay)
+					s.connectionAttempts++
+					continue
+				}
 			}
 
 			// If get a freeze then spin here as server going to reboot
@@ -241,7 +292,11 @@ func (s *agentServer) ConnectAndServe() {
 
 			// If registration rejected, log and exit
 			if !response.Success {
-				log.Error("registration rejected")
+				if response.Error != "" {
+					log.Error("registration rejected", "reason", response.Error)
+				} else {
+					log.Error("registration rejected")
+				}
 				s.conn.Close()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
@@ -286,6 +341,12 @@ func (s *agentServer) ConnectAndServe() {
 					// Test if the ssh port is open
 					conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", s.agentClient.sshPort))
 					if err != nil {
+						// Report public-key auth attempts to the servers for
+						// audit; only the agent-managed sshd can see them —
+						// templates running their own sshd are not covered.
+						sshd.AuthResultFunc = func(success bool, fingerprint, remoteAddr string) {
+							s.agentClient.SendSSHAuthResult(success, fingerprint, remoteAddr)
+						}
 						sshd.ListenAndServe(s.agentClient.sshPort, response.SSHHostSigner)
 						s.agentClient.usingInternalSSH = true
 					} else {
@@ -310,6 +371,10 @@ func (s *agentServer) ConnectAndServe() {
 				}
 			}
 			s.agentClient.firstRegistrationMutex.Unlock()
+
+			// Apply the space's job definitions on every registration so a
+			// reconnect picks up changes made while the agent was offline.
+			spacejobs.Update(response.Jobs, response.JobsEnabled)
 
 			// Update health check config on every registration (template may have changed)
 			s.agentClient.UpdateHealthCheckConfig(msg.HealthConfig{
@@ -419,35 +484,43 @@ func (s *agentServer) logWorker() {
 			if logMsg == nil {
 				continue
 			}
-
-			// muxSession/logConn are mutated by the connection goroutine under
-			// serverListMutex; read them under the same lock so a reconnect is
-			// observed and we don't race the teardown.
-			s.agentClient.serverListMutex.RLock()
-			if s.muxSession != nil && !s.muxSession.IsClosed() {
-				if s.logConn == nil {
-					log.Debug("opening logging connection to", "agent", s.address)
-
-					var err error
-					s.logConn, err = s.muxSession.Open()
-					if err != nil {
-						log.Error("failed to open mux session for server", "server", s.address)
-						s.agentClient.serverListMutex.RUnlock()
-						continue
-					}
-				}
-
-				if s.logConn != nil {
-					err := msg.SendLogMessage(s.logConn, logMsg)
-					if err != nil {
-						log.Error("failed to send log message to server", "server", s.address)
-						s.logConn.Close()
-						s.logConn = nil
-					}
-				}
+			s.sendOnLogConn(func(conn net.Conn) error { return msg.SendLogMessage(conn, logMsg) })
+		case authResult := <-s.authChannel:
+			if authResult == nil {
+				continue
 			}
-			s.agentClient.serverListMutex.RUnlock()
+			s.sendOnLogConn(func(conn net.Conn) error { return msg.SendSSHAuthResult(conn, authResult) })
 		}
+	}
+}
+
+// sendOnLogConn delivers a message on this server's log stream, opening the
+// stream lazily. logWorker is the only writer, so frames never interleave;
+// muxSession/logConn are mutated by the connection goroutine under
+// serverListMutex, so they are read under the same lock to observe
+// reconnects and not race the teardown.
+func (s *agentServer) sendOnLogConn(send func(net.Conn) error) {
+	s.agentClient.serverListMutex.RLock()
+	defer s.agentClient.serverListMutex.RUnlock()
+
+	if s.muxSession == nil || s.muxSession.IsClosed() {
+		return
+	}
+	if s.logConn == nil {
+		log.Debug("opening logging connection to", "agent", s.address)
+
+		var err error
+		s.logConn, err = s.muxSession.Open()
+		if err != nil {
+			log.Error("failed to open mux session for server", "server", s.address)
+			return
+		}
+	}
+
+	if err := send(s.logConn); err != nil {
+		log.Error("failed to send message to server", "server", s.address)
+		s.logConn.Close()
+		s.logConn = nil
 	}
 }
 
@@ -471,6 +544,12 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		if err != nil {
 			log.WithError(err).Error("sending pong:")
 		}
+
+	case byte(msg.CmdScriptLibsChanged):
+		// A lib-type script changed on the server — drop the cached libs.zip
+		// package; the next request rebuilds it from the server.
+		agentpackages.Invalidate("libs.zip")
+		log.Info("script libraries changed on server; libs.zip cache dropped")
 
 	case byte(msg.CmdUpdateHealthConfig):
 		var healthConfig msg.HealthConfig
@@ -611,6 +690,19 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		if s.agentClient.withRunCommand {
 			handleRunCommandExecution(stream, runCmd)
 		}
+
+	case byte(msg.CmdMirrorLog):
+		var batch msg.MirrorLogMessage
+		if err := msg.ReadMessage(stream, &batch); err != nil {
+			log.WithError(err).Error("reading mirror log message:")
+			return
+		}
+
+		// Delivery runs off the read loop; the yamux stream delivers
+		// batches in order and the server only sends the next one after
+		// this read, so at most one delivery goroutine is in flight per
+		// sink regardless of how slow the local log service is.
+		go handleMirrorLog(s.agentClient, &batch)
 
 	case byte(msg.CmdCopyFile):
 		var copyCmd msg.CopyFileMessage
@@ -760,6 +852,25 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdTunnelList):
 		handleTunnelListExecution(stream)
 
+	case byte(msg.CmdJobsList):
+		handleJobsListExecution(stream)
+
+	case byte(msg.CmdJobsRun):
+		var runMsg msg.JobsRunMessage
+		if err := msg.ReadMessage(stream, &runMsg); err != nil {
+			log.WithError(err).Error("reading jobs run message:")
+			return
+		}
+		handleJobsRunExecution(stream, runMsg)
+
+	case byte(msg.CmdUpdateJobs):
+		var updateMsg msg.UpdateJobsMessage
+		if err := msg.ReadMessage(stream, &updateMsg); err != nil {
+			log.WithError(err).Error("reading update jobs message:")
+			return
+		}
+		handleUpdateJobsExecution(updateMsg)
+
 	default:
 		log.Error("unknown command:", "cmd", cmd)
 	}
@@ -804,5 +915,33 @@ func (s *agentServer) restorePortForwards(forwards []model.PortForwardEntry) {
 		}(entry)
 
 		log.Info("restored persistent port forward", "local_port", entry.LocalPort, "space", entry.Space, "remote_port", entry.RemotePort)
+	}
+}
+
+// pinnedCertVerifier returns a TLS VerifyPeerCertificate callback that
+// accepts the certificate whose public key hashes to the pinned sha256
+// fingerprint (hex). An empty pin verifies nothing beyond TLS itself —
+// used by agents provisioned before pinning, where the registration proof
+// remains the real gate.
+func pinnedCertVerifier(fingerprint string) func([][]byte, [][]*x509.Certificate) error {
+	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		if fingerprint == "" {
+			return nil
+		}
+		for _, raw := range rawCerts {
+			cert, err := x509.ParseCertificate(raw)
+			if err != nil {
+				continue
+			}
+			spki, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+			if err != nil {
+				continue
+			}
+			sum := sha256.Sum256(spki)
+			if hex.EncodeToString(sum[:]) == strings.ToLower(fingerprint) {
+				return nil
+			}
+		}
+		return fmt.Errorf("server certificate does not match the pinned fingerprint")
 	}
 }

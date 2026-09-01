@@ -1,6 +1,8 @@
 package web
 
 import (
+	"fmt"
+	"github.com/paularlott/knot/internal/util/audit"
 	"net/http"
 
 	"github.com/paularlott/knot/build"
@@ -40,6 +42,27 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	// Interactive access to a running space is worth recording when the
+	// space may hold production data copies — gated because terminal opens
+	// are routine on a local dev machine.
+	if cfg := config.GetServerConfig(); cfg != nil && cfg.Audit.SpaceSessions {
+		method := "terminal"
+		if r.PathValue("vsc") == "vscode-tunnel" {
+			method = "vscode-tunnel"
+		}
+		audit.LogWithRequest(r,
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventSpaceSessionOpen,
+			fmt.Sprintf("Opened %s session for space %s", method, space.Name),
+			&map[string]interface{}{
+				"space_id":   space.Id,
+				"space_name": space.Name,
+				"method":     method,
+			},
+		)
 	}
 
 	var renderer string

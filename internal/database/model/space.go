@@ -101,6 +101,15 @@ func (v *VolumeDataMap) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, v)
 }
 
+// SpaceJob is one job definition stored on the space and pushed to the agent,
+// which holds it in memory only — the space record is the source of truth.
+type SpaceJob struct {
+	Name     string `json:"name" msgpack:"name"`
+	Command  string `json:"command" msgpack:"command"`
+	Schedule string `json:"schedule,omitempty" msgpack:"schedule,omitempty"` // 5-field cron expression, empty = manual only
+	Enabled  bool   `json:"enabled" msgpack:"enabled"`                       // gates automatic firing only, manual runs always work
+}
+
 // Space object
 type Space struct {
 	Id               string             `json:"space_id" db:"space_id,pk" msgpack:"space_id"`
@@ -133,6 +142,8 @@ type Space struct {
 	AltNames         []AltNameEntry     `json:"alt_names" msgpack:"alt_names"`
 	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
 	PortForwards     []PortForwardEntry `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
+	Jobs             []SpaceJob         `json:"jobs" db:"jobs,json" msgpack:"jobs"`
+	JobsEnabled      bool               `json:"jobs_enabled" db:"jobs_enabled" msgpack:"jobs_enabled"`
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
 	CreatedAt        time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
 	UpdatedAt        hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
@@ -167,6 +178,8 @@ func NewSpace(name string, description string, userId string, templateId string,
 		IsPending:        false,
 		IsDeleting:       false,
 		VolumeData:       make(map[string]SpaceVolume),
+		Jobs:             []SpaceJob{},
+		JobsEnabled:      true,
 		StartedAt:        now,
 		CreatedAt:        now,
 		UpdatedAt:        hlc.Now(),

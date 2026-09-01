@@ -8,9 +8,11 @@ import (
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_event "github.com/paularlott/knot/agent/cmd/agentcmd/event"
+	command_jobs "github.com/paularlott/knot/agent/cmd/jobs"
 	command_methods "github.com/paularlott/knot/agent/cmd/methods"
 	"github.com/paularlott/knot/agent/cmd/port"
 	command_runscript "github.com/paularlott/knot/agent/cmd/runscript"
+	command_scriptling "github.com/paularlott/knot/agent/cmd/scriptlingserver"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
@@ -21,6 +23,14 @@ import (
 )
 
 func main() {
+	if command_scriptling.ShouldAutoStart() {
+		if err := command_scriptling.AutoStartCmd().Execute(context.Background()); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Logger will be configured with proper level in PreRun
 	log.Configure("info", "console", os.Stderr)
 
@@ -67,6 +77,7 @@ The agent connects environments to the knot server.`,
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command_event.EventCmd,
+			command_jobs.JobsCmd,
 			command_methods.MethodsCmd,
 			command_tunnel.TunnelCmd,
 			port.PortCmd,

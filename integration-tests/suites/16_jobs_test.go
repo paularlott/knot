@@ -1,0 +1,375 @@
+//go:build integration
+
+package suites
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/integration-tests/harness"
+	"github.com/paularlott/knot/internal/database/model"
+)
+
+// TestSpaceJobs covers the scheduled jobs feature end to end: definitions are
+// stored on the space and pushed to the agent, listed and triggered via the
+// API, and the job's effect is visible in the space.
+func TestSpaceJobs(t *testing.T) {
+	harness.Feature(t, "jobs")
+
+	id := spaceFixture(t, "it-jobs", user1.Id, user1.Client)
+	c := user1.Client
+	ctx, cancel := testCtx(180)
+	defer cancel()
+
+	// Before any jobs are defined the space reports none and the runner
+	// state is carried by the space record.
+	defs, code, err := c.GetSpaceJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("get jobs: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 0 {
+		t.Fatalf("expected no jobs at start, got %+v", defs.Jobs)
+	}
+	space, _, err := c.GetSpace(ctx, id)
+	if err != nil {
+		t.Fatalf("get space: %v", err)
+	}
+	if space.HasJobs || space.JobsEnabled {
+		t.Fatalf("space should report no jobs: has=%v enabled=%v", space.HasJobs, space.JobsEnabled)
+	}
+
+	// Invalid definitions are rejected wholesale with per-job errors.
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "good", Command: "true", Enabled: true},
+			{Name: "broken", Command: "true", Schedule: "not-a-cron", Enabled: true},
+		},
+		Enabled: true,
+	}); err == nil {
+		t.Fatal("expected invalid definitions to be rejected")
+	} else {
+		mustEqual(t, "invalid update status", code, 400)
+		if !strings.Contains(err.Error(), "broken") {
+			t.Errorf("error should name the bad job: %v", err)
+		}
+	}
+
+	// Nothing was saved by the rejected update.
+	defs, _, err = c.GetSpaceJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("get jobs: %v", err)
+	}
+	if len(defs.Jobs) != 0 {
+		t.Fatalf("rejected update must not save, got %+v", defs.Jobs)
+	}
+
+	// Define jobs: one manual-only, one scheduled.
+	defs, code, err = c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "marker", Command: "echo jobs-it-ran > jobs-it-marker.txt", Enabled: true},
+			{Name: "nightly", Command: "true", Schedule: "0 2 * * *", Enabled: true},
+		},
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("update jobs: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 2 || !defs.Enabled {
+		t.Fatalf("unexpected definitions: %+v", defs)
+	}
+
+	// The space now reports jobs (drives the UI icon).
+	waitFor(t, 60, func() bool {
+		ctx, cancel := testCtx(15)
+		defer cancel()
+		space, _, err := c.GetSpace(ctx, id)
+		return err == nil && space != nil && space.HasJobs && space.JobsEnabled
+	})
+
+	// The agent lists the pushed jobs with the runner enabled.
+	jobs, code, err := c.ListJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("list jobs: %v (status %d)", err, code)
+	}
+	if !jobs.Enabled {
+		t.Fatal("runner should be enabled")
+	}
+	byName := map[string]apiclient.JobInfo{}
+	for _, job := range jobs.Jobs {
+		byName[job.Name] = job
+	}
+	mustEqual(t, "job count", len(jobs.Jobs), 2)
+
+	marker := byName["marker"]
+	if !marker.ManualOnly || marker.Schedule != "" {
+		t.Errorf("marker should be manual-only, got %+v", marker)
+	}
+	if marker.NextRun != nil {
+		t.Errorf("manual-only job should have no next run, got %v", marker.NextRun)
+	}
+	mustEqual(t, "nightly schedule", byName["nightly"].Schedule, "0 2 * * *")
+	if byName["nightly"].NextRun == nil {
+		t.Error("scheduled job should report a next run")
+	}
+
+	// Trigger the manual job and wait for a successful run record.
+	resp, code, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "marker"})
+	if err != nil {
+		t.Fatalf("run job: %v (status %d)", err, code)
+	}
+	if !resp.Success {
+		t.Fatalf("run job failed: %s", resp.Error)
+	}
+
+	var last *apiclient.JobRunRecord
+	waitFor(t, 60, func() bool {
+		ctx, cancel := testCtx(15)
+		defer cancel()
+		jobs, _, err := c.ListJobs(ctx, id)
+		if err != nil {
+			return false
+		}
+		for _, job := range jobs.Jobs {
+			if job.Name == "marker" {
+				last = job.LastRun
+			}
+		}
+		return last != nil && last.Status == "success"
+	})
+	if last == nil {
+		t.Fatal("marker job never reported a run")
+	}
+	if last.Trigger != "manual" {
+		t.Errorf("trigger = %q, want manual", last.Trigger)
+	}
+
+	// The job actually ran in the space: its output file exists.
+	content, err := c.ReadSpaceFile(ctx, id, "jobs-it-marker.txt")
+	if err != nil {
+		t.Fatalf("read marker file: %v", err)
+	}
+	if strings.TrimSpace(content) != "jobs-it-ran" {
+		t.Errorf("marker file content = %q, want %q", content, "jobs-it-ran")
+	}
+
+	// Disable the runner via the definitions; scheduled firing stops but the
+	// jobs stay listed and manual triggering keeps working.
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "marker", Command: "echo jobs-it-ran > jobs-it-marker.txt", Enabled: true},
+			{Name: "nightly", Command: "true", Schedule: "0 2 * * *", Enabled: true},
+		},
+		Enabled: false,
+	}); err != nil {
+		t.Fatalf("disable job runner: %v (status %d)", err, code)
+	}
+
+	waitFor(t, 30, func() bool {
+		ctx, cancel := testCtx(15)
+		defer cancel()
+		jobs, _, err := c.ListJobs(ctx, id)
+		if err != nil || jobs.Enabled || len(jobs.Jobs) != 2 {
+			return false
+		}
+		for _, job := range jobs.Jobs {
+			if job.Name == "nightly" && job.NextRun != nil {
+				return false
+			}
+		}
+		return true
+	})
+	space, _, err = c.GetSpace(ctx, id)
+	if err != nil {
+		t.Fatalf("get space: %v", err)
+	}
+	if !space.HasJobs || space.JobsEnabled {
+		t.Fatalf("space should report jobs with runner stopped: has=%v enabled=%v", space.HasJobs, space.JobsEnabled)
+	}
+
+	// Manual trigger still works with the runner stopped.
+	if _, code, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "marker"}); err != nil {
+		t.Fatalf("manual run with stopped runner: %v (status %d)", err, code)
+	}
+
+	// Unknown jobs are rejected.
+	if _, _, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "does-not-exist"}); err == nil {
+		t.Error("expected error running unknown job")
+	}
+}
+
+// TestSpaceJobsStoppedSpace proves the definition endpoints work while the
+// space is stopped (definitions live on the space record), while the live
+// endpoints need a running agent and return a conflict.
+func TestSpaceJobsStoppedSpace(t *testing.T) {
+	harness.Feature(t, "jobs")
+
+	id := spaceFixture(t, "it-jobs-stopped", user1.Id, user1.Client)
+	c := user1.Client
+
+	// Define a job and stop the space; the definitions survive.
+	ctx, cancel := testCtx(60)
+	defer cancel()
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "marker", Command: "true", Enabled: true},
+		},
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("update jobs: %v (status %d)", err, code)
+	}
+
+	harness.StopSpaceAndWait(t, c, id)
+
+	defs, code, err := c.GetSpaceJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("get jobs of stopped space: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 1 || !defs.Enabled {
+		t.Fatalf("definitions should be readable while stopped: %+v", defs)
+	}
+
+	// Definitions can be updated while stopped; the agent picks them up on
+	// its next registration. Renaming is a definition update like any other.
+	if _, code, err := c.UpdateSpaceJobs(ctx, id, &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{
+			{Name: "renamed", Command: "true", Enabled: true},
+			{Name: "added", Command: "true", Schedule: "*/5 * * * *", Enabled: true},
+		},
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("update jobs of stopped space: %v (status %d)", err, code)
+	}
+	defs, code, err = c.GetSpaceJobs(ctx, id)
+	if err != nil {
+		t.Fatalf("get jobs of stopped space after rename: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 2 {
+		t.Fatalf("definitions after rename: %+v", defs.Jobs)
+	}
+	for _, job := range defs.Jobs {
+		if job.Name == "marker" {
+			t.Fatal("old job name should be gone after rename")
+		}
+	}
+
+	if _, code, err := c.ListJobs(ctx, id); err == nil {
+		t.Fatal("expected error listing jobs of stopped space")
+	} else {
+		mustEqual(t, "list jobs status", code, 409)
+	}
+
+	if _, code, err := c.RunJob(ctx, id, &apiclient.JobRunRequest{Name: "marker"}); err == nil {
+		t.Fatal("expected error running job in stopped space")
+	} else {
+		mustEqual(t, "run job status", code, 409)
+	}
+}
+
+// TestSpaceJobsEditPermission proves the Edit Space Jobs permission gates
+// writing job definitions while reading them stays open to the owner, and
+// that Manage Spaces grants the write for any space. Runs on a dedicated
+// server (pro caps the shared server's users).
+func TestSpaceJobsEditPermission(t *testing.T) {
+	harness.Feature(t, "jobs")
+
+	s, err := harness.StartServer(cfg, bins, "jobsperm")
+	if err != nil {
+		t.Fatalf("boot jobsperm server: %v", err)
+	}
+	t.Cleanup(s.Stop)
+	adminUser, err := harness.ProvisionAdmin(s, "admin", "AdminPassw0rd!")
+	if err != nil {
+		t.Fatalf("provision jobsperm admin: %v", err)
+	}
+
+	// A tester without Edit Space Jobs, and one with only Manage Spaces.
+	testerPerms := harness.TesterPermissions()
+	restricted := make([]uint16, 0, len(testerPerms))
+	for _, p := range testerPerms {
+		if p != model.PermissionEditSpaceJobs {
+			restricted = append(restricted, p)
+		}
+	}
+	noEdit, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-noedit"), restricted)
+	if err != nil {
+		t.Fatalf("create restricted user: %v", err)
+	}
+	manager, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-manager"), []uint16{
+		model.PermissionManageSpaces,
+	})
+	if err != nil {
+		t.Fatalf("create manager user: %v", err)
+	}
+
+	templateId, err := harness.CreateTemplate(s, adminUser.Client, uniqueName("it-jobs-perm"), harness.TemplateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	spaceId := harness.CreateSpace(t, noEdit.Client, uniqueName("it-jobs-perm"), templateId, noEdit.Id)
+	harness.WaitForSpaceReady(t, s, noEdit.Client, spaceId)
+
+	ctx, cancel := testCtx(60)
+	defer cancel()
+	jobs := &apiclient.SpaceJobsRequest{
+		Jobs: []model.SpaceJob{{Name: "marker", Command: "true", Enabled: true}},
+	}
+
+	// The owner reads definitions fine but cannot write them.
+	if _, code, err := noEdit.Client.GetSpaceJobs(ctx, spaceId); err != nil {
+		t.Fatalf("get jobs without permission: %v (status %d)", err, code)
+	}
+	if _, code, err := noEdit.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err == nil {
+		t.Fatal("expected update without Edit Space Jobs to be rejected")
+	} else {
+		mustEqual(t, "update without permission status", code, 403)
+	}
+
+	// Manage Spaces edits any space's jobs; the owner then reads them back.
+	if _, code, err := manager.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err != nil {
+		t.Fatalf("update with Manage Spaces: %v (status %d)", err, code)
+	}
+	defs, code, err := noEdit.Client.GetSpaceJobs(ctx, spaceId)
+	if err != nil {
+		t.Fatalf("get jobs after manager update: %v (status %d)", err, code)
+	}
+	if len(defs.Jobs) != 1 || defs.Jobs[0].Name != "marker" {
+		t.Fatalf("definitions after manager update: %+v", defs.Jobs)
+	}
+
+	// A user the space is shared with edits like the owner when they hold
+	// the permission. Spaces carry a single share, so walk it through
+	// editor → viewer.
+	editor, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-editor"), harness.TesterPermissions())
+	if err != nil {
+		t.Fatalf("create editor user: %v", err)
+	}
+	if code, err := noEdit.Client.AddShare(ctx, spaceId, editor.Id); err != nil {
+		t.Fatalf("share with editor: %v (status %d)", err, code)
+	}
+	if _, code, err := editor.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err != nil {
+		t.Fatalf("shared editor update: %v (status %d)", err, code)
+	}
+
+	// A shared user without the permission still reads but cannot write.
+	viewer, err := harness.CreateUser(s, adminUser, uniqueName("it-jobs-viewer"), restricted)
+	if err != nil {
+		t.Fatalf("create viewer user: %v", err)
+	}
+	if code, err := noEdit.Client.AddShare(ctx, spaceId, viewer.Id); err != nil {
+		t.Fatalf("share with viewer: %v (status %d)", err, code)
+	}
+	if _, code, err := viewer.Client.GetSpaceJobs(ctx, spaceId); err != nil {
+		t.Fatalf("shared viewer get jobs: %v (status %d)", err, code)
+	}
+	if _, code, err := viewer.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err == nil {
+		t.Fatal("expected shared viewer without Edit Space Jobs to be rejected")
+	} else {
+		mustEqual(t, "shared viewer update status", code, 403)
+	}
+
+	// Admin carries both permissions and can edit directly too.
+	if _, code, err := adminUser.Client.UpdateSpaceJobs(ctx, spaceId, jobs); err != nil {
+		t.Fatalf("admin update: %v (status %d)", err, code)
+	}
+}

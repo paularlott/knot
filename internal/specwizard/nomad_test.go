@@ -3024,9 +3024,9 @@ func TestParseNomadHCL_templateBlocks(t *testing.T) {
 						},
 						"Templates": []interface{}{
 							map[string]interface{}{
-								"Data":        "KEY=value\n",
-								"DestPath":    "local/env",
-								"ChangeMode":  "noop",
+								"Data":       "KEY=value\n",
+								"DestPath":   "local/env",
+								"ChangeMode": "noop",
 							},
 							map[string]interface{}{
 								"Data":         "post_max_size = 50M\n",

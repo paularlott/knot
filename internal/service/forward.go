@@ -50,17 +50,36 @@ func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error 
 	var targetNode string
 	for _, node := range nodes {
 		if node.ID.String() == nodeId {
-			targetNode = node.AdvertisedAddr()
+			// The node's own public URL, advertised in metadata, is the
+			// authoritative API endpoint and works for any gossip transport.
+			targetNode = node.Metadata.GetString("api_endpoint")
+
+			// Fall back to the gossip advertise address, which doubles as the
+			// API endpoint when the cluster uses the HTTP transport. Beware
+			// that url.Parse on a scheme-less "host:port" treats the host as
+			// the scheme, so require a parsed host before using it.
+			if targetNode == "" {
+				if addr := node.AdvertisedAddr(); addr != "" {
+					if u, err := url.Parse(addr); err == nil && u.Host != "" {
+						switch u.Scheme {
+						case "http", "https":
+							targetNode = u.Scheme + "://" + u.Host
+						case "ws", "wss":
+							targetNode = "http" + strings.TrimPrefix(u.Scheme, "w") + "://" + u.Host
+						}
+					}
+				}
+			}
 			break
 		}
 	}
 
 	if targetNode == "" {
-		return errors.New("target node not found in cluster")
+		return errors.New("target node not found in cluster or does not advertise an API endpoint (set server.url on it)")
 	}
 
-	// Strip path from targetNode
-	if u, err := url.Parse(targetNode); err == nil {
+	// Normalise: scheme and host only, no trailing slash or path.
+	if u, err := url.Parse(targetNode); err == nil && u.Host != "" {
 		targetNode = u.Scheme + "://" + u.Host
 	}
 

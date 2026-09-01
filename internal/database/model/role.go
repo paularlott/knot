@@ -53,6 +53,13 @@ const (
 	PermissionManageGlobalSlashCommands        // Can Manage Global Slash Commands
 	PermissionManageOwnSlashCommands           // Can Manage Own Slash Commands
 	PermissionManageMCPServers                 // Can Manage MCP Servers
+	// PermissionUseLogSinks is enforced only by Knot Pro (spaces registering
+	// as log sinks); the constant exists in both editions so the permission
+	// ids stay aligned, but Core never grants or checks it.
+	PermissionUseLogSinks // Can register a space as a log sink receiving own space logs
+	// PermissionEditSpaceJobs gates editing job definitions (and the runner
+	// toggle) on the user's own spaces; viewing them is always allowed.
+	PermissionEditSpaceJobs // Can edit the scheduled jobs of own spaces
 )
 
 type PermissionName struct {
@@ -107,6 +114,7 @@ var PermissionNames = []PermissionName{
 	{PermissionUseSpaces, "Space Operations", "Use Spaces", "Create and run spaces."},
 	{PermissionUsePools, "Space Operations", "Use Space Pools", "Create and run space pools."},
 	{PermissionSetSpaceDependencies, "Space Operations", "Set Space Dependencies", "Configure dependencies between spaces."},
+	{PermissionEditSpaceJobs, "Space Operations", "Edit Space Jobs", "Edit the scheduled jobs of your own spaces."},
 	{PermissionUseSpaceStartupScript, "Space Operations", "Use User Startup Script", "Set a user startup script that runs when a space starts."},
 	{PermissionShareSpaces, "Space Operations", "Share Spaces", "Share your spaces with other users."},
 	{PermissionTransferSpaces, "Space Operations", "Transfer Spaces", "Transfer ownership of your spaces to another user."},
@@ -161,6 +169,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageVariables,
 			PermissionUseSpaces,
 			PermissionSetSpaceDependencies,
+			PermissionEditSpaceJobs,
 			PermissionUseSpaceStartupScript,
 			PermissionUseTunnels,
 			PermissionViewAuditLogs,
@@ -255,6 +264,24 @@ func NewRole(name string, permissions []uint16, userId string) *Role {
 func RoleExists(roleId string) bool {
 	_, ok := roleCache[roleId]
 	return ok
+}
+
+// RoleName resolves a role id to its cached name, falling back to the id for
+// unknown roles (e.g. audit entries emitted before the cache was warm).
+func RoleName(roleId string) string {
+	if role, ok := roleCache[roleId]; ok {
+		return role.Name
+	}
+	return roleId
+}
+
+// RoleNames resolves role ids to cached names for audit properties.
+func RoleNames(roleIds []string) []string {
+	names := make([]string, 0, len(roleIds))
+	for _, id := range roleIds {
+		names = append(names, RoleName(id))
+	}
+	return names
 }
 
 // GetUserPermissions returns all permission integers for a user (resolves from roles)

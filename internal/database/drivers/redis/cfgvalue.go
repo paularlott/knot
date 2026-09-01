@@ -13,7 +13,7 @@ func (db *RedisDbDriver) GetCfgValue(name string) (*model.CfgValue, error) {
 		Value: "",
 	}
 
-	err := db.connection.Get(context.Background(), fmt.Sprintf("%sConfigs:%s", db.prefix, name)).Scan(&v.Value)
+	err := db.dbScanString(context.Background(), fmt.Sprintf("%sConfigs:%s", db.prefix, name), &v.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func (db *RedisDbDriver) GetCfgValue(name string) (*model.CfgValue, error) {
 }
 
 func (db *RedisDbDriver) SaveCfgValue(cfgValue *model.CfgValue) error {
-	err := db.connection.Set(context.Background(), fmt.Sprintf("%sConfigs:%s", db.prefix, cfgValue.Name), cfgValue.Value, 0).Err()
+	err := db.set(context.Background(), fmt.Sprintf("%sConfigs:%s", db.prefix, cfgValue.Name), cfgValue.Value, 0)
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func (db *RedisDbDriver) SaveCfgValue(cfgValue *model.CfgValue) error {
 func (db *RedisDbDriver) GetCfgValues() ([]*model.CfgValue, error) {
 	var cfgValues []*model.CfgValue
 
-	keys, err := db.connection.Keys(context.Background(), fmt.Sprintf("%sConfigs:*", db.prefix)).Result()
+	keys, err := db.keys(context.Background(), fmt.Sprintf("%sConfigs:*", db.prefix))
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (db *RedisDbDriver) GetCfgValues() ([]*model.CfgValue, error) {
 			Value: "",
 		}
 
-		err = db.connection.Get(context.Background(), key).Scan(&v.Value)
+		err = db.dbScanString(context.Background(), key, &v.Value)
 		if err != nil {
 			return nil, err
 		}

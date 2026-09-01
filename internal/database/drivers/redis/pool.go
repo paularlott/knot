@@ -14,7 +14,7 @@ func (db *RedisDbDriver) SavePoolDefinition(pool *model.PoolDefinition, updateFi
 	existingPool, _ := db.GetPoolDefinition(pool.Id)
 	if existingPool != nil {
 		if (existingPool.Name != pool.Name || existingPool.CreatedUserId != pool.CreatedUserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Name") || util.InArray(updateFields, "CreatedUserId")) {
-			db.connection.Del(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, existingPool.CreatedUserId, existingPool.Name))
+			db.del(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, existingPool.CreatedUserId, existingPool.Name))
 		}
 		if len(updateFields) > 0 {
 			util.CopyFields(pool, existingPool, updateFields)
@@ -26,20 +26,20 @@ func (db *RedisDbDriver) SavePoolDefinition(pool *model.PoolDefinition, updateFi
 	if err != nil {
 		return err
 	}
-	if err := db.connection.Set(context.Background(), fmt.Sprintf("%sPools:%s", db.prefix, pool.Id), data, 0).Err(); err != nil {
+	if err := db.set(context.Background(), fmt.Sprintf("%sPools:%s", db.prefix, pool.Id), data, 0); err != nil {
 		return err
 	}
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, pool.CreatedUserId, pool.Name), pool.Id, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, pool.CreatedUserId, pool.Name), pool.Id, 0)
 }
 
 func (db *RedisDbDriver) DeletePoolDefinition(pool *model.PoolDefinition) error {
-	db.connection.Del(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, pool.CreatedUserId, pool.Name))
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sPools:%s", db.prefix, pool.Id)).Err()
+	db.del(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, pool.CreatedUserId, pool.Name))
+	return db.del(context.Background(), fmt.Sprintf("%sPools:%s", db.prefix, pool.Id))
 }
 
 func (db *RedisDbDriver) GetPoolDefinition(id string) (*model.PoolDefinition, error) {
 	pool := &model.PoolDefinition{}
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sPools:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sPools:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -50,7 +50,7 @@ func (db *RedisDbDriver) GetPoolDefinition(id string) (*model.PoolDefinition, er
 }
 
 func (db *RedisDbDriver) GetPoolDefinitionByName(userId, name string) (*model.PoolDefinition, error) {
-	id, err := db.connection.Get(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, userId, name)).Result()
+	id, err := db.get(context.Background(), fmt.Sprintf("%sPoolsByName:%s:%s", db.prefix, userId, name))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -63,7 +63,7 @@ func (db *RedisDbDriver) GetPoolDefinitionByName(userId, name string) (*model.Po
 
 func (db *RedisDbDriver) GetPoolDefinitions() ([]*model.PoolDefinition, error) {
 	var pools []*model.PoolDefinition
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sPools:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sPools:*", db.prefix))
 	for iter.Next(context.Background()) {
 		pool, err := db.GetPoolDefinition(iter.Val()[len(fmt.Sprintf("%sPools:", db.prefix)):])
 		if err != nil {
@@ -83,9 +83,9 @@ func (db *RedisDbDriver) GetPoolDefinitions() ([]*model.PoolDefinition, error) {
 func (db *RedisDbDriver) GetPoolDefinitionsByUser(userId string) ([]*model.PoolDefinition, error) {
 	prefix := fmt.Sprintf("%sPoolsByName:%s:", db.prefix, userId)
 	var ids []string
-	iter := db.connection.Scan(context.Background(), 0, prefix+"*", 0).Iterator()
+	iter := db.scan(context.Background(), prefix+"*")
 	for iter.Next(context.Background()) {
-		id, err := db.connection.Get(context.Background(), iter.Val()).Result()
+		id, err := db.get(context.Background(), iter.Val())
 		if err != nil {
 			return nil, convertRedisError(err)
 		}

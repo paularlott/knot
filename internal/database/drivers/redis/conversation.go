@@ -23,17 +23,17 @@ func (db *RedisDbDriver) SaveConversation(conv *model.Conversation) error {
 	if err != nil {
 		return err
 	}
-	return db.connection.Set(context.Background(), db.conversationKey(conv.UserId, conv.Id), data, 0).Err()
+	return db.set(context.Background(), db.conversationKey(conv.UserId, conv.Id), data, 0)
 }
 
 func (db *RedisDbDriver) DeleteConversation(conv *model.Conversation) error {
-	return db.connection.Del(context.Background(), db.conversationKey(conv.UserId, conv.Id)).Err()
+	return db.del(context.Background(), db.conversationKey(conv.UserId, conv.Id))
 }
 
 func (db *RedisDbDriver) GetConversation(userId string, id string) (*model.Conversation, error) {
 	conv := &model.Conversation{}
 
-	v, err := db.connection.Get(context.Background(), db.conversationKey(userId, id)).Result()
+	v, err := db.get(context.Background(), db.conversationKey(userId, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -55,9 +55,9 @@ func (db *RedisDbDriver) GetConversations() ([]*model.Conversation, error) {
 func (db *RedisDbDriver) scanConversations(pattern string, includeDeleted bool) ([]*model.Conversation, error) {
 	var conversations []*model.Conversation
 
-	iter := db.connection.Scan(context.Background(), 0, pattern, 0).Iterator()
+	iter := db.scan(context.Background(), pattern)
 	for iter.Next(context.Background()) {
-		v, err := db.connection.Get(context.Background(), iter.Val()).Result()
+		v, err := db.get(context.Background(), iter.Val())
 		if err != nil {
 			return nil, convertRedisError(err)
 		}
@@ -95,9 +95,9 @@ func (db *RedisDbDriver) GetStaleConversations(before time.Time) ([]*model.Conve
 	pattern := fmt.Sprintf("%sConversations:*", db.prefix)
 	var out []*model.Conversation
 
-	iter := db.connection.Scan(ctx, 0, pattern, 0).Iterator()
+	iter := db.scan(ctx, pattern)
 	for iter.Next(ctx) {
-		v, err := db.connection.Get(ctx, iter.Val()).Result()
+		v, err := db.get(ctx, iter.Val())
 		if err != nil {
 			continue
 		}
@@ -119,10 +119,10 @@ func (db *RedisDbDriver) deleteConversationsMatching(before time.Time, tombstone
 	pattern := fmt.Sprintf("%sConversations:*", db.prefix)
 
 	var keys []string
-	iter := db.connection.Scan(ctx, 0, pattern, 0).Iterator()
+	iter := db.scan(ctx, pattern)
 	for iter.Next(ctx) {
 		key := iter.Val()
-		v, err := db.connection.Get(ctx, key).Result()
+		v, err := db.get(ctx, key)
 		if err != nil {
 			continue
 		}
@@ -138,7 +138,7 @@ func (db *RedisDbDriver) deleteConversationsMatching(before time.Time, tombstone
 		return err
 	}
 	if len(keys) > 0 {
-		return db.connection.Del(ctx, keys...).Err()
+		return db.del(ctx, keys...)
 	}
 	return nil
 }

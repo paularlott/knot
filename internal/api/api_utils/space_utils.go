@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/util/crypt"
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
@@ -138,6 +139,11 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	var tcpPorts, httpPorts map[string]string
 	var vscodeTunnel string
 
+	// Jobs live on the space record, so they are known even when the space
+	// is stopped — unlike the agent-reported state below.
+	hasJobs := len(space.Jobs) > 0
+	jobsEnabled := space.JobsEnabled && hasJobs
+
 	if state == nil {
 		hasCodeServer = false
 		hasSSH = false
@@ -187,7 +193,21 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 
 	nodeHostname := getNodeHostname(space.NodeId, isRemote, cfg.Hostname)
 
+	// Agent registration credentials: only for the space owner or users with
+	// manage permission — the key lets its holder run the space's agent.
+	// Remote-zone spaces return nothing: the credentials only work against
+	// the owning zone's servers.
+	var registrationKey, certFingerprint string
+	if !isRemote && (user.Id == space.UserId || user.HasPermission(model.PermissionManageSpaces)) {
+		registrationKey = crypt.AgentRegistrationKey(cfg.EncryptionKey, space.Id)
+		if fingerprint, err := crypt.AgentTLSCertFingerprint(cfg.EncryptionKey); err == nil {
+			certFingerprint = fingerprint
+		}
+	}
+
 	response := &apiclient.SpaceDefinition{
+		RegistrationKey:    registrationKey,
+		CertFingerprint:    certFingerprint,
 		SpaceId:            space.Id,
 		UserId:             space.UserId,
 		TemplateId:         space.TemplateId,
@@ -216,6 +236,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		HasCodeServer:      hasCodeServer,
 		HasSSH:             hasSSH,
 		HasTerminal:        hasTerminal,
+		HasJobs:            hasJobs,
+		JobsEnabled:        jobsEnabled,
 		HasHttpVNC:         hasHttpVNC,
 		HasState:           hasState,
 		TcpPorts:           tcpPorts,

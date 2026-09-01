@@ -25,7 +25,7 @@ func (db *RedisDbDriver) SaveTemplate(template *model.Template, updateFields []s
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sTemplates:%s", db.prefix, template.Id), data, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sTemplates:%s", db.prefix, template.Id), data, 0)
 }
 
 func (db *RedisDbDriver) DeleteTemplate(template *model.Template) error {
@@ -44,13 +44,13 @@ func (db *RedisDbDriver) DeleteTemplate(template *model.Template) error {
 		}
 	}
 
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sTemplates:%s", db.prefix, template.Id)).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sTemplates:%s", db.prefix, template.Id))
 }
 
 func (db *RedisDbDriver) GetTemplate(id string) (*model.Template, error) {
 	var template = &model.Template{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sTemplates:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sTemplates:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -66,7 +66,7 @@ func (db *RedisDbDriver) GetTemplate(id string) (*model.Template, error) {
 func (db *RedisDbDriver) GetTemplates() ([]*model.Template, error) {
 	var templates []*model.Template
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sTemplates:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sTemplates:*", db.prefix))
 	for iter.Next(context.Background()) {
 		template, err := db.GetTemplate(iter.Val()[len(fmt.Sprintf("%sTemplates:", db.prefix)):])
 		if err != nil {

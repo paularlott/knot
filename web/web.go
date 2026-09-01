@@ -17,6 +17,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/configwizard"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
@@ -320,6 +321,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("POST /space-io/{space_id}/tunnel/start", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleTunnelStart)))
 	router.HandleFunc("GET /space-io/{space_id}/tunnel/list", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleTunnelList)))
 	router.HandleFunc("POST /space-io/{space_id}/tunnel/stop", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleTunnelStop)))
+	router.HandleFunc("GET /space-io/{space_id}/jobs/list", middleware.ApiAuth(HandleJobsList))
+	router.HandleFunc("POST /space-io/{space_id}/jobs/run", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleJobsRun)))
 
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
@@ -350,6 +353,31 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	if cfg.TOTP.Enabled {
 		router.HandleFunc("GET /qrcode/{code}", middleware.WebAuth(HandleCreateQRCode))
+	}
+
+	// Desktop mode: mount the setup wizard on the running server so an
+	// admin can re-run it against the live config. Saving updates the
+	// config file; a restart applies it.
+	if cfg.DesktopMode {
+		target := cfg.ConfigPath
+		if target == "" {
+			if home, err := os.UserHomeDir(); err == nil {
+				target = filepath.Join(home, "."+config.CONFIG_DIR, config.CONFIG_FILE)
+			}
+		}
+		opts := configwizard.Options{
+			TargetPath:        target,
+			AllowOverwrite:    true,
+			Desktop:           true,
+			BasePath:          "/setup/",
+			AuditConfigWrites: true,
+		}
+		router.HandleFunc("GET /setup", middleware.WebAuth(checkAdmin(configwizard.PageHandler(opts))))
+		router.HandleFunc("POST /setup/preview", middleware.WebAuth(checkAdmin(configwizard.PreviewHandler(opts))))
+		router.HandleFunc("POST /setup/save", middleware.WebAuth(checkAdmin(configwizard.SaveHandler(opts))))
+		router.Handle("GET /setup/static/", middleware.WebAuth(checkAdmin(func(w http.ResponseWriter, r *http.Request) {
+			configwizard.StaticHandler().ServeHTTP(w, r)
+		})))
 	}
 }
 
@@ -546,6 +574,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageVolumes":             user.HasPermission(model.PermissionManageVolumes),
 		"permissionUseSpaces":                 user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces),
 		"permissionSetSpaceDependencies":      user.HasPermission(model.PermissionSetSpaceDependencies),
+		"permissionEditSpaceJobs":             user.HasPermission(model.PermissionEditSpaceJobs) || cfg.LeafNode,
 		"permissionUseSpaceStartupScript":     user.HasPermission(model.PermissionUseSpaceStartupScript),
 		"permissionUseTunnels":                user.HasPermission(model.PermissionUseTunnels) && cfg.ListenTunnel != "",
 		"permissionViewAuditLogs":             user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog() && cfg.Audit.Routing != "external",

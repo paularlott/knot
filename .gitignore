@@ -1,6 +1,7 @@
 .DS_Store
 /.codegraph/
-/.env
+/.env*
+!/.env.example
 /bin/*
 !/bin/.gitignore
 /web/agents/*
@@ -14,6 +15,7 @@
 /.knot*.toml
 /.parcel-cache
 /.task
+/.zcode
 /knot
 /knot-server.nomad
 /web/public_html/api-docs/*
@@ -32,3 +34,7 @@
 /web/public_html/assets/*
 /knot
 /internal/scriptling/manifest.toml
+
+# integration test artifacts (reports, server logs)
+build/test/
+__pycache__/

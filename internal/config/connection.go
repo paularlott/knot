@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/paularlott/cli"
 	cli_toml "github.com/paularlott/cli/toml"
@@ -16,13 +17,14 @@ func SaveConnection(alias string, server string, token string, cmd *cli.Command)
 			return fmt.Errorf("failed to get user home directory: %w", err)
 		}
 
-		newCfg := cli_toml.NewConfigFile(cli.StrToPtr(home+"/.config/"+CONFIG_DIR+"/"+CONFIG_FILE), nil)
+		configDir := filepath.Join(home, ".config", CONFIG_DIR)
+		newCfg := cli_toml.NewConfigFile(cli.StrToPtr(filepath.Join(configDir, CONFIG_FILE)), nil)
 
 		newCfg.SetValue("client.connection."+alias+".server", server)
 		newCfg.SetValue("client.connection."+alias+".token", token)
 
 		// Create any missing directories
-		err = os.MkdirAll(home+"/.config/"+CONFIG_DIR, os.ModePerm)
+		err = os.MkdirAll(configDir, os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("failed to create config directory: %w", err)
 		}

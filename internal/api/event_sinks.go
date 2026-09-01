@@ -249,9 +249,6 @@ func HandleCreateEventSink(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventEventSinkCreate,
 		fmt.Sprintf("Created event sink %s", sink.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
 			"event_sink_id":   sink.Id,
 			"event_sink_name": sink.Name,
 			"is_global_sink":  isGlobalSink,
@@ -372,9 +369,6 @@ func HandleUpdateEventSink(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventEventSinkUpdate,
 		fmt.Sprintf("Updated event sink %s", sink.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
 			"event_sink_id":   sink.Id,
 			"event_sink_name": sink.Name,
 			"is_global_sink":  sink.IsGlobalSink(),
@@ -442,9 +436,6 @@ func HandleDeleteEventSink(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventEventSinkDelete,
 		fmt.Sprintf("Deleted event sink %s", sinkName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
 			"event_sink_id":   sinkId,
 			"event_sink_name": sinkName,
 			"is_global_sink":  sink.IsGlobalSink(),

@@ -58,8 +58,12 @@ func WriteResponse(status int, w http.ResponseWriter, r *http.Request, v interfa
 		return errInvalidStatusCode
 	}
 
+	// Prefer msgpack only when the client lists it first (or lists it
+	// alone). Matching it anywhere in Accept broke clients advertising
+	// "application/json, application/msgpack" — they asked for JSON first
+	// but received msgpack.
 	accept := r.Header.Get("Accept")
-	if strings.Contains(accept, "application/msgpack") {
+	if prefersMsgPack(accept) {
 		w.Header().Set("Content-Type", "application/msgpack")
 		w.WriteHeader(status)
 		return EncodeMsgPack(w, v)
@@ -68,6 +72,21 @@ func WriteResponse(status int, w http.ResponseWriter, r *http.Request, v interfa
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(v)
+}
+
+// prefersMsgPack reports whether the Accept header's first recognised
+// content type is msgpack.
+func prefersMsgPack(accept string) bool {
+	for _, part := range strings.Split(accept, ",") {
+		mt := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
+		switch mt {
+		case "application/msgpack":
+			return true
+		case "application/json":
+			return false
+		}
+	}
+	return false
 }
 
 // StreamWriter writes chunks using Server-Sent Events

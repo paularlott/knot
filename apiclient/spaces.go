@@ -40,28 +40,33 @@ type SpaceShareUpdateRequest struct {
 }
 
 type SpaceInfo struct {
-	Id                      string               `json:"space_id"`
-	Name                    string               `json:"name"`
-	Description             string               `json:"description"`
-	Note                    string               `json:"note"`
-	TemplateName            string               `json:"template_name"`
-	TemplateId              string               `json:"template_id"`
-	PoolId                  string               `json:"pool_id"`
-	PoolName                string               `json:"pool_name"`
-	Zone                    string               `json:"zone"`
-	Username                string               `json:"username"`
-	UserId                  string               `json:"user_id"`
-	Platform                string               `json:"platform"`
-	Shares                  []string             `json:"shares"`
-	DependsOn               []string             `json:"depends_on"`
-	HasCodeServer           bool                 `json:"has_code_server"`
-	HasSSH                  bool                 `json:"has_ssh"`
-	HasHttpVNC              bool                 `json:"has_http_vnc"`
-	HasTerminal             bool                 `json:"has_terminal"`
-	HasState                bool                 `json:"has_state"`
-	IsDeployed              bool                 `json:"is_deployed"`
-	IsPending               bool                 `json:"is_pending"`
-	IsDeleting              bool                 `json:"is_deleting"`
+	Id            string   `json:"space_id"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	Note          string   `json:"note"`
+	TemplateName  string   `json:"template_name"`
+	TemplateId    string   `json:"template_id"`
+	PoolId        string   `json:"pool_id"`
+	PoolName      string   `json:"pool_name"`
+	Zone          string   `json:"zone"`
+	Username      string   `json:"username"`
+	UserId        string   `json:"user_id"`
+	Platform      string   `json:"platform"`
+	Shares        []string `json:"shares"`
+	DependsOn     []string `json:"depends_on"`
+	HasCodeServer bool     `json:"has_code_server"`
+	HasSSH        bool     `json:"has_ssh"`
+	HasHttpVNC    bool     `json:"has_http_vnc"`
+	HasTerminal   bool     `json:"has_terminal"`
+	HasJobs       bool     `json:"has_jobs"`
+	JobsEnabled   bool     `json:"jobs_enabled"`
+	HasState      bool     `json:"has_state"`
+	IsDeployed    bool     `json:"is_deployed"`
+	IsPending     bool     `json:"is_pending"`
+	IsDeleting    bool     `json:"is_deleting"`
+	// Manual-agent registration key, only present for manual spaces the
+	// caller owns or manages: its holder can run the space's agent.
+	RegistrationKey         string               `json:"registration_key,omitempty"`
 	TcpPorts                map[string]string    `json:"tcp_ports"`
 	HttpPorts               map[string]string    `json:"http_ports"`
 	UpdateAvailable         bool                 `json:"update_available"`
@@ -105,11 +110,16 @@ type GetCustomFieldResponse struct {
 }
 
 type SpaceDefinition struct {
-	SpaceId            string                       `json:"space_id"`
-	UserId             string                       `json:"user_id"`
-	TemplateId         string                       `json:"template_id"`
-	Shares             []string                     `json:"shares"`
-	DependsOn          []string                     `json:"depends_on"`
+	SpaceId    string   `json:"space_id"`
+	UserId     string   `json:"user_id"`
+	TemplateId string   `json:"template_id"`
+	Shares     []string `json:"shares"`
+	DependsOn  []string `json:"depends_on"`
+	// Agent registration credentials, only returned to the space owner or
+	// users with manage permission: the key lets its holder run the space's
+	// agent, the fingerprint verifies the zone's agent TLS certificate.
+	RegistrationKey    string                       `json:"registration_key,omitempty"`
+	CertFingerprint    string                       `json:"agent_cert_fingerprint,omitempty"`
 	Name               string                       `json:"name"`
 	Description        string                       `json:"description"`
 	Note               string                       `json:"note"`
@@ -135,6 +145,8 @@ type SpaceDefinition struct {
 	HasCodeServer      bool                         `json:"has_code_server"`
 	HasSSH             bool                         `json:"has_ssh"`
 	HasTerminal        bool                         `json:"has_terminal"`
+	HasJobs            bool                         `json:"has_jobs"`
+	JobsEnabled        bool                         `json:"jobs_enabled"`
 	HasHttpVNC         bool                         `json:"has_http_vnc"`
 	HasState           bool                         `json:"has_state"`
 	TcpPorts           map[string]string            `json:"tcp_ports"`
@@ -246,6 +258,51 @@ type PortApplyResponse struct {
 	Applied []PortForwardInfo `json:"applied"`
 	Stopped []PortForwardInfo `json:"stopped"`
 	Errors  []string          `json:"errors,omitempty"`
+}
+
+type JobRunRequest struct {
+	Name string `json:"name"`
+}
+
+// SpaceJobsRequest replaces the space's job definitions and runner state.
+type SpaceJobsRequest struct {
+	Jobs    []model.SpaceJob `json:"jobs"`
+	Enabled bool             `json:"enabled"`
+}
+
+type SpaceJobsResponse struct {
+	Jobs    []model.SpaceJob `json:"jobs"`
+	Enabled bool             `json:"enabled"`
+}
+
+type JobsListResponse struct {
+	Enabled bool      `json:"enabled"`
+	Jobs    []JobInfo `json:"jobs"`
+}
+type JobInfo struct {
+	Name       string        `json:"name"`
+	Command    string        `json:"command"`
+	Schedule   string        `json:"schedule,omitempty"`
+	ManualOnly bool          `json:"manual_only"`
+	Enabled    bool          `json:"enabled"`
+	Running    bool          `json:"running"`
+	NextRun    *time.Time    `json:"next_run,omitempty"`
+	LastRun    *JobRunRecord `json:"last_run,omitempty"`
+	Error      string        `json:"error,omitempty"`
+}
+
+type JobRunRecord struct {
+	StartedAt  time.Time `json:"started_at"`
+	FinishedAt time.Time `json:"finished_at"`
+	DurationMs int64     `json:"duration_ms"`
+	Status     string    `json:"status"`
+	Trigger    string    `json:"trigger"`
+	Error      string    `json:"error,omitempty"`
+}
+
+type JobsResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
 }
 
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string, allZones bool) (*SpaceInfoList, int, error) {
@@ -446,6 +503,42 @@ func (c *ApiClient) StopPort(ctx context.Context, spaceId string, request *PortS
 
 func (c *ApiClient) ThrottlePort(ctx context.Context, spaceId string, request *PortThrottleRequest) (int, error) {
 	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/throttle", request, nil, 200)
+}
+
+func (c *ApiClient) ListJobs(ctx context.Context, spaceId string) (*JobsListResponse, int, error) {
+	response := &JobsListResponse{}
+	code, err := c.httpClient.Get(ctx, "/space-io/"+spaceId+"/jobs/list", &response)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
+}
+
+func (c *ApiClient) RunJob(ctx context.Context, spaceId string, request *JobRunRequest) (*JobsResponse, int, error) {
+	response := &JobsResponse{}
+	code, err := c.httpClient.Post(ctx, "/space-io/"+spaceId+"/jobs/run", request, response, 200)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
+}
+
+func (c *ApiClient) GetSpaceJobs(ctx context.Context, spaceId string) (*SpaceJobsResponse, int, error) {
+	response := &SpaceJobsResponse{}
+	code, err := c.httpClient.Get(ctx, "/api/spaces/"+spaceId+"/jobs", &response)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
+}
+
+func (c *ApiClient) UpdateSpaceJobs(ctx context.Context, spaceId string, request *SpaceJobsRequest) (*SpaceJobsResponse, int, error) {
+	response := &SpaceJobsResponse{}
+	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId+"/jobs", request, response, 200)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
 }
 
 func (c *ApiClient) ApplyPorts(ctx context.Context, spaceId string, request *PortApplyRequest) (*PortApplyResponse, int, error) {

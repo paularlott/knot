@@ -15,17 +15,17 @@ func (db *RedisDbDriver) SaveGroup(group *model.Group) error {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sGroups:%s", db.prefix, group.Id), data, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sGroups:%s", db.prefix, group.Id), data, 0)
 }
 
 func (db *RedisDbDriver) DeleteGroup(group *model.Group) error {
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sGroups:%s", db.prefix, group.Id)).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sGroups:%s", db.prefix, group.Id))
 }
 
 func (db *RedisDbDriver) GetGroup(id string) (*model.Group, error) {
 	var group = &model.Group{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sGroups:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sGroups:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -41,7 +41,7 @@ func (db *RedisDbDriver) GetGroup(id string) (*model.Group, error) {
 func (db *RedisDbDriver) GetGroups() ([]*model.Group, error) {
 	var groups []*model.Group
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sGroups:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sGroups:*", db.prefix))
 	for iter.Next(context.Background()) {
 		group, err := db.GetGroup(iter.Val()[len(fmt.Sprintf("%sGroups:", db.prefix)):])
 		if err != nil {

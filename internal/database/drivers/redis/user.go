@@ -3,6 +3,7 @@ package driver_redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
 )
 
 func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error {
@@ -44,7 +45,7 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 
 		if !newUser {
 			// Delete the old email address
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, existingUser.Email)).Err()
+			err = db.del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, existingUser.Email))
 			if err != nil {
 				return err
 			}
@@ -64,7 +65,7 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 	if existingUser != nil {
 		if existingUser.Email != user.Email && (len(updateFields) == 0 || util.InArray(updateFields, "Email")) {
 			// Delete the old email address
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, existingUser.Email)).Err()
+			err = db.del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, existingUser.Email))
 			if err != nil {
 				return err
 			}
@@ -72,7 +73,7 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 
 		if existingUser.Username != user.Username && (len(updateFields) == 0 || util.InArray(updateFields, "Username")) {
 			// Delete the old username
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(existingUser.Username))).Err()
+			err = db.del(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(existingUser.Username)))
 			if err != nil {
 				return err
 			}
@@ -91,17 +92,17 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 	}
 
 	// Save the new user
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id), data, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id), data, 0)
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email), user.Id, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email), user.Id, 0)
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username)), user.Id, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username)), user.Id, 0)
 	if err != nil {
 		return err
 	}
@@ -110,14 +111,14 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 	if len(updateFields) == 0 || util.InArray(updateFields, "ExternalAuthProviders") {
 		for providerID, ep := range oldProviders {
 			if newEp, ok := user.ExternalAuthProviders[providerID]; !ok || newEp.ProviderUID != ep.ProviderUID {
-				db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID))
+				db.del(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID))
 			}
 		}
 		for providerID, ep := range user.ExternalAuthProviders {
 			if ep.ProviderUID == "" {
 				continue
 			}
-			err = db.connection.Set(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID), user.Id, 0).Err()
+			err = db.set(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID), user.Id, 0)
 			if err != nil {
 				return err
 			}
@@ -132,31 +133,31 @@ func (db *RedisDbDriver) DeleteUser(user *model.User) error {
 	if err == nil {
 		for _, script := range scripts {
 			if script.UserId == user.Id {
-				db.connection.Del(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id))
-				db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name))
+				db.del(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id))
+				db.del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name))
 			}
 		}
 	}
 
 	for providerID, ep := range user.ExternalAuthProviders {
-		db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID))
+		db.del(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID))
 	}
 
-	if err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id)).Err(); err != nil {
+	if err = db.del(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id)); err != nil {
 		return err
 	}
-	if err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email)).Err(); err != nil {
+	if err = db.del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email)); err != nil {
 		return err
 	}
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username))).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username)))
 }
 
 func (db *RedisDbDriver) GetUser(id string) (*model.User, error) {
 	var user = &model.User{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, id))
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, valkey.Nil) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, err
@@ -173,9 +174,9 @@ func (db *RedisDbDriver) GetUser(id string) (*model.User, error) {
 func (db *RedisDbDriver) GetUserByEmail(email string) (*model.User, error) {
 	var user *model.User = nil
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, email)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, email))
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, valkey.Nil) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, err
@@ -188,9 +189,9 @@ func (db *RedisDbDriver) GetUserByEmail(email string) (*model.User, error) {
 func (db *RedisDbDriver) GetUserByUsername(name string) (*model.User, error) {
 	var user *model.User = nil
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, name)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, name))
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, valkey.Nil) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, err
@@ -201,7 +202,7 @@ func (db *RedisDbDriver) GetUserByUsername(name string) (*model.User, error) {
 }
 
 func (db *RedisDbDriver) GetUserByProviderUID(providerID, providerUID string) (*model.User, error) {
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, providerUID)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, providerUID))
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
@@ -211,7 +212,7 @@ func (db *RedisDbDriver) GetUserByProviderUID(providerID, providerUID string) (*
 func (db *RedisDbDriver) GetUsers() ([]*model.User, error) {
 	var users []*model.User
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sUsers:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sUsers:*", db.prefix))
 	for iter.Next(context.Background()) {
 		user, err := db.GetUser(iter.Val()[len(fmt.Sprintf("%sUsers:", db.prefix)):])
 		if err != nil {
@@ -235,7 +236,7 @@ func (db *RedisDbDriver) GetUsers() ([]*model.User, error) {
 func (db *RedisDbDriver) HasUsers() (bool, error) {
 	var count int = 0
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sUsers:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sUsers:*", db.prefix))
 	for iter.Next(context.Background()) {
 		count++
 	}

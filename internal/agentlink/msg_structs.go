@@ -130,3 +130,14 @@ type ListTunnelsResponse struct {
 type StopTunnelRequest struct {
 	Name string `json:"name" msgpack:"name"`
 }
+
+// JobsRunRequest triggers a job by name via the agent daemon.
+type JobsRunRequest struct {
+	Name string `json:"name" msgpack:"name"`
+}
+
+// JobsResponse carries the outcome of a run request.
+type JobsResponse struct {
+	Success bool   `json:"success" msgpack:"success"`
+	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
+}

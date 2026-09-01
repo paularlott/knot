@@ -2,6 +2,9 @@ package web
 
 import (
 	"encoding/base64"
+	"fmt"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/util/audit"
 	"net/http"
 
 	"github.com/paularlott/knot/apiclient"
@@ -120,6 +123,25 @@ func HandleCopyFileStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	auditCopy := func(direction, path string, size int) {
+		if cfg := config.GetServerConfig(); cfg != nil && cfg.Audit.FileOperations {
+			props := map[string]interface{}{
+				"space_id":   space.Id,
+				"space_name": space.Name,
+				"template":   template.Name,
+				"op":         "copy",
+				"direction":  direction,
+				"path":       path,
+				"success":    true,
+			}
+			if size >= 0 {
+				props["size"] = size
+			}
+			audit.LogWithRequest(r, user.Username, model.AuditActorTypeUser, model.AuditEventSpaceFileOp,
+				fmt.Sprintf("copy %s %s in space %s", direction, path, space.Name), &props)
+		}
+	}
+
 	// Wait for the command response or websocket close
 	select {
 	case response := <-responseChannel:
@@ -131,12 +153,14 @@ func HandleCopyFileStream(w http.ResponseWriter, r *http.Request) {
 					"success": true,
 					"content": contentBase64,
 				})
+				auditCopy("from_space", request.SourcePath, len(response.Content))
 			} else {
 				// Send success message for to_space
 				ws.WriteJSON(map[string]interface{}{
 					"success": true,
 					"message": "File copied successfully",
 				})
+				auditCopy("to_space", request.DestPath, len(request.Content))
 			}
 		} else {
 			// Send the error message

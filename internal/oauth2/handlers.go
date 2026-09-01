@@ -1,8 +1,12 @@
 package oauth2
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -59,6 +63,14 @@ func HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PKCE (RFC 7636) with S256 is required for all clients. MCP clients
+	// implement PKCE per the MCP specification, so only non-conformant
+	// clients are excluded.
+	if reason := validatePKCEChallenge(r.URL.Query().Get("code_challenge"), r.URL.Query().Get("code_challenge_method")); reason != "" {
+		http.Error(w, "invalid_request: "+reason, http.StatusBadRequest)
+		return
+	}
+
 	// Check if user is authenticated
 	user := r.Context().Value("user")
 	if user == nil {
@@ -82,13 +94,22 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.FormValue("redirect_uri")
 	scope := r.FormValue("scope")
 	state := r.FormValue("state")
+	codeChallenge := r.FormValue("code_challenge")
+	codeChallengeMethod := r.FormValue("code_challenge_method")
 
 	user := r.Context().Value("user").(*model.User)
 
 	if action == "approve" {
+		// Never issue a code that isn't PKCE-bound, even if the approve
+		// request is forged directly rather than coming from the grant page.
+		if reason := validatePKCEChallenge(codeChallenge, codeChallengeMethod); reason != "" {
+			http.Error(w, "invalid_request: "+reason, http.StatusBadRequest)
+			return
+		}
+
 		// Create authorization code
 		authCodeStore := GetAuthCodeStore()
-		authCode, err := authCodeStore.CreateAuthCode(user.Id, clientId, redirectURI, scope)
+		authCode, err := authCodeStore.CreateAuthCode(user.Id, clientId, redirectURI, scope, codeChallenge, codeChallengeMethod)
 		if err != nil {
 			logger.WithError(err).Error("failed to create auth code")
 			http.Error(w, "server_error", http.StatusInternalServerError)
@@ -198,14 +219,29 @@ func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PKCE (RFC 7636): the verifier must match the challenge bound to the
+	// code at authorize time. The code has already been consumed, so a wrong
+	// verifier also burns the code.
+	if !verifyPKCE(authCode.CodeChallenge, authCode.CodeChallengeMethod, r.FormValue("code_verifier")) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
+			Error:            "invalid_grant",
+			ErrorDescription: "PKCE verification failed",
+		})
+		return
+	}
+
 	name := authCode.ClientId
 	if u, err := url.Parse(authCode.RedirectURI); err == nil {
 		name = u.Hostname()
 	}
 
-	// Create access token
+	// Create access token. OAuth-issued tokens are always scoped — by
+	// default to the MCP endpoint — so a code phished through a crafted
+	// redirect_uri can never yield an unrestricted account token.
 	tokenName := "OAuth2 Token for " + name
 	token := model.NewToken(tokenName, authCode.UserId)
+	token.Scopes = grantedScopes(authCode.Scope)
+	token.RefreshToken = true
 
 	db := database.GetInstance()
 	err := db.SaveToken(token)
@@ -226,7 +262,7 @@ func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
 		TokenType:    "Bearer",
 		ExpiresIn:    expiresIn,
 		RefreshToken: token.Id,
-		Scope:        authCode.Scope,
+		Scope:        strings.Join(token.Scopes, " "),
 	})
 }
 
@@ -253,6 +289,17 @@ func handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only tokens issued via the OAuth2 flow may be refreshed, and only
+	// while still unexpired — an expired or UI-created token is never
+	// extended (otherwise expiry would be unenforceable).
+	if !refreshToken.RefreshToken || !refreshToken.ExpiresAfter.After(time.Now().UTC()) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
+			Error:            "invalid_grant",
+			ErrorDescription: "Invalid refresh token",
+		})
+		return
+	}
+
 	// Save the token to extend its life
 	expiresAfter := time.Now().Add(model.MaxTokenAge)
 	refreshToken.ExpiresAfter = expiresAfter.UTC()
@@ -267,7 +314,7 @@ func handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request) {
 		TokenType:    "Bearer",
 		ExpiresIn:    expiresIn,
 		RefreshToken: refreshToken.Id,
-		Scope:        "",
+		Scope:        strings.Join(refreshToken.Scopes, " "),
 	})
 }
 
@@ -310,6 +357,12 @@ func HandleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
 		TokenEndpointAuthMethodsSupported: []string{
 			"none", // For public clients
 		},
+		ScopesSupported: []string{
+			model.ScopeMCP,
+		},
+		CodeChallengeMethodsSupported: []string{
+			"S256",
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -328,4 +381,54 @@ type OpenIDConfiguration struct {
 	ScopesSupported                   []string `json:"scopes_supported"`
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
 	ClaimsSupported                   []string `json:"claims_supported"`
+}
+
+// validatePKCEChallenge checks the code_challenge and code_challenge_method
+// parameters. It returns a non-empty error reason when they don't conform to
+// PKCE S256 (RFC 7636), and an empty string when valid.
+func validatePKCEChallenge(challenge, method string) string {
+	if challenge == "" {
+		return "missing code_challenge"
+	}
+	if method == "" {
+		// RFC 7636 defaults the method to "plain", which is not accepted.
+		return "missing code_challenge_method (S256 required)"
+	}
+	if method != "S256" {
+		return "unsupported code_challenge_method (S256 required)"
+	}
+	// A SHA-256 challenge is 43 unpadded base64url characters; allow some
+	// slack for unusual client encodings but reject clearly malformed values.
+	if len(challenge) < 43 || len(challenge) > 128 {
+		return "invalid code_challenge"
+	}
+	return ""
+}
+
+// verifyPKCE checks a code_verifier against the stored challenge using the
+// stored method (RFC 7636 section 4.6). Only S256 is supported; the plain
+// method is never honored.
+func verifyPKCE(challenge, method, verifier string) bool {
+	if challenge == "" || verifier == "" || method != "S256" {
+		return false
+	}
+	sum := sha256.Sum256([]byte(verifier))
+	computed := base64.RawURLEncoding.EncodeToString(sum[:])
+	return hmac.Equal([]byte(computed), []byte(challenge))
+}
+
+// grantedScopes maps the requested OAuth scope string to knot token scopes.
+// Only scopes knot knows are granted; unknown, missing, or empty requests
+// default to the mcp scope. OAuth-issued tokens are never unrestricted.
+func grantedScopes(scope string) []string {
+	var scopes []string
+	for _, s := range strings.Fields(scope) {
+		if model.IsKnownTokenScope(s) {
+			scopes = append(scopes, s)
+		}
+	}
+	if len(scopes) == 0 {
+		scopes = []string{model.ScopeMCP}
+	}
+	return scopes
 }

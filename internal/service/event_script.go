@@ -9,12 +9,8 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	knotscriptling "github.com/paularlott/knot/internal/scriptling"
-	"github.com/paularlott/scriptling"
-	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
-	"github.com/paularlott/scriptling/plugin"
 )
 
 func ExecuteEventScript(script *model.Script, eventParams map[string]object.Object, user *model.User, envelope *EventEnvelope) (string, error) {
@@ -27,7 +23,11 @@ func ExecuteEventScript(script *model.Script, eventParams map[string]object.Obje
 
 	client := apiclient.NewMuxClient(user)
 
-	env, cleanup, err := NewEventScriptlingEnv(client, eventParams, user, envelope)
+	env, _, cleanup, err := NewServerScriptlingEnv(client, ServerScriptlingOptions{
+		User:          user,
+		EventParams:   eventParams,
+		EventEnvelope: envelope,
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create event scriptling environment: %v", err)
 	}
@@ -45,45 +45,6 @@ func ExecuteEventScript(script *model.Script, eventParams map[string]object.Obje
 	}
 
 	return response, err
-}
-
-func NewEventScriptlingEnv(client *apiclient.ApiClient, eventParams map[string]object.Object, user *model.User, envelope *EventEnvelope) (*scriptling.Scriptling, func(), error) {
-	env := scriptling.New()
-	env.EnableOutputCapture()
-
-	registerBaseLibraries(env, nil)
-
-	// Register a per-execution plugin scope (HTTP-only) so event scripts can
-	// call scriptling.plugin.load() for remote HTTP(S) plugins without leaking
-	// plugins between executions or spawning local executables on the server.
-	pluginScope := registerPluginScope(env, plugin.TransportHTTP)
-	cleanup := func() { _ = pluginScope.Close() }
-
-	aiClient := createServerAIClient(client, user)
-	if aiClient != nil {
-		env.SetObjectVar("ai_client", scriptlingai.WrapClient(aiClient))
-	}
-
-	if client != nil && user != nil {
-		registerKnotLibraries(env, client, user.Id, nil, nil, aiClient, false)
-		env.RegisterLibrary(knotscriptling.GetEventLibrary())
-
-		env.SetLibraryLoader(newKnotLibsLoader())
-
-		paramsDict := object.NewStringDict(eventParams)
-		if err := env.SetObjectVar(knotscriptling.EventParamsVarName, paramsDict); err != nil {
-			cleanup()
-			return nil, nil, fmt.Errorf("failed to set event params: %v", err)
-		}
-
-		metaDict := buildEventMetaDict(envelope)
-		if err := env.SetObjectVar(knotscriptling.EventMetaVarName, metaDict); err != nil {
-			cleanup()
-			return nil, nil, fmt.Errorf("failed to set event metadata: %v", err)
-		}
-	}
-
-	return env, cleanup, nil
 }
 
 func buildEventMetaDict(envelope *EventEnvelope) *object.Dict {

@@ -15,7 +15,7 @@ func (db *RedisDbDriver) SaveMCPServer(server *model.MCPServer, updateFields []s
 
 	if existing != nil {
 		if (existing.Namespace != server.Namespace || existing.UserId != server.UserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Namespace") || util.InArray(updateFields, "UserId")) {
-			db.connection.Del(context.Background(), fmt.Sprintf("%sMCPServersByUser:%s:%s", db.prefix, existing.UserId, existing.Namespace))
+			db.del(context.Background(), fmt.Sprintf("%sMCPServersByUser:%s:%s", db.prefix, existing.UserId, existing.Namespace))
 		}
 
 		if len(updateFields) > 0 {
@@ -29,23 +29,23 @@ func (db *RedisDbDriver) SaveMCPServer(server *model.MCPServer, updateFields []s
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sMCPServers:%s", db.prefix, server.Id), data, 0).Err()
+	err = db.set(context.Background(), fmt.Sprintf("%sMCPServers:%s", db.prefix, server.Id), data, 0)
 	if err != nil {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sMCPServersByUser:%s:%s", db.prefix, server.UserId, server.Namespace), server.Id, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sMCPServersByUser:%s:%s", db.prefix, server.UserId, server.Namespace), server.Id, 0)
 }
 
 func (db *RedisDbDriver) DeleteMCPServer(server *model.MCPServer) error {
-	db.connection.Del(context.Background(), fmt.Sprintf("%sMCPServersByUser:%s:%s", db.prefix, server.UserId, server.Namespace))
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sMCPServers:%s", db.prefix, server.Id)).Err()
+	db.del(context.Background(), fmt.Sprintf("%sMCPServersByUser:%s:%s", db.prefix, server.UserId, server.Namespace))
+	return db.del(context.Background(), fmt.Sprintf("%sMCPServers:%s", db.prefix, server.Id))
 }
 
 func (db *RedisDbDriver) GetMCPServer(id string) (*model.MCPServer, error) {
 	var server = &model.MCPServer{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sMCPServers:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sMCPServers:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -61,7 +61,7 @@ func (db *RedisDbDriver) GetMCPServer(id string) (*model.MCPServer, error) {
 func (db *RedisDbDriver) GetMCPServers() ([]*model.MCPServer, error) {
 	var servers []*model.MCPServer
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sMCPServers:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sMCPServers:*", db.prefix))
 	for iter.Next(context.Background()) {
 		server, err := db.GetMCPServer(iter.Val()[len(fmt.Sprintf("%sMCPServers:", db.prefix)):])
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,11 +15,13 @@ import (
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
+	"github.com/paularlott/knot/internal/agentpackages"
 	"github.com/paularlott/knot/internal/agenttunnel"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/methods"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spacejobs"
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/paularlott/cli"
@@ -156,6 +159,18 @@ var agentServerCmd = &cli.Command{
 			ConfigPath: []string{"agent.tls.key_file"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_KEY_FILE"},
 		},
+		&cli.StringFlag{
+			Name:       "registration-key",
+			Usage:      "The space's registration key, required to register with the server (shown in the web UI next to the space ID).",
+			ConfigPath: []string{"agent.registration_key"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_REGISTRATION_KEY"},
+		},
+		&cli.StringFlag{
+			Name:       "server-cert-fingerprint",
+			Usage:      "The sha256 fingerprint of the server's agent certificate public key, to verify the TLS connection.",
+			ConfigPath: []string{"agent.server_cert_fingerprint"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SERVER_CERT_FINGERPRINT"},
+		},
 		&cli.BoolFlag{
 			Name:         "use-tls",
 			Usage:        "Enable TLS.",
@@ -211,6 +226,13 @@ var agentServerCmd = &cli.Command{
 			go syslogd.StartSyslogd(agentClient, cfg.SyslogPort)
 		}
 
+		// Clear the scriptling package cache (~/.knot/cache) so every run
+		// starts fresh — spaces always serve the latest knot.zip/libs.zip
+		// fetched from the server after an agent restart.
+		if home, err := os.UserHomeDir(); err == nil {
+			agentpackages.Init(filepath.Join(home, ".knot", "cache"))
+		}
+
 		// Start the http rest and log sink if enabled
 		if cfg.APIPort > 0 {
 			go agent_service_api.ListenAndServe(agentClient)
@@ -221,12 +243,20 @@ var agentServerCmd = &cli.Command{
 		methodsRunner := buildMethodsScriptRunner(agentClient)
 		agentlink.SetMethodsScriptRunner(methodsRunner)
 
+		// Start the scheduled jobs service (fires due jobs while the space
+		// is running; definitions are pushed by the server on registration
+		// and on change, manual trigger via RPC). Run activity and output go
+		// to the space's log window via the agent client's log channel, like
+		// scripts.
+		spacejobs.SetLogger(agent_client.NewAgentClientLogger(agentClient, "knot_jobs"))
+		spacejobs.Start()
+
 		// Install the methods registrar globally for the lifetime of the daemon.
 		// Any script that runs in the agent (startup scripts, `knot methods
 		// register file.py`) can call knot.methods Server.register(); the call
 		// lands here, in-process, with no further IPC. CLI-side scripts (`knot
-		// run-script`) do not register knot.methods at all, so they cannot reach
-		// this hook.
+		// run-script`) register via the agentlink command socket instead —
+		// wireMethodsRegistrar in the CLI — so they never hit this in-process hook.
 		knotscriptling.SetMethodsRegistrar(agentClient.RegisterMethods)
 		knotscriptling.SetMethodsUnregisterAll(agentClient.UnregisterAllMethods)
 
@@ -265,6 +295,7 @@ var agentServerCmd = &cli.Command{
 		<-c
 
 		agenttunnel.StopAll()
+		spacejobs.Stop()
 		agentlink.StopCommandSocket()
 		agentlink.SetMethodsScriptRunner(nil)
 		agentClient.Shutdown()
@@ -290,7 +321,7 @@ func buildMethodsScriptRunner(agentClient *agent_client.AgentClient) func(conten
 		if agentClient == nil {
 			return errors.New("agent is not connected")
 		}
-		env, cleanup, err := service.NewRemoteScriptlingEnv(args, nil, "", nil, true)
+		env, cleanup, err := service.NewAgentScriptlingEnv(nil, "", service.AgentScriptlingOptions{Argv: args, Output: io.Discard})
 		if err != nil {
 			return fmt.Errorf("failed to create script environment: %w", err)
 		}
@@ -363,6 +394,8 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 			UseTLS:     cmd.GetBool("use-tls"),
 			SkipVerify: cmd.GetBool("tls-skip-verify"),
 		},
+		RegistrationKey:       cmd.GetString("registration-key"),
+		ServerCertFingerprint: cmd.GetString("server-cert-fingerprint"),
 	}
 	config.SetAgentConfig(agentCfg)
 

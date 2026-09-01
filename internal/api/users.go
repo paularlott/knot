@@ -155,12 +155,11 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 			model.AuditEventUserCreate,
 			fmt.Sprintf("Created user %s (%s)", userNew.Username, userNew.Email),
 			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-				"user_id":         userNew.Id,
-				"user_name":       userNew.Username,
-				"user_email":      userNew.Email,
+				"user_id":       userNew.Id,
+				"user_name":     userNew.Username,
+				"user_email":    userNew.Email,
+				"roles":         model.RoleNames(userRoles),
+				"granted_admin": userNew.IsAdmin(),
 			},
 		)
 	}
@@ -499,6 +498,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	userId := r.PathValue("user_id")
 
+	// Set when this update grants the target user the admin role; recorded on
+	// the audit entry so privilege escalation is visible without diffing.
+	grantedAdmin := false
+
 	request := updateUserRequest{}
 	db := database.GetInstance()
 
@@ -624,7 +627,9 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			user.Active = request.Active
 		}
 
+		hadAdmin := user.IsAdmin()
 		user.Roles = userRoles
+		grantedAdmin = !hadAdmin && user.IsAdmin()
 		user.Groups = request.Groups
 		user.MaxSpaces = request.MaxSpaces
 		user.ComputeUnits = request.ComputeUnits
@@ -655,12 +660,11 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventUserUpdate,
 		fmt.Sprintf("Updated user %s (%s)", user.Username, user.Email),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"user_id":         user.Id,
-			"user_name":       user.Username,
-			"user_email":      user.Email,
+			"user_id":       user.Id,
+			"user_name":     user.Username,
+			"user_email":    user.Email,
+			"roles":         model.RoleNames(user.Roles),
+			"granted_admin": grantedAdmin,
 		},
 	)
 
@@ -719,12 +723,9 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 			model.AuditEventUserDelete,
 			fmt.Sprintf("Deleted user %s (%s)", toDelete.Username, toDelete.Email),
 			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-				"user_id":         toDelete.Id,
-				"user_name":       toDelete.Username,
-				"user_email":      toDelete.Email,
+				"user_id":    toDelete.Id,
+				"user_name":  toDelete.Username,
+				"user_email": toDelete.Email,
 			},
 		)
 	}

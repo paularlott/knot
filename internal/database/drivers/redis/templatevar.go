@@ -16,17 +16,17 @@ func (db *RedisDbDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sTemplateVars:%s", db.prefix, templateVar.Id), data, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sTemplateVars:%s", db.prefix, templateVar.Id), data, 0)
 }
 
 func (db *RedisDbDriver) DeleteTemplateVar(templateVar *model.TemplateVar) error {
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sTemplateVars:%s", db.prefix, templateVar.Id)).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sTemplateVars:%s", db.prefix, templateVar.Id))
 }
 
 func (db *RedisDbDriver) GetTemplateVar(id string) (*model.TemplateVar, error) {
 	var templateVar = &model.TemplateVar{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sTemplateVars:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sTemplateVars:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -44,7 +44,7 @@ func (db *RedisDbDriver) GetTemplateVar(id string) (*model.TemplateVar, error) {
 func (db *RedisDbDriver) GetTemplateVars() ([]*model.TemplateVar, error) {
 	var templateVars []*model.TemplateVar
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sTemplateVars:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sTemplateVars:*", db.prefix))
 	for iter.Next(context.Background()) {
 		templateVar, err := db.GetTemplateVar(iter.Val()[len(fmt.Sprintf("%sTemplateVars:", db.prefix)):])
 		if err != nil {

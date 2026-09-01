@@ -27,17 +27,17 @@ func (db *RedisDbDriver) SaveVolume(volume *model.Volume, updateFields []string)
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sVolumes:%s", db.prefix, volume.Id), data, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sVolumes:%s", db.prefix, volume.Id), data, 0)
 }
 
 func (db *RedisDbDriver) DeleteVolume(volume *model.Volume) error {
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sVolumes:%s", db.prefix, volume.Id)).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sVolumes:%s", db.prefix, volume.Id))
 }
 
 func (db *RedisDbDriver) GetVolume(id string) (*model.Volume, error) {
 	var volume = &model.Volume{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sVolumes:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sVolumes:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -53,7 +53,7 @@ func (db *RedisDbDriver) GetVolume(id string) (*model.Volume, error) {
 func (db *RedisDbDriver) GetVolumes() ([]*model.Volume, error) {
 	var volumes []*model.Volume
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sVolumes:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sVolumes:*", db.prefix))
 	for iter.Next(context.Background()) {
 		volume, err := db.GetVolume(iter.Val()[len(fmt.Sprintf("%sVolumes:", db.prefix)):])
 		if err != nil {

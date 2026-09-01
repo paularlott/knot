@@ -46,6 +46,9 @@ type Token struct {
 	// nil/empty = unrestricted (backward compatible with pre-scopes tokens).
 	// Non-empty = token may only reach endpoints covered by the listed scopes.
 	Scopes []string `json:"scopes,omitempty" db:"scopes,json"`
+	// RefreshToken marks tokens issued via the OAuth2 authorization-code
+	// flow; only these may be extended through the /token refresh grant.
+	RefreshToken bool `json:"refresh_token,omitempty" db:"refresh_token"`
 }
 
 func NewToken(name string, userId string) *Token {

@@ -138,11 +138,8 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventVolumeUpdate,
 		fmt.Sprintf("Updated volume %s", volume.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"volume_id":       volume.Id,
-			"volume_name":     volume.Name,
+			"volume_id":   volume.Id,
+			"volume_name": volume.Name,
 		},
 	)
 
@@ -191,11 +188,8 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventVolumeCreate,
 		fmt.Sprintf("Created volume %s", volume.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"volume_id":       volume.Id,
-			"volume_name":     volume.Name,
+			"volume_id":   volume.Id,
+			"volume_name": volume.Name,
 		},
 	)
 
@@ -276,11 +270,8 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventVolumeDelete,
 		fmt.Sprintf("Deleted volume %s", volume.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"volume_id":       volume.Id,
-			"volume_name":     volume.Name,
+			"volume_id":   volume.Id,
+			"volume_name": volume.Name,
 		},
 	)
 

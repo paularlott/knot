@@ -25,17 +25,17 @@ func (db *RedisDbDriver) SaveEventSink(sink *model.EventSink, updateFields []str
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sEventSinks:%s", db.prefix, sink.Id), data, 0).Err()
+	return db.set(context.Background(), fmt.Sprintf("%sEventSinks:%s", db.prefix, sink.Id), data, 0)
 }
 
 func (db *RedisDbDriver) DeleteEventSink(sink *model.EventSink) error {
-	return db.connection.Del(context.Background(), fmt.Sprintf("%sEventSinks:%s", db.prefix, sink.Id)).Err()
+	return db.del(context.Background(), fmt.Sprintf("%sEventSinks:%s", db.prefix, sink.Id))
 }
 
 func (db *RedisDbDriver) GetEventSink(id string) (*model.EventSink, error) {
 	sink := &model.EventSink{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sEventSinks:%s", db.prefix, id)).Result()
+	v, err := db.get(context.Background(), fmt.Sprintf("%sEventSinks:%s", db.prefix, id))
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -51,7 +51,7 @@ func (db *RedisDbDriver) GetEventSink(id string) (*model.EventSink, error) {
 func (db *RedisDbDriver) GetEventSinks() ([]*model.EventSink, error) {
 	var sinks []*model.EventSink
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sEventSinks:*", db.prefix), 0).Iterator()
+	iter := db.scan(context.Background(), fmt.Sprintf("%sEventSinks:*", db.prefix))
 	for iter.Next(context.Background()) {
 		sink, err := db.GetEventSink(iter.Val()[len(fmt.Sprintf("%sEventSinks:", db.prefix)):])
 		if err != nil {

@@ -1079,6 +1079,9 @@ func buildPortURLs(space *model.Space, username, poolName string) map[string]str
 
 func logAudit(event, details string, properties map[string]interface{}) {
 	entry := model.NewAuditLogEntry("system", model.AuditActorTypeSystem, event, details, &properties)
+	if model.AuditHook != nil {
+		model.AuditHook(entry)
+	}
 	transport := GetTransport()
 	if transport != nil {
 		transport.GossipAuditLog(entry)

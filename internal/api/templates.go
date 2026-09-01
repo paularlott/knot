@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/spacejobs"
 	"github.com/paularlott/knot/internal/specvalidate"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -86,6 +87,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.MaxUptimeUnit = template.MaxUptimeUnit
 		templateData.IconURL = template.IconURL
 		templateData.Ports = template.Ports
+		templateData.Jobs = template.Jobs
 
 		templateData.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))
 		for i, field := range template.CustomFields {
@@ -131,6 +133,14 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if errs := spacejobs.ValidateJobs(request.Jobs); len(errs) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, JobsErrorResponse{
+			Error:     "invalid job definitions: " + summarizeJobErrors(errs),
+			JobErrors: errs,
+		})
 		return
 	}
 
@@ -196,6 +206,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.Jobs = request.Jobs
 
 	// Convert schedule
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
@@ -229,11 +240,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventTemplateUpdate,
 		fmt.Sprintf("Updated template %s", template.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"template_id":     template.Id,
-			"template_name":   template.Name,
+			"template_id":   template.Id,
+			"template_name": template.Name,
 		},
 	)
 
@@ -245,6 +253,14 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if errs := spacejobs.ValidateJobs(request.Jobs); len(errs) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, JobsErrorResponse{
+			Error:     "invalid job definitions: " + summarizeJobErrors(errs),
+			JobErrors: errs,
+		})
 		return
 	}
 
@@ -322,6 +338,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.Jobs = request.Jobs
 
 	templateService := service.GetTemplateService()
 	err = templateService.CreateTemplate(template, user)
@@ -337,11 +354,8 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventTemplateCreate,
 		fmt.Sprintf("Created template %s", template.Name),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"template_id":     template.Id,
-			"template_name":   template.Name,
+			"template_id":   template.Id,
+			"template_name": template.Name,
 		},
 	)
 
@@ -421,11 +435,8 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventTemplateDelete,
 		fmt.Sprintf("Deleted template %s", templateName),
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"template_id":     templateId,
-			"template_name":   templateName,
+			"template_id":   templateId,
+			"template_name": templateName,
 		},
 	)
 
@@ -449,7 +460,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		template, err = db.GetTemplateByName(templateId)
 	}
 
-	if err != nil || template == nil {
+	if err != nil || template == nil || template.IsDeleted {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
 		return
 	}

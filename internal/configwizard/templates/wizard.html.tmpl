@@ -3,110 +3,169 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="{{ .BasePath }}static/favicon.ico">
 <title>knot config wizard</title>
-<script src="/static/ace/ace.js"></script>
-<script src="/static/ace/mode-toml.js"></script>
-<script src="/static/ace/theme-github_dark.js"></script>
-<script src="/static/timezones.js"></script>
+<script src="{{ .BasePath }}static/ace/ace.js"></script>
+<script src="{{ .BasePath }}static/ace/mode-toml.js"></script>
+<script src="{{ .BasePath }}static/ace/theme-github_dark.js"></script>
+<script src="{{ .BasePath }}static/timezones.js"></script>
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: dark;
+    --bg: #0b1120;
+    --panel: rgba(17, 24, 39, 0.72);
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --text-faint: #6b7280;
+    --accent: #3b82f6;
+    --accent-strong: #2563eb;
+    --accent-ring: rgba(59, 130, 246, 0.20);
+    --field-h: 44px;
+    --radius-xl: 12px;
+    --radius-lg: 8px;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    line-height: 1.5; background: #0f172a; color: #e2e8f0;
+    line-height: 1.55; color: var(--text);
+    background:
+      radial-gradient(1100px 550px at 85% -10%, rgba(30, 58, 138, 0.22), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(14, 116, 144, 0.14), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
   }
-  header { padding: 0.6rem 1.25rem; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; }
-  header h1 { font-size: 1.1rem; font-weight: 700; }
-  header .path { font-family: ui-monospace, monospace; font-size: 0.8rem; color: #94a3b8; }
 
-  .container { max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+  header { position: sticky; top: 0; z-index: 40; padding: 0.7rem 1.5rem; background: rgba(11, 17, 32, 0.85); border-bottom: 1px solid var(--border); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  header h1 { font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.55rem; white-space: nowrap; }
+  header h1 .logo-dot { width: 0.6rem; height: 0.6rem; border-radius: 9999px; background: linear-gradient(135deg, #60a5fa, #22d3ee); box-shadow: 0 0 14px rgba(59, 130, 246, 0.55); }
+  header .path { font-family: ui-monospace, monospace; font-size: 0.76rem; color: var(--text-dim); background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 0.28rem 0.65rem; border-radius: 9999px; overflow: hidden; text-overflow: ellipsis; }
 
-  .progress { display: flex; gap: 0.3rem; margin-bottom: 1.5rem; }
-  .progress-dot { flex: 1; height: 4px; background: #334155; border-radius: 2px; transition: background 0.2s; }
-  .progress-dot.active { background: #3b82f6; }
-  .progress-dot.done { background: #1d4ed8; }
+  .container { max-width: 720px; margin: 0 auto; padding: 2rem 1.25rem 4.5rem; }
+
+  .progress { display: flex; align-items: center; margin-bottom: 1.75rem; }
+  .progress-seg { flex: 1; display: flex; align-items: center; min-width: 0; }
+  .progress-dot {
+    width: 30px; height: 30px; border-radius: 9999px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 600;
+    background: #1f2937; border: 1px solid var(--border-strong); color: var(--text-faint);
+    transition: all 0.25s;
+  }
+  .progress-dot.active { background: var(--accent-strong); border-color: #60a5fa; color: #fff; box-shadow: 0 0 0 4px var(--accent-ring); }
+  .progress-dot.done { background: rgba(29, 78, 216, 0.22); border-color: rgba(59, 130, 246, 0.55); color: #93c5fd; }
+  .progress-line { flex: 1; height: 2px; background: #1f2937; margin: 0 6px; border-radius: 2px; min-width: 8px; transition: background 0.25s; }
+  .progress-line.done { background: rgba(59, 130, 246, 0.55); }
 
   .step { display: none; }
-  .step.active { display: block; }
-  .step-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.4rem; }
-  .step-desc { color: #94a3b8; font-size: 0.88rem; margin-bottom: 1.25rem; line-height: 1.6; }
+  .step.active {
+    display: block; animation: step-in 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+    padding: 1.75rem; box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+  }
+  @media (max-width: 520px) { .step.active { padding: 1.25rem; } }
+  @keyframes step-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .step.active { animation: none; } }
+
+  .step-error { display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; border: 1px solid rgba(248, 113, 113, 0.3); border-radius: var(--radius-xl); background: rgba(127, 29, 29, 0.22); color: #fecaca; font-size: 0.84rem; line-height: 1.6; }
+  .step-error ul { margin: 0.2rem 0 0 1rem; padding: 0; }
+  .step-title { font-size: 1.32rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.35rem; }
+  .step-desc { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.4rem; line-height: 1.6; }
 
   .cards { display: grid; gap: 0.75rem; }
-  .card { background: #1e293b; border: 2px solid #334155; border-radius: 0.7rem; padding: 1rem 1.1rem; cursor: pointer; transition: border-color 0.15s; }
-  .card:hover { border-color: #475569; }
-  .card.selected { border-color: #3b82f6; background: #1e293b; }
-  .card h3 { font-size: 0.98rem; font-weight: 600; margin-bottom: 0.25rem; }
-  .card p { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; }
+  .card { background: rgba(13, 21, 38, 0.7); border: 1.5px solid var(--border-strong); border-radius: var(--radius-xl); padding: 1rem 1.15rem; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.15s; }
+  .card:hover { border-color: #334155; background: rgba(15, 23, 42, 0.9); transform: translateY(-1px); }
+  .card.selected { border-color: var(--accent); background: rgba(18, 33, 63, 0.85); box-shadow: 0 0 0 3px var(--accent-ring); }
+  .card h3 { font-size: 0.95rem; font-weight: 650; margin-bottom: 0.2rem; color: #f3f4f6; }
+  .card p { font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
 
   .field-group { margin-bottom: 1rem; }
-  label { display: block; margin: 0.45rem 0 0.1rem; font-weight: 600; font-size: 0.82rem; color: #cbd5e1; }
-  .hint { font-weight: 400; font-size: 0.76rem; color: #64748b; }
-  .explain { font-size: 0.82rem; color: #94a3b8; line-height: 1.55; margin: 0.3rem 0 0.6rem; padding-left: 0.7rem; border-left: 2px solid #334155; }
-  .warning { font-size: 0.8rem; color: #fbbf24; background: #422006; border: 1px solid #92400e; border-radius: 0.4rem; padding: 0.5rem 0.7rem; margin: 0.6rem 0; }
+  label { display: block; margin: 0.5rem 0 0.32rem; font-weight: 600; font-size: 0.8rem; color: #cbd5e1; letter-spacing: 0.01em; }
+  .hint { font-weight: 400; font-size: 0.74rem; color: var(--text-faint); }
+  .explain { font-size: 0.8rem; color: var(--text-dim); line-height: 1.55; margin: 0.35rem 0 0.7rem; padding-left: 0.7rem; border-left: 2px solid #334155; }
+  .explain code { font-size: 0.78em; }
+  .warning { font-size: 0.8rem; color: #fcd34d; background: rgba(66, 32, 6, 0.45); border: 1px solid rgba(146, 64, 14, 0.5); border-radius: var(--radius-xl); padding: 0.55rem 0.8rem; margin: 0.6rem 0; }
 
   input[type="text"], input[type="password"], input[type="number"], input[type="url"], select, textarea {
-    width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem; border: 1px solid #475569; border-radius: 0.35rem;
-    font-family: inherit; background: #0f172a; color: #e2e8f0; transition: border-color 0.15s;
+    width: 100%; height: var(--field-h); padding: 0 0.8rem; font-size: 0.9rem;
+    border: 1px solid #374151; border-radius: var(--radius-xl);
+    font-family: inherit; background: #0b1220; color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+  input::placeholder { color: #4b5563; }
+  input:hover, select:hover, textarea:hover { border-color: #4b5563; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-ring); background: #0d1526; }
   select { cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 0.5rem center; padding-right: 1.8rem; }
-  option { background: #0f172a; color: #e2e8f0; }
+    background-repeat: no-repeat; background-position: right 0.7rem center; padding-right: 1.9rem; }
+  option { background: #0f172a; color: var(--text); }
 
-  .toggle { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; padding: 0.2rem 0; }
+  .toggle { display: flex; align-items: center; gap: 0.65rem; cursor: pointer; padding: 0.25rem 0; }
   .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .slider { position: relative; width: 36px; height: 20px; background: #475569; border-radius: 9999px; transition: background 0.2s; flex-shrink: 0; }
-  .slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 9999px; transition: transform 0.2s; }
-  .toggle input:checked + .slider { background: #3b82f6; }
-  .toggle input:checked + .slider::after { transform: translateX(16px); }
-  .toggle-label { font-size: 0.85rem; font-weight: 500; color: #cbd5e1; }
+  .slider { position: relative; width: 44px; height: 24px; background: #374151; border: 1px solid var(--border); border-radius: 9999px; transition: background 0.2s, box-shadow 0.2s; flex-shrink: 0; }
+  .slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 9999px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.55); }
+  .toggle input:checked + .slider { background: linear-gradient(135deg, #3b82f6, #2563eb); border-color: rgba(96, 165, 250, 0.4); box-shadow: 0 0 10px rgba(59, 130, 246, 0.25); }
+  .toggle input:checked + .slider::after { transform: translateX(20px); }
+  .toggle input:focus-visible + .slider { box-shadow: 0 0 0 4px var(--accent-ring); }
+  .toggle-label { font-size: 0.87rem; font-weight: 500; color: #dbe3ee; }
 
-  .radio-card { background: #1e293b; border: 2px solid #334155; border-radius: 0.6rem; padding: 0.8rem 1rem; cursor: pointer; margin-bottom: 0.5rem; transition: border-color 0.15s; }
+  .radio-card { background: rgba(13, 21, 38, 0.7); border: 1.5px solid var(--border-strong); border-radius: var(--radius-xl); padding: 0.85rem 1rem; cursor: pointer; margin-bottom: 0.55rem; transition: border-color 0.15s, background 0.15s; }
   .radio-card:hover { border-color: #475569; }
-  .radio-card.selected { border-color: #3b82f6; }
-  .radio-card h3 { font-size: 0.9rem; font-weight: 600; }
-  .radio-card p { font-size: 0.8rem; color: #94a3b8; margin-top: 0.15rem; }
-  .radio-card .rec { font-size: 0.72rem; color: #3b82f6; font-weight: 600; margin-top: 0.3rem; }
+  .radio-card.selected { border-color: var(--accent); background: rgba(18, 33, 63, 0.85); box-shadow: 0 0 0 3px var(--accent-ring); }
+  .radio-card h3 { font-size: 0.9rem; font-weight: 650; }
+  .radio-card p { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.15rem; }
+  .radio-card .rec { font-size: 0.72rem; color: #60a5fa; font-weight: 600; margin-top: 0.3rem; }
 
   .collapsible { display: none; margin-top: 0.5rem; }
 
   .dns-record { display: grid; grid-template-columns: 70px 1fr 1fr 60px auto; gap: 0.3rem; margin-bottom: 0.3rem; align-items: center; }
   .dns-record select, .dns-record input { padding: 0.25rem 0.35rem; font-size: 0.78rem; }
-  .dns-remove { background: #334155; color: #cbd5e1; border: 1px solid #475569; border-radius: 0.3rem; padding: 0.3rem 0.55rem; font-size: 1rem; line-height: 1; cursor: pointer; }
+  .dns-remove { background: #334155; color: #cbd5e1; border: 1px solid #475569; border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 1rem; line-height: 1; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
   .dns-remove:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
 
-  button { cursor: pointer; border: none; border-radius: 0.35rem; font-weight: 600; font-family: inherit; }
-  .btn-primary { background: #3b82f6; color: #fff; padding: 0.5rem 1.4rem; font-size: 0.88rem; }
-  .btn-primary:hover { background: #2563eb; }
-  .btn-primary:disabled { background: #475569; cursor: not-allowed; opacity: 0.7; }
-  .btn-secondary { background: #334155; color: #cbd5e1; padding: 0.4rem 0.9rem; font-size: 0.82rem; border: 1px solid #475569; }
-  .btn-secondary:hover { background: #3e4f68; }
-  .btn-sm { background: #334155; color: #cbd5e1; padding: 0.3rem 0.65rem; font-size: 0.78rem; border: 1px solid #475569; border-radius: 0.35rem; }
-  .btn-sm:hover { background: #3e4f68; }
+  button { cursor: pointer; border: none; font-family: inherit; }
+  .btn-primary {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb 55%, #0e7490);
+    color: #fff; padding: 0.62rem 1.5rem; font-size: 0.88rem; font-weight: 600;
+    border-radius: var(--radius-lg); box-shadow: 0 10px 22px -10px rgba(29, 78, 216, 0.8);
+    transition: filter 0.15s, transform 0.1s, box-shadow 0.15s;
+  }
+  .btn-primary:hover { filter: brightness(1.12); }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:disabled { filter: grayscale(0.5) brightness(0.7); cursor: not-allowed; box-shadow: none; }
+  .btn-secondary {
+    background: #1e293b; color: #cbd5e1; padding: 0.55rem 1.1rem; font-size: 0.84rem; font-weight: 600;
+    border: 1px solid #334155; border-radius: var(--radius-lg); transition: background 0.15s, border-color 0.15s;
+  }
+  .btn-secondary:hover { background: #273449; border-color: #475569; }
+  .btn-sm { background: #1e293b; color: #cbd5e1; padding: 0 0.9rem; height: var(--field-h); font-size: 0.8rem; font-weight: 600; border: 1px solid #334155; border-radius: var(--radius-xl); transition: background 0.15s, border-color 0.15s; }
+  .btn-sm:hover { background: #273449; border-color: #475569; }
 
-  .nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
-  .status { color: #64748b; font-size: 0.78rem; }
-  code { background: #334155; padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.82em; font-family: ui-monospace, monospace; }
-  pre { background: #0f172a; border: 1px solid #334155; border-radius: 0.5rem; padding: 0.75rem; overflow-x: auto; }
+  .nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .status { color: var(--text-faint); font-size: 0.78rem; }
+  code { background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border); padding: 0.08rem 0.4rem; border-radius: 6px; font-size: 0.82em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #cbd5e1; }
+  pre { background: #0b1220; border: 1px solid var(--border-strong); border-radius: var(--radius-xl); padding: 0.75rem; overflow-x: auto; }
 
   .tz-picker { position: relative; }
-  .tz-dropdown { display: none; position: absolute; z-index: 50; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: #1e293b; border: 1px solid #475569; border-radius: 0.35rem; margin-top: 0.15rem; }
-  .tz-item { padding: 0.3rem 0.5rem; font-size: 0.82rem; cursor: pointer; color: #cbd5e1; }
-  .tz-item:hover { background: #334155; }
+  .tz-dropdown { display: none; position: absolute; z-index: 50; top: 100%; left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #0f172a; border: 1px solid #475569; border-radius: var(--radius-xl); margin-top: 0.15rem; box-shadow: 0 16px 40px -12px rgba(0,0,0,0.6); }
+  .tz-item { padding: 0.35rem 0.6rem; font-size: 0.82rem; cursor: pointer; color: #cbd5e1; }
+  .tz-item:hover { background: #1e293b; }
 
-  #editor { width: 100%; height: 420px; border: 1px solid #334155; border-radius: 0.5rem; }
+  #editor { width: 100%; height: 420px; border: 1px solid var(--border-strong); border-radius: var(--radius-xl); }
 </style>
 </head>
 <body>
 <header>
-  <h1>knot config wizard</h1>
+  <h1><span class="logo-dot"></span>knot config wizard</h1>
   <span class="path">target: <code>{{ .ConfigPath }}</code></span>
 </header>
 
 <div class="container">
   <div class="progress" id="progress"></div>
+  <div class="step-error" id="step-error"></div>
 
   <!-- STEP 1: Deployment Type -->
   <div class="step" id="step-1">
@@ -121,9 +180,9 @@
         <h3>Cluster</h3>
         <p>Production deployment with multiple servers for high availability and geographic distribution. Uses an external database and Nomad orchestration.</p>
       </div>
-      <div class="card" data-deploy="leaf">
-        <h3>Leaf Node</h3>
-        <p>A local server that connects to an existing cluster. Runs spaces locally using local containers while syncing templates and users from the origin.</p>
+      <div class="card" data-deploy="desktop">
+        <h3>Desktop / Leaf Mode</h3>
+        <p>This machine. Runs the knot server locally with embedded storage, serving the web UI on loopback, managing spaces in local containers, and answering DNS on <code>knot.internal</code> so space addresses resolve without external DNS.</p>
       </div>
     </div>
     <div class="nav"><span></span><button class="btn-primary next" id="next-1" disabled>Next</button></div>
@@ -170,7 +229,7 @@
     </div>
 
     <div id="session-redis-section" style="display:none;margin-top:0.8rem;padding-top:0.6rem;border-top:1px solid #334155">
-      <label class="toggle"><input type="checkbox" id="session_redis_enabled"><span class="slider"></span><span class="toggle-label">Also use Redis for session storage</span></label>
+      <label class="toggle"><input type="checkbox" id="session_redis_enabled" {{ checked .Form.SessionRedis }}><span class="slider"></span><span class="toggle-label">Also use Redis for session storage</span></label>
       <div class="explain">Sessions survive server restarts when stored in Redis. Recommended for production and clustered setups.</div>
     </div>
 
@@ -183,7 +242,7 @@
       <input type="password" id="redis_password" value="{{ .Form.RedisPassword }}">
     </div>
 
-    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+    <div class="nav">{{ if .Editing }}<span></span>{{ else }}<button class="btn-secondary prev">Back</button>{{ end }}<button class="btn-primary next">Next</button></div>
   </div>
 
   <!-- STEP 3: Networking -->
@@ -237,6 +296,29 @@
       <div class="explain">Used to encrypt protected variables. Rotate with <code>knot genkey</code>.</div>
     </div>
 
+    <div id="cluster-fields" style="display:none;margin-top:1.2rem;padding-top:0.9rem;border-top:1px solid #334155">
+      <div class="field-group">
+        <label>Cluster advertise address</label>
+        <input type="text" id="cluster_advertise_addr" value="{{ .Form.ClusterAdvertiseAddr }}" placeholder="https://knot1.example.com">
+        <div class="explain">The address other servers use to reach this one for cluster gossip.</div>
+      </div>
+      <div class="field-group">
+        <label>Cluster key</label>
+        <div style="display:flex;gap:0.3rem">
+          <input type="text" id="cluster_key" value="{{ .Form.ClusterKey }}" style="flex:1">
+          <button type="button" class="btn-sm" id="regen-cluster-key">regen</button>
+        </div>
+        <div class="explain">Shared secret for cluster communication — must be identical on every server.</div>
+      </div>
+      <div class="field-group">
+        <label>Cluster peers <span class="hint">(comma-separated)</span></label>
+        <input type="text" id="cluster_peers" value="{{ .Form.ClusterPeers }}" placeholder="https://knot2.example.com, https://knot3.example.com">
+        <div class="explain">Addresses of the other servers. Optional on the first server.</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="allow_leaf_nodes" {{ checked .Form.AllowLeafNodes }}><span class="slider"></span><span class="toggle-label">Allow leaf nodes to connect</span></label>
+      <div class="explain">Lets desktop / remote instances join this cluster as leaf nodes.</div>
+    </div>
+
     <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
   </div>
 
@@ -256,7 +338,7 @@
 
     <div id="ns-custom-fields" class="collapsible">
       <label>Nameservers <span class="hint">(comma-separated, e.g. 192.168.1.1:53, consul/192.168.1.4:8600)</span></label>
-      <input type="text" id="nameservers" placeholder="1.1.1.1, 8.8.8.8">
+      <input type="text" id="nameservers" value="{{ .Form.Nameservers }}" placeholder="1.1.1.1, 8.8.8.8">
     </div>
 
     <div style="margin-top:1.2rem">
@@ -353,6 +435,19 @@
       <div class="explain">Uses email addresses to fetch user avatars from Gravatar. Disable if the server runs offline.</div>
     </div>
 
+    <div style="margin-top:1rem">
+      <label class="toggle"><input type="checkbox" id="auth_ip_rate_limiting" {{ checked .Form.AuthIPRateLimiting }}><span class="slider"></span><span class="toggle-label">Block repeated failed logins</span></label>
+      <div class="explain">Blocks login attempts from an IP / for an account after too many failures. This is prevention (auth is refused); Pro's audit anomaly detection is separate and alerts on the audit stream instead.</div>
+      <div id="ratelimit-fields" class="collapsible">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem;margin-top:0.4rem">
+          <div><label>Failures allowed</label><input type="number" id="auth_rate_limit_attempts" value="{{ .Form.AuthRateLimitAttempts }}"></div>
+          <div><label>Within (seconds)</label><input type="number" id="auth_rate_limit_window" value="{{ .Form.AuthRateLimitWindow }}"></div>
+          <div><label>Block for (seconds)</label><input type="number" id="auth_rate_limit_block" value="{{ .Form.AuthRateLimitBlock }}"></div>
+        </div>
+        <div class="explain">Defaults allow 10 failures per minute and block for 5 minutes.</div>
+      </div>
+    </div>
+
     <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
   </div>
 
@@ -384,28 +479,88 @@
       <label class="toggle"><input type="checkbox" id="enable_mcp" {{ checked .Form.EnableMCP }}><span class="slider"></span><span class="toggle-label">MCP server <span class="hint">(Model Context Protocol)</span></span></label>
     </div>
 
+    <div id="origin-fields" style="display:none;margin-top:1.2rem;padding-top:0.8rem;border-top:1px solid #334155">
+      <label style="font-weight:600">Origin server <span class="hint">(optional, desktop / leaf only)</span></label>
+      <div class="explain" style="margin-bottom:0.5rem">Connect to an existing knot cluster and sync templates and users from it. Leave blank to run standalone.</div>
+      <label>Server URL</label>
+      <input type="url" id="origin_server" value="" placeholder="https://knot.example.com/">
+      <label style="margin-top:0.5rem">Access token</label>
+      <input type="password" id="origin_token" value="" placeholder="API token from the origin server">
+    </div>
+
     <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
   </div>
 
-  <!-- STEP 9: Review -->
+  <!-- STEP 9: Logging & Audit -->
   <div class="step" id="step-9">
+    <div class="step-title">Logging &amp; audit</div>
+    <div class="step-desc">Knot logs to the console by default. Send server logs to an external logging service for long-term retention and compliance.</div>
+
+    <label class="toggle"><input type="checkbox" id="log_output_enabled" {{ checked .Form.LogOutputEnabled }}><span class="slider"></span><span class="toggle-label">Send server logs to an external logging service</span></label>
+    <div id="log-output-fields" class="collapsible">
+      <div class="field-group">
+        <label>Endpoint URL</label>
+        <input type="url" id="log_output_url" value="{{ .Form.LogOutputURL }}" placeholder="http://localhost:9428/insert/jsonline">
+        <div class="explain">VictoriaLogs <code>/insert/jsonline</code>, Loki <code>/loki/api/v1/push</code>, or an Elasticsearch <code>/_bulk</code> endpoint. Knot sends structured JSON records with retries on failure.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+        <div><label>Format</label>
+          <select id="log_output_format">
+            <option value="ndjson">ndjson (VictoriaLogs)</option>
+            <option value="loki">loki</option>
+            <option value="elasticsearch">elasticsearch</option>
+            <option value="gelf">gelf (Graylog)</option>
+          </select>
+        </div>
+        <div><label>Bearer token <span class="hint">(optional)</span></label><input type="password" id="log_output_token" value="{{ .Form.LogOutputToken }}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-top:0.4rem">
+        <div><label>Basic auth username <span class="hint">(optional)</span></label><input type="text" id="log_output_username" value="{{ .Form.LogOutputUsername }}"></div>
+        <div><label>Basic auth password <span class="hint">(optional)</span></label><input type="password" id="log_output_password" value="{{ .Form.LogOutputPassword }}"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.2rem;padding-top:0.8rem;border-top:1px solid #334155">
+      <div id="audit-routing-fields" class="collapsible">
+        <label>Audit log routing</label>
+        <select id="audit_routing">
+          <option value="internal">Internal only</option>
+          <option value="external">External only</option>
+          <option value="both">Both (recommended for compliance)</option>
+        </select>
+        <div class="explain">Audit events (logins, config changes, space lifecycle) can also be sent to the external logging service. The internal store expires entries after the retention period — long-term audit retention is the job of the external service.</div>
+      </div>
+      <label style="margin-top:0.5rem">Internal retention (days)</label>
+      <input type="number" id="audit_retention" value="{{ .Form.AuditRetention }}">
+      <div class="explain">How long audit entries live in the internal store before expiry.</div>
+      <label class="toggle" style="margin-top:0.9rem"><input type="checkbox" id="audit_file_operations" {{ checked .Form.AuditFileOps }}><span class="slider"></span><span class="toggle-label">Log space file operations</span></label>
+      <div class="explain">Records every file read, write and copy against a space — who moved which data in or out, path and byte count only. Recommended when spaces hold copies of production data. Off by default: noisy for local development.</div>
+      <label class="toggle" style="margin-top:0.9rem"><input type="checkbox" id="audit_space_sessions" {{ checked .Form.AuditSessions }}><span class="slider"></span><span class="toggle-label">Log interactive space sessions</span></label>
+      <div class="explain">Records terminal, SSH and VS Code tunnel session opens per space and user. Off by default for the same reason.</div>
+    </div>
+
+    <div class="nav"><button class="btn-secondary prev">Back</button><button class="btn-primary next">Next</button></div>
+  </div>
+
+  <!-- STEP 10: Review -->
+  <div class="step" id="step-10">
     <div class="step-title">Review and save</div>
-    <div class="step-desc">This is your generated configuration. Edit directly if needed, then write to disk or copy.</div>
-    {{ if .ConfigExists }}
+    <div class="step-desc">This is the complete configuration, including values the wizard doesn't manage. Edit or remove anything — what you see here is what gets written.</div>
+    {{ if .ConfigExists }}{{ if not .EditorWritable }}
     <div class="warning">A config already exists at <code>{{ .ConfigPath }}</code> — write is disabled. Copy the text below to merge by hand.</div>
-    {{ end }}
+    {{ end }}{{ end }}
     <div id="editor"></div>
     <div class="nav" style="margin-top:0.75rem">
       <div style="display:flex;gap:0.4rem">
-        <button class="btn-sm" id="copy-btn">copy to clipboard</button>
-        <button class="btn-sm prev">back</button>
+        <button class="btn-sm" id="copy-btn">Copy to Clipboard</button>
+        <button class="btn-sm prev">Back</button>
       </div>
       <div style="display:flex;align-items:center;gap:0.6rem">
         <span class="status" id="status"></span>
-        {{ if .ConfigExists }}
-        <button class="btn-primary" disabled>write disabled</button>
+        {{ if .EditorWritable }}
+        <button class="btn-primary" id="write-btn">Write to Disk</button>
         {{ else }}
-        <button class="btn-primary" id="write-btn">write to disk</button>
+        <button class="btn-primary" disabled>Write Disabled</button>
         {{ end }}
       </div>
     </div>
@@ -413,8 +568,12 @@
 </div>
 
 <script>
-var TOTAL_STEPS = 9;
-var current = 1;
+var TOTAL_STEPS = 10;
+// When editing an existing config the deployment step is skipped — the
+// fields drive the wizard, not the preset cards.
+var EDITING = {{ if .Editing }}true{{ else }}false{{ end }};
+var FIRST_STEP = EDITING ? 2 : 1;
+var current = FIRST_STEP;
 var editor, lastSet = "";
 var deployType = "";
 
@@ -422,13 +581,29 @@ function esc(s) { return String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"'); }
 function $(id) { return document.getElementById(id); }
 
 /* ---- Step navigation ---- */
+var STEP_NAMES = {2: "Database", 3: "Server", 4: "DNS", 5: "Runtimes", 6: "Tunnel", 7: "Security", 8: "Features", 9: "Logging", 10: "Review"};
 function buildProgress() {
   var p = $("progress");
   p.innerHTML = "";
+  var last = null, displayed = 0;
   for (var i = 1; i <= TOTAL_STEPS; i++) {
+    if (EDITING && i === 1) continue;
+    if (last !== null) {
+      var line = document.createElement("div");
+      line.className = "progress-line" + (i <= current ? " done" : "");
+      line.title = STEP_NAMES[i] || "";
+      last.appendChild(line);
+    }
+    var seg = document.createElement("div");
+    seg.className = "progress-seg";
+    var displayNo = displayed + 1; displayed++;
     var d = document.createElement("div");
     d.className = "progress-dot" + (i === current ? " active" : i < current ? " done" : "");
-    p.appendChild(d);
+    d.textContent = i < current ? "\u2713" : String(displayNo);
+    d.title = STEP_NAMES[i] || ("Step " + i);
+    seg.appendChild(d);
+    p.appendChild(seg);
+    last = seg;
   }
 }
 function showStep(n) {
@@ -437,12 +612,92 @@ function showStep(n) {
   $("step-" + n).classList.add("active");
   buildProgress();
   window.scrollTo(0, 0);
-  if (n === TOTAL_STEPS) { setEditor(generateTOML()); }
+  if (n === TOTAL_STEPS) {
+    setEditor(generateTOML());
+    // When editing, replace the generated text with the merged result so
+    // the editor shows the real final file — sections the wizard doesn't
+    // manage are preserved by the merge, not lost.
+    if (EDITING) refreshPreview();
+  }
+}
+// True once the editor holds the merged result. Saving then writes the
+// editor verbatim (no second merge), so deletions made in the editor
+// stick instead of being resurrected from the file on disk.
+var mergedPreview = false;
+function refreshPreview() {
+  fetch("{{ .BasePath }}preview", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
+    .then(function(r) { if (!r.ok) throw new Error("preview failed"); return r.text(); })
+    .then(function(t) { if (t) { mergedPreview = true; setEditor(t); } })
+    .catch(function() { /* keep the generated text */ });
 }
 document.addEventListener("click", function(e) {
-  if (e.target.classList.contains("next") && !e.target.disabled) { showStep(current + 1); return; }
-  if (e.target.classList.contains("prev")) { showStep(current - 1); return; }
+  if (e.target.classList.contains("next") && !e.target.disabled) {
+    var errs = validateStep(current);
+    if (errs.length) { showStepError(errs); return; }
+    showStep(current + 1); return;
+  }
+  if (e.target.classList.contains("prev")) { clearStepError(); if (current > FIRST_STEP) { showStep(current - 1); } return; }
 });
+
+/* ---- Per-step validation: required fields must be filled before Next ---- */
+function validateStep(n) {
+  var errs = [];
+  function req(id, label) { var el = $(id); if (el && !el.value.trim()) errs.push(label + " is required"); }
+
+  if (n === 2) {
+    var db = currentDb();
+    if (db === "badger") req("badger_path", "BadgerDB path");
+    if (db === "mysql") {
+      req("mysql_host", "MySQL host"); req("mysql_user", "MySQL user");
+      req("mysql_password", "MySQL password"); req("mysql_database", "MySQL database");
+    }
+    if (db === "redis") req("redis_hosts", "Redis hosts");
+    if (db !== "redis" && $("session_redis_enabled").checked) req("redis_hosts", "Redis hosts (session storage)");
+  } else if (n === 3) {
+    req("url", "Server URL");
+    req("agent_endpoint", "Agent endpoint");
+    req("listen", "Web listen address");
+    req("listen_agent", "Agent listen address");
+    req("timezone", "Timezone");
+    req("encryption_key", "Encryption key");
+  } else if (n === 4) {
+    if ($("dns_enabled").checked) {
+      req("dns_listen", "DNS listen address");
+      document.querySelectorAll(".dns-record").forEach(function(row) {
+        var name = row.querySelector(".dns-name").value.trim();
+        var value = row.querySelector(".dns-value").value.trim();
+        if (name && !value) errs.push("DNS record '" + name + "' is missing a value");
+        if (value && !name) errs.push("A DNS record is missing a name");
+      });
+    }
+    if (currentNs() === "custom") req("nameservers", "Nameservers");
+  } else if (n === 9) {
+    if ($("log_output_enabled").checked) {
+      req("log_output_url", "External logging endpoint URL");
+      var u = $("log_output_url").value.trim();
+      if (u && u.indexOf("http://") !== 0 && u.indexOf("https://") !== 0) errs.push("Endpoint URL must start with http:// or https://");
+    }
+  }
+  return errs;
+}
+
+function showStepError(errs) {
+  var box = $("step-error");
+  box.innerHTML = "Please complete this step:" + "<ul>" + errs.map(function(e){ return "<li>" + e + "</li>"; }).join("") + "</ul>";
+  box.style.display = "block";
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function clearStepError() { var box = $("step-error"); box.style.display = "none"; box.innerHTML = ""; }
+document.addEventListener("input", function() { clearStepError(); });
+// Enter in a text field advances to the next step (same as clicking Next)
+document.addEventListener("keydown", function(e) {
+  if (e.key !== "Enter" || e.shiftKey) return;
+  var t = e.target;
+  if (t.tagName !== "INPUT" || t.type === "checkbox" || t.type === "radio") return;
+  var btn = document.querySelector(".step.active .btn-primary.next");
+  if (btn && !btn.disabled) { e.preventDefault(); clearStepError(); showStep(current + 1); }
+});
+document.addEventListener("change", function() { clearStepError(); });
 
 /* ---- Step 1: deployment cards ---- */
 document.querySelectorAll("#deploy-cards .card").forEach(function(c) {
@@ -456,18 +711,30 @@ document.querySelectorAll("#deploy-cards .card").forEach(function(c) {
 });
 
 function applyDeploymentDefaults() {
+  // The origin server only applies to desktop / leaf deployments.
+  $("origin-fields").style.display = deployType === "desktop" ? "block" : "none";
+  $("cluster-fields").style.display = deployType === "cluster" ? "block" : "none";
   if (deployType === "standalone") {
-    selectCard("mysql"); setCheck("session_redis_enabled", true);
+    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("auth_ip_rate_limiting", true);
     $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
     selectNs("system");
   } else if (deployType === "cluster") {
-    selectCard("mysql"); setCheck("session_redis_enabled", true);
+    selectCard("mysql"); setCheck("session_redis_enabled", true); setCheck("auth_ip_rate_limiting", true);
     $("nomad_addr").value = "http://127.0.0.1:4646"; $("docker_host").value = ""; $("podman_host").value = "";
     selectNs("custom");
-  } else if (deployType === "leaf") {
-    selectCard("badger"); setCheck("session_redis_enabled", false);
+  } else if (deployType === "desktop") {
+    selectCard("badger"); setCheck("session_redis_enabled", false); setCheck("auth_ip_rate_limiting", false);
     $("nomad_addr").value = ""; $("docker_host").value = "unix:///var/run/docker.sock"; $("podman_host").value = "unix:///run/podman/podman.sock";
     selectNs("system");
+    $("url").value = "http://127.0.0.1:3000";
+    $("listen").value = "127.0.0.1:3000";
+    $("listen_agent").value = "{{ .HostIPToken }}:3010";
+    $("agent_endpoint").value = "{{ .HostIPToken }}:3010";
+    $("wildcard_domain").value = "*.knot.internal";
+    setCheck("dns_enabled", true); $("dns_listen").value = "{{ .HostIPToken }}:3053";
+    $("dns-records").innerHTML = "";
+    addDnsRecord("A", "knot.internal", "{{ .HostIPToken }}", "300");
+    addDnsRecord("A", "*.knot.internal", "{{ .HostIPToken }}", "300");
   }
 }
 
@@ -514,7 +781,7 @@ function toggleSection(checkId, sectionId) {
   function upd() { sec.style.display = el.checked ? "block" : "none"; }
   el.addEventListener("change", upd); upd();
 }
-["dns_enabled:dns-fields","chat_enabled:chat-fields","tunnel_enabled:tunnel-fields","totp_enabled:totp-fields"].forEach(function(pair) {
+["dns_enabled:dns-fields","chat_enabled:chat-fields","tunnel_enabled:tunnel-fields","totp_enabled:totp-fields","log_output_enabled:log-output-fields","log_output_enabled:audit-routing-fields","auth_ip_rate_limiting:ratelimit-fields"].forEach(function(pair) {
   var p = pair.split(":"); toggleSection(p[0], p[1]);
 });
 
@@ -560,9 +827,6 @@ function currentNs() { var el = document.querySelector("[data-ns].selected"); re
 
 function generateTOML() {
   var E = esc, L = [], db = currentDb();
-  L.push("# knot server configuration — generated by `knot server config-wizard`");
-  L.push("# Edit by hand for advanced options.");
-  L.push("");
   L.push("[server]");
   L.push('listen = "' + E($("listen").value) + '"');
   L.push('listen_agent = "' + E($("listen_agent").value) + '"');
@@ -571,15 +835,54 @@ function generateTOML() {
   var wd = $("wildcard_domain").value.trim(); if (wd) L.push('wildcard_domain = "' + E(wd) + '"');
   var tz = $("timezone").value.trim(); if (tz) L.push('timezone = "' + E(tz) + '"');
   L.push('encrypt = "' + E($("encryption_key").value) + '"');
+  L.push('auth_ip_rate_limiting = ' + $("auth_ip_rate_limiting").checked);
+  if ($("auth_ip_rate_limiting").checked) {
+    var arla = parseInt($("auth_rate_limit_attempts").value || "10", 10); if (arla > 0) L.push("auth_rate_limit_attempts = " + arla);
+    var arlw = parseInt($("auth_rate_limit_window").value || "60", 10); if (arlw > 0) L.push("auth_rate_limit_window = " + arlw);
+    var arlb = parseInt($("auth_rate_limit_block").value || "300", 10); if (arlb > 0) L.push("auth_rate_limit_block = " + arlb);
+  }
   if ($("tunnel_enabled").checked) {
     L.push('listen_tunnel = "' + E($("tunnel_listen").value) + '"');
     var td = $("tunnel_domain").value.trim(); if (td) L.push('tunnel_domain = "' + E(td) + '"');
     var ts = $("tunnel_server").value.trim(); if (ts) L.push('tunnel_server = "' + E(ts) + '"');
   }
+  if (deployType === "desktop") {
+    var os_ = $("origin_server").value.trim();
+    if (os_) {
+      L.push("");
+      L.push("[server.origin]");
+      L.push('server = "' + E(os_) + '"');
+      var ot = $("origin_token").value; if (ot) L.push('token = "' + E(ot) + '"');
+    }
+  }
+  L.push("");
+  if (deployType === "cluster") {
+    L.push("[server.cluster]");
+    var caa = $("cluster_advertise_addr").value.trim(); if (caa) L.push('advertise_addr = "' + E(caa) + '"');
+    var ck = $("cluster_key").value.trim(); if (ck) L.push('key = "' + E(ck) + '"');
+    var cps = $("cluster_peers").value.split(",").map(function(x){return x.trim()}).filter(function(x){return x});
+    if (cps.length) L.push("peers = [" + cps.map(function(h){return '"'+E(h)+'"'}).join(", ") + "]");
+    L.push("allow_leaf_nodes = " + $("allow_leaf_nodes").checked);
+    L.push("");
+  }
+  L.push("[server.audit]");
+  // Routing to an external service only makes sense with one configured.
+  L.push('routing = "' + ($("log_output_enabled").checked ? $("audit_routing").value : "internal") + '"');
+  L.push('retention = ' + parseInt($("audit_retention").value || "90", 10));
+  if ($("audit_file_operations").checked) L.push('file_operations = true');
+  if ($("audit_space_sessions").checked) L.push('space_sessions = true');
   L.push("");
   L.push("[server.terminal]");
   L.push("webgl = true");
   L.push("");
+  if (deployType === "desktop" && !EDITING) {
+    // Desktop serves the UI over plain HTTP on loopback. Only emitted for
+    // fresh configs — when editing, the config's own [server.tls] (if any)
+    // is preserved by the merge instead of being forced off.
+    L.push("[server.tls]");
+    L.push("use_tls = false");
+    L.push("");
+  }
   L.push("# Database backend (" + db + ")");
   L.push("[server.badgerdb]"); L.push(db === "badger" ? "enabled = true" : "enabled = false");
   if (db === "badger") L.push('path = "' + E($("badger_path").value) + '"');
@@ -631,7 +934,17 @@ function generateTOML() {
   L.push(""); L.push("[server.ui]");
   L.push('enable_gravatar = ' + $("enable_gravatar").checked);
   L.push(""); L.push("[server.mcp]"); L.push("enabled = " + $("enable_mcp").checked);
-  L.push(""); L.push("[log]"); L.push('level = "info"');
+  L.push(""); L.push("[log]");
+  L.push('level = "info"');
+  if ($("log_output_enabled").checked) {
+    L.push("");
+    L.push("[log.output]");
+    if ($("log_output_url").value.trim()) L.push('url = "' + E($("log_output_url").value.trim()) + '"');
+    L.push('format = "' + E($("log_output_format").value) + '"');
+    if ($("log_output_token").value) L.push('token = "' + E($("log_output_token").value) + '"');
+    if ($("log_output_username").value.trim()) L.push('username = "' + E($("log_output_username").value.trim()) + '"');
+    if ($("log_output_password").value) L.push('password = "' + E($("log_output_password").value) + '"');
+  }
   return L.join("\n") + "\n";
 }
 
@@ -644,16 +957,22 @@ window.addEventListener("DOMContentLoaded", function() {
   editor.setTheme("ace/theme/github_dark");
   editor.setOptions({ fontSize: "13px", showPrintMargin: false, useSoftTabs: true, tabSize: 2 });
   editor.$blockScrolling = Infinity;
-  editor.setReadOnly({{ if .ConfigExists }}true{{ else }}false{{ end }});
+  editor.setReadOnly({{ if .EditorWritable }}false{{ else }}true{{ end }});
   $("chat_type").value = "{{ .Form.ChatType }}";
+  $("log_output_format").value = "{{ .Form.LogOutputFormat }}";
+  $("audit_routing").value = "{{ .Form.AuditRouting }}";
 
   $("regen-key").addEventListener("click", function() { $("encryption_key").value = randomKey(); });
+  $("regen-cluster-key").addEventListener("click", function() { $("cluster_key").value = randomKey(); });
 
   var wb = $("write-btn");
   if (wb) {
     wb.addEventListener("click", function() {
       $("status").textContent = "writing...";
-      fetch("/save", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "toml=" + encodeURIComponent(editor.getValue()) })
+      // merged=1 tells the server the editor already holds the merged
+      // result — write it verbatim so deletions are honoured.
+      var body = "toml=" + encodeURIComponent(editor.getValue()) + (mergedPreview ? "&merged=1" : "");
+      fetch("{{ .BasePath }}save", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: body })
         .then(function(r) {
           if (r.ok) { r.text().then(function(h){ document.open(); document.write(h); document.close(); }); }
           else if (r.status === 409) { r.text().then(function(t){ $("status").textContent = ""; alert(t); }); }
@@ -666,8 +985,22 @@ window.addEventListener("DOMContentLoaded", function() {
     navigator.clipboard.writeText(editor.getValue()).then(function() { $("status").textContent = "copied"; setTimeout(function(){ $("status").textContent = ""; }, 1500); });
   });
 
-  selectCard("mysql"); selectNs("system");
-  buildProgress(); showStep(1);
+  // Server-side prefill: select the deployment card and database card from
+  // the form rather than the hard-coded defaults. Values are already in the
+  // inputs, so preset default application is skipped.
+  var preset = "{{ .Form.Deployment }}";
+  if (preset) {
+    var card = document.querySelector('[data-deploy="' + preset + '"]');
+    if (card) { card.classList.add("selected"); deployType = preset; $("next-1").disabled = false; }
+    $("origin-fields").style.display = preset === "desktop" ? "block" : "none";
+    $("cluster-fields").style.display = preset === "cluster" ? "block" : "none";
+  }
+  selectCard({{ if .Form.DBType }}"{{ .Form.DBType }}"{{ else }}"mysql"{{ end }});
+  selectNs({{ if .Form.Nameservers }}"custom"{{ else }}"system"{{ end }});
+  updateRedisVisibility();
+  {{ range .Form.DNSRecords }}addDnsRecord.apply(null, "{{ . }}".split("|"));
+  {{ end }}
+  buildProgress(); showStep(FIRST_STEP);
 });
 
 function randomKey() {

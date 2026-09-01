@@ -85,6 +85,7 @@ func HandleGrep(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
 	}
+	auditSpaceFileOp(r, "grep", req.Path, resp.Success, -1)
 	rest.WriteResponse(http.StatusOK, w, r, resp)
 }
 
@@ -117,6 +118,7 @@ func HandleFind(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
 	}
+	auditSpaceFileOp(r, "find", req.Path, resp.Success, -1)
 	rest.WriteResponse(http.StatusOK, w, r, resp)
 }
 
@@ -149,6 +151,7 @@ func HandleSed(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
 	}
+	auditSpaceFileOp(r, "sed", req.Path, resp.Success, -1)
 	rest.WriteResponse(http.StatusOK, w, r, resp)
 }
 
@@ -179,6 +182,7 @@ func HandleEditFile(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
 	}
+	auditSpaceFileOp(r, "edit", req.Path, resp.Success, -1)
 	rest.WriteResponse(http.StatusOK, w, r, resp)
 }
 
@@ -213,5 +217,6 @@ func HandleDeleteSpaceFile(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
 	}
+	auditSpaceFileOp(r, "delete", req.Path, resp.Success, -1)
 	rest.WriteResponse(http.StatusOK, w, r, resp)
 }

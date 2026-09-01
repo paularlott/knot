@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/gossip/codec/shamaton"
 	"github.com/paularlott/gossip/hlc"
+	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
@@ -37,6 +38,7 @@ func (nonLeaderTransport) GossipToken(*model.Token)                       {}
 func (nonLeaderTransport) GossipVolume(*model.Volume)                     {}
 func (nonLeaderTransport) GossipSpaceUsageSample(*model.SpaceUsageSample) {}
 func (nonLeaderTransport) GossipAuditLog(*model.AuditLogEntry)            {}
+func (nonLeaderTransport) GossipAuthFailure(*authratelimit.Event)         {}
 func (nonLeaderTransport) GossipSession(*model.Session)                   {}
 func (nonLeaderTransport) GossipScript(*model.Script)                     {}
 func (nonLeaderTransport) GossipSkill(*model.Skill)                       {}

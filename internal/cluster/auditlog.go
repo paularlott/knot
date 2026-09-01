@@ -18,6 +18,12 @@ func (c *Cluster) handleAuditLogGossip(sender *gossip.Node, packet *gossip.Packe
 	// Merge the logs with the local logs
 	db := database.GetInstance()
 	for _, logEntry := range logs {
+		// The emitting server already ran the hook at emission and gossip
+		// doesn't deliver back to the sender, so each entry passes the hook
+		// exactly once per server.
+		if model.AuditHook != nil {
+			model.AuditHook(logEntry)
+		}
 		if err := db.SaveAuditLog(logEntry); err != nil {
 			c.logger.WithError(err).Error("failed to save audit log entry")
 		}

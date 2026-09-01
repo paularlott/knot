@@ -55,16 +55,22 @@ func StartSyslogd(agentClient *agent_client.AgentClient, syslogPort int) {
 		 * 7: Debug (debug-level messages)
 		 */
 
+		// Severity mapping matches the numeric-level mapping used by the
+		// VictoriaLogs endpoint: 0-3 (emergency … error) map to error,
+		// 4-6 (warning … informational) round down to info — knot has no
+		// warn level — and 7 (debug) maps to debug.
 		var logLevel msg.LogLevel
 		if severity >= 7 {
 			logLevel = msg.LogLevelDebug
-		} else if severity >= 5 || severity <= 0 {
+		} else if severity >= 4 {
 			logLevel = msg.LogLevelInfo
 		} else {
 			logLevel = msg.LogLevelError
 		}
 
-		// Forward the message to the server
-		agentClient.SendLogMessage("syslog", logLevel, message)
+		// Forward the message to the server. Records arriving over syslog
+		// carry no service of their own, so they get the knot fallback
+		// service (source:knot still sifts them from other sources).
+		agentClient.SendLogMessage("knot_syslog", logLevel, message)
 	}
 }

@@ -1,6 +1,8 @@
 package agent_service_api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
@@ -16,6 +18,37 @@ type lokiPushRequest struct {
 type stream struct {
 	Stream map[string]string `json:"stream"`
 	Values [][]string        `json:"values"`
+}
+
+// lokiLine extracts structured data from a Loki log line: when the line is
+// a JSON object with a msg/message field the remaining keys are carried as
+// structured fields; otherwise the line is the message verbatim.
+func lokiLine(line string) (string, map[string]string) {
+	var rec map[string]any
+	if err := json.Unmarshal([]byte(line), &rec); err != nil {
+		return line, nil
+	}
+
+	msgText := ""
+	if m, ok := rec["msg"].(string); ok {
+		msgText = m
+	} else if m, ok := rec["message"].(string); ok {
+		msgText = m
+	} else {
+		return line, nil
+	}
+
+	var fields map[string]string
+	for k, v := range rec {
+		if k == "msg" || k == "message" {
+			continue
+		}
+		if fields == nil {
+			fields = make(map[string]string)
+		}
+		fields[k] = fmt.Sprintf("%v", v)
+	}
+	return msgText, fields
 }
 
 // Simple handler to accept Loki push requests.
@@ -35,15 +68,21 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 
 	// Process each stream
 	for _, stream := range lokiPushRequest.Streams {
-		// Get the service name from the stream label if present else use "loki"
-		service := "loki"
-		if val, ok := stream.Stream["label"]; ok {
-			service = val
+		// Get the service name from a conventional label if present else
+		// use "loki": knot's documented "label", or the standard
+		// "service" / "job" label names most shippers set.
+		service := "knot_syslog"
+		for _, label := range []string{"label", "service", "job"} {
+			if val, ok := stream.Stream[label]; ok && val != "" {
+				service = val
+				break
+			}
 		}
 
 		// Process each log message
 		for _, values := range stream.Values {
-			agentClient.SendLogMessage(service, msg.LogLevelInfo, values[1])
+			message, fields := lokiLine(values[1])
+			sendLogMessage(service, msg.LogLevelInfo, message, fields)
 		}
 	}
 

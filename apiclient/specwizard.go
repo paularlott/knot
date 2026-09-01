@@ -126,9 +126,9 @@ type UnifiedSpec struct {
 	CapDrop     []string        `json:"cap_drop,omitempty"`
 	Network     string          `json:"network,omitempty"`
 	Privileged  bool            `json:"privileged,omitempty"`
-	Memory      string `json:"memory,omitempty"`
-	MemoryMax   string `json:"memory_max,omitempty"`
-	CPUs        string `json:"cpus,omitempty"`
+	Memory      string          `json:"memory,omitempty"`
+	MemoryMax   string          `json:"memory_max,omitempty"`
+	CPUs        string          `json:"cpus,omitempty"`
 
 	// CPUType is Nomad-only and controls whether CPUs is emitted as `cpu`
 	// (MHz, default) or `cores` (whole CPU cores). Empty defaults to "mhz".
