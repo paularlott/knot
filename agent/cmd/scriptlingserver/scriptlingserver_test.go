@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/scriptling/pluginfetch"
 	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/cli"
 	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/plugin"
 	"github.com/paularlott/scriptling/scriptling-cli/pack"
@@ -182,16 +184,17 @@ func TestPluginProtocolCycle(t *testing.T) {
 	})
 }
 
-// TestShouldAutoStart verifies the bare-invocation guard.
+// TestShouldAutoStart verifies the peer guard: the env var scriptling sets
+// on spawned peers is the sole trigger; argv (plugin args) is irrelevant.
 func TestShouldAutoStart(t *testing.T) {
 	origArgs := os.Args
 	defer func() { os.Args = origArgs }()
 	os.Args = []string{"knot"}
 
-	t.Run("with version", func(t *testing.T) {
+	t.Run("with env var", func(t *testing.T) {
 		t.Setenv(PeerEnvVar, "0.23.0")
 		if !ShouldAutoStart() {
-			t.Fatal("expected auto-start with env var set and no args")
+			t.Fatal("expected auto-start with env var set")
 		}
 	})
 	t.Run("without env var", func(t *testing.T) {
@@ -200,14 +203,92 @@ func TestShouldAutoStart(t *testing.T) {
 			t.Fatal("expected no auto-start without env var")
 		}
 	})
-	t.Run("with arguments", func(t *testing.T) {
-		os.Args = []string{"knot", "server"}
+	t.Run("with plugin args", func(t *testing.T) {
+		os.Args = []string{"knot", "--alias", "work"}
 		t.Setenv(PeerEnvVar, "0.23.0")
-		if ShouldAutoStart() {
-			t.Fatal("expected no auto-start with arguments")
+		if !ShouldAutoStart() {
+			t.Fatal("expected auto-start with env var set and plugin args present")
 		}
 		os.Args = origArgs
 	})
+}
+
+// TestAutoStartCmdParsesArgs runs the plugin command through the real CLI
+// machinery: --alias in every form selects the alias, KNOT_ALIAS supplies
+// it from the environment, and anything that isn't a plugin option is
+// rejected instead of silently ignored.
+func TestAutoStartCmdParsesArgs(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	// An empty-but-set KNOT_ALIAS overrides the flag default in the CLI
+	// library, so clear it entirely for the cases that don't use it.
+	envName := config.CONFIG_ENV_PREFIX + "_ALIAS"
+	origEnv, hadEnv := os.LookupEnv(envName)
+	defer func() {
+		if hadEnv {
+			os.Setenv(envName, origEnv)
+		} else {
+			os.Unsetenv(envName)
+		}
+	}()
+
+	cases := []struct {
+		name  string
+		args  []string
+		env   string
+		alias string
+	}{
+		{"default alias", []string{"knot"}, "", "default"},
+		{"alias separate", []string{"knot", "--alias", "work"}, "", "work"},
+		{"alias joined", []string{"knot", "--alias=work"}, "", "work"},
+		{"alias short", []string{"knot", "-a", "work"}, "", "work"},
+		{"alias from env", []string{"knot"}, "envalias", "envalias"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Args = tc.args
+			if tc.env != "" {
+				t.Setenv(envName, tc.env)
+			} else {
+				os.Unsetenv(envName)
+			}
+
+			var got string
+			cmd := newPluginCmd(func(ctx context.Context, cmd *cli.Command) error {
+				got = cmd.GetString("alias")
+				return nil
+			})
+			if err := cmd.Execute(context.Background()); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			if got != tc.alias {
+				t.Fatalf("alias = %q, want %q", got, tc.alias)
+			}
+		})
+	}
+
+	reject := []struct {
+		name string
+		args []string
+	}{
+		{"unknown flag", []string{"knot", "--verbose"}},
+		{"positional argument", []string{"knot", "server"}},
+		{"alias without value", []string{"knot", "--alias"}},
+	}
+	for _, tc := range reject {
+		t.Run("rejects "+tc.name, func(t *testing.T) {
+			os.Args = tc.args
+
+			cmd := newPluginCmd(func(ctx context.Context, cmd *cli.Command) error {
+				t.Fatal("run must not execute for rejected arguments")
+				return nil
+			})
+			if err := cmd.Execute(context.Background()); err == nil {
+				t.Fatalf("expected an error for %v", tc.args)
+			}
+		})
+	}
 }
 
 // TestCheckPeerVersion verifies the version compatibility check.

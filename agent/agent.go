@@ -24,7 +24,7 @@ import (
 
 func main() {
 	if command_scriptling.ShouldAutoStart() {
-		if err := command_scriptling.AutoStart(); err != nil {
+		if err := command_scriptling.AutoStartCmd().Execute(context.Background()); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

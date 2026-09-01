@@ -1,8 +1,9 @@
-// Package scriptlingserver implements `knot scriptling`, the plugin the
-// scriptling CLI loads to use knot libraries and scripts. When scriptling
-// spawns the knot executable as a plugin peer it sets SCRIPTLING_PLUGIN_PEER
-// in the environment, so a bare `knot` invocation can divert here without a
-// subcommand — the CLI never needs to know one exists.
+// Package scriptlingserver implements the plugin the scriptling CLI loads
+// to use knot libraries and scripts. When scriptling spawns the knot
+// executable as a plugin peer it sets SCRIPTLING_PLUGIN_PEER in the
+// environment, so a bare `knot` invocation (optionally carrying plugin
+// options like --alias from scriptling's --plugin-arg) can divert here
+// without a subcommand — the CLI never needs to know one exists.
 package scriptlingserver
 
 import (
@@ -27,25 +28,72 @@ import (
 )
 
 // PeerEnvVar is the environment variable scriptling sets on spawned plugin
-// peers. A bare knot invocation that sees it (and has no arguments) diverts
-// to the plugin server instead of running the desktop or showing help.
+// peers. A knot process that sees it diverts to the plugin server instead
+// of running the CLI, desktop or agent.
 const PeerEnvVar = "SCRIPTLING_PLUGIN_PEER"
 
 // ShouldAutoStart reports whether this process was spawned by scriptling as
-// a plugin peer and should run the plugin server instead of the CLI. Only a
-// completely bare invocation qualifies: any subcommand or flag means the
-// user typed it, not scriptling.
+// a plugin peer: scriptling sets SCRIPTLING_PLUGIN_PEER (carrying its
+// version) on the knot executable it spawns.
 func ShouldAutoStart() bool {
-	return os.Getenv(PeerEnvVar) != "" && len(os.Args) == 1
+	return os.Getenv(PeerEnvVar) != ""
 }
 
-// AutoStart runs the plugin server for a bare invocation detected as a
-// scriptling peer. The SCRIPTLING_PLUGIN_PEER environment variable carries
-// the scriptling version, so incompatible versions are refused cleanly
-// rather than speaking a protocol the other side may not understand.
-// Credentials come from the agentlink socket in a space, or the config
-// file on the desktop.
-func AutoStart() error {
+// AutoStartCmd returns the command that serves the plugin when scriptling
+// spawns the knot binary. Plugin arguments passed via scriptling's
+// --plugin-arg arrive as this process's argv, so the standard CLI machinery
+// parses them: --alias selects the configured server alias to talk to
+// (default "default"), and --server/--token address a server outright.
+func AutoStartCmd() *cli.Command {
+	return newPluginCmd(servePeer)
+}
+
+// newPluginCmd builds the plugin command around a run function so tests can
+// capture the parsed command without starting the plugin server.
+func newPluginCmd(run func(context.Context, *cli.Command) error) *cli.Command {
+	var configFile = config.CONFIG_FILE
+	return &cli.Command{
+		Name:        "knot",
+		Usage:       "knot plugin server for the scriptling CLI",
+		Description: "Serves knot libraries, scripts and API access to the scriptling CLI. Auto-started when scriptling spawns the knot binary as a plugin peer; not for direct use.",
+		ConfigFile: cli_toml.NewConfigFile(&configFile, func() []string {
+			return []string{
+				".",
+				os.Getenv("HOME"),
+				filepath.Join(os.Getenv("HOME"), ".config", "knot"),
+			}
+		}),
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:         "alias",
+				Aliases:      []string{"a"},
+				Usage:        "The configured server alias to talk to.",
+				EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ALIAS"},
+				DefaultValue: "default",
+			},
+			&cli.StringFlag{
+				Name:    "server",
+				Usage:   "The address of the knot server.",
+				EnvVars: []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
+			},
+			&cli.StringFlag{
+				Name:    "token",
+				Usage:   "API token for the knot server.",
+				EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
+			},
+		},
+		MaxArgs:        cli.NoArgs,
+		DisableHelp:    true,
+		DisableVersion: true,
+		Run:            run,
+	}
+}
+
+// servePeer resolves the connection and serves the plugin. In a space the
+// agentlink socket has the connection and the flags don't apply; on the
+// desktop --server/--token win when given, else the --alias section of the
+// config file.
+func servePeer(ctx context.Context, cmd *cli.Command) error {
 	peerVersion := os.Getenv(PeerEnvVar)
 	os.Unsetenv(PeerEnvVar)
 
@@ -60,19 +108,27 @@ func AutoStart() error {
 	var err error
 
 	if agentlink.IsAgentRunning() {
-		// In a space: the agentlink socket has the connection.
+		// In a space: the agentlink socket has the connection; --alias does
+		// not apply.
 		server, token, linkErr := agentlink.GetConnectionInfo()
 		if linkErr != nil {
 			return fmt.Errorf("knot plugin: agent connection: %w", linkErr)
 		}
 		client, err = apiclient.NewClient(server, token, true)
 	} else {
-		// Desktop: resolve from the config file.
-		cfg := config.GetServerAddr("default", autoStartCmd())
-		if cfg == nil || cfg.HttpServer == "" {
-			return fmt.Errorf("knot plugin: no server configured (run 'knot connect' first, or set KNOT_SERVER and KNOT_TOKEN)")
+		// Desktop: an explicit --server/--token (flag or env) wins, else the
+		// alias section of the config file.
+		server, token := cmd.GetString("server"), cmd.GetString("token")
+		if server != "" && token != "" {
+			client, err = apiclient.NewClient(server, token, true)
+		} else {
+			alias := cmd.GetString("alias")
+			cfg := config.GetServerAddr(alias, cmd)
+			if cfg == nil || cfg.HttpServer == "" {
+				return fmt.Errorf("knot plugin: no server configured for alias %q (run 'knot connect' first, or set KNOT_SERVER and KNOT_TOKEN)", alias)
+			}
+			client, err = apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, true)
 		}
-		client, err = apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, true)
 	}
 	if err != nil {
 		return fmt.Errorf("knot plugin: creating client: %w", err)
@@ -110,23 +166,6 @@ func semver(v string) ([2]int, error) {
 		return [2]int{}, err
 	}
 	return [2]int{major, minor}, nil
-}
-
-// autoStartCmd builds a command with the standard config search paths so
-// GetServerAddr can read the connection from the config file. Flags are
-// unparsed, so HasFlag returns false and the alias section is used.
-func autoStartCmd() *cli.Command {
-	cfgFile := config.CONFIG_FILE
-	return &cli.Command{
-		Name: "scriptling",
-		ConfigFile: cli_toml.NewConfigFile(&cfgFile, func() []string {
-			return []string{
-				".",
-				os.Getenv("HOME"),
-				filepath.Join(os.Getenv("HOME"), ".config", "knot"),
-			}
-		}),
-	}
 }
 
 // serve builds and runs the plugin server on stdin/stdout.

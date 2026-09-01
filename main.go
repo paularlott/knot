@@ -31,10 +31,10 @@ import (
 )
 
 func main() {
-	// A bare invocation spawned by scriptling as a plugin peer runs the
-	// plugin server instead of the CLI or the desktop.
+	// A process spawned by scriptling as a plugin peer runs the plugin
+	// server instead of the CLI or the desktop.
 	if command_scriptling.ShouldAutoStart() {
-		if err := command_scriptling.AutoStart(); err != nil {
+		if err := command_scriptling.AutoStartCmd().Execute(context.Background()); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
