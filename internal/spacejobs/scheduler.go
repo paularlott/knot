@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"sort"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
@@ -385,7 +384,7 @@ func (s *scheduler) startRunLocked(job *Job, trigger string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, shell, "-c", job.Command)
 	cmd.Dir = s.home
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setSysProcAttr(cmd)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
