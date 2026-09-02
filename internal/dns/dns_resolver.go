@@ -253,63 +253,58 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.QueryTimeout)
 	defer cancel()
 
-	// Buffered to capacity 1: first success wins; losers drop silently.
-	respChan := make(chan *dns.Msg, 1)
-	errChan := make(chan error, 1)
+	// queryOutcome carries the result of a single nameserver query.
+	type queryOutcome struct {
+		response *dns.Msg
+		err      error
+	}
 
-	var wg sync.WaitGroup
+	// Buffered to the number of servers so every goroutine can report its
+	// outcome without blocking, even after a winner has been chosen. This
+	// avoids goroutine leaks and, critically, avoids relying on a racy
+	// respChan-vs-ctx.Done() select where a buffered success could be dropped
+	// in favour of a spurious "all nameservers failed" error.
+	outcomes := make(chan queryOutcome, len(nameservers))
 
 	// Query all nameservers in parallel
 	for _, nameserver := range nameservers {
-		wg.Add(1)
-
 		go func(ns string) {
-			defer wg.Done()
-
 			response := r.queryNameserver(ctx, msg, ns)
 			if response != nil && response.Rcode == dns.RcodeSuccess && len(response.Answer) > 0 {
-				select {
-				case respChan <- response:
-					cancel() // Cancel other queries on first success
-				default:
-					// Another goroutine already won
-				}
+				outcomes <- queryOutcome{response: response}
 			} else {
-				select {
-				case errChan <- fmt.Errorf("nameserver %s returned no valid response", ns):
-				default:
-				}
+				outcomes <- queryOutcome{err: fmt.Errorf("nameserver %s returned no valid response", ns)}
 			}
 		}(nameserver)
 	}
 
-	// Close errChan once all goroutines finish so the drain loop below terminates.
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	// Wait for first success or context expiry
-	select {
-	case response := <-respChan:
-		// Success - convert DNS RRs to our internal format
-		var results []DNSRecord
-		for _, rr := range response.Answer {
-			if record := r.rrToRecord(rr); record != nil {
-				results = append(results, *record)
-			}
-		}
-		r.addToCache(cacheKey, results)
-		return results, nil
-
-	case <-ctx.Done():
-		// Context timeout/cancellation — fall through to error
-	}
-
-	// Drain errors (errChan is closed by the wg goroutine)
+	// Collect outcomes. The first valid response wins immediately; we then
+	// cancel the remaining in-flight queries. We only conclude failure once
+	// every server has reported (or the context deadline passes).
 	var errs []error
-	for err := range errChan {
-		errs = append(errs, err)
+	for received := 0; received < len(nameservers); received++ {
+		select {
+		case outcome := <-outcomes:
+			if outcome.err != nil {
+				errs = append(errs, outcome.err)
+				continue
+			}
+
+			// Success - convert DNS RRs to our internal format.
+			cancel() // Cancel other in-flight queries on first success.
+			var results []DNSRecord
+			for _, rr := range outcome.response.Answer {
+				if record := r.rrToRecord(rr); record != nil {
+					results = append(results, *record)
+				}
+			}
+			r.addToCache(cacheKey, results)
+			return results, nil
+
+		case <-ctx.Done():
+			errs = append(errs, fmt.Errorf("query timeout after %v", r.config.QueryTimeout))
+			return nil, fmt.Errorf("all nameservers failed: %w", errors.Join(errs...))
+		}
 	}
 
 	if len(errs) == 0 {
