@@ -63,9 +63,10 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"shell":    "",
-		"renderer": renderer,
-		"spaceId":  spaceId,
+		"shell":        "",
+		"renderer":     renderer,
+		"spaceId":      spaceId,
+		"assetVersion": assetVersionKey(),
 	}
 
 	err = tmpl.Execute(w, data)

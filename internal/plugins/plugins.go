@@ -87,22 +87,22 @@ type PermissionDecl struct {
 
 // Plugin is a successfully loaded plugin: its inert registration data.
 type Plugin struct {
-	Name        string           `json:"name"`
-	Version     string           `json:"version"`
-	Description string           `json:"description"`
-	Dir         string           `json:"-"` // plugin folder (single-file: parent dir)
-	Folder      bool             `json:"-"` // folder plugin (vs single file)
-	EntryFile   string           `json:"-"` // main.py or the single .py file
-	LogoLight   string           `json:"logo_light,omitempty"` // relative paths
-	LogoDark    string           `json:"logo_dark,omitempty"`
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+	Dir         string `json:"-"`                    // plugin folder (single-file: parent dir)
+	Folder      bool   `json:"-"`                    // folder plugin (vs single file)
+	EntryFile   string `json:"-"`                    // main.py or the single .py file
+	LogoLight   string `json:"logo_light,omitempty"` // relative paths
+	LogoDark    string `json:"logo_dark,omitempty"`
 	// SiteLogo reports that the plugin's logo pair claims the main page
 	// logo (login included) — a declared pair is the claim. At most one
 	// plugin's claim takes effect — see SiteLogoURLs.
-	SiteLogo    bool             `json:"site_logo,omitempty"`
-	Permissions []PermissionDecl `json:"permissions"`
-	Menus       []Menu           `json:"menus"`
-	Pages       []Page          `json:"pages"`
-	FieldHandlers []FieldHandler `json:"field_handlers"`
+	SiteLogo      bool             `json:"site_logo,omitempty"`
+	Permissions   []PermissionDecl `json:"permissions"`
+	Menus         []Menu           `json:"menus"`
+	Pages         []Page           `json:"pages"`
+	FieldHandlers []FieldHandler   `json:"field_handlers"`
 
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem.

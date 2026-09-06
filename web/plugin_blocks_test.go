@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -112,5 +113,36 @@ func TestWritePluginJSONColumnPassthrough(t *testing.T) {
 	}, pageAdminUser(), demoPlugin(), r2)
 	if !strings.Contains(w2.Body.String(), `"rows":[]`) {
 		t.Errorf("layout normalization should drop non-layout rows: %s", w2.Body.String())
+	}
+}
+
+// TestWritePluginJSONDialogMarkdown pins the success-dialog contract: an
+// envelope's dialog markdown is rendered server-side (like column markdown)
+// and shipped as html, never as raw markdown.
+func TestWritePluginJSONDialogMarkdown(t *testing.T) {
+	config.SetServerConfig(&config.ServerConfig{})
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/plugins/x/home?_json=1&_col=spaces", nil)
+	writePluginJSON(w, map[string]any{
+		"status":  "ok",
+		"message": "Report generated.",
+		"dialog": map[string]any{
+			"title":    "Report",
+			"markdown": "**Done.**\n\n- one thing",
+		},
+	}, pageAdminUser(), demoPlugin(), r)
+	var decoded struct {
+		Dialog struct {
+			Html string `json:"html"`
+		} `json:"dialog"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &decoded); err != nil {
+		t.Fatalf("bad json: %v", err)
+	}
+	if !strings.Contains(decoded.Dialog.Html, "<strong>Done.</strong>") {
+		t.Errorf("dialog markdown was not rendered: %s", decoded.Dialog.Html)
+	}
+	if strings.Contains(w.Body.String(), `"markdown"`) {
+		t.Errorf("raw markdown must not reach the client: %s", w.Body.String())
 	}
 }

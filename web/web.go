@@ -7,13 +7,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"html/template"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
@@ -41,6 +44,41 @@ var (
 	//go:embed packages/*.zip packages/*.sha256
 	packageFiles embed.FS
 )
+
+// assetVersionKey keys version-stamped asset URLs (?_v=): a hash over
+// every embedded asset (path + bytes), so the key changes if and only if
+// any served byte does. Content addressing makes one cache policy correct
+// for every build kind - no dev/release distinction, no stamping
+// discipline.
+var assetVersionKey = sync.OnceValue(func() string {
+	assets, err := fs.Sub(publicHTML, "public_html/assets")
+	if err != nil {
+		return build.Version
+	}
+	h := fnv.New64a()
+	err = fs.WalkDir(assets, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		f, err := assets.Open(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		h.Write([]byte(p))
+		if _, err := io.Copy(h, f); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return build.Version
+	}
+	return fmt.Sprintf("%s.x%016x", build.Version, h.Sum64())
+})
 
 func HandlePageNotFound(next *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -109,18 +147,16 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 				return
 			}
 
-			// Version-keyed assets (?_v=<version>): cache hard, and let a
-			// version bump invalidate. Without Cache-Control browsers
-			// heuristic-cache stale bundles across restarts.
-			w.Header().Set("ETag", build.Version)
+			// Content-addressed keys are safe to cache hard for every
+			// build kind: the URL changes exactly when any served byte
+			// does, and an unchanged asset answers 304.
+			w.Header().Set("ETag", assetVersionKey())
 			if strings.Contains(r.URL.RawQuery, "_v=") {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			} else {
 				w.Header().Set("Cache-Control", "no-cache")
 			}
-
-			// Check if the ETag matches and return 304 if it does
-			if match := r.Header.Get("If-None-Match"); match == build.Version {
+			if match := r.Header.Get("If-None-Match"); match == assetVersionKey() {
 				w.WriteHeader(http.StatusNotModified)
 				return
 			}
@@ -453,7 +489,8 @@ func showPageNotFound(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNotFound)
 	err = tmpl.Execute(w, map[string]interface{}{
-		"version": build.Version,
+		"version":      build.Version,
+		"assetVersion": assetVersionKey(),
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -474,6 +511,7 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusForbidden)
 	err = tmpl.Execute(w, map[string]interface{}{
 		"version":             build.Version,
+		"assetVersion":        assetVersionKey(),
 		"permissionUseSpaces": canUseSpaces,
 	})
 	if err != nil {
@@ -619,6 +657,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseMCPServer":              user.HasPermission(model.PermissionUseMCPServer),
 		"permissionUseWebAssistant":           user.HasPermission(model.PermissionUseWebAssistant),
 		"version":                             build.Version,
+		"assetVersion":                        assetVersionKey(),
 		"buildDate":                           build.Date,
 		"zone":                                cfg.Zone,
 		"timezone":                            cfg.Timezone,

@@ -9,8 +9,7 @@
  * The generated file is imported by scriptCompletions.js alongside the
  * scriptling completions. Re-run whenever the knot vscode stubs change.
  *
- * The knot stubs currently carry function signatures but not docstrings;
- * descriptions are derived from function names until the stubs gain them.
+ * Descriptions come from the stub docstrings; names are the fallback.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -46,9 +45,10 @@ function parseStub(content) {
   const docMatch = content.match(/^"""([\s\S]*?)"""/m);
   const moduleDoc = docMatch ? docMatch[1].trim().split("\n")[0] : "";
 
-  // Match all function definitions (single-line and multi-line) on the
-  // whole content. Captures: name, params, return type.
-  const fnRegex = /def\s+(\w+)\s*\(([\s\S]*?)\)\s*->\s*(.+?):\s*\.\.\./g;
+  // Match all function definitions. Params carry no nested parens in these
+  // stubs and the return annotation ends at the ":" of the def line — a
+  // docstring (and the "...") follows separately, so never consume into it.
+  const fnRegex = /def\s+(\w+)\s*\(([^()]*)\)\s*->\s*([^\n:]+?)\s*:/g;
   let match;
   while ((match = fnRegex.exec(content)) !== null) {
     // Look ahead from the end of this match for a docstring on the
@@ -146,8 +146,8 @@ function generate() {
   }
 
   const js = `// AUTO-GENERATED from ../knot-vscode/stubs/knot — do not edit by hand.
-// Regenerate with: task knot-completions
-// Descriptions are derived from docstrings where present, function names otherwise.
+// Regenerate with: task scriptling-completions
+// Descriptions come from the stub docstrings; names are the fallback.
 
 export const knotLibraries = ${JSON.stringify(libraries, null, 2)};
 `;
@@ -157,9 +157,23 @@ export const knotLibraries = ${JSON.stringify(libraries, null, 2)};
 }
 
 function formatSignature(f) {
-  // Simplify "name: str = ..." to "name" for cleaner completions
-  const params = f.params
-    .split(",")
+  // Split params on commas at bracket depth zero — annotations like
+  // dict[str, str] carry commas of their own.
+  const parts = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of f.params) {
+    if (ch === "(" || ch === "[") depth += 1;
+    else if (ch === ")" || ch === "]") depth -= 1;
+    if (ch === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) parts.push(current);
+  const params = parts
     .map((p) => {
       const m = p.trim().match(/^(\w+)/);
       return m ? m[1] : p.trim();

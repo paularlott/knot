@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,8 +186,8 @@ func TestPluginPageDispatchDashboardCharts(t *testing.T) {
 		points := []map[string]any{}
 		for i := 2; i >= 0; i-- {
 			points = append(points, map[string]any{
-				"bucket_start":     now.Add(-time.Duration(i) * time.Minute),
-				"resource_usage":   usage(float64(10+i), gib(2+float64(i)), gib(4), gib(9), gib(20)),
+				"bucket_start":   now.Add(-time.Duration(i) * time.Minute),
+				"resource_usage": usage(float64(10+i), gib(2+float64(i)), gib(4), gib(9), gib(20)),
 			})
 		}
 		rest.WriteResponse(http.StatusOK, w, r, map[string]any{"space_id": r.PathValue("space_id"), "points": points})

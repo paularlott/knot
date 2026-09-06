@@ -71,6 +71,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 		data := map[string]interface{}{
 			"redirect":            redirect,
 			"version":             build.Version,
+			"assetVersion":        assetVersionKey(),
 			"totpEnabled":         cfg.TOTP.Enabled,
 			"logoURL":             cfg.UI.LogoURL,
 			"logoInvert":          cfg.UI.LogoInvert,

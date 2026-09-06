@@ -227,9 +227,9 @@ func HandleGetRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := apiclient.RoleDetails{
-		Id:               role.Id,
-		Name:             role.Name,
-		Permissions:      role.Permissions,
+		Id:                role.Id,
+		Name:              role.Name,
+		Permissions:       role.Permissions,
 		PluginPermissions: role.PluginPermissions,
 	}
 

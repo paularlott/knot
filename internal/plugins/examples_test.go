@@ -58,7 +58,7 @@ func TestLoadExamplePlugins(t *testing.T) {
 	if scriptling.Pages[0].MenuLabel == "" {
 		t.Errorf("dashboard page should carry a menu_label: %+v", scriptling.Pages[0])
 	}
-		// Icons are the plugin's own SVG assets, loaded and sanitized at load.
+	// Icons are the plugin's own SVG assets, loaded and sanitized at load.
 	for _, menu := range scriptling.Menus {
 		if menu.Icon != "assets/icon.svg" || !strings.Contains(menu.IconSVG, "<path") {
 			t.Errorf("menu %q icon not loaded: %+v", menu.Label, menu)

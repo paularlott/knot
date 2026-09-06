@@ -80,10 +80,11 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"shell":    shell,
-		"renderer": renderer,
-		"spaceId":  spaceId,
-		"version":  build.Version,
+		"shell":        shell,
+		"renderer":     renderer,
+		"spaceId":      spaceId,
+		"version":      build.Version,
+		"assetVersion": assetVersionKey(),
 	}
 
 	err = tmpl.Execute(w, data)

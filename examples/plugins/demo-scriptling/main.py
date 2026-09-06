@@ -35,12 +35,13 @@
 """demo-scriptling: a knot plugin written in scriptling.
 
 The showcase page demonstrates the rows/columns page contract: KPI stat
-columns, charts (with refresh), a table with live knot.space data, a
-one-handler form (GET definition / POST envelope) with a dynamic
-autocompleter, markdown and trusted html columns styled with the kp-*
-helpers. Everything is data-bound: the layout is fetched once, each column
-talks directly to its handler, and form envelopes drive notifications and
-column refreshes.
+columns, charts (with refresh), a table with live knot.space data and the
+full row-action set (icon buttons, kebab menu, inline and modal confirms,
+popup forms, markdown popups, success dialogs), a one-handler form (GET
+definition / POST envelope) with a dynamic autocompleter, markdown and
+trusted html columns styled with the kp-* helpers. Everything is
+data-bound: the layout is fetched once, each column talks directly to its
+handler, and form envelopes drive notifications and column refreshes.
 """
 
 import math
@@ -108,7 +109,20 @@ def showcase():
             {
                 "title": "Spaces",
                 "columns": [
-                    {"id": "spaces", "type": "table", "title": "Spaces", "handler": "col_spaces", "refresh": 30, "width": 3},
+                    # The column's actions are the fallback; rows that carry
+                    # their own list (see _space_actions) replace them.
+                    {
+                        "id": "fleet",
+                        "type": "table",
+                        "title": "Spaces",
+                        "handler": "col_spaces",
+                        "refresh": 30,
+                        "width": 3,
+                        "actions": [
+                            {"action": "notes", "label": "Notes", "icon": "document", "menu": True, "handler": "widget_notes"},
+                            {"action": "report", "label": "Run report", "icon": "info", "menu": True},
+                        ],
+                    },
                     {"id": "widget", "type": "form", "title": "New widget", "handler": "col_widget_form", "width": 1},
                 ],
             },
@@ -224,9 +238,51 @@ def col_doughnut():
 
 
 def col_spaces():
+    # POST: row actions arrive here with the action name and the row key.
+    if request.method == "POST":
+        action = params.get("action", "")
+        key = params.get("key", "")
+        if action == "report":
+            # A success envelope may carry a dialog: markdown the client
+            # renders in a popup after the toast.
+            return {
+                "status": "ok",
+                "message": "Report for " + key + " generated.",
+                "dialog": {
+                    "title": "Report: " + key,
+                    "markdown": "Generated " + time.now() + " for **" + key + "**.\n\n- actions POST to the column's own handler\n- the envelope carries a dialog with markdown\n- knot renders it server-side, the client just places it\n\n```python\ndef col_spaces():\n    return {\"status\": \"ok\", \"dialog\": {\"title\": ..., \"markdown\": ...}}\n```",
+                },
+            }
+        if action == "archive":
+            return {"status": "ok", "message": key + " archived (demo).", "refresh": ["fleet"]}
+        if action in ["start", "stop", "restart"]:
+            # Real lifecycle, running as the requesting user.
+            import knot.space as space_lib
+
+            try:
+                if action == "start":
+                    space_lib.start(key)
+                elif action == "stop":
+                    space_lib.stop(key)
+                else:
+                    space_lib.restart(key)
+            except Exception as err:
+                message = str(err)
+                if "unsupported platform" in message:
+                    message = key + " has no container runtime behind it on this server"
+                return {"status": "error", "message": "Could not " + action + " " + key + ": " + message}
+            return {"status": "ok", "message": key + " " + action + " requested.", "refresh": ["fleet", "spaces"]}
+        return {"status": "error", "message": "Unknown action: " + action}
+
     _count, _running, rows = _space_rows()
     if len(rows) == 0:
+        # No per-row actions here, so these rows fall back to the column's
+        # action set below.
         rows = [{"name": "(no spaces visible)", "state": "-", "template": "-"}]
+    else:
+        for row in rows:
+            row["id"] = row["name"]
+            row["actions"] = _space_actions(row["name"], row["state"])
     return {
         "columns": [
             {"key": "name", "label": "Space"},
@@ -234,6 +290,66 @@ def col_spaces():
             {"key": "template", "label": "Template"},
         ],
         "rows": rows,
+    }
+
+
+def _space_actions(name, state):
+    # Per-row actions replace the column's set: the handler decides, per
+    # row, what is offered. Icon buttons render inline; menu: True items
+    # collect into the kebab dropdown.
+    actions = []
+    if state == "running":
+        actions.append({"action": "stop", "label": "Stop " + name, "icon": "stop", "style": "danger", "confirm": "Stop " + name + "?"})
+    else:
+        actions.append({"action": "start", "label": "Start " + name, "icon": "play", "style": "success"})
+    actions.append({"action": "edit", "label": "Edit " + name, "icon": "edit", "handler": "widget_edit"})
+    actions.append({"action": "notes", "label": "Notes", "icon": "document", "menu": True, "handler": "widget_notes"})
+    actions.append({"action": "restart", "label": "Restart " + name, "icon": "restart", "menu": True, "confirm": "Restart " + name + "?"})
+    actions.append({"action": "report", "label": "Run report", "icon": "info", "menu": True})
+    actions.append({"action": "archive", "label": "Archive " + name, "icon": "trash", "style": "danger", "menu": True, "confirm": "Archive " + name + "? This only hides it in the demo."})
+    return actions
+
+
+def widget_edit():
+    # Popup form handler: GET returns the form (fields carry their values),
+    # POST validates and answers with an envelope. Errors keep the popup
+    # open with per-field messages; success closes it.
+    key = params.get("key", "")
+    if request.method == "POST":
+        errors = {}
+        if params.get("name", "") == "":
+            errors["name"] = "Required."
+        if params.get("owner", "") == "":
+            errors["owner"] = "Pick an owner from the suggestions."
+        if len(errors) > 0:
+            return {"status": "error", "message": "The form has errors; the popup stays open.", "field_errors": errors}
+        return {"status": "ok", "message": params.get("name", "") + " saved (demo).", "refresh": ["fleet"]}
+
+    if params.get("_data", "") == "owner":
+        owners = []
+        for owner in ["alice", "bob", "carol", "dave", "erin"]:
+            owners.append({"key": owner, "text": owner})
+        return {"options": owners}
+
+    state = "running"
+    return {
+        "title": "Edit " + key,
+        "fields": [
+            {"type": "text", "name": "name", "label": "Name", "value": key},
+            {"type": "autocomplete", "name": "owner", "label": "Owner", "value": "alice", "dynamic_options": True},
+            {"type": "select", "name": "state", "label": "State", "options": ["running", "stopped"], "value": state},
+        ],
+        "submit": "Save changes",
+    }
+
+
+def widget_notes():
+    # Information popup: an action names this handler, the client GETs it
+    # with the row key, and the markdown response opens read-only.
+    key = params.get("key", "")
+    return {
+        "title": "Notes: " + key,
+        "markdown": "Information popups are just handlers: an action names one, the client GETs it with the row key, and a markdown response opens read-only.\n\n- fetched fresh on every open\n- rendered server-side, so the client never runs plugin markdown\n- the popup is draggable and resizable like every knot dialog",
     }
 
 

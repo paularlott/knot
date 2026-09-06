@@ -5,8 +5,8 @@ import (
 
 	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/middleware"
-	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/oauth2"
+	"github.com/paularlott/knot/internal/plugins"
 )
 
 func ApiRoutes(router *http.ServeMux) {

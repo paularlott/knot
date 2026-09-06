@@ -16,10 +16,10 @@ func main() {
 
 	server.RegisterFunc("status", object.NewFunctionBuilder().FunctionWithHelp(func() map[string]any {
 		return map[string]any{
-			"peer":    "demolib",
-			"go":      runtime.Version(),
-			"os":      runtime.GOOS,
-			"arch":    runtime.GOARCH,
+			"peer": "demolib",
+			"go":   runtime.Version(),
+			"os":   runtime.GOOS,
+			"arch": runtime.GOARCH,
 		}
 	}, "status() - report the peer's build and runtime."))
 

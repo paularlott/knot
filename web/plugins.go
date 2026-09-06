@@ -272,8 +272,8 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 // value is passed through untouched so handlers can serve arbitrary JSON to
 // dynamic option fetches (_data) and the Knot.plugin bridge.
 func writePluginJSON(w http.ResponseWriter, value any, user *model.User, plugin *plugins.Plugin, r *http.Request) {
-	// Column payloads may carry markdown; render it server-side so the
-	// client only ever places trusted-rendered HTML.
+	// Column payloads and success-dialog envelopes may carry markdown;
+	// render it server-side so the client only ever places trusted HTML.
 	if dict, ok := value.(map[string]any); ok {
 		if md, _ := dict["markdown"].(string); md != "" {
 			var buf bytes.Buffer
@@ -281,6 +281,15 @@ func writePluginJSON(w http.ResponseWriter, value any, user *model.User, plugin 
 				dict["html"] = buf.String()
 			}
 			delete(dict, "markdown")
+		}
+		if dialog, ok := dict["dialog"].(map[string]any); ok {
+			if md, _ := dialog["markdown"].(string); md != "" {
+				var buf bytes.Buffer
+				if err := mdRenderer.Convert([]byte(md), &buf); err == nil {
+					dialog["html"] = buf.String()
+				}
+				delete(dialog, "markdown")
+			}
 		}
 	}
 	// Only a page layout (no _col) is normalized here: a column payload

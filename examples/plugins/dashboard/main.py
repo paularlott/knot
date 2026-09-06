@@ -57,7 +57,7 @@ def dashboard():
             },
             {
                 "columns": [
-                    {"id": "spaces", "type": "table", "title": "Spaces", "handler": "col_spaces", "refresh": 30, "width": 4},
+                    {"id": "fleet", "type": "table", "title": "Spaces", "handler": "col_spaces", "refresh": 30, "width": 4},
                 ],
             },
         ]
@@ -251,6 +251,30 @@ def col_top():
 
 
 def col_spaces():
+    # POST: row actions arrive with the action name and the row key, and
+    # drive the real space lifecycle as the requesting user.
+    if request.method == "POST":
+        action = params.get("action", "")
+        key = params.get("key", "")
+        if action in ["start", "stop", "restart"]:
+            import knot.space as space_lib
+
+            try:
+                if action == "start":
+                    space_lib.start(key)
+                    return {"status": "ok", "message": key + " is starting.", "refresh": ["fleet", "spaces"]}
+                if action == "stop":
+                    space_lib.stop(key)
+                    return {"status": "ok", "message": key + " is stopping.", "refresh": ["fleet", "spaces"]}
+                space_lib.restart(key)
+                return {"status": "ok", "message": key + " is restarting.", "refresh": ["fleet", "spaces"]}
+            except Exception as err:
+                message = str(err)
+                if "unsupported platform" in message:
+                    message = key + " has no container runtime behind it on this server"
+                return {"status": "error", "message": "Could not " + action + " " + key + ": " + message}
+        return {"status": "error", "message": "Unknown action: " + action}
+
     rows = []
     for s, state in _visible_spaces():
         usage = s.get("resource_usage")
@@ -268,15 +292,24 @@ def col_spaces():
                 disk_l = gib(usage.get("disk_limit_bytes", 0))
             except Exception:
                 pass
+        name = s.get("name", "?")
+        actions = [{"action": "edit", "label": "Edit " + name, "icon": "edit", "handler": "space_edit"}]
+        if state == "running":
+            actions.insert(0, {"action": "stop", "label": "Stop " + name, "icon": "stop", "style": "danger", "confirm": "Stop " + name + "?"})
+            actions.append({"action": "restart", "label": "Restart " + name, "icon": "restart", "menu": True, "confirm": "Restart " + name + "?"})
+        else:
+            actions.insert(0, {"action": "start", "label": "Start " + name, "icon": "play", "style": "success"})
         rows.append(
             {
-                "name": s.get("name", "?"),
+                "id": name,
+                "name": name,
                 "state": state,
                 "template": s.get("template_name", ""),
                 "cpu": str(cpu) + " %",
                 "memory": str(mem_u) + " / " + str(mem_l) + " GiB",
                 "disk": str(disk_u) + " / " + str(disk_l) + " GiB",
                 "node": s.get("node_hostname", ""),
+                "actions": actions,
             }
         )
     if len(rows) == 0:
@@ -292,4 +325,24 @@ def col_spaces():
             {"key": "node", "label": "Node"},
         ],
         "rows": rows,
+    }
+
+
+def space_edit():
+    # Popup form: GET returns the definition with current values, POST
+    # answers with the envelope. Errors keep the popup open; success
+    # closes it and refreshes the table.
+    key = params.get("key", "")
+    if request.method == "POST":
+        name = params.get("name", "")
+        if name == "":
+            return {"status": "error", "message": "The form has errors.", "field_errors": {"name": "Required."}}
+        return {"status": "ok", "message": name + " saved (demo).", "refresh": ["fleet"]}
+    return {
+        "title": "Edit " + key,
+        "fields": [
+            {"type": "text", "name": "name", "label": "Name", "value": key},
+            {"type": "select", "name": "state", "label": "State", "value": "running", "options": ["running", "stopped"]},
+        ],
+        "submit": "Save changes",
     }

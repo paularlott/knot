@@ -168,13 +168,13 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					ctx = context.WithValue(r.Context(), "access_token", token)
 				}
 			} else {
-			// Get the session
-			session, err := GetSessionFromCookie(r)
-			if session == nil {
-				logger.Debug("session not found", "path", r.URL.Path, "user_agent", r.Header.Get("User-Agent"))
-				returnUnauthorized(w, r)
-				return
-			}
+				// Get the session
+				session, err := GetSessionFromCookie(r)
+				if session == nil {
+					logger.Debug("session not found", "path", r.URL.Path, "user_agent", r.Header.Get("User-Agent"))
+					returnUnauthorized(w, r)
+					return
+				}
 				if err != nil {
 					logger.Error("failed to get session", "error", err)
 					rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
