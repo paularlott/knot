@@ -37,6 +37,28 @@
         </div>
       </template>
     </fieldset>
+    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700" x-show="Object.keys(pluginGroups).length > 0" x-cloak>
+      <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Plugin Permissions</legend>
+      <div class="description mb-4">Grants are stored by name, so they survive cluster restarts and plugin reinstall; grants for uninstalled plugins sit inert until the plugin returns.</div>
+      <template x-for="(plugin, name) in pluginGroups" :key="name">
+        <div class="mt-4 first:mt-0 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div class="font-semibold text-gray-700 dark:text-gray-200 mb-1" x-text="name"></div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 mb-2" x-show="plugin.description" x-text="plugin.description"></div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            <template x-for="(perm, index) in plugin.permissions" :key="perm.id">
+              <label class="flex items-center cursor-pointer mb-2">
+                <input type="checkbox" class="sr-only peer" :id="'plugin-' + name + '-' + index" name="plugin_permissions[]" :value="perm.id" :checked="formData.plugin_permissions.includes(perm.id)" @change="togglePluginPermission(perm.id)">
+                <div class="relative w-9 h-5 shrink-0 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="ms-3 min-w-0">
+                  <span class="block text-sm font-medium text-gray-900 dark:text-gray-300" x-text="perm.label"></span>
+                  <span class="block text-xs text-gray-500 dark:text-gray-400 font-mono truncate" x-text="perm.id"></span>
+                </div>
+              </label>
+            </template>
+          </div>
+        </div>
+      </template>
+    </fieldset>
   </form>
   </div>
   <div class="ui-modal-footer">

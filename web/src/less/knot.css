@@ -647,3 +647,72 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
 }
+
+/* Plugin html-block helper classes. Unlike @utility rules above (compiled
+   on demand from scanned markup), these are plain CSS so they always ship:
+   plugin html blocks are written at runtime and never pass the scanner.
+   They give trusted html a small theme-aware vocabulary — knot's Tailwind
+   class set is build-specific and must not be relied on by plugins. The
+   kp-* names are plugin-facing API: additive changes only. */
+.kp-text { color: var(--color-gray-900); }
+.dark .kp-text { color: var(--color-gray-100); }
+.kp-muted { color: var(--color-gray-500); }
+.dark .kp-muted { color: var(--color-gray-400); }
+.kp-accent { color: var(--color-blue-600); }
+.dark .kp-accent { color: var(--color-blue-400); }
+.kp-success { color: var(--color-green-700); }
+.dark .kp-success { color: var(--color-green-300); }
+.kp-warning { color: var(--color-amber-700); }
+.dark .kp-warning { color: var(--color-amber-300); }
+.kp-danger { color: var(--color-red-700); }
+.dark .kp-danger { color: var(--color-red-300); }
+.kp-info { color: var(--color-blue-700); }
+.dark .kp-info { color: var(--color-blue-300); }
+
+.kp-title { font-size: 1.125rem; font-weight: 600; color: var(--color-gray-900); }
+.dark .kp-title { color: var(--color-white); }
+.kp-label { font-size: 0.6875rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-gray-500); }
+.dark .kp-label { color: var(--color-gray-400); }
+.kp-mono { font-family: var(--font-jbmono); }
+
+.kp-card { border: 1px solid var(--color-gray-200); border-radius: 0.5rem; padding: 1rem; background-color: var(--color-gray-50); }
+.dark .kp-card { border-color: var(--color-gray-700); background-color: rgba(17, 24, 39, 0.4); }
+.kp-flex { display: flex; align-items: center; gap: 0.75rem; }
+.kp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; }
+
+
+/* Plugin markdown block prose. Same intent as .prose-chat: Tailwind
+   Preflight resets list/heading styles, so plugin markdown needs explicit
+   styling; plugin pages get their own class so chat and plugins can drift
+   independently. */
+.pb-markdown { font-size: 0.875rem; line-height: 1.6; overflow-wrap: anywhere; }
+.pb-markdown p { margin: 0.5rem 0; }
+.pb-markdown h1, .pb-markdown h2, .pb-markdown h3,
+.pb-markdown h4, .pb-markdown h5, .pb-markdown h6 { font-weight: 600; margin: 0.85rem 0 0.4rem; line-height: 1.3; color: var(--color-gray-900); }
+.dark .pb-markdown h1, .dark .pb-markdown h2, .dark .pb-markdown h3,
+.dark .pb-markdown h4, .dark .pb-markdown h5, .dark .pb-markdown h6 { color: var(--color-white); }
+.pb-markdown h1 { font-size: 1.2rem; }
+.pb-markdown h2 { font-size: 1.05rem; }
+.pb-markdown h3 { font-size: 0.95rem; }
+.pb-markdown ul { list-style: disc; padding-left: 1.4rem; margin: 0.5rem 0; }
+.pb-markdown ol { list-style: decimal; padding-left: 1.4rem; margin: 0.5rem 0; }
+.pb-markdown li { margin: 0.25rem 0; }
+.pb-markdown li > ul, .pb-markdown li > ol { margin: 0.25rem 0; }
+.pb-markdown a { color: var(--color-blue-600); text-decoration: underline; text-underline-offset: 2px; }
+.dark .pb-markdown a { color: var(--color-blue-400); }
+.pb-markdown code { font-family: var(--font-jbmono); font-size: 0.8em; background: var(--color-gray-100); border: 1px solid var(--color-gray-200); border-radius: 0.25rem; padding: 0.1rem 0.3rem; }
+.dark .pb-markdown code { background: rgba(17, 24, 39, 0.8); border-color: var(--color-gray-700); }
+.pb-markdown pre { background: var(--color-gray-50); border: 1px solid var(--color-gray-200); border-radius: 0.5rem; padding: 0.75rem; overflow-x: auto; margin: 0.5rem 0; }
+.dark .pb-markdown pre { background: rgba(17, 24, 39, 0.85); border-color: var(--color-gray-700); }
+.pb-markdown pre code { background: none; border: none; padding: 0; }
+.pb-markdown blockquote { border-left: 3px solid var(--color-gray-300); padding-left: 0.75rem; margin: 0.5rem 0; color: var(--color-gray-500); }
+.dark .pb-markdown blockquote { border-color: var(--color-gray-600); color: var(--color-gray-400); }
+.pb-markdown table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.pb-markdown th { text-align: left; font-weight: 600; }
+.pb-markdown th, .pb-markdown td { border: 1px solid var(--color-gray-200); padding: 0.3rem 0.55rem; }
+.dark .pb-markdown th, .dark .pb-markdown td { border-color: var(--color-gray-700); }
+.pb-markdown hr { border-color: var(--color-gray-200); margin: 0.85rem 0; }
+.dark .pb-markdown hr { border-color: var(--color-gray-700); }
+.pb-markdown img { max-width: 100%; border-radius: 0.4rem; }
+
+

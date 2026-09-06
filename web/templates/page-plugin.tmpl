@@ -1,0 +1,49 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}{{ .pluginPageTitle }}{{ end }}
+
+{{ define "mainContent" }}
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="pluginPage('{{ .pluginPageURL }}')">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
+
+    <div class="col-span-full">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ .pluginPageTitle }}</h1>
+    </div>
+
+    <div class="col-span-full">
+
+      {{ if .pluginPageError }}
+      <div class="rounded-lg border border-red-200 dark:border-red-900 p-4">
+        <div class="text-sm font-semibold text-red-700 dark:text-red-300 mb-1">The plugin handler failed</div>
+        <pre class="text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap font-mono">{{ .pluginPageError }}</pre>
+      </div>
+      {{ else if .pluginDocumentJSON }}
+      <script type="application/json" id="plugin-document">{{ .pluginDocumentJSON }}</script>
+      <div class="flex justify-end mb-2" data-plugin-toolbar hidden>
+        <button type="button" class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" data-plugin-pause aria-pressed="false">Pause</button>
+      </div>
+      <div data-plugin-region aria-busy="false" class="space-y-4"></div>
+      <div class="sr-only" aria-live="polite" data-plugin-status></div>
+      {{ template "plugin-block-templates" . }}
+      {{ else }}
+
+      <dl class="divide-y divide-gray-200 dark:divide-gray-700">
+        {{ range .pluginPageFields }}
+        <div class="py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+          <dt class="text-sm font-medium text-gray-900 dark:text-white font-mono break-all">{{ .Key }}</dt>
+          <dd class="mt-1 text-sm text-gray-700 dark:text-gray-200 sm:col-span-2 sm:mt-0">
+            {{ if .IsPre }}
+            <pre class="text-xs bg-gray-50 dark:bg-gray-900 rounded-lg p-3 overflow-x-auto font-mono whitespace-pre-wrap">{{ .Value }}</pre>
+            {{ else }}
+            <span class="break-words">{{ .Value }}</span>
+            {{ end }}
+          </dd>
+        </div>
+        {{ end }}
+      </dl>
+
+      {{ end }}
+    </div>
+  </div>
+</main>
+{{ end }}

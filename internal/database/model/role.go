@@ -60,6 +60,7 @@ const (
 	// PermissionEditSpaceJobs gates editing job definitions (and the runner
 	// toggle) on the user's own spaces; viewing them is always allowed.
 	PermissionEditSpaceJobs // Can edit the scheduled jobs of own spaces
+	PermissionViewPlugins   // Can View the plugins inventory
 )
 
 type PermissionName struct {
@@ -74,6 +75,7 @@ var PermissionNames = []PermissionName{
 	{PermissionDownloadAuditLogs, "Audit", "Download Audit Logs", "Export audit log entries to a file."},
 
 	{PermissionClusterInfo, "System", "View Cluster Info", "View cluster node and topology information."},
+	{PermissionViewPlugins, "System", "View Plugins", "View the loaded plugins inventory."},
 
 	{PermissionManageGroups, "User Management", "Manage Groups", "Create, edit, and delete user groups."},
 	{PermissionManageRoles, "User Management", "Manage Roles", "Create, edit, and delete roles and their permissions."},
@@ -133,6 +135,7 @@ type Role struct {
 	Id            string        `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
 	Name          string        `json:"name" db:"name" msgpack:"name"`
 	Permissions   []uint16      `json:"permissions" db:"permissions,json" msgpack:"permissions"`
+	PluginPermissions []string  `json:"plugin_permissions" db:"plugin_permissions,json" msgpack:"plugin_permissions"`
 	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
 	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
@@ -177,6 +180,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionTransferSpaces,
 			PermissionShareSpaces,
 			PermissionClusterInfo,
+			PermissionViewPlugins,
 			PermissionUseVNC,
 			PermissionUseWebTerminal,
 			PermissionUseSSH,

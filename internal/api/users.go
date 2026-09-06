@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
@@ -371,9 +372,12 @@ func HandleGetOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleUpdateOwnNavPreferences replaces the current user's pinned sidebar
-// ordering. URLs are validated against apiclient.ValidNavURLs and de-duplicated
-// (preserving order); an empty slice clears the preference, returning the
-// sidebar to its default layout. The canonical stored order is returned.
+// ordering. Core URLs are validated against apiclient.ValidNavURLs; plugin
+// menu URLs against the plugin menus this user can currently see (the same
+// gate the sidebar renders by), so an item is pinnable exactly when it is
+// visible and arbitrary strings still can't enter the preferences blob.
+// Entries are de-duplicated preserving order; an empty slice clears the
+// preference, returning the sidebar to its default layout.
 func HandleUpdateOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	request := apiclient.UpdateOwnNavPreferencesRequest{}
@@ -383,10 +387,15 @@ func HandleUpdateOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var pluginMenuURLs map[string]bool
+	if registry := plugins.GetRegistry(); registry != nil {
+		pluginMenuURLs = registry.VisibleMenuURLs(user)
+	}
+
 	seen := make(map[string]bool, len(request.Starred))
 	cleaned := make([]string, 0, len(request.Starred))
 	for _, u := range request.Starred {
-		if apiclient.ValidNavURLs[u] && !seen[u] {
+		if (apiclient.ValidNavURLs[u] || pluginMenuURLs[u]) && !seen[u] {
 			seen[u] = true
 			cleaned = append(cleaned, u)
 		}

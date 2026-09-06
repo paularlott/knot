@@ -7,16 +7,20 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/plugins"
 )
 
 // NavItem is a single sidebar entry rendered from data in menus.tmpl. Icon
 // holds the inner SVG markup (one or more <path/> elements) and is typed
-// template.HTML so html/template renders it verbatim.
+// template.HTML so html/template renders it verbatim — plugin logo items use
+// the same field to carry themed <img> markup. External marks an off-site
+// URL, rendered with target="_blank" and an indicator.
 type NavItem struct {
-	URL     string
-	Label   string
-	Icon    template.HTML
-	Starred bool
+	URL      string
+	Label    string
+	Icon     template.HTML
+	Starred  bool
+	External bool
 }
 
 // navIcon is the shared <svg> wrapper attributes applied to every nav entry's
@@ -54,6 +58,49 @@ func nav(url, label, iconInner string) NavItem {
 	return NavItem{URL: url, Label: label, Icon: navIcon(iconInner)}
 }
 
+// iconPlugin is the fallback icon for plugin menu items without a declared
+// icon asset.
+const iconPlugin = `<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />`
+
+// pluginNavItems builds the sidebar entries declared by loaded plugins.
+// Visibility gating lives in plugins.Registry.VisibleMenus — the single gate
+// shared with pin validation and search — so an item is pinnable exactly
+// when it is visible.
+func pluginNavItems(user *model.User) []NavItem {
+	registry := plugins.GetRegistry()
+	if registry == nil {
+		return nil
+	}
+	byPlugin := make(map[string]*plugins.Plugin)
+	for _, p := range registry.All() {
+		byPlugin[p.Name] = p
+	}
+	var items []NavItem
+	for _, menu := range registry.VisibleMenus(user) {
+		if p, ok := byPlugin[menu.PluginName]; ok {
+			items = append(items, pluginNavItem(p, menu))
+		}
+	}
+	return items
+}
+
+func pluginNavItem(p *plugins.Plugin, menu plugins.Menu) NavItem {
+	inner := menu.IconSVG
+	if inner == "" {
+		inner = iconPlugin
+	}
+	return NavItem{
+		URL:      menu.URL,
+		Label:    menu.Label,
+		Icon:     navIcon(inner),
+		External: isExternalNavURL(menu.URL),
+	}
+}
+
+func isExternalNavURL(url string) bool {
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+}
+
 // buildNav returns the two ordered lists of visible nav items exactly as the
 // sidebar rendered them before this feature: top (the always-visible primary
 // entries) and more (the entries collapsed under "More"). Visibility mirrors
@@ -80,8 +127,9 @@ func buildNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool) (
 	manageUsers := user.HasPermission(model.PermissionManageUsers)
 	manageGroups := user.HasPermission(model.PermissionManageGroups)
 	manageRoles := user.HasPermission(model.PermissionManageRoles)
-	viewAudit := user.HasPermission(model.PermissionViewAuditLogs) && auditAvailable
 	viewCluster := user.HasPermission(model.PermissionClusterInfo) && cfg.Cluster.AdvertiseAddr != ""
+	viewAudit := user.HasPermission(model.PermissionViewAuditLogs) && auditAvailable
+	viewPlugins := user.HasPermission(model.PermissionViewPlugins) && plugins.GetRegistry().Present()
 
 	// Primary (top) section.
 	if useSpaces || leaf {
@@ -141,6 +189,16 @@ func buildNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool) (
 	if viewCluster && !leaf {
 		more = append(more, nav("/cluster-info", "Cluster Info", iconCluster))
 	}
+	// The plugin inventory sits under Cluster Info — admin-only, like the
+	// page itself (admin role) — and only when the plugins
+	// path produced anything (loaded, failed, or warnings); with no plugins
+	// the surface is hidden entirely.
+	if viewPlugins && !leaf {
+		more = append(more, nav("/plugins", "Plugins", iconPlugin))
+	}
+
+	// Plugin-declared menu items, permission/group gated per item.
+	more = append(more, pluginNavItems(user)...)
 
 	return top, more
 }

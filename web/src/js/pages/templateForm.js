@@ -25,6 +25,7 @@ import { scriptLibraries } from "./scriptCompletions.js";
 
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
+    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', handlers: [] },
     iconList: [],
     scriptList: [],
     templateId: templateId,
@@ -750,6 +751,38 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       this.customFieldValid.push(true);
       this.formData.custom_fields.push({ name: "", description: "" });
     },
+    fieldTypeLabel(field) {
+      const type = field.type || 'text';
+      if (type === 'textarea') return field.language || 'textarea';
+      return type;
+    },
+
+    async openFieldConfig(index) {
+      this.fieldConfig.index = index;
+      this.fieldConfig.type = this.formData.custom_fields[index].type || 'text';
+      this.fieldConfig.handler = this.formData.custom_fields[index].handler || '';
+      this.fieldConfig.language = this.formData.custom_fields[index].language || '';
+      // Refetch on every open: the installed plugin set can change between
+      // opens.
+      try {
+        const response = await fetch('/api/plugins/field-handlers');
+        if (response.ok) {
+          const data = await response.json();
+          this.fieldConfig.handlers = data.handlers || [];
+        }
+      } catch (e) { /* leave empty: no plugins or no permission */ }
+      this.fieldConfig.show = true;
+    },
+
+    applyFieldConfig() {
+      const field = this.formData.custom_fields[this.fieldConfig.index];
+      if (!field) return;
+      field.type = this.fieldConfig.type === 'text' ? '' : this.fieldConfig.type;
+      field.handler = field.type === 'autocomplete' ? this.fieldConfig.handler : '';
+      field.language = field.type === 'textarea' ? this.fieldConfig.language : '';
+      this.fieldConfig.show = false;
+    },
+
     removeField(index) {
       this.formData.custom_fields.splice(index, 1);
       this.customFieldValid.splice(index, 1);

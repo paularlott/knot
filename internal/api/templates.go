@@ -94,6 +94,9 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.CustomFields[i] = apiclient.CustomFieldDef{
 				Name:        field.Name,
 				Description: field.Description,
+				Type:        field.Type,
+				Handler:     field.Handler,
+				Language:    field.Language,
 			}
 		}
 
@@ -224,6 +227,9 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.CustomFields[i] = model.TemplateCustomField{
 			Name:        field.Name,
 			Description: field.Description,
+			Type:        field.Type,
+			Handler:     field.Handler,
+			Language:    field.Language,
 		}
 	}
 
@@ -293,6 +299,9 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		customFields = append(customFields, model.TemplateCustomField{
 			Name:        field.Name,
 			Description: field.Description,
+			Type:        field.Type,
+			Handler:     field.Handler,
+			Language:    field.Language,
 		})
 	}
 

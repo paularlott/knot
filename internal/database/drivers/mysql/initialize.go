@@ -377,6 +377,7 @@ INDEX idx_is_deleted (is_deleted)
 role_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
 permissions JSON DEFAULT NULL,
+plugin_permissions JSON DEFAULT NULL,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),

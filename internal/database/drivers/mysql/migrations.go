@@ -132,6 +132,8 @@ var migrations = []string{
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS jobs_enabled TINYINT(1) NOT NULL DEFAULT 1`,
 	// 63: add template jobs (copied into new spaces)
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT '[]'`,
+	// 64: add plugin permissions (text grants, plugin.<name>.<id>) to roles
+	`ALTER TABLE roles ADD COLUMN IF NOT EXISTS plugin_permissions JSON DEFAULT NULL`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

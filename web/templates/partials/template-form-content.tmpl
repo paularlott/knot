@@ -576,6 +576,12 @@
                 <div class="flex items-center">
                   <input type="text" class="form-field mr-2 max-w-xs" x-model="formData.custom_fields[index].name" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Variable Name" aria-label="Variable Name">
                   <input type="text" class="form-field mr-2" x-model="formData.custom_fields[index].description" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Field Label / Description" aria-label="Field Label / Description">
+                  <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded px-1.5 py-1 mr-2 whitespace-nowrap" x-text="fieldTypeLabel(formData.custom_fields[index])"></span>
+                  <button type="button" x-on:click="openFieldConfig(index)" aria-label="Configure field" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
+                    </svg>
+                  </button>
                   <button type="button" x-on:click="removeField(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
                       <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -589,6 +595,51 @@
         </fieldset>
 
       </form>
+  </div>
+  <div x-show="fieldConfig.show" x-cloak class="ui-modal-backdrop" @keydown.escape.window="fieldConfig.show = false">
+    <div class="ui-modal-panel rounded-2xl max-w-lg" role="dialog" aria-modal="true" aria-label="Configure custom field">
+      <div class="p-5 space-y-4">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure custom field</h3>
+        <div>
+          <label class="form-label" for="field-config-type">Field type</label>
+          <select id="field-config-type" class="form-field" x-model="fieldConfig.type">
+            <option value="text">Text</option>
+            <option value="password">Password</option>
+            <option value="number">Number</option>
+            <option x-show="fieldConfig.handlers.length > 0 || fieldConfig.type === 'autocomplete'" value="autocomplete">Autocomplete</option>
+            <option value="textarea">Text area (code editor)</option>
+          </select>
+          <p class="description">All values are stored as strings. Password masks on input; number validates digits; autocomplete binds to a plugin handler; text area is an ace editor for multi-line values.</p>
+        </div>
+        <div x-show="fieldConfig.type === 'textarea'">
+          <label class="form-label" for="field-config-language">Editor language</label>
+          <select id="field-config-language" class="form-field" x-model="fieldConfig.language">
+            <option value="">Text</option>
+            <option value="scriptling">Scriptling</option>
+            <option value="yaml">YAML</option>
+            <option value="toml">TOML</option>
+            <option value="json">JSON</option>
+            <option value="markdown">Markdown</option>
+            <option value="shell">Shell</option>
+          </select>
+          <p class="description">Sets the editor's highlighting and completions on the space form; scriptling gets the same completions as the script editors.</p>
+        </div>
+        <div x-show="fieldConfig.type === 'autocomplete'">
+          <label class="form-label" for="field-config-handler">Plugin handler (suggestions)</label>
+          <select id="field-config-handler" class="form-field" x-model="fieldConfig.handler">
+            <option value="">Select a handler…</option>
+            <template x-for="h in fieldConfig.handlers" :key="h.id">
+              <option :value="h.id" x-text="h.label + ' (' + h.id + ')'"></option>
+            </template>
+          </select>
+          <p class="description">The field becomes a pick-or-create autocompleter on the space form; the plugin serves suggestions as the requesting user.</p>
+        </div>
+      </div>
+      <div class="ui-modal-footer">
+        <button type="button" class="ui-button-secondary sm:mr-auto" @click="fieldConfig.show = false">Cancel</button>
+        <button type="button" class="btn-primary" @click="applyFieldConfig()">Apply</button>
+      </div>
+    </div>
   </div>
   <div class="ui-modal-footer">
     <button type="button" @click="confirmCloseTemplate()" class="ui-button-secondary sm:mr-auto" x-text="isEdit ? 'Discard' : 'Cancel'"></button>

@@ -10,6 +10,9 @@ import (
 type CustomFieldDef struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Type        string `json:"type,omitempty"`
+	Handler     string `json:"handler,omitempty"`
+	Language    string `json:"language,omitempty"`
 }
 
 type TemplateCreateRequest struct {

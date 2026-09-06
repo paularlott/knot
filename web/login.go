@@ -11,11 +11,23 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 
 	"github.com/paularlott/knot/internal/log"
 )
+
+// defaultLoginPage is the post-login landing page: a plugin page claimed
+// with default = true when one exists (first plugin by name), else /spaces.
+func defaultLoginPage() string {
+	if registry := plugins.GetRegistry(); registry != nil {
+		if url := registry.DefaultPageURL(); url != "" {
+			return url
+		}
+	}
+	return "/spaces"
+}
 
 func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
@@ -25,9 +37,10 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		session, _ := middleware.GetSessionFromCookie(r)
 
-		// If session present then redirect to dashboard
+		// If session present then redirect to the landing page (a plugin
+		// page when one claims default, else /spaces)
 		if session != nil {
-			http.Redirect(w, r, "/spaces", http.StatusSeeOther)
+			http.Redirect(w, r, defaultLoginPage(), http.StatusSeeOther)
 			return
 		}
 
@@ -43,7 +56,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 		redirectParam := r.URL.Query().Get("redirect")
 		u, _ := url.Parse(redirectParam)
 		if u.Path == "" || u.Path == "/logout" {
-			redirect = "/spaces"
+			redirect = defaultLoginPage()
 		} else if u.Path[0:1] != "/" {
 			redirect = "/" + u.Path
 		} else {
@@ -61,6 +74,8 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 			"totpEnabled":         cfg.TOTP.Enabled,
 			"logoURL":             cfg.UI.LogoURL,
 			"logoInvert":          cfg.UI.LogoInvert,
+			"pluginLogoLight":     pluginLogoLight(cfg),
+			"pluginLogoDark":      pluginLogoDark(cfg),
 			"passwordAuthEnabled": true,
 		}
 

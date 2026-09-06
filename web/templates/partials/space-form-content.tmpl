@@ -167,8 +167,35 @@
       <div class="space-y-6">
         <template x-for="(field, index) in template.custom_fields" :key="index">
           <div>
-            <label class="form-label" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')'"></label>
-            <input type="text" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
+            <label class="form-label" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')' + (template.custom_fields[index].type === 'textarea' && template.custom_fields[index].language ? ' - ' + template.custom_fields[index].language : '')"></label>
+            <template x-if="template.custom_fields[index].type === 'autocomplete' && template.custom_fields[index].handler">
+              <div class="relative" x-data="fieldAutocompleter(template.custom_fields[index].handler)" :data-cf-index="index" x-id="['cfac']"
+                   x-init="search = formData.custom_fields[index].value || ''">
+                <input type="search" x-ref="cfInput" class="form-field" placeholder="Search or type a value" x-model="search" autocomplete="off"
+                       @input="formData.custom_fields[index].value = $event.target.value"
+                       @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)"
+                       :aria-label="template.custom_fields[index].description + ' value'">
+                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+                  <ul class="list-none">
+                    <template x-for="(option, i) in filteredOptions" :key="i">
+                      <li @click="selectOption(option)" x-text="optText(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === i}" class="my-1 cursor-pointer nav-item text-sm"></li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+            </template>
+            <template x-if="template.custom_fields[index].type === 'textarea'">
+              <div class="border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden h-48" x-data="customFieldEditor(index, template.custom_fields[index].language || 'text')"></div>
+            </template>
+            <template x-if="template.custom_fields[index].type === 'password'">
+              <input type="password" class="form-field" placeholder="Field value" autocomplete="new-password" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
+            </template>
+            <template x-if="template.custom_fields[index].type === 'number'">
+              <input type="number" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
+            </template>
+            <template x-if="!['autocomplete', 'password', 'number', 'textarea'].includes(template.custom_fields[index].type)">
+              <input type="text" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
+            </template>
           </div>
         </template>
       </div>

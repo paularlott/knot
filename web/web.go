@@ -22,6 +22,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
+	"github.com/paularlott/knot/internal/plugins"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -108,8 +109,15 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 				return
 			}
 
-			// Set ETag header to the version
+			// Version-keyed assets (?_v=<version>): cache hard, and let a
+			// version bump invalidate. Without Cache-Control browsers
+			// heuristic-cache stale bundles across restarts.
 			w.Header().Set("ETag", build.Version)
+			if strings.Contains(r.URL.RawQuery, "_v=") {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				w.Header().Set("Cache-Control", "no-cache")
+			}
 
 			// Check if the ETag matches and return 304 if it does
 			if match := r.Header.Get("If-None-Match"); match == build.Version {
@@ -297,6 +305,24 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /groups", middleware.WebAuth(checkPermissionManageGroups(HandleSimplePage)))
 
 	router.HandleFunc("GET /roles", middleware.WebAuth(checkPermissionManageRoles(HandleSimplePage)))
+
+	// Plugin inventory (admin) and declared-plugin assets (logos). The whole
+	// surface exists only when the plugins path produced anything — with no
+	// plugins there is no page, no route, no trace. Assets are served
+	// unauthenticated: a logo may replace the main page logo, which shows on
+	// the login page before any session exists, and logos are admin-installed
+	// branding. Only files a plugin declared at load are reachable.
+	if plugins.GetRegistry().Present() {
+		router.HandleFunc("GET /plugins", middleware.WebAuth(checkPermission(HandleSimplePage, model.PermissionViewPlugins)))
+	}
+	if plugins.GetRegistry() != nil {
+		router.HandleFunc("GET /plugins/{plugin_name}/assets/{asset_path...}", HandlePluginAsset)
+		router.HandleFunc("GET /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+		// Actions POST to the same handler: the body's params drive the
+		// plugin's logic and the JSON block document comes back for the
+		// client to reconcile.
+		router.HandleFunc("POST /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+	}
 
 	router.HandleFunc("GET /volumes", middleware.WebAuth(checkPermissionManageVolumes(HandleSimplePage)))
 
@@ -602,6 +628,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isLeafNode":                          cfg.LeafNode,
 		"logoURL":                             cfg.UI.LogoURL,
 		"logoInvert":                          cfg.UI.LogoInvert,
+		"pluginLogoLight":                     pluginLogoLight(cfg),
+		"pluginLogoDark":                      pluginLogoDark(cfg),
 		"aiChatEnabled":                       cfg.Chat.Enabled,
 		"aiChatStyle":                         cfg.Chat.UIStyle,
 		"requestHost":                         r.Host,
@@ -618,7 +646,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 // non-leaf deployments; on a leaf node they remain top-level entries, so they
 // are only treated as admin paths when leafNode is false.
 func isAdminPath(path string, leafNode bool) bool {
-	paths := []string{"/users", "/groups", "/roles", "/audit-logs", "/cluster-info"}
+	paths := []string{"/users", "/groups", "/roles", "/audit-logs", "/cluster-info", "/plugins"}
 	if !leafNode {
 		paths = append(paths, "/templates", "/variables")
 	}
@@ -638,7 +666,7 @@ func isMorePath(path string, leafNode bool) bool {
 	if !leafNode {
 		paths = append(paths, "/templates", "/variables")
 	}
-	paths = append(paths, "/users", "/groups", "/roles", "/audit-logs", "/cluster-info")
+	paths = append(paths, "/users", "/groups", "/roles", "/audit-logs", "/cluster-info", "/plugins")
 	for _, p := range paths {
 		if path == p || strings.HasPrefix(path, p+"/") {
 			return true

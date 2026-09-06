@@ -88,6 +88,14 @@ type TemplateScheduleDays struct {
 type TemplateCustomField struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	// Type controls how the space form renders the field: text (default)
+	// or autocomplete. Autocomplete requires Handler - a plugin field
+	// handler id (plugin.<name>.<id>) that serves the suggestions.
+	Type    string `json:"type,omitempty"`
+	Handler string `json:"handler,omitempty"`
+	// Language selects the ace mode/completions for textarea fields:
+	// yaml, toml, json, markdown, shell or scriptling ("" is plain text).
+	Language string `json:"language,omitempty"`
 }
 
 type TemplatePort struct {

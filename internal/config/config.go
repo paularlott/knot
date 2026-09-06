@@ -70,6 +70,7 @@ type ServerConfig struct {
 	MCPToolsDisabled          []string
 	LibDir                    string
 	KnotLibPath               string
+	PluginsPath               string
 	BaseImageRegistry         string
 	BaseImagesManifest        string
 	BaseImageRegistryUser     string

@@ -46,6 +46,7 @@ import (
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/mcptools"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/lmchatkit"
 	"github.com/paularlott/mcp"
 	ai "github.com/paularlott/mcp/ai"
@@ -292,6 +293,13 @@ var ServerCmd = &cli.Command{
 			Usage:      "Comma-separated list of built-in tool names to disable.",
 			ConfigPath: []string{"server.mcp.disable_builtin_tools"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_MCP_DISABLE_BUILTIN_TOOLS"},
+		},
+		&cli.StringFlag{
+			Name:         "plugins-path",
+			Usage:        "Path to a directory of knot plugins (single .py files or folders with main.py).",
+			ConfigPath:   []string{"server.plugins_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PLUGINS_PATH"},
+			DefaultValue: "",
 		},
 
 		// UI flags
@@ -903,6 +911,17 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		logger.Error("Failed to load mcp-tools", "error", err)
 	}
 
+	// Load plugins: scan PluginsPath, parse declarations from metadata, load
+	// binary peers. Loading is pure parsing — no plugin code runs at boot —
+	// and per-plugin failures are recorded for the admin page, never fatal.
+	pluginRegistry, err := plugins.Load(cfg.PluginsPath)
+	if err != nil {
+		logger.Error("Failed to load plugins", "error", err)
+	}
+	if pluginRegistry != nil {
+		defer pluginRegistry.Close()
+	}
+
 	// Start the DNS server if enabled. It is the single DNS point for
 	// spaces (their agents forward every query here), so always wire up
 	// upstream forwarding — it serves the wildcard zone from dns-records and
@@ -1437,6 +1456,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		PublicFilesPath:      cmd.GetString("public-files-path"),
 		MCPToolsPath:         cmd.GetString("mcp-tools-path"),
 		MCPToolsDisabled:     cmd.GetStringSlice("mcp-disable-builtin-tools"),
+		PluginsPath:          cmd.GetString("plugins-path"),
 		DownloadPath:         cmd.GetString("download-path"),
 		DisableSpaceCreate:   cmd.GetBool("disable-space-create"),
 		ListenTunnel:         cmd.GetString("listen-tunnel"),

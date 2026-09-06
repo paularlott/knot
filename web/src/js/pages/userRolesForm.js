@@ -6,23 +6,48 @@ window.userRolesForm = function (isEdit, roleId) {
     formData: {
       name: "",
       permissions: [],
+      plugin_permissions: [],
     },
     loading: true,
     nameValid: true,
     isEdit,
     stayOnPage: true,
     groupedPermissions: {},
+    pluginGroups: {},
 
     async initData() {
       focus.Element('input[name="name"]');
 
-      // fetch the permission list
-      const response = await fetch("/api/permissions", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      const permissionsList = await response.json();
+      // fetch the permission list and the plugin inventory (whose declared
+      // permissions feed the Plugin Permissions section) in parallel
+      const [permissionsResponse, pluginsResponse] = await Promise.all([
+        fetch("/api/permissions", {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+        fetch("/api/plugins", {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      ]);
+      const permissionsList = await permissionsResponse.json();
+
+      // Group plugin permissions by plugin; only plugins declaring
+      // permissions appear.
+      this.pluginGroups = {};
+      if (pluginsResponse.status === 200) {
+        const pluginsList = await pluginsResponse.json();
+        (pluginsList.plugins || []).forEach((plugin) => {
+          if (plugin.permissions && plugin.permissions.length > 0) {
+            this.pluginGroups[plugin.name] = {
+              description: plugin.description,
+              permissions: plugin.permissions,
+            };
+          }
+        });
+      }
 
       // Group permissions by 'Group' property
       this.groupedPermissions = {};
@@ -46,6 +71,7 @@ window.userRolesForm = function (isEdit, roleId) {
           const role = await roleResponse.json();
           this.formData.name = role.name;
           this.formData.permissions = role.permissions;
+          this.formData.plugin_permissions = role.plugin_permissions || [];
         }
       }
 
@@ -56,6 +82,15 @@ window.userRolesForm = function (isEdit, roleId) {
         validate.maxLength(this.formData.name, 64) &&
         validate.required(this.formData.name);
       return this.nameValid;
+    },
+    togglePluginPermission(permission) {
+      if (this.formData.plugin_permissions.includes(permission)) {
+        this.formData.plugin_permissions = this.formData.plugin_permissions.filter(
+          (p) => p !== permission,
+        );
+      } else {
+        this.formData.plugin_permissions.push(permission);
+      }
     },
     togglePermission(permission) {
       if (this.formData.permissions.includes(permission)) {

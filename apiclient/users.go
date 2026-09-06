@@ -134,9 +134,11 @@ type UpdateOwnSSHPrivateKeyRequest struct {
 	SSHPrivateKey string `json:"ssh_private_key"`
 }
 
-// ValidNavURLs is the set of sidebar URLs that may be pinned to the top of the
-// navigation. The server validates preference updates against it so clients
-// can't store arbitrary strings in the preferences blob.
+// ValidNavURLs is the set of core sidebar URLs that may be pinned to the top
+// of the navigation. The server validates preference updates against it so
+// clients can't store arbitrary strings in the preferences blob; plugin menu
+// URLs are validated separately against the menus the user can currently
+// see (plugins.Registry.VisibleMenuURLs).
 var ValidNavURLs = map[string]bool{
 	"/spaces": true, "/tunnels": true, "/api-tokens": true, "/volumes": true,
 	"/templates": true, "/variables": true, "/stacks": true, "/scripts": true,

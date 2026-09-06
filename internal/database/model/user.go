@@ -125,6 +125,28 @@ func (u *User) HasPermission(permission uint16) bool {
 	return false
 }
 
+// HasPluginPermission reports whether any of the user's roles carries the
+// fully qualified plugin grant (e.g. "plugin.metrics.read"). Plugin grants
+// are text so they are cluster-order independent and survive plugin
+// uninstall/reinstall inertly (PLUGINS2.md §5). The fixed admin role cannot
+// be granted per-plugin permissions through the API, so it passes every
+// plugin permission check.
+func (u *User) HasPluginPermission(name string) bool {
+	if u.IsAdmin() {
+		return true
+	}
+	for _, role := range u.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.PluginPermissions {
+				if p == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (u *User) HasAnyGroup(groups *[]string) bool {
 
 	// If user has no groups then return false

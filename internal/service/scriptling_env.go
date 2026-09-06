@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/logger"
 	ai "github.com/paularlott/mcp/ai"
@@ -33,6 +34,7 @@ import (
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
+	pluginpkg "github.com/paularlott/scriptling/plugin"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
@@ -403,6 +405,103 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 	}
 
 	return env, mcpLib, cleanup, nil
+}
+
+// registerPluginLibraries registers the library surface for plugin handler
+// environments: the full local-processing set — stdlib, base extended
+// libraries, and the system-access libraries (os, subprocess, fs, …) that
+// server envs deny — with every path-taking library jailed to the plugin's
+// own folder. Deliberately absent: the outbound networking libraries
+// (requests, scriptling.wait_for) and the runtime libraries
+// (scriptling.container, scriptling.nomad) — plugins are trusted for local
+// compute, not for reaching out or driving container runtimes. Keep this
+// list in step with plugins.pluginEnvLibraries, which answers metadata
+// dependency resolution for the same set.
+func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log logger.Logger) {
+	stdlib.RegisterAll(env)
+
+	aux := log
+	if aux == nil {
+		aux = logger.NewNullLogger()
+	}
+
+	allowed := []string{pluginDir}
+	extlibs.RegisterSecretsLibrary(env)
+	extlibs.RegisterYAMLLibrary(env)
+	extlibs.RegisterTOMLLibrary(env)
+	extlibs.RegisterHTMLParserLibrary(env)
+	extlibs.RegisterLoggingLibraryDefault(env)
+	extlibs.RegisterShlexLibrary(env)
+	extlibs.RegisterCsvLibrary(env)
+	extlibs.RegisterXmlLibrary(env)
+	extlibs.RegisterTemplateHTMLLibrary(env)
+	extlibs.RegisterTemplateTextLibrary(env)
+
+	scriptlingai.Register(env)
+	aimemory.Register(env, aux)
+	agent.Register(env)
+	scriptlingaitools.Register(env)
+	scriptlingsimilarity.Register(env)
+	scriptlingmcp.Register(env)
+	scriptlingmcp.RegisterToon(env)
+	scriptlingmcp.RegisterToolHelpers(env)
+
+	telegram.Register(env, aux)
+	discord.Register(env, aux)
+	slack.Register(env, aux)
+
+	extlibs.RegisterOSLibrary(env, allowed)
+	extlibs.RegisterSubprocessLibrary(env)
+	extlibs.RegisterPathlibLibrary(env, allowed)
+	extlibs.RegisterGlobLibrary(env, allowed)
+	extlibs.RegisterTempfileLibrary(env, allowed)
+	extlibs.RegisterShutilLibrary(env, allowed)
+	extlibs.RegisterZipfileLibrary(env, allowed)
+	extlibs.RegisterTarfileLibrary(env, allowed)
+	extlibs.RegisterFSLibrary(env, allowed)
+	extlibs.RegisterGrepLibrary(env, allowed)
+	extlibs.RegisterFindLibrary(env, allowed)
+	extlibs.RegisterSedLibrary(env, allowed)
+
+	provisionfile.Register(env)
+	provisionfetch.Register(env)
+}
+
+// NewPluginScriptlingEnv creates the environment a plugin's handlers run in
+// when dispatched for a user: registerPluginLibraries jailed to the plugin's
+// folder, knot's run-as-user libraries over the loopback API, the plugin's
+// binary peers as plugin.* libraries, and a loader chain that resolves the
+// plugin's own modules first (folder plugins only — a single-file plugin's
+// entry is the whole plugin), then knot's embedded libraries, then the
+// invoking user's lib scripts.
+func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) (*scriptling.Scriptling, error) {
+	env := scriptling.New()
+	env.EnableOutputCapture()
+	registerPluginLibraries(env, plugin.Dir, nil)
+
+	// The plugin's own peers, visible to handlers as plugin.<name> imports.
+	if scope := plugin.Scope(); scope != nil {
+		pluginpkg.RegisterLibraries(env, scope)
+	}
+
+	aiClient := createServerAIClient(client, user)
+	if aiClient != nil {
+		env.SetObjectVar("ai_client", scriptlingai.WrapClient(aiClient))
+	}
+
+	if client == nil || user == nil {
+		return nil, fmt.Errorf("plugin env requires a client and user")
+	}
+	registerKnotLibraries(env, client, user.Id, nil, nil, aiClient, false)
+
+	loaders := []libloader.LibraryLoader{newKnotLibsLoader()}
+	if plugin.Folder {
+		loaders = append(loaders, libloader.NewFilesystem(plugin.Dir))
+	}
+	loaders = append(loaders, newServerLibraryLoaderWithContext(client, user))
+	env.SetLibraryLoader(libloader.NewChain(loaders...))
+
+	return env, nil
 }
 
 // AgentScriptlingOptions configures an agent-side (in-space) scriptling

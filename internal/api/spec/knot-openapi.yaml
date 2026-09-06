@@ -5896,6 +5896,69 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/plugins:
+    get:
+      tags: [Plugins]
+      summary: List loaded plugins
+      description: Admin inventory of loaded and failed plugins with permissions, menus, pages and warnings. Requires the manage roles permission.
+      operationId: getPlugins
+      responses:
+        "200":
+          description: Plugin inventory.
+          content:
+            application/msgpack:
+              schema:
+                type: object
+
+  /api/plugins/field-handlers:
+    get:
+      tags: [Plugins]
+      summary: List plugin field handlers
+      description: Every field handler declared by loaded plugins; used by the template form to bind custom fields. Requires the manage templates permission.
+      operationId: getPluginFieldHandlers
+      responses:
+        "200":
+          description: Handler list.
+          content:
+            application/msgpack:
+              schema:
+                type: object
+                properties:
+                  handlers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FieldHandler"
+
+  /api/plugins/field-handlers/{handler_id}:
+    get:
+      tags: [Plugins]
+      summary: Field handler options
+      description: Calls the plugin's declared handler as the requesting user and returns its options (conventionally key/text pairs) for a bound custom field. Requires the use spaces permission.
+      operationId: getPluginFieldHandlerOptions
+      parameters:
+        - name: handler_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Qualified handler id (plugin.<name>.<handler>).
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional query passed through to the handler.
+      responses:
+        "200":
+          description: Handler result (conventionally {"options": [...]}).
+          content:
+            application/msgpack:
+              schema:
+                type: object
+        "404":
+          description: Unknown field handler.
+
+
 components:
   securitySchemes:
     BearerAuth:
@@ -6867,6 +6930,15 @@ components:
           items:
             $ref: "#/components/schemas/SpaceInfo"
 
+    FieldHandler:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Qualified handler id (plugin.<name>.<handler>).
+        label:
+          type: string
+          description: Display label for the template form.
     CustomFieldValue:
       type: object
       properties:
@@ -7336,6 +7408,15 @@ components:
           type: string
           maxLength: 256
           description: The optional description for the field.
+        type:
+          type: string
+          description: Field input type - text (default), password, number, textarea or autocomplete.
+        handler:
+          type: string
+          description: For autocomplete fields, the bound plugin field handler (plugin.<name>.<handler>).
+        language:
+          type: string
+          description: For textarea fields, the editor language - scriptling, yaml, toml, json, markdown or shell.
 
     TemplateCreateRequest:
       type: object

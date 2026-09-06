@@ -13,9 +13,10 @@ type NavPage struct {
 // order. The visibility gates mirror web/nav.go buildNav exactly (combined
 // across the top and "More" sections), so a page appears here iff it appears
 // in the user's menu. auditAvailable is whether the audit-log feature is
-// usable in this deployment (storage present + not routed externally) — passed
+// usable in this deployment (storage present + not routed externally), and
+// pluginsAvailable whether the plugins path produced anything — both passed
 // in so this function stays pure and testable.
-func VisibleNavPages(user *User, cfg *config.ServerConfig, auditAvailable bool) []NavPage {
+func VisibleNavPages(user *User, cfg *config.ServerConfig, auditAvailable, pluginsAvailable bool) []NavPage {
 	leaf := cfg.LeafNode
 	useSpaces := user.HasPermission(PermissionUseSpaces) || user.HasPermission(PermissionManageSpaces)
 	useTunnels := user.HasPermission(PermissionUseTunnels) && cfg.ListenTunnel != ""
@@ -41,6 +42,7 @@ func VisibleNavPages(user *User, cfg *config.ServerConfig, auditAvailable bool) 
 		{"/roles", "Roles", user.HasPermission(PermissionManageRoles) && !leaf},
 		{"/audit-logs", "Audit Logs", user.HasPermission(PermissionViewAuditLogs) && auditAvailable},
 		{"/cluster-info", "Cluster Info", user.HasPermission(PermissionClusterInfo) && cfg.Cluster.AdvertiseAddr != "" && !leaf},
+		{"/plugins", "Plugins", user.HasPermission(PermissionViewPlugins) && !leaf && pluginsAvailable},
 	}
 
 	pages := make([]NavPage, 0, len(all))

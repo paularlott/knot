@@ -469,7 +469,7 @@ tasks:
     desc: Run the server for development
     deps: [agents, packages, webassets]
     cmds:
-      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages --plugins-path ./examples/plugins
     ignore_error: true
 
   run-desktop:
