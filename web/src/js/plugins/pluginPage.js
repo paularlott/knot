@@ -68,6 +68,18 @@ function iconSvg(name, className = 'size-5') {
 }
 
 // Text-chip action buttons use the spaces table colour semantics.
+// knot's auth middleware answers 503 on transient store hiccups
+// specifically so clients retry instead of failing; honour that.
+async function fetchWithRetry(url, options, attempts = 3) {
+  let delay = 300;
+  for (let i = 0; ; i += 1) {
+    const response = await fetch(url, options);
+    if (response.status !== 503 || i >= attempts - 1) return response;
+    await new Promise((r) => setTimeout(r, delay));
+    delay *= 3;
+  }
+}
+
 function actionChipClass(style) {
   const colors = {
     danger: 'text-red-700 dark:text-red-400',
@@ -79,6 +91,30 @@ function actionChipClass(style) {
 }
 
 window.pluginPage = function pluginPage(url) {
+  // pluginFetch is the trusted-html API for calling plugin handlers from
+  // client-side code (Alpine widgets and the like): the same transport,
+  // auth, page gate and running-user identity as every column fetch.
+  //   const data = await pluginFetch('my_handler');
+  //   await pluginFetch('my_handler', { method: 'POST', body: {name: 'x'} });
+  window.pluginFetch = async function pluginFetch(handler, options = {}) {
+    const qs = new URLSearchParams({ _json: '1', _col: handler });
+    Object.entries(options.params || {}).forEach(([k, v]) => qs.set(k, v));
+    const request = options.method === 'POST'
+      ? {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(options.body || {}).toString(),
+      }
+      : { headers: { 'Content-Type': 'application/json' } };
+    const response = await fetchWithRetry(`${url}?${qs}`, request);
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      throw new Error('plugin handler returned a non-JSON response (session or server?)');
+    }
+  };
+
   return {
     url,
     params: '',
@@ -175,16 +211,10 @@ window.pluginPage = function pluginPage(url) {
       body.appendChild(holder);
     },
 
-    // knot's auth middleware answers 503 on transient store hiccups
-    // specifically so clients retry instead of failing; honour that.
-    async fetchWithRetry(url, options, attempts = 3) {
-      let delay = 300;
-      for (let i = 0; ; i += 1) {
-        const response = await fetch(url, options);
-        if (response.status !== 503 || i >= attempts - 1) return response;
-        await new Promise((r) => setTimeout(r, delay));
-        delay *= 3;
-      }
+
+
+    fetchWithRetry(url, options, attempts) {
+      return fetchWithRetry(url, options, attempts);
     },
 
     async fetchColumn(column, body, isRefresh) {

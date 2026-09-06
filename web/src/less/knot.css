@@ -680,6 +680,20 @@
 .kp-flex { display: flex; align-items: center; gap: 0.75rem; }
 .kp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; }
 
+/* Controls: inputs and buttons never inherit colour or font from the page
+   (UA defaults are black text regardless of theme), so they carry their own.
+   kp-input grows to fill its flex row but can shrink below its intrinsic
+   width, keeping a trailing button on the same row in narrow columns. */
+.kp-input { flex: 1 1 auto; min-width: 0; font: inherit; color: var(--color-gray-900); border: 1px solid var(--color-gray-300); border-radius: 0.5rem; padding: 0.375rem 0.625rem; background-color: var(--color-white); }
+.kp-input::placeholder { color: var(--color-gray-500); }
+.dark .kp-input { color: var(--color-gray-100); border-color: var(--color-gray-600); background-color: var(--color-gray-800); }
+.dark .kp-input::placeholder { color: var(--color-gray-400); }
+.kp-button { font: inherit; cursor: pointer; color: var(--color-gray-700); border: 1px solid var(--color-gray-300); border-radius: 0.5rem; padding: 0.375rem 0.875rem; background-color: var(--color-white); transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+.kp-button:hover { background-color: var(--color-gray-100); border-color: var(--color-gray-400); }
+.kp-button:disabled { opacity: 0.6; cursor: default; }
+.dark .kp-button { color: var(--color-gray-200); border-color: var(--color-gray-600); background-color: var(--color-gray-800); }
+.dark .kp-button:hover { background-color: var(--color-gray-700); border-color: var(--color-gray-500); }
+
 
 /* Plugin markdown block prose. Same intent as .prose-chat: Tailwind
    Preflight resets list/heading styles, so plugin markdown needs explicit

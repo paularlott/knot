@@ -129,7 +129,8 @@ def showcase():
             {
                 "columns": [
                     {"id": "notes", "type": "markdown", "title": "Markdown", "handler": "col_notes", "width": 2},
-                    {"id": "clock", "type": "html", "title": "Trusted html (kp-* helpers)", "handler": "col_clock", "refresh": 60, "width": 2},
+                    {"id": "clock", "type": "html", "title": "Trusted html (kp-* helpers)", "handler": "col_clock", "refresh": 60, "width": 1},
+                    {"id": "echo", "type": "html", "title": "Trusted html (Alpine calling the plugin)", "handler": "col_echo", "width": 1},
                 ],
             },
             {
@@ -250,7 +251,16 @@ def col_spaces():
                 "message": "Report for " + key + " generated.",
                 "dialog": {
                     "title": "Report: " + key,
-                    "markdown": "Generated " + time.now() + " for **" + key + "**.\n\n- actions POST to the column's own handler\n- the envelope carries a dialog with markdown\n- knot renders it server-side, the client just places it\n\n```python\ndef col_spaces():\n    return {\"status\": \"ok\", \"dialog\": {\"title\": ..., \"markdown\": ...}}\n```",
+                    "markdown": f"""Generated {time.now()} for **{key}**.
+
+- actions POST to the column's own handler
+- the envelope carries a dialog with markdown
+- knot renders it server-side, the client just places it
+
+```python
+def col_spaces():
+    return {{"status": "ok", "dialog": {{"title": ..., "markdown": ...}}}}
+```""",
                 },
             }
         if action == "archive":
@@ -349,7 +359,12 @@ def widget_notes():
     key = params.get("key", "")
     return {
         "title": "Notes: " + key,
-        "markdown": "Information popups are just handlers: an action names one, the client GETs it with the row key, and a markdown response opens read-only.\n\n- fetched fresh on every open\n- rendered server-side, so the client never runs plugin markdown\n- the popup is draggable and resizable like every knot dialog",
+        "markdown": """Information popups are just handlers: an action names one, the client
+GETs it with the row key, and a markdown response opens read-only.
+
+- fetched fresh on every open
+- rendered server-side, so the client never runs plugin markdown
+- the popup is draggable and resizable like every knot dialog""",
     }
 
 
@@ -392,13 +407,59 @@ def col_widget_form():
 
 def col_notes():
     return {
-        "markdown": 'Panels are **data-bound**: each column fetches its own data with `?_col=<id>`, shows a loader meanwhile, and refreshes on its own timer.\n\n- rows and columns carry permission/group gates\n- forms POST to their column and answer with an envelope\n- table rows carry action buttons\n\n> The handler returns data; knot owns every pixel.'
+        "markdown": """Panels are **data-bound**: each column fetches its own data with
+`?_col=<id>`, shows a loader meanwhile, and refreshes on its own timer.
+
+- rows and columns carry permission/group gates
+- forms POST to their column and answer with an envelope
+- table rows carry action buttons
+
+> The handler returns data; knot owns every pixel.""",
     }
 
 
-def col_clock():
+def col_echo():
+    # Static markup: the widget calls back into the plugin from the browser
+    # with pluginFetch('echo_word', ...) - same transport, auth and gates
+    # as every column fetch. No refresh key: an interactive column must not
+    # have its content replaced under the user.
     return {
-        "html": '<div class="kp-card kp-flex"><svg width="20" height="20" style="color:#3b82f6; flex-shrink:0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>'
-        + '<div><div class="kp-label">Server time</div>'
-        + '<div class="kp-title kp-mono">' + time.now() + '</div></div></div>'
+        "html": """
+<div class="kp-card" x-data="{ word: '', busy: false, reply: '' }">
+  <div class="kp-label">Echo service</div>
+  <div class="kp-flex" style="margin-top:0.5rem">
+    <input class="kp-input"
+           x-model="word" placeholder="type a word" aria-label="Word to echo">
+    <button class="kp-button"
+            :disabled="busy"
+            @click="busy = true; try { reply = (await pluginFetch('echo_word', { params: { word: word } })).reply } finally { busy = false }"
+            x-text="busy ? '...' : 'Send'"></button>
+  </div>
+  <div class="kp-muted" style="margin-top:0.5rem; min-height:1.2rem" x-show="reply" x-text="reply"></div>
+</div>
+"""
+    }
+
+
+def echo_word():
+    # Called by the echo widget's pluginFetch; params arrive like any
+    # handler's (query merged over POST body).
+    word = params.get("word", "")
+    if word == "":
+        return {"reply": "type something first"}
+    return {"reply": "echo: " + word.upper() + " (" + str(len(word)) + " chars)"}
+
+
+def col_clock():
+    now = time.now()
+    return {
+        "html": f"""
+<div class="kp-card kp-flex">
+  <svg width="20" height="20" style="color:#3b82f6; flex-shrink:0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+  <div>
+    <div class="kp-label">Server time</div>
+    <div class="kp-title kp-mono">{now}</div>
+  </div>
+</div>
+"""
     }
