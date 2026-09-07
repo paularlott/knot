@@ -1,8 +1,9 @@
 # /// script
-# requires-scriptling = ">=0.34"
+# requires-scriptling = ">=0.24"
 #
 # [tool.knot]
 # version = "1.0.0"
+# requires_knot = ">=0.34"
 # description = "Demo script plugin: a live dashboard, a block showcase, permission-gated menus, an SVG icon asset, and a themed logo pair."
 # permissions = ["view_dashboard", "admin_dashboard"]
 # logo_light = "assets/logo-light.svg"

@@ -1,5 +1,5 @@
 # /// script
-# requires-scriptling = ">=0.34"
+# requires-scriptling = ">=0.24"
 #
 # dependencies = [
 #   "plugin.demolib via demolib >= 1.0.0",

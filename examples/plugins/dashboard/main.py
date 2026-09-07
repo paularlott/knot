@@ -1,5 +1,5 @@
 # /// script
-# requires-scriptling = ">=0.34"
+# requires-scriptling = ">=0.24"
 #
 # [tool.knot]
 # version = "1.0.0"

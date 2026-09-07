@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/paularlott/knot/build"
+	"github.com/paularlott/scriptling/metadata"
 )
 
 // pluginEnvLibraries are the library names knot registers in plugin handler
@@ -62,6 +65,7 @@ var toolKnotKeys = map[string]bool{
 	"version":        true,
 	"description":    true,
 	"permissions":    true,
+	"requires_knot":  true,
 	"logo_light":     true,
 	"logo_dark":      true,
 	"menus":          true,
@@ -116,6 +120,24 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 	for key := range table {
 		if !toolKnotKeys[key] {
 			return nil, fmt.Errorf("[tool.knot]: unknown key %q", key)
+		}
+	}
+
+	// requires_knot is the optional host bound: the knot version this
+	// plugin's use of the plugin system needs. The same constraint syntax
+	// as requires-scriptling (metadata.Satisfies), checked against knot's
+	// own build version at load.
+	if v, ok := table["requires_knot"]; ok {
+		constraint, ok := v.(string)
+		if !ok || constraint == "" {
+			return nil, fmt.Errorf("[tool.knot]: requires_knot must be a non-empty version constraint")
+		}
+		satisfied, err := metadata.Satisfies(build.Version, constraint)
+		if err != nil {
+			return nil, fmt.Errorf("[tool.knot]: requires_knot %q cannot be checked against knot %s: %v", constraint, build.Version, err)
+		}
+		if !satisfied {
+			return nil, fmt.Errorf("[tool.knot]: requires_knot %s not satisfied: this knot is %s", constraint, build.Version)
 		}
 	}
 

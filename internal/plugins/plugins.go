@@ -409,6 +409,12 @@ func QualifiedPermission(pluginName, id string) string {
 // binary cannot stall boot.
 const peerLoadTimeout = 15 * time.Second
 
+// scriptlingVersionForVerify reports the embedded scriptling runtime
+// version a plugin's requires-scriptling is checked against. Variable so
+// tests can pin one — test binaries carry no dependency versions, so the
+// real function reports "unknown" under go test.
+var scriptlingVersionForVerify = build.ScriptlingVersion
+
 // Load scans the plugins path and builds the global registry. PluginsPath
 // empty or missing disables plugins (nil registry, no error). Failures are
 // per-plugin: a broken plugin is recorded and the server continues.
@@ -610,8 +616,18 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 	}
 
 	if ok {
+		// requires-scriptling bounds the embedded scriptling runtime the
+		// plugin's code runs on — the language features it may use — so the
+		// check runs against the embedded module's version, not knot's.
+		// Dev builds (replace directive) and test binaries carry no
+		// embedded version; the check is skipped there rather than failing
+		// everything.
+		hostVersion := scriptlingVersionForVerify()
+		if hostVersion == "unknown" || hostVersion == "local" {
+			m.RequiresScriptling = ""
+		}
 		env := metadata.Env{
-			HostVersion: build.Version,
+			HostVersion: hostVersion,
 			Resolves:    resolverFor(c, p),
 			PluginVersion: func(name string) (string, bool) {
 				if p.scope == nil {
