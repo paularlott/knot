@@ -543,3 +543,151 @@ func TestUserToolPluginLoopbackCall(t *testing.T) {
 		t.Fatalf("unknown plugin: err = %v", err)
 	}
 }
+
+// TestUserToolPluginReachBoundary enumerates every route a user-created
+// tool can take to plugin code and pins the gate on each. The helper
+// addresses declared handlers only — a handler name with a path separator
+// is refused outright, so page-scoped URLs cannot be smuggled through it.
+// The raw loopback (knot.apiclient) reaches exactly the URLs a browser
+// can: page-scoped handlers the requesting user's layout offers, with
+// column gates at fetch time — never an arbitrary function.
+func TestUserToolPluginReachBoundary(t *testing.T) {
+	model.SetRoleCache(nil)
+	handlerURLFixture(t)
+	config.SetServerConfig(&config.ServerConfig{MCPToolTimeout: 30})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+	mux.HandleFunc("POST /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+	rest.SetAPIMux(mux)
+	t.Cleanup(func() { rest.SetAPIMux(http.NewServeMux()) })
+
+	admin := &model.User{Username: "admin", Id: "u-a", Active: true, Roles: []string{model.RoleAdminUUID}}
+
+	run := func(body string) error {
+		script := &model.Script{Name: "boundary_tool", ScriptType: "tool", Active: true, Content: body}
+		_, err := service.ExecuteScriptWithMCP(script, map[string]object.Object{}, admin)
+		return err
+	}
+
+	// The helper: a handler name carrying a path separator is refused
+	// before any request — page-scoped URLs cannot be smuggled in.
+	for _, handler := range []string{"report/col_text", "../hooked/echo_word", "open/popup_notes"} {
+		if err := run("import knot.plugin as kp\nresult = kp.call(\"hooked\", \"" + handler + "\", {})"); err == nil || !strings.Contains(err.Error(), "invalid plugin or handler name") {
+			t.Errorf("call(%q): err = %v, want invalid handler name", handler, err)
+		}
+	}
+
+	// The raw loopback: exactly the browser's surface. An undeclared
+	// handler is not root-addressable...
+	if err := run("import knot.apiclient as api\nresult = api.get(\"/plugins/hooked/col_text\")"); err == nil || !strings.Contains(err.Error(), "HTTP 404") {
+		t.Errorf("root undeclared via raw loopback: err = %v, want HTTP 404", err)
+	}
+	// ...a handler no layout offers is refused even for admins...
+	if err := run("import knot.apiclient as api\nresult = api.get(\"/plugins/hooked/open/col_secret\")"); err == nil || !strings.Contains(err.Error(), "HTTP 403") {
+		t.Errorf("unreferenced handler via raw loopback: err = %v, want HTTP 403", err)
+	}
+	// ...and one the layout offers answers, gates applied — the same
+	// fetch the user's browser makes when it renders the page.
+	out, err := service.ExecuteScriptWithMCP(&model.Script{Name: "boundary_tool", ScriptType: "tool", Active: true, Content: "import knot.apiclient as api\nresult = api.get(\"/plugins/hooked/report/col_text\")\nprint(result.get(\"text\"))"}, map[string]object.Object{}, admin)
+	if err != nil || !strings.Contains(out, "plain") {
+		t.Errorf("offered page-scoped handler via raw loopback = %q err = %v, want the column's data (browser-equivalent)", out, err)
+	}
+
+	// Nothing from the plugin's folder is importable either: not the
+	// entry file, not its internal modules — only the plugin's published
+	// libs/ ever register under the plugin.* namespace.
+	for _, name := range []string{"main", "helpers"} {
+		if err := run("import " + name); err == nil || !strings.Contains(err.Error(), "unknown library") {
+			t.Errorf("import %s in a user tool: err = %v, want unknown library", name, err)
+		}
+	}
+}
+
+// moduleFixture loads a plugin whose handlers live in a sibling module:
+// the entry file stays the declaration surface, the bulk of the code
+// splits into helpers.py — referenced as "module.fn" everywhere a handler
+// name is accepted.
+func moduleFixture(t *testing.T) {
+	t.Helper()
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{
+		BadgerDB: config.BadgerDBConfig{Enabled: true, Path: t.TempDir()},
+	})
+
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "splitter")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	entry := `# /// script
+# requires-scriptling = ">=0.1"
+#
+# [tool.knot]
+# version = "1.0"
+#
+# [[tool.knot.pages]]
+# path = "/report"
+# handler = "report"
+# label = "Report"
+#
+# [[tool.knot.handlers]]
+# handler = "helpers.echo"
+# ///
+import helpers
+
+
+def report():
+    return {"rows": [{"columns": [{"id": "t", "type": "text", "handler": "helpers.col_data"}]}]}
+`
+	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	module := `def col_data():
+    return {"text": "data from the module"}
+
+
+def echo():
+    return {"reply": "module echo"}
+`
+	if err := os.WriteFile(filepath.Join(pluginDir, "helpers.py"), []byte(module), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := plugins.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins.SetRegistry(registry)
+	t.Cleanup(func() {
+		registry.Close()
+		plugins.SetRegistry(nil)
+	})
+}
+
+// TestModuleHandlerDispatch pins the split: a plugin's handlers may live
+// in sibling modules, referenced as "module.fn" in page layouts and
+// handler declarations alike — the entry file stays the declaration
+// surface while the code scales into as many files as it needs.
+func TestModuleHandlerDispatch(t *testing.T) {
+	model.SetRoleCache(nil)
+	moduleFixture(t)
+	admin := &model.User{Username: "admin", Roles: []string{model.RoleAdminUUID}}
+
+	// The layout itself renders with a module-qualified column handler.
+	w := dispatchPluginRequest(t, "GET", "/plugins/splitter/report", admin)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "helpers.col_data") {
+		t.Fatalf("layout with module handler = %d %s", w.Code, w.Body.String())
+	}
+	// The column handler answers through its page path (undeclared: the
+	// layout offers it, column gates at fetch time).
+	w = dispatchPluginRequest(t, "GET", "/plugins/splitter/report/helpers.col_data", admin)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "data from the module") {
+		t.Fatalf("module column handler = %d %s", w.Code, w.Body.String())
+	}
+	// A module handler declared in [[tool.knot.handlers]] is plugin-root
+	// addressable like any declared handler.
+	w = dispatchPluginRequest(t, "GET", "/plugins/splitter/helpers.echo", admin)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "module echo") {
+		t.Fatalf("declared module handler = %d %s", w.Code, w.Body.String())
+	}
+}
