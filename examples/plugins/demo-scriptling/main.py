@@ -1,5 +1,8 @@
 # /// script
 # requires-scriptling = ">=0.24"
+# dependencies = [
+#   "plugin.calc via calc >= 1.0",
+# ]
 #
 # [tool.knot]
 # version = "1.0.0"
@@ -16,6 +19,9 @@
 # [[tool.knot.handlers]]
 # handler = "echo_word"
 # permission = "view_dashboard"
+#
+# [[tool.knot.handlers]]
+# handler = "lib_exports"
 #
 # [[tool.knot.mcp_tools]]
 # name = "echo_word"
@@ -58,6 +64,10 @@ definition / POST envelope) with a dynamic autocompleter, markdown and
 trusted html columns styled with the kp-* helpers. Everything is
 data-bound: the layout is fetched once, each column talks directly to its
 handler, and form envelopes drive notifications and column refreshes.
+
+The plugin also ships an in-process scriptling library (libs/calc.py): a
+constant, plain functions and a stateful class importable as plugin.calc —
+by its own handlers and by user-created MCP tools alike.
 """
 
 import math
@@ -154,6 +164,13 @@ def showcase():
                 "columns": [
                     {"id": "blurb", "type": "text", "title": "Text", "handler": "col_text", "width": 2},
                     {"id": "bars", "type": "bar", "title": "Bar", "handler": "col_bars", "width": 2},
+                ],
+            },
+            {
+                "title": "Plugin exports",
+                "columns": [
+                    {"id": "exports", "type": "table", "title": "Scriptling library (libs/calc.py)", "handler": "lib_exports", "width": 2},
+                    {"id": "libdoc", "type": "markdown", "title": "Exports", "handler": "col_libs", "width": 2},
                 ],
             },
         ]
@@ -489,4 +506,49 @@ def col_clock():
   </div>
 </div>
 """
+    }
+
+def lib_exports():
+    # The plugin's own scriptling library (libs/calc.py), imported
+    # in-process: a constant, plain functions, a stateful class, and one
+    # self-gating function. The same import works in user-created MCP
+    # tools — plugin.calc is published compute, so its gate is its own.
+    import plugin.calc as calc
+
+    c = calc.Counter(4)
+    first = c.next()
+    second = c.next()
+    try:
+        report = calc.gated_report()
+        gated = "granted for " + report.get("for", "?")
+    except Exception as e:
+        gated = "self-gated: " + str(e)
+    return {
+        "columns": [
+            {"key": "prop", "label": "Export"},
+            {"key": "value", "label": "Result"},
+        ],
+        "rows": [
+            {"prop": "lib", "value": "import plugin.calc"},
+            {"prop": "MAX", "value": str(calc.MAX)},
+            {"prop": "add(2, 3)", "value": str(calc.add(2, 3))},
+            {"prop": "scale(30, 5)", "value": str(calc.scale(30, 5))},
+            {"prop": "Counter(4).next() x2", "value": str(first) + ", " + str(second) + " (value " + str(c.value()) + ")"},
+            {"prop": "gated_report()", "value": gated},
+        ],
+    }
+
+
+def col_libs():
+    return {
+        "markdown": (
+            "A `libs/` folder is how a plugin publishes scriptling code for reuse: "
+            "**Scriptling libraries** (`libs/*.py`) load in-process — no subprocess, no CLI — and their public "
+            "surface imports as `plugin.<name>`: constants, functions, classes with state. "
+            "**Go peers** (see the `demo-go` plugin) are binaries in `bin/` speaking "
+            "JSON-RPC, imported the same way.\n\n"
+            "The same import works in **user-created MCP tools** — no metadata gate applies "
+            "to an import, so exported code that needs one self-gates via "
+            "`knot.identity.user()` (see `gated_report` in the table)."
+        )
     }

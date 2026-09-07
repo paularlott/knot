@@ -97,10 +97,10 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Permission: field.Permission,
 			})
 		}
-		for _, peer := range p.ScriptPeers {
-			info.ScriptPeers = append(info.ScriptPeers, apiclient.PluginScriptPeerInfo{
-				Name:    peer.Name,
-				Version: peer.Version,
+		for _, lib := range p.Libs {
+			info.Libs = append(info.Libs, apiclient.PluginLibInfo{
+				Name:    lib.Name,
+				Version: lib.Version,
 			})
 		}
 		list.Plugins = append(list.Plugins, info)

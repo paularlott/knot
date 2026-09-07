@@ -14,8 +14,11 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/plugins"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/scriptling/object"
 )
 
 // handlerURLFixture loads a one-plugin registry exercising every gate shape:
@@ -478,5 +481,65 @@ func TestPluginUserGlobal(t *testing.T) {
 		if text := fetch(admin); !strings.Contains(text, want) {
 			t.Errorf("admin identity missing %q: %s", want, text)
 		}
+	}
+}
+
+// TestUserToolPluginLoopbackCall pins the user-tool boundary transport:
+// knot.plugin.call exists in user-created tools but rides the in-process
+// loopback — the same authenticated transport the knot.* libraries use —
+// through the real web dispatch. Declared gates apply exactly as for a
+// browser fetch, and undeclared handlers are not addressable.
+func TestUserToolPluginLoopbackCall(t *testing.T) {
+	model.SetRoleCache(nil)
+	handlerURLFixture(t)
+	config.SetServerConfig(&config.ServerConfig{MCPToolTimeout: 30})
+
+	// The loopback: the plugin routes on the mux the MuxClient hits,
+	// wrapped in the same middleware a real request passes through.
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+	mux.HandleFunc("POST /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+	rest.SetAPIMux(mux)
+	t.Cleanup(func() { rest.SetAPIMux(http.NewServeMux()) })
+
+	plain := &model.User{Username: "plain", Id: "u-p", Active: true}
+	admin := &model.User{Username: "admin", Id: "u-a", Active: true, Roles: []string{model.RoleAdminUUID}}
+
+	run := func(user *model.User, body string) (string, error) {
+		script := &model.Script{Name: "loopback_tool", ScriptType: "tool", Active: true, Content: body}
+		return service.ExecuteScriptWithMCP(script, map[string]object.Object{}, user)
+	}
+
+	// Declared, ungated handler: params travel, the JSON body parses.
+	out, err := run(plain, "import knot.plugin as kp\nresult = kp.call(\"hooked\", \"echo_word\", {\"word\": \"hi\"})\nprint(result.get(\"reply\"))")
+	if err != nil {
+		t.Fatalf("loopback call as plain: %v", err)
+	}
+	if !strings.Contains(out, "echo: HI") {
+		t.Errorf("loopback result = %q", out)
+	}
+
+	// POST rides the same loopback with a JSON body.
+	out, err = run(plain, "import knot.plugin as kp\nresult = kp.call(\"hooked\", \"echo_word\", {\"word\": \"yo\"}, method=\"POST\")\nprint(result.get(\"reply\"))")
+	if err != nil || !strings.Contains(out, "echo: YO") {
+		t.Errorf("loopback POST = %q err = %v", out, err)
+	}
+
+	// Declared, gated handler: refused for a user without the grant.
+	if _, err := run(plain, "import knot.plugin as kp\nresult = kp.call(\"hooked\", \"col_table\", {})"); err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("gated handler as plain: err = %v, want permission denied", err)
+	}
+	// Admin passes the same gate through the same path.
+	if out, err = run(admin, "import knot.plugin as kp\nimport json\nresult = kp.call(\"hooked\", \"col_table\", {})\nprint(json.dumps(result))"); err != nil || !strings.Contains(out, "alpha") {
+		t.Errorf("gated handler as admin = %q err = %v", out, err)
+	}
+
+	// Undeclared handlers are not addressable at the plugin root.
+	if _, err := run(admin, "import knot.plugin as kp\nresult = kp.call(\"hooked\", \"col_text\", {})"); err == nil || !strings.Contains(err.Error(), "not addressable") {
+		t.Fatalf("undeclared handler: err = %v, want not addressable", err)
+	}
+	// Unknown plugin.
+	if _, err := run(admin, "import knot.plugin as kp\nresult = kp.call(\"nope\", \"echo_word\", {})"); err == nil || !strings.Contains(err.Error(), "not addressable") {
+		t.Fatalf("unknown plugin: err = %v", err)
 	}
 }

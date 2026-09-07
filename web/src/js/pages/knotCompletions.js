@@ -294,6 +294,18 @@ export const knotLibraries = [
     ]
   },
   {
+    "module": "knot.identity",
+    "description": "The requesting user for module code (plugin libraries in libs/, lib scripts).",
+    "functions": [
+      {
+        "name": "user",
+        "signature": "user()",
+        "description": "The User instance the `user` global holds — id, name, is_admin, groups, permissions (stable keys), plugin_permissions (qualified grants), with has_permission and in_group. Module code can't see the dispatch globals (their scope is the calling program), so this library carries the same instance; it is re-bound per dispatch, so it always answers with the current user.",
+        "returns": "User"
+      }
+    ]
+  },
+  {
     "module": "knot.jobs",
     "description": "Manage the scheduled jobs of a space.",
     "functions": [
@@ -796,6 +808,18 @@ export const knotLibraries = [
         "signature": "SCRIPT_EXECUTE",
         "description": "Constant (int)",
         "returns": "int"
+      }
+    ]
+  },
+  {
+    "module": "knot.plugin",
+    "description": "Calls to declared plugin handlers, as the requesting user.",
+    "functions": [
+      {
+        "name": "call",
+        "signature": "call(plugin, handler, params, method)",
+        "description": "Call a plugin's [[tool.knot.handlers]]-declared handler as the requesting user. params become the query string (GET, the default) or a JSON body (POST). Returns the handler's JSON answer as a dict; raises on a refused gate (permission denied), an undeclared handler, or an unknown plugin.",
+        "returns": "dict"
       }
     ]
   },

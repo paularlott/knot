@@ -45,6 +45,11 @@ func TestLoadExamplePlugins(t *testing.T) {
 	if len(scriptling.Menus) != 3 {
 		t.Errorf("menus = %+v", scriptling.Menus)
 	}
+	// demo-scriptling publishes an in-process scriptling library:
+	// constants, functions and a class importable as plugin.calc.
+	if len(scriptling.Libs) != 1 || scriptling.Libs[0].Name != "calc" {
+		t.Errorf("script libs = %+v, want calc", scriptling.Libs)
+	}
 	// demo-scriptling ships a themed pair, which claims the site logo.
 	if !scriptling.SiteLogo {
 		t.Error("demo-scriptling's logo pair should claim the site logo")

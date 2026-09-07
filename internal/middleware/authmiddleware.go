@@ -516,6 +516,19 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.WithGroup("auth")
 
+		// In-process callers — the loopback transport MCP tools use —
+		// arrive with the user already in context and no session cookie
+		// to validate. Context values cannot arrive over the wire, so
+		// this fast path is knot's own callers only; the same pattern
+		// ApiAuth uses for the MuxClient.
+		if userVal := r.Context().Value("user"); userVal != nil {
+			if user, ok := userVal.(*model.User); ok && user != nil && user.Active && !user.IsDeleted {
+				logger.Trace("context user authenticated", "user_id", user.Id)
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
 		// If no session then redirect to login
 		session, err := GetSessionFromCookie(r)
 		if session == nil {

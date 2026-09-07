@@ -127,7 +127,7 @@ type Plugin struct {
 	Handlers      []Handler        `json:"handlers"`
 	MCPTools      []MCPTool        `json:"mcp_tools"`
 	FieldHandlers []FieldHandler   `json:"field_handlers"`
-	ScriptPeers   []ScriptPeer     `json:"script_peers,omitempty"`
+	Libs          []ScriptLib       `json:"libs,omitempty"`
 
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem.
@@ -387,17 +387,17 @@ func MCPToolParamSchemaType(declared string) string {
 	return "string"
 }
 
-// ScriptPeer is a scriptling-authored peer: a .py file in the plugin's
-// peers/ folder, loaded in-process by knot's embedded scriptling (no CLI,
+// ScriptLib is a scriptling-authored library: a .py file in the plugin's
+// libs/ folder, loaded in-process by knot's embedded scriptling (no CLI,
 // no subprocess). Its public surface — functions, classes and constants
 // not prefixed with "_" — becomes the plugin.<name> import in handler
-// environments. Version comes from the optional [tool.knot.peer] table in
-// the peer's metadata block, and the consuming plugin's dependency
-// declaration ("plugin.<lib> via <peer> >= x") validates against it the
-// same way Go peer handshakes do.
-type ScriptPeer struct {
-	Name    string `json:"name"`    // from the filename, e.g. peers/calc.py -> "calc"
-	Version string `json:"version"` // [tool.knot.peer] version, default "1.0"
+// environments and user-created tools. Version comes from the optional
+// [tool.knot.lib] table in the library's metadata block, and the consuming
+// plugin's dependency declaration ("plugin.<lib> via <lib> >= x")
+// validates against it the same way Go peer handshakes do.
+type ScriptLib struct {
+	Name    string `json:"name"`    // from the filename, e.g. libs/calc.py -> "calc"
+	Version string `json:"version"` // [tool.knot.lib] version, default "1.0"
 	Source  string `json:"-"`
 }
 
@@ -662,10 +662,10 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 	}
 	p.scope = scope
 
-	if sp, err := loadScriptPeers(c.dir); err != nil {
+	if sp, err := loadScriptLibs(c.dir); err != nil {
 		return nil, warnings, err
 	} else {
-		p.ScriptPeers = sp
+		p.Libs = sp
 	}
 
 	if ok {
@@ -683,7 +683,7 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 			HostVersion: hostVersion,
 			Resolves:    resolverFor(c, p),
 			PluginVersion: func(name string) (string, bool) {
-				for _, sp := range p.ScriptPeers {
+				for _, sp := range p.Libs {
 					if sp.Name == name {
 						return sp.Version, true
 					}
@@ -734,20 +734,20 @@ func resolverFor(c candidate, p *Plugin) func(string) bool {
 	}
 }
 
-// loadScriptPeers reads the plugin's peers/ folder: one scriptling peer
-// per .py file, named by its filename. The optional [tool.knot.peer]
-// table in the peer's metadata block carries the version dependency
+// loadScriptLibs reads the plugin's libs/ folder: one scriptling library
+// per .py file, named by its filename. The optional [tool.knot.lib]
+// table in the library's metadata block carries the version dependency
 // declarations check; without it the version defaults to "1.0".
-func loadScriptPeers(pluginDir string) ([]ScriptPeer, error) {
-	peersDir := filepath.Join(pluginDir, "peers")
-	entries, err := os.ReadDir(peersDir)
+func loadScriptLibs(pluginDir string) ([]ScriptLib, error) {
+	libsDir := filepath.Join(pluginDir, "libs")
+	entries, err := os.ReadDir(libsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	var peers []ScriptPeer
+	var libs []ScriptLib
 	for _, entry := range entries {
 		name := entry.Name()
 		if entry.IsDir() || filepath.Ext(name) != ".py" || strings.HasPrefix(name, ".") {
@@ -755,23 +755,23 @@ func loadScriptPeers(pluginDir string) ([]ScriptPeer, error) {
 		}
 		peerName := strings.TrimSuffix(name, ".py")
 		if !pluginNameRe.MatchString(peerName) {
-			return nil, fmt.Errorf("peers/%s: not a valid peer name ([a-z0-9_-]+)", name)
+			return nil, fmt.Errorf("libs/%s: not a valid library name ([a-z0-9_-]+)", name)
 		}
-		source, err := os.ReadFile(filepath.Join(peersDir, name))
+		source, err := os.ReadFile(filepath.Join(libsDir, name))
 		if err != nil {
-			return nil, fmt.Errorf("peers/%s: %v", name, err)
+			return nil, fmt.Errorf("libs/%s: %v", name, err)
 		}
 		version := "1.0"
 		if m, ok, err := metadata.Parse(source); err != nil {
-			return nil, fmt.Errorf("peers/%s: metadata block: %v", name, err)
+			return nil, fmt.Errorf("libs/%s: metadata block: %v", name, err)
 		} else if ok {
-			if t, found := m.Tool("knot.peer"); found {
+			if t, found := m.Tool("knot.lib"); found {
 				if v, ok := t["version"].(string); ok && v != "" {
 					version = v
 				}
 			}
 		}
-		peers = append(peers, ScriptPeer{Name: peerName, Version: version, Source: string(source)})
+		libs = append(libs, ScriptLib{Name: peerName, Version: version, Source: string(source)})
 	}
-	return peers, nil
+	return libs, nil
 }

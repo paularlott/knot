@@ -19,6 +19,11 @@ A folder plugin (`main.py` + `assets/`) declaring:
   listed in the sidebar via its `menu_label`;
 - **two link menu items**: one public (any logged-in user), one gated by
   `admin_dashboard`;
+- **an in-process scriptling library** (`libs/calc.py`): a constant, plain
+  functions and a stateful `Counter` class importable as `plugin.calc` —
+  exercised by the showcase's *Plugin peers* row, and available to
+  user-created MCP tools too, where the self-gating `gated_report()`
+  demonstrates `knot.identity.user()` permission checks;
 - **its own SVG icons**: every item uses `assets/icon.svg`, a
   currentColor-stroked SVG that themes with the UI like knot's built-ins.
 
@@ -78,10 +83,10 @@ also a demo of the failure path.
   stdio JSON-RPC; the plugin's handlers import it as `plugin.<name>`
   (demo-go's `import plugin.demolib`, whose `peer_class` handler exercises
   the peer's `Counter` class - `RegisterClass` in `peer/main.go`).
-- **Scriptling peers, in-process** (supported): a `.py` in the plugin's
-  `peers/` folder loads via knot's embedded scriptling - no CLI, no
+- **Scriptling libraries, in-process** (supported): a `.py` in the plugin's
+  `libs/` folder loads via knot's embedded scriptling - no CLI, no
   subprocess - and its public surface is importable as `plugin.<name>`,
-  with the `[tool.knot.peer]` version checked by dependency declarations. The metadata dependency
+  with the `[tool.knot.lib]` version checked by dependency declarations. The metadata dependency
   (`plugin.demolib via demolib >= 1.0.0`) is verified against the live
   handshake at load. Handlers can also drive peers dynamically through the
   `scriptling.plugin` control library (`list`, `describe`, `call_function`).

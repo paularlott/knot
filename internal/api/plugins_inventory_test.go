@@ -16,7 +16,7 @@ import (
 
 // TestPluginInventoryComplete pins the admin inventory: every declaration
 // surface appears in /api/plugins — MCP tools (with parameters and gates),
-// ajax handlers, field handlers and scriptling peers alongside the
+// ajax handlers, field handlers and scriptling libraries alongside the
 // permissions, menus, pages and binary peers that predate them.
 func TestPluginInventoryComplete(t *testing.T) {
 	config.SetServerConfig(&config.ServerConfig{})
@@ -24,8 +24,8 @@ func TestPluginInventoryComplete(t *testing.T) {
 
 	dir := t.TempDir()
 	pluginDir := filepath.Join(dir, "full")
-	peersDir := filepath.Join(pluginDir, "peers")
-	if err := os.MkdirAll(peersDir, 0o755); err != nil {
+	libsDir := filepath.Join(pluginDir, "libs")
+	if err := os.MkdirAll(libsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	source := `# /// script
@@ -79,7 +79,7 @@ def field_env():
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(peersDir, "calc.py"), []byte("def add(a, b):\n    return a + b\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(libsDir, "calc.py"), []byte("def add(a, b):\n    return a + b\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	registry, err := plugins.Load(dir)
@@ -112,10 +112,10 @@ def field_env():
 				Id    string `json:"id"`
 				Label string `json:"label"`
 			} `json:"field_handlers"`
-			ScriptPeers []struct {
+			Libs []struct {
 				Name    string `json:"name"`
 				Version string `json:"version"`
-			} `json:"script_peers"`
+			} `json:"libs"`
 		} `json:"plugins"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil {
@@ -141,7 +141,7 @@ def field_env():
 	if len(p.FieldHandlers) != 1 || p.FieldHandlers[0].Id != "plugin.full.field_env" {
 		t.Errorf("field handlers = %+v", p.FieldHandlers)
 	}
-	if len(p.ScriptPeers) != 1 || p.ScriptPeers[0].Name != "calc" || p.ScriptPeers[0].Version != "1.0" {
-		t.Errorf("script peers = %+v", p.ScriptPeers)
+	if len(p.Libs) != 1 || p.Libs[0].Name != "calc" || p.Libs[0].Version != "1.0" {
+		t.Errorf("script libs = %+v", p.Libs)
 	}
 }

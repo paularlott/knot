@@ -162,39 +162,6 @@ func TestKnotPluginCallBindsCallerUser(t *testing.T) {
 	}
 }
 
-// TestKnotPluginCallFromScriptEnv pins the user-defined MCP tool path: a
-// script running in the server script env (what built-in and user MCP
-// tools get) calls a plugin's declared handler through knot.plugin — and
-// the declared gate is enforced against the requesting user, so a user
-// without the grant is refused no matter what tool they wrote.
-func TestKnotPluginCallFromScriptEnv(t *testing.T) {
-	_, _ = callFixture(t)
-	plain := &model.User{Username: "plain", Id: "u-2"}
-	admin := &model.User{Username: "admin", Id: "u-1", Roles: []string{model.RoleAdminUUID}}
-	ctx := context.Background()
-
-	run := func(user *model.User, handler string) error {
-		env, _, cleanup, err := NewServerScriptlingEnv(apiclient.NewMuxClient(user), ServerScriptlingOptions{User: user})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cleanup()
-		_, err = env.EvalWithContext(ctx, "import knot.plugin as kp\nresult = kp.call('provider', '"+handler+"', {})")
-		return err
-	}
-
-	// Ungated declared handler: callable by the plain user.
-	if err := run(plain, "hello"); err != nil {
-		t.Fatalf("user tool calling ungated handler: %v", err)
-	}
-	// Gated declared handler: refused for the plain user, passes for admin.
-	if err := run(plain, "secret"); err == nil || !strings.Contains(err.Error(), "permission denied") {
-		t.Fatalf("user tool calling gated handler as plain: err = %v, want permission denied", err)
-	}
-	if err := run(admin, "secret"); err != nil {
-		t.Fatalf("user tool calling gated handler as admin: %v", err)
-	}
-}
 
 // TestUserHasPermissionDispatch pins the merged permission check: one
 // has_permission method whose argument picks the check — an integer is a

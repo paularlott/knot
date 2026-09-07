@@ -116,12 +116,12 @@
                     </div>
                   </div>
 
-                  <div class="mt-3" x-show="plugin.script_peers && plugin.script_peers.length > 0">
-                    <div class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Scriptling peers</div>
+                  <div class="mt-3" x-show="plugin.libs && plugin.libs.length > 0">
+                    <div class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Scriptling libs</div>
                     <div class="flex flex-wrap gap-1">
-                      <template x-for="peer in plugin.script_peers" :key="peer.name">
+                      <template x-for="lib in plugin.libs" :key="lib.name">
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
-                          <span x-text="peer.name + ' v' + peer.version"></span>
+                          <span x-text="lib.name + ' v' + lib.version"></span>
                         </span>
                       </template>
                     </div>
@@ -134,7 +134,7 @@
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
                           :class="peer.healthy ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'"
                           :title="peer.error || ''">
-                          <span x-text="peer.name + ' v' + peer.version"></span>
+                          <span x-text="lib.name + ' v' + lib.version"></span>
                         </span>
                       </template>
                     </div>

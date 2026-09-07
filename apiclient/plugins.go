@@ -54,8 +54,8 @@ type PluginFieldHandlerInfo struct {
 	Permission string   `json:"permission,omitempty"`
 }
 
-// PluginScriptPeerInfo is one in-process scriptling peer.
-type PluginScriptPeerInfo struct {
+// PluginLibInfo is one in-process scriptling library.
+type PluginLibInfo struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
 }
@@ -74,7 +74,7 @@ type PluginInfo struct {
 	MCPTools      []PluginMCPToolInfo      `json:"mcp_tools,omitempty"`
 	Handlers      []PluginHandlerInfo      `json:"handlers,omitempty"`
 	FieldHandlers []PluginFieldHandlerInfo `json:"field_handlers,omitempty"`
-	ScriptPeers   []PluginScriptPeerInfo   `json:"script_peers,omitempty"`
+	Libs          []PluginLibInfo          `json:"libs,omitempty"`
 }
 
 type FailedPluginInfo struct {
