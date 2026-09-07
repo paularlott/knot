@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -72,23 +73,22 @@ func TestScanCandidates(t *testing.T) {
 		t.Fatal(err)
 	}
 	candidates, warnings := scanCandidates(dir, entries)
-	if len(candidates) != 2 {
-		t.Fatalf("candidates = %v, want 2", candidates)
+	if len(candidates) != 1 {
+		t.Fatalf("candidates = %v, want 1 (folders only)", candidates)
 	}
 	if candidates[0].name != "folder-plugin" {
 		t.Errorf("candidates[0] = %+v", candidates[0])
 	}
-	if candidates[0].singleFile {
-		t.Error("folder-plugin reported as singleFile")
-	}
-	if candidates[1].name != "single" || !candidates[1].singleFile {
-		t.Errorf("candidates[1] = %+v", candidates[1])
+	if !slices.Contains(warnings, "file single.py is not a plugin — plugins are folders with a main.py; ignored") {
+		t.Errorf("warnings = %v, want the loose file named", warnings)
 	}
 	if len(warnings) < 2 {
 		t.Errorf("warnings = %v, want the no-main.py and invalid-name folders warned", warnings)
 	}
 
 	// A file and folder claiming the same name: the folder wins.
+	// A loose file next to a folder of the same name is simply ignored
+	// (with its own warning) — folders are the only plugin shape.
 	dir2 := t.TempDir()
 	writePlugin(t, dir2, "dupe", goodMetadata())
 	if err := os.WriteFile(filepath.Join(dir2, "dupe.py"), []byte("x"), 0o644); err != nil {
@@ -96,11 +96,11 @@ func TestScanCandidates(t *testing.T) {
 	}
 	entries2, _ := os.ReadDir(dir2)
 	candidates2, warnings2 := scanCandidates(dir2, entries2)
-	if len(candidates2) != 1 || candidates2[0].name != "dupe" || candidates2[0].singleFile {
+	if len(candidates2) != 1 || candidates2[0].name != "dupe" {
 		t.Fatalf("candidates2 = %+v", candidates2)
 	}
 	if len(warnings2) != 1 {
-		t.Errorf("warnings2 = %v, want the collision warned once", warnings2)
+		t.Errorf("warnings2 = %v, want the loose file warned once", warnings2)
 	}
 }
 
@@ -203,9 +203,12 @@ func TestLoadEmptyAndMissingPath(t *testing.T) {
 	}
 }
 
-func TestSingleFilePlugin(t *testing.T) {
+// TestLooseFileIsNotPlugin pins the folders-only rule: a loose .py in the
+// plugins root is ignored with a warning — plugins are folders with a
+// main.py, so peers and assets always have a home.
+func TestLooseFileIsNotPlugin(t *testing.T) {
 	dir := t.TempDir()
-	source := "# /// script\n# requires-scriptling = \">=0.1\"\n#\n# [tool.knot]\n# version = \"2.0\"\n# permissions = [\"use\"]\n#\n# [[tool.knot.menus]]\n# label = \"L\"\n# url = \"/local\"\n# ///\n"
+	source := "# /// script\n# requires-scriptling = \">=0.1\"\n#\n# [tool.knot]\n# version = \"2.0\"\n# ///\n"
 	if err := os.WriteFile(filepath.Join(dir, "tiny.py"), []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -213,14 +216,13 @@ func TestSingleFilePlugin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	all := registry.All()
-	if len(all) != 1 || all[0].Name != "tiny" || all[0].Folder {
-		t.Fatalf("plugins = %+v", all)
+	defer registry.Close()
+	if len(registry.All()) != 0 {
+		t.Fatalf("plugins = %+v, want none (loose files are not plugins)", registry.All())
 	}
-	if all[0].Version != "2.0" || len(all[0].Menus) != 1 {
-		t.Errorf("plugin = %+v", all[0])
+	if len(registry.Warnings()) == 0 {
+		t.Error("expected a warning naming the ignored file")
 	}
-	registry.Close()
 }
 
 func TestResolveBinPeers(t *testing.T) {

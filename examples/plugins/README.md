@@ -77,7 +77,11 @@ also a demo of the failure path.
   a library name and serves functions, classes and whole libraries over
   stdio JSON-RPC; the plugin's handlers import it as `plugin.<name>`
   (demo-go's `import plugin.demolib`, whose `peer_class` handler exercises
-  the peer's `Counter` class - `RegisterClass` in `peer/main.go`). The metadata dependency
+  the peer's `Counter` class - `RegisterClass` in `peer/main.go`).
+- **Scriptling peers, in-process** (supported): a `.py` in the plugin's
+  `peers/` folder loads via knot's embedded scriptling - no CLI, no
+  subprocess - and its public surface is importable as `plugin.<name>`,
+  with the `[tool.knot.peer]` version checked by dependency declarations. The metadata dependency
   (`plugin.demolib via demolib >= 1.0.0`) is verified against the live
   handshake at load. Handlers can also drive peers dynamically through the
   `scriptling.plugin` control library (`list`, `describe`, `call_function`).
@@ -116,7 +120,7 @@ root):
 # [[tool.knot.handlers]]
 # handler = "export_all"
 # permission = "admin"     # optional; both empty = any logged-in user
-# group = "platform"       # optional
+# groups = ["platform"]       # optional
 ```
 
 Declaring a handler also opts it into plugin-root addressability, which is

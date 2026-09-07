@@ -71,15 +71,59 @@ var toolKnotKeys = map[string]bool{
 	"menus":          true,
 	"pages":          true,
 	"handlers":       true,
+	"mcp_tools":      true,
 	"field_handlers": true,
 }
 
+var mcpToolKeys = map[string]bool{
+	"name": true, "description": true, "handler": true, "permission": true, "groups": true, "parameters": true,
+}
+
+var mcpToolParamKeys = map[string]bool{
+	"name": true, "type": true, "description": true, "default": true, "required": true,
+}
+
+// mcpToolParamTypes maps declared parameter types to JSON schema types.
+var mcpToolParamTypes = map[string]string{
+	"string": "string", "int": "integer", "float": "number", "bool": "boolean", "list": "array",
+}
+
+// mcpParamNameRe is the parameter name shape: a scriptling identifier.
+var mcpParamNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// toolNameRe is the MCP tool name shape: letters, digits, underscores and
+// dashes. Tool names are the addressable surface across every provider
+// (boot tools, scripts, plugins), so they share one namespace.
+var toolNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
+
+// parseGroups reads an optional groups list: the declaration applies to
+// members of any listed group. Where names the error site, e.g.
+// "[tool.knot]: menus[0]".
+func parseGroups(v any, where string) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	list, ok := v.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s: groups must be a list of group names", where)
+	}
+	out := make([]string, 0, len(list))
+	for _, entry := range list {
+		name, ok := entry.(string)
+		if !ok || name == "" {
+			return nil, fmt.Errorf("%s: groups entries must be non-empty strings", where)
+		}
+		out = append(out, name)
+	}
+	return out, nil
+}
+
 var fieldHandlerKeys = map[string]bool{
-	"label": true, "handler": true, "permission": true, "group": true,
+	"label": true, "handler": true, "permission": true, "groups": true,
 }
 
 var handlerDeclKeys = map[string]bool{
-	"handler": true, "permission": true, "group": true,
+	"handler": true, "permission": true, "groups": true,
 }
 
 var pageKeys = map[string]bool{
@@ -88,7 +132,7 @@ var pageKeys = map[string]bool{
 	"label":      true,
 	"menu_label": true,
 	"permission": true,
-	"group":      true,
+	"groups":     true,
 	"icon":       true,
 	"default":    true,
 }
@@ -107,14 +151,13 @@ var menuKeys = map[string]bool{
 	"label":      true,
 	"url":        true,
 	"permission": true,
-	"group":      true,
+	"groups":     true,
 	"icon":       true,
 }
 
 // parseToolKnot validates the [tool.knot] table into a Plugin. pluginDir is
-// the folder containing the entry file (the plugins root for single-file
-// plugins). All validation is static — no plugin code runs.
-func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any) (*Plugin, error) {
+// the plugin folder. All validation is static — no plugin code runs.
+func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error) {
 	p := &Plugin{Name: name}
 
 	for key := range table {
@@ -192,9 +235,6 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 		if !ok || rel == "" {
 			return nil, fmt.Errorf("[tool.knot]: %s must be a non-empty relative path", key)
 		}
-		if singleFile {
-			return nil, fmt.Errorf("[tool.knot]: %s: single-file plugins cannot carry assets; use a folder plugin", key)
-		}
 		if err := validateAssetPath(pluginDir, rel); err != nil {
 			return nil, fmt.Errorf("[tool.knot]: %s: %w", key, err)
 		}
@@ -234,7 +274,7 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 	}
 
 	for i := range p.Menus {
-		if err := p.loadIcon(pluginDir, singleFile, &p.Menus[i].Icon, &p.Menus[i].IconSVG, fmt.Sprintf("menus[%d]", i)); err != nil {
+		if err := p.loadIcon(pluginDir, &p.Menus[i].Icon, &p.Menus[i].IconSVG, fmt.Sprintf("menus[%d]", i)); err != nil {
 			return nil, err
 		}
 	}
@@ -313,16 +353,115 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 				}
 				field.Permission = QualifiedPermission(name, id)
 			}
-			if v, ok := entryTable["group"]; ok {
-				group, ok := v.(string)
-				if !ok || group == "" {
-					return nil, fmt.Errorf("[tool.knot]: field_handlers[%d]: group must be a non-empty string", i)
-				}
-				field.Group = group
+			groups, err := parseGroups(entryTable["groups"], fmt.Sprintf("[tool.knot]: field_handlers[%d]", i))
+			if err != nil {
+				return nil, err
 			}
+			field.Groups = groups
 			p.FieldHandlers = append(p.FieldHandlers, field)
 		}
 	}
+	// MCP tools: [[tool.knot.mcp_tools]] entries — plugin handlers exposed
+	// as MCP tools, gated like handlers.
+	if v, ok := table["mcp_tools"]; ok {
+		list, ok := v.([]any)
+		if !ok {
+			return nil, fmt.Errorf("[tool.knot]: mcp_tools must be a list of tables")
+		}
+		seenNames := map[string]bool{}
+		for i, entry := range list {
+			entryTable, ok := entry.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d] must be a table", i)
+			}
+			for key := range entryTable {
+				if !mcpToolKeys[key] {
+					return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: unknown key %q", i, key)
+				}
+			}
+			handler, _ := entryTable["handler"].(string)
+			if handler == "" || !handlerNameRe.MatchString(handler) {
+				return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: handler is required and must be a function name or module.function", i)
+			}
+			description, _ := entryTable["description"].(string)
+			if strings.TrimSpace(description) == "" {
+				return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: description is required (MCP clients list it)", i)
+			}
+			toolName, _ := entryTable["name"].(string)
+			if toolName == "" {
+				toolName = handler
+			}
+			if !toolNameRe.MatchString(toolName) {
+				return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: name must match [A-Za-z0-9][A-Za-z0-9_-]*", i)
+			}
+			if seenNames[toolName] {
+				return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: duplicate tool name %q", i, toolName)
+			}
+			seenNames[toolName] = true
+			tool := MCPTool{Name: toolName, Description: description, Handler: handler}
+			if v, ok := entryTable["permission"]; ok {
+				id, ok := v.(string)
+				if !ok || !permissionIdRe.MatchString(id) {
+					return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: permission must be an id matching [a-z0-9_]+", i)
+				}
+				if !declared[id] {
+					return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: permission %q is not declared in [tool.knot] permissions", i, id)
+				}
+				tool.Permission = QualifiedPermission(name, id)
+			}
+			groups, err := parseGroups(entryTable["groups"], fmt.Sprintf("[tool.knot]: mcp_tools[%d]", i))
+			if err != nil {
+				return nil, err
+			}
+			tool.Groups = groups
+			if raw, ok := entryTable["parameters"]; ok {
+				list, ok := raw.([]any)
+				if !ok {
+					return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d]: parameters must be a list of tables", i)
+				}
+				seenParams := map[string]bool{}
+				for j, rawParam := range list {
+					paramTable, ok := rawParam.(map[string]any)
+					if !ok {
+						return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d].parameters[%d] must be a table", i, j)
+					}
+					for key := range paramTable {
+						if !mcpToolParamKeys[key] {
+							return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d].parameters[%d]: unknown key %q", i, j, key)
+						}
+					}
+					pname, _ := paramTable["name"].(string)
+					if pname == "" || !mcpParamNameRe.MatchString(pname) {
+						return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d].parameters[%d]: name is required and must be an identifier", i, j)
+					}
+					if seenParams[pname] {
+						return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d].parameters[%d]: duplicate parameter %q", i, j, pname)
+					}
+					seenParams[pname] = true
+					ptype, _ := paramTable["type"].(string)
+					if ptype == "" {
+						ptype = "string"
+					}
+					if mcpToolParamTypes[ptype] == "" {
+						return nil, fmt.Errorf("[tool.knot]: mcp_tools[%d].parameters[%d]: type must be one of string, int, float, bool, list", i, j)
+					}
+					param := MCPToolParameter{Name: pname, Type: ptype}
+					if v, ok := paramTable["description"].(string); ok {
+						param.Description = v
+					}
+					if v, ok := paramTable["default"]; ok {
+						param.Default = v
+					}
+					if v, ok := paramTable["required"].(bool); ok {
+						param.Required = v
+					}
+					tool.Parameters = append(tool.Parameters, param)
+				}
+			}
+			p.MCPTools = append(p.MCPTools, tool)
+		}
+	}
+
 	// Handler gates: [[tool.knot.handlers]] entries. A declared gate is the
 	// handler's own permission/group wherever it is called (overriding the
 	// calling page's), and the declaration opts the handler into
@@ -362,13 +501,11 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 				}
 				decl.Permission = QualifiedPermission(name, id)
 			}
-			if v, ok := entryTable["group"]; ok {
-				group, ok := v.(string)
-				if !ok || group == "" {
-					return nil, fmt.Errorf("[tool.knot]: handlers[%d]: group must be a non-empty string", i)
-				}
-				decl.Group = group
+			groups, err := parseGroups(entryTable["groups"], fmt.Sprintf("[tool.knot]: handlers[%d]", i))
+			if err != nil {
+				return nil, err
 			}
+			decl.Groups = groups
 			p.Handlers = append(p.Handlers, decl)
 		}
 	}
@@ -378,7 +515,7 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 	// built from the plugin name directly — PluginName is set on pages only
 	// after parsing completes.
 	for i := range p.Pages {
-		if err := p.loadIcon(pluginDir, singleFile, &p.Pages[i].Icon, &p.Pages[i].IconSVG, fmt.Sprintf("pages[%d]", i)); err != nil {
+		if err := p.loadIcon(pluginDir, &p.Pages[i].Icon, &p.Pages[i].IconSVG, fmt.Sprintf("pages[%d]", i)); err != nil {
 			return nil, err
 		}
 		if p.Pages[i].MenuLabel != "" {
@@ -386,7 +523,7 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 				Label:      p.Pages[i].MenuLabel,
 				URL:        "/plugins/" + name + p.Pages[i].Path,
 				Permission: p.Pages[i].Permission,
-				Group:      p.Pages[i].Group,
+				Groups:     p.Pages[i].Groups,
 				Icon:       p.Pages[i].Icon,
 				IconSVG:    p.Pages[i].IconSVG,
 			})
@@ -404,12 +541,9 @@ const iconMaxBytes = 64 * 1024
 // plugin folder, size-capped, whose inner markup is safe to render inline.
 // The inner markup is extracted and stored; knot wraps it in the site's <svg>
 // attributes, so a currentColor-stroked icon themes like the built-ins.
-func (p *Plugin) loadIcon(pluginDir string, singleFile bool, decl *string, inner *string, where string) error {
+func (p *Plugin) loadIcon(pluginDir string, decl *string, inner *string, where string) error {
 	if *decl == "" {
 		return nil
-	}
-	if singleFile {
-		return fmt.Errorf("[tool.knot]: %s: icon: single-file plugins cannot carry assets; use a folder plugin", where)
 	}
 	if err := validateAssetPath(pluginDir, *decl); err != nil {
 		return fmt.Errorf("[tool.knot]: %s: icon: %w", where, err)
@@ -496,13 +630,11 @@ func parseMenu(pluginName string, index int, table map[string]any, declared map[
 		}
 		menu.Permission = QualifiedPermission(pluginName, id)
 	}
-	if v, ok := table["group"]; ok {
-		s, _ := v.(string)
-		if s == "" {
-			return menu, fmt.Errorf("[tool.knot]: menus[%d]: group must be a non-empty string", index)
-		}
-		menu.Group = s
+	groups, err := parseGroups(table["groups"], fmt.Sprintf("[tool.knot]: menus[%d]", index))
+	if err != nil {
+		return menu, err
 	}
+	menu.Groups = groups
 	if v, ok := table["icon"]; ok {
 		s, _ := v.(string)
 		if s == "" {
@@ -558,13 +690,11 @@ func parsePage(pluginName string, index int, table map[string]any, declared map[
 		}
 		page.Permission = QualifiedPermission(pluginName, id)
 	}
-	if v, ok := table["group"]; ok {
-		s, _ := v.(string)
-		if s == "" {
-			return page, fmt.Errorf("[tool.knot]: pages[%d]: group must be a non-empty string", index)
-		}
-		page.Group = s
+	groups, err := parseGroups(table["groups"], fmt.Sprintf("[tool.knot]: pages[%d]", index))
+	if err != nil {
+		return page, err
 	}
+	page.Groups = groups
 	if v, ok := table["icon"]; ok {
 		s, _ := v.(string)
 		if s == "" {

@@ -55,12 +55,9 @@ func HandleGetPluginFieldHandlerOptions(w http.ResponseWriter, r *http.Request) 
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "field handler permission not granted"})
 		return
 	}
-	if handler.Group != "" {
-		groups := []string{handler.Group}
-		if !user.HasAnyGroup(&groups) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "field handler group not granted"})
-			return
-		}
+	if len(handler.Groups) > 0 && !user.HasAnyGroup(&handler.Groups) {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "field handler group not granted"})
+		return
 	}
 
 	params := map[string]any{"_data": handler.Id}

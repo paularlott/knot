@@ -65,7 +65,53 @@ function parseStub(content) {
     });
   }
 
-  return { moduleDoc, functions };
+  // Classes: a "class Name:" block up to the next top-level statement.
+  // Methods parse with the same regex; annotated fields are collected as
+  // documented members too.
+  const classes = [];
+  const classRegex = /^class\s+(\w+)\s*[(:]/gm;
+  let classMatch;
+  while ((classMatch = classRegex.exec(content)) !== null) {
+    const bodyStart = content.indexOf("\n", classMatch.index) + 1;
+    let bodyEnd = content.length;
+    const nextTop = /^(?:class\s+\w+|def\s+\w+|""")/gm;
+    nextTop.lastIndex = bodyStart;
+    let m;
+    while ((m = nextTop.exec(content)) !== null) {
+      if (m.index > bodyStart) {
+        bodyEnd = m.index;
+        break;
+      }
+    }
+    const body = content.slice(bodyStart, bodyEnd);
+    const classDocMatch = body.match(/^\s*"""([\s\S]*?)"""/);
+    const methods = [];
+    const fieldRegex = /^\s+(\w+)\s*:\s*([^\n=]+)$/gm;
+    let fm;
+    while ((fm = fieldRegex.exec(body)) !== null) {
+      if (fm[1] === "self") continue;
+      methods.push({ name: fm[1], params: "", returns: fm[2].trim(), docstring: "" });
+    }
+    const methodRegex = /def\s+(\w+)\s*\(([^()]*)\)\s*->\s*([^\n:]+?)\s*:/g;
+    let mm;
+    while ((mm = methodRegex.exec(body)) !== null) {
+      const after = body.slice(mm.index + mm[0].length, mm.index + mm[0].length + 500);
+      const dm = after.match(/^\s*"""([\s\S]*?)"""/);
+      methods.push({ name: mm[1], params: mm[2].replace(/\s+/g, " ").trim(), returns: mm[3].trim(), docstring: dm ? dm[1].trim() : "" });
+    }
+    classes.push({ name: classMatch[1], docstring: classDocMatch ? classDocMatch[1].trim() : "", methods });
+  }
+
+  // Module-level typed constants (NAME: type) — offered as completions
+  // like functions, since editors complete both after "module.".
+  const constants = [];
+  const constRegex = /^(?:[A-Z][A-Z0-9_]*):\s*([A-Za-z[\]].+)$/gm;
+  let constMatch;
+  while ((constMatch = constRegex.exec(content)) !== null) {
+    constants.push({ name: constMatch[0].split(":")[0].trim(), type: constMatch[1].trim() });
+  }
+
+  return { moduleDoc, functions, classes, constants };
 }
 
 // ── Description generation from function names ──────────────────────────────
@@ -125,7 +171,7 @@ function generate() {
   for (const stubPath of stubs) {
     const mod = moduleName(stubPath);
     const content = fs.readFileSync(stubPath, "utf-8");
-    const { moduleDoc, functions } = parseStub(content);
+    const { moduleDoc, functions, classes, constants } = parseStub(content);
 
     const entries = functions
       .filter((f) => !f.name.startsWith("_"))
@@ -136,11 +182,33 @@ function generate() {
         returns: formatReturnType(f.returns),
       }));
 
-    if (entries.length > 0) {
+    for (const c of constants || []) {
+      entries.push({
+        name: c.name,
+        signature: c.name,
+        description: `Constant (${c.type})`,
+        returns: c.type,
+      });
+    }
+
+    const classEntries = (classes || [])
+      .map((c) => ({
+        name: c.name,
+        description: c.docstring,
+        methods: c.methods.map((m) => ({
+          name: m.name,
+          signature: m.params ? `${m.name}(${m.params})` : m.name,
+          description: m.docstring || describeFunction(m.name),
+          returns: formatReturnType(m.returns),
+        })),
+      }));
+
+    if (entries.length > 0 || classEntries.length > 0) {
       libraries.push({
         module: "knot." + mod,
         description: moduleDoc || `knot ${mod} library`,
         functions: entries,
+        ...(classEntries.length > 0 ? { classes: classEntries } : {}),
       });
     }
   }

@@ -30,8 +30,8 @@ import (
 )
 
 // Menu is one declared sidebar entry. Permission, when set, is the fully
-// qualified grant (plugin.<name>.<id>) that gates the item; Group, when set,
-// additionally restricts it to members of that group. Icon is a relative
+// qualified grant (plugin.<name>.<id>) that gates the item; Groups, when
+// set, additionally restricts it to members of any listed group. Icon is a relative
 // path to an SVG asset in the plugin folder; IconSVG holds its sanitized
 // inner markup, rendered inline with the site's icon styling so a
 // currentColor-stroked SVG themes like every built-in icon.
@@ -39,9 +39,9 @@ type Menu struct {
 	PluginName string `json:"plugin,omitempty"`
 	Label      string `json:"label"`
 	URL        string `json:"url"`
-	Permission string `json:"permission,omitempty"`
-	Group      string `json:"group,omitempty"`
-	Icon       string `json:"icon,omitempty"`
+	Permission string   `json:"permission,omitempty"`
+	Groups     []string `json:"groups,omitempty"`
+	Icon       string   `json:"icon,omitempty"`
 	IconSVG    string `json:"-"`
 }
 
@@ -56,11 +56,11 @@ type FieldHandler struct {
 	Id      string // qualified: plugin.<name>.<id>
 	Label   string
 	Handler string // function in the entry file
-	// Permission and Group are optional additive gates on the options
+	// Permission and Groups are optional additive gates on the options
 	// endpoint: UseSpaces (space forms drive the fetches) always applies,
 	// and a declared gate narrows who may invoke the handler further.
-	Permission string `json:"permission,omitempty"` // qualified grant
-	Group      string `json:"group,omitempty"`
+	Permission string   `json:"permission,omitempty"` // qualified grant
+	Groups     []string `json:"groups,omitempty"`
 }
 
 type Page struct {
@@ -69,8 +69,8 @@ type Page struct {
 	Handler    string `json:"handler"`              // function in the entry file ("module.fn" allowed)
 	Label      string `json:"label,omitempty"`      // page title
 	MenuLabel  string `json:"menu_label,omitempty"` // set: the page also appears in the sidebar under this label
-	Permission string `json:"permission,omitempty"` // qualified grant, as Menu
-	Group      string `json:"group,omitempty"`
+	Permission string   `json:"permission,omitempty"` // qualified grant, as Menu
+	Groups     []string `json:"groups,omitempty"`
 	Icon       string `json:"icon,omitempty"`
 	IconSVG    string `json:"-"`
 	// Default marks the page as the post-login landing page. At most one
@@ -92,8 +92,8 @@ func (pg Page) URL() string {
 // page's gate and are only reachable through a page path.
 type Handler struct {
 	Handler    string `json:"handler"`              // function name or module.function
-	Permission string `json:"permission,omitempty"` // qualified grant, as Page
-	Group      string `json:"group,omitempty"`      // both empty: any logged-in user
+	Permission string   `json:"permission,omitempty"` // qualified grant, as Page
+	Groups     []string `json:"groups,omitempty"`     // both empty: any logged-in user
 }
 
 // HandlerDecl returns the declared gate for a handler name, or nil when the
@@ -118,8 +118,7 @@ type Plugin struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
 	Description string `json:"description"`
-	Dir         string `json:"-"`                    // plugin folder (single-file: parent dir)
-	Folder      bool   `json:"-"`                    // folder plugin (vs single file)
+	Dir         string `json:"-"`                    // the plugin folder
 	EntryFile   string `json:"-"`                    // main.py or the single .py file
 	LogoLight   string `json:"logo_light,omitempty"` // relative paths
 	LogoDark    string `json:"logo_dark,omitempty"`
@@ -131,7 +130,9 @@ type Plugin struct {
 	Menus         []Menu           `json:"menus"`
 	Pages         []Page           `json:"pages"`
 	Handlers      []Handler        `json:"handlers"`
+	MCPTools      []MCPTool        `json:"mcp_tools"`
 	FieldHandlers []FieldHandler   `json:"field_handlers"`
+	ScriptPeers   []ScriptPeer     `json:"script_peers,omitempty"`
 
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem.
@@ -284,8 +285,8 @@ func (r *Registry) VisibleMenus(user *model.User) []Menu {
 			if menu.Permission != "" && !user.HasPluginPermission(menu.Permission) {
 				continue
 			}
-			if menu.Group != "" {
-				groups := []string{menu.Group}
+			if len(menu.Groups) > 0 {
+				groups := menu.Groups
 				if !user.HasAnyGroup(&groups) {
 					continue
 				}
@@ -360,6 +361,56 @@ func (r *Registry) SiteLogoURLs() (light, dark string) {
 		}
 	}
 	return "", ""
+}
+
+// MCPTool is one [[tool.knot.mcp_tools]] entry: a plugin handler exposed
+// as an MCP tool. The optional permission/group narrows which users see
+// and may call the tool (knot enforces at both list and execute time);
+// both empty means any MCP user. No input schema is declared — the tool's
+// parameters arrive in the handler's params dict and the MCP schema is an
+// empty object.
+type MCPTool struct {
+	Name        string             `json:"name"`                // MCP tool name; defaults to the handler name
+	Description string             `json:"description"`         // shown to MCP clients
+	Handler     string             `json:"handler"`              // function in the entry file
+	Permission  string             `json:"permission,omitempty"` // qualified grant, as Handler
+	Groups      []string           `json:"groups,omitempty"`
+	Parameters  []MCPToolParameter `json:"parameters,omitempty"` // optional: the tool's input schema
+}
+
+// MCPToolParameter is one declared tool parameter: what MCP clients (and
+// LLMs) see in the tool's input schema. Parameters still arrive in the
+// handler's params dict untyped — the declaration is documentation and
+// client ergonomics, not coercion.
+type MCPToolParameter struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`                  // string, int, float, bool, list
+	Description string `json:"description,omitempty"`
+	Default     any    `json:"default,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+}
+
+// MCPToolParamSchemaType maps a declared parameter type to its JSON
+// schema type; unknown types map to "string".
+func MCPToolParamSchemaType(declared string) string {
+	if t, ok := mcpToolParamTypes[declared]; ok && t != "" {
+		return t
+	}
+	return "string"
+}
+
+// ScriptPeer is a scriptling-authored peer: a .py file in the plugin's
+// peers/ folder, loaded in-process by knot's embedded scriptling (no CLI,
+// no subprocess). Its public surface — functions, classes and constants
+// not prefixed with "_" — becomes the plugin.<name> import in handler
+// environments. Version comes from the optional [tool.knot.peer] table in
+// the peer's metadata block, and the consuming plugin's dependency
+// declaration ("plugin.<lib> via <peer> >= x") validates against it the
+// same way Go peer handshakes do.
+type ScriptPeer struct {
+	Name    string `json:"name"`    // from the filename, e.g. peers/calc.py -> "calc"
+	Version string `json:"version"` // [tool.knot.peer] version, default "1.0"
+	Source  string `json:"-"`
 }
 
 // FieldHandlers lists every declared field handler across plugins.
@@ -439,6 +490,10 @@ func Load(pluginsPath string) (*Registry, error) {
 
 	var parent *plugin.Manager
 	loaded := make([]*Plugin, 0, len(candidates))
+	// MCP tool names share one namespace across every provider; plugins
+	// are loaded in name order, so the first claimant wins deterministically
+	// and a later duplicate is a load error.
+	seenToolNames := map[string]string{}
 	for _, c := range candidates {
 		p, loadWarnings, err := loadPlugin(c, func() *plugin.Manager {
 			if parent == nil {
@@ -451,6 +506,21 @@ func Load(pluginsPath string) (*Registry, error) {
 			logger.Error("plugin failed to load", "plugin", c.name, "error", err)
 			registry.failed = append(registry.failed, FailedPlugin{Name: c.name, Path: c.path, Reason: err.Error()})
 			continue
+		}
+		dup := ""
+		for _, tool := range p.MCPTools {
+			if owner, taken := seenToolNames[tool.Name]; taken {
+				dup = fmt.Sprintf("mcp tool %q already exposed by plugin %s", tool.Name, owner)
+				break
+			}
+		}
+		if dup != "" {
+			logger.Error("plugin failed to load", "plugin", c.name, "error", dup)
+			registry.failed = append(registry.failed, FailedPlugin{Name: c.name, Path: c.path, Reason: dup})
+			continue
+		}
+		for _, tool := range p.MCPTools {
+			seenToolNames[tool.Name] = p.Name
 		}
 		logger.Info("plugin loaded", "plugin", p.Name, "version", p.Version,
 			"permissions", len(p.Permissions), "menus", len(p.Menus))
@@ -501,10 +571,9 @@ func Load(pluginsPath string) (*Registry, error) {
 
 // candidate is a discovered plugin location before metadata parsing.
 type candidate struct {
-	name       string
-	path       string // entry file path
-	dir        string // plugin folder ("" for single-file: parent of file)
-	singleFile bool
+	name string
+	path string // the plugin folder's main.py
+	dir  string // the plugin folder
 }
 
 // scanCandidates finds plugins: top-level .py files and folders containing
@@ -537,18 +606,11 @@ func scanCandidates(root string, entries []os.DirEntry) ([]candidate, []string) 
 			continue
 		}
 
-		if filepath.Ext(name) != ".py" {
-			continue
+		// Plugins are folders (main.py + assets + peers/ + bin/); a loose
+		// .py is not a plugin.
+		if filepath.Ext(name) == ".py" && pluginNameRe.MatchString(base) {
+			warnings = append(warnings, fmt.Sprintf("file %s is not a plugin — plugins are folders with a main.py; ignored", name))
 		}
-		if !pluginNameRe.MatchString(base) {
-			warnings = append(warnings, fmt.Sprintf("file %s is not a valid plugin name ([a-z0-9_-]+), ignored", name))
-			continue
-		}
-		if _, ok := byName[base]; ok {
-			warnings = append(warnings, fmt.Sprintf("plugin name %q claimed by both a folder and file %s; folder wins", base, name))
-			continue
-		}
-		byName[base] = candidate{name: base, path: filepath.Join(root, name), dir: root, singleFile: true}
 	}
 
 	names := make([]string, 0, len(byName))
@@ -589,12 +651,11 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 		return nil, nil, fmt.Errorf("no [tool.knot] table in metadata block — a plugin must declare itself in its metadata")
 	}
 
-	p, err := parseToolKnot(c.name, c.dir, c.singleFile, knotTable)
+	p, err := parseToolKnot(c.name, c.dir, knotTable)
 	if err != nil {
 		return nil, nil, err
 	}
 	p.Dir = c.dir
-	p.Folder = !c.singleFile
 	p.EntryFile = c.path
 	p.EntrySource = string(source)
 	for i := range p.Menus {
@@ -604,15 +665,19 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 		p.Pages[i].PluginName = p.Name
 	}
 
-	// Load bin/ peers (folder plugins only) before verifying requirements so
-	// the peers' declared versions can satisfy them.
-	if !c.singleFile {
-		scope, peerWarnings, err := loadPeers(c.name, c.dir, newManager)
-		warnings = append(warnings, peerWarnings...)
-		if err != nil {
-			return nil, warnings, err
-		}
-		p.scope = scope
+	// Load peers before verifying requirements so their declared versions
+	// can satisfy them: bin/ hosts Go peers, peers/ hosts scriptling peers.
+	scope, peerWarnings, err := loadPeers(c.name, c.dir, newManager)
+	warnings = append(warnings, peerWarnings...)
+	if err != nil {
+		return nil, warnings, err
+	}
+	p.scope = scope
+
+	if sp, err := loadScriptPeers(c.dir); err != nil {
+		return nil, warnings, err
+	} else {
+		p.ScriptPeers = sp
 	}
 
 	if ok {
@@ -630,6 +695,11 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 			HostVersion: hostVersion,
 			Resolves:    resolverFor(c, p),
 			PluginVersion: func(name string) (string, bool) {
+				for _, sp := range p.ScriptPeers {
+					if sp.Name == name {
+						return sp.Version, true
+					}
+				}
 				if p.scope == nil {
 					return "", false
 				}
@@ -660,9 +730,7 @@ func resolverFor(c candidate, p *Plugin) func(string) bool {
 		if pluginEnvLibraries[name] {
 			return true
 		}
-		if c.singleFile {
-			return false
-		}
+
 		// A module in the plugin's own folder ("helpers" → helpers.py).
 		if !strings.Contains(name, ".") {
 			if _, err := os.Stat(filepath.Join(c.dir, name+".py")); err == nil {
@@ -676,4 +744,46 @@ func resolverFor(c candidate, p *Plugin) func(string) bool {
 		}
 		return false
 	}
+}
+
+// loadScriptPeers reads the plugin's peers/ folder: one scriptling peer
+// per .py file, named by its filename. The optional [tool.knot.peer]
+// table in the peer's metadata block carries the version dependency
+// declarations check; without it the version defaults to "1.0".
+func loadScriptPeers(pluginDir string) ([]ScriptPeer, error) {
+	peersDir := filepath.Join(pluginDir, "peers")
+	entries, err := os.ReadDir(peersDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var peers []ScriptPeer
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || filepath.Ext(name) != ".py" || strings.HasPrefix(name, ".") {
+			continue
+		}
+		peerName := strings.TrimSuffix(name, ".py")
+		if !pluginNameRe.MatchString(peerName) {
+			return nil, fmt.Errorf("peers/%s: not a valid peer name ([a-z0-9_-]+)", name)
+		}
+		source, err := os.ReadFile(filepath.Join(peersDir, name))
+		if err != nil {
+			return nil, fmt.Errorf("peers/%s: %v", name, err)
+		}
+		version := "1.0"
+		if m, ok, err := metadata.Parse(source); err != nil {
+			return nil, fmt.Errorf("peers/%s: metadata block: %v", name, err)
+		} else if ok {
+			if t, found := m.Tool("knot.peer"); found {
+				if v, ok := t["version"].(string); ok && v != "" {
+					version = v
+				}
+			}
+		}
+		peers = append(peers, ScriptPeer{Name: peerName, Version: version, Source: string(source)})
+	}
+	return peers, nil
 }

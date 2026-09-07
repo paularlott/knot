@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -48,6 +49,12 @@ func handlerURLFixture(t *testing.T) {
 # handler = "open_layout"
 # label = "Open"
 #
+# [[tool.knot.pages]]
+# path = "/team"
+# handler = "team_layout"
+# label = "Team"
+# groups = ["platform", "sre"]
+#
 # [[tool.knot.handlers]]
 # handler = "echo_word"
 #
@@ -80,6 +87,14 @@ def open_layout():
 
 def col_public():
     return {"text": "public"}
+
+
+def team_layout():
+    return {"rows": [{"columns": [{"id": "t", "type": "text", "handler": "col_team"}]}]}
+
+
+def col_team():
+    return {"text": "team"}
 
 
 def col_private():
@@ -228,6 +243,9 @@ func TestPluginColumnGateAtFetch(t *testing.T) {
 		// No layout references this handler: not callable, even by admins.
 		{"/plugins/hooked/open/col_secret", admin, http.StatusForbidden, "unreferenced handler is not callable"},
 		{"/plugins/hooked/report/col_secret", admin, http.StatusForbidden, "unreferenced handler is not callable on any page"},
+		// A groups-gated page: membership in ANY listed group passes.
+		{"/plugins/hooked/team/col_team", &model.User{Username: "sre", Id: "u-sre", Groups: []string{"sre"}}, http.StatusOK, "any listed group passes"},
+		{"/plugins/hooked/team/col_team", plain, http.StatusForbidden, "no listed group refuses"},
 		// Declared handlers skip the layout check and use their own gate.
 		{"/plugins/hooked/report/echo_word", admin, http.StatusOK, "declared handler stands on its declaration"},
 	}
@@ -355,6 +373,127 @@ func TestPluginHandlerURLGate(t *testing.T) {
 		w := dispatchPluginRequest(t, "GET", tc.target, tc.user)
 		if w.Code != tc.want {
 			t.Errorf("%s as %s: status = %d, want %d (%s)", tc.target, tc.user.Username, w.Code, tc.want, tc.why)
+		}
+	}
+}
+
+// userGlobalFixture loads a one-plugin registry whose column handler echoes
+// the user global's identity surface as JSON text.
+func userGlobalFixture(t *testing.T) {
+	t.Helper()
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{})
+
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "whoami")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	source := fmt.Sprintf(`# /// script
+# requires-scriptling = ">=0.1"
+#
+# [tool.knot]
+# version = "1.0"
+# permissions = ["read"]
+#
+# [[tool.knot.pages]]
+# path = "/me"
+# handler = "me_layout"
+# label = "Me"
+# ///
+def me_layout():
+    return {"rows": [{"columns": [{"id": "me", "type": "text", "handler": "col_me"}]}]}
+
+
+def col_me():
+    import json
+
+    return {"text": json.dumps({
+        "name": user.name,
+        "group": user.in_group("platform"),
+        "admin": user.is_admin,
+        "key_held": user.has_permission("use_mcp_server"),
+        "key_lacked": user.has_permission("manage_spaces"),
+        "id_held": user.has_permission(%d),
+        "grant_held": user.has_permission("plugin.whoami.read"),
+        "grant_lacked": user.has_permission("plugin.whoami.write"),
+        "list_arg": user.has_permission(["manage_spaces"]),
+    })}
+`, model.PermissionUseMCPServer)
+	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := plugins.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins.SetRegistry(registry)
+	t.Cleanup(func() {
+		registry.Close()
+		plugins.SetRegistry(nil)
+	})
+}
+
+// TestPluginUserGlobal pins the user binding on the web dispatch path: a
+// column handler fetched through the page sees the requesting user's
+// identity and grants (key, id and grant forms all answer), and the very
+// next request as a different user is rebound — the pooled environment
+// never leaks one user's identity into another's dispatch.
+func TestPluginUserGlobal(t *testing.T) {
+	model.SetRoleCache([]*model.Role{{
+		Id:                "role-who",
+		Name:              "Who",
+		Permissions:       []uint16{model.PermissionUseMCPServer},
+		PluginPermissions: []string{"plugin.whoami.read"},
+	}})
+	userGlobalFixture(t)
+	viewer := &model.User{Username: "viewer", Id: "u-v", Groups: []string{"platform"}, Roles: []string{"role-who"}}
+	admin := &model.User{Username: "root", Id: "u-a", Roles: []string{model.RoleAdminUUID}}
+
+	// The handler's JSON rides inside the text column as a string; unwrap
+	// it so the assertions read the script's own keys.
+	fetch := func(user *model.User) string {
+		t.Helper()
+		w := dispatchPluginRequest(t, "GET", "/plugins/whoami/me/col_me", user)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s fetch status = %d, body = %s", user.Username, w.Code, w.Body.String())
+		}
+		var col struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &col); err != nil {
+			t.Fatalf("%s fetch body = %s (%v)", user.Username, w.Body.String(), err)
+		}
+		return col.Text
+	}
+
+	for _, want := range []string{
+		`"name":"viewer"`,
+		`"group":true`,
+		`"admin":false`,
+		`"key_held":true`,
+		`"key_lacked":false`,
+		`"id_held":true`,
+		`"grant_held":true`,
+		`"grant_lacked":false`,
+		`"list_arg":false`,
+	} {
+		if text := fetch(viewer); !strings.Contains(text, want) {
+			t.Errorf("viewer identity missing %q: %s", want, text)
+		}
+	}
+
+	// Immediately after, as admin: same pooled env, rebound identity.
+	for _, want := range []string{
+		`"name":"root"`,
+		`"group":false`,
+		`"admin":true`,
+		`"key_lacked":true`,
+		`"grant_lacked":true`,
+		`"list_arg":true`,
+	} {
+		if text := fetch(admin); !strings.Contains(text, want) {
+			t.Errorf("admin identity missing %q: %s", want, text)
 		}
 	}
 }

@@ -15,7 +15,7 @@ type PluginPageInfo struct {
 	Handler    string `json:"handler"`
 	Label      string `json:"label,omitempty"`
 	Permission string `json:"permission,omitempty"`
-	Group      string `json:"group,omitempty"`
+	Groups     []string `json:"groups,omitempty"`
 	MenuLabel  string `json:"menu_label,omitempty"`
 }
 
@@ -23,7 +23,7 @@ type PluginMenuInfo struct {
 	Label      string `json:"label"`
 	URL        string `json:"url"`
 	Permission string `json:"permission,omitempty"`
-	Group      string `json:"group,omitempty"`
+	Groups     []string `json:"groups,omitempty"`
 	Icon       string `json:"icon,omitempty"`
 }
 
@@ -32,6 +32,37 @@ type PluginPeerInfo struct {
 	Version string `json:"version"`
 	Healthy bool   `json:"healthy"`
 	Error   string `json:"error,omitempty"`
+}
+
+// PluginMCPToolInfo is one MCP tool a plugin exposes.
+type PluginMCPToolInfo struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Handler     string   `json:"handler"`
+	Permission  string   `json:"permission,omitempty"`
+	Groups      []string `json:"groups,omitempty"`
+	Parameters  []string `json:"parameters,omitempty"`
+}
+
+// PluginHandlerInfo is one declared ajax handler.
+type PluginHandlerInfo struct {
+	Handler    string   `json:"handler"`
+	Permission string   `json:"permission,omitempty"`
+	Groups     []string `json:"groups,omitempty"`
+}
+
+// PluginFieldHandlerInfo is one declared field handler.
+type PluginFieldHandlerInfo struct {
+	Id         string   `json:"id"`
+	Label      string   `json:"label"`
+	Permission string   `json:"permission,omitempty"`
+	Groups     []string `json:"groups,omitempty"`
+}
+
+// PluginScriptPeerInfo is one in-process scriptling peer.
+type PluginScriptPeerInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
 type PluginInfo struct {
@@ -43,8 +74,12 @@ type PluginInfo struct {
 	SiteLogo    bool                  `json:"site_logo,omitempty"`
 	Permissions []PluginPermissionInfo `json:"permissions"`
 	Menus       []PluginMenuInfo       `json:"menus"`
-	Pages       []PluginPageInfo       `json:"pages"`
-	Peers       []PluginPeerInfo       `json:"peers,omitempty"`
+	Pages         []PluginPageInfo         `json:"pages"`
+	Peers         []PluginPeerInfo         `json:"peers,omitempty"`
+	MCPTools      []PluginMCPToolInfo      `json:"mcp_tools,omitempty"`
+	Handlers      []PluginHandlerInfo      `json:"handlers,omitempty"`
+	FieldHandlers []PluginFieldHandlerInfo `json:"field_handlers,omitempty"`
+	ScriptPeers   []PluginScriptPeerInfo   `json:"script_peers,omitempty"`
 }
 
 type FailedPluginInfo struct {

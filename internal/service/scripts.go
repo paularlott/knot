@@ -97,6 +97,12 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 	}
 	defer cleanup()
 
+	// The identity surface every dispatch binds: script tools see the same
+	// `user` global plugin handlers get.
+	if err := env.SetObjectVar("user", NewUserObject(user)); err != nil {
+		return "", fmt.Errorf("failed to set the user object: %v", err)
+	}
+
 	response, exitCode, err := scriptlingmcp.RunToolScript(ctx, env, script.Content, mcpParams)
 	// When the script called return_error(), response holds the actual error
 	// message and exitCode is non-zero — prefer that over the bare SystemExit err

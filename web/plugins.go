@@ -180,25 +180,22 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	// knot enforces the gate — a plugin cannot forget or skip it. A called
 	// handler with its own declaration carries that gate instead of the
 	// page's.
-	gatePermission, gateGroup := "", ""
+	gatePermission, gateGroups := "", []string(nil)
 	if page != nil {
-		gatePermission, gateGroup = page.Permission, page.Group
+		gatePermission, gateGroups = page.Permission, page.Groups
 	}
 	if handler != "" {
 		if decl := plugin.HandlerDecl(handler); decl != nil {
-			gatePermission, gateGroup = decl.Permission, decl.Group
+			gatePermission, gateGroups = decl.Permission, decl.Groups
 		}
 	}
 	if gatePermission != "" && !user.HasPluginPermission(gatePermission) {
 		showPageForbidden(w, r)
 		return
 	}
-	if gateGroup != "" {
-		groups := []string{gateGroup}
-		if !user.HasAnyGroup(&groups) {
-			showPageForbidden(w, r)
-			return
-		}
+	if len(gateGroups) > 0 && !user.HasAnyGroup(&gateGroups) {
+		showPageForbidden(w, r)
+		return
 	}
 
 	client := apiclient.NewMuxClient(user)
@@ -227,8 +224,12 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 		renderPluginPageError(w, r, plugin, page, "invalid request body")
 		return
 	}
-	if err := env.SetObjectVar("request", conversion.FromGo(map[string]any{"method": r.Method, "path": r.URL.Path})); err != nil {
+	if err := env.SetObjectVar("request", conversion.FromGo(service.RequestObject(r.Method, r.URL.Path))); err != nil {
 		renderPluginPageError(w, r, plugin, page, "failed to set the request object")
+		return
+	}
+	if err := env.SetObjectVar("user", service.NewUserObject(user)); err != nil {
+		renderPluginPageError(w, r, plugin, page, "failed to set the user object")
 		return
 	}
 	if err := env.SetObjectVar("params", conversion.FromGo(params)); err != nil {

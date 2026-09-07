@@ -381,6 +381,7 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 			mcpLib = knotscriptling.GetMCPLibraryInstance(client, opts.MCPParams)
 		}
 		registerKnotLibraries(env, client, opts.User.Id, opts.MCPParams, mcpLib, aiClient, false)
+		registerPluginCallLibrary(env, client, opts.User)
 
 		if opts.EventEnvelope != nil {
 			env.RegisterLibrary(knotscriptling.GetEventLibrary())
@@ -467,8 +468,7 @@ func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log l
 // when dispatched for a user: registerPluginLibraries jailed to the plugin's
 // folder, knot's run-as-user libraries over the loopback API, the plugin's
 // binary peers as plugin.* libraries, and a loader chain that resolves the
-// plugin's own modules first (folder plugins only — a single-file plugin's
-// entry is the whole plugin), then knot's embedded libraries, then the
+// plugin's own modules first, then knot's embedded libraries, then the
 // invoking user's lib scripts.
 func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) (*scriptling.Scriptling, error) {
 	if client == nil || user == nil {
@@ -489,9 +489,16 @@ func buildPluginEnv(plugin *plugins.Plugin) *scriptling.Scriptling {
 	env.EnableOutputCapture()
 	registerPluginLibraries(env, plugin.Dir, nil)
 
-	// The plugin's own peers, visible to handlers as plugin.* imports.
+	// The plugin's own peers, visible to handlers as plugin.* imports:
+	// bin/ hosts Go peers over the plugin protocol, peers/ hosts
+	// scriptling peers loaded in-process — their public surface is
+	// registered as a script library, evaluated in this env on first
+	// import, inside the same jail and trust domain as the handlers.
 	if scope := plugin.Scope(); scope != nil {
 		pluginpkg.RegisterLibraries(env, scope)
+	}
+	for _, peer := range plugin.ScriptPeers {
+		env.RegisterScriptLibrary("plugin."+peer.Name, peer.Source)
 	}
 	return env
 }
@@ -510,12 +517,10 @@ func bindPluginUserIdentity(env *scriptling.Scriptling, client *apiclient.ApiCli
 		}
 	}
 	registerKnotLibraries(env, client, user.Id, nil, nil, aiClient, false)
+	registerPluginCallLibrary(env, client, user)
 
-	loaders := []libloader.LibraryLoader{newKnotLibsLoader()}
-	if plugin.Folder {
-		loaders = append(loaders, libloader.NewFilesystem(plugin.Dir))
-	}
-	loaders = append(loaders, newServerLibraryLoaderWithContext(client, user))
+	loaders := []libloader.LibraryLoader{newKnotLibsLoader(), libloader.NewFilesystem(plugin.Dir),
+		newServerLibraryLoaderWithContext(client, user)}
 	env.SetLibraryLoader(libloader.NewChain(loaders...))
 	return nil
 }

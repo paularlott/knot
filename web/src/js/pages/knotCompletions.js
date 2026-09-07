@@ -154,6 +154,80 @@ export const knotLibraries = [
     ]
   },
   {
+    "module": "knot.globals",
+    "description": "The globals every dispatch binds: params, request and user.",
+    "functions": [
+      {
+        "name": "has_permission",
+        "signature": "has_permission(key)",
+        "description": "Check a permission. The argument picks the check: an integer is a built-in permission id (the knot.permission constants, e.g. knot.permission.MANAGE_SPACES), a \"plugin.\"-prefixed string is a qualified grant (\"plugin.metrics.read\"), any other string is a built-in's stable key (\"manage_spaces\"). Admins pass every check.",
+        "returns": "bool"
+      },
+      {
+        "name": "in_group",
+        "signature": "in_group(name)",
+        "description": "Check membership of one group.",
+        "returns": "bool"
+      }
+    ],
+    "classes": [
+      {
+        "name": "User",
+        "description": "The requesting user's identity and effective permissions.\n\n    Bound as the `user` global on every dispatch. Admins pass every\n    permission check by construction.",
+        "methods": [
+          {
+            "name": "id",
+            "signature": "id",
+            "description": "Id ",
+            "returns": "string"
+          },
+          {
+            "name": "name",
+            "signature": "name",
+            "description": "Name ",
+            "returns": "string"
+          },
+          {
+            "name": "is_admin",
+            "signature": "is_admin",
+            "description": "Is admin",
+            "returns": "bool"
+          },
+          {
+            "name": "groups",
+            "signature": "groups",
+            "description": "Groups ",
+            "returns": "list of strings"
+          },
+          {
+            "name": "permissions",
+            "signature": "permissions",
+            "description": "Permissions ",
+            "returns": "list of strings"
+          },
+          {
+            "name": "plugin_permissions",
+            "signature": "plugin_permissions",
+            "description": "Plugin permissions",
+            "returns": "list of strings"
+          },
+          {
+            "name": "has_permission",
+            "signature": "has_permission(self, key: str | int)",
+            "description": "Check a permission. The argument picks the check: an integer is a built-in permission id (the knot.permission constants, e.g. knot.permission.MANAGE_SPACES), a \"plugin.\"-prefixed string is a qualified grant (\"plugin.metrics.read\"), any other string is a built-in's stable key (\"manage_spaces\"). Admins pass every check.",
+            "returns": "bool"
+          },
+          {
+            "name": "in_group",
+            "signature": "in_group(self, name: str)",
+            "description": "Check membership of one group.",
+            "returns": "bool"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "module": "knot.group",
     "description": "Manage groups.",
     "functions": [
@@ -331,6 +405,50 @@ export const knotLibraries = [
         "description": "Unregister ",
         "returns": "bool"
       }
+    ],
+    "classes": [
+      {
+        "name": "Server",
+        "description": "",
+        "methods": [
+          {
+            "name": "command",
+            "signature": "command",
+            "description": "Command ",
+            "returns": "str,"
+          },
+          {
+            "name": "name",
+            "signature": "name",
+            "description": "Name ",
+            "returns": "str,"
+          },
+          {
+            "name": "__init__",
+            "signature": "__init__(self, command: str, *, type: str = \"stdio\", timeout: int = 30, args: list[str] | None = None, mode: str = \"concurrent\",)",
+            "description": "  init  ",
+            "returns": "None"
+          },
+          {
+            "name": "method",
+            "signature": "method(self, name: str, *, local_name: str = \"\", description: str = \"\", scope: str = \"private\", keywords: list[str] | None = None, groups: list[str] | None = None, mcp_tool: bool = False, params: dict[str, Any] | None = None, result: dict[str, Any] | None = None, events: list[str] | None = None, event_sinks: list[str] | None = None,)",
+            "description": "Method ",
+            "returns": "bool"
+          },
+          {
+            "name": "register",
+            "signature": "register(self)",
+            "description": "Register ",
+            "returns": "bool"
+          },
+          {
+            "name": "unregister",
+            "signature": "unregister(self, name: str | None = None)",
+            "description": "Unregister ",
+            "returns": "bool"
+          }
+        ]
+      }
     ]
   },
   {
@@ -384,6 +502,300 @@ export const knotLibraries = [
         "signature": "optional(schema, *, default)",
         "description": "Optional ",
         "returns": "dict"
+      }
+    ]
+  },
+  {
+    "module": "knot.permission",
+    "description": "Permission constants for role management.",
+    "functions": [
+      {
+        "name": "MANAGE_USERS",
+        "signature": "MANAGE_USERS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_GROUPS",
+        "signature": "MANAGE_GROUPS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_ROLES",
+        "signature": "MANAGE_ROLES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_SPACES",
+        "signature": "MANAGE_SPACES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_TEMPLATES",
+        "signature": "MANAGE_TEMPLATES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_VOLUMES",
+        "signature": "MANAGE_VOLUMES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_VARIABLES",
+        "signature": "MANAGE_VARIABLES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_SPACES",
+        "signature": "USE_SPACES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "TRANSFER_SPACES",
+        "signature": "TRANSFER_SPACES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "SHARE_SPACES",
+        "signature": "SHARE_SPACES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_TUNNELS",
+        "signature": "USE_TUNNELS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "EDIT_SPACE_JOBS",
+        "signature": "EDIT_SPACE_JOBS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "VIEW_AUDIT_LOGS",
+        "signature": "VIEW_AUDIT_LOGS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "CLUSTER_INFO",
+        "signature": "CLUSTER_INFO",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_VNC",
+        "signature": "USE_VNC",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_WEB_TERMINAL",
+        "signature": "USE_WEB_TERMINAL",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_SSH",
+        "signature": "USE_SSH",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_CODE_SERVER",
+        "signature": "USE_CODE_SERVER",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_VSCODE_TUNNEL",
+        "signature": "USE_VSCODE_TUNNEL",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_LOGS",
+        "signature": "USE_LOGS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "RUN_COMMANDS",
+        "signature": "RUN_COMMANDS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "COPY_FILES",
+        "signature": "COPY_FILES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_MCP_SERVER",
+        "signature": "USE_MCP_SERVER",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_WEB_ASSISTANT",
+        "signature": "USE_WEB_ASSISTANT",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_SCRIPTS",
+        "signature": "MANAGE_SCRIPTS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "EXECUTE_SCRIPTS",
+        "signature": "EXECUTE_SCRIPTS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_OWN_SCRIPTS",
+        "signature": "MANAGE_OWN_SCRIPTS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "EXECUTE_OWN_SCRIPTS",
+        "signature": "EXECUTE_OWN_SCRIPTS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_GLOBAL_SKILLS",
+        "signature": "MANAGE_GLOBAL_SKILLS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_OWN_SKILLS",
+        "signature": "MANAGE_OWN_SKILLS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "SET_SPACE_DEPENDENCIES",
+        "signature": "SET_SPACE_DEPENDENCIES",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_SPACE_STARTUP_SCRIPT",
+        "signature": "USE_SPACE_STARTUP_SCRIPT",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "DOWNLOAD_AUDIT_LOGS",
+        "signature": "DOWNLOAD_AUDIT_LOGS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_STACK_DEFINITIONS",
+        "signature": "MANAGE_STACK_DEFINITIONS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_OWN_STACK_DEFINITIONS",
+        "signature": "MANAGE_OWN_STACK_DEFINITIONS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_STACK_DEFINITIONS",
+        "signature": "USE_STACK_DEFINITIONS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_METHODS",
+        "signature": "USE_METHODS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "USE_POOLS",
+        "signature": "USE_POOLS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_EVENTS",
+        "signature": "MANAGE_EVENTS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_GLOBAL_EVENTS",
+        "signature": "MANAGE_GLOBAL_EVENTS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_GLOBAL_SLASH_COMMANDS",
+        "signature": "MANAGE_GLOBAL_SLASH_COMMANDS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_OWN_SLASH_COMMANDS",
+        "signature": "MANAGE_OWN_SLASH_COMMANDS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "MANAGE_MCP_SERVERS",
+        "signature": "MANAGE_MCP_SERVERS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "VIEW_PLUGINS",
+        "signature": "VIEW_PLUGINS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "SPACE_MANAGE",
+        "signature": "SPACE_MANAGE",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "SPACE_USE",
+        "signature": "SPACE_USE",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "SCRIPT_MANAGE",
+        "signature": "SCRIPT_MANAGE",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
+        "name": "SCRIPT_EXECUTE",
+        "signature": "SCRIPT_EXECUTE",
+        "description": "Constant (int)",
+        "returns": "int"
       }
     ]
   },

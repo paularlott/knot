@@ -33,7 +33,7 @@ func TestNormalizePageDocument(t *testing.T) {
 					map[string]any{"id": "kpi", "type": "stats", "handler": "kpi", "width": 9},
 					map[string]any{"type": "chart", "handler": "cpu"},
 					map[string]any{"id": "secret", "type": "table", "handler": "admin_table", "permission": "read"},
-					map[string]any{"id": "ops", "type": "form", "handler": "ops_form", "group": "platform"},
+					map[string]any{"id": "ops", "type": "form", "handler": "ops_form", "groups": []any{"platform"}},
 				},
 			},
 			map[string]any{"columns": []any{

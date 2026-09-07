@@ -34,7 +34,7 @@ func TestVisibleMenusGating(t *testing.T) {
 # [[tool.knot.menus]]
 # label = "Platform"
 # url = "https://example.com/platform"
-# group = "platform"`)
+# groups = ["platform"]`)
 
 	registry, err := Load(dir)
 	if err != nil {

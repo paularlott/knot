@@ -60,9 +60,14 @@ func gatePasses(table map[string]any, user *model.User, plugin *plugins.Plugin) 
 			return false
 		}
 	}
-	if group, _ := table["group"].(string); group != "" {
-		groups := []string{group}
-		if !user.HasAnyGroup(&groups) {
+	if raw, ok := table["groups"].([]any); ok && len(raw) > 0 {
+		groups := make([]string, 0, len(raw))
+		for _, g := range raw {
+			if name, ok := g.(string); ok && name != "" {
+				groups = append(groups, name)
+			}
+		}
+		if len(groups) > 0 && !user.HasAnyGroup(&groups) {
 			return false
 		}
 	}

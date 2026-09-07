@@ -17,8 +17,9 @@ func AssetURL(pluginName, rel string) string {
 	return "/plugins/" + pluginName + "/assets/" + rel
 }
 
-// HandleGetPlugins returns the plugin inventory: loaded plugins with their
-// declared permissions, menus and peers, plus failed plugins and load
+// HandleGetPlugins returns the plugin inventory: loaded plugins with
+// everything they declare — permissions, menus, pages, MCP tools, handlers,
+// field handlers, peers (Go and scriptling) — plus failed plugins and load
 // warnings. This is the admin plugins page's data source and feeds the role
 // editor's plugin-permissions section.
 func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +50,7 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Label:      menu.Label,
 				URL:        menu.URL,
 				Permission: menu.Permission,
-				Group:      menu.Group,
+				Groups:     menu.Groups,
 				Icon:       menu.Icon,
 			})
 		}
@@ -61,7 +62,7 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Label:      page.Label,
 				MenuLabel:  page.MenuLabel,
 				Permission: page.Permission,
-				Group:      page.Group,
+				Groups:     page.Groups,
 			})
 		}
 		for _, peer := range registry.Peers(p) {
@@ -70,6 +71,41 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Version: peer.Version,
 				Healthy: peer.Healthy,
 				Error:   peer.Error,
+			})
+		}
+		for _, tool := range p.MCPTools {
+			params := make([]string, 0, len(tool.Parameters))
+			for _, param := range tool.Parameters {
+				params = append(params, param.Name)
+			}
+			info.MCPTools = append(info.MCPTools, apiclient.PluginMCPToolInfo{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Handler:     tool.Handler,
+				Permission:  tool.Permission,
+				Groups:      tool.Groups,
+				Parameters:  params,
+			})
+		}
+		for _, decl := range p.Handlers {
+			info.Handlers = append(info.Handlers, apiclient.PluginHandlerInfo{
+				Handler:    decl.Handler,
+				Permission: decl.Permission,
+				Groups:     decl.Groups,
+			})
+		}
+		for _, field := range p.FieldHandlers {
+			info.FieldHandlers = append(info.FieldHandlers, apiclient.PluginFieldHandlerInfo{
+				Id:         field.Id,
+				Label:      field.Label,
+				Permission: field.Permission,
+				Groups:     field.Groups,
+			})
+		}
+		for _, peer := range p.ScriptPeers {
+			info.ScriptPeers = append(info.ScriptPeers, apiclient.PluginScriptPeerInfo{
+				Name:    peer.Name,
+				Version: peer.Version,
 			})
 		}
 		list.Plugins = append(list.Plugins, info)

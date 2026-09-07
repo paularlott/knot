@@ -147,6 +147,60 @@ func (u *User) HasPluginPermission(name string) bool {
 	return false
 }
 
+// GrantedPermissionKeys returns the stable snake_case keys of the built-in
+// permissions the user holds across their roles; the fixed admin role
+// holds all of them. Keys — not display names — are the machine surface
+// (user.has_permission), so rewording a permission's display string can
+// never break plugin logic. The enforcement surface remains HasPermission.
+func (u *User) GrantedPermissionKeys() []string {
+	out := []string{}
+	seen := map[uint16]bool{}
+	if u.IsAdmin() {
+		for _, pn := range PermissionNames {
+			if !seen[uint16(pn.Id)] {
+				seen[uint16(pn.Id)] = true
+				if key := permissionKeys[uint16(pn.Id)]; key != "" {
+					out = append(out, key)
+				}
+			}
+		}
+		return out
+	}
+	for _, role := range u.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.Permissions {
+				if !seen[p] {
+					seen[p] = true
+					if key := permissionKeys[p]; key != "" {
+						out = append(out, key)
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// GrantedPluginPermissions returns the qualified plugin grants (e.g.
+// "plugin.metrics.read") the user holds across their roles. The admin role
+// passes every plugin permission check without carrying grants; callers
+// treat is-admin as the superset signal.
+func (u *User) GrantedPluginPermissions() []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, role := range u.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.PluginPermissions {
+				if !seen[p] {
+					seen[p] = true
+					out = append(out, p)
+				}
+			}
+		}
+	}
+	return out
+}
+
 func (u *User) HasAnyGroup(groups *[]string) bool {
 
 	// If user has no groups then return false

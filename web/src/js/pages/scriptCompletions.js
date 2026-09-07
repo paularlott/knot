@@ -33,6 +33,9 @@ const scriptLibraries = [
  * Maps variable names to their inferred types
  */
 const variableTypes = new Map();
+// Dispatch-bound globals with typed surfaces: the `user` global is a User
+// instance (knot.globals stub), so `user.` completes its methods.
+variableTypes.set("user", "User");
 
 /**
  * Patterns to detect variable assignments with known types

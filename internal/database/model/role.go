@@ -70,6 +70,65 @@ type PermissionName struct {
 	Description string `json:"description"`
 }
 
+// permissionKeys maps each built-in permission constant to its stable
+// snake_case key — the machine identifier plugins check
+// (user.has_permission("manage_spaces")). Display names are for humans and
+// may be reworded; keys never change. The keysComplete test fails when a
+// new permission ships without a key.
+// PermissionKey returns the stable snake_case key for a built-in
+// permission id, or "" when unknown.
+func PermissionKey(id uint16) string {
+	return permissionKeys[id]
+}
+
+var permissionKeys = map[uint16]string{
+	PermissionClusterInfo                           : "cluster_info",
+	PermissionCopyFiles                             : "copy_files",
+	PermissionDownloadAuditLogs                     : "download_audit_logs",
+	PermissionEditSpaceJobs                         : "edit_space_jobs",
+	PermissionExecuteOwnScripts                     : "execute_own_scripts",
+	PermissionExecuteScripts                        : "execute_scripts",
+	PermissionManageEvents                          : "manage_events",
+	PermissionManageGlobalEvents                    : "manage_global_events",
+	PermissionManageGlobalSkills                    : "manage_global_skills",
+	PermissionManageGlobalSlashCommands             : "manage_global_slash_commands",
+	PermissionManageGroups                          : "manage_groups",
+	PermissionManageMCPServers                      : "manage_mcp_servers",
+	PermissionManageOwnScripts                      : "manage_own_scripts",
+	PermissionManageOwnSkills                       : "manage_own_skills",
+	PermissionManageOwnSlashCommands                : "manage_own_slash_commands",
+	PermissionManageOwnStackDefinitions             : "manage_own_stack_definitions",
+	PermissionManageRoles                           : "manage_roles",
+	PermissionManageScripts                         : "manage_scripts",
+	PermissionManageSpaces                          : "manage_spaces",
+	PermissionManageStackDefinitions                : "manage_stack_definitions",
+	PermissionManageTemplates                       : "manage_templates",
+	PermissionManageUsers                           : "manage_users",
+	PermissionManageVariables                       : "manage_variables",
+	PermissionManageVolumes                         : "manage_volumes",
+	PermissionRunCommands                           : "run_commands",
+	PermissionSetSpaceDependencies                  : "set_space_dependencies",
+	PermissionShareSpaces                           : "share_spaces",
+	PermissionTransferSpaces                        : "transfer_spaces",
+	PermissionUseCodeServer                         : "use_code_server",
+	PermissionUseLogSinks                           : "use_log_sinks",
+	PermissionUseLogs                               : "use_logs",
+	PermissionUseMCPServer                          : "use_mcp_server",
+	PermissionUseMethods                            : "use_methods",
+	PermissionUsePools                              : "use_pools",
+	PermissionUseSSH                                : "use_ssh",
+	PermissionUseSpaceStartupScript                 : "use_space_startup_script",
+	PermissionUseSpaces                             : "use_spaces",
+	PermissionUseStackDefinitions                   : "use_stack_definitions",
+	PermissionUseTunnels                            : "use_tunnels",
+	PermissionUseVNC                                : "use_vnc",
+	PermissionUseVSCodeTunnel                       : "use_vs_code_tunnel",
+	PermissionUseWebAssistant                       : "use_web_assistant",
+	PermissionUseWebTerminal                        : "use_web_terminal",
+	PermissionViewAuditLogs                         : "view_audit_logs",
+	PermissionViewPlugins                           : "view_plugins",
+}
+
 var PermissionNames = []PermissionName{
 	{PermissionViewAuditLogs, "Audit", "View Audit Logs", "View the audit log of system activity."},
 	{PermissionDownloadAuditLogs, "Audit", "Download Audit Logs", "Export audit log entries to a file."},

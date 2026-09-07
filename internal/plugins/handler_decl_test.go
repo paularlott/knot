@@ -21,7 +21,7 @@ func TestHandlerDeclParsing(t *testing.T) {
 #
 # [[tool.knot.handlers]]
 # handler = "mod.helper_fn"
-# group = "platform"
+# groups = ["platform", "sre"]
 #
 # [[tool.knot.handlers]]
 # handler = "ping"`)
@@ -39,13 +39,13 @@ func TestHandlerDeclParsing(t *testing.T) {
 	if plugin == nil {
 		t.Fatal("plugin not loaded")
 	}
-	if decl := plugin.HandlerDecl("export_all"); decl == nil || decl.Permission != "plugin.gated.admin" || decl.Group != "" {
+	if decl := plugin.HandlerDecl("export_all"); decl == nil || decl.Permission != "plugin.gated.admin" || len(decl.Groups) != 0 {
 		t.Errorf("export_all decl = %+v, want permission plugin.gated.admin", decl)
 	}
-	if decl := plugin.HandlerDecl("mod.helper_fn"); decl == nil || decl.Group != "platform" || decl.Permission != "" {
-		t.Errorf("mod.helper_fn decl = %+v, want group platform", decl)
+	if decl := plugin.HandlerDecl("mod.helper_fn"); decl == nil || len(decl.Groups) != 2 || decl.Groups[0] != "platform" || decl.Groups[1] != "sre" || decl.Permission != "" {
+		t.Errorf("mod.helper_fn decl = %+v, want groups [platform sre]", decl)
 	}
-	if decl := plugin.HandlerDecl("ping"); decl == nil || decl.Permission != "" || decl.Group != "" {
+	if decl := plugin.HandlerDecl("ping"); decl == nil || decl.Permission != "" || len(decl.Groups) != 0 {
 		t.Errorf("ping decl = %+v, want an empty gate", decl)
 	}
 	if decl := plugin.HandlerDecl("no_such"); decl != nil {
@@ -90,13 +90,20 @@ version = "1.0"
 
 [[tool.knot.handlers]]
 handler = "has-dash"`, "must be a function name"},
-		{"empty group", `
+		{"empty groups entry", `
 [tool.knot]
 version = "1.0"
 
 [[tool.knot.handlers]]
 handler = "x"
-group = ""`, "non-empty string"},
+groups = [""]`, "non-empty strings"},
+		{"groups not a list", `
+[tool.knot]
+version = "1.0"
+
+[[tool.knot.handlers]]
+handler = "x"
+groups = "platform"`, "must be a list"},
 		{"not a table", `
 [tool.knot]
 version = "1.0"

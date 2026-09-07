@@ -17,6 +17,17 @@
 # handler = "echo_word"
 # permission = "view_dashboard"
 #
+# [[tool.knot.mcp_tools]]
+# name = "echo_word"
+# description = "Echo a word back in upper case, with its length."
+# handler = "echo_word"
+#
+# [[tool.knot.mcp_tools.parameters]]
+# name = "word"
+# type = "string"
+# description = "The word to echo back."
+# required = true
+#
 # [[tool.knot.pages]]
 # path = "/showcase"
 # handler = "showcase"
