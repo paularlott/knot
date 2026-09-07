@@ -295,3 +295,38 @@ func TestPluginPageDispatchPeer(t *testing.T) {
 		t.Errorf("peer identity missing from col_peer: %s", dump)
 	}
 }
+
+// TestPluginPeerClassDispatch runs the peer's Counter class through a
+// handler dispatch: construct, two stateful method calls, a read - all
+// over the plugin protocol. The same dispatch path serves pages, popups
+// and field handlers, so "usable wherever" is the pooled env's contract.
+func TestPluginPeerClassDispatch(t *testing.T) {
+	peerPath := filepath.Join("..", "..", "examples", "plugins", "demo-go", "bin", "demolib_"+runtime.GOOS+"_"+runtime.GOARCH)
+	if _, err := os.Stat(peerPath); err != nil {
+		t.Skip("demo-go peer not built (run make in examples/plugins/demo-go)")
+	}
+
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{})
+
+	registry, err := plugins.Load(filepath.Join("..", "..", "examples", "plugins"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer registry.Close()
+	plugin, _ := registry.Page("demo-go", "/status")
+	if plugin == nil {
+		t.Fatalf("demo-go not loaded with peer built: %+v", registry.Failed())
+	}
+
+	user := &model.User{Username: "tester", Roles: []string{model.RoleAdminUUID}}
+	got := dispatchPage(t, apiclient.NewMuxClient(user), user, plugin, "peer_class")
+	dict, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("peer_class = %#v, want a dict", got)
+	}
+	n := func(k string) string { return fmt.Sprintf("%v", dict[k]) }
+	if n("first") != "3" || n("second") != "6" || n("value") != "6" {
+		t.Fatalf("counter = %v, want first 3, second 6, value 6 (stateful methods across the wire)", dict)
+	}
+}

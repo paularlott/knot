@@ -577,6 +577,18 @@ func newTemplate(name string) (*template.Template, error) {
 		return tmpl, nil
 	}
 
+	// Embedded templates are immutable, so the parsed result is cached and
+	// every render skips re-parsing the partials and layouts. The
+	// server.template_path override above stays uncached — it exists for
+	// live editing during development. The funcs are pure, so sharing the
+	// parsed template across requests is safe.
+	templateCacheMu.RLock()
+	cached, ok := templateCache[name]
+	templateCacheMu.RUnlock()
+	if ok {
+		return cached, nil
+	}
+
 	// Check if template exists
 	file, err := tmplFiles.Open(fmt.Sprintf("templates/%s", name))
 	if err != nil {
@@ -590,8 +602,19 @@ func newTemplate(name string) (*template.Template, error) {
 		return nil, err
 	}
 
+	templateCacheMu.Lock()
+	templateCache[name] = tmpl
+	templateCacheMu.Unlock()
+
 	return tmpl, err
 }
+
+// templateCache memoizes newTemplate's embedded path: parsed templates are
+// immutable and the funcs they carry are pure.
+var (
+	templateCacheMu sync.RWMutex
+	templateCache   = map[string]*template.Template{}
+)
 
 func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}) {
 	user := r.Context().Value("user").(*model.User)

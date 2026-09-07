@@ -30,7 +30,7 @@ func pluginLogoURLs(cfg *config.ServerConfig) (string, string) {
 		return "", ""
 	}
 	if registry := plugins.GetRegistry(); registry != nil {
-		light, dark, _ := registry.SiteLogoURLs()
+		light, dark := registry.SiteLogoURLs()
 		return light, dark
 	}
 	return "", ""
@@ -202,21 +202,21 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := apiclient.NewMuxClient(user)
-	env, err := service.NewPluginScriptlingEnv(client, user, plugin)
-	if err != nil {
-		log.Error("plugin page: env", "plugin", plugin.Name, "error", err)
-		renderPluginPageError(w, r, plugin, page, "failed to build the plugin environment")
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), pluginPageTimeout())
 	defer cancel()
 
-	if _, err := env.EvalWithContext(ctx, plugin.EntrySource); err != nil {
-		log.Error("plugin page: entry", "plugin", plugin.Name, "error", err)
-		renderPluginPageError(w, r, plugin, page, fmt.Sprintf("plugin entry failed: %v", err))
+	// A pooled env for the plugin, Reset and rebound to this user per lease
+	// (clean module state, their identity, the entry re-evaluated from the
+	// parsed-program cache): dispatch skips the interpreter build and
+	// library registration a fresh env pays on every request.
+	env, err := service.AcquirePluginEnv(ctx, client, user, plugin)
+	if err != nil {
+		log.Error("plugin page: env", "plugin", plugin.Name, "error", err)
+		renderPluginPageError(w, r, plugin, page, fmt.Sprintf("plugin environment failed: %v", err))
 		return
 	}
+	defer service.ReleasePluginEnv(env, plugin)
 
 	// The request reaches the handler as the params dict: query parameters,
 	// plus — for actions — a POST body (form-encoded or JSON), which wins on
@@ -240,20 +240,36 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	// Handler-URL dispatch: call the addressed handler directly and answer
 	// as JSON. A declared handler stands on its own gate; an undeclared one
 	// is reachable only through a page, and the column gates must hold at
-	// fetch time too — so its name has to appear in the layout as the
+	// fetch time too — its name has to appear in the layout as the
 	// requesting user sees it (row/column gates applied), as a column's
-	// handler or an action's popup handler.
+	// handler or an action's popup handler. That answer is memoized per
+	// user and query for a few seconds (GET only), so a page's column burst
+	// costs one layout run instead of one per column.
 	if handler != "" {
 		if page != nil && plugin.HandlerDecl(handler) == nil {
-			layoutResult, err := env.CallFunctionWithContext(ctx, page.Handler)
-			if err != nil {
-				log.Error("plugin page: layout for handler gate", "plugin", plugin.Name, "handler", page.Handler, "error", err)
-				w.Header().Set("Content-Type", "application/json; charset=utf-8")
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`{"error":"page layout failed"}`))
-				return
+			cacheable := r.Method == http.MethodGet
+			var key string
+			var offered map[string]bool
+			var cached bool
+			if cacheable {
+				key = plugin.Name + "\x00" + page.Path + "\x00" + user.Id + "\x00" + user.Username + "\x00" + r.URL.RawQuery
+				offered, cached = layoutPresence.get(key)
 			}
-			if !layoutOffersHandler(normalizePageDocument(conversion.ToGo(layoutResult), user, plugin), handler) {
+			if !cached {
+				layoutResult, err := env.CallFunctionWithContext(ctx, page.Handler)
+				if err != nil {
+					log.Error("plugin page: layout for handler gate", "plugin", plugin.Name, "handler", page.Handler, "error", err)
+					w.Header().Set("Content-Type", "application/json; charset=utf-8")
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte(`{"error":"page layout failed"}`))
+					return
+				}
+				offered = layoutHandlerSet(normalizePageDocument(conversion.ToGo(layoutResult), user, plugin))
+				if cacheable {
+					layoutPresence.set(key, offered)
+				}
+			}
+			if !offered[handler] {
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte(`{"error":"handler not available for this user"}`))

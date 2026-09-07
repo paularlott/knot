@@ -11,6 +11,13 @@ import (
 	"github.com/paularlott/scriptling/plugin"
 )
 
+// counter is the receiver behind the peer's Counter class: a stateful Go
+// object scriptling constructs and calls methods on across the wire.
+type counter struct {
+	step int
+	n    int
+}
+
 func main() {
 	server := plugin.NewServer("demolib", "1.0.0", "Demonstration Go binary peer for the knot demo-go plugin.")
 
@@ -26,6 +33,20 @@ func main() {
 	server.RegisterFunc("greeting", object.NewFunctionBuilder().FunctionWithHelp(func(name string) string {
 		return "hello " + name + ", from a Go peer inside knot"
 	}, "greeting(name) - return a greeting from the peer."))
+
+	// A class: construct, hold state, call methods - all over the same
+	// plugin protocol as the functions above.
+	server.RegisterClass(object.NewClassBuilder("Counter").
+		Constructor(func(step int) *counter {
+			return &counter{step: step}
+		}).
+		Method("next", func(self *counter) int {
+			self.n += self.step
+			return self.n
+		}).
+		Method("value", func(self *counter) int {
+			return self.n
+		}))
 
 	if err := server.Run(); err != nil {
 		panic(err)

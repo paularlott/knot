@@ -9,19 +9,18 @@ import (
 	"github.com/paularlott/scriptling/conversion"
 )
 
-// DispatchPluginHandler runs one plugin handler function in a fresh
-// run-as-user environment and returns its Go value: the shared core of
-// plugin page dispatch and plugin field handler calls. The environment is
-// discarded with the call - plugin code runs per request and only per
-// request.
+// DispatchPluginHandler runs one plugin handler function as the requesting
+// user and returns its Go value: the shared core of plugin field handler
+// calls. The environment comes from the per-(plugin, user) pool — isolation
+// follows the trust boundary — with per-request state (params) set here.
 func DispatchPluginHandler(ctx context.Context, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin, handler string, params map[string]any) (any, error) {
-	env, err := NewPluginScriptlingEnv(client, user, plugin)
+	// A pooled env Reset and rebound to this user per lease — the same
+	// economy the page dispatcher gets.
+	env, err := AcquirePluginEnv(ctx, client, user, plugin)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := env.EvalWithContext(ctx, plugin.EntrySource); err != nil {
-		return nil, err
-	}
+	defer ReleasePluginEnv(env, plugin)
 	if err := env.SetObjectVar("params", conversion.FromGo(params)); err != nil {
 		return nil, err
 	}

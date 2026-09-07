@@ -134,6 +134,7 @@ window.pluginPage = function pluginPage(url) {
     url,
     params: '',
     timers: {},
+    _timerSeq: 0,
     _ac: new WeakMap(),
 
     handlerURL,
@@ -205,9 +206,16 @@ window.pluginPage = function pluginPage(url) {
       if (column.handler) this.fetchColumn(column, body);
       else this.renderColumnData(column, {}, body);
       if (column.refresh) {
-        this.timers[column.id] = setInterval(() => {
-          if (!this.userReading()) this.fetchColumn(column, body, true);
-        }, column.refresh * 1000);
+        // Stagger refresh timers across the period so a page's columns
+        // don't all fire in the same tick: five slots spread the load
+        // server-side instead of bursting it with every refresh.
+        const period = column.refresh * 1000;
+        const slot = this._timerSeq = (this._timerSeq + 1) % 5;
+        this.timers[column.id] = setTimeout(() => {
+          this.timers[column.id] = setInterval(() => {
+            if (!this.userReading()) this.fetchColumn(column, body, true);
+          }, period);
+        }, (period / 5) * slot);
       }
       return wrap;
     },

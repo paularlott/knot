@@ -74,9 +74,10 @@ also a demo of the failure path.
 ### Peer directions
 
 - **Go exposes, scriptling consumes** (supported): a `bin/` peer handshakes
-  a library name and serves functions/classes over stdio JSON-RPC; the
-  plugin's handlers import it as `plugin.<name>` (demo-go's
-  `import plugin.demolib`). The metadata dependency
+  a library name and serves functions, classes and whole libraries over
+  stdio JSON-RPC; the plugin's handlers import it as `plugin.<name>`
+  (demo-go's `import plugin.demolib`, whose `peer_class` handler exercises
+  the peer's `Counter` class - `RegisterClass` in `peer/main.go`). The metadata dependency
   (`plugin.demolib via demolib >= 1.0.0`) is verified against the live
   handshake at load. Handlers can also drive peers dynamically through the
   `scriptling.plugin` control library (`list`, `describe`, `call_function`).

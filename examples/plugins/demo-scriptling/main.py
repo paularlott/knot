@@ -444,7 +444,7 @@ def col_echo():
             x-text="busy ? '...' : 'Send'"></button>
     <button class="kp-button"
             :disabled="peerBusy"
-            @click="peerBusy = true; try { peer = 'demo-go peer: ' + (await pluginFetch('peer_summary', { plugin: 'demo-go' })).summary } catch (e) { peer = 'demo-go not available: ' + e.message } finally { peerBusy = false }"
+            @click="peerBusy = true; try { const p = await pluginFetch('peer_summary', { plugin: 'demo-go' }); const c = await pluginFetch('peer_class', { plugin: 'demo-go' }); peer = 'demo-go peer: ' + p.summary + ' (class demo: ' + c.first + ', ' + c.second + ')' } catch (e) { peer = 'demo-go not available: ' + e.message } finally { peerBusy = false }"
             x-text="peerBusy ? '...' : 'Ask demo-go'"></button>
   </div>
   <div class="kp-muted" style="margin-top:0.5rem; min-height:1.2rem" x-show="reply" x-text="reply"></div>

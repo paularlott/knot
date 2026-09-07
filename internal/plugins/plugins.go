@@ -350,17 +350,16 @@ func (r *Registry) DefaultPageURL() string {
 // name-sorted, so the alphabetically first claim wins deterministically —
 // every node scanning the same folder computes the same winner. An explicit
 // server.ui.logo_url config beats any plugin (the caller applies that).
-func (r *Registry) SiteLogoURLs() (light, dark, pluginName string) {
+func (r *Registry) SiteLogoURLs() (light, dark string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, p := range r.plugins {
 		if p.SiteLogo && p.LogoLight != "" {
 			return "/plugins/" + p.Name + "/assets/" + p.LogoLight,
-				"/plugins/" + p.Name + "/assets/" + p.LogoDark,
-				p.Name
+				"/plugins/" + p.Name + "/assets/" + p.LogoDark
 		}
 	}
-	return "", "", ""
+	return "", ""
 }
 
 // FieldHandlers lists every declared field handler across plugins.

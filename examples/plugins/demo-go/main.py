@@ -21,6 +21,9 @@
 #
 # [[tool.knot.handlers]]
 # handler = "peer_summary"
+#
+# [[tool.knot.handlers]]
+# handler = "peer_class"
 # ///
 
 """demo-go: a knot plugin that uses a Go binary peer.
@@ -166,6 +169,18 @@ def col_about():
     return {
         "markdown": "Each bar is a live `plugin.demolib.greeting()` round trip measured by the handler. The peer is a Go subprocess spawned by knot at plugin load; the handler talks to it over the plugin protocol."
     }
+
+
+def peer_class():
+    # The peer's Counter class: constructed and called over the plugin
+    # protocol like any library member. Declared in [[tool.knot.handlers]]
+    # so other plugins' pages can fetch it cross-plugin too.
+    import plugin.demolib as demolib
+
+    c = demolib.Counter(3)
+    first = c.next()
+    second = c.next()
+    return {"first": first, "second": second, "value": c.value()}
 
 
 def peer_summary():

@@ -45,9 +45,9 @@ func TestSiteLogo(t *testing.T) {
 		t.Fatalf("failed = %+v", registry.Failed())
 	}
 
-	light, dark, name := registry.SiteLogoURLs()
-	if name != "alpha" {
-		t.Errorf("site logo plugin = %q, want the first by name (alpha)", name)
+	light, dark := registry.SiteLogoURLs()
+	if !strings.HasPrefix(light, "/plugins/alpha/assets/") {
+		t.Errorf("site logo URL = %q, want the first plugin by name (alpha)", light)
 	}
 	// The URL is /plugins/<name>/assets/<relative path>; the fixture's logos
 	// live in an assets/ subfolder, so the relative path carries it too.
@@ -109,8 +109,8 @@ logo_dark = "assets/logo.svg"`)
 	if p.LogoLight != "assets/logo.svg" || p.LogoDark != "assets/logo.svg" {
 		t.Errorf("logos = %q / %q, want the single logo in both slots", p.LogoLight, p.LogoDark)
 	}
-	light, dark, name := registry.SiteLogoURLs()
-	if name != "solo" || light != dark || light != "/plugins/solo/assets/assets/logo.svg" {
-		t.Errorf("site logo URLs = %q / %q (%s)", light, dark, name)
+	light, dark := registry.SiteLogoURLs()
+	if light != dark || light != "/plugins/solo/assets/assets/logo.svg" {
+		t.Errorf("site logo URLs = %q / %q", light, dark)
 	}
 }

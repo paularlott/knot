@@ -471,22 +471,43 @@ func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log l
 // entry is the whole plugin), then knot's embedded libraries, then the
 // invoking user's lib scripts.
 func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) (*scriptling.Scriptling, error) {
+	if client == nil || user == nil {
+		return nil, fmt.Errorf("plugin env requires a client and user")
+	}
+	env := buildPluginEnv(plugin)
+	if err := bindPluginUserIdentity(env, client, user, plugin); err != nil {
+		return nil, err
+	}
+	return env, nil
+}
+
+// buildPluginEnv constructs the user-independent half of a plugin
+// environment: the jailed library surface and the plugin's binary peers.
+// It is the reusable part — the pooled envs keep it across leases.
+func buildPluginEnv(plugin *plugins.Plugin) *scriptling.Scriptling {
 	env := scriptling.New()
 	env.EnableOutputCapture()
 	registerPluginLibraries(env, plugin.Dir, nil)
 
-	// The plugin's own peers, visible to handlers as plugin.<name> imports.
+	// The plugin's own peers, visible to handlers as plugin.* imports.
 	if scope := plugin.Scope(); scope != nil {
 		pluginpkg.RegisterLibraries(env, scope)
 	}
+	return env
+}
 
+// bindPluginUserIdentity attaches the requesting user to a plugin env: the
+// run-as-user knot.* transports (knot.ai, the apiclient transport, the MCP
+// tools library — re-registered by name, replacing any previous user's
+// binding), the ai_client var, and the loader chain ending in the user's
+// lib scripts. Every surface that carries identity is bound here, so a
+// pooled env rebound per lease runs entirely as its new user.
+func bindPluginUserIdentity(env *scriptling.Scriptling, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) error {
 	aiClient := createServerAIClient(client, user)
 	if aiClient != nil {
-		env.SetObjectVar("ai_client", scriptlingai.WrapClient(aiClient))
-	}
-
-	if client == nil || user == nil {
-		return nil, fmt.Errorf("plugin env requires a client and user")
+		if err := env.SetObjectVar("ai_client", scriptlingai.WrapClient(aiClient)); err != nil {
+			return err
+		}
 	}
 	registerKnotLibraries(env, client, user.Id, nil, nil, aiClient, false)
 
@@ -496,8 +517,7 @@ func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugi
 	}
 	loaders = append(loaders, newServerLibraryLoaderWithContext(client, user))
 	env.SetLibraryLoader(libloader.NewChain(loaders...))
-
-	return env, nil
+	return nil
 }
 
 // AgentScriptlingOptions configures an agent-side (in-space) scriptling

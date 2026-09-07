@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
@@ -236,6 +237,90 @@ func TestPluginColumnGateAtFetch(t *testing.T) {
 			t.Errorf("%s as %s: status = %d, want %d (%s)", tc.target, tc.user.Username, w.Code, tc.want, tc.why)
 		}
 	}
+}
+
+// TestLayoutPresenceCache pins the memoization: a page's column burst runs
+// the layout handler once (per user and query), refusals come from the same
+// memoized answer, POSTs never use the cache, and entries expire.
+func TestLayoutPresenceCache(t *testing.T) {
+	model.SetRoleCache(nil)
+	handlerURLFixture(t)
+	layoutPresence.resetForTest(time.Minute)
+	admin := &model.User{Username: "admin", Roles: []string{model.RoleAdminUUID}}
+	plain := &model.User{Username: "plain"}
+
+	// First fetch evaluates and memoizes the layout.
+	if w := dispatchPluginRequest(t, "GET", "/plugins/hooked/open/col_public", admin); w.Code != http.StatusOK {
+		t.Fatalf("first fetch: status = %d", w.Code)
+	}
+	if hits, misses := layoutPresence.stats(); hits != 0 || misses != 1 {
+		t.Fatalf("after first fetch: hits = %d, misses = %d, want 0/1", hits, misses)
+	}
+
+	// The burst reuses the entry: no further layout evaluations.
+	for i := 0; i < 3; i++ {
+		if w := dispatchPluginRequest(t, "GET", "/plugins/hooked/open/col_public", admin); w.Code != http.StatusOK {
+			t.Fatalf("burst fetch %d: status = %d", i, w.Code)
+		}
+	}
+	if hits, misses := layoutPresence.stats(); hits != 3 || misses != 1 {
+		t.Fatalf("after burst: hits = %d, misses = %d, want 3/1", hits, misses)
+	}
+
+	// Refusals read the same entry: an unoffered handler 403s without
+	// re-running the layout.
+	if w := dispatchPluginRequest(t, "GET", "/plugins/hooked/open/col_secret", admin); w.Code != http.StatusForbidden {
+		t.Fatalf("unoffered handler: status = %d, want 403", w.Code)
+	}
+	if hits, _ := layoutPresence.stats(); hits != 4 {
+		t.Fatalf("refusal should hit the cache: hits = %d, want 4", hits)
+	}
+
+	// POST never reads the cache.
+	if w := dispatchPluginRequest(t, "POST", "/plugins/hooked/open/col_public", admin); w.Code != http.StatusOK {
+		t.Fatalf("POST fetch: status = %d", w.Code)
+	}
+	if hits, misses := layoutPresence.stats(); hits != 4 || misses != 1 {
+		t.Fatalf("after POST: hits = %d, misses = %d, want 4/1 (POST bypasses the cache)", hits, misses)
+	}
+
+	// A different query is a different answer: the layout may vary with
+	// params, so it re-evaluates.
+	if w := dispatchPluginRequest(t, "GET", "/plugins/hooked/open/col_public?zone=a", admin); w.Code != http.StatusOK {
+		t.Fatalf("query variant: status = %d", w.Code)
+	}
+	if _, misses := layoutPresence.stats(); misses != 2 {
+		t.Fatalf("query variant should miss: misses = %d, want 2", misses)
+	}
+
+	// A different user has their own entry (their gates differ).
+	if w := dispatchPluginRequest(t, "GET", "/plugins/hooked/open/col_public", plain); w.Code != http.StatusOK {
+		t.Fatalf("other user: status = %d", w.Code)
+	}
+	if _, misses := layoutPresence.stats(); misses != 3 {
+		t.Fatalf("other user should miss: misses = %d, want 3", misses)
+	}
+}
+
+// TestLayoutPresenceCacheExpiry pins the TTL: an expired entry re-evaluates.
+func TestLayoutPresenceCacheExpiry(t *testing.T) {
+	model.SetRoleCache(nil)
+	handlerURLFixture(t)
+	layoutPresence.resetForTest(time.Nanosecond)
+	admin := &model.User{Username: "admin", Roles: []string{model.RoleAdminUUID}}
+
+	if w := dispatchPluginRequest(t, "GET", "/plugins/hooked/open/col_public", admin); w.Code != http.StatusOK {
+		t.Fatalf("first fetch: status = %d", w.Code)
+	}
+	time.Sleep(2 * time.Millisecond)
+	if w := dispatchPluginRequest(t, "GET", "/plugins/hooked/open/col_public", admin); w.Code != http.StatusOK {
+		t.Fatalf("post-expiry fetch: status = %d", w.Code)
+	}
+	if _, misses := layoutPresence.stats(); misses != 2 {
+		t.Fatalf("expired entry should re-evaluate: misses = %d, want 2", misses)
+	}
+
+	layoutPresence.resetForTest(layoutPresenceTTL)
 }
 
 // TestPluginHandlerURLGate pins the gate matrix: a handler's own
