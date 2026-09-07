@@ -30,8 +30,7 @@ import (
 )
 
 // Menu is one declared sidebar entry. Permission, when set, is the fully
-// qualified grant (plugin.<name>.<id>) that gates the item; Groups, when
-// set, additionally restricts it to members of any listed group. Icon is a relative
+// qualified grant (plugin.<name>.<id>) that gates the item. Icon is a relative
 // path to an SVG asset in the plugin folder; IconSVG holds its sanitized
 // inner markup, rendered inline with the site's icon styling so a
 // currentColor-stroked SVG themes like every built-in icon.
@@ -39,9 +38,8 @@ type Menu struct {
 	PluginName string `json:"plugin,omitempty"`
 	Label      string `json:"label"`
 	URL        string `json:"url"`
-	Permission string   `json:"permission,omitempty"`
-	Groups     []string `json:"groups,omitempty"`
-	Icon       string   `json:"icon,omitempty"`
+	Permission string `json:"permission,omitempty"`
+	Icon       string `json:"icon,omitempty"`
 	IconSVG    string `json:"-"`
 }
 
@@ -56,11 +54,10 @@ type FieldHandler struct {
 	Id      string // qualified: plugin.<name>.<id>
 	Label   string
 	Handler string // function in the entry file
-	// Permission and Groups are optional additive gates on the options
-	// endpoint: UseSpaces (space forms drive the fetches) always applies,
-	// and a declared gate narrows who may invoke the handler further.
-	Permission string   `json:"permission,omitempty"` // qualified grant
-	Groups     []string `json:"groups,omitempty"`
+	// Permission is an optional additive gate on the options endpoint:
+	// UseSpaces (space forms drive the fetches) always applies, and a
+	// declared gate narrows who may invoke the handler further.
+	Permission string `json:"permission,omitempty"` // qualified grant
 }
 
 type Page struct {
@@ -69,8 +66,7 @@ type Page struct {
 	Handler    string `json:"handler"`              // function in the entry file ("module.fn" allowed)
 	Label      string `json:"label,omitempty"`      // page title
 	MenuLabel  string `json:"menu_label,omitempty"` // set: the page also appears in the sidebar under this label
-	Permission string   `json:"permission,omitempty"` // qualified grant, as Menu
-	Groups     []string `json:"groups,omitempty"`
+	Permission string `json:"permission,omitempty"` // qualified grant, as Menu
 	Icon       string `json:"icon,omitempty"`
 	IconSVG    string `json:"-"`
 	// Default marks the page as the post-login landing page. At most one
@@ -85,15 +81,14 @@ func (pg Page) URL() string {
 }
 
 // Handler is a declared handler gate: one [[tool.knot.handlers]] entry. The
-// declared permission/group is the handler's gate wherever it is called —
-// same semantics as row/column gates — overriding the calling page's. A
+// declared permission is the handler's gate wherever it is called — same
+// semantics as row/column gates — overriding the calling page's. A
 // declaration is also the opt-in for plugin-root addressability
 // (/plugins/<name>/<handler>): undeclared handlers inherit the calling
 // page's gate and are only reachable through a page path.
 type Handler struct {
 	Handler    string `json:"handler"`              // function name or module.function
-	Permission string   `json:"permission,omitempty"` // qualified grant, as Page
-	Groups     []string `json:"groups,omitempty"`     // both empty: any logged-in user
+	Permission string `json:"permission,omitempty"` // qualified grant, as Page; empty: any logged-in user
 }
 
 // HandlerDecl returns the declared gate for a handler name, or nil when the
@@ -285,12 +280,6 @@ func (r *Registry) VisibleMenus(user *model.User) []Menu {
 			if menu.Permission != "" && !user.HasPluginPermission(menu.Permission) {
 				continue
 			}
-			if len(menu.Groups) > 0 {
-				groups := menu.Groups
-				if !user.HasAnyGroup(&groups) {
-					continue
-				}
-			}
 			menus = append(menus, menu)
 		}
 	}
@@ -372,9 +361,8 @@ func (r *Registry) SiteLogoURLs() (light, dark string) {
 type MCPTool struct {
 	Name        string             `json:"name"`                // MCP tool name; defaults to the handler name
 	Description string             `json:"description"`         // shown to MCP clients
-	Handler     string             `json:"handler"`              // function in the entry file
+	Handler     string             `json:"handler"`             // function in the entry file
 	Permission  string             `json:"permission,omitempty"` // qualified grant, as Handler
-	Groups      []string           `json:"groups,omitempty"`
 	Parameters  []MCPToolParameter `json:"parameters,omitempty"` // optional: the tool's input schema
 }
 

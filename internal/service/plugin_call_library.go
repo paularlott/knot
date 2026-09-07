@@ -62,9 +62,6 @@ func registerPluginCallLibrary(env *scriptling.Scriptling, client *apiclient.Api
 				if decl.Permission != "" && !user.HasPluginPermission(decl.Permission) {
 					return errors.NewError("call: permission denied for handler %s of plugin %s", handler, pluginName)
 				}
-				if len(decl.Groups) > 0 && !user.HasAnyGroup(&decl.Groups) {
-					return errors.NewError("call: permission denied for handler %s of plugin %s", handler, pluginName)
-				}
 
 				callClient := client
 				if callClient == nil {

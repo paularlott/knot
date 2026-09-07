@@ -51,7 +51,6 @@ func TestPluginInventoryComplete(t *testing.T) {
 # description = "Export things."
 # handler = "export"
 # permission = "read"
-# groups = ["platform"]
 #
 # [[tool.knot.mcp_tools.parameters]]
 # name = "hours"
@@ -103,7 +102,6 @@ def field_env():
 			MCPTools []struct {
 				Name       string   `json:"name"`
 				Permission string   `json:"permission"`
-				Groups     []string `json:"groups"`
 				Parameters []string `json:"parameters"`
 			} `json:"mcp_tools"`
 			Handlers []struct {
@@ -131,7 +129,7 @@ def field_env():
 	if len(p.MCPTools) != 1 || p.MCPTools[0].Name != "export" {
 		t.Fatalf("mcp tools = %+v", p.MCPTools)
 	}
-	if p.MCPTools[0].Permission != "plugin.full.read" || len(p.MCPTools[0].Groups) != 1 {
+	if p.MCPTools[0].Permission != "plugin.full.read" {
 		t.Errorf("mcp tool gates = %+v", p.MCPTools[0])
 	}
 	if len(p.MCPTools[0].Parameters) != 1 || p.MCPTools[0].Parameters[0] != "hours" {

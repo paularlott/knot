@@ -25,7 +25,6 @@ name = "admin_scan"
 description = "Scan everything."
 handler = "scan_all"
 permission = "read"
-groups = ["platform", "sre"]
 
 [[tool.knot.mcp_tools.parameters]]
 name = "hours"
@@ -57,11 +56,11 @@ required = true`)
 	if plugin.MCPTools[0].Name != "echo_word" {
 		t.Errorf("default name = %q, want the handler name", plugin.MCPTools[0].Name)
 	}
-	if plugin.MCPTools[0].Permission != "" || len(plugin.MCPTools[0].Groups) != 0 {
+	if plugin.MCPTools[0].Permission != "" {
 		t.Errorf("ungated tool = %+v, want empty gates", plugin.MCPTools[0])
 	}
-	if plugin.MCPTools[1].Permission != "plugin.tooler.read" || len(plugin.MCPTools[1].Groups) != 2 || plugin.MCPTools[1].Groups[0] != "platform" {
-		t.Errorf("gated tool = %+v, want qualified permission and groups", plugin.MCPTools[1])
+	if plugin.MCPTools[1].Permission != "plugin.tooler.read" {
+		t.Errorf("gated tool = %+v, want the qualified permission", plugin.MCPTools[1])
 	}
 	params := plugin.MCPTools[1].Parameters
 	if len(params) != 2 {

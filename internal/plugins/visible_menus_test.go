@@ -30,11 +30,7 @@ func TestVisibleMenusGating(t *testing.T) {
 # label = "Admins"
 # url = "https://example.com/admin"
 # permission = "admin"
-#
-# [[tool.knot.menus]]
-# label = "Platform"
-# url = "https://example.com/platform"
-# groups = ["platform"]`)
+#`)
 
 	registry, err := Load(dir)
 	if err != nil {
@@ -48,12 +44,9 @@ func TestVisibleMenusGating(t *testing.T) {
 	model.SetRoleCache([]*model.Role{grantedRole, platformRole})
 	defer model.SetRoleCache(nil)
 
-	plain := &model.User{Username: "plain", Roles: []string{platformRole.Id}, Groups: []string{"other"}}
+	plain := &model.User{Username: "plain", Roles: []string{platformRole.Id}}
 	reader := &model.User{Username: "reader", Roles: []string{grantedRole.Id}}
-	platform := &model.User{Username: "platform", Roles: []string{}, Groups: []string{"platform"}}
-	// Admin passes every permission gate but not group gates — group
-	// membership is identity, not authority.
-	admin := &model.User{Username: "admin", Roles: []string{model.RoleAdminUUID}, Groups: []string{"platform"}}
+	admin := &model.User{Username: "admin", Roles: []string{model.RoleAdminUUID}}
 
 	// Permission gate: plain users see only the public item; the reader also
 	// sees the permission-gated one; admin sees everything.
@@ -63,13 +56,8 @@ func TestVisibleMenusGating(t *testing.T) {
 	if got := registry.VisibleMenuURLs(reader); len(got) != 2 || !got["https://example.com/read"] {
 		t.Errorf("reader URLs = %v", got)
 	}
-	if got := registry.VisibleMenuURLs(admin); len(got) != 4 {
-		t.Errorf("admin URLs = %v, want all four", got)
-	}
-
-	// Group gate.
-	if got := registry.VisibleMenuURLs(platform); len(got) != 2 || !got["https://example.com/platform"] {
-		t.Errorf("platform URLs = %v", got)
+	if got := registry.VisibleMenuURLs(admin); len(got) != 3 {
+		t.Errorf("admin URLs = %v, want all three", got)
 	}
 
 	// The pin-validation question: exactly the visible URLs are pinnable.
@@ -82,7 +70,6 @@ func TestVisibleMenusGating(t *testing.T) {
 		{plain, "https://example.com/read", false},
 		{reader, "https://example.com/read", true},
 		{reader, "https://example.com/not-declared", false},
-		{platform, "https://example.com/platform", true},
 	} {
 		if got := registry.VisibleMenuURLs(tc.user)[tc.url]; got != tc.want {
 			t.Errorf("pinnable(%s, %s) = %v, want %v", tc.user.Username, tc.url, got, tc.want)

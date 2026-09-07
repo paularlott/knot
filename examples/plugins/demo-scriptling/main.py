@@ -102,7 +102,7 @@ def field_environment():
 
 
 def showcase():
-    # The layout: rows of columns. knot enforces the permission/group
+    # The layout: rows of columns. knot enforces the permission
     # gates and never sends a row left with no columns.
     return {
         "rows": [
@@ -427,7 +427,7 @@ def col_notes():
 handler URL (the page path plus `/<handler>`), shows a loader meanwhile, and
 refreshes on its own timer.
 
-- rows and columns carry permission/group gates
+- rows and columns carry permission gates
 - forms POST to their column's handler URL and answer with an envelope
 - table rows carry action buttons
 - handlers are addressable from any page, including other plugins' pages

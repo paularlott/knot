@@ -51,8 +51,13 @@ func TestNormalizePageDocument(t *testing.T) {
 		t.Errorf("title = %v", row["title"])
 	}
 	columns := row["columns"].([]any)
-	if len(columns) != 3 {
-		t.Fatalf("columns = %d, want 3 (admin passes permission gates, fails the group gate)", len(columns))
+	if len(columns) != 4 {
+		t.Fatalf("columns = %d, want 4 (admin passes the permission gate; a stray groups key is inert)", len(columns))
+	}
+	for _, c := range columns {
+		if _, ok := c.(map[string]any)["groups"]; ok {
+			t.Errorf("stray groups key survived normalization: %v", c)
+		}
 	}
 	first := columns[0].(map[string]any)
 	if first["width"] != 4 {

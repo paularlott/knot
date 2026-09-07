@@ -39,7 +39,7 @@ func fieldGateFixture(t *testing.T) {
 # label = "Environments"
 # handler = "field_env"
 # permission = "pick"
-#
+##
 # [[tool.knot.field_handlers]]
 # label = "Open"
 # handler = "field_open"
@@ -113,3 +113,4 @@ func TestFieldHandlerOptionGate(t *testing.T) {
 		t.Fatalf("unknown handler: status = %d, want 404", w.Code)
 	}
 }
+

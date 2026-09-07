@@ -15,7 +15,6 @@ type PluginPageInfo struct {
 	Handler    string `json:"handler"`
 	Label      string `json:"label,omitempty"`
 	Permission string `json:"permission,omitempty"`
-	Groups     []string `json:"groups,omitempty"`
 	MenuLabel  string `json:"menu_label,omitempty"`
 }
 
@@ -23,7 +22,6 @@ type PluginMenuInfo struct {
 	Label      string `json:"label"`
 	URL        string `json:"url"`
 	Permission string `json:"permission,omitempty"`
-	Groups     []string `json:"groups,omitempty"`
 	Icon       string `json:"icon,omitempty"`
 }
 
@@ -40,7 +38,6 @@ type PluginMCPToolInfo struct {
 	Description string   `json:"description"`
 	Handler     string   `json:"handler"`
 	Permission  string   `json:"permission,omitempty"`
-	Groups      []string `json:"groups,omitempty"`
 	Parameters  []string `json:"parameters,omitempty"`
 }
 
@@ -48,7 +45,6 @@ type PluginMCPToolInfo struct {
 type PluginHandlerInfo struct {
 	Handler    string   `json:"handler"`
 	Permission string   `json:"permission,omitempty"`
-	Groups     []string `json:"groups,omitempty"`
 }
 
 // PluginFieldHandlerInfo is one declared field handler.
@@ -56,7 +52,6 @@ type PluginFieldHandlerInfo struct {
 	Id         string   `json:"id"`
 	Label      string   `json:"label"`
 	Permission string   `json:"permission,omitempty"`
-	Groups     []string `json:"groups,omitempty"`
 }
 
 // PluginScriptPeerInfo is one in-process scriptling peer.

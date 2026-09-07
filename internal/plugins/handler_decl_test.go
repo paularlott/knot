@@ -21,7 +21,6 @@ func TestHandlerDeclParsing(t *testing.T) {
 #
 # [[tool.knot.handlers]]
 # handler = "mod.helper_fn"
-# groups = ["platform", "sre"]
 #
 # [[tool.knot.handlers]]
 # handler = "ping"`)
@@ -39,13 +38,13 @@ func TestHandlerDeclParsing(t *testing.T) {
 	if plugin == nil {
 		t.Fatal("plugin not loaded")
 	}
-	if decl := plugin.HandlerDecl("export_all"); decl == nil || decl.Permission != "plugin.gated.admin" || len(decl.Groups) != 0 {
+	if decl := plugin.HandlerDecl("export_all"); decl == nil || decl.Permission != "plugin.gated.admin" {
 		t.Errorf("export_all decl = %+v, want permission plugin.gated.admin", decl)
 	}
-	if decl := plugin.HandlerDecl("mod.helper_fn"); decl == nil || len(decl.Groups) != 2 || decl.Groups[0] != "platform" || decl.Groups[1] != "sre" || decl.Permission != "" {
-		t.Errorf("mod.helper_fn decl = %+v, want groups [platform sre]", decl)
+	if decl := plugin.HandlerDecl("mod.helper_fn"); decl == nil || decl.Permission != "" {
+		t.Errorf("mod.helper_fn decl = %+v, want an empty gate", decl)
 	}
-	if decl := plugin.HandlerDecl("ping"); decl == nil || decl.Permission != "" || len(decl.Groups) != 0 {
+	if decl := plugin.HandlerDecl("ping"); decl == nil || decl.Permission != "" {
 		t.Errorf("ping decl = %+v, want an empty gate", decl)
 	}
 	if decl := plugin.HandlerDecl("no_such"); decl != nil {
@@ -67,6 +66,13 @@ permissions = ["read"]
 [[tool.knot.handlers]]
 handler = "x"
 permissions = "read"`, "unknown key"},
+		{"groups are gone from the plugin system", `
+[tool.knot]
+version = "1.0"
+
+[[tool.knot.handlers]]
+handler = "x"
+groups = ["platform"]`, "unknown key"},
 		{"undeclared permission", `
 [tool.knot]
 version = "1.0"
@@ -90,20 +96,6 @@ version = "1.0"
 
 [[tool.knot.handlers]]
 handler = "has-dash"`, "must be a function name"},
-		{"empty groups entry", `
-[tool.knot]
-version = "1.0"
-
-[[tool.knot.handlers]]
-handler = "x"
-groups = [""]`, "non-empty strings"},
-		{"groups not a list", `
-[tool.knot]
-version = "1.0"
-
-[[tool.knot.handlers]]
-handler = "x"
-groups = "platform"`, "must be a list"},
 		{"not a table", `
 [tool.knot]
 version = "1.0"

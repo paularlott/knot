@@ -104,11 +104,11 @@ Every handler is addressable as a URL and answers JSON:
   (and, below, the column gates) unless the handler has its own
   declaration;
 - `/plugins/<name>/<handler>` — plugin root; serves only handlers with a
-  `[[tool.knot.handlers]]` declaration, whose permission/group is the gate.
+  `[[tool.knot.handlers]]` declaration, whose permission is the gate.
 
 A handler does not care who fetches it — the plugin's own pages, another
 plugin's pages, or a user with curl. The gate layers, outermost in: the
-**page's** permission/group governs the page and every handler riding its
+**page's** permission governs the page and every handler riding its
 path; **row** gates are presentation (a gated row vanishes with its
 columns, which hides their handlers); **column** gates hold at fetch time
 too — knot re-runs the layout as the requesting user and an undeclared
@@ -119,8 +119,7 @@ root):
 ```toml
 # [[tool.knot.handlers]]
 # handler = "export_all"
-# permission = "admin"     # optional; both empty = any logged-in user
-# groups = ["platform"]       # optional
+# permission = "admin"     # optional; empty = any logged-in user
 ```
 
 Declaring a handler also opts it into plugin-root addressability, which is

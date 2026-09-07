@@ -76,7 +76,7 @@ var toolKnotKeys = map[string]bool{
 }
 
 var mcpToolKeys = map[string]bool{
-	"name": true, "description": true, "handler": true, "permission": true, "groups": true, "parameters": true,
+	"name": true, "description": true, "handler": true, "permission": true, "parameters": true,
 }
 
 var mcpToolParamKeys = map[string]bool{
@@ -96,34 +96,12 @@ var mcpParamNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 // (boot tools, scripts, plugins), so they share one namespace.
 var toolNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
-// parseGroups reads an optional groups list: the declaration applies to
-// members of any listed group. Where names the error site, e.g.
-// "[tool.knot]: menus[0]".
-func parseGroups(v any, where string) ([]string, error) {
-	if v == nil {
-		return nil, nil
-	}
-	list, ok := v.([]any)
-	if !ok {
-		return nil, fmt.Errorf("%s: groups must be a list of group names", where)
-	}
-	out := make([]string, 0, len(list))
-	for _, entry := range list {
-		name, ok := entry.(string)
-		if !ok || name == "" {
-			return nil, fmt.Errorf("%s: groups entries must be non-empty strings", where)
-		}
-		out = append(out, name)
-	}
-	return out, nil
-}
-
 var fieldHandlerKeys = map[string]bool{
-	"label": true, "handler": true, "permission": true, "groups": true,
+	"label": true, "handler": true, "permission": true,
 }
 
 var handlerDeclKeys = map[string]bool{
-	"handler": true, "permission": true, "groups": true,
+	"handler": true, "permission": true,
 }
 
 var pageKeys = map[string]bool{
@@ -132,7 +110,6 @@ var pageKeys = map[string]bool{
 	"label":      true,
 	"menu_label": true,
 	"permission": true,
-	"groups":     true,
 	"icon":       true,
 	"default":    true,
 }
@@ -151,7 +128,6 @@ var menuKeys = map[string]bool{
 	"label":      true,
 	"url":        true,
 	"permission": true,
-	"groups":     true,
 	"icon":       true,
 }
 
@@ -353,11 +329,6 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 				}
 				field.Permission = QualifiedPermission(name, id)
 			}
-			groups, err := parseGroups(entryTable["groups"], fmt.Sprintf("[tool.knot]: field_handlers[%d]", i))
-			if err != nil {
-				return nil, err
-			}
-			field.Groups = groups
 			p.FieldHandlers = append(p.FieldHandlers, field)
 		}
 	}
@@ -409,11 +380,6 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 				}
 				tool.Permission = QualifiedPermission(name, id)
 			}
-			groups, err := parseGroups(entryTable["groups"], fmt.Sprintf("[tool.knot]: mcp_tools[%d]", i))
-			if err != nil {
-				return nil, err
-			}
-			tool.Groups = groups
 			if raw, ok := entryTable["parameters"]; ok {
 				list, ok := raw.([]any)
 				if !ok {
@@ -501,11 +467,6 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 				}
 				decl.Permission = QualifiedPermission(name, id)
 			}
-			groups, err := parseGroups(entryTable["groups"], fmt.Sprintf("[tool.knot]: handlers[%d]", i))
-			if err != nil {
-				return nil, err
-			}
-			decl.Groups = groups
 			p.Handlers = append(p.Handlers, decl)
 		}
 	}
@@ -523,7 +484,6 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 				Label:      p.Pages[i].MenuLabel,
 				URL:        "/plugins/" + name + p.Pages[i].Path,
 				Permission: p.Pages[i].Permission,
-				Groups:     p.Pages[i].Groups,
 				Icon:       p.Pages[i].Icon,
 				IconSVG:    p.Pages[i].IconSVG,
 			})
@@ -630,11 +590,6 @@ func parseMenu(pluginName string, index int, table map[string]any, declared map[
 		}
 		menu.Permission = QualifiedPermission(pluginName, id)
 	}
-	groups, err := parseGroups(table["groups"], fmt.Sprintf("[tool.knot]: menus[%d]", index))
-	if err != nil {
-		return menu, err
-	}
-	menu.Groups = groups
 	if v, ok := table["icon"]; ok {
 		s, _ := v.(string)
 		if s == "" {
@@ -690,11 +645,6 @@ func parsePage(pluginName string, index int, table map[string]any, declared map[
 		}
 		page.Permission = QualifiedPermission(pluginName, id)
 	}
-	groups, err := parseGroups(table["groups"], fmt.Sprintf("[tool.knot]: pages[%d]", index))
-	if err != nil {
-		return page, err
-	}
-	page.Groups = groups
 	if v, ok := table["icon"]; ok {
 		s, _ := v.(string)
 		if s == "" {

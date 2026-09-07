@@ -200,3 +200,4 @@ func TestPluginMCPToolExecute(t *testing.T) {
 		t.Fatalf("unknown tool: resp = %v, err = %v, want nil/nil", resp, err)
 	}
 }
+

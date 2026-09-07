@@ -180,20 +180,16 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	// knot enforces the gate — a plugin cannot forget or skip it. A called
 	// handler with its own declaration carries that gate instead of the
 	// page's.
-	gatePermission, gateGroups := "", []string(nil)
+	gatePermission := ""
 	if page != nil {
-		gatePermission, gateGroups = page.Permission, page.Groups
+		gatePermission = page.Permission
 	}
 	if handler != "" {
 		if decl := plugin.HandlerDecl(handler); decl != nil {
-			gatePermission, gateGroups = decl.Permission, decl.Groups
+			gatePermission = decl.Permission
 		}
 	}
 	if gatePermission != "" && !user.HasPluginPermission(gatePermission) {
-		showPageForbidden(w, r)
-		return
-	}
-	if len(gateGroups) > 0 && !user.HasAnyGroup(&gateGroups) {
 		showPageForbidden(w, r)
 		return
 	}

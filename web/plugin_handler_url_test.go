@@ -48,20 +48,14 @@ func handlerURLFixture(t *testing.T) {
 # path = "/open"
 # handler = "open_layout"
 # label = "Open"
-#
-# [[tool.knot.pages]]
-# path = "/team"
-# handler = "team_layout"
-# label = "Team"
-# groups = ["platform", "sre"]
-#
+##
 # [[tool.knot.handlers]]
 # handler = "echo_word"
 #
 # [[tool.knot.handlers]]
 # handler = "col_table"
 # permission = "read"
-#
+##
 # [[tool.knot.handlers]]
 # handler = "ghost"
 # ///
@@ -87,14 +81,6 @@ def open_layout():
 
 def col_public():
     return {"text": "public"}
-
-
-def team_layout():
-    return {"rows": [{"columns": [{"id": "t", "type": "text", "handler": "col_team"}]}]}
-
-
-def col_team():
-    return {"text": "team"}
 
 
 def col_private():
@@ -243,9 +229,6 @@ func TestPluginColumnGateAtFetch(t *testing.T) {
 		// No layout references this handler: not callable, even by admins.
 		{"/plugins/hooked/open/col_secret", admin, http.StatusForbidden, "unreferenced handler is not callable"},
 		{"/plugins/hooked/report/col_secret", admin, http.StatusForbidden, "unreferenced handler is not callable on any page"},
-		// A groups-gated page: membership in ANY listed group passes.
-		{"/plugins/hooked/team/col_team", &model.User{Username: "sre", Id: "u-sre", Groups: []string{"sre"}}, http.StatusOK, "any listed group passes"},
-		{"/plugins/hooked/team/col_team", plain, http.StatusForbidden, "no listed group refuses"},
 		// Declared handlers skip the layout check and use their own gate.
 		{"/plugins/hooked/report/echo_word", admin, http.StatusOK, "declared handler stands on its declaration"},
 	}

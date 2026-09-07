@@ -50,7 +50,6 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Label:      menu.Label,
 				URL:        menu.URL,
 				Permission: menu.Permission,
-				Groups:     menu.Groups,
 				Icon:       menu.Icon,
 			})
 		}
@@ -62,7 +61,6 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Label:      page.Label,
 				MenuLabel:  page.MenuLabel,
 				Permission: page.Permission,
-				Groups:     page.Groups,
 			})
 		}
 		for _, peer := range registry.Peers(p) {
@@ -83,7 +81,6 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Description: tool.Description,
 				Handler:     tool.Handler,
 				Permission:  tool.Permission,
-				Groups:      tool.Groups,
 				Parameters:  params,
 			})
 		}
@@ -91,7 +88,6 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 			info.Handlers = append(info.Handlers, apiclient.PluginHandlerInfo{
 				Handler:    decl.Handler,
 				Permission: decl.Permission,
-				Groups:     decl.Groups,
 			})
 		}
 		for _, field := range p.FieldHandlers {
@@ -99,7 +95,6 @@ func HandleGetPlugins(w http.ResponseWriter, r *http.Request) {
 				Id:         field.Id,
 				Label:      field.Label,
 				Permission: field.Permission,
-				Groups:     field.Groups,
 			})
 		}
 		for _, peer := range p.ScriptPeers {
