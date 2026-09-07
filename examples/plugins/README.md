@@ -95,16 +95,34 @@ also a demo of the failure path.
 
 Every handler is addressable as a URL and answers JSON:
 
-- `/plugins/<name>/<page-path>/<handler>` — runs through that page's gate;
-- `/plugins/<name>/<handler>` — runs through the plugin's default page's
-  gate (first declared page when none claims `default`).
+- `/plugins/<name>/<page-path>/<handler>` — runs through that page's gate
+  (and, below, the column gates) unless the handler has its own
+  declaration;
+- `/plugins/<name>/<handler>` — plugin root; serves only handlers with a
+  `[[tool.knot.handlers]]` declaration, whose permission/group is the gate.
 
 A handler does not care who fetches it — the plugin's own pages, another
-plugin's pages, or a user with curl. The gate is always the requesting
-user's permission on the page the URL rides, exactly as if they had opened
-that page. Column data fetches, form POSTs, row actions, popups and
-dynamic-option fetches all use these URLs (this is what
-`?_col=<handler>` query-string dispatch used to be).
+plugin's pages, or a user with curl. The gate layers, outermost in: the
+**page's** permission/group governs the page and every handler riding its
+path; **row** gates are presentation (a gated row vanishes with its
+columns, which hides their handlers); **column** gates hold at fetch time
+too — knot re-runs the layout as the requesting user and an undeclared
+handler is served only if that layout offers it; a **handler declaration**
+replaces the inherited gates wherever it applies (page path or plugin
+root):
+
+```toml
+# [[tool.knot.handlers]]
+# handler = "export_all"
+# permission = "admin"     # optional; both empty = any logged-in user
+# group = "platform"       # optional
+```
+
+Declaring a handler also opts it into plugin-root addressability, which is
+what cross-plugin `pluginFetch` uses — undeclared handlers inherit the
+calling page's gate and are reachable only through a page path. Column data
+fetches, form POSTs, row actions, popups and dynamic-option fetches all use
+these URLs.
 
 From trusted html, `pluginFetch` is the wrapper — same transport, auth and
 gate:
@@ -116,9 +134,11 @@ await pluginFetch('save', { method: 'POST', body: { name: 'x' } }); // POST
 ```
 
 The echo card on demo-scriptling's showcase demonstrates the cross-plugin
-call: its **Ask demo-go** button fetches demo-go's `peer_summary` handler,
-which makes a live round trip to the Go peer. With demo-go unloaded (peer
-not built) the button shows the error instead — degrade, don't break.
+call: its **Ask demo-go** button fetches demo-go's `peer_summary` handler
+(declared in demo-go's metadata with no gate, so any logged-in user may
+call it), which makes a live round trip to the Go peer. With demo-go
+unloaded (peer not built) the button shows the error instead — degrade,
+don't break.
 
 ## What to look at
 

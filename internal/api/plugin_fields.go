@@ -47,6 +47,22 @@ func HandleGetPluginFieldHandlerOptions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	user := r.Context().Value("user").(*model.User)
+
+	// UseSpaces (the route middleware) is the baseline — field handlers run
+	// as part of space forms. A declared permission/group on the field
+	// handler narrows who may invoke it further.
+	if handler.Permission != "" && !user.HasPluginPermission(handler.Permission) {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "field handler permission not granted"})
+		return
+	}
+	if handler.Group != "" {
+		groups := []string{handler.Group}
+		if !user.HasAnyGroup(&groups) {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "field handler group not granted"})
+			return
+		}
+	}
+
 	params := map[string]any{"_data": handler.Id}
 	if query := r.URL.Query().Get("query"); query != "" {
 		params["query"] = query

@@ -604,12 +604,12 @@
           <label class="form-label" for="field-config-type">Field type</label>
           <select id="field-config-type" class="form-field" x-model="fieldConfig.type">
             <option value="text">Text</option>
-            <option value="password">Password</option>
+            <option value="masked">Masked</option>
             <option value="number">Number</option>
             <option x-show="fieldConfig.handlers.length > 0 || fieldConfig.type === 'autocomplete'" value="autocomplete">Autocomplete</option>
             <option value="textarea">Text area (code editor)</option>
           </select>
-          <p class="description">All values are stored as strings. Password masks on input; number validates digits; autocomplete binds to a plugin handler; text area is an ace editor for multi-line values.</p>
+          <p class="description">All values are stored as strings. Masked hides the value while typing (stored as plain text - not a secret); number validates digits; autocomplete binds to a plugin handler; text area is an ace editor for multi-line values.</p>
         </div>
         <div x-show="fieldConfig.type === 'textarea'">
           <label class="form-label" for="field-config-language">Editor language</label>

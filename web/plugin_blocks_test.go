@@ -88,31 +88,18 @@ func TestNormalizePageDocument(t *testing.T) {
 	}
 }
 
-// TestWritePluginJSONColumnPassthrough pins the table-payload bug: a
-// column's data may carry "rows" (its own table rows) and must NOT be
-// re-normalized as a page layout, which emptied it.
+// TestWritePluginJSONColumnPassthrough pins the transport rule: a handler
+// payload passes through untouched - its "rows" is data (a table's rows),
+// never re-interpreted as a page layout.
 func TestWritePluginJSONColumnPassthrough(t *testing.T) {
-	config.SetServerConfig(&config.ServerConfig{})
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/plugins/x/home?_json=1&_col=spaces", nil)
 	writePluginJSON(w, map[string]any{
 		"columns": []any{map[string]any{"key": "name", "label": "Space"}},
 		"rows":    []any{map[string]any{"name": "alpha"}},
-	}, pageAdminUser(), demoPlugin(), r, true)
+	})
 	body := w.Body.String()
 	if !strings.Contains(body, `"columns"`) || !strings.Contains(body, "alpha") {
 		t.Errorf("column payload was mangled: %s", body)
-	}
-
-	// Without _col the same shape is treated as a layout (back-compat with
-	// the page transport).
-	w2 := httptest.NewRecorder()
-	r2 := httptest.NewRequest("GET", "/plugins/x/home?_json=1", nil)
-	writePluginJSON(w2, map[string]any{
-		"rows": []any{map[string]any{"name": "alpha"}},
-	}, pageAdminUser(), demoPlugin(), r2, false)
-	if !strings.Contains(w2.Body.String(), `"rows":[]`) {
-		t.Errorf("layout normalization should drop non-layout rows: %s", w2.Body.String())
 	}
 }
 
@@ -120,9 +107,7 @@ func TestWritePluginJSONColumnPassthrough(t *testing.T) {
 // envelope's dialog markdown is rendered server-side (like column markdown)
 // and shipped as html, never as raw markdown.
 func TestWritePluginJSONDialogMarkdown(t *testing.T) {
-	config.SetServerConfig(&config.ServerConfig{})
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/plugins/x/home?_json=1&_col=spaces", nil)
 	writePluginJSON(w, map[string]any{
 		"status":  "ok",
 		"message": "Report generated.",
@@ -130,7 +115,7 @@ func TestWritePluginJSONDialogMarkdown(t *testing.T) {
 			"title":    "Report",
 			"markdown": "**Done.**\n\n- one thing",
 		},
-	}, pageAdminUser(), demoPlugin(), r, true)
+	})
 	var decoded struct {
 		Dialog struct {
 			Html string `json:"html"`

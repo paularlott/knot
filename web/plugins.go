@@ -21,30 +21,19 @@ import (
 	"github.com/paularlott/scriptling/conversion"
 )
 
-// pluginLogoLight and pluginLogoDark return the plugin-provided site-logo
-// URLs for the template data, or "" when no plugin claims the site logo or
+// pluginLogoURLs returns the plugin-provided site-logo URLs (light, dark)
+// for the template data, or ("", "") when no plugin claims the site logo or
 // an explicit server.ui.logo_url config is set — admin config beats plugins,
-// which beat the built-in knot logo.
-func pluginLogoLight(cfg *config.ServerConfig) string {
+// which beat the built-in knot logo. One resolution pass serves both.
+func pluginLogoURLs(cfg *config.ServerConfig) (string, string) {
 	if cfg.UI.LogoURL != "" {
-		return ""
+		return "", ""
 	}
 	if registry := plugins.GetRegistry(); registry != nil {
-		light, _, _ := registry.SiteLogoURLs()
-		return light
+		light, dark, _ := registry.SiteLogoURLs()
+		return light, dark
 	}
-	return ""
-}
-
-func pluginLogoDark(cfg *config.ServerConfig) string {
-	if cfg.UI.LogoURL != "" {
-		return ""
-	}
-	if registry := plugins.GetRegistry(); registry != nil {
-		_, dark, _ := registry.SiteLogoURLs()
-		return dark
-	}
-	return ""
+	return "", ""
 }
 
 // pluginAssetTypes maps the file extensions a plugin may declare for its
@@ -115,11 +104,13 @@ func pluginPageTimeout() time.Duration {
 // resolvePluginDispatch maps a request path to a page render or a handler
 // call. Exact declared pages win; otherwise the longest declared page whose
 // path is a prefix leaves a single handler segment (/plugins/x/page/handler),
-// and a lone segment at the plugin root (/plugins/x/handler) is gated by the
-// plugin's default page — the page a handler is reachable through does not
-// narrow who may call it: every handler of a plugin is reachable to anyone
-// who can see any of its pages, and the default page is the canonical gate.
-// A nil plugin means 404.
+// and a lone segment at the plugin root (/plugins/x/handler) serves only
+// handlers with a [[tool.knot.handlers]] declaration — the declaration is
+// the opt-in that a handler is addressable without a page, and its
+// permission/group is the handler's gate. Undeclared handlers inherit the
+// calling page's gate and are reachable only through a page path. A nil
+// plugin means 404; a nil page (root dispatch) is always paired with a
+// declared handler.
 func resolvePluginDispatch(registry *plugins.Registry, pluginName, requestPath string) (*plugins.Plugin, *plugins.Page, string) {
 	if plugin, page := registry.Page(pluginName, requestPath); plugin != nil {
 		return plugin, page, ""
@@ -148,17 +139,10 @@ func resolvePluginDispatch(registry *plugins.Registry, pluginName, requestPath s
 		return plugin, best, requestPath[bestLen+1:]
 	}
 
-	// Plugin-root handler: gated by the default page, or the first declared.
+	// Plugin-root handler: only declared handlers are addressable here.
 	handler := strings.TrimPrefix(requestPath, "/")
-	if plugins.ValidHandlerName(handler) && len(plugin.Pages) > 0 {
-		gate := &plugin.Pages[0]
-		for i := range plugin.Pages {
-			if plugin.Pages[i].Default {
-				gate = &plugin.Pages[i]
-				break
-			}
-		}
-		return plugin, gate, handler
+	if plugin.HandlerDecl(handler) != nil {
+		return plugin, nil, handler
 	}
 	return nil, nil, ""
 }
@@ -169,10 +153,13 @@ func resolvePluginDispatch(registry *plugins.Registry, pluginName, requestPath s
 // environment (and everything in it) is discarded with the request — plugin
 // code runs only here, never at boot.
 //
-// Handler URLs: /plugins/<name>/<page-path>/<handler> calls that handler
-// through the page's gate, and /plugins/<name>/<handler> calls it through
-// the default page's gate — the addressable ajax surface any page (or any
-// other plugin's page) fetches. The response is always JSON.
+// Handler URLs: /plugins/<name>/<page-path>/<handler> calls that handler,
+// and /plugins/<name>/<handler> calls a [[tool.knot.handlers]]-declared
+// handler at the plugin root — the addressable ajax surface any page (or
+// any other plugin's page) fetches. The response is always JSON. The gate
+// is the calling page's permission/group unless the handler has its own
+// declaration, which is authoritative everywhere the handler is called —
+// the same semantics as row/column gates.
 func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	pluginName := r.PathValue("plugin_name")
 	requestPath := "/" + strings.Trim(r.PathValue("path"), "/")
@@ -183,20 +170,31 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	plugin, page, handler := resolvePluginDispatch(registry, pluginName, requestPath)
-	if plugin == nil || page == nil {
+	if plugin == nil {
 		http.NotFound(w, r)
 		return
 	}
 
 	user := r.Context().Value("user").(*model.User)
 
-	// knot enforces the gate — a plugin cannot forget or skip it.
-	if page.Permission != "" && !user.HasPluginPermission(page.Permission) {
+	// knot enforces the gate — a plugin cannot forget or skip it. A called
+	// handler with its own declaration carries that gate instead of the
+	// page's.
+	gatePermission, gateGroup := "", ""
+	if page != nil {
+		gatePermission, gateGroup = page.Permission, page.Group
+	}
+	if handler != "" {
+		if decl := plugin.HandlerDecl(handler); decl != nil {
+			gatePermission, gateGroup = decl.Permission, decl.Group
+		}
+	}
+	if gatePermission != "" && !user.HasPluginPermission(gatePermission) {
 		showPageForbidden(w, r)
 		return
 	}
-	if page.Group != "" {
-		groups := []string{page.Group}
+	if gateGroup != "" {
+		groups := []string{gateGroup}
 		if !user.HasAnyGroup(&groups) {
 			showPageForbidden(w, r)
 			return
@@ -222,9 +220,8 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 
 	// The request reaches the handler as the params dict: query parameters,
 	// plus — for actions — a POST body (form-encoded or JSON), which wins on
-	// key conflicts. knot's own control parameters stay out of params, but
-	// _data and _block pass through so handlers can serve dynamic option
-	// fetches and cheap per-block refreshes.
+	// key conflicts. Every query parameter flows through, including _data,
+	// which dynamic-option fetches use to name the field they want.
 	params, err := pluginParams(r)
 	if err != nil {
 		renderPluginPageError(w, r, plugin, page, "invalid request body")
@@ -241,9 +238,28 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handler-URL dispatch: call the addressed handler directly and answer
-	// as JSON. The page's layout handler is not run — the caller named the
-	// function it wants.
+	// as JSON. A declared handler stands on its own gate; an undeclared one
+	// is reachable only through a page, and the column gates must hold at
+	// fetch time too — so its name has to appear in the layout as the
+	// requesting user sees it (row/column gates applied), as a column's
+	// handler or an action's popup handler.
 	if handler != "" {
+		if page != nil && plugin.HandlerDecl(handler) == nil {
+			layoutResult, err := env.CallFunctionWithContext(ctx, page.Handler)
+			if err != nil {
+				log.Error("plugin page: layout for handler gate", "plugin", plugin.Name, "handler", page.Handler, "error", err)
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(`{"error":"page layout failed"}`))
+				return
+			}
+			if !layoutOffersHandler(normalizePageDocument(conversion.ToGo(layoutResult), user, plugin), handler) {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`{"error":"handler not available for this user"}`))
+				return
+			}
+		}
 		result, err := env.CallFunctionWithContext(ctx, handler)
 		if err != nil {
 			log.Error("plugin handler", "plugin", plugin.Name, "handler", handler, "error", err)
@@ -252,7 +268,7 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"error":"handler failed"}`))
 			return
 		}
-		writePluginJSON(w, conversion.ToGo(result), user, plugin, r, true)
+		writePluginJSON(w, conversion.ToGo(result))
 		return
 	}
 
@@ -269,30 +285,6 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	value := conversion.ToGo(result)
-
-	if handler := r.URL.Query().Get("_col"); handler != "" {
-		// Proxy straight to the column's data handler: the page gate was
-		// checked above, the environment is jailed and bound to the
-		// requesting user, and the handler name came from the layout the
-		// same user was served - no layout re-resolution per fetch.
-		colResult, err := env.CallFunctionWithContext(ctx, handler)
-		if err != nil {
-			log.Error("plugin column", "plugin", plugin.Name, "handler", handler, "error", err)
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error":"column handler failed"}`))
-			return
-		}
-		value = conversion.ToGo(colResult)
-	}
-
-	// The data-binding transport: the client renders. Block documents come
-	// back normalized; anything else (dynamic option fetches, ad-hoc data)
-	// passes through as raw JSON.
-	if r.URL.Query().Get("_json") == "1" || r.URL.Query().Get("_col") != "" {
-		writePluginJSON(w, value, user, plugin, r, r.URL.Query().Get("_col") != "")
-		return
-	}
 
 	// A dict with "blocks" is a block document (dashboards); anything else
 	// falls back to the key-value view.
@@ -339,13 +331,13 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// writePluginJSON sends a handler result over the data-binding transport.
-// Block documents are normalized (validation happens server-side); any other
-// value is passed through untouched so handlers can serve arbitrary JSON to
-// dynamic option fetches (_data) and the Knot.plugin bridge. handlerFetch
-// marks a column/handler-URL result, whose "rows" is data (a table's rows),
-// not a page layout to re-normalize.
-func writePluginJSON(w http.ResponseWriter, value any, user *model.User, plugin *plugins.Plugin, r *http.Request, handlerFetch bool) {
+// writePluginJSON sends a handler result as JSON. Handler payloads pass
+// through untouched — a dict's "rows" is data (a table's rows), never a
+// page layout — so handlers can serve arbitrary JSON to dynamic option
+// fetches (_data) and pluginFetch callers. Markdown in a payload or a
+// success dialog is rendered server-side so the client only ever places
+// trusted HTML.
+func writePluginJSON(w http.ResponseWriter, value any) {
 	// Column payloads and success-dialog envelopes may carry markdown;
 	// render it server-side so the client only ever places trusted HTML.
 	if dict, ok := value.(map[string]any); ok {
@@ -366,14 +358,6 @@ func writePluginJSON(w http.ResponseWriter, value any, user *model.User, plugin 
 			}
 		}
 	}
-	// Only a page layout (not a handler fetch) is normalized here: a column
-	// payload may legitimately carry its own "rows" (a table's data) and must
-	// pass through untouched.
-	if dict, ok := value.(map[string]any); ok {
-		if _, hasRows := dict["rows"].([]any); hasRows && !handlerFetch {
-			value = normalizePageDocument(value, user, plugin)
-		}
-	}
 	body, err := json.Marshal(value)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -384,13 +368,13 @@ func writePluginJSON(w http.ResponseWriter, value any, user *model.User, plugin 
 	w.Write(body)
 }
 
-// pluginParams collects the handler's params dict: every query parameter
-// except knot's control keys, overlaid by a POST body when present
-// (form-encoded or JSON object; body wins on conflicts).
+// pluginParams collects the handler's params dict: every query parameter,
+// overlaid by a POST body when present (form-encoded or JSON object; body
+// wins on conflicts).
 func pluginParams(r *http.Request) (map[string]any, error) {
 	params := map[string]any{}
 	for key, values := range r.URL.Query() {
-		if pluginControlParams[key] || len(values) == 0 {
+		if len(values) == 0 {
 			continue
 		}
 		params[key] = values[len(values)-1]
@@ -473,7 +457,8 @@ func pluginPageJSON(v any) string {
 }
 
 // renderPluginPageError shows the failure in the page chrome rather than a
-// bare status: a broken handler is a plugin bug, not a server one.
+// bare status: a broken handler is a plugin bug, not a server one. page may
+// be nil (plugin-root handler dispatch has no page context).
 func renderPluginPageError(w http.ResponseWriter, r *http.Request, plugin *plugins.Plugin, page *plugins.Page, message string) {
 	tmpl, err := newTemplate("page-plugin.tmpl")
 	if err != nil {
@@ -483,9 +468,12 @@ func renderPluginPageError(w http.ResponseWriter, r *http.Request, plugin *plugi
 	}
 	w.WriteHeader(http.StatusInternalServerError)
 	_, data := getCommonTemplateData(r)
-	title := page.Label
+	title := ""
+	if page != nil {
+		title = page.Label
+	}
 	if title == "" {
-		title = plugin.Name + page.Path
+		title = plugin.Name + r.URL.Path
 	}
 	data["pluginPageTitle"] = title
 	data["pluginPageName"] = plugin.Name

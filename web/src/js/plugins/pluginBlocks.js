@@ -11,6 +11,17 @@
 
 const PLUGIN_CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316'];
 
+// safeColor gates plugin-supplied colour values before they reach a DOM
+// style: hex, rgb()/rgba(), hsl()/hsla() shapes only, anything else drops.
+// CSSOM would discard a non-colour assignment anyway (these are property
+// assignments, not cssText), but the guard keeps that contract explicit and
+// survives a future move to setAttribute or cssText.
+const SAFE_COLOR_RE = /^#(?:[0-9a-fA-F]{3,8})$|^rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(?:,\s*[\d.]+\s*)?\)$|^hsla?\(\s*[\d.]+(?:deg|turn)?\s*,\s*[\d.]+%\s*,\s*[\d.]+%\s*(?:,\s*[\d.]+\s*)?\)$/;
+
+function safeColor(value) {
+  return typeof value === 'string' && SAFE_COLOR_RE.test(value.trim()) ? value.trim() : '';
+}
+
 // badgeClassFor maps well-known state values to badge colours; anything
 // unknown gets the neutral blue. Values carry text, so colour is never the
 // only signal.
@@ -224,7 +235,7 @@ export function renderBlock(block, hooks) {
       const value = q(node, '[data-value]');
       value.textContent = block.value;
       value.title = block.value;
-      if (block.accent) value.style.color = block.accent;
+      if (block.accent) value.style.color = safeColor(block.accent);
       if (block.unit) q(node, '[data-unit]').textContent = block.unit;
       if (block.delta) {
         const delta = q(node, '[data-delta]');
@@ -244,7 +255,7 @@ export function renderBlock(block, hooks) {
       track.setAttribute('aria-valuenow', pct.toFixed(0));
       const fill = q(node, '[data-fill]');
       fill.style.width = `${pct.toFixed(1)}%`;
-      fill.style.backgroundColor = block.color;
+      fill.style.backgroundColor = safeColor(block.color);
       fill.setAttribute('aria-label', block.label);
       break;
     }

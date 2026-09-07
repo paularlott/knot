@@ -66,11 +66,16 @@ var toolKnotKeys = map[string]bool{
 	"logo_dark":      true,
 	"menus":          true,
 	"pages":          true,
+	"handlers":       true,
 	"field_handlers": true,
 }
 
 var fieldHandlerKeys = map[string]bool{
-	"label": true, "handler": true,
+	"label": true, "handler": true, "permission": true, "group": true,
+}
+
+var handlerDeclKeys = map[string]bool{
+	"handler": true, "permission": true, "group": true,
 }
 
 var pageKeys = map[string]bool{
@@ -275,9 +280,77 @@ func parseToolKnot(name, pluginDir string, singleFile bool, table map[string]any
 				return nil, fmt.Errorf("[tool.knot]: field_handlers[%d]: duplicate handler %q", i, handler)
 			}
 			seenIds[qualified] = true
-			p.FieldHandlers = append(p.FieldHandlers, FieldHandler{Id: qualified, Label: label, Handler: handler})
+			field := FieldHandler{Id: qualified, Label: label, Handler: handler}
+			if v, ok := entryTable["permission"]; ok {
+				id, ok := v.(string)
+				if !ok || !permissionIdRe.MatchString(id) {
+					return nil, fmt.Errorf("[tool.knot]: field_handlers[%d]: permission must be an id matching [a-z0-9_]+", i)
+				}
+				if !declared[id] {
+					return nil, fmt.Errorf("[tool.knot]: field_handlers[%d]: permission %q is not declared in [tool.knot] permissions", i, id)
+				}
+				field.Permission = QualifiedPermission(name, id)
+			}
+			if v, ok := entryTable["group"]; ok {
+				group, ok := v.(string)
+				if !ok || group == "" {
+					return nil, fmt.Errorf("[tool.knot]: field_handlers[%d]: group must be a non-empty string", i)
+				}
+				field.Group = group
+			}
+			p.FieldHandlers = append(p.FieldHandlers, field)
 		}
 	}
+	// Handler gates: [[tool.knot.handlers]] entries. A declared gate is the
+	// handler's own permission/group wherever it is called (overriding the
+	// calling page's), and the declaration opts the handler into
+	// plugin-root addressability.
+	if v, ok := table["handlers"]; ok {
+		list, ok := v.([]any)
+		if !ok {
+			return nil, fmt.Errorf("[tool.knot]: handlers must be a list of tables")
+		}
+		seen := map[string]bool{}
+		for i, entry := range list {
+			entryTable, ok := entry.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("[tool.knot]: handlers[%d] must be a table", i)
+			}
+			for key := range entryTable {
+				if !handlerDeclKeys[key] {
+					return nil, fmt.Errorf("[tool.knot]: handlers[%d]: unknown key %q", i, key)
+				}
+			}
+			hname, _ := entryTable["handler"].(string)
+			if hname == "" || !handlerNameRe.MatchString(hname) {
+				return nil, fmt.Errorf("[tool.knot]: handlers[%d]: handler is required and must be a function name or module.function", i)
+			}
+			if seen[hname] {
+				return nil, fmt.Errorf("[tool.knot]: handlers[%d]: duplicate handler %q", i, hname)
+			}
+			seen[hname] = true
+			decl := Handler{Handler: hname}
+			if v, ok := entryTable["permission"]; ok {
+				id, ok := v.(string)
+				if !ok || !permissionIdRe.MatchString(id) {
+					return nil, fmt.Errorf("[tool.knot]: handlers[%d]: permission must be an id matching [a-z0-9_]+", i)
+				}
+				if !declared[id] {
+					return nil, fmt.Errorf("[tool.knot]: handlers[%d]: permission %q is not declared in [tool.knot] permissions", i, id)
+				}
+				decl.Permission = QualifiedPermission(name, id)
+			}
+			if v, ok := entryTable["group"]; ok {
+				group, ok := v.(string)
+				if !ok || group == "" {
+					return nil, fmt.Errorf("[tool.knot]: handlers[%d]: group must be a non-empty string", i)
+				}
+				decl.Group = group
+			}
+			p.Handlers = append(p.Handlers, decl)
+		}
+	}
+
 	// Load page icons first, so a page's sidebar item can inherit its icon.
 	// A page with a menu_label contributes that item for itself; the URL is
 	// built from the plugin name directly — PluginName is set on pages only

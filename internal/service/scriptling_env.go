@@ -150,10 +150,6 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	if aux == nil {
 		aux = logger.NewNullLogger()
 	}
-	if log != nil {
-	} else {
-		extlibs.RegisterLoggingLibraryDefault(env)
-	}
 
 	extlibs.RegisterYAMLLibrary(env)
 	extlibs.RegisterTOMLLibrary(env)

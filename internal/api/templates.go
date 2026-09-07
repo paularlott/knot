@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/api/api_utils"
@@ -221,17 +222,12 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Convert custom fields
-	template.CustomFields = make([]model.TemplateCustomField, len(request.CustomFields))
-	for i, field := range request.CustomFields {
-		template.CustomFields[i] = model.TemplateCustomField{
-			Name:        field.Name,
-			Description: field.Description,
-			Type:        field.Type,
-			Handler:     field.Handler,
-			Language:    field.Language,
-		}
+	customFields, fieldErr := normalizeCustomFields(request.CustomFields)
+	if fieldErr != "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fieldErr})
+		return
 	}
+	template.CustomFields = customFields
 
 	err = templateService.UpdateTemplate(template, user)
 	if err != nil {
@@ -293,16 +289,10 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Convert custom fields
-	var customFields []model.TemplateCustomField
-	for _, field := range request.CustomFields {
-		customFields = append(customFields, model.TemplateCustomField{
-			Name:        field.Name,
-			Description: field.Description,
-			Type:        field.Type,
-			Handler:     field.Handler,
-			Language:    field.Language,
-		})
+	customFields, fieldErr := normalizeCustomFields(request.CustomFields)
+	if fieldErr != "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fieldErr})
+		return
 	}
 
 	var schedule *[]model.TemplateScheduleDays
@@ -488,4 +478,66 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, data)
+}
+
+// templateCustomFieldTypes and templateFieldLanguages are the exact sets
+// the template editor offers. Anything else is a load error, not a silent
+// downgrade: an unknown type would fall through to the plain-text input on
+// the space form. "masked" is the masking input (a browser type="password"
+// control) - presentation only, values are stored as plain strings.
+var templateCustomFieldTypes = map[string]bool{
+	"text": true, "masked": true, "number": true, "autocomplete": true, "textarea": true,
+}
+
+var templateFieldLanguages = map[string]bool{
+	"": true, "scriptling": true, "yaml": true, "toml": true, "json": true, "markdown": true, "shell": true,
+}
+
+// pluginHandlerIdRe is the qualified field-handler form
+// plugin.<name>.<function> — the same trust posture as roles' plugin
+// grants: shape-checked, existence not. A referenced plugin may be absent
+// until it is reinstalled (cluster-order independent storage), and the
+// options endpoint re-resolves the handler on every fetch.
+var pluginHandlerIdRe = regexp.MustCompile(`^plugin\.[a-z0-9_-]+\.[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$`)
+
+// normalizeCustomFields validates custom field declarations on template
+// create/update: type must be one the space form renders, an autocomplete
+// field must carry a well-formed plugin handler id, and a textarea's
+// language must be one the editor offers. Handler and language are cleared
+// on the types they do not apply to, so stale config never ships.
+func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateCustomField, string) {
+	out := make([]model.TemplateCustomField, 0, len(fields))
+	for i, field := range fields {
+		fieldType := field.Type
+		if fieldType == "" {
+			fieldType = "text"
+		}
+		if !templateCustomFieldTypes[fieldType] {
+			return nil, fmt.Sprintf("custom_fields[%d].type must be one of text, masked, number, autocomplete or textarea", i)
+		}
+		handler := field.Handler
+		language := field.Language
+		if fieldType == "autocomplete" {
+			if !pluginHandlerIdRe.MatchString(handler) {
+				return nil, fmt.Sprintf("custom_fields[%d].handler must be a plugin field handler id (plugin.<name>.<function>)", i)
+			}
+		} else {
+			handler = ""
+		}
+		if fieldType == "textarea" {
+			if !templateFieldLanguages[language] {
+				return nil, fmt.Sprintf("custom_fields[%d].language must be one of scriptling, yaml, toml, json, markdown, shell or empty", i)
+			}
+		} else {
+			language = ""
+		}
+		out = append(out, model.TemplateCustomField{
+			Name:        field.Name,
+			Description: field.Description,
+			Type:        fieldType,
+			Handler:     handler,
+			Language:    language,
+		})
+	}
+	return out, ""
 }

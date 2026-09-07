@@ -603,6 +603,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		withDownloads = true
 	}
 
+	pluginLogoLight, pluginLogoDark := pluginLogoURLs(cfg)
+
 	data := map[string]interface{}{
 		"username": user.Username,
 		"user_id":  user.Id, "user_email": user.Email,
@@ -667,8 +669,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isLeafNode":                          cfg.LeafNode,
 		"logoURL":                             cfg.UI.LogoURL,
 		"logoInvert":                          cfg.UI.LogoInvert,
-		"pluginLogoLight":                     pluginLogoLight(cfg),
-		"pluginLogoDark":                      pluginLogoDark(cfg),
+		"pluginLogoLight":                     pluginLogoLight,
+		"pluginLogoDark":                      pluginLogoDark,
 		"aiChatEnabled":                       cfg.Chat.Enabled,
 		"aiChatStyle":                         cfg.Chat.UIStyle,
 		"requestHost":                         r.Host,

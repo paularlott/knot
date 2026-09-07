@@ -18,6 +18,9 @@
 # menu_label = "Go Demo"
 # permission = "view_status"
 # icon = "assets/icon.svg"
+#
+# [[tool.knot.handlers]]
+# handler = "peer_summary"
 # ///
 
 """demo-go: a knot plugin that uses a Go binary peer.
@@ -167,9 +170,11 @@ def col_about():
 
 def peer_summary():
     # One live round trip to the Go peer. Addressed from other plugins'
-    # pages too: pluginFetch('peer_summary', { plugin: 'demo-go' }) —
-    # handlers are ajax endpoints; the gate is the requesting user's
-    # permission on this plugin's default page.
+    # pages too: pluginFetch('peer_summary', { plugin: 'demo-go' }). The
+    # [[tool.knot.handlers]] declaration opts it into plugin-root URLs; it
+    # declares no permission, so any logged-in user may call it (the demo
+    # button works without role grants - add a permission to the
+    # declaration to tighten).
     import plugin.demolib as demolib
 
     info = demolib.status()

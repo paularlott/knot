@@ -68,6 +68,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		pluginLogoLight, pluginLogoDark := pluginLogoURLs(cfg)
 		data := map[string]interface{}{
 			"redirect":            redirect,
 			"version":             build.Version,
@@ -75,8 +76,8 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 			"totpEnabled":         cfg.TOTP.Enabled,
 			"logoURL":             cfg.UI.LogoURL,
 			"logoInvert":          cfg.UI.LogoInvert,
-			"pluginLogoLight":     pluginLogoLight(cfg),
-			"pluginLogoDark":      pluginLogoDark(cfg),
+			"pluginLogoLight":     pluginLogoLight,
+			"pluginLogoDark":      pluginLogoDark,
 			"passwordAuthEnabled": true,
 		}
 

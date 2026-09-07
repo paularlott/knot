@@ -56,6 +56,11 @@ type FieldHandler struct {
 	Id      string // qualified: plugin.<name>.<id>
 	Label   string
 	Handler string // function in the entry file
+	// Permission and Group are optional additive gates on the options
+	// endpoint: UseSpaces (space forms drive the fetches) always applies,
+	// and a declared gate narrows who may invoke the handler further.
+	Permission string `json:"permission,omitempty"` // qualified grant
+	Group      string `json:"group,omitempty"`
 }
 
 type Page struct {
@@ -77,6 +82,29 @@ type Page struct {
 // URL is the served location of the page.
 func (pg Page) URL() string {
 	return "/plugins/" + pg.PluginName + pg.Path
+}
+
+// Handler is a declared handler gate: one [[tool.knot.handlers]] entry. The
+// declared permission/group is the handler's gate wherever it is called —
+// same semantics as row/column gates — overriding the calling page's. A
+// declaration is also the opt-in for plugin-root addressability
+// (/plugins/<name>/<handler>): undeclared handlers inherit the calling
+// page's gate and are only reachable through a page path.
+type Handler struct {
+	Handler    string `json:"handler"`              // function name or module.function
+	Permission string `json:"permission,omitempty"` // qualified grant, as Page
+	Group      string `json:"group,omitempty"`      // both empty: any logged-in user
+}
+
+// HandlerDecl returns the declared gate for a handler name, or nil when the
+// handler has no [[tool.knot.handlers]] entry.
+func (p *Plugin) HandlerDecl(name string) *Handler {
+	for i := range p.Handlers {
+		if p.Handlers[i].Handler == name {
+			return &p.Handlers[i]
+		}
+	}
+	return nil
 }
 
 // PermissionDecl is one declared permission, qualified to plugin.<name>.<id>.
@@ -102,6 +130,7 @@ type Plugin struct {
 	Permissions   []PermissionDecl `json:"permissions"`
 	Menus         []Menu           `json:"menus"`
 	Pages         []Page           `json:"pages"`
+	Handlers      []Handler        `json:"handlers"`
 	FieldHandlers []FieldHandler   `json:"field_handlers"`
 
 	// EntrySource is the entry file's source, read once at load so request
@@ -334,7 +363,6 @@ func (r *Registry) SiteLogoURLs() (light, dark, pluginName string) {
 	return "", "", ""
 }
 
-// Close shuts down every spawned peer process. Called on server shutdown.
 // FieldHandlers lists every declared field handler across plugins.
 func (r *Registry) FieldHandlers() []FieldHandler {
 	var out []FieldHandler
@@ -356,6 +384,7 @@ func (r *Registry) FieldHandler(id string) (*Plugin, *FieldHandler) {
 	return nil, nil
 }
 
+// Close shuts down every spawned peer process. Called on server shutdown.
 func (r *Registry) Close() {
 	r.mu.Lock()
 	defer r.mu.Unlock()

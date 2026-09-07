@@ -187,13 +187,13 @@
             <template x-if="template.custom_fields[index].type === 'textarea'">
               <div class="border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden h-48" x-data="customFieldEditor(index, template.custom_fields[index].language || 'text')"></div>
             </template>
-            <template x-if="template.custom_fields[index].type === 'password'">
+            <template x-if="template.custom_fields[index].type === 'masked'">
               <input type="password" class="form-field" placeholder="Field value" autocomplete="new-password" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
             </template>
             <template x-if="template.custom_fields[index].type === 'number'">
               <input type="number" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
             </template>
-            <template x-if="!['autocomplete', 'password', 'number', 'textarea'].includes(template.custom_fields[index].type)">
+            <template x-if="!['autocomplete', 'masked', 'number', 'textarea'].includes(template.custom_fields[index].type)">
               <input type="text" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
             </template>
           </div>

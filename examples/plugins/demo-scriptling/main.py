@@ -12,6 +12,10 @@
 # label = "Environments (demo plugin)"
 # handler = "field_environment"
 #
+# [[tool.knot.handlers]]
+# handler = "echo_word"
+# permission = "view_dashboard"
+#
 # [[tool.knot.pages]]
 # path = "/showcase"
 # handler = "showcase"
@@ -452,7 +456,9 @@ def col_echo():
 
 def echo_word():
     # Called by the echo widget's pluginFetch; params arrive like any
-    # handler's (query merged over POST body).
+    # handler's (query merged over POST body). The [[tool.knot.handlers]]
+    # declaration is required because no layout column references it - a
+    # handler reachable only from trusted html declares its own gate.
     word = params.get("word", "")
     if word == "":
         return {"reply": "type something first"}
