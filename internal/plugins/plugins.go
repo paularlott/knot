@@ -184,6 +184,18 @@ func (r *Registry) All() []*Plugin {
 	return out
 }
 
+// ByName returns the loaded plugin with that name, or nil.
+func (r *Registry) ByName(pluginName string) *Plugin {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, p := range r.plugins {
+		if p.Name == pluginName {
+			return p
+		}
+	}
+	return nil
+}
+
 // Failed returns the plugins that were present but failed to load.
 func (r *Registry) Failed() []FailedPlugin {
 	r.mu.RLock()

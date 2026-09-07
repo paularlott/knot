@@ -71,6 +71,55 @@ resolves per host). Until it is built, the plugin shows on the admin Plugins
 page as **failed to load: required plugin "demolib" not loaded**, which is
 also a demo of the failure path.
 
+### Peer directions
+
+- **Go exposes, scriptling consumes** (supported): a `bin/` peer handshakes
+  a library name and serves functions/classes over stdio JSON-RPC; the
+  plugin's handlers import it as `plugin.<name>` (demo-go's
+  `import plugin.demolib`). The metadata dependency
+  (`plugin.demolib via demolib >= 1.0.0`) is verified against the live
+  handshake at load. Handlers can also drive peers dynamically through the
+  `scriptling.plugin` control library (`list`, `describe`, `call_function`).
+- **Scriptling exposes, Go consumes** (not part of knot's plugin system):
+  peers serve calls; handlers make them. There is no in-process path for a
+  Go peer to import a scriptling-side library. (The reverse embedding —
+  the scriptling CLI spawning the *knot binary* as its peer — is what
+  `knot scriptling-server` autostarts for, a host feature, not a plugin
+  one.)
+- **Cross-plugin, server side** (not wired): each dispatch builds a fresh
+  environment containing only the plugin's own modules and peers — plugin
+  A's handlers cannot import plugin B's peers or call B's handlers
+  in-process. The supported cross-plugin path is the handler URL below.
+
+## Handler URLs: ajax endpoints, any caller
+
+Every handler is addressable as a URL and answers JSON:
+
+- `/plugins/<name>/<page-path>/<handler>` — runs through that page's gate;
+- `/plugins/<name>/<handler>` — runs through the plugin's default page's
+  gate (first declared page when none claims `default`).
+
+A handler does not care who fetches it — the plugin's own pages, another
+plugin's pages, or a user with curl. The gate is always the requesting
+user's permission on the page the URL rides, exactly as if they had opened
+that page. Column data fetches, form POSTs, row actions, popups and
+dynamic-option fetches all use these URLs (this is what
+`?_col=<handler>` query-string dispatch used to be).
+
+From trusted html, `pluginFetch` is the wrapper — same transport, auth and
+gate:
+
+```js
+await pluginFetch('echo_word', { params: { word: 'hi' } });        // own plugin
+await pluginFetch('peer_summary', { plugin: 'demo-go' });          // another plugin's handler
+await pluginFetch('save', { method: 'POST', body: { name: 'x' } }); // POST
+```
+
+The echo card on demo-scriptling's showcase demonstrates the cross-plugin
+call: its **Ask demo-go** button fetches demo-go's `peer_summary` handler,
+which makes a live round trip to the Go peer. With demo-go unloaded (peer
+not built) the button shows the error instead — degrade, don't break.
+
 ## What to look at
 
 - **Admin → Plugins**: inventory with declared permissions, menus, pages,

@@ -1,14 +1,14 @@
 // Plugin page runtime: the handler returns a LAYOUT - rows of columns,
 // each column declaring its type, data handler and refresh. This component
 // renders the shell (row grid, column cards, loaders), fetches each
-// column's data from the same URL (?_col=<id>), and renders it with the
-// block renderers from pluginBlocks.js. Form columns POST to their own
-// _col endpoint; the response envelope (status/message/field_errors/
-// refresh/dialog) drives notifications, column refreshes and information
-// dialogs. Table actions render as icon buttons, text chips or kebab-menu
-// items; actions naming a handler open a popup (form or markdown) in a
-// knot-styled modal. All wiring is delegated from the page root so patched
-// columns never re-bind.
+// column's data from its handler URL (the page path plus /<handler>), and
+// renders it with the block renderers from pluginBlocks.js. Form columns
+// POST to their own handler URL; the response envelope (status/message/
+// field_errors/refresh/dialog) drives notifications, column refreshes and
+// information dialogs. Table actions render as icon buttons, text chips or
+// kebab-menu items; actions naming a handler open a popup (form or
+// markdown) in a knot-styled modal. All wiring is delegated from the page
+// root so patched columns never re-bind.
 
 import { renderBlock, initPluginChart } from './pluginBlocks.js';
 
@@ -91,14 +91,28 @@ function actionChipClass(style) {
 }
 
 window.pluginPage = function pluginPage(url) {
+  // Handler URLs are paths: /plugins/<name>/<page-path>/<handler> runs the
+  // handler through that page's gate, /plugins/<name>/<handler> through the
+  // plugin's default page. Handlers are ajax endpoints — any page (this
+  // plugin's or another's) may fetch them; the gate is always the requesting
+  // user's permission on the page the URL rides.
+  const pluginName = url.split('/')[2] || '';
+
+  // handlerURL builds the fetch URL for a handler: same-plugin handlers are
+  // relative to the page URL (no plugin qualifier needed), any other plugin
+  // is addressed at its root.
+  const handlerURL = (handler, plugin) => (plugin && plugin !== pluginName
+    ? `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(handler)}`
+    : `${url}/${encodeURIComponent(handler)}`);
+
   // pluginFetch is the trusted-html API for calling plugin handlers from
   // client-side code (Alpine widgets and the like): the same transport,
   // auth, page gate and running-user identity as every column fetch.
   //   const data = await pluginFetch('my_handler');
   //   await pluginFetch('my_handler', { method: 'POST', body: {name: 'x'} });
+  //   await pluginFetch('echo', { plugin: 'demo-go' }); // another plugin's handler
   window.pluginFetch = async function pluginFetch(handler, options = {}) {
-    const qs = new URLSearchParams({ _json: '1', _col: handler });
-    Object.entries(options.params || {}).forEach(([k, v]) => qs.set(k, v));
+    const qs = new URLSearchParams(options.params || {});
     const request = options.method === 'POST'
       ? {
         method: 'POST',
@@ -106,7 +120,8 @@ window.pluginPage = function pluginPage(url) {
         body: new URLSearchParams(options.body || {}).toString(),
       }
       : { headers: { 'Content-Type': 'application/json' } };
-    const response = await fetchWithRetry(`${url}?${qs}`, request);
+    const target = handlerURL(handler, options.plugin);
+    const response = await fetchWithRetry(qs.toString() ? `${target}?${qs}` : target, request);
     const text = await response.text();
     try {
       return JSON.parse(text);
@@ -120,6 +135,8 @@ window.pluginPage = function pluginPage(url) {
     params: '',
     timers: {},
     _ac: new WeakMap(),
+
+    handlerURL,
 
     init() {
       const embedded = document.getElementById('plugin-document');
@@ -220,8 +237,8 @@ window.pluginPage = function pluginPage(url) {
     async fetchColumn(column, body, isRefresh) {
       body.closest('[data-col-id]')?.setAttribute('aria-busy', 'true');
       try {
-        const qs = this.params ? `${this.params}&_json=1&_col=${encodeURIComponent(column.handler)}` : `_json=1&_col=${encodeURIComponent(column.handler)}`;
-        const response = await this.fetchWithRetry(`${this.url}?${qs}`, { headers: { 'Content-Type': 'application/json' } });
+        const target = this.handlerURL(column.handler);
+        const response = await this.fetchWithRetry(this.params ? `${target}?${this.params}` : target, { headers: { 'Content-Type': 'application/json' } });
         if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
         const text = await response.text();
         let data;
@@ -533,8 +550,8 @@ window.pluginPage = function pluginPage(url) {
       const modal = this.openModal({ title: 'Loading …' });
       this.showLoader(modal.body);
       try {
-        const qs = `_json=1&_col=${encodeURIComponent(handler)}&key=${encodeURIComponent(key)}`;
-        const response = await this.fetchWithRetry(`${this.url}?${qs}`, { headers: { 'Content-Type': 'application/json' } });
+        const target = `${this.handlerURL(handler)}?key=${encodeURIComponent(key)}`;
+        const response = await this.fetchWithRetry(target, { headers: { 'Content-Type': 'application/json' } });
         if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (data && data.error) throw new Error(data.error);
@@ -636,7 +653,7 @@ window.pluginPage = function pluginPage(url) {
       const columnId = btn.closest('[data-col-handler]')?.dataset.colHandler || '';
       const body = new URLSearchParams({ action: btn.dataset.action, key: btn.dataset.key }).toString();
       btn.disabled = true;
-      this.fetchWithRetry(`${this.url}?_json=1&_col=${encodeURIComponent(columnId)}`, {
+      this.fetchWithRetry(this.handlerURL(columnId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,
@@ -665,9 +682,8 @@ window.pluginPage = function pluginPage(url) {
 
     async fetchDynamicOptions(column, input) {
       try {
-        const dataParam = `&_data=${encodeURIComponent(input.name)}`;
-        const qs = `_json=1&_col=${encodeURIComponent(column.handler)}${dataParam}`;
-        const data = await this.fetchWithRetry(`${this.url}?${qs}`, { headers: { 'Content-Type': 'application/json' } }).then((r) => r.json());
+        const target = `${this.handlerURL(column.handler)}?_data=${encodeURIComponent(input.name)}`;
+        const data = await this.fetchWithRetry(target, { headers: { 'Content-Type': 'application/json' } }).then((r) => r.json());
         let options = Array.isArray(data) ? data : data && data.options;
         if (!Array.isArray(options)) options = [];
         input.dataset.pbOptions = JSON.stringify(options.map((o) => (typeof o === 'object' && o !== null ? { key: o.key, text: o.text || o.key } : { key: String(o), text: String(o) })));
@@ -680,7 +696,9 @@ window.pluginPage = function pluginPage(url) {
     async submitForm(form) {
       const columnId = form.dataset.colHandler || form.closest('[data-col-handler]')?.dataset.colHandler;
       // Popup forms submit with their row key so the handler knows what to act on.
-      const keyParam = form.dataset.actionKey ? `&key=${encodeURIComponent(form.dataset.actionKey)}` : '';
+      const target = form.dataset.actionKey
+        ? `${this.handlerURL(columnId)}?key=${encodeURIComponent(form.dataset.actionKey)}`
+        : this.handlerURL(columnId);
       // Clear stale field errors before submitting.
       form.querySelectorAll('.form-field-error').forEach((node) => node.classList.remove('form-field-error'));
       form.querySelectorAll('.error-message').forEach((node) => node.remove());
@@ -690,7 +708,7 @@ window.pluginPage = function pluginPage(url) {
       wrap?.setAttribute('aria-busy', 'true');
       try {
         const body = new URLSearchParams(new FormData(form)).toString();
-        const response = await this.fetchWithRetry(`${this.url}?_json=1&_col=${encodeURIComponent(columnId)}${keyParam}`, {
+        const response = await this.fetchWithRetry(target, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body,

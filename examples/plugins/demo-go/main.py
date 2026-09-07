@@ -163,3 +163,16 @@ def col_about():
     return {
         "markdown": "Each bar is a live `plugin.demolib.greeting()` round trip measured by the handler. The peer is a Go subprocess spawned by knot at plugin load; the handler talks to it over the plugin protocol."
     }
+
+
+def peer_summary():
+    # One live round trip to the Go peer. Addressed from other plugins'
+    # pages too: pluginFetch('peer_summary', { plugin: 'demo-go' }) —
+    # handlers are ajax endpoints; the gate is the requesting user's
+    # permission on this plugin's default page.
+    import plugin.demolib as demolib
+
+    info = demolib.status()
+    return {
+        "summary": info.get("peer", "demolib") + " (" + info.get("go", "go") + ", " + info.get("os", "?") + "/" + info.get("arch", "?") + ")"
+    }

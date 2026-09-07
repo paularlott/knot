@@ -407,12 +407,14 @@ def col_widget_form():
 
 def col_notes():
     return {
-        "markdown": """Panels are **data-bound**: each column fetches its own data with
-`?_col=<id>`, shows a loader meanwhile, and refreshes on its own timer.
+        "markdown": """Panels are **data-bound**: each column fetches its own data from its
+handler URL (the page path plus `/<handler>`), shows a loader meanwhile, and
+refreshes on its own timer.
 
 - rows and columns carry permission/group gates
-- forms POST to their column and answer with an envelope
+- forms POST to their column's handler URL and answer with an envelope
 - table rows carry action buttons
+- handlers are addressable from any page, including other plugins' pages
 
 > The handler returns data; knot owns every pixel.""",
     }
@@ -421,11 +423,13 @@ def col_notes():
 def col_echo():
     # Static markup: the widget calls back into the plugin from the browser
     # with pluginFetch('echo_word', ...) - same transport, auth and gates
-    # as every column fetch. No refresh key: an interactive column must not
-    # have its content replaced under the user.
+    # as every column fetch. The second button demos a cross-plugin call:
+    # demo-go's handler is addressed by plugin name, gated by that plugin's
+    # default page for the requesting user. No refresh key: an interactive
+    # column must not have its content replaced under the user.
     return {
         "html": """
-<div class="kp-card" x-data="{ word: '', busy: false, reply: '' }">
+<div class="kp-card" x-data="{ word: '', busy: false, reply: '', peer: '', peerBusy: false }">
   <div class="kp-label">Echo service</div>
   <div class="kp-flex" style="margin-top:0.5rem">
     <input class="kp-input"
@@ -434,8 +438,13 @@ def col_echo():
             :disabled="busy"
             @click="busy = true; try { reply = (await pluginFetch('echo_word', { params: { word: word } })).reply } finally { busy = false }"
             x-text="busy ? '...' : 'Send'"></button>
+    <button class="kp-button"
+            :disabled="peerBusy"
+            @click="peerBusy = true; try { peer = 'demo-go peer: ' + (await pluginFetch('peer_summary', { plugin: 'demo-go' })).summary } catch (e) { peer = 'demo-go not available: ' + e.message } finally { peerBusy = false }"
+            x-text="peerBusy ? '...' : 'Ask demo-go'"></button>
   </div>
   <div class="kp-muted" style="margin-top:0.5rem; min-height:1.2rem" x-show="reply" x-text="reply"></div>
+  <div class="kp-muted" style="margin-top:0.25rem; min-height:1.2rem" x-show="peer" x-text="peer"></div>
 </div>
 """
     }

@@ -98,7 +98,7 @@ func TestWritePluginJSONColumnPassthrough(t *testing.T) {
 	writePluginJSON(w, map[string]any{
 		"columns": []any{map[string]any{"key": "name", "label": "Space"}},
 		"rows":    []any{map[string]any{"name": "alpha"}},
-	}, pageAdminUser(), demoPlugin(), r)
+	}, pageAdminUser(), demoPlugin(), r, true)
 	body := w.Body.String()
 	if !strings.Contains(body, `"columns"`) || !strings.Contains(body, "alpha") {
 		t.Errorf("column payload was mangled: %s", body)
@@ -110,7 +110,7 @@ func TestWritePluginJSONColumnPassthrough(t *testing.T) {
 	r2 := httptest.NewRequest("GET", "/plugins/x/home?_json=1", nil)
 	writePluginJSON(w2, map[string]any{
 		"rows": []any{map[string]any{"name": "alpha"}},
-	}, pageAdminUser(), demoPlugin(), r2)
+	}, pageAdminUser(), demoPlugin(), r2, false)
 	if !strings.Contains(w2.Body.String(), `"rows":[]`) {
 		t.Errorf("layout normalization should drop non-layout rows: %s", w2.Body.String())
 	}
@@ -130,7 +130,7 @@ func TestWritePluginJSONDialogMarkdown(t *testing.T) {
 			"title":    "Report",
 			"markdown": "**Done.**\n\n- one thing",
 		},
-	}, pageAdminUser(), demoPlugin(), r)
+	}, pageAdminUser(), demoPlugin(), r, true)
 	var decoded struct {
 		Dialog struct {
 			Html string `json:"html"`

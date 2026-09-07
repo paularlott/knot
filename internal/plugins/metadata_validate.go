@@ -87,6 +87,13 @@ var pageKeys = map[string]bool{
 // handlerNameRe accepts a function name or module.function reference.
 var handlerNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`)
 
+// ValidHandlerName reports whether name is a legal handler reference (a
+// function name or module.function path) — the same shape [tool.knot] pages
+// and field_handlers declare, and what handler-URL dispatch accepts.
+func ValidHandlerName(name string) bool {
+	return handlerNameRe.MatchString(name)
+}
+
 var menuKeys = map[string]bool{
 	"label":      true,
 	"url":        true,
