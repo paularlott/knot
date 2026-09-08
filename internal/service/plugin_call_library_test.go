@@ -43,6 +43,9 @@ func callFixture(t *testing.T) (*plugins.Plugin, *plugins.Plugin) {
 # handler = "whoami"
 #
 # [[tool.knot.handlers]]
+# handler = "how_called"
+#
+# [[tool.knot.handlers]]
 # handler = "secret"
 # permission = "read"
 # ///
@@ -52,6 +55,10 @@ def hello():
 
 def whoami():
     return {"as_user": user.name, "grant": user.has_permission("plugin.provider.read")}
+
+
+def how_called():
+    return {"method": request.method, "path": request.path}
 
 
 def secret():
@@ -66,7 +73,7 @@ def secret():
 def call_provider():
     import knot.plugin as kp
 
-    return kp.call("provider", params.get("handler", ""), {"word": params.get("word", "")})
+    return kp.call("provider", params.get("handler", ""), {"word": params.get("word", "")}, method=params.get("method", "GET"))
 `,
 	} {
 		pluginDir := filepath.Join(dir, name)
@@ -258,5 +265,38 @@ print(json.dumps({"name": user.name, "groups": user.groups, "is_admin": user.is_
 		if !strings.Contains(out, want) {
 			t.Errorf("tool output missing %q: %s", want, out)
 		}
+	}
+}
+
+// TestKnotPluginCallMethodParity pins the in-process bridge's half of the
+// converged call contract: the method kwarg (GET default, POST honored)
+// reaches the callee's request.method, the synthetic plugin-root path is
+// set, and the name validation matches the loopback transport's — so
+// call() behaves the same whichever environment it runs in.
+func TestKnotPluginCallMethodParity(t *testing.T) {
+	caller, _ := callFixture(t)
+	admin := &model.User{Username: "admin", Id: "u-1", Roles: []string{model.RoleAdminUUID}}
+	ctx := context.Background()
+
+	call := func(extra map[string]any) map[string]any {
+		t.Helper()
+		got, err := DispatchPluginHandler(ctx, apiclient.NewMuxClient(admin), admin, caller, "call_provider", extra)
+		if err != nil {
+			t.Fatalf("call_provider: %v", err)
+		}
+		return got.(map[string]any)
+	}
+
+	// Default GET with the synthetic plugin-root path.
+	if got := call(map[string]any{"handler": "how_called"}); got["method"] != "GET" || got["path"] != "/plugins/provider/how_called" {
+		t.Errorf("default call = %v, want GET at /plugins/provider/how_called", got)
+	}
+	// The method kwarg reaches the callee's request.method.
+	if got := call(map[string]any{"handler": "how_called", "method": "POST"}); got["method"] != "POST" {
+		t.Errorf("method=POST call = %v, want POST", got)
+	}
+	// Name validation matches the loopback: no path separators through.
+	if _, err := DispatchPluginHandler(ctx, apiclient.NewMuxClient(admin), admin, caller, "call_provider", map[string]any{"handler": "report/col_text"}); err == nil || !strings.Contains(err.Error(), "invalid plugin or handler name") {
+		t.Errorf("path in handler name: err = %v, want invalid plugin or handler name", err)
 	}
 }

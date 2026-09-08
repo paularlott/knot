@@ -15,8 +15,12 @@ import (
 )
 
 // registerPluginLoopbackCallLibrary adds knot.plugin to server-side
-// environments (user-created MCP tools, event sinks): call a plugin's
-// declared handler as the requesting user over the in-process loopback —
+// environments (user-created MCP tools, event sinks): the loopback twin
+// of registerPluginCallLibrary. The two share one call contract —
+// call(plugin, handler, params?, method="GET"), name validation,
+// declared-handlers-only, the gate enforced for the requesting user — so
+// a call behaves the same whichever environment it runs in; only the
+// transport differs. This one rides the in-process loopback —
 // the same authenticated transport the knot.* libraries use, hitting the
 // real web dispatch, so the declared gates apply exactly as for a browser
 // fetch. User code never invokes plugin handler code in-process; plugin

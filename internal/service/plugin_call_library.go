@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
@@ -12,13 +13,14 @@ import (
 	"github.com/paularlott/scriptling/object"
 )
 
-// registerPluginCallLibrary adds knot.plugin to environments that may call
-// plugin handlers in-process: server-side script envs (built-in and user
-// MCP tools) and plugin handler envs themselves (plugin A composing plugin
-// B). call(plugin, handler, params?) dispatches the target's *declared*
-// handler — the same [[tool.knot.handlers]] contract the browser's
-// pluginFetch uses — as the requesting user, with the declaration's gate
-// enforced. Undeclared handlers are not addressable.
+// registerPluginCallLibrary adds knot.plugin to plugin handler
+// environments (plugin A composing plugin B, same trust domain): the
+// in-process twin of registerPluginLoopbackCallLibrary. The two share one
+// call contract — call(plugin, handler, params?, method="GET"), name
+// validation, declared-handlers-only, the gate enforced for the
+// requesting user — so a call behaves the same whichever environment it
+// runs in; only the transport differs (here the dispatch is direct, there
+// it rides the authenticated loopback through the web dispatch).
 func registerPluginCallLibrary(env *scriptling.Scriptling, client *apiclient.ApiClient, user *model.User) {
 	if user == nil {
 		return
@@ -36,6 +38,18 @@ func registerPluginCallLibrary(env *scriptling.Scriptling, client *apiclient.Api
 				handler, errObj := args[1].AsString()
 				if errObj != nil {
 					return errors.NewError("call: handler must be a string")
+				}
+				if strings.ContainsAny(pluginName, "/") || strings.ContainsAny(handler, "/?&#") {
+					return errors.NewError("call: invalid plugin or handler name")
+				}
+				method := "GET"
+				if m := kwargs.Get("method"); m != nil {
+					if ms, errObj := m.AsString(); errObj == nil {
+						method = strings.ToUpper(ms)
+						if method != "GET" && method != "POST" {
+							return errors.NewError("call: method must be GET or POST")
+						}
+					}
 				}
 				callParams := map[string]any{}
 				if len(args) == 3 {
@@ -67,13 +81,13 @@ func registerPluginCallLibrary(env *scriptling.Scriptling, client *apiclient.Api
 				if callClient == nil {
 					callClient = apiclient.NewMuxClient(user)
 				}
-				result, err := DispatchPluginHandler(ctx, callClient, user, plugin, handler, callParams)
+				result, err := DispatchPluginHandlerWithMethod(ctx, callClient, user, plugin, handler, callParams, method)
 				if err != nil {
 					return errors.NewError("call: %s", err.Error())
 				}
 				return conversion.FromGo(result)
 			},
-			HelpText: "call(plugin, handler, params?) - Call a plugin's declared handler as the requesting user.",
+			HelpText: "call(plugin, handler, params?, method='GET') - Call a plugin's declared handler as the requesting user.",
 		},
 	}, nil, "In-process calls to declared plugin handlers, as the requesting user.")
 

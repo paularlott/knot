@@ -15,9 +15,10 @@ import (
 
 // RequestObject builds the `request` object every plugin handler dispatch
 // receives: the call's method and path. Browser fetches carry the real
-// method and URL; in-process dispatch (MCP tools, knot.plugin.call inside
-// plugin envs) carries method "CALL" and the handler's plugin-root URL,
-// so request.path is meaningful on every path a handler is reached by.
+// method and URL; knot.plugin.call carries the method it was given (GET by
+// default, both transports) with the handler's plugin-root URL; MCP tool
+// execution carries "CALL" — so request.path and request.method are
+// meaningful on every path a handler is reached by.
 func RequestObject(method, path string) map[string]any {
 	return map[string]any{"method": method, "path": path}
 }
@@ -26,7 +27,7 @@ func RequestObject(method, path string) map[string]any {
 // binds the per-request state every handler path shares: the params dict,
 // the request object, and the requesting user. It returns the release
 // function the caller must defer.
-func acquirePluginEnv(ctx context.Context, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin, handler string, params map[string]any) (*scriptling.Scriptling, func(), error) {
+func acquirePluginEnv(ctx context.Context, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin, handler string, params map[string]any, method string) (*scriptling.Scriptling, func(), error) {
 	env, err := AcquirePluginEnv(ctx, client, user, plugin)
 	if err != nil {
 		return nil, nil, err
@@ -36,7 +37,7 @@ func acquirePluginEnv(ctx context.Context, client *apiclient.ApiClient, user *mo
 		release()
 		return nil, nil, err
 	}
-	if err := env.SetObjectVar("request", conversion.FromGo(RequestObject("CALL", fmt.Sprintf("/plugins/%s/%s", plugin.Name, handler)))); err != nil {
+	if err := env.SetObjectVar("request", conversion.FromGo(RequestObject(method, fmt.Sprintf("/plugins/%s/%s", plugin.Name, handler)))); err != nil {
 		release()
 		return nil, nil, err
 	}
@@ -54,7 +55,7 @@ func acquirePluginEnv(ctx context.Context, client *apiclient.ApiClient, user *mo
 // return value comes back as result; return_string/return_object surface
 // as response (with exit code 0), return_error as a non-zero exit code.
 func DispatchPluginMCPTool(ctx context.Context, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin, handler string, params map[string]any) (result any, response string, exitCode int, err error) {
-	env, release, err := acquirePluginEnv(ctx, client, user, plugin, handler, params)
+	env, release, err := acquirePluginEnv(ctx, client, user, plugin, handler, params, "CALL")
 	if err != nil {
 		return nil, "", 0, err
 	}
@@ -93,7 +94,14 @@ func DispatchPluginMCPTool(ctx context.Context, client *apiclient.ApiClient, use
 // isolation follows the trust boundary — with per-request state (params,
 // request) bound by acquirePluginEnv.
 func DispatchPluginHandler(ctx context.Context, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin, handler string, params map[string]any) (any, error) {
-	env, release, err := acquirePluginEnv(ctx, client, user, plugin, handler, params)
+	return DispatchPluginHandlerWithMethod(ctx, client, user, plugin, handler, params, "GET")
+}
+
+// DispatchPluginHandlerWithMethod is DispatchPluginHandler with the
+// request method the handler sees — knot.plugin.call's method kwarg rides
+// here (GET default, matching the loopback transport's real request).
+func DispatchPluginHandlerWithMethod(ctx context.Context, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin, handler string, params map[string]any, method string) (any, error) {
+	env, release, err := acquirePluginEnv(ctx, client, user, plugin, handler, params, method)
 	if err != nil {
 		return nil, err
 	}

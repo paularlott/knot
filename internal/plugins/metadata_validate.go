@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/paularlott/knot/build"
@@ -21,10 +22,9 @@ var pluginEnvLibraries = map[string]bool{
 	// stdlib (stdlib.RegisterAll)
 	"json": true, "re": true, "math": true, "time": true, "datetime": true,
 	"itertools": true, "random": true, "string": true, "collections": true,
-	"functools": true, "heapq": true, "bisect": true,
-	"base64": true, "binascii": true, "hashlib": true, "hmac": true,
-	"uuid": true, "urllib": true, "statistics": true, "types": true,
-	"weakref": true, "array": true,
+	"functools": true,
+	"base64": true, "hashlib": true, "hmac": true,
+	"uuid": true, "urllib": true, "statistics": true,
 
 	// base extended libraries
 	"secrets":                       true,
@@ -39,7 +39,6 @@ var pluginEnvLibraries = map[string]bool{
 	"scriptling.template.text":      true,
 	"scriptling.ai":                 true,
 	"scriptling.ai.agent":           true,
-	"scriptling.ai.agent.interact":  true,
 	"scriptling.ai.tools":           true,
 	"scriptling.ai.memory":          true,
 	"scriptling.similarity":         true,
@@ -53,11 +52,24 @@ var pluginEnvLibraries = map[string]bool{
 	// system access (scoped to the plugin folder in the env)
 	"os": true, "os.path": true, "pathlib": true, "glob": true,
 	"tempfile": true, "shutil": true, "zipfile": true, "tarfile": true,
-	"fs": true, "sys": true, "subprocess": true,
+	"fs": true, "subprocess": true,
 	"scriptling.grep": true, "scriptling.find": true, "scriptling.sed": true,
 	"scriptling.provision.file":  true,
 	"scriptling.provision.fetch": true,
 }
+// PluginEnvLibraries lists the library names plugin handler environments
+// register — the same set metadata dependency resolution resolves against.
+// Exported for the drift guard test (service package), which builds a real
+// plugin env and asserts every name imports.
+func PluginEnvLibraries() []string {
+	out := make([]string, 0, len(pluginEnvLibraries))
+	for name := range pluginEnvLibraries {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
 
 // toolKnotKeys are the keys accepted at the top of [tool.knot]. Unknown keys
 // are load errors: a typo should fail loudly, not silently do nothing.

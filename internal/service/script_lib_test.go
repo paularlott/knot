@@ -380,3 +380,44 @@ print("grant_no:" + str(user.has_permission("kai", "plugin.other.none")))
 		}
 	}
 }
+
+// TestPluginEnvLibrariesInSync guards the manually-synced allowlist in
+// internal/plugins (pluginEnvLibraries): every name metadata dependency
+// resolution accepts must import in a real plugin handler environment.
+// The reverse direction cannot be enumerated — a registered-but-unlisted
+// library only means a dependency declaration on it fails to resolve.
+func TestPluginEnvLibrariesInSync(t *testing.T) {
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{})
+	model.SetRoleCache(nil)
+
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "guard")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	source := "# /// script\n# requires-scriptling = \">=0.24\"\n#\n# [tool.knot]\n# version = \"1.0\"\n# ///\ndef unused():\n    return {}\n"
+	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := plugins.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins.SetRegistry(registry)
+	t.Cleanup(func() {
+		registry.Close()
+		plugins.SetRegistry(nil)
+	})
+
+	user := &model.User{Username: "guard", Id: "u-g"}
+	env, err := NewPluginScriptlingEnv(apiclient.NewMuxClient(user), user, registry.ByName("guard"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range plugins.PluginEnvLibraries() {
+		if _, err := env.EvalWithContext(context.Background(), "import "+name); err != nil {
+			t.Errorf("pluginEnvLibraries lists %q, but importing it in the plugin env fails: %v", name, err)
+		}
+	}
+}
