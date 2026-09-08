@@ -5992,6 +5992,7 @@ paths:
             application/msgpack:
               schema:
                 type: object
+      security: [BearerAuth: []]
 
   /api/plugins/field-handlers:
     get:
@@ -6011,6 +6012,7 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/FieldHandler"
+      security: [BearerAuth: []]
 
   /api/plugins/field-handlers/{handler_id}:
     get:
@@ -6040,6 +6042,7 @@ paths:
                 type: object
         "404":
           description: Unknown field handler.
+      security: [BearerAuth: []]
 
 
 components:

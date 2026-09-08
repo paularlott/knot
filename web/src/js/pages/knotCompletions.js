@@ -792,6 +792,12 @@ export const knotLibraries = [
         "returns": "int"
       },
       {
+        "name": "LINK_USERS",
+        "signature": "LINK_USERS",
+        "description": "Constant (int)",
+        "returns": "int"
+      },
+      {
         "name": "SPACE_MANAGE",
         "signature": "SPACE_MANAGE",
         "description": "Constant (int)",
@@ -1551,6 +1557,18 @@ export const knotLibraries = [
         "name": "delete",
         "signature": "delete(user_id)",
         "description": "Delete a user by ID or username",
+        "returns": "bool"
+      },
+      {
+        "name": "link_user",
+        "signature": "link_user(user_id, linked_user_id)",
+        "description": "Join two users' switch groups: members can switch sessions between them (requires the link_users permission)",
+        "returns": "bool"
+      },
+      {
+        "name": "unlink_user",
+        "signature": "unlink_user(user_id, linked_user_id)",
+        "description": "Detach a user from another's switch group (requires the link_users permission)",
         "returns": "bool"
       },
       {
