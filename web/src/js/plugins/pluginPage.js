@@ -585,6 +585,12 @@ window.pluginPage = function pluginPage(url) {
 
     buildPopupForm(modal, handler, key, data) {
       modal.setTitle(data.title || 'Edit');
+      // Form popups join the shared dirty guard (form-dirty-guard.js):
+      // field edits mark the panel, and Esc / the close button confirm
+      // before discarding, exactly like knot's own form modals. A
+      // successful submit closes the popup, and the guard clears the
+      // flag when the panel hides, so reopening starts clean.
+      modal.panel.setAttribute('data-dirty-form', '');
       const form = renderBlock({
         type: 'form',
         fields: data.fields,
@@ -890,9 +896,19 @@ window.pluginPage = function pluginPage(url) {
         this.submitForm(form);
       });
       region.addEventListener('click', (event) => {
-        // A popup form's cancel button closes its modal.
+        // A popup form's cancel button closes its modal — routed through
+        // the modal's close button so the shared dirty guard asks before
+        // discarding when the form has edits. A clean panel sails through
+        // the guard and the button's own listener closes the modal; a
+        // dirty one gets the Keep Editing / Discard Changes dialog, the
+        // same as Esc and the X button.
         const cancel = event.target.closest('[data-plugin-form-cancel]');
         if (cancel && cancel.closest('[data-plugin-modal]')) {
+          const closeBtn = cancel.closest('.ui-modal-panel')?.querySelector('.ui-modal-close');
+          if (closeBtn) {
+            closeBtn.click();
+            return;
+          }
           this.closeModal();
           return;
         }
