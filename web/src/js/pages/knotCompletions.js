@@ -522,6 +522,12 @@ export const knotLibraries = [
     "description": "Permission constants for role management.",
     "functions": [
       {
+        "name": "list_plugin",
+        "signature": "list_plugin()",
+        "description": "List the permissions declared by loaded plugins: dicts with id (the qualified grant, e.g. \"plugin.metrics.read\"), plugin (the declaring plugin's name) and label (the declared id).",
+        "returns": "builtins.list[dict<str,>]"
+      },
+      {
         "name": "MANAGE_USERS",
         "signature": "MANAGE_USERS",
         "description": "Constant (int)",
@@ -895,13 +901,13 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, permissions)",
+        "signature": "create(name, permissions, plugin_permissions)",
         "description": "Create a new role",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(role_id, name, permissions)",
+        "signature": "update(role_id, name, permissions, plugin_permissions)",
         "description": "Update role properties",
         "returns": "bool"
       },
@@ -1558,6 +1564,12 @@ export const knotLibraries = [
         "signature": "list_permissions(user_id)",
         "description": "List all permissions for a user",
         "returns": "builtins.list[dict<str,>]"
+      },
+      {
+        "name": "list_plugin_permissions",
+        "signature": "list_plugin_permissions(user_id)",
+        "description": "List the plugin permissions a user holds: qualified grant strings (e.g. \"plugin.metrics.read\") resolved from their roles; admins hold every grant.",
+        "returns": "builtins.list[str>"
       },
       {
         "name": "has_permission",

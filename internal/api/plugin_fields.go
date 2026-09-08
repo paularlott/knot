@@ -51,7 +51,7 @@ func HandleGetPluginFieldHandlerOptions(w http.ResponseWriter, r *http.Request) 
 	// UseSpaces (the route middleware) is the baseline — field handlers run
 	// as part of space forms. A declared permission on the field handler
 	// narrows who may invoke it further.
-	if handler.Permission != "" && !user.HasPluginPermission(handler.Permission) {
+	if !user.PassesPluginGate(handler.Permission) {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "field handler permission not granted"})
 		return
 	}

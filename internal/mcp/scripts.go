@@ -217,7 +217,7 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 // pluginToolAllowed reports whether the user passes the tool's declared
 // permission gate.
 func pluginToolAllowed(user *model.User, tool *plugins.MCPTool) bool {
-	return tool.Permission == "" || user.HasPluginPermission(tool.Permission)
+	return user.PassesPluginGate(tool.Permission)
 }
 
 // executePluginTool dispatches a plugin-exposed MCP tool by name. handled

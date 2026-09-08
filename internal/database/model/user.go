@@ -131,6 +131,15 @@ func (u *User) HasPermission(permission uint16) bool {
 // uninstall/reinstall inertly (PLUGINS2.md §5). The fixed admin role cannot
 // be granted per-plugin permissions through the API, so it passes every
 // plugin permission check.
+// PassesPluginGate reports whether the user passes a declared plugin
+// permission gate: an empty permission means any logged-in user, a set
+// one requires the qualified grant (admins pass every check). This is the
+// one predicate every declared gate — pages, handlers, menus, tools,
+// field handlers — checks through.
+func (u *User) PassesPluginGate(permission string) bool {
+	return permission == "" || u.HasPluginPermission(permission)
+}
+
 func (u *User) HasPluginPermission(name string) bool {
 	if u.IsAdmin() {
 		return true

@@ -107,7 +107,7 @@ func pluginPageTimeout() time.Duration {
 // and a lone segment at the plugin root (/plugins/x/handler) serves only
 // handlers with a [[tool.knot.handlers]] declaration — the declaration is
 // the opt-in that a handler is addressable without a page, and its
-// permission/group is the handler's gate. Undeclared handlers inherit the
+// permission is the handler's gate. Undeclared handlers inherit the
 // calling page's gate and are reachable only through a page path. A nil
 // plugin means 404; a nil page (root dispatch) is always paired with a
 // declared handler.
@@ -157,7 +157,7 @@ func resolvePluginDispatch(registry *plugins.Registry, pluginName, requestPath s
 // and /plugins/<name>/<handler> calls a [[tool.knot.handlers]]-declared
 // handler at the plugin root — the addressable ajax surface any page (or
 // any other plugin's page) fetches. The response is always JSON. The gate
-// is the calling page's permission/group unless the handler has its own
+// is the calling page's permission unless the handler has its own
 // declaration, which is authoritative everywhere the handler is called —
 // the same semantics as row/column gates.
 func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +189,7 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 			gatePermission = decl.Permission
 		}
 	}
-	if gatePermission != "" && !user.HasPluginPermission(gatePermission) {
+	if !user.PassesPluginGate(gatePermission) {
 		showPageForbidden(w, r)
 		return
 	}

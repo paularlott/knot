@@ -12,8 +12,7 @@ import (
 	"github.com/paularlott/scriptling/plugin"
 )
 
-// Peer binaries under bin/ ship in one of three package shapes (PLUGINS2.md
-// §10): a single bare binary; a platform bundle with _<goarch> variants; or
+// Peer binaries under bin/ ship in one of three package shapes: a single bare binary; a platform bundle with _<goarch> variants; or
 // a universal bundle with _<goos>_<goarch> variants. A package never mixes
 // bare and variants of the same peer — bare says "this is the one binary",
 // variants say "pick mine". Resolution: bare wins when present, else the

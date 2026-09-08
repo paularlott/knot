@@ -5,8 +5,9 @@ import "context"
 // PluginPermissionInfo is one permission a loaded plugin declares, already
 // qualified to its grant form (plugin.<name>.<id>).
 type PluginPermissionInfo struct {
-	Id    string `json:"id"`
-	Label string `json:"label"`
+	Id     string `json:"id"`
+	Label  string `json:"label"`
+	Plugin string `json:"plugin,omitempty"` // set in the /api/permissions catalog
 }
 
 type PluginPageInfo struct {

@@ -59,7 +59,7 @@ func registerPluginCallLibrary(env *scriptling.Scriptling, client *apiclient.Api
 				if decl == nil {
 					return errors.NewError("call: handler %s of plugin %s is not addressable (no [[tool.knot.handlers]] declaration)", handler, pluginName)
 				}
-				if decl.Permission != "" && !user.HasPluginPermission(decl.Permission) {
+				if !user.PassesPluginGate(decl.Permission) {
 					return errors.NewError("call: permission denied for handler %s of plugin %s", handler, pluginName)
 				}
 

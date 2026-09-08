@@ -339,3 +339,44 @@ print(result + " [" + info.get("peer", "?") + "]")
 		t.Errorf("go peer output = %q", out)
 	}
 }
+
+// TestUserLibPluginPermissions pins the knot.user library's plugin-grant
+// surface against a stubbed loopback: list_plugin_permissions returns the
+// resolved grants, and has_permission dispatches on its argument — an
+// integer checks the built-in endpoint, a "plugin." string checks the
+// grants — the same rule the user global's has_permission follows.
+func TestUserLibPluginPermissions(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/users/kai/permissions", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"permissions": [2], "plugin_permissions": ["plugin.granter.read"]}`))
+	})
+	mux.HandleFunc("GET /api/users/kai/has-permission", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"has_permission": ` + map[bool]string{true: "true", false: "false"}[r.URL.Query().Get("permission") == "2"] + `}`))
+	})
+	rest.SetAPIMux(mux)
+	config.SetServerConfig(&config.ServerConfig{MCPToolTimeout: 30})
+	model.SetRoleCache(nil)
+
+	user := &model.User{Username: "kai", Id: "u-kai", Active: true}
+	script := &model.Script{Name: "perm_lib", ScriptType: "tool", Active: true, Content: `
+import knot.user as user
+
+grants = user.list_plugin_permissions("kai")
+print("listed:" + str("plugin.granter.read" in grants))
+print("builtin:" + str(user.has_permission("kai", 2)))
+print("builtin_no:" + str(user.has_permission("kai", 7)))
+print("grant:" + str(user.has_permission("kai", "plugin.granter.read")))
+print("grant_no:" + str(user.has_permission("kai", "plugin.other.none")))
+`}
+	out, err := ExecuteScriptWithMCP(script, map[string]object.Object{}, user)
+	if err != nil {
+		t.Fatalf("perm lib script: %v", err)
+	}
+	for _, want := range []string{"listed:True", "builtin:True", "builtin_no:False", "grant:True", "grant_no:False"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q: %s", want, out)
+		}
+	}
+}

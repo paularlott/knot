@@ -199,8 +199,7 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 	}
 
 	// Logos: relative paths that must stay inside the plugin folder and
-	// exist. Single-file plugins have no folder to carry assets. One or both
-	// may be declared: a single logo serves both themes (copied to the other
+	// exist. One or both may be declared: a single logo serves both themes (copied to the other
 	// slot), so everything downstream always sees a complete pair.
 	for key, field := range map[string]*string{"logo_light": &p.LogoLight, "logo_dark": &p.LogoDark} {
 		v, ok := table[key]
@@ -429,7 +428,7 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 	}
 
 	// Handler gates: [[tool.knot.handlers]] entries. A declared gate is the
-	// handler's own permission/group wherever it is called (overriding the
+	// handler's own permission wherever it is called (overriding the
 	// calling page's), and the declaration opts the handler into
 	// plugin-root addressability.
 	if v, ok := table["handlers"]; ok {

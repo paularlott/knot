@@ -744,7 +744,7 @@ paths:
       tags:
         - Users
       summary: Get User Permissions
-      description: Retrieve all permissions for a user, resolved from their roles.
+      description: Retrieve all permissions for a user, resolved from their roles — built-in permission IDs plus the qualified plugin grants their roles carry.
       operationId: getUserPermissions
       parameters:
         - name: user_id
@@ -767,6 +767,11 @@ paths:
                     items:
                       type: integer
                     description: The list of permission IDs the user has.
+                  plugin_permissions:
+                    type: array
+                    items:
+                      type: string
+                    description: The qualified plugin grants (plugin.<name>.<id>) the user holds.
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -960,7 +965,7 @@ paths:
   /api/permissions:
     get:
       summary: Get Permissions
-      description: Retrieve all permissions.
+      description: Retrieve all permissions — the built-in catalog plus the permissions declared by loaded plugins.
       operationId: getPermissions
       tags:
         - Permissions
@@ -5900,7 +5905,7 @@ paths:
     get:
       tags: [Plugins]
       summary: List loaded plugins
-      description: Admin inventory of loaded and failed plugins with permissions, menus, pages and warnings. Requires the manage roles permission.
+      description: Admin inventory of loaded and failed plugins with permissions, menus, pages, handlers, MCP tools, field handlers, scriptling libraries and warnings. Requires the manage roles permission.
       operationId: getPlugins
       responses:
         "200":
@@ -6523,6 +6528,27 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PermissionInfo"
+        plugin_permissions:
+          type: array
+          description: The permissions declared by loaded plugins, grouped by declaring plugin. A role carries these as their qualified grant text.
+          items:
+            $ref: "#/components/schemas/PluginPermissionInfo"
+
+    PluginPermissionInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          example: plugin.metrics.read
+          description: The qualified grant stored on roles (plugin.<name>.<id>).
+        plugin:
+          type: string
+          example: metrics
+          description: The plugin that declares the permission.
+        label:
+          type: string
+          example: read
+          description: The declared permission id.
 
     GroupInfo:
       type: object

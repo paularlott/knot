@@ -138,13 +138,33 @@ def get_quota(user_id):
 
 
 def list_permissions(user_id):
-    """List all permissions for a user."""
+    """List all built-in permissions for a user (permission IDs as integers).
+
+    Plugin-declared grants are separate — see list_plugin_permissions().
+    """
     response = api.get(f"/api/users/{_enc(user_id)}/permissions")
     return response.get("permissions", [])
 
 
+def list_plugin_permissions(user_id):
+    """List the plugin permissions a user holds.
+
+    Returns the qualified grant strings (e.g. "plugin.metrics.read")
+    resolved from the user's roles; admins hold every grant.
+    """
+    response = api.get(f"/api/users/{_enc(user_id)}/permissions")
+    return response.get("plugin_permissions", [])
+
+
 def has_permission(user_id, permission_id):
-    """Check if user has a specific permission."""
+    """Check if user has a specific permission.
+
+    An integer (or the knot.permission constant) checks a built-in
+    permission; a string starting with "plugin." checks a plugin grant
+    against the user's resolved grants.
+    """
+    if isinstance(permission_id, str) and permission_id.startswith("plugin."):
+        return permission_id in list_plugin_permissions(user_id)
     response = api.get(f"/api/users/{_enc(user_id)}/has-permission", {"permission": str(permission_id)})
     return response.get("has_permission", False)
 

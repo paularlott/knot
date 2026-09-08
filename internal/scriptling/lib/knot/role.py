@@ -33,24 +33,35 @@ def get(role_id):
     }
 
 
-def create(name, permissions=None):
-    """Create a new role."""
+def create(name, permissions=None, plugin_permissions=None):
+    """Create a new role.
+
+    permissions are built-in permission IDs (integers, e.g. the
+    knot.permission constants); plugin_permissions are qualified grant
+    strings (e.g. "plugin.metrics.read" — see knot.permission.list_plugin()).
+    """
     body = {
         "name": name,
-        "permissions": permissions or []
+        "permissions": permissions or [],
+        "plugin_permissions": plugin_permissions or []
     }
 
     response = api.post("/api/roles", body)
     return response.get("role_id")
 
 
-def update(role_id, name=None, permissions=None):
-    """Update role properties."""
+def update(role_id, name=None, permissions=None, plugin_permissions=None):
+    """Update role properties.
+
+    permissions are built-in permission IDs; plugin_permissions are
+    qualified grant strings. Omitted lists keep their current values.
+    """
     current = api.get(f"/api/roles/{_enc(role_id)}")
 
     body = {
         "name": name if name is not None else current.get("name"),
-        "permissions": permissions if permissions is not None else current.get("permissions", [])
+        "permissions": permissions if permissions is not None else current.get("permissions", []),
+        "plugin_permissions": plugin_permissions if plugin_permissions is not None else current.get("plugin_permissions", [])
     }
 
     api.put(f"/api/roles/{_enc(role_id)}", body)

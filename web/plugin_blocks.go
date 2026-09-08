@@ -16,7 +16,7 @@ import (
 // columns, each column declaring its type, data handler and refresh. The
 // client renders the shell (with loaders) and fetches each column's data
 // from its handler URL - the page path plus /<handler>. Rows and columns
-// carry optional permission/group gates which knot enforces against the
+// carry an optional permission gate which knot enforces against the
 // requesting user; a row left with no columns is never sent.
 //
 // The trust boundary: the layout skeleton is normalized here (shape, width
@@ -56,9 +56,7 @@ func normalizePageDocument(value any, user *model.User, plugin *plugins.Plugin) 
 
 func gatePasses(table map[string]any, user *model.User, plugin *plugins.Plugin) bool {
 	if permission, _ := table["permission"].(string); permission != "" {
-		if !user.HasPluginPermission(plugins.QualifiedPermission(plugin.Name, permission)) {
-			return false
-		}
+		return user.PassesPluginGate(plugins.QualifiedPermission(plugin.Name, permission))
 	}
 	return true
 }

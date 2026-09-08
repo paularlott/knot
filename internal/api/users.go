@@ -806,11 +806,13 @@ func HandleGetUserPermissions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get all permissions for the user (resolved from roles)
+	// Get all permissions for the user (resolved from roles): built-in
+	// ids plus the qualified plugin grants their roles carry.
 	permissions := model.GetUserPermissions(user)
 
 	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{
-		"permissions": permissions,
+		"permissions":        permissions,
+		"plugin_permissions": user.GrantedPluginPermissions(),
 	})
 }
 

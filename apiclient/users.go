@@ -118,7 +118,8 @@ type UserQuota struct {
 }
 
 type UserPermissions struct {
-	Permissions []uint16 `json:"permissions"`
+	Permissions       []uint16 `json:"permissions"`
+	PluginPermissions []string `json:"plugin_permissions,omitempty"`
 }
 
 type UserHasPermission struct {
@@ -267,6 +268,23 @@ func (c *ApiClient) GetUserQuota(ctx context.Context, userId string) (*UserQuota
 		} else {
 			return nil, err
 		}
+	}
+
+	return &response, nil
+}
+
+// GetUserPermissionsFull returns both halves of a user's effective
+// permissions: the built-in ids resolved from roles, and the qualified
+// plugin grants.
+func (c *ApiClient) GetUserPermissionsFull(ctx context.Context, userId string) (*UserPermissions, error) {
+	response := UserPermissions{}
+
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId+"/permissions", &response)
+	if err != nil {
+		if code == 404 {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
 	}
 
 	return &response, nil

@@ -1,5 +1,5 @@
-// Package plugins implements knot's plugin system: a plugin is a single
-// script or a folder of scripts in the configured PluginsPath, whose
+// Package plugins implements knot's plugin system: a plugin is a folder
+// of scripts in the configured PluginsPath, whose
 // declarations — permissions, menus, logos — live statically in the
 // scriptling metadata block under [tool.knot]. Nothing a plugin declares is
 // produced by executing plugin code; loading is pure parsing, and plugin
@@ -44,8 +44,7 @@ type Menu struct {
 }
 
 // Page is one declared page: an internal URL under /plugins/<name> whose
-// handler runs per-request as the requesting user (the phase-2 dispatch
-// model). Handler is a function in the entry file, or "module.fn" for a
+// handler runs per-request as the requesting user. Handler is a function in the entry file, or "module.fn" for a
 // sibling module of a folder plugin.
 // FieldHandler is a declared data source a template's custom fields can
 // bind to: the space form turns the field into an autocompleter whose
@@ -114,7 +113,7 @@ type Plugin struct {
 	Version     string `json:"version"`
 	Description string `json:"description"`
 	Dir         string `json:"-"`                    // the plugin folder
-	EntryFile   string `json:"-"`                    // main.py or the single .py file
+	EntryFile   string `json:"-"`                    // main.py
 	LogoLight   string `json:"logo_light,omitempty"` // relative paths
 	LogoDark    string `json:"logo_dark,omitempty"`
 	// SiteLogo reports that the plugin's logo pair claims the main page
@@ -277,7 +276,7 @@ func (r *Registry) VisibleMenus(user *model.User) []Menu {
 	var menus []Menu
 	for _, p := range r.plugins {
 		for _, menu := range p.Menus {
-			if menu.Permission != "" && !user.HasPluginPermission(menu.Permission) {
+			if !user.PassesPluginGate(menu.Permission) {
 				continue
 			}
 			menus = append(menus, menu)
@@ -353,7 +352,7 @@ func (r *Registry) SiteLogoURLs() (light, dark string) {
 }
 
 // MCPTool is one [[tool.knot.mcp_tools]] entry: a plugin handler exposed
-// as an MCP tool. The optional permission/group narrows which users see
+// as an MCP tool. The optional permission narrows which users see
 // and may call the tool (knot enforces at both list and execute time);
 // both empty means any MCP user. No input schema is declared — the tool's
 // parameters arrive in the handler's params dict and the MCP schema is an
@@ -594,7 +593,7 @@ func scanCandidates(root string, entries []os.DirEntry) ([]candidate, []string) 
 			continue
 		}
 
-		// Plugins are folders (main.py + assets + peers/ + bin/); a loose
+		// Plugins are folders (main.py + assets + libs/ + bin/); a loose
 		// .py is not a plugin.
 		if filepath.Ext(name) == ".py" && pluginNameRe.MatchString(base) {
 			warnings = append(warnings, fmt.Sprintf("file %s is not a plugin — plugins are folders with a main.py; ignored", name))
@@ -654,7 +653,7 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 	}
 
 	// Load peers before verifying requirements so their declared versions
-	// can satisfy them: bin/ hosts Go peers, peers/ hosts scriptling peers.
+	// can satisfy them: bin/ hosts Go peers, libs/ hosts scriptling libraries.
 	scope, peerWarnings, err := loadPeers(c.name, c.dir, newManager)
 	warnings = append(warnings, peerWarnings...)
 	if err != nil {
@@ -753,8 +752,8 @@ func loadScriptLibs(pluginDir string) ([]ScriptLib, error) {
 		if entry.IsDir() || filepath.Ext(name) != ".py" || strings.HasPrefix(name, ".") {
 			continue
 		}
-		peerName := strings.TrimSuffix(name, ".py")
-		if !pluginNameRe.MatchString(peerName) {
+		libName := strings.TrimSuffix(name, ".py")
+		if !pluginNameRe.MatchString(libName) {
 			return nil, fmt.Errorf("libs/%s: not a valid library name ([a-z0-9_-]+)", name)
 		}
 		source, err := os.ReadFile(filepath.Join(libsDir, name))
@@ -771,7 +770,7 @@ func loadScriptLibs(pluginDir string) ([]ScriptLib, error) {
 				}
 			}
 		}
-		libs = append(libs, ScriptLib{Name: peerName, Version: version, Source: string(source)})
+		libs = append(libs, ScriptLib{Name: libName, Version: version, Source: string(source)})
 	}
 	return libs, nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -20,6 +21,20 @@ func HandleGetPermissions(w http.ResponseWriter, r *http.Request) {
 			Name:        permission.Name,
 			Group:       permission.Group,
 			Description: permission.Description,
+		}
+	}
+
+	// Plugin-declared permissions ride alongside: qualified grant ids a
+	// role may carry, grouped by the plugin that declares them.
+	if registry := plugins.GetRegistry(); registry != nil {
+		for _, plugin := range registry.All() {
+			for _, decl := range plugin.Permissions {
+				permissionList.PluginPermissions = append(permissionList.PluginPermissions, apiclient.PluginPermissionInfo{
+					Id:     decl.Id,
+					Plugin: plugin.Name,
+					Label:  decl.Label,
+				})
+			}
 		}
 	}
 
