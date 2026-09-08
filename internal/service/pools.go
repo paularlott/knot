@@ -830,7 +830,10 @@ func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.Us
 	}
 	ordinal := nextPoolOrdinal(pool.Name, poolMembers(pool, spaces))
 	name := pool.Name + "-" + strconv.Itoa(ordinal)
-	space := model.NewSpace(name, "Pool member for "+pool.Name, user.Id, pool.TemplateId, shell, &[]model.AltNameEntry{}, "", "", nil)
+	// Pool members are created without user input, so any template field
+	// defaults are exactly what the member should carry.
+	customFields := model.ApplyCustomFieldDefaults(template, nil)
+	space := model.NewSpace(name, "Pool member for "+pool.Name, user.Id, pool.TemplateId, shell, &[]model.AltNameEntry{}, "", "", customFields)
 	space.PoolId = pool.Id
 	space.StartupScriptId = pool.StartupScriptId
 	space.NodeId = nodeId

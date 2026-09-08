@@ -22,7 +22,8 @@ func TestTemplateExportRoundTrip(t *testing.T) {
 		Groups: []string{"developers"},
 		Zones:  []string{"zone1", "!zone2"},
 		CustomFields: []TemplateExportCustomField{
-			{Name: "branch", Description: "Git branch"},
+			{Name: "branch", Description: "Git branch", Default: "main"},
+			{Name: "config", Description: "Extra config", Type: "textarea", Language: "yaml"},
 		},
 		StartupScript: "install-tools.sh",
 		Ports: []model.TemplatePort{
@@ -85,8 +86,11 @@ func TestTemplateExportRoundTrip(t *testing.T) {
 	if parsed.StartupScript != exp.StartupScript {
 		t.Errorf("startup script mismatch: %s != %s", parsed.StartupScript, exp.StartupScript)
 	}
-	if len(parsed.CustomFields) != 1 || parsed.CustomFields[0].Name != "branch" {
+	if len(parsed.CustomFields) != 2 || parsed.CustomFields[0].Name != "branch" {
 		t.Errorf("custom fields mismatch: %+v", parsed.CustomFields)
+	}
+	if parsed.CustomFields[0].Default != "main" {
+		t.Errorf("custom field default lost: %+v", parsed.CustomFields[0])
 	}
 	if len(parsed.Groups) != 1 || parsed.Groups[0] != "developers" {
 		t.Errorf("groups mismatch: %+v", parsed.Groups)
@@ -166,7 +170,8 @@ func TestToCreateRequest(t *testing.T) {
 		},
 		StartupScript: "script-uuid-here",
 		CustomFields: []TemplateExportCustomField{
-			{Name: "branch"},
+			{Name: "branch", Default: "main"},
+			{Name: "config", Type: "textarea", Language: "yaml", Default: "key: value\n"},
 		},
 		Schedule: []TemplateExportScheduleDay{
 			{Enabled: true, From: "9:00am", To: "5:00pm"},
@@ -189,8 +194,17 @@ func TestToCreateRequest(t *testing.T) {
 	if req.StartupScriptId != "script-uuid-here" {
 		t.Errorf("startup script id: %s", req.StartupScriptId)
 	}
-	if len(req.CustomFields) != 1 || req.CustomFields[0].Name != "branch" {
+	if len(req.CustomFields) != 2 || req.CustomFields[0].Name != "branch" {
 		t.Errorf("custom fields: %+v", req.CustomFields)
+	}
+	// Defaults and textarea languages must survive the import conversion —
+	// dropping the language would silently downgrade the editor to plain
+	// text on the space form.
+	if req.CustomFields[0].Default != "main" {
+		t.Errorf("custom field default lost: %+v", req.CustomFields[0])
+	}
+	if req.CustomFields[1].Language != "yaml" || req.CustomFields[1].Default != "key: value\n" {
+		t.Errorf("textarea language/default lost: %+v", req.CustomFields[1])
 	}
 	if len(req.Schedule) != 1 || !req.Schedule[0].Enabled {
 		t.Errorf("schedule: %+v", req.Schedule)

@@ -96,6 +96,33 @@ type TemplateCustomField struct {
 	// Language selects the ace mode/completions for textarea fields:
 	// yaml, toml, json, markdown, shell or scriptling ("" is plain text).
 	Language string `json:"language,omitempty"`
+	// Default is the value a space starts with for this field. It is
+	// presence-based: applied only when the create request omits the
+	// field entirely, never when the field arrives with an empty value —
+	// clearing a prefilled default is an intentional blank.
+	Default string `json:"default,omitempty"`
+}
+
+// ApplyCustomFieldDefaults returns provided with the template's default
+// value filled in for every custom field the create request did not
+// mention. A field present in provided keeps its value verbatim, including
+// an empty one, and fields without a default stay absent — both exactly as
+// before defaults existed.
+func ApplyCustomFieldDefaults(template *Template, provided []SpaceCustomField) []SpaceCustomField {
+	if len(template.CustomFields) == 0 {
+		return provided
+	}
+	present := make(map[string]bool, len(provided))
+	for _, field := range provided {
+		present[field.Name] = true
+	}
+	for _, field := range template.CustomFields {
+		if field.Default == "" || present[field.Name] {
+			continue
+		}
+		provided = append(provided, SpaceCustomField{Name: field.Name, Value: field.Default})
+	}
+	return provided
 }
 
 type TemplatePort struct {

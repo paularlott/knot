@@ -76,6 +76,7 @@ type TemplateExportCustomField struct {
 	Type        string `yaml:"type,omitempty"`
 	Handler     string `yaml:"handler,omitempty"`
 	Language    string `yaml:"language,omitempty"`
+	Default     string `yaml:"default,omitempty"`
 }
 
 // MarshalYAML implements yaml.Marshaler to emit job/volumes as block scalars
@@ -204,7 +205,7 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 	if len(d.CustomFields) > 0 {
 		exp.CustomFields = make([]TemplateExportCustomField, len(d.CustomFields))
 		for i, cf := range d.CustomFields {
-			exp.CustomFields[i] = TemplateExportCustomField{Name: cf.Name, Description: cf.Description, Type: cf.Type, Handler: cf.Handler, Language: cf.Language}
+			exp.CustomFields[i] = TemplateExportCustomField{Name: cf.Name, Description: cf.Description, Type: cf.Type, Handler: cf.Handler, Language: cf.Language, Default: cf.Default}
 		}
 	}
 	if len(d.Schedule) > 0 {
@@ -245,7 +246,7 @@ func defaultCustomFields(cf []TemplateExportCustomField) []CustomFieldDef {
 	}
 	out := make([]CustomFieldDef, len(cf))
 	for i, c := range cf {
-		out[i] = CustomFieldDef{Name: c.Name, Description: c.Description, Type: c.Type, Handler: c.Handler}
+		out[i] = CustomFieldDef{Name: c.Name, Description: c.Description, Type: c.Type, Handler: c.Handler, Language: c.Language, Default: c.Default}
 	}
 	return out
 }

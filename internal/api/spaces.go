@@ -385,6 +385,11 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fill in template defaults for fields the request didn't mention. A
+	// field sent with an empty value keeps it — presence, not emptiness,
+	// decides whether a default applies.
+	customFields = model.ApplyCustomFieldDefaults(template, customFields)
+
 	// Select node for space
 	nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
 	if err != nil {

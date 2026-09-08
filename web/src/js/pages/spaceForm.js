@@ -394,14 +394,22 @@ window.spaceForm = function (
         this.template.custom_fields &&
         this.template.custom_fields.length > 0
       ) {
-        // If editing, preserve existing values; if creating, initialize with empty strings
+        // Stored values win, even empty ones — a field the user cleared is
+        // an intentional blank and must not re-grow its default. Fields the
+        // space has no entry for (and fresh creates) start from the
+        // template default.
         const existingFields = isEdit ? this.formData.custom_fields : [];
         this.formData.custom_fields = this.template.custom_fields.map(
           (field) => {
+            const existing = existingFields.find(
+              (f) => f.name === field.name,
+            );
             return {
               name: field.name,
               value:
-                existingFields.find((f) => f.name === field.name)?.value || "",
+                existing !== undefined
+                  ? existing.value || ""
+                  : field.default || "",
             };
           },
         );

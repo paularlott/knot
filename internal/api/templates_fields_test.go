@@ -36,6 +36,19 @@ func TestNormalizeCustomFields(t *testing.T) {
 		t.Errorf("language = %q", fields[4].Language)
 	}
 
+	// Defaults ride along verbatim, on every type.
+	fields, errMsg = normalizeCustomFields([]apiclient.CustomFieldDef{
+		{Name: "branch", Default: "main"},
+		{Name: "secret", Type: "masked", Default: "hunter2"},
+		{Name: "config", Type: "textarea", Language: "yaml", Default: "key: value\n"},
+	})
+	if errMsg != "" {
+		t.Fatalf("fields with defaults rejected: %s", errMsg)
+	}
+	if fields[0].Default != "main" || fields[1].Default != "hunter2" || fields[2].Default != "key: value\n" {
+		t.Errorf("defaults = %q / %q / %q, want them stored verbatim", fields[0].Default, fields[1].Default, fields[2].Default)
+	}
+
 	// Unknown types are load errors, not silent text-field downgrades.
 	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "colour"}}); errMsg == "" || !strings.Contains(errMsg, "custom_fields[0].type") {
 		t.Errorf("unknown type: errMsg = %q, want a type error", errMsg)

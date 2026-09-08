@@ -7443,6 +7443,9 @@ components:
         language:
           type: string
           description: For textarea fields, the editor language - scriptling, yaml, toml, json, markdown or shell.
+        default:
+          type: string
+          description: Value prefilled when creating a space. Applied only when the create request omits the field entirely - a field sent with an empty value keeps the empty value.
 
     TemplateCreateRequest:
       type: object

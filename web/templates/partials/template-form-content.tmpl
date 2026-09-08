@@ -634,6 +634,11 @@
           </select>
           <p class="description">The field becomes a pick-or-create autocompleter on the space form; the plugin serves suggestions as the requesting user.</p>
         </div>
+        <div>
+          <label class="form-label" for="field-config-default">Default value</label>
+          <textarea id="field-config-default" class="form-field font-mono" rows="2" x-model="fieldConfig.default" placeholder="Optional" aria-label="Default value"></textarea>
+          <p class="description">Pre-fills the field when creating a space.</p>
+        </div>
       </div>
       <div class="ui-modal-footer">
         <button type="button" class="ui-button-secondary sm:mr-auto" @click="fieldConfig.show = false">Cancel</button>

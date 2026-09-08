@@ -221,3 +221,42 @@ func TestIsValidForZone(t *testing.T) {
 		})
 	}
 }
+
+// TestApplyCustomFieldDefaults pins the presence rule for template field
+// defaults: a default fills in only fields the create request omitted. A
+// field sent with an empty value keeps it — clearing a prefilled default is
+// an intentional blank — and fields without a default stay absent.
+func TestApplyCustomFieldDefaults(t *testing.T) {
+	template := &Template{CustomFields: []TemplateCustomField{
+		{Name: "branch", Default: "main"},
+		{Name: "region", Default: "eu-west"},
+		{Name: "notes"}, // no default
+	}}
+
+	// Nothing provided: every defaulted field is filled in.
+	got := ApplyCustomFieldDefaults(template, nil)
+	if len(got) != 2 || got[0] != (SpaceCustomField{Name: "branch", Value: "main"}) || got[1] != (SpaceCustomField{Name: "region", Value: "eu-west"}) {
+		t.Errorf("absent fields = %+v, want branch=main and region=eu-west only", got)
+	}
+
+	// Present-but-empty stays empty; the other default still applies.
+	got = ApplyCustomFieldDefaults(template, []SpaceCustomField{{Name: "branch", Value: ""}})
+	if len(got) != 2 || got[0] != (SpaceCustomField{Name: "branch", Value: ""}) || got[1] != (SpaceCustomField{Name: "region", Value: "eu-west"}) {
+		t.Errorf("present-but-empty = %+v, want branch kept empty", got)
+	}
+
+	// Provided values are never overwritten.
+	got = ApplyCustomFieldDefaults(template, []SpaceCustomField{
+		{Name: "branch", Value: "release"},
+		{Name: "region", Value: "us-east"},
+	})
+	if len(got) != 2 || got[0].Value != "release" || got[1].Value != "us-east" {
+		t.Errorf("provided values = %+v, want them untouched", got)
+	}
+
+	// A template without custom fields passes the slice through.
+	plain := &Template{}
+	if got := ApplyCustomFieldDefaults(plain, []SpaceCustomField{{Name: "x", Value: "y"}}); len(got) != 1 {
+		t.Errorf("no-field template = %+v, want the input unchanged", got)
+	}
+}

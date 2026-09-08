@@ -336,10 +336,12 @@ window.stackDefinitionBuilder = function () {
       const existingFields = space.custom_fields || [];
       const custom_fields = templateFields.map(tf => {
         const existing = existingFields.find(ef => ef.name === tf.name);
+        // Stored values win even when empty; fields with no entry yet start
+        // from the template default.
         return {
           name: tf.name,
           description: tf.description || '',
-          value: existing ? existing.value : '',
+          value: existing ? existing.value : (tf.default || ''),
         };
       });
 
@@ -460,7 +462,7 @@ window.stackDefinitionBuilder = function () {
           this.componentEditor.form.custom_fields = templateFields.map(tf => ({
             name: tf.name,
             description: tf.description || '',
-            value: '',
+            value: tf.default || '',
           }));
           this.componentEditor.form.template_custom_fields = templateFields;
         }
