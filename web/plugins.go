@@ -211,28 +211,19 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer service.ReleasePluginEnv(env, plugin)
 
-	// The request reaches the handler as the params dict: query parameters,
-	// plus — for actions — a POST body (form-encoded or JSON), which wins on
-	// key conflicts. Every query parameter flows through, including _data,
-	// which dynamic-option fetches use to name the field they want.
+	// The handler receives one argument: the request object, carrying the
+	// method, path, the params dict (query parameters plus — for actions —
+	// a POST body, which wins on key conflicts; _data included, which
+	// dynamic-option fetches use to name the field they want), and an inert
+	// snapshot of the requesting user. No globals — everything the handler
+	// sees arrives in this argument, and anything with authority goes
+	// through knot.identity / knot.* over the gated loopback.
 	params, err := pluginParams(r)
 	if err != nil {
 		renderPluginPageError(w, r, plugin, page, "invalid request body")
 		return
 	}
-	if err := env.SetObjectVar("request", conversion.FromGo(service.RequestObject(r.Method, r.URL.Path))); err != nil {
-		renderPluginPageError(w, r, plugin, page, "failed to set the request object")
-		return
-	}
-	if err := env.SetObjectVar("user", service.NewUserObject(user)); err != nil {
-		renderPluginPageError(w, r, plugin, page, "failed to set the user object")
-		return
-	}
-	if err := env.SetObjectVar("params", conversion.FromGo(params)); err != nil {
-		log.Error("plugin page: params", "plugin", plugin.Name, "error", err)
-		renderPluginPageError(w, r, plugin, page, "failed to set handler params")
-		return
-	}
+	request := service.RequestObject(r.Method, r.URL.Path, params, user)
 
 	// Handler-URL dispatch: call the addressed handler directly and answer
 	// as JSON. A declared handler stands on its own gate; an undeclared one
@@ -253,7 +244,7 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 				offered, cached = layoutPresence.get(key)
 			}
 			if !cached {
-				layoutResult, err := env.CallFunctionWithContext(ctx, page.Handler)
+				layoutResult, err := env.CallFunctionWithContext(ctx, service.QualifiedHandler(plugin, page.Handler), request)
 				if err != nil {
 					log.Error("plugin page: layout for handler gate", "plugin", plugin.Name, "handler", page.Handler, "error", err)
 					w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -273,7 +264,7 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		result, err := env.CallFunctionWithContext(ctx, handler)
+		result, err := env.CallFunctionWithContext(ctx, service.QualifiedHandler(plugin, handler), request)
 		if err != nil {
 			log.Error("plugin handler", "plugin", plugin.Name, "handler", handler, "error", err)
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -285,7 +276,7 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := env.CallFunctionWithContext(ctx, page.Handler)
+	result, err := env.CallFunctionWithContext(ctx, service.QualifiedHandler(plugin, page.Handler), request)
 	if err != nil {
 		log.Error("plugin page: handler", "plugin", plugin.Name, "handler", page.Handler, "error", err)
 		renderPluginPageError(w, r, plugin, page, fmt.Sprintf("handler %q failed: %v", page.Handler, err))

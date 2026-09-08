@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -63,46 +64,85 @@ var pluginEnvs = &pluginEnvPool{idle: map[*plugins.Plugin][]pooledPluginEnv{}}
 func AcquirePluginEnv(ctx context.Context, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) (*scriptling.Scriptling, error) {
 	pluginEnvs.mu.Lock()
 	list := pluginEnvs.idle[plugin]
-	var pooled *pooledPluginEnv
+	// Copy the entry out by VALUE and shrink the slice. Taking &list[n-1]
+	// would hand back a pointer into the slice's backing array — the exact
+	// slot a later ReleasePluginEnv reuses on append — so the released env
+	// and the next lease would alias one slot and race. A value copy severs
+	// that; the env pointer inside is owned exclusively by this lease.
+	var pooled pooledPluginEnv
+	var havePooled bool
 	if n := len(list); n > 0 {
-		pooled = &list[n-1]
+		pooled = list[n-1]
+		list[n-1] = pooledPluginEnv{} // drop the reference so it can't alias
 		pluginEnvs.idle[plugin] = list[:n-1]
 		pluginEnvs.idleTotal--
+		havePooled = true
 	}
-	if pooled != nil && time.Now().After(pooled.releasedAt.Add(pluginEnvIdleTTL)) {
-		pooled = nil // expired — drop it and build fresh
+	if havePooled && time.Now().After(pooled.releasedAt.Add(pluginEnvIdleTTL)) {
+		havePooled = false // expired — drop it and build fresh
 	}
-	if pooled != nil {
+	if havePooled {
 		pluginEnvs.leases++
 	} else {
 		pluginEnvs.builds++
 	}
 	pluginEnvs.mu.Unlock()
 
-	if pooled == nil {
+	if !havePooled {
 		env, err := NewPluginScriptlingEnv(client, user, plugin)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := env.EvalWithContext(ctx, plugin.EntrySource); err != nil {
+		if err := importPluginNamespace(ctx, env, plugin); err != nil {
 			return nil, err
 		}
 		env.EnableOutputCapture()
 		return env, nil
 	}
 
-	// Warm lease: wipe the previous run's state, attach this user, redefine
-	// the entry's functions. Reset keeps the registered libraries and
-	// peers — that reuse is the point — and clears everything else.
+	// Warm lease: wipe the previous run's state, attach this user, and
+	// re-materialize the plugin's own namespace. Reset keeps the registered
+	// libraries and peers — that reuse is the point — but clears imported
+	// bindings, so plugin.<name> must be imported again.
 	pooled.env.Reset()
 	if err := bindPluginUserIdentity(pooled.env, client, user, plugin); err != nil {
 		return nil, err
 	}
-	if _, err := pooled.env.EvalWithContext(ctx, plugin.EntrySource); err != nil {
+	if err := importPluginNamespace(ctx, pooled.env, plugin); err != nil {
 		return nil, err
 	}
 	pooled.env.EnableOutputCapture()
 	return pooled.env, nil
+}
+
+// importPluginNamespace materializes the plugin.<x> bindings this plugin's
+// declared handlers are addressed through. Registration (buildPluginEnv)
+// puts a library in the env's table but does not bind the dotted name;
+// importing evaluates it and binds plugin.<x> so plugin.<x>.<fn> resolves.
+// A pure-script plugin's namespace is its main.py (ScriptNamespace); a peer
+// plugin's are its peers' handshake names. Reset clears imported bindings,
+// so this runs on every lease, not just cold builds.
+//
+// The plugin's own main.py is re-registered before import so its cached
+// module store is dropped and the module body re-evaluates every lease:
+// each dispatch starts from a clean module, and one user's module-level
+// state never leaks to the next. Peer namespaces are process-backed (no
+// in-env module state) and composed plugins are imported by handler code as
+// needed, matching the pre-pool behaviour.
+func importPluginNamespace(ctx context.Context, env *scriptling.Scriptling, plugin *plugins.Plugin) error {
+	if plugin.EntrySource != "" {
+		// Fresh registration clears any cached evaluated store, so the
+		// import below re-runs the module body for this lease.
+		if err := env.RegisterScriptLibrary("plugin."+plugin.ScriptNamespace, plugin.EntrySource); err != nil {
+			return fmt.Errorf("register plugin.%s: %w", plugin.ScriptNamespace, err)
+		}
+	}
+	for _, ns := range plugin.Namespaces {
+		if _, err := env.EvalWithContext(ctx, "import plugin."+ns+"\n"); err != nil {
+			return fmt.Errorf("import plugin.%s: %w", ns, err)
+		}
+	}
+	return nil
 }
 
 // ReleasePluginEnv returns a dispatched env to its plugin's free list.

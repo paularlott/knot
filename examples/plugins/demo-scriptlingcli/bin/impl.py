@@ -16,7 +16,7 @@ def _db():
     # sys.argv[0] is the executable's path once the server is running
     # (it is NULL at import time, so resolve lazily) — abspath because
     # knot may spawn peers through a relative plugins path.
-    return os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "store.db")
+    return os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "kvstore.db")
 
 
 def add(a, b):

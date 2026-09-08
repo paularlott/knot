@@ -49,19 +49,24 @@ func callFixture(t *testing.T) (*plugins.Plugin, *plugins.Plugin) {
 # handler = "secret"
 # permission = "read"
 # ///
-def hello():
+def hello(request):
+    params = request["params"]
     return {"reply": "hello " + params.get("word", "")}
 
 
-def whoami():
-    return {"as_user": user.name, "grant": user.has_permission("plugin.provider.read")}
+def whoami(request):
+    import knot.identity
+
+    # request["user"] is inert data (the name); knot.identity is the
+    # authoritative permission surface (admins pass, gated over loopback).
+    return {"as_user": request["user"]["name"], "grant": knot.identity.user().has_permission("plugin.provider.read")}
 
 
-def how_called():
-    return {"method": request.method, "path": request.path}
+def how_called(request):
+    return {"method": request["method"], "path": request["path"]}
 
 
-def secret():
+def secret(request):
     return {"reply": "the goods"}
 `,
 		"caller": `# /// script
@@ -70,9 +75,10 @@ def secret():
 # [tool.knot]
 # version = "1.0"
 # ///
-def call_provider():
+def call_provider(request):
     import knot.plugin as kp
 
+    params = request["params"]
     return kp.call("provider", params.get("handler", ""), {"word": params.get("word", "")}, method=params.get("method", "GET"))
 `,
 	} {
@@ -133,8 +139,8 @@ func TestKnotPluginCall(t *testing.T) {
 }
 
 // TestKnotPluginCallBindsCallerUser pins that the callee's environment is
-// bound to the CALLING user: the provider's user global reports the
-// caller's name, and their plugin grants answer its in-code checks.
+// bound to the CALLING user: the provider handler's request["user"] reports
+// the caller's name, and their plugin grants answer knot.identity checks.
 func TestKnotPluginCallBindsCallerUser(t *testing.T) {
 	caller, _ := callFixture(t)
 	model.SetRoleCache([]*model.Role{{
@@ -168,7 +174,6 @@ func TestKnotPluginCallBindsCallerUser(t *testing.T) {
 		}
 	}
 }
-
 
 // TestUserHasPermissionDispatch pins the merged permission check: one
 // has_permission method whose argument picks the check — an integer is a

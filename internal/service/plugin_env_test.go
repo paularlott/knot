@@ -19,29 +19,22 @@ import (
 	"github.com/paularlott/scriptling/conversion"
 )
 
-// dispatchPage evaluates a loaded plugin's entry in a fresh run-as-user
-// environment and calls a page handler — the core of HandlePluginPage minus
-// the HTTP/template glue.
+// dispatchPage leases a pooled run-as-user environment for a loaded plugin
+// and calls a handler by its qualified name with the request argument — the
+// core of HandlePluginPage minus the HTTP/template glue, exercising the real
+// production dispatch path (pool, plugin.<name> namespace, request arg).
 func dispatchPage(t *testing.T, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin, handler string) any {
 	t.Helper()
-	env, err := NewPluginScriptlingEnv(client, user, plugin)
-	if err != nil {
-		t.Fatalf("env: %v", err)
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if _, err := env.EvalWithContext(ctx, plugin.EntrySource); err != nil {
-		t.Fatalf("entry eval: %v", err)
+	env, err := AcquirePluginEnv(ctx, client, user, plugin)
+	if err != nil {
+		t.Fatalf("acquire env: %v", err)
 	}
-	// Handlers see the request object (method/path) and params dict, as the
-	// web dispatcher provides them.
-	if err := env.SetObjectVar("request", conversion.FromGo(map[string]any{"method": "GET", "path": "/test"})); err != nil {
-		t.Fatalf("request: %v", err)
-	}
-	if err := env.SetObjectVar("params", conversion.FromGo(map[string]any{})); err != nil {
-		t.Fatalf("params: %v", err)
-	}
-	result, err := env.CallFunctionWithContext(ctx, handler)
+	defer ReleasePluginEnv(env, plugin)
+
+	request := RequestObject("GET", "/test", map[string]any{}, user)
+	result, err := env.CallFunctionWithContext(ctx, QualifiedHandler(plugin, handler), request)
 	if err != nil {
 		t.Fatalf("handler %q: %v", handler, err)
 	}
@@ -74,7 +67,7 @@ func TestPluginPageDispatch(t *testing.T) {
 # label = "Report"
 # menu_label = "Report"
 # ///
-def report():
+def report(request):
     return {"answer": 42, "name": "paged"}
 `
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {

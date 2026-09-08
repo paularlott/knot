@@ -267,8 +267,14 @@ func TestResolveBinPeers(t *testing.T) {
 	// Malformed: bare + variants together.
 	exec("peer_d")
 	exec("peer_d_" + host)
-	// Not executable: warning.
+	// Not executable: a companion file, skipped silently (no peer, no
+	// warning) — knot only spawns executables, so a non-executable in bin/
+	// is data or an implementation module, never a broken peer.
 	if err := os.WriteFile(filepath.Join(binDir, "peer_e_"+host), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A data file with an arbitrary extension is likewise ignored silently.
+	if err := os.WriteFile(filepath.Join(binDir, "kvstore.db"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -291,20 +297,17 @@ func TestResolveBinPeers(t *testing.T) {
 			t.Errorf("peer %s resolved to %s, want %s", peer.name, filepath.Base(peer.path), want[peer.name])
 		}
 	}
-	mixedWarn, nonExecWarn := false, false
+	mixedWarn := false
 	for _, w := range warnings {
 		if strings.Contains(w, "malformed") {
 			mixedWarn = true
 		}
 		if strings.Contains(w, "not executable") {
-			nonExecWarn = true
+			t.Errorf("non-executable companion should be silently ignored, got warning: %q", w)
 		}
 	}
 	if !mixedWarn {
 		t.Errorf("warnings = %v, want malformed-package warning", warnings)
-	}
-	if !nonExecWarn {
-		t.Errorf("warnings = %v, want not-executable warning", warnings)
 	}
 }
 

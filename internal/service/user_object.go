@@ -7,10 +7,13 @@ import (
 	"github.com/paularlott/scriptling/object"
 )
 
-// userClass is the class of the `user` global every dispatch binds. Built
-// once; instances carry the per-dispatch identity as fields, and the
+// userClass is the class of the User instance knot.identity.user() returns
+// (and the `user` global that user-created MCP tool scripts still bind).
+// Built once; instances carry the per-dispatch identity as fields, and the
 // methods answer permission questions with the same semantics knot's own
-// checks use (admins pass everything).
+// checks use (admins pass everything). Plugin handlers do not get a `user`
+// global — they receive identity as request["user"] data — so this class
+// is the authoritative surface, reached through knot.identity.
 var userClass = buildUserClass()
 
 func buildUserClass() *object.Class {
@@ -73,15 +76,16 @@ func buildUserClass() *object.Class {
 	return builder.Build()
 }
 
-// NewUserObject builds the `user` global for a dispatch: the requesting
-// user's identity as a User instance — fields id, name, is_admin, groups,
-// permissions (stable snake_case keys like "manage_spaces") and
-// plugin_permissions (qualified grants) — with has_permission and in_group
-// methods. has_permission's argument picks the check: an integer is a
-// built-in permission id (the knot.permission constants), a "plugin."-
-// prefixed string a qualified grant, any other string a built-in key. It
-// complements — never replaces — the metadata gates knot enforces before
-// a handler runs.
+// NewUserObject builds the requesting user as a User instance — fields id,
+// name, is_admin, groups, permissions (stable snake_case keys like
+// "manage_spaces") and plugin_permissions (qualified grants) — with
+// has_permission and in_group methods. It backs knot.identity.user() (the
+// authoritative identity surface in plugin and tool code) and the `user`
+// global user-created MCP tool scripts bind. has_permission's argument
+// picks the check: an integer is a built-in permission id (the
+// knot.permission constants), a "plugin."-prefixed string a qualified
+// grant, any other string a built-in key. It complements — never replaces —
+// the metadata gates knot enforces before a handler runs.
 func NewUserObject(user *model.User) object.Object {
 	if user == nil {
 		return object.NewInstanceWithFields(userClass, map[string]object.Object{})

@@ -106,12 +106,12 @@ def _space_rows():
     return count, running, rows
 
 
-def field_environment():
+def field_environment(request):
     """Field handler: suggestion source for template custom fields."""
     return {"options": [{"key": "dev", "text": "development"}, {"key": "stage", "text": "staging"}, {"key": "prod", "text": "production"}, {"key": "qa", "text": "qa"}, {"key": "demo", "text": "demo"}]}
 
 
-def showcase():
+def showcase(request):
     # The layout: rows of columns. knot enforces the permission
     # gates and never sends a row left with no columns.
     return {
@@ -177,26 +177,16 @@ def showcase():
     }
 
 
-def col_text():
+def col_text(request):
     return {"text": "Plain text column: whitespace preserved, escaped, theme-aware. Good for captions, generated-at stamps, and anything that needs no markup."}
 
 
 
-def col_bars():
+def col_bars(request):
     # The bar payload is a single bar; the column stacks a pair via a list.
     return [
         {"label": "Memory", "value": 4.7, "max": 8.0, "unit": "GiB", "color": "#8b5cf6"},
         {"label": "Disk", "value": 15.0, "max": 40.0, "unit": "GiB", "color": "#10b981"},
-    ]
-
-
-def col_kpi():
-    space_count, running, _rows = _space_rows()
-    return [
-        {"label": "Spaces", "value": space_count, "delta": str(running) + " running"},
-        {"label": "Widgets", "value": 3, "delta": "1 pending"},
-        {"label": "Uptime", "value": 97.2, "unit": "%", "accent": "#10b981"},
-        {"label": "Queue", "value": 0},
     ]
 
 
@@ -218,23 +208,23 @@ def _kpi():
     ]
 
 
-def stat_spaces():
+def stat_spaces(request):
     return _kpi()[0]
 
 
-def stat_widgets():
+def stat_widgets(request):
     return _kpi()[1]
 
 
-def stat_uptime():
+def stat_uptime(request):
     return _kpi()[2]
 
 
-def stat_queue():
+def stat_queue(request):
     return _kpi()[3]
 
 
-def col_chart():
+def col_chart(request):
     import math
 
     # The last few points drift a little on each fetch so the line chart
@@ -260,7 +250,7 @@ def col_chart():
     }
 
 
-def col_doughnut():
+def col_doughnut(request):
     # "In use" wobbles slightly; "Free" moves to keep the total constant.
     used = _jitter(15.0, 1.2)
     return {
@@ -271,9 +261,10 @@ def col_doughnut():
     }
 
 
-def col_spaces():
+def col_spaces(request):
+    params = request["params"]
     # POST: row actions arrive here with the action name and the row key.
-    if request.method == "POST":
+    if request["method"] == "POST":
         action = params.get("action", "")
         key = params.get("key", "")
         if action == "report":
@@ -353,12 +344,13 @@ def _space_actions(name, state):
     return actions
 
 
-def widget_edit():
+def widget_edit(request):
+    params = request["params"]
     # Popup form handler: GET returns the form (fields carry their values),
     # POST validates and answers with an envelope. Errors keep the popup
     # open with per-field messages; success closes it.
     key = params.get("key", "")
-    if request.method == "POST":
+    if request["method"] == "POST":
         errors = {}
         if params.get("name", "") == "":
             errors["name"] = "Required."
@@ -386,7 +378,8 @@ def widget_edit():
     }
 
 
-def widget_notes():
+def widget_notes(request):
+    params = request["params"]
     # Information popup: an action names this handler, the client GETs it
     # with the row key, and the markdown response opens read-only.
     key = params.get("key", "")
@@ -401,7 +394,8 @@ GETs it with the row key, and a markdown response opens read-only.
     }
 
 
-def col_widget_form():
+def col_widget_form(request):
+    params = request["params"]
     # Dynamic options for the autocompleter: the client asks this handler
     # with _data=<field name> and it answers with key/text suggestions.
     if params.get("_data", "") == "owner":
@@ -414,7 +408,7 @@ def col_widget_form():
 
     # One handler, two faces: GET returns the definition, POST processes
     # the submitted fields and returns the action envelope.
-    if request.method == "POST":
+    if request["method"] == "POST":
         name = params.get("widget_name", "")
         if name == "":
             return {
@@ -438,7 +432,7 @@ def col_widget_form():
     }
 
 
-def col_notes():
+def col_notes(request):
     return {
         "markdown": """Panels are **data-bound**: each column fetches its own data from its
 handler URL (the page path plus `/<handler>`), shows a loader meanwhile, and
@@ -453,7 +447,7 @@ refreshes on its own timer.
     }
 
 
-def col_echo():
+def col_echo(request):
     # Static markup: the widget calls back into the plugin from the browser
     # with pluginFetch('echo_word', ...) - same transport, auth and gates
     # as every column fetch. The second button demos a cross-plugin call:
@@ -483,7 +477,8 @@ def col_echo():
     }
 
 
-def echo_word():
+def echo_word(request):
+    params = request["params"]
     # Called by the echo widget's pluginFetch; params arrive like any
     # handler's (query merged over POST body). The [[tool.knot.handlers]]
     # declaration is required because no layout column references it - a
@@ -494,7 +489,7 @@ def echo_word():
     return {"reply": "echo: " + word.upper() + " (" + str(len(word)) + " chars)"}
 
 
-def col_clock():
+def col_clock(request):
     now = time.now()
     return {
         "html": f"""
@@ -508,7 +503,7 @@ def col_clock():
 """
     }
 
-def lib_exports():
+def lib_exports(request):
     # The plugin's own scriptling library (libs/calc.py), imported
     # in-process: a constant, plain functions, a stateful class, and one
     # self-gating function. The same import works in user-created MCP
@@ -539,7 +534,7 @@ def lib_exports():
     }
 
 
-def col_libs():
+def col_libs(request):
     return {
         "markdown": (
             "A `libs/` folder is how a plugin publishes scriptling code for reuse: "

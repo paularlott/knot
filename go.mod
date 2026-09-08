@@ -10,7 +10,7 @@ toolchain go1.26.5
 
 //replace github.com/paularlott/mcp => ../mcp
 
-//replace github.com/paularlott/scriptling => ../scriptling
+replace github.com/paularlott/scriptling => ../scriptling
 
 //replace github.com/paularlott/lmchatkit => ../lmchatkit
 

@@ -37,8 +37,9 @@ func pooledFixture(t *testing.T) *plugins.Plugin {
 dispatches = 0
 
 
-def value():
+def value(request):
     global dispatches
+    params = request["params"]
     dispatches = dispatches + 1
     return {"n": dispatches, "word": params.get("word", "")}
 `

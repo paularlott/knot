@@ -65,8 +65,9 @@ func stripVariant(file string) (base string, kind variantKind, goos, goarch stri
 }
 
 // resolveBinPeers walks bin/ and picks one executable per peer group for
-// this host. Files that are not executable are warnings, not errors;
-// variants for other hosts are skipped silently.
+// this host. Non-executable files are companions (implementation modules,
+// data files) and are skipped silently; variants for other hosts are
+// skipped silently too.
 func resolveBinPeers(binDir string) ([]resolvedPeer, []string) {
 	entries, err := os.ReadDir(binDir)
 	if err != nil {
@@ -87,13 +88,11 @@ func resolveBinPeers(binDir string) ([]resolvedPeer, []string) {
 		}
 		path := filepath.Join(binDir, entry.Name())
 		if info, err := entry.Info(); err == nil && info.Mode()&0o111 == 0 {
-			// A non-executable .py beside a peer is a companion module
-			// (scriptling peers import their implementation from one),
-			// not a peer that lost its +x — skip it silently.
-			if filepath.Ext(entry.Name()) == ".py" {
-				continue
-			}
-			warnings = append(warnings, fmt.Sprintf("bin/%s is not executable, ignored", entry.Name()))
+			// Only executables are peers; a non-executable file in bin/ is a
+			// companion, not a broken peer — a scriptling peer's .py
+			// implementation module, the sqlite/data file a peer persists
+			// next to itself, a README, whatever. Skipped silently: knot
+			// never tries to spawn it, so there is nothing to warn about.
 			continue
 		}
 		base, kind, goos, goarch := stripVariant(entry.Name())

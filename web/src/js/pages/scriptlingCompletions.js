@@ -4170,7 +4170,7 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "serve",
-        signature: "serve(name, version=\"\", description=\"\")",
+        signature: "serve(name, version=\"\", description=\"\", metadata=None)",
         description: "Declare this script as a Scriptling plugin server.",
         returns: "None",
       },

@@ -62,11 +62,11 @@ func handlerURLFixture(t *testing.T) {
 # [[tool.knot.handlers]]
 # handler = "ghost"
 # ///
-def report():
+def report(request):
     return {"rows": [{"columns": [{"id": "t", "type": "text", "handler": "col_text"}]}]}
 
 
-def open_layout():
+def open_layout(request):
     # A public page whose columns carry their own gates: the gated column's
     # handler must refuse users who fail the column permission, and a row
     # gate must hide its columns' handlers entirely.
@@ -82,36 +82,37 @@ def open_layout():
     ]}
 
 
-def col_public():
+def col_public(request):
     return {"text": "public"}
 
 
-def col_private():
+def col_private(request):
     return {"text": "private"}
 
 
-def col_rowprivate():
+def col_rowprivate(request):
     return {"text": "row private"}
 
 
-def popup_notes():
+def popup_notes(request):
     return {"title": "Notes", "markdown": "notes"}
 
 
-def col_secret():
+def col_secret(request):
     return {"text": "never referenced by any layout"}
 
 
-def echo_word():
+def echo_word(request):
+    params = request["params"]
     word = params.get("word", "")
     return {"reply": "echo: " + word.upper()}
 
 
-def col_text():
+def col_text(request):
     return {"text": "plain"}
 
 
-def col_table():
+def col_table(request):
     return {"columns": [{"key": "name", "label": "Name"}], "rows": [{"name": "alpha"}]}
 `
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
@@ -387,23 +388,28 @@ func userGlobalFixture(t *testing.T) {
 # handler = "me_layout"
 # label = "Me"
 # ///
-def me_layout():
+def me_layout(request):
     return {"rows": [{"columns": [{"id": "me", "type": "text", "handler": "col_me"}]}]}
 
 
-def col_me():
+def col_me(request):
     import json
+    import knot.identity
 
+    # request["user"] is inert data (name, is_admin, groups); the
+    # authoritative permission surface is knot.identity.user(), bound to the
+    # requesting user per dispatch over the gated loopback.
+    me = knot.identity.user()
     return {"text": json.dumps({
-        "name": user.name,
-        "group": user.in_group("platform"),
-        "admin": user.is_admin,
-        "key_held": user.has_permission("use_mcp_server"),
-        "key_lacked": user.has_permission("manage_spaces"),
-        "id_held": user.has_permission(%d),
-        "grant_held": user.has_permission("plugin.whoami.read"),
-        "grant_lacked": user.has_permission("plugin.whoami.write"),
-        "list_arg": user.has_permission(["manage_spaces"]),
+        "name": request["user"]["name"],
+        "group": me.in_group("platform"),
+        "admin": request["user"]["is_admin"],
+        "key_held": me.has_permission("use_mcp_server"),
+        "key_lacked": me.has_permission("manage_spaces"),
+        "id_held": me.has_permission(%d),
+        "grant_held": me.has_permission("plugin.whoami.read"),
+        "grant_lacked": me.has_permission("plugin.whoami.write"),
+        "list_arg": me.has_permission(["manage_spaces"]),
     })}
 `, model.PermissionUseMCPServer)
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
@@ -637,17 +643,17 @@ func moduleFixture(t *testing.T) {
 import helpers
 
 
-def report():
+def report(request):
     return {"rows": [{"columns": [{"id": "t", "type": "text", "handler": "helpers.col_data"}]}]}
 `
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(entry), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	module := `def col_data():
+	module := `def col_data(request):
     return {"text": "data from the module"}
 
 
-def echo():
+def echo(request):
     return {"reply": "module echo"}
 `
 	if err := os.WriteFile(filepath.Join(pluginDir, "helpers.py"), []byte(module), 0o644); err != nil {

@@ -10,7 +10,7 @@ import scriptling.runtime as runtime
 
 import impl
 
-plugin_srv.serve("store", "1.0", "sqlite-backed store via the scriptling CLI")
+plugin_srv.serve("kvstore", "1.0", "sqlite-backed key/value store via the scriptling CLI")
 plugin_srv.register_function("add", "impl.add")
 plugin_srv.register_function("remember", "impl.remember")
 plugin_srv.register_function("recall", "impl.recall")

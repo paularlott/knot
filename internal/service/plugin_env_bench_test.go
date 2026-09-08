@@ -14,7 +14,6 @@ import (
 	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/scriptling"
-	"github.com/paularlott/scriptling/conversion"
 )
 
 // benchFixture loads a small plugin shaped like a realistic entry (a dozen
@@ -39,35 +38,35 @@ def helper_a(x):
     return x * 2
 
 
-def handler_0():
+def handler_0(request):
     return {"v": helper_a(1)}
 
 
-def handler_1():
+def handler_1(request):
     return {"v": helper_a(2)}
 
 
-def handler_2():
+def handler_2(request):
     return {"v": helper_a(3)}
 
 
-def handler_3():
+def handler_3(request):
     return {"v": helper_a(4)}
 
 
-def handler_4():
+def handler_4(request):
     return {"v": helper_a(5)}
 
 
-def handler_5():
+def handler_5(request):
     return {"v": helper_a(6)}
 
 
-def handler_6():
+def handler_6(request):
     return {"v": helper_a(7)}
 
 
-def handler_7():
+def handler_7(request):
     return {"v": helper_a(8)}
 `
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
@@ -121,6 +120,7 @@ func BenchmarkPluginDispatchLease(b *testing.B) {
 	}
 	ReleasePluginEnv(env, plugin)
 
+	qualified := QualifiedHandler(plugin, "handler_0")
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -128,10 +128,8 @@ func BenchmarkPluginDispatchLease(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		if err := env.SetObjectVar("params", conversion.FromGo(map[string]any{})); err != nil {
-			b.Fatal(err)
-		}
-		if _, err := env.CallFunctionWithContext(ctx, "handler_0"); err != nil {
+		request := RequestObject("GET", "/plugins/bench/handler_0", map[string]any{}, user)
+		if _, err := env.CallFunctionWithContext(ctx, qualified, request); err != nil {
 			b.Fatal(err)
 		}
 		ReleasePluginEnv(env, plugin)

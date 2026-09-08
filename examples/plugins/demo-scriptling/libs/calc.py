@@ -3,11 +3,15 @@
 # version = "1.0"
 # ///
 
-"""An in-process scriptling peer: the plugin publishes this module for
-reuse. Handlers import it as plugin.calc; the same import works in
-user-created MCP tools, where no metadata gate applies — so the exported
-code that needs a gate carries it (see gated_report). This file is the
-scriptling twin of demo-go's Go peer: constant, functions, stateful class.
+"""An in-process scriptling library: the plugin publishes this module for
+reuse. This plugin's handlers import it as plugin.calc, and so may OTHER
+installed plugins — installed plugins share one trust domain, so a plain
+import is ungated cross-plugin composition. (User-created MCP tools cannot
+import it: the plugin pool is not attached to their environment; they reach
+a plugin only via knot.plugin.call.) Because a composing plugin imports it
+ungated, an export that needs a permission carries its own check — see
+gated_report. This file is the scriptling twin of demo-go's Go peer:
+constant, functions, stateful class.
 """
 
 MAX = 100
@@ -42,9 +46,12 @@ class Counter:
 
 
 def gated_report():
-    # Module code can't see the `user` global — its scope is the calling
-    # program — so the identity library carries the same instance, and the
-    # permission decision is the plugin's own.
+    # A library is a module: it never receives a handler's `request`, so the
+    # permission decision is made through knot.identity (the authoritative,
+    # gated surface). A composing plugin imports this ungated, so the gate
+    # has to live here. Note the grant uses the folder name (demo-scriptling)
+    # — permissions qualify by folder, while the import namespace sanitises
+    # the hyphen to plugin.demo_scriptling.
     import knot.identity
 
     user = knot.identity.user()

@@ -59,25 +59,26 @@ func pluginToolFixture(t *testing.T) {
 # description = "Guards itself in code."
 # handler = "self_guarded"
 # ///
-def echo_word():
+def echo_word(request):
     import scriptling.mcp.tool as tool
 
     word = tool.get_string("word", "")
-    tool.return_object({"reply": "echo: " + word.upper(), "as_user": user.name, "is_admin": user.is_admin})
+    tool.return_object({"reply": "echo: " + word.upper(), "as_user": request["user"]["name"], "is_admin": request["user"]["is_admin"]})
 
 
-def scan_all():
+def scan_all(request):
     import scriptling.mcp.tool as tool
+    import knot.identity
 
-    if not user.has_permission("manage_spaces"):
+    if not knot.identity.user().has_permission("manage_spaces"):
         tool.return_error("admin only")
     tool.return_string("scanned")
 
 
-def self_guarded():
+def self_guarded(request):
     import scriptling.mcp.tool as tool
 
-    if not user.is_admin:
+    if not request["user"]["is_admin"]:
         tool.return_error("self guard: admins only")
     tool.return_string("self guarded ok")
 `
@@ -200,4 +201,3 @@ func TestPluginMCPToolExecute(t *testing.T) {
 		t.Fatalf("unknown tool: resp = %v, err = %v, want nil/nil", resp, err)
 	}
 }
-

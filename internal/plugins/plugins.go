@@ -1,15 +1,28 @@
-// Package plugins implements knot's plugin system: a plugin is a folder
-// of scripts in the configured PluginsPath, whose
-// declarations — permissions, menus, logos — live statically in the
-// scriptling metadata block under [tool.knot]. Nothing a plugin declares is
-// produced by executing plugin code; loading is pure parsing, and plugin
-// code only ever runs per-invocation in a user-bound environment.
+// Package plugins implements knot's plugin system: a plugin is a folder in
+// the configured PluginsPath whose declarations — permissions, menus, pages,
+// handlers, MCP tools, logos, icons — live statically in a [tool.knot]
+// table. Nothing a plugin declares is produced by executing plugin code;
+// loading is pure parsing, and plugin code only ever runs per-invocation in
+// a user-bound environment.
 //
-// A folder plugin may also carry binary peers in bin/ (scriptling
-// plugin-protocol executables). A peer is a component of the plugin, never a
-// knot plugin by itself: it is spawned and handshaked at load so its
-// declared name/version can verify the plugin's metadata requirements, but
-// it registers nothing with knot.
+// The [tool.knot] table is sourced two ways, parsed identically:
+//
+//   - Pure-script plugin: knot reads main.py and parses its metadata block.
+//   - Peer plugin: a bin/ peer (a scriptling plugin-protocol executable in
+//     any language) returns the table as static manifest data in its
+//     handshake (Custom["tool.knot"]); knot reads it there. Such a plugin
+//     needs no companion main.py. A peer plugin may still ship a main.py for
+//     scriptling handlers, in which case main.py's block is authoritative.
+//
+// Handlers a plugin declares are addressed as plugin.<name>.<function>: a
+// peer exports them over the plugin protocol, a main.py exposes them by
+// being registered as the plugin.<name> library — the dispatch layer calls
+// the qualified name and does not care which kind answers.
+//
+// A peer is a component of the plugin: it is spawned and handshaked at load
+// so its manifest and version are available for declaration parsing and
+// requirement verification. Whether it also registers a callable surface
+// depends on the plugin's handler declarations.
 package plugins
 
 import (
@@ -129,8 +142,25 @@ type Plugin struct {
 	Libs          []ScriptLib      `json:"libs,omitempty"`
 
 	// EntrySource is the entry file's source, read once at load so request
-	// dispatch does not touch the filesystem.
+	// dispatch does not touch the filesystem. Empty for a peer plugin with
+	// no main.py.
 	EntrySource string `json:"-"`
+
+	// ScriptNamespace is the plugin.<x> library name a pure-script plugin's
+	// main.py is registered and addressed under: the folder name sanitized
+	// to a scriptling identifier (ScriptNamespace). Empty for a peer plugin
+	// with no main.py. This is the "<name>" a bare handler declaration
+	// (handler = "status") resolves against.
+	ScriptNamespace string `json:"-"`
+
+	// Namespaces are the plugin.<x> library names this plugin's declared
+	// handlers resolve under, in the order they must be imported to
+	// materialize the plugin.<x> bindings for dispatch. A pure-script
+	// plugin contributes its folder name (its main.py registers as
+	// plugin.<folder>); a peer plugin contributes each peer's handshake
+	// name (the peer registers plugin.<peer>). A plugin with both
+	// contributes both.
+	Namespaces []string `json:"-"`
 
 	scope *plugin.Manager // owns this plugin's bin/ peers, nil when none
 }
@@ -138,6 +168,22 @@ type Plugin struct {
 // Scope returns the manager owning this plugin's binary peers (which the
 // handler environment registers as plugin.* libraries), or nil.
 func (p *Plugin) Scope() *plugin.Manager { return p.scope }
+
+// DefaultNamespace is the plugin.<ns> a bare handler declaration resolves
+// against: the ScriptNamespace when the plugin has a main.py (its handlers
+// live there), otherwise its first peer namespace (a peer plugin's handlers
+// are the peer's exports). Empty only for a plugin with neither, which
+// cannot declare a callable handler. A manifest may still name a specific
+// peer explicitly as plugin.<peer>.<fn> to disambiguate multiple peers.
+func (p *Plugin) DefaultNamespace() string {
+	if p.ScriptNamespace != "" {
+		return p.ScriptNamespace
+	}
+	if len(p.Namespaces) > 0 {
+		return p.Namespaces[0]
+	}
+	return ""
+}
 
 // Peer reports one loaded binary peer's handshake identity.
 type Peer struct {
@@ -443,6 +489,15 @@ func QualifiedPermission(pluginName, id string) string {
 	return "plugin." + pluginName + "." + id
 }
 
+// ScriptNamespace maps a plugin folder name to the scriptling module
+// identifier its main.py is registered under (plugin.<ScriptNamespace>).
+// Folder names may contain "-" (a legal plugin name) but module names may
+// not, so hyphens become underscores; already-valid names are unchanged.
+// Deterministic, so every node computes the same import name.
+func ScriptNamespace(pluginName string) string {
+	return strings.ReplaceAll(pluginName, "-", "_")
+}
+
 // peerLoadTimeout bounds the spawn+handshake of one binary peer so a broken
 // binary cannot stall boot.
 const peerLoadTimeout = 15 * time.Second
@@ -556,15 +611,21 @@ func Load(pluginsPath string) (*Registry, error) {
 	return registry, nil
 }
 
-// candidate is a discovered plugin location before metadata parsing.
+// candidate is a discovered plugin location before metadata parsing. path is
+// the folder's main.py when it has one (a pure-script plugin, or a peer
+// plugin that also ships scriptling handlers); empty for a peer plugin whose
+// declarations come from its bin/ peer's handshake manifest.
 type candidate struct {
 	name string
-	path string // the plugin folder's main.py
+	path string // the plugin folder's main.py, or "" for a manifest-in-peer plugin
 	dir  string // the plugin folder
 }
 
-// scanCandidates finds plugins: top-level .py files and folders containing
-// main.py. A file and a folder may not both claim the same name.
+// scanCandidates finds plugins: folders that either contain a main.py
+// (pure-script, or a peer plugin that also ships scriptling handlers) or a
+// bin/ directory (a peer plugin whose declarations come from the peer's
+// handshake manifest — no companion main.py needed). A loose top-level .py
+// is not a plugin.
 func scanCandidates(root string, entries []os.DirEntry) ([]candidate, []string) {
 	var warnings []string
 	byName := make(map[string]candidate)
@@ -577,9 +638,12 @@ func scanCandidates(root string, entries []os.DirEntry) ([]candidate, []string) 
 		base := strings.TrimSuffix(name, ".py")
 
 		if entry.IsDir() {
-			mainPath := filepath.Join(root, name, "main.py")
-			if _, err := os.Stat(mainPath); err != nil {
-				warnings = append(warnings, fmt.Sprintf("folder %s has no main.py, ignored", name))
+			dir := filepath.Join(root, name)
+			mainPath := filepath.Join(dir, "main.py")
+			hasMain := statIsFile(mainPath)
+			hasBin := statIsDir(filepath.Join(dir, "bin"))
+			if !hasMain && !hasBin {
+				warnings = append(warnings, fmt.Sprintf("folder %s has no main.py and no bin/ peers, ignored", name))
 				continue
 			}
 			if !pluginNameRe.MatchString(name) {
@@ -589,7 +653,14 @@ func scanCandidates(root string, entries []os.DirEntry) ([]candidate, []string) 
 			if prev, ok := byName[name]; ok {
 				warnings = append(warnings, fmt.Sprintf("plugin name %q claimed by both %s and folder %s; folder wins", name, prev.path, name))
 			}
-			byName[name] = candidate{name: name, path: mainPath, dir: filepath.Join(root, name)}
+			// A folder with main.py sources its manifest from that file even
+			// when it also carries bin/ peers; a bin/-only folder sources it
+			// from the peer handshake (path left empty).
+			path := ""
+			if hasMain {
+				path = mainPath
+			}
+			byName[name] = candidate{name: name, path: path, dir: dir}
 			continue
 		}
 
@@ -613,38 +684,81 @@ func scanCandidates(root string, entries []os.DirEntry) ([]candidate, []string) 
 	return out, warnings
 }
 
+// manifestKnotKey is the key under a peer's handshake Custom metadata that
+// carries its [tool.knot] declaration table. A peer sets it once, verbatim
+// (scriptling Server.SetMetadata); knot reads it and parses it with the same
+// parseToolKnot a pure-script plugin's block goes through. Serving it is the
+// peer's protocol layer answering the handshake — no handler runs to produce
+// it, so cluster determinism holds.
+const manifestKnotKey = "tool.knot"
+
+// statIsFile reports whether path exists and is a regular file.
+func statIsFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// statIsDir reports whether path exists and is a directory.
+func statIsDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
 // loadPlugin parses and validates one candidate, loading its bin/ peers so
-// metadata requirements can be verified. Returns the plugin, warnings, or an
+// metadata requirements can be verified and — for a peer plugin without a
+// main.py — so its handshake manifest can be read. The [tool.knot]
+// declaration table is sourced from main.py when present, else from the
+// peer's handshake Custom["tool.knot"]. Returns the plugin, warnings, or an
 // error that marks the plugin failed.
 func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []string, error) {
-	source, err := os.ReadFile(c.path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read entry file: %w", err)
-	}
-
-	m, ok, err := metadata.Parse(source)
-	if err != nil {
-		return nil, nil, fmt.Errorf("metadata block: %w", err)
-	}
 	var warnings []string
 
-	knotTable, hasKnot := map[string]any{}, false
-	if ok {
-		if t, found := m.Tool("knot"); found {
-			knotTable, hasKnot = t, true
+	// A main.py-backed plugin parses its metadata block for both the
+	// [tool.knot] table and the requires-scriptling / dependency
+	// verification. A bin/-only peer plugin has neither here — its manifest
+	// arrives from the peer handshake below, and requirement verification is
+	// the peer's own concern.
+	var m *metadata.Metadata
+	var source []byte
+	if c.path != "" {
+		var err error
+		source, err = os.ReadFile(c.path)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read entry file: %w", err)
+		}
+		parsed, ok, err := metadata.Parse(source)
+		if err != nil {
+			return nil, nil, fmt.Errorf("metadata block: %w", err)
+		}
+		if ok {
+			m = &parsed
 		}
 	}
-	if !hasKnot {
-		return nil, nil, fmt.Errorf("no [tool.knot] table in metadata block — a plugin must declare itself in its metadata")
+
+	// Load peers before parsing the manifest and verifying requirements: a
+	// peer plugin's declarations live in the peer's handshake, and a
+	// main.py plugin's declared peer versions must satisfy its metadata.
+	scope, peerWarnings, err := loadPeers(c.name, c.dir, newManager)
+	warnings = append(warnings, peerWarnings...)
+	if err != nil {
+		return nil, warnings, err
+	}
+
+	// Resolve the [tool.knot] declaration table: main.py wins when present,
+	// else the peer handshake manifest.
+	knotTable, source, err := resolveKnotTable(c, m, source, scope)
+	if err != nil {
+		return nil, warnings, err
 	}
 
 	p, err := parseToolKnot(c.name, c.dir, knotTable)
 	if err != nil {
-		return nil, nil, err
+		return nil, warnings, err
 	}
 	p.Dir = c.dir
 	p.EntryFile = c.path
 	p.EntrySource = string(source)
+	p.scope = scope
 	for i := range p.Menus {
 		p.Menus[i].PluginName = p.Name
 	}
@@ -652,22 +766,34 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 		p.Pages[i].PluginName = p.Name
 	}
 
-	// Load peers before verifying requirements so their declared versions
-	// can satisfy them: bin/ hosts Go peers, libs/ hosts scriptling libraries.
-	scope, peerWarnings, err := loadPeers(c.name, c.dir, newManager)
-	warnings = append(warnings, peerWarnings...)
-	if err != nil {
-		return nil, warnings, err
-	}
-	p.scope = scope
-
 	if sp, err := loadScriptLibs(c.dir); err != nil {
 		return nil, warnings, err
 	} else {
 		p.Libs = sp
 	}
 
-	if ok {
+	// The plugin.<x> namespaces this plugin's declared handlers resolve
+	// under, imported at dispatch to materialize the bindings: a
+	// scriptling-identifier form of the folder name when main.py backs
+	// handlers (folder names may contain "-", which is not a legal module
+	// name, so it is sanitized to "_"), plus each peer's handshake name
+	// (already a valid identifier). ScriptNamespace is the one main.py
+	// registers under; peer namespaces are their handshake names verbatim.
+	if p.EntrySource != "" {
+		p.ScriptNamespace = ScriptNamespace(p.Name)
+		p.Namespaces = append(p.Namespaces, p.ScriptNamespace)
+	}
+	if scope != nil {
+		for _, md := range scope.List() {
+			// A peer's handshake name is namespaced under "plugin." by
+			// scriptling (NamespacePrefix); knot stores the bare namespace
+			// and adds the prefix itself at import/dispatch, so peer and
+			// main.py namespaces are handled uniformly.
+			p.Namespaces = append(p.Namespaces, strings.TrimPrefix(md.Name, "plugin."))
+		}
+	}
+
+	if m != nil {
 		// requires-scriptling bounds the embedded scriptling runtime the
 		// plugin's code runs on — the language features it may use — so the
 		// check runs against the embedded module's version, not knot's.
@@ -704,6 +830,73 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 	}
 
 	return p, warnings, nil
+}
+
+// resolveKnotTable returns the [tool.knot] declaration table for a candidate
+// and the entry source to record. When main.py is present its metadata block
+// is authoritative (source is its bytes). Otherwise the table comes from a
+// bin/ peer's handshake Custom["tool.knot"] — a peer plugin declares itself
+// once, in the peer, with no companion main.py — and the entry source is
+// empty. A peer plugin with several peers: the peer whose handshake name
+// matches the plugin folder wins, else the sole peer, else it is an error
+// (ambiguous — knot cannot pick a manifest).
+func resolveKnotTable(c candidate, m *metadata.Metadata, source []byte, scope *plugin.Manager) (map[string]any, []byte, error) {
+	if m != nil {
+		if t, found := m.Tool("knot"); found {
+			return t, source, nil
+		}
+		return nil, source, fmt.Errorf("no [tool.knot] table in metadata block — a plugin must declare itself in its metadata")
+	}
+
+	// No main.py: the manifest must come from a peer handshake.
+	if scope == nil {
+		return nil, nil, fmt.Errorf("plugin has neither a main.py nor a loadable bin/ peer to declare itself")
+	}
+	list := scope.List()
+	if len(list) == 0 {
+		return nil, nil, fmt.Errorf("plugin has no main.py and no peer handshaked to supply a manifest")
+	}
+
+	var chosen *plugin.Metadata
+	for i := range list {
+		if list[i].Name == c.name {
+			chosen = &list[i]
+			break
+		}
+	}
+	if chosen == nil {
+		if len(list) == 1 {
+			chosen = &list[0]
+		} else {
+			return nil, nil, fmt.Errorf("plugin has no main.py and multiple peers, none named %q — cannot pick which peer's manifest declares the plugin", c.name)
+		}
+	}
+
+	table, err := knotTableFromCustom(chosen.Custom)
+	if err != nil {
+		return nil, nil, fmt.Errorf("peer %q: %w", chosen.Name, err)
+	}
+	return table, nil, nil
+}
+
+// knotTableFromCustom extracts the [tool.knot] declaration table from a
+// peer's handshake Custom metadata. The peer sets Custom["tool.knot"] to the
+// table (scriptling Server.SetMetadata); knot reads it verbatim. JSON
+// transport decodes nested tables as map[string]any, which is exactly what
+// parseToolKnot consumes.
+func knotTableFromCustom(custom map[string]any) (map[string]any, error) {
+	if custom == nil {
+		return nil, fmt.Errorf("handshake carries no custom manifest data — the peer must declare its [tool.knot] block via SetMetadata")
+	}
+	raw, ok := custom[manifestKnotKey]
+	if !ok {
+		return nil, fmt.Errorf("handshake custom manifest has no %q key — the peer must declare its [tool.knot] block", manifestKnotKey)
+	}
+	table, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("handshake custom %q must be a table, got %T", manifestKnotKey, raw)
+	}
+	return table, nil
 }
 
 // resolverFor answers metadata dependency resolution for a plugin: knot's

@@ -48,7 +48,7 @@ func TestScriptLibInProcess(t *testing.T) {
 # [[tool.knot.handlers]]
 # handler = "add_up"
 # ///
-def add_up():
+def add_up(request):
     import plugin.calc as calc
 
     c = calc.Counter(4)
@@ -160,21 +160,17 @@ def add(a, b):
 	}
 }
 
-// TestScriptLibInUserTool pins the user-tool surface: plugin-exported
-// functions, classes and libs import as plugin.<name> inside user-created
-// MCP tools, and the peer's code can read the `user` global to self-gate —
-// the plugin's own permission decision, since no metadata gate applies to
-// a plain import.
-func TestScriptLibInUserTool(t *testing.T) {
+// TestUserToolCannotImportPlugin pins the isolation boundary: the plugin
+// pool is not attached to the user-tool (MCP) environment, so a user-created
+// tool cannot import a plugin's exported library at all — plugin.<name> is
+// simply not there. Untrusted code reaches a plugin only through the gated
+// loopback (knot.plugin.call), never by importing plugin code in-process.
+// This is structural (not attached), not a policy a plugin could forget.
+func TestUserToolCannotImportPlugin(t *testing.T) {
 	rest.SetAPIMux(http.NewServeMux())
 	config.SetServerConfig(&config.ServerConfig{MCPToolTimeout: 30})
-	model.SetRoleCache([]*model.Role{{
-		Id:                "role-granted",
-		Name:              "Granted",
-		PluginPermissions: []string{"plugin.guarded.special"},
-	}})
-	granted := &model.User{Username: "kai", Id: "u-g", Roles: []string{"role-granted"}}
-	plain := &model.User{Username: "plain", Id: "u-p"}
+	model.SetRoleCache(nil)
+	user := &model.User{Username: "plain", Id: "u-p"}
 
 	dir := t.TempDir()
 	pluginDir := filepath.Join(dir, "guarded")
@@ -187,29 +183,17 @@ func TestScriptLibInUserTool(t *testing.T) {
 #
 # [tool.knot]
 # version = "1.0"
-# permissions = ["special"]
 # ///
-def unused():
+def unused(request):
     return {}
 `
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(entry), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	peer := `import knot.identity
-
-
-def open_add(a, b):
+	lib := `def open_add(a, b):
     return a + b
-
-
-def granted_only():
-    # Module code can't see the user global — its scope is the calling
-    # program — so the identity library carries the same instance.
-    if not knot.identity.user().has_permission("plugin.guarded.special"):
-        raise Exception("plugin.guarded.special not granted")
-    return {"ok": True}
 `
-	if err := os.WriteFile(filepath.Join(libsDir, "calc.py"), []byte(peer), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(libsDir, "calc.py"), []byte(lib), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	registry, err := plugins.Load(dir)
@@ -222,28 +206,23 @@ def granted_only():
 		plugins.SetRegistry(nil)
 	})
 
-	run := func(user *model.User, body string) (string, error) {
-		script := &model.Script{Name: "peer_tool", ScriptType: "tool", Active: true, Content: body}
+	run := func(body string) (string, error) {
+		script := &model.Script{Name: "wall_tool", ScriptType: "tool", Active: true, Content: body}
 		return ExecuteScriptWithMCP(script, map[string]object.Object{}, user)
 	}
 
-	// The exported function is callable from a user tool.
-	out, err := run(plain, "import plugin.calc as calc\nprint(calc.open_add(2, 3))")
-	if err != nil {
-		t.Fatalf("user tool calling exported function: %v", err)
-	}
-	if !strings.Contains(out, "5") {
-		t.Errorf("open_add output = %q", out)
+	// Importing the plugin's exported library from a user tool must fail:
+	// the pool is not attached to this environment.
+	if _, err := run("import plugin.calc as calc\nprint(calc.open_add(2, 3))"); err == nil {
+		t.Fatal("user tool imported plugin.calc, want the import to fail (pool not attached)")
 	}
 
-	// Self-gating: the peer refuses an ungranted user, passes a granted one.
-	// (The result is assigned before use — an exception raised in argument
-	// position, print(fn()), is swallowed by scriptling's evaluator.)
-	if _, err := run(plain, "import plugin.calc as calc\nresult = calc.granted_only()\nprint(result)"); err == nil || !strings.Contains(err.Error(), "plugin.guarded.special not granted") {
-		t.Fatalf("granted_only as plain: err = %v, want the peer's refusal", err)
-	}
-	if out, err := run(granted, "import plugin.calc as calc\nresult = calc.granted_only()\nprint(result)"); err != nil || !strings.Contains(out, "True") {
-		t.Fatalf("granted_only as granted: out = %q err = %v", out, err)
+	// The blessed path is still present: knot.plugin is registered so a
+	// user tool can reach a plugin's declared handlers over the gated
+	// loopback. (No handler is declared here, so we only assert the library
+	// imports — the wall removed the in-process surface, not the loopback.)
+	if _, err := run("import knot.plugin\nprint('loopback ok')"); err != nil {
+		t.Fatalf("knot.plugin (loopback) should remain available to user tools: %v", err)
 	}
 }
 
@@ -296,13 +275,12 @@ func TestExampleLibExports(t *testing.T) {
 	}
 }
 
-// TestGoPeerInUserTool pins the other half of the user-tool peer surface:
-// binary (Go) peers import as plugin.<name> through the scriptling plugin
-// support — the host-side stubs auto-generated from the peer's handshake,
-// the same surface plugin envs get. A user tool calls into the already
-// spawned peer process; no control library rides along. Skips when the
-// demo-go peer isn't built (make in examples/plugins/demo-go).
-func TestGoPeerInUserTool(t *testing.T) {
+// TestGoPeerNotInUserTool pins the wall for binary peers too: a user tool
+// cannot import a Go peer as plugin.<name> — the pool is not attached to the
+// MCP environment, so the peer's exported surface is unreachable in-process.
+// A user tool reaches a plugin only through the gated loopback. Skips when
+// the demo-go peer isn't built (make in examples/plugins/demo-go).
+func TestGoPeerNotInUserTool(t *testing.T) {
 	rest.SetAPIMux(http.NewServeMux())
 	config.SetServerConfig(&config.ServerConfig{MCPToolTimeout: 30})
 	model.SetRoleCache(nil)
@@ -328,16 +306,10 @@ func TestGoPeerInUserTool(t *testing.T) {
 	script := &model.Script{Name: "go_peer_tool", ScriptType: "tool", Active: true, Content: `
 import plugin.demolib as demolib
 
-result = demolib.greeting("knot")
-info = demolib.status()
-print(result + " [" + info.get("peer", "?") + "]")
+print(demolib.greeting("knot"))
 `}
-	out, err := ExecuteScriptWithMCP(script, map[string]object.Object{}, user)
-	if err != nil {
-		t.Fatalf("user tool calling the Go peer: %v", err)
-	}
-	if !strings.Contains(out, "hello knot, from a Go peer inside knot") || !strings.Contains(out, "[demolib]") {
-		t.Errorf("go peer output = %q", out)
+	if _, err := ExecuteScriptWithMCP(script, map[string]object.Object{}, user); err == nil {
+		t.Fatal("user tool imported plugin.demolib, want the import to fail (pool not attached to the MCP env)")
 	}
 }
 
@@ -424,7 +396,7 @@ func TestPluginEnvLibrariesInSync(t *testing.T) {
 }
 
 // TestScriptlingBinPeer pins the scriptling-authored binary peer end to
-// end: knot spawns bin/store like any peer, the shebang hands it to the
+// end: knot spawns bin/kvstore like any peer, the shebang hands it to the
 // scriptling CLI (database drivers compiled in, knot links none of it),
 // and handlers reach its functions through the auto-generated stubs —
 // with the sqlite file persisting beside the executable. Skips when the
@@ -450,9 +422,9 @@ func TestScriptlingBinPeer(t *testing.T) {
 		registry.Close()
 		plugins.SetRegistry(nil)
 	})
-	demo := registry.ByName("demo-peer")
+	demo := registry.ByName("demo-scriptlingcli")
 	if demo == nil {
-		t.Fatalf("demo-peer not loaded; failed = %+v", registry.Failed())
+		t.Fatalf("demo-scriptlingcli not loaded; failed = %+v", registry.Failed())
 	}
 
 	admin := &model.User{Username: "admin", Id: "u-a", Roles: []string{model.RoleAdminUUID}}
@@ -465,7 +437,7 @@ func TestScriptlingBinPeer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, want := range []string{"plugin.store (scriptling CLI, sqlite)", "5"} {
+		for _, want := range []string{"plugin.kvstore (scriptling CLI, sqlite)", "5"} {
 			if !strings.Contains(string(enc), want) {
 				t.Errorf("dispatch %d missing %q: %s", i+1, want, enc)
 			}

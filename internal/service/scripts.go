@@ -97,8 +97,10 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 	}
 	defer cleanup()
 
-	// The identity surface every dispatch binds: script tools see the same
-	// `user` global plugin handlers get.
+	// User-created script tools see the requesting user as a `user` global
+	// (a User instance with has_permission / in_group). Plugin handlers,
+	// by contrast, receive identity as request["user"] data and use
+	// knot.identity for authoritative checks — a different surface.
 	if err := env.SetObjectVar("user", NewUserObject(user)); err != nil {
 		return "", fmt.Errorf("failed to set the user object: %v", err)
 	}

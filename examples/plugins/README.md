@@ -21,9 +21,11 @@ A folder plugin (`main.py` + `assets/`) declaring:
   `admin_dashboard`;
 - **an in-process scriptling library** (`libs/calc.py`): a constant, plain
   functions and a stateful `Counter` class importable as `plugin.calc` —
-  exercised by the showcase's *Plugin peers* row, and available to
-  user-created MCP tools too, where the self-gating `gated_report()`
-  demonstrates `knot.identity.user()` permission checks;
+  exercised by the showcase's *Plugin peers* row, and importable by other
+  installed plugins for in-process composition (not by user-created MCP
+  tools, which reach a plugin only via `knot.plugin.call`); its self-gating
+  `gated_report()` shows an ungated cross-plugin import carrying its own
+  `knot.identity.user()` permission check;
 - **its own SVG icons**: every item uses `assets/icon.svg`, a
   currentColor-stroked SVG that themes with the UI like knot's built-ins.
 
@@ -59,34 +61,39 @@ permission-checked path MCP tools use, running as the requesting user:
 Every user sees their own data: no permissions to grant, no configuration.
 Unlike the demos, this one claims the login landing spot by design.
 
-## demo-peer: script plugin with a scriptling binary peer
+## demo-scriptlingcli: script plugin with a scriptling CLI peer
 
-A folder plugin whose `bin/store` peer is a **scriptling script that looks
+A folder plugin whose `bin/kvstore` peer is a **scriptling script that looks
 like a binary**: an executable whose shebang (`#!/usr/bin/env -S
 scriptling --json-rpc`) hands it to the scriptling CLI, which serves the
 plugin protocol with the database drivers compiled in — knot links none of
 them. The peer's `impl.py` companion backs a small sqlite key/value store
-(`store.db`, persisted beside the executable), and the page calls it
-through the same auto-generated stubs a Go peer gets. Requires the
-scriptling CLI on the server's PATH; without it the plugin fails its
-requirements at load (named on the admin Plugins page).
+(`kvstore.db`, persisted beside the executable), and the page calls it
+through the same auto-generated stubs a Go peer gets. This plugin keeps a
+`main.py` for its scriptling page handlers (addressed as
+`plugin.demo_scriptlingcli.<fn>`), which compose the peer's `plugin.kvstore`
+surface. Requires the scriptling CLI on the server's PATH; without it the
+plugin fails its requirements at load (named on the admin Plugins page).
 
-## demo-go: script plugin with a Go binary peer
+## demo-go: pure peer plugin (Go binary, no main.py)
 
-Same shape, plus a **binary peer**: `peer/main.go` is a scriptling
-plugin-protocol server (stdio JSON-RPC) that `main.py` declares as a metadata
-dependency. Its page at `/plugins/demo-go/status` calls the peer; the
-handler's `import plugin.demolib` reaches the Go process through the plugin
-environment. Build the peer first:
+The peer-manifest flavour: `peer/main.go` is a scriptling plugin-protocol
+server (stdio JSON-RPC) that IS the whole plugin — there is **no companion
+`main.py`**. At handshake the peer returns two things knot needs: its
+`[tool.knot]` declaration table as static manifest data (`SetMetadata`,
+carried in the handshake's custom metadata), and its handler surface as
+registered functions. knot parses the manifest exactly like a pure-script
+plugin's block, and addresses each handler as `plugin.demolib.<fn>`. Its
+page at `/plugins/demo-go/status` and every column/handler it names run in
+the Go process. Build the peer first:
 
 ```sh
 cd examples/plugins/demo-go && make
 ```
 
 `make` writes `bin/demolib_<goos>_<goarch>` (the universal-bundle naming knot
-resolves per host). Until it is built, the plugin shows on the admin Plugins
-page as **failed to load: required plugin "demolib" not loaded**, which is
-also a demo of the failure path.
+resolves per host). Until it is built, the folder has no `main.py` and no
+loadable peer, so knot ignores it; build it and the plugin appears.
 
 ### Peer directions
 
@@ -108,10 +115,14 @@ also a demo of the failure path.
   the scriptling CLI spawning the *knot binary* as its peer — is what
   `knot scriptling-server` autostarts for, a host feature, not a plugin
   one.)
-- **Cross-plugin, server side** (not wired): each dispatch builds a fresh
-  environment containing only the plugin's own modules and peers — plugin
-  A's handlers cannot import plugin B's peers or call B's handlers
-  in-process. The supported cross-plugin path is the handler URL below.
+- **Cross-plugin composition, in-process** (supported): installed plugins
+  are one trust domain and share a plugin pool, so a handler may import
+  another plugin's exposed library, class or peer as `plugin.<name>` and use
+  it directly — install several plugins, build your own from their on-disk
+  parts. User-authored MCP tools are the untrusted side: the plugin pool is
+  simply not attached to their environment, so they reach a plugin only over
+  the gated loopback (`knot.plugin.call`), never by import. The handler URL
+  below is the other cross-plugin path (browser/ajax and loopback).
 
 ## Handler URLs: ajax endpoints, any caller
 

@@ -41,6 +41,6 @@ __pycache__/
 
 # built demo plugin binary peers
 examples/plugins/*/bin/
-# ...except the scriptling peer, whose bin/ is source not a build artifact
-!examples/plugins/demo-peer/bin/
-examples/plugins/demo-peer/bin/*.db
+# ...except the scriptling CLI peer, whose bin/ is source not a build artifact
+!examples/plugins/demo-scriptlingcli/bin/
+examples/plugins/demo-scriptlingcli/bin/*.db

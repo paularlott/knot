@@ -31,7 +31,8 @@ def gib(bytes_value):
     return round(bytes_value / GIB, 1)
 
 
-def dashboard():
+def dashboard(request):
+    params = request["params"]
     state_filter = params.get("state", "all")
     heading = "Your spaces"
     if state_filter != "all":
@@ -64,29 +65,30 @@ def dashboard():
     }
 
 
-def _state_filter():
+def _state_filter(params):
     state = params.get("state", "all")
     if state not in ["all", "running", "stopped", "pending", "deleting"]:
         state = "all"
     return state
 
 
-def _range_filter():
+def _range_filter(params):
     rng = params.get("range", "1h")
     if rng not in ["1h", "7d"]:
         rng = "1h"
     return rng
 
 
-def filter_form():
+def filter_form(request):
+    params = request["params"]
     # GET: the definition. POST: acknowledge - the runtime merges the
     # submitted fields into the page params and refreshes the columns.
-    if request.method == "POST":
+    if request["method"] == "POST":
         return {"status": "ok", "message": "Filtered.", "refresh": True}
     return {
         "fields": [
-            {"type": "select", "name": "state", "label": "State", "value": _state_filter(), "options": ["all", "running", "stopped", "pending", "deleting"]},
-            {"type": "select", "name": "range", "label": "Graph range", "value": _range_filter(), "options": ["1h", "7d"]},
+            {"type": "select", "name": "state", "label": "State", "value": _state_filter(params), "options": ["all", "running", "stopped", "pending", "deleting"]},
+            {"type": "select", "name": "range", "label": "Graph range", "value": _range_filter(params), "options": ["1h", "7d"]},
         ],
         "submit": "Apply",
     }
@@ -101,8 +103,8 @@ def _spaces():
         return []
 
 
-def _visible_spaces():
-    state = _state_filter()
+def _visible_spaces(params):
+    state = _state_filter(params)
     rows = []
     for s in _spaces():
         if s.get("is_deleting", False):
@@ -140,30 +142,31 @@ def _fleet_summary():
     return total, running, pending, cpu_total, mem_used
 
 
-def stat_spaces():
+def stat_spaces(request):
     total, running, _pending, _cpu, _mem = _fleet_summary()
     return {"label": "Spaces", "value": total, "delta": str(running) + " running"}
 
 
-def stat_pending():
+def stat_pending(request):
     _total, _running, pending, _cpu, _mem = _fleet_summary()
     return {"label": "Pending", "value": pending}
 
 
-def stat_cpu():
+def stat_cpu(request):
     _total, _running, _pending, cpu, _mem = _fleet_summary()
     return {"label": "CPU", "value": round(cpu, 1), "unit": "%", "accent": "#3b82f6"}
 
 
-def stat_memory():
+def stat_memory(request):
     _total, _running, _pending, _cpu, mem = _fleet_summary()
     return {"label": "Memory", "value": round(gib(mem), 1), "unit": "GiB"}
 
 
-def col_series():
+def col_series(request):
+    params = request["params"]
     import knot.space as space_lib
 
-    range_filter = _range_filter()
+    range_filter = _range_filter(params)
     cpu_by_bucket = {}
     mem_by_bucket = {}
     for sp in space_lib.list():
@@ -214,9 +217,10 @@ def col_series():
     }
 
 
-def col_top():
+def col_top(request):
+    params = request["params"]
     by_mem = []
-    for s, _state in _visible_spaces():
+    for s, _state in _visible_spaces(params):
         usage = s.get("resource_usage")
         mem_u = 0.0
         if usage is not None:
@@ -250,10 +254,11 @@ def col_top():
     }
 
 
-def col_spaces():
+def col_spaces(request):
+    params = request["params"]
     # POST: row actions arrive with the action name and the row key, and
     # drive the real space lifecycle as the requesting user.
-    if request.method == "POST":
+    if request["method"] == "POST":
         action = params.get("action", "")
         key = params.get("key", "")
         if action in ["start", "stop", "restart"]:
@@ -276,7 +281,7 @@ def col_spaces():
         return {"status": "error", "message": "Unknown action: " + action}
 
     rows = []
-    for s, state in _visible_spaces():
+    for s, state in _visible_spaces(params):
         usage = s.get("resource_usage")
         cpu = 0.0
         mem_u = 0.0
@@ -328,12 +333,13 @@ def col_spaces():
     }
 
 
-def space_edit():
+def space_edit(request):
+    params = request["params"]
     # Popup form: GET returns the definition with current values, POST
     # answers with the envelope. Errors keep the popup open; success
     # closes it and refreshes the table.
     key = params.get("key", "")
-    if request.method == "POST":
+    if request["method"] == "POST":
         name = params.get("name", "")
         if name == "":
             return {"status": "error", "message": "The form has errors.", "field_errors": {"name": "Required."}}

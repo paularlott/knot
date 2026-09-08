@@ -44,11 +44,11 @@ func fieldGateFixture(t *testing.T) {
 # label = "Open"
 # handler = "field_open"
 # ///
-def field_env():
+def field_env(request):
     return {"options": [{"key": "dev", "text": "dev"}]}
 
 
-def field_open():
+def field_open(request):
     return {"options": [{"key": "any", "text": "any"}]}
 `
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
@@ -113,4 +113,3 @@ func TestFieldHandlerOptionGate(t *testing.T) {
 		t.Fatalf("unknown handler: status = %d, want 404", w.Code)
 	}
 }
-
