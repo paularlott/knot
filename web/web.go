@@ -307,6 +307,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /profile", middleware.WebAuth(HandleUserProfilePage))
 	router.HandleFunc("GET /logout", middleware.WebAuth(HandleLogoutPage))
+	router.HandleFunc("POST /switch-user/{user_id}", middleware.WebAuth(HandleSwitchUserPage))
 	router.HandleFunc("GET /usage", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /terminal/{space_id}", middleware.WebAuth(HandleTerminalPage))
 	router.HandleFunc("GET /terminal/{space_id}/{vsc}", middleware.WebAuth(HandleTerminalPage))
@@ -700,6 +701,25 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 	}
 
 	applyNav(user, cfg, r.URL.Path, data)
+
+	// The profile menu's switch list: the current user's switch group,
+	// filtered to members a session can actually become. Deleted or
+	// inactive members stay out of the menu (the switch endpoint would
+	// refuse them anyway).
+	if len(user.LinkedUsers) > 0 {
+		db := database.GetInstance()
+		linked := make([]map[string]string, 0, len(user.LinkedUsers))
+		for _, id := range user.LinkedUsers {
+			member, err := db.GetUser(id)
+			if err != nil || member == nil || member.IsDeleted || !member.Active {
+				continue
+			}
+			linked = append(linked, map[string]string{"Id": member.Id, "Username": member.Username})
+		}
+		data["linkedUsers"] = linked
+	}
+	data["permissionLinkUsers"] = user.HasPermission(model.PermissionLinkUsers)
+
 	return user, data
 }
 

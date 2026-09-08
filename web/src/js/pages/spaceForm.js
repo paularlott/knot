@@ -362,6 +362,13 @@ window.spaceForm = function (
       );
       if (templatesResponse.status === 200) {
         this.template = await templatesResponse.json();
+        // Heal the pre-rename "password" type so masked fields stored by
+        // older templates still render as password inputs.
+        if (Array.isArray(this.template.custom_fields)) {
+          this.template.custom_fields = this.template.custom_fields.map((f) =>
+            f.type === "password" ? { ...f, type: "masked" } : f,
+          );
+        }
         this.templatePorts = this.template.ports || [];
       } else {
         // Set a default template to prevent null reference errors

@@ -92,6 +92,9 @@ MANAGE_MCP_SERVERS = 41
 # Plugins
 VIEW_PLUGINS = 44
 
+# User Management
+LINK_USERS = 45
+
 # Aliases for convenience
 SPACE_MANAGE = MANAGE_SPACES
 SPACE_USE = USE_SPACES

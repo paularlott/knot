@@ -824,6 +824,84 @@ paths:
           $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
+  /api/users/{user_id}/linked-users/{linked_user_id}:
+    put:
+      tags:
+        - Users
+      summary: Link User
+      description: Join the switch groups of two users. Every member of the merged group can then move their web session to any other member from the profile menu. Requires the link_users permission.
+      operationId: linkUser
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID or username of the first user.
+          schema:
+            type: string
+        - name: linked_user_id
+          in: path
+          required: true
+          description: The ID or username of the user to link into the first user's switch group.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - Users
+      summary: Unlink User
+      description: Detach a user from another's switch group. The detached user keeps no links while the remaining members keep each other. Requires the link_users permission.
+      operationId: unlinkUser
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID or username of the first user.
+          schema:
+            type: string
+        - name: linked_user_id
+          in: path
+          required: true
+          description: The ID or username of the user to detach.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users unlinked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
   /api/users/whoami:
     get:
       tags:
@@ -7436,7 +7514,7 @@ components:
           description: The optional description for the field.
         type:
           type: string
-          description: Field input type - text (default), password, number, textarea or autocomplete.
+          description: Field input type - text (default), masked, number, textarea or autocomplete. "password" is accepted as a legacy alias for masked and stored as masked.
         handler:
           type: string
           description: For autocomplete fields, the bound plugin field handler (plugin.<name>.<handler>).
@@ -8821,6 +8899,17 @@ components:
           type: string
           example: password
           description: Optional service password. Only populated for the current user.
+        linked_users:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+                format: uuid
+              username:
+                type: string
+          description: The other members of this user's switch group (profile menu Switch User list).
         roles:
           type: array
           items:

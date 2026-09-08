@@ -216,7 +216,12 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.max_uptime = template.max_uptime;
           this.formData.max_uptime_unit = template.max_uptime_unit;
           this.formData.icon_url = template.icon_url;
-          this.formData.custom_fields = template.custom_fields;
+          // "password" is the pre-rename spelling of "masked"; normalised
+          // here so the config dialog shows Masked and the next save heals
+          // the stored value.
+          this.formData.custom_fields = (template.custom_fields || []).map(
+            (f) => (f.type === "password" ? { ...f, type: "masked" } : f),
+          );
           this.formData.ports = template.ports || [];
           this.formData.jobs = (template.jobs || []).map((job) => ({ ...job }));
           this.formData.jobsTouched = this.formData.jobs.map(() => ({}));

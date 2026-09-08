@@ -1,8 +1,10 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -14,6 +16,7 @@ import (
 	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/util/audit"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -102,4 +105,43 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 	middleware.DeleteSessionCookie(w)
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+// HandleSwitchUserPage moves the current web session onto another member
+// of the user's switch group. The link set is maintained by the user
+// manager (PermissionLinkUsers); any member may switch to any other, and
+// the target's own group offers the way back. Failures redirect home
+// without switching — the menu only offers valid targets, so anything
+// else is a stale or forged request.
+func HandleSwitchUserPage(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	session := r.Context().Value("session").(*model.Session)
+
+	target, err := database.GetInstance().GetUser(r.PathValue("user_id"))
+	if err != nil || target == nil || target.IsDeleted || !target.Active ||
+		session == nil || !slices.Contains(user.LinkedUsers, target.Id) {
+		http.Redirect(w, r, defaultLoginPage(), http.StatusSeeOther)
+		return
+	}
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventUserSwitch,
+		fmt.Sprintf("Switched session to user %s", target.Username),
+		&map[string]interface{}{
+			"from_user_id": user.Id,
+			"from_user":    user.Username,
+			"to_user_id":   target.Id,
+			"to_user":      target.Username,
+		},
+	)
+
+	session.UserId = target.Id
+	session.UpdatedAt = hlc.Now()
+	database.GetSessionStorage().SaveSession(session)
+	service.GetTransport().GossipSession(session)
+	sse.GetHub().InvalidateSession(session.Id)
+
+	http.Redirect(w, r, defaultLoginPage(), http.StatusSeeOther)
 }

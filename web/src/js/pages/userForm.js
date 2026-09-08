@@ -51,6 +51,15 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     unlinkConfirm: { show: false, providerID: '', providerName: '' },
     originalSSHPrivateKey: "",
 
+    // Switch-group management (user manager only; see the Linked Users
+    // fieldset). linkableUsers feeds the autocompleter — everyone except
+    // this user and current members.
+    linkedUsers: [],
+    allUserOptions: [],
+    linkableUsers: [],
+    linkUserForm: { userId: "", username: "" },
+    linkBusy: false,
+
     async initUsers() {
       focus.Element('input[name="username"]');
 
@@ -101,6 +110,9 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           this.formData.external_auth_providers = user.external_auth_providers || {};
           this.formData.has_password = user.has_password !== undefined ? user.has_password : (user.password !== "");
           this._syncLinkableProviders();
+          this.linkedUsers = user.linked_users || [];
+          this._refreshLinkableUsers();
+          this.loadUserOptions();
 
           // Make last_login_at human readable data time in the browser's timezone
           if (user.last_login_at) {
@@ -365,6 +377,83 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       this.linkableProviders = allProviders
         .filter(p => !(p.id in (this.formData.external_auth_providers || {})))
         .map(p => ({ ...p, linking: false }));
+    },
+
+    // ---- linked users (switch group) ----
+
+    async loadUserOptions() {
+      if (isProfile || this.allUserOptions.length) return;
+      try {
+        const response = await fetch("/api/users", {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.status === 200) {
+          const data = await response.json();
+          this.allUserOptions = data.users || [];
+          this._refreshLinkableUsers();
+        }
+      } catch (e) { /* leave empty: the autocompleter just finds nothing */ }
+    },
+    _refreshLinkableUsers() {
+      this.linkableUsers = this.allUserOptions.filter(
+        (u) =>
+          u.user_id !== userId &&
+          !this.linkedUsers.some((l) => l.user_id === u.user_id),
+      );
+    },
+    async refreshLinkedUsers() {
+      const response = await fetch(`/api/users/${userId}`, {
+        headers: { "Content-Type": "application/json" },
+      });
+      if (response.status === 200) {
+        const user = await response.json();
+        this.linkedUsers = user.linked_users || [];
+        this._refreshLinkableUsers();
+      }
+    },
+    async linkUserAction() {
+      if (!this.linkUserForm.userId || this.linkBusy) return;
+      this.linkBusy = true;
+      try {
+        const response = await fetch(
+          `/api/users/${userId}/linked-users/${this.linkUserForm.userId}`,
+          { method: "PUT", headers: { "Content-Type": "application/json" } },
+        );
+        if (response.status === 200) {
+          this.linkUserForm = { userId: "", username: "" };
+          await this.refreshLinkedUsers();
+          this.$dispatch("show-alert", { msg: "User linked", type: "success" });
+        } else {
+          const d = await response.json();
+          this.$dispatch("show-alert", {
+            msg: `Failed to link user, ${d.error}`,
+            type: "error",
+          });
+        }
+      } catch (e) {
+        this.$dispatch("show-alert", {
+          msg: `Error!<br />${e.message}`,
+          type: "error",
+        });
+      } finally {
+        this.linkBusy = false;
+      }
+    },
+    async unlinkLinkedUser(linkedUserId) {
+      const response = await fetch(
+        `/api/users/${userId}/linked-users/${linkedUserId}`,
+        { method: "DELETE", headers: { "Content-Type": "application/json" } },
+      );
+      if (response.status === 200) {
+        await this.refreshLinkedUsers();
+        this.$dispatch("show-alert", { msg: "User unlinked", type: "success" });
+      } else {
+        const d = await response.json();
+        this.$dispatch("show-alert", {
+          msg: `Failed to unlink user, ${d.error}`,
+          type: "error",
+        });
+      }
     },
   };
 };

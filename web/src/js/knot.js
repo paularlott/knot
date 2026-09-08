@@ -67,6 +67,15 @@ window.Alpine = Alpine;
 import Chart from 'chart.js/auto';
 window.Chart = Chart;
 
+// Switch the session to another member of the user's switch group (the
+// profile menu's Switch User list) and reload into it. The server refuses
+// targets outside the group, so a failed or forged call just lands home.
+window.knotSwitchUser = function knotSwitchUser(userId) {
+  fetch('/switch-user/' + encodeURIComponent(userId), { method: 'POST' })
+    .then(() => { window.location.href = '/'; })
+    .catch(() => { window.location.href = '/'; });
+};
+
 // Autocompleter for template custom fields bound to a plugin field
 // handler: suggestions come from /api/plugins/field-handlers/<id>, the
 // value stays free-typed so pick-or-create works.

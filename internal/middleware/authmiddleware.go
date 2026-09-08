@@ -346,6 +346,10 @@ func ApiPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+func ApiPermissionLinkUsers(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionLinkUsers, "No permission to link users")
+}
+
 func ApiPermissionManageUsersOrSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {

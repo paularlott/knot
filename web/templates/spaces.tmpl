@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Spaces{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }}, {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .permissionUseStackDefinitions }}, {{ .permissionEditSpaceJobs }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }}, {{ .permissionUsePools }}, {{ .permissionManageStackDefinitions }}, {{ .permissionManageOwnStackDefinitions }}, {{ .permissionUseStackDefinitions }}, {{ .permissionEditSpaceJobs }}, {{ .isLeafNode }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="col-span-full">
@@ -971,7 +971,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <template x-for="t in templateSelector.templates" :key="t.template_id">
                 <template x-if="!t.searchHide">
-                  <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors" @click="selectTemplate(t.template_id)">
+                  <div :class="{'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer': !t.quotaBlocked, 'border-gray-200 dark:border-gray-700 opacity-50 grayscale cursor-not-allowed': t.quotaBlocked}" class="border rounded-lg p-4 transition-colors" @click="t.quotaBlocked || selectTemplate(t.template_id)">
                     <div class="flex items-start gap-4">
                       <img x-show="t.icon_url && t.icon_url_exists" :src="t.icon_url" alt="Icon" class="size-12 flex-shrink-0" />
 
@@ -990,6 +990,7 @@
                           <span x-show="t.platform == 'container'" class="app-badge-info">Container</span>
                           <span x-show="t.platform == 'nomad'" class="app-badge-success">Nomad</span>
                           <span x-show="t.platform == 'manual'" class="app-badge-warning">Manual</span>
+                          <span x-show="t.quotaBlocked" class="app-badge-warning" title="Creating a space from this template would exceed the owner's quota">Insufficient quota</span>
 
                           <span class="text-xs text-gray-500 dark:text-gray-400">
                             <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>
@@ -1021,6 +1022,33 @@
                 </template>
               </template>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Out of Quota (shown instead of the template selector when
+           no available template fits the owner's quota) -->
+      <div x-cloak x-show="quotaLimitShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaLimitShow" @keydown.esc.window="quotaLimitShow = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="quotaLimitTitle">
+        <div x-show="quotaLimitShow" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
+                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <h3 id="quotaLimitTitle" class="ui-modal-title">Quota Exceeded</h3>
+            <button @click="quotaLimitShow = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ui-modal-body text-center">
+            <p>Creating a space from any available template would exceed your quota.</p>
+            <p>You can stop and delete another space to reduce your usage or contact an administrator to increase your quota.</p>
+          </div>
+          <div class="ui-modal-footer">
+            <button @click="quotaLimitShow = false" type="button" class="ui-button-danger">Dismiss</button>
           </div>
         </div>
       </div>

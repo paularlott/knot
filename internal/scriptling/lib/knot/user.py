@@ -120,6 +120,27 @@ def delete(user_id):
     return True
 
 
+def link_user(user_id, linked_user_id):
+    """Join two users' switch groups.
+
+    Afterwards every member of the merged group can switch their session
+    to any other member from the profile menu. Requires the link_users
+    permission.
+    """
+    api.put(f"/api/users/{_enc(user_id)}/linked-users/{_enc(linked_user_id)}")
+    return True
+
+
+def unlink_user(user_id, linked_user_id):
+    """Detach a user from another's switch group.
+
+    The detached user keeps no links; the remaining members keep each
+    other. Requires the link_users permission.
+    """
+    api.delete(f"/api/users/{_enc(user_id)}/linked-users/{_enc(linked_user_id)}")
+    return True
+
+
 def get_quota(user_id):
     """Get user quota and usage."""
     response = api.get(f"/api/users/{_enc(user_id)}/quota")
@@ -192,5 +213,6 @@ def _parse_user(response):
         "used_tunnels": response.get("used_tunnels", 0),
         "current": response.get("current", False),
         "roles": response.get("roles", []),
-        "groups": response.get("groups", [])
+        "groups": response.get("groups", []),
+        "linked_users": response.get("linked_users", [])
     }

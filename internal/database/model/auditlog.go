@@ -71,6 +71,9 @@ const (
 	AuditEventUserCreate = "User Create"
 	AuditEventUserUpdate = "User Update"
 	AuditEventUserDelete = "User Delete"
+	AuditEventUserLink   = "User Link"
+	AuditEventUserUnlink = "User Unlink"
+	AuditEventUserSwitch = "User Switch"
 
 	// Volumes
 	AuditEventVolumeCreate = "Volume Create"

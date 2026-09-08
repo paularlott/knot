@@ -134,6 +134,8 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT '[]'`,
 	// 64: add plugin permissions (text grants, plugin.<name>.<id>) to roles
 	`ALTER TABLE roles ADD COLUMN IF NOT EXISTS plugin_permissions JSON DEFAULT NULL`,
+	// 65: add linked users (switch group members) to users
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS linked_users JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

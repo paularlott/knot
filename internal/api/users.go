@@ -216,6 +216,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		Email:                      user.Email,
 		Roles:                      user.Roles,
 		Groups:                     user.Groups,
+		LinkedUsers:                linkedUserInfos(db, user),
 		Active:                     user.Active,
 		MaxSpaces:                  user.MaxSpaces,
 		ComputeUnits:               user.ComputeUnits,
@@ -249,6 +250,136 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, &userData)
+}
+
+// linkedUserInfos resolves a user's switch-group member ids to id/username
+// pairs for API responses. Unresolvable ids (deleted members) are skipped.
+func linkedUserInfos(db database.DbDriver, user *model.User) []apiclient.LinkedUserInfo {
+	if len(user.LinkedUsers) == 0 {
+		return []apiclient.LinkedUserInfo{}
+	}
+	out := make([]apiclient.LinkedUserInfo, 0, len(user.LinkedUsers))
+	for _, id := range user.LinkedUsers {
+		member, err := db.GetUser(id)
+		if err != nil || member == nil {
+			continue
+		}
+		out = append(out, apiclient.LinkedUserInfo{Id: member.Id, Username: member.Username})
+	}
+	return out
+}
+
+// persistLinkedGroup saves a and b (which already carry their updated
+// linked-users lists) and rewrites every other member in ids onto group,
+// so the whole switch group stays consistent. Gossiping each save keeps
+// cluster peers in step.
+func persistLinkedGroup(db database.DbDriver, a, b *model.User, ids, group []string) error {
+	for _, member := range []*model.User{a, b} {
+		if err := db.SaveUser(member, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
+			return err
+		}
+		service.GetTransport().GossipUser(member)
+	}
+	for _, id := range ids {
+		if id == a.Id || id == b.Id {
+			continue
+		}
+		member, err := db.GetUser(id)
+		if err != nil || member == nil {
+			continue
+		}
+		model.SetLinkedGroup(member, group)
+		if err := db.SaveUser(member, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
+			return err
+		}
+		service.GetTransport().GossipUser(member)
+	}
+	return nil
+}
+
+// HandleLinkUser joins the switch groups of two users: afterwards every
+// member of the merged group can switch the session to any other member
+// from the profile menu.
+func HandleLinkUser(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	target, err := db.GetUser(r.PathValue("user_id"))
+	if err != nil || target == nil || target.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+	linked, err := db.GetUser(r.PathValue("linked_user_id"))
+	if err != nil || linked == nil || linked.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "linked user not found"})
+		return
+	}
+	if target.Id == linked.Id {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot link a user to itself"})
+		return
+	}
+
+	group := model.LinkUsers(target, linked)
+	if err := persistLinkedGroup(db, target, linked, group, group); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventUserLink,
+		fmt.Sprintf("Linked user %s to %s", linked.Username, target.Username),
+		&map[string]interface{}{
+			"user_id":        target.Id,
+			"linked_user":    linked.Username,
+			"linked_user_id": linked.Id,
+			"group_members":  group,
+		},
+	)
+
+	rest.WriteResponse(http.StatusOK, w, r, &apiclient.CreateUserResponse{Status: true})
+}
+
+// HandleUnlinkUser detaches a user from another's switch group: the
+// detached user keeps no links while the remaining members keep each other.
+func HandleUnlinkUser(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	target, err := db.GetUser(r.PathValue("user_id"))
+	if err != nil || target == nil || target.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+	linked, err := db.GetUser(r.PathValue("linked_user_id"))
+	if err != nil || linked == nil || linked.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "linked user not found"})
+		return
+	}
+
+	// Remaining members (target included) keep each other; linked itself
+	// is detached and persisted via the a/b path above.
+	remaining := model.UnlinkUser(target, linked)
+	if err := persistLinkedGroup(db, target, linked, remaining, remaining); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventUserUnlink,
+		fmt.Sprintf("Unlinked user %s from %s", linked.Username, target.Username),
+		&map[string]interface{}{
+			"user_id":        target.Id,
+			"linked_user":    linked.Username,
+			"linked_user_id": linked.Id,
+			"group_members":  remaining,
+		},
+	)
+
+	rest.WriteResponse(http.StatusOK, w, r, &apiclient.CreateUserResponse{Status: true})
 }
 
 func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {

@@ -30,6 +30,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/users/{user_id}/quota", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserQuota)))
 	router.HandleFunc("GET /api/users/{user_id}/permissions", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserPermissions)))
 	router.HandleFunc("GET /api/users/{user_id}/has-permission", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserHasPermission)))
+	router.HandleFunc("PUT /api/users/{user_id}/linked-users/{linked_user_id}", middleware.ApiAuth(middleware.ApiPermissionLinkUsers(HandleLinkUser)))
+	router.HandleFunc("DELETE /api/users/{user_id}/linked-users/{linked_user_id}", middleware.ApiAuth(middleware.ApiPermissionLinkUsers(HandleUnlinkUser)))
 
 	// Groups
 	router.HandleFunc("GET /api/groups", middleware.ApiAuth(HandleGetGroups))

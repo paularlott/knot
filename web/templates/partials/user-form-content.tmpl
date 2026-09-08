@@ -155,6 +155,36 @@
         </fieldset>
         {{ end }}
 
+        {{ if and (not .isProfile) .permissionLinkUsers }}
+        <div x-show="userFormModal.isEdit" x-cloak>
+          <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Linked Users</legend>
+            <p class="description">Linked users form a switch group: any member can move their session to another member from the profile menu, and the list travels with them. Linking two users merges their groups.</p>
+            <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700" x-show="linkedUsers.length > 0">
+              <template x-for="lu in linkedUsers" :key="lu.user_id">
+                <li class="flex items-center justify-between px-4 py-2.5 gap-4">
+                  <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="lu.username"></span>
+                  <button type="button" @click="unlinkLinkedUser(lu.user_id)" class="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">Unlink</button>
+                </li>
+              </template>
+            </ul>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-show="linkedUsers.length === 0">No linked users.</p>
+            <div class="mt-3" x-data="autocompleterUser()" x-init="setDataSource('linkableUsers'); loadUserOptions()" data-parent-var-group="linkUserForm" data-parent-variable="userId" data-parent-variable-username="username" @refresh-autocompleter.window="refresh()" class="relative">
+              <label class="form-label" for="linked-user-search">Link Another User</label>
+              <input id="linked-user-search" x-model="search" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
+              <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <ul class="list-none" role="listbox" :id="_listboxId">
+                  <template x-for="(option, index) in filteredOptions" :key="index">
+                    <li @click="selectOption(option)" x-text="option.username" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
+                  </template>
+                </ul>
+              </div>
+              <button type="button" class="btn-primary mt-2" @click="linkUserAction()" :disabled="!linkUserForm.userId || linkBusy" x-text="linkBusy ? 'Linking…' : 'Link User'"></button>
+            </div>
+          </fieldset>
+        </div>
+        {{ end }}
+
         {{ if .isProfile }}
         <div x-show="isEdit && (Object.keys(formData.external_auth_providers || {}).length > 0 || linkableProviders.length > 0)" x-cloak>
           <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">

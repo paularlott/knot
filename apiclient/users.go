@@ -8,34 +8,40 @@ import (
 	"time"
 )
 
+type LinkedUserInfo struct {
+	Id       string `json:"user_id"`
+	Username string `json:"username"`
+}
+
 type UserResponse struct {
-	Id                         string     `json:"user_id"`
-	Username                   string     `json:"username"`
-	Email                      string     `json:"email"`
-	ServicePassword            string     `json:"service_password"`
-	Roles                      []string   `json:"roles"`
-	Groups                     []string   `json:"groups"`
-	Active                     bool       `json:"active"`
-	MaxSpaces                  uint32     `json:"max_spaces"`
-	ComputeUnits               uint32     `json:"compute_units"`
-	StorageUnits               uint32     `json:"storage_units"`
-	MaxTunnels                 uint32     `json:"max_tunnels"`
-	SSHPublicKey               string     `json:"ssh_public_key"`
-	SSHPrivateKey              string     `json:"ssh_private_key"`
-	GitHubUsername             string     `json:"github_username"`
-	PreferredShell             string     `json:"preferred_shell"`
-	Timezone                   string     `json:"timezone"`
-	Current                    bool       `json:"current"`
-	LastLoginAt                *time.Time `json:"last_login_at"`
-	CreatedAt                  time.Time  `json:"created_at"`
-	UpdatedAt                  time.Time  `json:"updated_at"`
-	TOTPSecret                 string     `json:"totp_secret"`
-	NumberSpaces               int        `json:"number_spaces"`
-	NumberSpacesDeployed       int        `json:"number_spaces_deployed"`
-	NumberSpacesDeployedInZone int        `json:"number_spaces_deployed_in_zone"`
-	UsedComputeUnits           uint32     `json:"used_compute_units"`
-	UsedStorageUnits           uint32     `json:"used_storage_units"`
-	UsedTunnels                uint32     `json:"used_tunnels"`
+	Id                         string           `json:"user_id"`
+	Username                   string           `json:"username"`
+	Email                      string           `json:"email"`
+	ServicePassword            string           `json:"service_password"`
+	Roles                      []string         `json:"roles"`
+	Groups                     []string         `json:"groups"`
+	LinkedUsers                []LinkedUserInfo `json:"linked_users"`
+	Active                     bool             `json:"active"`
+	MaxSpaces                  uint32           `json:"max_spaces"`
+	ComputeUnits               uint32           `json:"compute_units"`
+	StorageUnits               uint32           `json:"storage_units"`
+	MaxTunnels                 uint32           `json:"max_tunnels"`
+	SSHPublicKey               string           `json:"ssh_public_key"`
+	SSHPrivateKey              string           `json:"ssh_private_key"`
+	GitHubUsername             string           `json:"github_username"`
+	PreferredShell             string           `json:"preferred_shell"`
+	Timezone                   string           `json:"timezone"`
+	Current                    bool             `json:"current"`
+	LastLoginAt                *time.Time       `json:"last_login_at"`
+	CreatedAt                  time.Time        `json:"created_at"`
+	UpdatedAt                  time.Time        `json:"updated_at"`
+	TOTPSecret                 string           `json:"totp_secret"`
+	NumberSpaces               int              `json:"number_spaces"`
+	NumberSpacesDeployed       int              `json:"number_spaces_deployed"`
+	NumberSpacesDeployedInZone int              `json:"number_spaces_deployed_in_zone"`
+	UsedComputeUnits           uint32           `json:"used_compute_units"`
+	UsedStorageUnits           uint32           `json:"used_storage_units"`
+	UsedTunnels                uint32           `json:"used_tunnels"`
 }
 
 type CreateUserRequest struct {

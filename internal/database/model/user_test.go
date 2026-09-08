@@ -305,3 +305,69 @@ func TestClearOAuthTokens(t *testing.T) {
 		t.Fatalf("GetOAuthRefreshToken() = %q, want empty", got)
 	}
 }
+
+func TestLinkUsers(t *testing.T) {
+	a := &User{Id: "a"}
+	b := &User{Id: "b"}
+
+	// Fresh link: each lists the other.
+	group := LinkUsers(a, b)
+	if len(group) != 2 {
+		t.Fatalf("group = %v, want [a b]", group)
+	}
+	if len(a.LinkedUsers) != 1 || a.LinkedUsers[0] != "b" {
+		t.Errorf("a.LinkedUsers = %v, want [b]", a.LinkedUsers)
+	}
+	if len(b.LinkedUsers) != 1 || b.LinkedUsers[0] != "a" {
+		t.Errorf("b.LinkedUsers = %v, want [a]", b.LinkedUsers)
+	}
+
+	// Group merge: linking c (already linked to d) into a's group must
+	// give every member the same view of the group.
+	c := &User{Id: "c", LinkedUsers: []string{"d"}}
+	d := &User{Id: "d"}
+	group = LinkUsers(a, c)
+	if len(group) != 4 { // a, b, c, d
+		t.Fatalf("merged group = %v, want 4 members", group)
+	}
+	for _, u := range []*User{a, c} {
+		if len(u.LinkedUsers) != 3 {
+			t.Errorf("%s.LinkedUsers = %v, want 3 members", u.Id, u.LinkedUsers)
+		}
+	}
+	// SetLinkedGroup writes the same view onto the transitive members.
+	SetLinkedGroup(b, group)
+	SetLinkedGroup(d, group)
+	if len(b.LinkedUsers) != 3 || len(d.LinkedUsers) != 3 {
+		t.Errorf("transitive members = %v / %v, want 3 members each", b.LinkedUsers, d.LinkedUsers)
+	}
+
+	// Self-link is a no-op.
+	if got := LinkUsers(a, a); got != nil {
+		t.Errorf("self link returned %v, want nil", got)
+	}
+}
+
+func TestUnlinkUser(t *testing.T) {
+	a := &User{Id: "a", LinkedUsers: []string{"b", "c"}}
+	b := &User{Id: "b", LinkedUsers: []string{"a", "c"}}
+	c := &User{Id: "c", LinkedUsers: []string{"a", "b"}}
+
+	remaining := UnlinkUser(a, b)
+	// b detaches entirely; a and c keep each other.
+	if len(remaining) != 2 {
+		t.Fatalf("remaining = %v, want [a c]", remaining)
+	}
+	if len(b.LinkedUsers) != 0 {
+		t.Errorf("b.LinkedUsers = %v, want empty", b.LinkedUsers)
+	}
+	if len(a.LinkedUsers) != 1 || a.LinkedUsers[0] != "c" {
+		t.Errorf("a.LinkedUsers = %v, want [c]", a.LinkedUsers)
+	}
+
+	// The caller applies the remaining group to transitive members.
+	SetLinkedGroup(c, remaining)
+	if len(c.LinkedUsers) != 1 || c.LinkedUsers[0] != "a" {
+		t.Errorf("c.LinkedUsers = %v, want [a]", c.LinkedUsers)
+	}
+}
