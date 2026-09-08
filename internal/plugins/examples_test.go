@@ -96,17 +96,11 @@ func TestLoadExamplePlugins(t *testing.T) {
 			t.Errorf("peers = %+v", peers)
 		}
 	} else {
+		// Without the built peer demo-go has no metadata source (it ships
+		// no main.py — everything comes from the peer handshake), so it is
+		// simply absent: neither loaded nor failed.
 		if demoGo != nil {
-			t.Fatalf("demo-go loaded without its peer; want requirement failure")
-		}
-		found := false
-		for _, failed := range registry.Failed() {
-			if failed.Name == "demo-go" && strings.Contains(failed.Reason, "demolib") {
-				found = true
-			}
-		}
-		if !found {
-			t.Errorf("failed = %+v, want demo-go missing-peer failure", registry.Failed())
+			t.Fatalf("demo-go loaded without its peer; want it absent")
 		}
 	}
 }
