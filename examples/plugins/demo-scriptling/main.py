@@ -21,6 +21,14 @@
 # permission = "view_dashboard"
 #
 # [[tool.knot.handlers]]
+# handler = "widget_edit"
+# permission = "view_dashboard"
+#
+# [[tool.knot.handlers]]
+# handler = "widget_notes"
+# permission = "view_dashboard"
+#
+# [[tool.knot.handlers]]
 # handler = "lib_exports"
 #
 # [[tool.knot.mcp_tools]]
@@ -330,7 +338,9 @@ def col_spaces():
 def _space_actions(name, state):
     # Per-row actions replace the column's set: the handler decides, per
     # row, what is offered. Icon buttons render inline; menu: True items
-    # collect into the kebab dropdown.
+    # collect into the kebab dropdown. Popup handlers named here are data
+    # the layout gate cannot vouch for, so they are declared in
+    # [[tool.knot.handlers]] above, standing on the page's own gate.
     actions = []
     if state == "running":
         actions.append({"action": "stop", "label": "Stop " + name, "icon": "stop", "style": "danger", "confirm": "Stop " + name + "?"})

@@ -697,3 +697,50 @@ func TestModuleHandlerDispatch(t *testing.T) {
 		t.Fatalf("declared module handler = %d %s", w.Code, w.Body.String())
 	}
 }
+
+// TestExamplePayloadActionPopups pins the rule the showcase's Spaces table
+// relies on: row actions are DATA — the layout gate cannot vouch for popup
+// handlers named only in a table payload — so those handlers are declared
+// in [[tool.knot.handlers]], standing on the page's own gate. The edit
+// popup answers for a user holding the grant and refuses one without it.
+func TestExamplePayloadActionPopups(t *testing.T) {
+	model.SetRoleCache([]*model.Role{{
+		Id:                "role-view",
+		Name:              "Viewers",
+		PluginPermissions: []string{"plugin.demo-scriptling.view_dashboard"},
+	}})
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{})
+
+	dir := "../examples/plugins"
+	if _, err := os.Stat(dir); err != nil {
+		t.Skip("examples/plugins not present")
+	}
+	registry, err := plugins.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins.SetRegistry(registry)
+	t.Cleanup(func() {
+		registry.Close()
+		plugins.SetRegistry(nil)
+	})
+	if registry.ByName("demo-scriptling") == nil {
+		t.Fatalf("demo-scriptling not loaded; failed = %+v", registry.Failed())
+	}
+
+	granted := &model.User{Username: "granted", Id: "u-g", Roles: []string{"role-view"}}
+	plain := &model.User{Username: "plain", Id: "u-p"}
+
+	w := dispatchPluginRequest(t, "GET", "/plugins/demo-scriptling/showcase/widget_edit?key=web", granted)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "fields") {
+		t.Fatalf("widget_edit popup as granted = %d %s", w.Code, w.Body.String())
+	}
+	w = dispatchPluginRequest(t, "GET", "/plugins/demo-scriptling/showcase/widget_notes?key=web", granted)
+	if w.Code != http.StatusOK {
+		t.Fatalf("widget_notes popup as granted = %d %s", w.Code, w.Body.String())
+	}
+	if w := dispatchPluginRequest(t, "GET", "/plugins/demo-scriptling/showcase/widget_edit?key=web", plain); w.Code != http.StatusForbidden {
+		t.Fatalf("widget_edit popup as plain = %d, want 403", w.Code)
+	}
+}

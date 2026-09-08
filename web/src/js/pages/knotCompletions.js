@@ -155,7 +155,7 @@ export const knotLibraries = [
   },
   {
     "module": "knot.globals",
-    "description": "The globals every dispatch binds: params, request and user.",
+    "description": "The `user` global user-created MCP tools see, and the User class.",
     "functions": [
       {
         "name": "has_permission",
@@ -173,7 +173,7 @@ export const knotLibraries = [
     "classes": [
       {
         "name": "User",
-        "description": "The requesting user's identity and effective permissions.\n\n    Bound as the `user` global on every dispatch. Admins pass every\n    permission check by construction.",
+        "description": "The requesting user's identity and effective permissions.\n\n    Bound as the `user` global in user-created MCP tools; returned by\n    knot.identity.user() everywhere identity matters. Admins pass every\n    permission check by construction.",
         "methods": [
           {
             "name": "id",
@@ -295,12 +295,12 @@ export const knotLibraries = [
   },
   {
     "module": "knot.identity",
-    "description": "The requesting user for module code (plugin libraries in libs/, lib scripts).",
+    "description": "The authoritative identity surface: who the code runs as.",
     "functions": [
       {
         "name": "user",
         "signature": "user()",
-        "description": "The User instance the `user` global holds — id, name, is_admin, groups, permissions (stable keys), plugin_permissions (qualified grants), with has_permission and in_group. Module code can't see the dispatch globals (their scope is the calling program), so this library carries the same instance; it is re-bound per dispatch, so it always answers with the current user.",
+        "description": "The requesting user as a User instance — id, name, is_admin, groups, permissions (stable keys), plugin_permissions (qualified grants), with has_permission and in_group. Re-bound on every dispatch, so it always answers with the current user; the admin role passes every check.",
         "returns": "User"
       }
     ]
