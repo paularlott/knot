@@ -131,8 +131,8 @@ type layoutPresenceEntry struct {
 }
 
 const (
-	layoutPresenceTTL         = 5 * time.Second
-	layoutPresenceMaxEntries  = 8192
+	layoutPresenceTTL        = 5 * time.Second
+	layoutPresenceMaxEntries = 8192
 )
 
 var layoutPresence = &layoutPresenceCache{entries: map[string]layoutPresenceEntry{}, ttl: layoutPresenceTTL}

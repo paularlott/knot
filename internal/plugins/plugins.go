@@ -126,7 +126,7 @@ type Plugin struct {
 	Handlers      []Handler        `json:"handlers"`
 	MCPTools      []MCPTool        `json:"mcp_tools"`
 	FieldHandlers []FieldHandler   `json:"field_handlers"`
-	Libs          []ScriptLib       `json:"libs,omitempty"`
+	Libs          []ScriptLib      `json:"libs,omitempty"`
 
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem.
@@ -358,9 +358,9 @@ func (r *Registry) SiteLogoURLs() (light, dark string) {
 // parameters arrive in the handler's params dict and the MCP schema is an
 // empty object.
 type MCPTool struct {
-	Name        string             `json:"name"`                // MCP tool name; defaults to the handler name
-	Description string             `json:"description"`         // shown to MCP clients
-	Handler     string             `json:"handler"`             // function in the entry file
+	Name        string             `json:"name"`                 // MCP tool name; defaults to the handler name
+	Description string             `json:"description"`          // shown to MCP clients
+	Handler     string             `json:"handler"`              // function in the entry file
 	Permission  string             `json:"permission,omitempty"` // qualified grant, as Handler
 	Parameters  []MCPToolParameter `json:"parameters,omitempty"` // optional: the tool's input schema
 }
@@ -371,7 +371,7 @@ type MCPTool struct {
 // client ergonomics, not coercion.
 type MCPToolParameter struct {
 	Name        string `json:"name"`
-	Type        string `json:"type"`                  // string, int, float, bool, list
+	Type        string `json:"type"` // string, int, float, bool, list
 	Description string `json:"description,omitempty"`
 	Default     any    `json:"default,omitempty"`
 	Required    bool   `json:"required,omitempty"`

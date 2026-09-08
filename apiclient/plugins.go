@@ -44,15 +44,15 @@ type PluginMCPToolInfo struct {
 
 // PluginHandlerInfo is one declared ajax handler.
 type PluginHandlerInfo struct {
-	Handler    string   `json:"handler"`
-	Permission string   `json:"permission,omitempty"`
+	Handler    string `json:"handler"`
+	Permission string `json:"permission,omitempty"`
 }
 
 // PluginFieldHandlerInfo is one declared field handler.
 type PluginFieldHandlerInfo struct {
-	Id         string   `json:"id"`
-	Label      string   `json:"label"`
-	Permission string   `json:"permission,omitempty"`
+	Id         string `json:"id"`
+	Label      string `json:"label"`
+	Permission string `json:"permission,omitempty"`
 }
 
 // PluginLibInfo is one in-process scriptling library.
@@ -62,14 +62,14 @@ type PluginLibInfo struct {
 }
 
 type PluginInfo struct {
-	Name        string                `json:"name"`
-	Version     string                `json:"version"`
-	Description string                `json:"description"`
-	LogoLight   string                `json:"logo_light,omitempty"`
-	LogoDark    string                `json:"logo_dark,omitempty"`
-	SiteLogo    bool                  `json:"site_logo,omitempty"`
-	Permissions []PluginPermissionInfo `json:"permissions"`
-	Menus       []PluginMenuInfo       `json:"menus"`
+	Name          string                   `json:"name"`
+	Version       string                   `json:"version"`
+	Description   string                   `json:"description"`
+	LogoLight     string                   `json:"logo_light,omitempty"`
+	LogoDark      string                   `json:"logo_dark,omitempty"`
+	SiteLogo      bool                     `json:"site_logo,omitempty"`
+	Permissions   []PluginPermissionInfo   `json:"permissions"`
+	Menus         []PluginMenuInfo         `json:"menus"`
 	Pages         []PluginPageInfo         `json:"pages"`
 	Peers         []PluginPeerInfo         `json:"peers,omitempty"`
 	MCPTools      []PluginMCPToolInfo      `json:"mcp_tools,omitempty"`
