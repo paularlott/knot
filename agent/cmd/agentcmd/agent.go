@@ -81,6 +81,18 @@ var agentServerCmd = &cli.Command{
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_METHODS_FILE"},
 		},
 		&cli.StringSliceFlag{
+			Name:       "plugin",
+			Usage:      "Scriptling plugin executable to load into space scripts (can be repeated); same mechanism as the scriptling CLI.",
+			ConfigPath: []string{"agent.plugins"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_PLUGIN"},
+		},
+		&cli.StringSliceFlag{
+			Name:       "plugin-dir",
+			Usage:      "Directory of scriptling plugin executables to load into space scripts (can be repeated).",
+			ConfigPath: []string{"agent.plugin_dirs"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_PLUGIN_DIR"},
+		},
+		&cli.StringSliceFlag{
 			Name:       "tcp-port",
 			Usage:      "Can be specified multiple times to give the list of TCP ports to be exposed to the client.",
 			ConfigPath: []string{"agent.port.tcp_port"},
@@ -233,6 +245,16 @@ var agentServerCmd = &cli.Command{
 			agentpackages.Init(filepath.Join(home, ".knot", "cache"))
 		}
 
+		// Load any scriptling plugins the agent was configured with
+		// (--plugin / --plugin-dir), so space scripts can import them (e.g.
+		// the scriptling database drivers) without them being compiled into
+		// the agent. A load failure is fatal: a space that asked for a driver
+		// should not start pretending it is present.
+		if err := service.LoadAgentPlugins(ctx, cfg.Plugins, cfg.PluginDirs); err != nil {
+			log.Fatal("failed to load agent scriptling plugins: " + err.Error())
+		}
+		defer service.CloseAgentPlugins()
+
 		// Start the http rest and log sink if enabled
 		if cfg.APIPort > 0 {
 			go agent_service_api.ListenAndServe(agentClient)
@@ -380,6 +402,8 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		DisableSpaceIO:       cmd.GetBool("disable-space-io"),
 		MethodsFile:          cmd.GetString("methods-file"),
 		DNSResolver:          cmd.GetBool("dns-resolver"),
+		Plugins:              cmd.GetStringSlice("plugin"),
+		PluginDirs:           cmd.GetStringSlice("plugin-dir"),
 		Port: config.PortConfig{
 			CodeServer: cmd.GetInt("code-server-port"),
 			VNCHttp:    cmd.GetInt("vnc-http-port"),

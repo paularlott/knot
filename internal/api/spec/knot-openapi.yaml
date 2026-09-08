@@ -5955,7 +5955,7 @@ paths:
           description: Optional query passed through to the handler.
       responses:
         "200":
-          description: Handler result (conventionally {"options": [...]}).
+          description: 'Handler result (conventionally {"options": [...]}).'
           content:
             application/msgpack:
               schema:

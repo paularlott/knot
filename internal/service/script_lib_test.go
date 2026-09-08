@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -418,6 +419,56 @@ func TestPluginEnvLibrariesInSync(t *testing.T) {
 	for _, name := range plugins.PluginEnvLibraries() {
 		if _, err := env.EvalWithContext(context.Background(), "import "+name); err != nil {
 			t.Errorf("pluginEnvLibraries lists %q, but importing it in the plugin env fails: %v", name, err)
+		}
+	}
+}
+
+// TestScriptlingBinPeer pins the scriptling-authored binary peer end to
+// end: knot spawns bin/store like any peer, the shebang hands it to the
+// scriptling CLI (database drivers compiled in, knot links none of it),
+// and handlers reach its functions through the auto-generated stubs —
+// with the sqlite file persisting beside the executable. Skips when the
+// scriptling CLI is not on PATH (the peer cannot start without it).
+func TestScriptlingBinPeer(t *testing.T) {
+	if _, err := exec.LookPath("scriptling"); err != nil {
+		t.Skip("scriptling CLI not on PATH")
+	}
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{MCPToolTimeout: 30})
+	model.SetRoleCache(nil)
+
+	examples := filepath.Join("..", "..", "examples", "plugins")
+	if _, err := os.Stat(examples); err != nil {
+		t.Skip("examples/plugins not present")
+	}
+	registry, err := plugins.Load(examples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins.SetRegistry(registry)
+	t.Cleanup(func() {
+		registry.Close()
+		plugins.SetRegistry(nil)
+	})
+	demo := registry.ByName("demo-peer")
+	if demo == nil {
+		t.Fatalf("demo-peer not loaded; failed = %+v", registry.Failed())
+	}
+
+	admin := &model.User{Username: "admin", Id: "u-a", Roles: []string{model.RoleAdminUUID}}
+	for i := 0; i < 2; i++ {
+		got, err := DispatchPluginHandler(context.Background(), apiclient.NewMuxClient(admin), admin, demo, "col_store", nil)
+		if err != nil {
+			t.Fatalf("col_store (dispatch %d): %v", i+1, err)
+		}
+		enc, err := json.Marshal(got)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"plugin.store (scriptling CLI, sqlite)", "5"} {
+			if !strings.Contains(string(enc), want) {
+				t.Errorf("dispatch %d missing %q: %s", i+1, want, enc)
+			}
 		}
 	}
 }

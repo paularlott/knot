@@ -16,14 +16,16 @@ import (
 // environments (see internal/service registerPluginLibraries), used both by
 // that env and by metadata dependency resolution at load time. Keep the two
 // lists in step. Deliberately absent: requests and scriptling.wait_for
-// (outbound networking) and scriptling.container / scriptling.nomad
-// (runtime access — drivers only).
+// (outbound networking), scriptling.container / scriptling.nomad (runtime
+// access), scriptling.provision.* (machine provisioning — agent only), and
+// scriptling.ai.memory (AI scratchpad — agent only). A plugin that needs a
+// database ships the driver as a bin/ peer, not an env library.
 var pluginEnvLibraries = map[string]bool{
 	// stdlib (stdlib.RegisterAll)
 	"json": true, "re": true, "math": true, "time": true, "datetime": true,
 	"itertools": true, "random": true, "string": true, "collections": true,
 	"functools": true,
-	"base64": true, "hashlib": true, "hmac": true,
+	"base64":    true, "hashlib": true, "hmac": true,
 	"uuid": true, "urllib": true, "statistics": true,
 
 	// base extended libraries
@@ -40,7 +42,6 @@ var pluginEnvLibraries = map[string]bool{
 	"scriptling.ai":                 true,
 	"scriptling.ai.agent":           true,
 	"scriptling.ai.tools":           true,
-	"scriptling.ai.memory":          true,
 	"scriptling.similarity":         true,
 	"scriptling.mcp":                true,
 	"scriptling.toon":               true,
@@ -54,9 +55,8 @@ var pluginEnvLibraries = map[string]bool{
 	"tempfile": true, "shutil": true, "zipfile": true, "tarfile": true,
 	"fs": true, "subprocess": true,
 	"scriptling.grep": true, "scriptling.find": true, "scriptling.sed": true,
-	"scriptling.provision.file":  true,
-	"scriptling.provision.fetch": true,
 }
+
 // PluginEnvLibraries lists the library names plugin handler environments
 // register — the same set metadata dependency resolution resolves against.
 // Exported for the drift guard test (service package), which builds a real
@@ -69,7 +69,6 @@ func PluginEnvLibraries() []string {
 	sort.Strings(out)
 	return out
 }
-
 
 // toolKnotKeys are the keys accepted at the top of [tool.knot]. Unknown keys
 // are load errors: a typo should fail loudly, not silently do nothing.

@@ -59,6 +59,18 @@ permission-checked path MCP tools use, running as the requesting user:
 Every user sees their own data: no permissions to grant, no configuration.
 Unlike the demos, this one claims the login landing spot by design.
 
+## demo-peer: script plugin with a scriptling binary peer
+
+A folder plugin whose `bin/store` peer is a **scriptling script that looks
+like a binary**: an executable whose shebang (`#!/usr/bin/env -S
+scriptling --json-rpc`) hands it to the scriptling CLI, which serves the
+plugin protocol with the database drivers compiled in — knot links none of
+them. The peer's `impl.py` companion backs a small sqlite key/value store
+(`store.db`, persisted beside the executable), and the page calls it
+through the same auto-generated stubs a Go peer gets. Requires the
+scriptling CLI on the server's PATH; without it the plugin fails its
+requirements at load (named on the admin Plugins page).
+
 ## demo-go: script plugin with a Go binary peer
 
 Same shape, plus a **binary peer**: `peer/main.go` is a scriptling

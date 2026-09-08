@@ -192,6 +192,14 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+
+	// Agent-side scriptling plugins (--plugin / --plugin-dir), loaded once at
+	// agent startup. This is how the agent reaches heavyweight drivers (e.g.
+	// the scriptling database plugins) without compiling them into the agent
+	// binary. nil when none are configured.
+	if mgr := getAgentPluginManager(); mgr != nil {
+		pluginpkg.RegisterLibraries(env, mgr)
+	}
 }
 
 // newServerLibraryLoader creates a FuncLoader that fetches libraries from the server API
@@ -465,11 +473,14 @@ func registerPluginImports(env *scriptling.Scriptling) {
 // libraries, and the system-access libraries (os, subprocess, fs, …) that
 // server envs deny — with every path-taking library jailed to the plugin's
 // own folder. Deliberately absent: the outbound networking libraries
-// (requests, scriptling.wait_for) and the runtime libraries
-// (scriptling.container, scriptling.nomad) — plugins are trusted for local
-// compute, not for reaching out or driving container runtimes. Keep this
-// list in step with plugins.pluginEnvLibraries, which answers metadata
-// dependency resolution for the same set.
+// (requests, scriptling.wait_for), the runtime libraries
+// (scriptling.container, scriptling.nomad), machine-provisioning
+// (scriptling.provision.*, agent only), and scriptling.ai.memory (AI
+// scratchpad, agent only) — plugins are trusted for local compute, not for
+// reaching out or driving container runtimes. A plugin that needs a database
+// ships the driver as a bin/ peer, not an env library. Keep this list in step
+// with plugins.pluginEnvLibraries, which answers metadata dependency
+// resolution for the same set.
 func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log logger.Logger) {
 	stdlib.RegisterAll(env)
 
@@ -491,7 +502,6 @@ func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log l
 	extlibs.RegisterTemplateTextLibrary(env)
 
 	scriptlingai.Register(env)
-	aimemory.Register(env, aux)
 	agent.Register(env)
 	scriptlingaitools.Register(env)
 	scriptlingsimilarity.Register(env)
@@ -515,9 +525,6 @@ func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log l
 	extlibs.RegisterGrepLibrary(env, allowed)
 	extlibs.RegisterFindLibrary(env, allowed)
 	extlibs.RegisterSedLibrary(env, allowed)
-
-	provisionfile.Register(env)
-	provisionfetch.Register(env)
 }
 
 // NewPluginScriptlingEnv creates the environment a plugin's handlers run in

@@ -87,6 +87,12 @@ func resolveBinPeers(binDir string) ([]resolvedPeer, []string) {
 		}
 		path := filepath.Join(binDir, entry.Name())
 		if info, err := entry.Info(); err == nil && info.Mode()&0o111 == 0 {
+			// A non-executable .py beside a peer is a companion module
+			// (scriptling peers import their implementation from one),
+			// not a peer that lost its +x — skip it silently.
+			if filepath.Ext(entry.Name()) == ".py" {
+				continue
+			}
 			warnings = append(warnings, fmt.Sprintf("bin/%s is not executable, ignored", entry.Name()))
 			continue
 		}
