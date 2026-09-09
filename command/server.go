@@ -1327,11 +1327,13 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	service.GetContainerService().CleanupOnBoot()
 
 	// Start the cluster and join the peers
-	cluster.Start(
+	if err := cluster.Start(
 		cfg.Cluster.Peers,
 		cfg.Origin.Server,
 		cfg.Origin.Token,
-	)
+	); err != nil {
+		log.Fatal("Failed to start cluster", "error", err)
+	}
 
 	// Kick off a one-shot background fetch of the base image manifest from
 	// the update URL (no periodic loop; the catalog only changes on startup
