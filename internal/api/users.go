@@ -592,6 +592,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			data.StorageUnits = user.StorageUnits
 			data.MaxTunnels = user.MaxTunnels
 			data.Current = user.Id == activeUser.Id
+			// Marks accounts with linked subaccounts on the users list.
+			data.HasLinkedUsers = len(user.LinkedUsers) > 0
 
 			// Get the users quota
 			quota, err := database.GetUserQuota(user)

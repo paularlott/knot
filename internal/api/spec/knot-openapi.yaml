@@ -8664,6 +8664,9 @@ components:
         current:
           type: boolean
           description: Whether the user is the current user
+        has_linked_users:
+          type: boolean
+          description: Whether the user has linked users (a switch group with other members).
         last_login_at:
           type: string
           format: date-time

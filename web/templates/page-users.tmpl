@@ -66,6 +66,7 @@
                           <span class="font-medium text-gray-900 dark:text-white" x-text="u.username"></span>
                           <span x-show="u.active" class="2xl:hidden ml-2 app-badge-success">Active</span>
                           <span x-show="!u.active" class="2xl:hidden ml-2 app-badge-danger">Inactive</span>
+                          <span x-show="u.has_linked_users" x-cloak class="2xl:hidden ml-2 app-badge-purple" title="This account has linked users it can switch to">Linked</span>
                         </div>
                         <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[180px]" x-text="u.email"></div>
                       </div>
@@ -98,6 +99,9 @@
                 <td class="px-4 py-3 hidden 2xl:table-cell">
                   <span x-show="u.active" class="app-badge-success">Active</span>
                   <span x-show="!u.active" class="app-badge-danger">Inactive</span>
+                  <div x-show="u.has_linked_users" x-cloak class="mt-1">
+                    <span class="app-badge-purple" title="This account has linked users it can switch to">Linked</span>
+                  </div>
                 </td>
 
                 <!-- Spaces Column - Hidden on Mobile -->

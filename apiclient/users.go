@@ -98,6 +98,7 @@ type UserInfo struct {
 	StorageUnits               uint32     `json:"storage_units"`
 	MaxTunnels                 uint32     `json:"max_tunnels"`
 	Current                    bool       `json:"current"`
+	HasLinkedUsers             bool       `json:"has_linked_users"`
 	LastLoginAt                *time.Time `json:"last_login_at"`
 	NumberSpaces               int        `json:"number_spaces"`
 	NumberSpacesDeployed       int        `json:"number_spaces_deployed"`

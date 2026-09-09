@@ -52,12 +52,14 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     originalSSHPrivateKey: "",
 
     // Switch-group management (user manager only; see the Linked Users
-    // fieldset). linkableUsers feeds the autocompleter — everyone except
+    // fieldset). linkableUsers feeds the picker popup — everyone except
     // this user and current members.
     linkedUsers: [],
     allUserOptions: [],
     linkableUsers: [],
     linkUserForm: { userId: "", username: "" },
+    linkModal: { show: false },
+    linkedUnlinkConfirm: { show: false, userId: "", username: "" },
     linkBusy: false,
 
     async initUsers() {
@@ -392,7 +394,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           this.allUserOptions = data.users || [];
           this._refreshLinkableUsers();
         }
-      } catch (e) { /* leave empty: the autocompleter just finds nothing */ }
+      } catch (e) { /* leave empty: the picker just finds nothing */ }
     },
     _refreshLinkableUsers() {
       this.linkableUsers = this.allUserOptions.filter(
@@ -411,6 +413,14 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         this._refreshLinkableUsers();
       }
     },
+    openLinkModal() {
+      this.linkUserForm = { userId: "", username: "" };
+      this.linkModal.show = true;
+      this.$nextTick(() => this.$refs.linkUserSearch?.focus());
+    },
+    closeLinkModal() {
+      this.linkModal.show = false;
+    },
     async linkUserAction() {
       if (!this.linkUserForm.userId || this.linkBusy) return;
       this.linkBusy = true;
@@ -420,7 +430,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           { method: "PUT", headers: { "Content-Type": "application/json" } },
         );
         if (response.status === 200) {
-          this.linkUserForm = { userId: "", username: "" };
+          this.linkModal.show = false;
           await this.refreshLinkedUsers();
           this.$dispatch("show-alert", { msg: "User linked", type: "success" });
         } else {
@@ -439,7 +449,16 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         this.linkBusy = false;
       }
     },
-    async unlinkLinkedUser(linkedUserId) {
+    confirmUnlinkLinkedUser(linkedUserId, linkedUsername) {
+      this.linkedUnlinkConfirm = {
+        show: true,
+        userId: linkedUserId,
+        username: linkedUsername,
+      };
+    },
+    async unlinkLinkedUser() {
+      const { userId: linkedUserId } = this.linkedUnlinkConfirm;
+      this.linkedUnlinkConfirm.show = false;
       const response = await fetch(
         `/api/users/${userId}/linked-users/${linkedUserId}`,
         { method: "DELETE", headers: { "Content-Type": "application/json" } },
