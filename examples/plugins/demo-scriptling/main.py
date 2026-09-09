@@ -11,6 +11,15 @@
 # permissions = ["view_dashboard", "admin_dashboard"]
 # logo_light = "assets/logo-light.svg"
 # logo_dark = "assets/logo-dark.svg"
+# icons = [
+#   "assets/edit.svg",
+#   "assets/notes.svg",
+#   "assets/play.svg",
+#   "assets/report.svg",
+#   "assets/restart.svg",
+#   "assets/stop.svg",
+#   "assets/archive.svg",
+# ]
 #
 # [[tool.knot.field_handlers]]
 # label = "Environments (demo plugin)"
@@ -153,8 +162,8 @@ def showcase(request):
                         "refresh": 30,
                         "width": 3,
                         "actions": [
-                            {"action": "notes", "label": "Notes", "icon": "document", "menu": True, "handler": "widget_notes"},
-                            {"action": "report", "label": "Run report", "icon": "info", "menu": True},
+                            {"action": "notes", "label": "Notes", "icon": "assets/notes.svg", "menu": True, "handler": "widget_notes"},
+                            {"action": "report", "label": "Run report", "icon": "assets/report.svg", "menu": True},
                         ],
                     },
                     {"id": "widget", "type": "form", "title": "New widget", "handler": "col_widget_form", "width": 1},
@@ -343,14 +352,14 @@ def _space_actions(name, state):
     # [[tool.knot.handlers]] above, standing on the page's own gate.
     actions = []
     if state == "running":
-        actions.append({"action": "stop", "label": "Stop " + name, "icon": "stop", "style": "danger", "confirm": "Stop " + name + "?"})
+        actions.append({"action": "stop", "label": "Stop " + name, "icon": "assets/stop.svg", "style": "danger", "confirm": "Stop " + name + "?"})
     else:
-        actions.append({"action": "start", "label": "Start " + name, "icon": "play", "style": "success"})
-    actions.append({"action": "edit", "label": "Edit " + name, "icon": "edit", "handler": "widget_edit"})
-    actions.append({"action": "notes", "label": "Notes", "icon": "document", "menu": True, "handler": "widget_notes"})
-    actions.append({"action": "restart", "label": "Restart " + name, "icon": "restart", "menu": True, "confirm": "Restart " + name + "?"})
-    actions.append({"action": "report", "label": "Run report", "icon": "info", "menu": True})
-    actions.append({"action": "archive", "label": "Archive " + name, "icon": "trash", "style": "danger", "menu": True, "confirm": "Archive " + name + "? This only hides it in the demo."})
+        actions.append({"action": "start", "label": "Start " + name, "icon": "assets/play.svg", "style": "success"})
+    actions.append({"action": "edit", "label": "Edit " + name, "icon": "assets/edit.svg", "handler": "widget_edit"})
+    actions.append({"action": "notes", "label": "Notes", "icon": "assets/notes.svg", "menu": True, "handler": "widget_notes"})
+    actions.append({"action": "restart", "label": "Restart " + name, "icon": "assets/restart.svg", "menu": True, "confirm": "Restart " + name + "?"})
+    actions.append({"action": "report", "label": "Run report", "icon": "assets/report.svg", "menu": True})
+    actions.append({"action": "archive", "label": "Archive " + name, "icon": "assets/archive.svg", "style": "danger", "menu": True, "confirm": "Archive " + name + "? This only hides it in the demo."})
     return actions
 
 

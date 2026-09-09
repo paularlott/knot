@@ -295,6 +295,12 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	if dict, ok := value.(map[string]any); ok {
 		if _, hasRows := dict["rows"].([]any); hasRows {
 			document := normalizePageDocument(value, user, plugin)
+			// The plugin's declared action-icon assets ride along once per
+			// page: sanitized markup at load, addressable by path from
+			// data-driven row action icons at render time.
+			if len(plugin.ActionIcons) > 0 {
+				document["icons"] = plugin.ActionIcons
+			}
 
 			tmpl, err := newTemplate("page-plugin.tmpl")
 			if err != nil {

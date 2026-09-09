@@ -51,6 +51,10 @@ func TestLoadExamplePlugins(t *testing.T) {
 	if len(scriptling.Libs) != 1 || scriptling.Libs[0].Name != "calc" {
 		t.Errorf("script libs = %+v, want calc", scriptling.Libs)
 	}
+	// Its row-action icons are its own declared assets, sanitized at load.
+	if len(scriptling.ActionIcons) != 7 || !strings.Contains(scriptling.ActionIcons["assets/archive.svg"], "<path") {
+		t.Errorf("demo-scriptling action icons = %+v", scriptling.ActionIcons)
+	}
 	// demo-scriptling ships a themed pair, which claims the site logo.
 	if !scriptling.SiteLogo {
 		t.Error("demo-scriptling's logo pair should claim the site logo")
@@ -125,6 +129,11 @@ func TestLoadExamplePlugins(t *testing.T) {
 		}
 		if cli2.Pages[0].Icon != "assets/icon.svg" || !strings.Contains(cli2.Pages[0].IconSVG, "<path") {
 			t.Errorf("demo-scriptlingcli2 page icon not loaded: %+v", cli2.Pages[0])
+		}
+		// Declared action-icon assets are sanitized at load and addressable
+		// by path from data-driven row actions.
+		if !strings.Contains(cli2.ActionIcons["assets/view.svg"], "<path") || !strings.Contains(cli2.ActionIcons["assets/delete.svg"], "<path") {
+			t.Errorf("demo-scriptlingcli2 action icons = %+v", cli2.ActionIcons)
 		}
 		if cli2.EntryFile != "" {
 			t.Errorf("demo-scriptlingcli2 must have no entry file, got %q", cli2.EntryFile)

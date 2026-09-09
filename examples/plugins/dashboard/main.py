@@ -4,6 +4,12 @@
 # [tool.knot]
 # version = "1.0.0"
 # description = "Your landing dashboard: spaces, live CPU / memory / disk aggregates, fleet history, and per-space usage. All data comes from knot.* over the loopback, as the requesting user."
+# icons = [
+#   "assets/edit.svg",
+#   "assets/play.svg",
+#   "assets/stop.svg",
+#   "assets/restart.svg",
+# ]
 #
 # [[tool.knot.pages]]
 # path = "/home"
@@ -70,7 +76,7 @@ def dashboard(request):
                         # handler puts space_edit in that set. Row actions
                         # (from col_spaces) replace this at render time.
                         "actions": [
-                            {"action": "edit", "label": "Edit", "icon": "edit", "handler": "space_edit"},
+                            {"action": "edit", "label": "Edit", "icon": "assets/edit.svg", "handler": "space_edit"},
                         ],
                     },
                 ],
@@ -312,12 +318,12 @@ def col_spaces(request):
             except Exception:
                 pass
         name = s.get("name", "?")
-        actions = [{"action": "edit", "label": "Edit " + name, "icon": "edit", "handler": "space_edit"}]
+        actions = [{"action": "edit", "label": "Edit " + name, "icon": "assets/edit.svg", "handler": "space_edit"}]
         if state == "running":
-            actions.insert(0, {"action": "stop", "label": "Stop " + name, "icon": "stop", "style": "danger", "confirm": "Stop " + name + "?"})
-            actions.append({"action": "restart", "label": "Restart " + name, "icon": "restart", "menu": True, "confirm": "Restart " + name + "?"})
+            actions.insert(0, {"action": "stop", "label": "Stop " + name, "icon": "assets/stop.svg", "style": "danger", "confirm": "Stop " + name + "?"})
+            actions.append({"action": "restart", "label": "Restart " + name, "icon": "assets/restart.svg", "menu": True, "confirm": "Restart " + name + "?"})
         else:
-            actions.insert(0, {"action": "start", "label": "Start " + name, "icon": "play", "style": "success"})
+            actions.insert(0, {"action": "start", "label": "Start " + name, "icon": "assets/play.svg", "style": "success"})
         rows.append(
             {
                 "id": name,

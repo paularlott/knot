@@ -84,6 +84,7 @@ var toolKnotKeys = map[string]bool{
 	"handlers":       true,
 	"mcp_tools":      true,
 	"field_handlers": true,
+	"icons":          true,
 }
 
 var mcpToolKeys = map[string]bool{
@@ -478,6 +479,29 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 				decl.Permission = QualifiedPermission(name, id)
 			}
 			p.Handlers = append(p.Handlers, decl)
+		}
+	}
+
+	// icons: SVG assets for data-driven row action icons. Menus and pages
+	// carry theirs statically; an action's icon arrives in handler JSON at
+	// runtime, so the assets are declared once here and sanitized at load
+	// like every other plugin asset.
+	if v, ok := table["icons"]; ok {
+		list, ok := v.([]any)
+		if !ok {
+			return nil, fmt.Errorf("[tool.knot]: icons must be a list of asset paths")
+		}
+		p.ActionIcons = make(map[string]string, len(list))
+		for i, raw := range list {
+			path, ok := raw.(string)
+			if !ok || path == "" {
+				return nil, fmt.Errorf("[tool.knot]: icons[%d] must be an asset path", i)
+			}
+			var inner string
+			if err := p.loadIcon(pluginDir, &path, &inner, fmt.Sprintf("icons[%d]", i)); err != nil {
+				return nil, err
+			}
+			p.ActionIcons[path] = inner
 		}
 	}
 

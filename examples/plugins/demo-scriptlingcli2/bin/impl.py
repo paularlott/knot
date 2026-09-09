@@ -43,8 +43,10 @@ def notes_page(request):
                         # if the layout names it: a column-level action with a
                         # handler puts note_view in that set. The rows' own
                         # actions lists replace the column's at render time.
+                        # Action icons are the plugin's own SVG assets,
+                        # declared in [tool.knot] icons.
                         "actions": [
-                            {"action": "view", "label": "View note", "icon": "document", "handler": "note_view"},
+                            {"action": "view", "label": "View note", "icon": "assets/view.svg", "handler": "note_view"},
                         ],
                     },
                 ],
@@ -110,8 +112,8 @@ def col_notes(request):
                 "note": note.get("text", ""),
                 "added": note.get("created_at", ""),
                 "actions": [
-                    {"action": "view", "label": "View note", "icon": "document", "handler": "note_view"},
-                    {"action": "delete", "label": "Delete", "icon": "trash", "style": "danger", "confirm": "Delete this note?"},
+                    {"action": "view", "label": "View note", "icon": "assets/view.svg", "handler": "note_view"},
+                    {"action": "delete", "label": "Delete", "icon": "assets/delete.svg", "style": "danger", "confirm": "Delete this note?"},
                 ],
             }
         )

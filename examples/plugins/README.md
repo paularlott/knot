@@ -26,8 +26,10 @@ A folder plugin (`main.py` + `assets/`) declaring:
   tools, which reach a plugin only via `knot.plugin.call`); its self-gating
   `gated_report()` shows an ungated cross-plugin import carrying its own
   `knot.identity.user()` permission check;
-- **its own SVG icons**: every item uses `assets/icon.svg`, a
-  currentColor-stroked SVG that themes with the UI like knot's built-ins.
+- **its own SVG icons**: every menu/page item uses `assets/icon.svg`, a
+  currentColor-stroked SVG that themes with the UI like knot's built-ins,
+  and its row-action buttons use its own declared assets (the `icons` list
+  in its metadata) — knot ships no built-in action set.
 
 **Logos**: demo-scriptling declares a themed `logo_light`/`logo_dark` pair;
 demo-go declares only `logo_light`, which knot copies to the dark slot so one

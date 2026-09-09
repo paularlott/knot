@@ -25,6 +25,7 @@ plugin_srv.serve(
             "version": "1.0.0",
             "description": "Demo plugin whose entire self lives in a scriptling CLI peer: the peer serves both the [tool.knot] manifest (as handshake metadata, parsed exactly like a main.py block) and every handler, so the folder ships no main.py at all. knot spawns the script like a binary — the shebang hands it to the scriptling CLI — and the CLI's sqlite driver backs a small persistent notes store. The wrap-and-extend sibling, demo-scriptlingcli, keeps a main.py to orchestrate its peer; this one shows the fully self-contained flavour. Requires the scriptling CLI on the server's PATH.",
             "permissions": ["use_notes"],
+            "icons": ["assets/view.svg", "assets/delete.svg"],
             "pages": [
                 {
                     "path": "/notes",

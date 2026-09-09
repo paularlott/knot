@@ -141,6 +141,13 @@ type Plugin struct {
 	FieldHandlers []FieldHandler   `json:"field_handlers"`
 	Libs          []ScriptLib      `json:"libs,omitempty"`
 
+	// ActionIcons maps declared icon asset paths to their sanitized inner
+	// SVG markup ([tool.knot] icons). Menus and pages carry their icons
+	// statically; row actions are data-driven, so their icons are declared
+	// once here, sanitized at load like every other plugin asset, and
+	// addressable by path from a handler's action JSON at runtime.
+	ActionIcons map[string]string `json:"icons,omitempty"`
+
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem. Empty for a peer plugin with
 	// no main.py.

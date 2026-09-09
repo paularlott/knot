@@ -79,6 +79,17 @@ function tpl(id) {
   return template.content.firstElementChild.cloneNode(true);
 }
 
+// chromeIcon clones one of knot's own runtime icons (the pb-icon-* template
+// fragments in plugin-block-templates.tmpl): dialog headers, the kebab
+// trigger, the modal close button — presentation lives with the other block
+// fragments, cloned on demand. Plugin action icons are declared SVG assets
+// and come from the page document's icons map instead.
+export function chromeIcon(name, className) {
+  const svg = tpl(`pb-icon-${name}`);
+  if (className) svg.setAttribute('class', className);
+  return svg;
+}
+
 // q finds a slot that may be the cloned root itself or a descendant of it
 // (querySelector alone misses roots, and several templates carry their slot
 // attribute on the root element).
