@@ -143,24 +143,51 @@ func resolveBinPeers(binDir string) ([]resolvedPeer, []string) {
 // owned by the plugin (invisible to other plugins). A binary that fails to
 // spawn or handshake is a warning here; if the plugin's metadata declared a
 // requirement on it, verification afterwards fails the plugin through the
-// normal path.
-func loadPeers(pluginName, pluginDir string, newManager func() *plugin.Manager) (*plugin.Manager, []string, error) {
+// normal path. The loaded clients are returned alongside the scope so the
+// caller can talk to a peer directly (asset fetches).
+func loadPeers(pluginName, pluginDir string, newManager func() *plugin.Manager) (*plugin.Manager, map[string]*plugin.Client, []string, error) {
 	binDir := filepath.Join(pluginDir, "bin")
 	peers, warnings := resolveBinPeers(binDir)
 	if len(peers) == 0 {
-		return nil, warnings, nil
+		return nil, nil, warnings, nil
 	}
 
 	scope := newManager().NewScope(plugin.WithTransport(plugin.TransportStdio))
+	clients := make(map[string]*plugin.Client, len(peers))
 	for _, peer := range peers {
 		ctx, cancel := context.WithTimeout(context.Background(), peerLoadTimeout)
-		if _, err := scope.LoadPlugin(ctx, peer.path, nil); err != nil {
+		client, err := scope.LoadPlugin(ctx, peer.path, nil)
+		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("bin/%s failed to load: %v", filepath.Base(peer.path), err))
+		} else if client != nil {
+			clients[client.Metadata().Name] = client
 		}
 		cancel()
 	}
 	for _, w := range scope.Warnings() {
 		warnings = append(warnings, "bin: "+w)
 	}
-	return scope, warnings, nil
+	return scope, clients, warnings, nil
+}
+
+// peerAssetFetcher picks the plugin's asset-serving peer, in the scope's
+// declaration order: the first peer advertising a fetcher. It returns a
+// read function addressing that peer's fetcher at its scheme root with the
+// declared asset path, or nil when no peer serves assets — the plugin
+// folder on disk is then the only source, exactly as before.
+func peerAssetFetcher(scope *plugin.Manager, clients map[string]*plugin.Client) func(ctx context.Context, path string) ([]byte, error) {
+	if scope == nil || len(clients) == 0 {
+		return nil
+	}
+	for _, md := range scope.List() {
+		client, ok := clients[md.Name]
+		if !ok || !client.SupportsFetch() {
+			continue
+		}
+		source := client.Scheme() + "://"
+		return func(ctx context.Context, path string) ([]byte, error) {
+			return client.FetchFile(ctx, source, path)
+		}
+	}
+	return nil
 }

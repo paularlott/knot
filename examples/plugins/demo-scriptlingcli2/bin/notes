@@ -45,4 +45,9 @@ plugin_srv.register_function("col_notes", "impl.col_notes")
 plugin_srv.register_function("col_add", "impl.col_add")
 plugin_srv.register_function("note_view", "impl.note_view")
 
+# Serve the declared assets from the script itself (impl.py inlines the
+# SVGs) — the scriptling single-file equivalent of a Go peer's embedded
+# assets, so the plugin folder is bin/ alone.
+plugin_srv.register_fetcher("notes", "impl.fetch_read")
+
 runtime.start_server()

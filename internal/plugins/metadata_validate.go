@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/scriptling/metadata"
+	pluginpkg "github.com/paularlott/scriptling/plugin"
 )
 
 // pluginEnvLibraries are the library names knot registers in plugin handler
@@ -162,9 +165,55 @@ func apiVersionValue(v any) (int, error) {
 	}
 }
 
-// parseToolKnot validates the [tool.knot] table into a Plugin. pluginDir is
-// the plugin folder. All validation is static — no plugin code runs.
-func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error) {
+// assetSource reads a plugin's declared assets. A peer plugin may serve
+// them from its own fetcher (a Go peer embedding its assets: the single
+// binary), so reads go peer-first when one of the plugin's peers advertises
+// a fetcher; anything else — no peer, no fetcher, a fetch miss — reads the
+// file on disk exactly as before. Peer-served bytes are recorded in the
+// cache so the HTTP asset handler can serve them from memory: for those
+// assets the plugin folder needs no files on disk at all.
+type assetSource struct {
+	dir   string
+	fetch func(ctx context.Context, path string) ([]byte, error) // nil: no fetcher-capable peer
+	cache map[string][]byte
+}
+
+// Read returns one declared asset's bytes, peer-first, disk second. A fetch
+// answer other than not-found (a refused or flaky backend) also falls back
+// to disk — the disk file remains the authoritative last word on whether a
+// declared asset exists, so a sick peer can only degrade, never invent.
+func (s *assetSource) Read(ctx context.Context, path string) ([]byte, error) {
+	if s.fetch != nil {
+		if b, err := s.fetch(ctx, path); err == nil {
+			if s.cache == nil {
+				s.cache = map[string][]byte{}
+			}
+			s.cache[path] = b
+			return b, nil
+		} else if !errors.Is(err, pluginpkg.ErrFetchNotFound) {
+			// fall through to disk
+		}
+	}
+	return os.ReadFile(filepath.Join(s.dir, filepath.FromSlash(filepath.Clean(path))))
+}
+
+// validateAssetShape checks that a declared asset path is relative and
+// stays inside the plugin folder. Existence is the asset source's call —
+// the asset may live on disk or inside the peer.
+func validateAssetShape(rel string) error {
+	if filepath.IsAbs(rel) || strings.HasPrefix(rel, "..") || strings.Contains(rel, "\\") {
+		return fmt.Errorf("path %q must be relative and stay inside the plugin folder", rel)
+	}
+	clean := filepath.Clean(rel)
+	if clean == "." || strings.HasPrefix(clean, "..") {
+		return fmt.Errorf("path %q must stay inside the plugin folder", rel)
+	}
+	return nil
+}
+
+// parseToolKnot validates the [tool.knot] table into a Plugin. All
+// validation is static — no plugin code runs.
+func parseToolKnot(ctx context.Context, name string, src *assetSource, table map[string]any) (*Plugin, error) {
 	// Absent api means generation 1 — every plugin defaults to today's
 	// contract unless it explicitly targets a newer one.
 	p := &Plugin{Name: name, APIVersion: 1}
@@ -259,7 +308,12 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 		if !ok || rel == "" {
 			return nil, fmt.Errorf("[tool.knot]: %s must be a non-empty relative path", key)
 		}
-		if err := validateAssetPath(pluginDir, rel); err != nil {
+		if err := validateAssetShape(rel); err != nil {
+			return nil, fmt.Errorf("[tool.knot]: %s: %w", key, err)
+		}
+		// Existence is the source's call: a peer may serve the logo from
+		// inside itself (single-binary plugin), else the disk file stands.
+		if _, err := src.Read(ctx, rel); err != nil {
 			return nil, fmt.Errorf("[tool.knot]: %s: %w", key, err)
 		}
 		*field = rel
@@ -298,7 +352,7 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 	}
 
 	for i := range p.Menus {
-		if err := p.loadIcon(pluginDir, &p.Menus[i].Icon, &p.Menus[i].IconSVG, fmt.Sprintf("menus[%d]", i)); err != nil {
+		if err := p.loadIcon(ctx, src, &p.Menus[i].Icon, &p.Menus[i].IconSVG, fmt.Sprintf("menus[%d]", i)); err != nil {
 			return nil, err
 		}
 	}
@@ -535,7 +589,7 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 				return nil, fmt.Errorf("[tool.knot]: icons[%d] must be an asset path", i)
 			}
 			var inner string
-			if err := p.loadIcon(pluginDir, &path, &inner, fmt.Sprintf("icons[%d]", i)); err != nil {
+			if err := p.loadIcon(ctx, src, &path, &inner, fmt.Sprintf("icons[%d]", i)); err != nil {
 				return nil, err
 			}
 			p.ActionIcons[path] = inner
@@ -547,7 +601,7 @@ func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error
 	// built from the plugin name directly — PluginName is set on pages only
 	// after parsing completes.
 	for i := range p.Pages {
-		if err := p.loadIcon(pluginDir, &p.Pages[i].Icon, &p.Pages[i].IconSVG, fmt.Sprintf("pages[%d]", i)); err != nil {
+		if err := p.loadIcon(ctx, src, &p.Pages[i].Icon, &p.Pages[i].IconSVG, fmt.Sprintf("pages[%d]", i)); err != nil {
 			return nil, err
 		}
 		if p.Pages[i].MenuLabel != "" {
@@ -572,17 +626,17 @@ const iconMaxBytes = 64 * 1024
 // plugin folder, size-capped, whose inner markup is safe to render inline.
 // The inner markup is extracted and stored; knot wraps it in the site's <svg>
 // attributes, so a currentColor-stroked icon themes like the built-ins.
-func (p *Plugin) loadIcon(pluginDir string, decl *string, inner *string, where string) error {
+func (p *Plugin) loadIcon(ctx context.Context, src *assetSource, decl *string, inner *string, where string) error {
 	if *decl == "" {
 		return nil
 	}
-	if err := validateAssetPath(pluginDir, *decl); err != nil {
+	if err := validateAssetShape(*decl); err != nil {
 		return fmt.Errorf("[tool.knot]: %s: icon: %w", where, err)
 	}
 	if strings.ToLower(filepath.Ext(*decl)) != ".svg" {
 		return fmt.Errorf("[tool.knot]: %s: icon must be an .svg asset in the plugin folder", where)
 	}
-	content, err := os.ReadFile(filepath.Join(pluginDir, filepath.FromSlash(filepath.Clean(*decl))))
+	content, err := src.Read(ctx, *decl)
 	if err != nil {
 		return fmt.Errorf("[tool.knot]: %s: icon: %w", where, err)
 	}
@@ -738,25 +792,4 @@ func parsePage(pluginName string, index int, table map[string]any, declared map[
 		page.Default = b
 	}
 	return page, nil
-}
-
-// validateAssetPath checks that rel is a clean relative path that resolves
-// inside pluginDir and refers to an existing regular file.
-func validateAssetPath(pluginDir, rel string) error {
-	if filepath.IsAbs(rel) || strings.HasPrefix(rel, "..") || strings.Contains(rel, "\\") {
-		return fmt.Errorf("path %q must be relative and stay inside the plugin folder", rel)
-	}
-	clean := filepath.Clean(rel)
-	if clean == "." || strings.HasPrefix(clean, "..") {
-		return fmt.Errorf("path %q must stay inside the plugin folder", rel)
-	}
-	full := filepath.Join(pluginDir, clean)
-	info, err := os.Stat(full)
-	if err != nil {
-		return fmt.Errorf("asset %q not found", rel)
-	}
-	if info.IsDir() {
-		return fmt.Errorf("asset %q is a directory", rel)
-	}
-	return nil
 }

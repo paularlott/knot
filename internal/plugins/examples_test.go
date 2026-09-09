@@ -94,6 +94,16 @@ func TestLoadExamplePlugins(t *testing.T) {
 		if !demoGo.SiteLogo || demoGo.LogoLight == "" || demoGo.LogoDark != demoGo.LogoLight {
 			t.Errorf("demo-go single logo not copied to both slots: %q / %q", demoGo.LogoLight, demoGo.LogoDark)
 		}
+		// The single-binary contract: the peer embeds its assets and serves
+		// them from its fetcher — the plugin folder has no assets/ at all,
+		// so the logo and page icon must have come over the wire (and be
+		// servable from memory).
+		if len(demoGo.Assets) == 0 || len(demoGo.Assets["assets/logo-light.svg"]) == 0 {
+			t.Errorf("demo-go embedded assets not fetched from the peer: %+v", demoGo.Assets)
+		}
+		if !strings.Contains(demoGo.Pages[0].IconSVG, "<path") {
+			t.Errorf("demo-go page icon not loaded from the peer's fetcher")
+		}
 		peers := registry.Peers(demoGo)
 		// A peer declaring the bare name "demolib" is registered under
 		// scriptling's host-owned plugin. namespace.
@@ -110,10 +120,13 @@ func TestLoadExamplePlugins(t *testing.T) {
 	}
 
 	// demo-scriptlingcli2 is the pure scriptling-CLI peer: its handshake
-	// metadata is the plugin's only manifest (the folder ships no main.py).
-	// With the CLI on PATH the plugin loads from that manifest; without it
-	// the peer cannot spawn, so the plugin is named as failed on the admin
-	// Plugins page. Both are valid, so the test asserts whichever holds.
+	// metadata is the plugin's only manifest (the folder ships no main.py),
+	// and its assets are inlined in the script and served from the peer's
+	// fetcher (register_fetcher — needs a scriptling CLI 0.24.5 or newer;
+	// the folder has no assets/ at all). With such a CLI on PATH the plugin
+	// loads from the handshake manifest; without it the peer cannot spawn,
+	// so the plugin is named as failed on the admin Plugins page. Both are
+	// valid, so the test asserts whichever holds.
 	var cli2 *Plugin
 	for _, p := range registry.All() {
 		if p.Name == "demo-scriptlingcli2" {
@@ -134,6 +147,11 @@ func TestLoadExamplePlugins(t *testing.T) {
 		// by path from data-driven row actions.
 		if !strings.Contains(cli2.ActionIcons["assets/view.svg"], "<path") || !strings.Contains(cli2.ActionIcons["assets/delete.svg"], "<path") {
 			t.Errorf("demo-scriptlingcli2 action icons = %+v", cli2.ActionIcons)
+		}
+		// Single-file plugin: the assets have no disk files — they must
+		// have come from the peer's fetcher and be servable from memory.
+		if len(cli2.Assets["assets/icon.svg"]) == 0 || len(cli2.Assets["assets/view.svg"]) == 0 {
+			t.Errorf("demo-scriptlingcli2 assets not fetched from the peer: %+v", cli2.Assets)
 		}
 		if cli2.EntryFile != "" {
 			t.Errorf("demo-scriptlingcli2 must have no entry file, got %q", cli2.EntryFile)

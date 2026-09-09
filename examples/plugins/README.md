@@ -102,10 +102,14 @@ over the protocol.
 Where `demo-scriptlingcli` wraps a peer *and extends it* with scriptling
 handlers, `demo-scriptlingcli2` (and `demo-go`) show the fully
 self-contained flavour: one executable carries the manifest and the whole
-handler surface, whatever language it is written in. Between them the two
-CLI demos are an encapsulation toolkit — wrap and extend an existing
-binary, or ship a binary (or script) that declares itself. Also requires
-the scriptling CLI on the server's PATH; without it the peer cannot
+handler surface, whatever language it is written in. It is also a
+**single-file plugin** — no `assets/` either: `impl.py` inlines the SVGs
+and the peer serves them from its fetcher (`register_fetcher`), the
+scriptling equivalent of `demo-go`'s embedded assets, so the folder is
+`bin/` alone. Between them the two CLI demos are an encapsulation toolkit —
+wrap and extend an existing binary, or ship a binary (or script) that
+declares itself. Also requires the scriptling CLI on the server's PATH
+(with `register_fetcher`, 0.24.5); without it the peer cannot
 handshake, so the plugin is named as failed on the admin Plugins page
 (its manifest has no other source).
 
@@ -119,7 +123,13 @@ carried in the handshake's custom metadata), and its handler surface as
 registered functions. knot parses the manifest exactly like a pure-script
 plugin's block, and addresses each handler as `plugin.demolib.<fn>`. Its
 page at `/plugins/demo-go/status` and every column/handler it names run in
-the Go process. Build the peer first:
+the Go process.
+
+It is also the **single-binary** demo: the peer embeds its icon and logo
+(`peer/assets/`, `go:embed`) and serves them from its fetcher
+(`RegisterFetcher`), so the plugin folder is `bin/` alone — knot reads
+declared assets peer-first and falls back to the plugin folder on disk, so
+an `assets/` folder is optional for any peer plugin. Build the peer first:
 
 ```sh
 cd examples/plugins/demo-go && make

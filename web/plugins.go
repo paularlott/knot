@@ -89,6 +89,13 @@ func HandlePluginAsset(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "private, max-age=300")
+	// A peer-served asset (a binary plugin embedding its assets) was
+	// fetched once at load: serve those bytes. Everything else streams
+	// from the plugin folder as before.
+	if content, cached := plugin.Assets[assetPath]; cached {
+		w.Write(content)
+		return
+	}
 	http.ServeFile(w, r, filepath.Join(plugin.Dir, filepath.FromSlash(assetPath)))
 }
 

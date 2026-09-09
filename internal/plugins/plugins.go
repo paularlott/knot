@@ -26,6 +26,7 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -154,6 +155,12 @@ type Plugin struct {
 	// once here, sanitized at load like every other plugin asset, and
 	// addressable by path from a handler's action JSON at runtime.
 	ActionIcons map[string]string `json:"icons,omitempty"`
+
+	// Assets holds the declared assets a peer served from its own fetcher
+	// (an embedded-assets binary plugin), fetched once at load and served
+	// from memory. Empty when every asset came from the plugin folder on
+	// disk — those keep streaming from disk as before.
+	Assets map[string][]byte `json:"-"`
 
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem. Empty for a peer plugin with
@@ -752,7 +759,7 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 	// Load peers before parsing the manifest and verifying requirements: a
 	// peer plugin's declarations live in the peer's handshake, and a
 	// main.py plugin's declared peer versions must satisfy its metadata.
-	scope, peerWarnings, err := loadPeers(c.name, c.dir, newManager)
+	scope, peerClients, peerWarnings, err := loadPeers(c.name, c.dir, newManager)
 	warnings = append(warnings, peerWarnings...)
 	if err != nil {
 		return nil, warnings, err
@@ -765,10 +772,16 @@ func loadPlugin(c candidate, newManager func() *plugin.Manager) (*Plugin, []stri
 		return nil, warnings, err
 	}
 
-	p, err := parseToolKnot(c.name, c.dir, knotTable)
+	// Declared assets read peer-first (a fetcher-serving peer may carry
+	// them inside itself — the single-binary plugin), disk second.
+	src := &assetSource{dir: c.dir, fetch: peerAssetFetcher(scope, peerClients)}
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), peerLoadTimeout)
+	defer parseCancel()
+	p, err := parseToolKnot(parseCtx, c.name, src, knotTable)
 	if err != nil {
 		return nil, warnings, err
 	}
+	p.Assets = src.cache
 	p.Dir = c.dir
 	p.EntryFile = c.path
 	p.EntrySource = string(source)

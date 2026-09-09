@@ -4187,6 +4187,12 @@ const scriptlingLibraries = [
         returns: "None",
       },
       {
+        name: "register_fetcher",
+        signature: "register_fetcher(scheme, read_handler, glob_handler=None)",
+        description: "Serve sources from this plugin server.",
+        returns: "None",
+      },
+      {
         name: "register_class",
         signature: "register_class(handler)",
         description: "Register a class exported by the plugin server, or use as bare decorator.",

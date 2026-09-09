@@ -17,16 +17,56 @@
 //     every handler: {method, path, params, user}.
 //
 // This is the demonstration of a plugin whose logic lives entirely in a
-// native peer: no scriptling in the plugin folder at all, just bin/ + assets/.
+// native peer: no scriptling in the plugin folder at all — and with the
+// assets embedded below, nothing but the binary. The peer serves its
+// declared icon and logo from its own fetcher at load; knot falls back to
+// the plugin folder on disk for any asset the fetcher misses, so an
+// assets/ folder is optional, not required.
 package main
 
 import (
+	"context"
+	"embed"
+	"fmt"
+	"io/fs"
 	"runtime"
 	"time"
 
 	"github.com/paularlott/scriptling/object"
 	"github.com/paularlott/scriptling/plugin"
 )
+
+//go:embed assets
+var embeddedAssets embed.FS
+
+// assetFetcher serves the plugin's declared assets from the embedded FS at
+// the "demolib://" scheme root: Read answers a declared path verbatim, Glob
+// answers the fetch glob language over the embedded tree.
+type assetFetcher struct{}
+
+func (assetFetcher) Read(ctx context.Context, source, path string) ([]byte, error) {
+	data, err := embeddedAssets.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", plugin.ErrFetchNotFound, path)
+	}
+	return data, nil
+}
+
+func (assetFetcher) Glob(ctx context.Context, source, pattern string) ([]plugin.FetchEntry, error) {
+	matches, err := fs.Glob(embeddedAssets, pattern)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]plugin.FetchEntry, 0, len(matches))
+	for _, name := range matches {
+		entry := plugin.FetchEntry{Name: name}
+		if info, err := fs.Stat(embeddedAssets, name); err == nil && info.IsDir() {
+			entry.IsDir = true
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
 
 // manifest is the plugin's [tool.knot] declaration table, returned verbatim
 // in the handshake's custom metadata. It is a constant — it never varies
@@ -169,6 +209,10 @@ func round3(v float64) float64 {
 
 func main() {
 	server := plugin.NewServer("demolib", "1.0.0", "Demonstration Go binary peer for the knot demo-go plugin.")
+
+	// The plugin's declared assets (icon, logo), served from inside the
+	// binary — the single-binary plugin's answer to an assets/ folder.
+	server.RegisterFetcher("demolib", assetFetcher{})
 
 	// The manifest: the plugin's static declarations, carried in the
 	// handshake's custom metadata for knot to parse.

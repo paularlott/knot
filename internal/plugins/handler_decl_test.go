@@ -54,9 +54,9 @@ func TestHandlerDeclParsing(t *testing.T) {
 
 func TestHandlerDeclValidation(t *testing.T) {
 	cases := []struct {
-		name   string
-		body   string
-		match  string
+		name  string
+		body  string
+		match string
 	}{
 		{"unknown key", `
 [tool.knot]
