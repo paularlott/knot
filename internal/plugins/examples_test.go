@@ -14,7 +14,8 @@ import (
 // the peer is present its handshake satisfies the metadata dependency and
 // the plugin loads with a healthy peer; when it is not, the plugin fails
 // with the missing-plugin requirement — both are valid outcomes, so the
-// test asserts whichever holds.
+// test asserts whichever holds. demo-scriptlingcli2 (the pure scriptling
+// CLI peer) is likewise load-gated on the scriptling CLI being on PATH.
 func TestLoadExamplePlugins(t *testing.T) {
 	examples := filepath.Join("..", "..", "examples", "plugins")
 	if _, err := os.Stat(examples); err != nil {
@@ -101,6 +102,47 @@ func TestLoadExamplePlugins(t *testing.T) {
 		// simply absent: neither loaded nor failed.
 		if demoGo != nil {
 			t.Fatalf("demo-go loaded without its peer; want it absent")
+		}
+	}
+
+	// demo-scriptlingcli2 is the pure scriptling-CLI peer: its handshake
+	// metadata is the plugin's only manifest (the folder ships no main.py).
+	// With the CLI on PATH the plugin loads from that manifest; without it
+	// the peer cannot spawn, so the plugin is named as failed on the admin
+	// Plugins page. Both are valid, so the test asserts whichever holds.
+	var cli2 *Plugin
+	for _, p := range registry.All() {
+		if p.Name == "demo-scriptlingcli2" {
+			cli2 = p
+		}
+	}
+	if cli2 != nil {
+		if len(cli2.Permissions) != 1 || cli2.Permissions[0].Id != "plugin.demo-scriptlingcli2.use_notes" {
+			t.Errorf("demo-scriptlingcli2 permissions = %+v", cli2.Permissions)
+		}
+		if len(cli2.Pages) != 1 || cli2.Pages[0].Path != "/notes" || cli2.Pages[0].Handler != "notes_page" {
+			t.Errorf("demo-scriptlingcli2 pages = %+v", cli2.Pages)
+		}
+		if cli2.Pages[0].Icon != "assets/icon.svg" || !strings.Contains(cli2.Pages[0].IconSVG, "<path") {
+			t.Errorf("demo-scriptlingcli2 page icon not loaded: %+v", cli2.Pages[0])
+		}
+		if cli2.EntryFile != "" {
+			t.Errorf("demo-scriptlingcli2 must have no entry file, got %q", cli2.EntryFile)
+		}
+		// With no main.py, the sole peer's handshake name is the namespace
+		// bare handler declarations resolve under.
+		if ns := cli2.DefaultNamespace(); ns != "notes" {
+			t.Errorf("demo-scriptlingcli2 default namespace = %q, want notes", ns)
+		}
+	} else {
+		failed := false
+		for _, f := range registry.Failed() {
+			if f.Name == "demo-scriptlingcli2" {
+				failed = true
+			}
+		}
+		if !failed {
+			t.Fatalf("demo-scriptlingcli2 neither loaded nor failed; failed = %+v", registry.Failed())
 		}
 	}
 }

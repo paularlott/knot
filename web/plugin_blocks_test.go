@@ -93,6 +93,41 @@ func TestNormalizePageDocument(t *testing.T) {
 	}
 }
 
+// TestLayoutHandlerSetPinsPopupHandlers pins the fetch-time gate's source
+// of servable handlers: a column's data handler plus the popup handlers its
+// column-level actions name. A handler referenced only from table DATA
+// (row actions) is deliberately absent — the layout must name it, which is
+// why a popup action is declared on the column in the layout even though
+// row actions replace the column's set at render time.
+func TestLayoutHandlerSetPinsPopupHandlers(t *testing.T) {
+	config.SetServerConfig(&config.ServerConfig{})
+
+	doc := normalizePageDocument(map[string]any{
+		"rows": []any{
+			map[string]any{"columns": []any{
+				map[string]any{"id": "add", "type": "form", "handler": "col_add", "width": 1},
+				map[string]any{
+					"id":      "notes",
+					"type":    "table",
+					"handler": "col_notes",
+					"width":   3,
+					"actions": []any{map[string]any{"action": "view", "icon": "document", "handler": "note_view"}},
+				},
+			}},
+		},
+	}, pageAdminUser(), demoPlugin())
+
+	offered := layoutHandlerSet(doc)
+	for _, handler := range []string{"col_add", "col_notes", "note_view"} {
+		if !offered[handler] {
+			t.Errorf("handler %q not offered by the layout: %v", handler, offered)
+		}
+	}
+	if offered["row_only_action"] {
+		t.Errorf("nothing may hand out handlers the layout never named: %v", offered)
+	}
+}
+
 // TestWritePluginJSONColumnPassthrough pins the transport rule: a handler
 // payload passes through untouched - its "rows" is data (a table's rows),
 // never re-interpreted as a page layout.

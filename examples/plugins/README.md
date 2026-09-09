@@ -1,6 +1,6 @@
 # Example knot plugins
 
-Three example plugins for the knot plugin system (docs: `knot-website/content/docs/plugins/`).
+Five example plugins for the knot plugin system (docs: `knot-website/content/docs/plugins/`).
 Run a server pointed at this folder:
 
 ```sh
@@ -61,7 +61,7 @@ permission-checked path MCP tools use, running as the requesting user:
 Every user sees their own data: no permissions to grant, no configuration.
 Unlike the demos, this one claims the login landing spot by design.
 
-## demo-scriptlingcli: script plugin with a scriptling CLI peer
+## demo-scriptlingcli: wrap a binary peer with scriptling (main.py + bin/)
 
 A folder plugin whose `bin/kvstore` peer is a **scriptling script that looks
 like a binary**: an executable whose shebang (`#!/usr/bin/env -S
@@ -69,11 +69,43 @@ scriptling --json-rpc`) hands it to the scriptling CLI, which serves the
 plugin protocol with the database drivers compiled in — knot links none of
 them. The peer's `impl.py` companion backs a small sqlite key/value store
 (`kvstore.db`, persisted beside the executable), and the page calls it
-through the same auto-generated stubs a Go peer gets. This plugin keeps a
-`main.py` for its scriptling page handlers (addressed as
-`plugin.demo_scriptlingcli.<fn>`), which compose the peer's `plugin.kvstore`
-surface. Requires the scriptling CLI on the server's PATH; without it the
-plugin fails its requirements at load (named on the admin Plugins page).
+through the same auto-generated stubs a Go peer gets.
+
+This is the **wrap-and-extend** shape: the peer stays a self-contained unit
+(here a kvstore; in the wild, an existing tool or SDK binary you don't want
+to touch), and the plugin keeps a `main.py` — its scriptling page handlers
+(addressed as `plugin.demo_scriptlingcli.<fn>`) compose and extend the
+peer's `plugin.kvstore` surface with page logic, presentation and gates the
+peer knows nothing about. The manifest lives in `main.py` (a `main.py` block
+wins when both exist). Requires the scriptling CLI on the server's PATH;
+without it the plugin fails its requirements at load (named on the admin
+Plugins page).
+
+## demo-scriptlingcli2: pure scriptling CLI peer (no main.py)
+
+The same peer, promoted to the whole plugin: **the folder ships no
+`main.py` at all**. `bin/notes` serves everything — its `serve(...,
+metadata={"tool.knot": {...}})` call delivers the plugin's declaration
+table in the handshake (knot parses it exactly like a `main.py` metadata
+block, the same model as the Go peer's `SetMetadata`), and every handler
+the manifest names (`notes_page`, `col_notes`, `col_add`) is a function the
+peer exports, addressed as `plugin.notes.<fn>`. The `impl.py` companion
+holds the implementation (a peer's handlers must resolve from a module,
+not the entry script) — a small sqlite notes store (`notes.db`, persisted
+beside the executable) with an Ace-edited textarea (markdown), a table
+with per-row view (a markdown popup with the full note, server-rendered)
+and delete actions, so the page exercises the full read/write cycle
+over the protocol.
+
+Where `demo-scriptlingcli` wraps a peer *and extends it* with scriptling
+handlers, `demo-scriptlingcli2` (and `demo-go`) show the fully
+self-contained flavour: one executable carries the manifest and the whole
+handler surface, whatever language it is written in. Between them the two
+CLI demos are an encapsulation toolkit — wrap and extend an existing
+binary, or ship a binary (or script) that declares itself. Also requires
+the scriptling CLI on the server's PATH; without it the peer cannot
+handshake, so the plugin is named as failed on the admin Plugins page
+(its manifest has no other source).
 
 ## demo-go: pure peer plugin (Go binary, no main.py)
 

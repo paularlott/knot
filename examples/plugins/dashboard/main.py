@@ -58,7 +58,21 @@ def dashboard(request):
             },
             {
                 "columns": [
-                    {"id": "fleet", "type": "table", "title": "Spaces", "handler": "col_spaces", "refresh": 30, "width": 4},
+                    {
+                        "id": "fleet",
+                        "type": "table",
+                        "title": "Spaces",
+                        "handler": "col_spaces",
+                        "refresh": 30,
+                        "width": 4,
+                        # The fetch-time gate serves an undeclared handler only
+                        # if the layout names it: a column-level action with a
+                        # handler puts space_edit in that set. Row actions
+                        # (from col_spaces) replace this at render time.
+                        "actions": [
+                            {"action": "edit", "label": "Edit", "icon": "edit", "handler": "space_edit"},
+                        ],
+                    },
                 ],
             },
         ]

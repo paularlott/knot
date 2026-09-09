@@ -39,8 +39,7 @@
 build/test/
 __pycache__/
 
-# built demo plugin binary peers
-examples/plugins/*/bin/
-# ...except the scriptling CLI peer, whose bin/ is source not a build artifact
-!examples/plugins/demo-scriptlingcli/bin/
-examples/plugins/demo-scriptlingcli/bin/*.db
+# built demo plugin binary peers (demo-go's Makefile output) and peer
+# runtime databases — a scriptling CLI peer's bin/ is source, not artifacts
+examples/plugins/*/bin/demolib_*
+examples/plugins/*/bin/*.db

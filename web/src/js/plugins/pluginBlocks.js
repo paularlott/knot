@@ -9,6 +9,17 @@
 // containing focus are never patched mid-interaction, and popup open state
 // survives. Diffing is strictly block-granular — never inside a block.
 
+import ace from 'ace-builds/src-noconflict/ace';
+import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/theme-github_dark';
+import 'ace-builds/src-noconflict/mode-text';
+import 'ace-builds/src-noconflict/mode-markdown';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/mode-toml';
+import 'ace-builds/src-noconflict/mode-json';
+import 'ace-builds/src-noconflict/mode-sh';
+import 'ace-builds/src-noconflict/mode-python';
+
 const PLUGIN_CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316'];
 
 // safeColor gates plugin-supplied colour values before they reach a DOM
@@ -153,11 +164,99 @@ export function initPluginChart(canvas, block) {
   new window.Chart(canvas, config); // eslint-disable-line no-new
 }
 
-// renderBlock builds one block's DOM. The returned element carries
-// data-block-type / data-block-id for reconciliation and event delegation.
-// buildFormFields constructs a form's field controls. Autocompleters are
-// plain inputs with a suggestion listbox (combobox pattern); dynamic
-// options are fetched by the page runtime via the hooks callback.
+// Form fields: buildFormFields constructs a form's controls. Autocompleters
+// are plain inputs with a suggestion listbox (combobox pattern); dynamic
+// options are fetched by the page runtime via the hooks callback; textareas
+// are Ace-edited (buildTextareaField below).
+
+// ACE_FIELD_MODES maps a textarea field's language to an ace mode, the same
+// set knot's own editors offer.
+const ACE_FIELD_MODES = {
+  yaml: 'ace/mode/yaml',
+  toml: 'ace/mode/toml',
+  json: 'ace/mode/json',
+  markdown: 'ace/mode/markdown',
+  shell: 'ace/mode/sh',
+  scriptling: 'ace/mode/python',
+};
+
+// aceThemeName answers the theme for the page's current colour scheme.
+function aceThemeName() {
+  return document.documentElement.classList.contains('dark') ? 'ace/theme/github_dark' : 'ace/theme/github';
+}
+
+// buildTextareaField builds a multiline field edited with knot's bundled Ace
+// editor. The form value travels in a hidden textarea beside the editor, so
+// FormData and form.reset() (which restores its defaultValue — the field's
+// initial value) keep working unchanged; every editor change syncs into it.
+// Without Ace the field degrades to a plain visible textarea.
+function buildTextareaField(field, inputId) {
+  const carrier = document.createElement('textarea');
+  carrier.name = field.name;
+  carrier.id = inputId;
+  carrier.value = field.value || '';
+  if (field.placeholder) carrier.placeholder = field.placeholder;
+
+  if (typeof ace === 'undefined' || typeof ace.edit !== 'function') {
+    carrier.className = 'form-field';
+    carrier.rows = field.rows || 6;
+    return carrier;
+  }
+  carrier.className = 'hidden';
+
+  const host = document.createElement('div');
+  host.className = 'editor-wrap';
+  host.style.height = `${(field.rows || 6) * 21 + 14}px`;
+  host.dataset.aceField = '';
+
+  // Ace measures its container when created: initialize only after the
+  // fragment has been inserted — every caller appends synchronously, and
+  // requestAnimationFrame fires after that — so the editor sizes itself
+  // correctly instead of rendering collapsed on a detached node.
+  requestAnimationFrame(() => {
+    if (!host.isConnected) return;
+    const editor = ace.edit(host);
+    editor.session.setValue(field.value || '');
+    editor.session.on('change', () => { carrier.value = editor.getValue(); });
+    editor.setTheme(aceThemeName());
+    const mode = ACE_FIELD_MODES[field.language || ''];
+    if (mode) editor.session.setMode(mode);
+    editor.setOptions({
+      printMargin: false,
+      newLineMode: 'unix',
+      tabSize: 2,
+      wrap: field.wrap === undefined ? true : !!field.wrap,
+    });
+    if (field.placeholder) editor.setOption('placeholder', field.placeholder);
+    window.addEventListener('theme-change', (e) => {
+      editor.setTheme(e.detail && e.detail.dark_theme ? 'ace/theme/github_dark' : 'ace/theme/github');
+    });
+    host._aceEditor = editor;
+    host._aceInitial = field.value || '';
+  });
+
+  const frag = document.createDocumentFragment();
+  frag.appendChild(host);
+  frag.appendChild(carrier);
+  return frag;
+}
+
+// resetPluginForm returns a rendered form to its initial state: native
+// inputs via form.reset(), editor fields by pushing the value they were
+// created with back into their Ace session — the hidden carrier never
+// receives user input, so it never goes dirty and form.reset() alone would
+// restore its last-synced (typed) value, not the initial one. setValue
+// goes through the dirty-guard patch, so the reset marks nothing dirty.
+// A plain form resets after a successful submit so one entry can be added
+// after another; auto-submit (filter) forms keep their values and never
+// call this.
+export function resetPluginForm(form) {
+  form.reset();
+  form.querySelectorAll('[data-ace-field]').forEach((host) => {
+    if (host._aceEditor) host._aceEditor.setValue(host._aceInitial || '', -1);
+  });
+}
+
 function buildFormFields(form, block, hooks) {
   const wrap = q(form, '[data-fields]');
   wrap.innerHTML = '';
@@ -176,9 +275,8 @@ function buildFormFields(form, block, hooks) {
     q(row, '[data-label]').setAttribute('for', `plugin-field-${field.name}`);
     const control = q(row, '[data-control]');
     const inputId = `plugin-field-${field.name}`;
-    let input;
     if (field.type === 'select') {
-      input = document.createElement('select');
+      const input = document.createElement('select');
       input.name = field.name;
       input.className = 'form-field';
       input.id = inputId;
@@ -189,9 +287,10 @@ function buildFormFields(form, block, hooks) {
         if (option === field.value) el.selected = true;
         input.appendChild(el);
       });
+      control.appendChild(input);
     } else if (field.type === 'autocomplete') {
       const ac = tpl('pb-autocomplete');
-      input = q(ac, '[data-ac-input]');
+      const input = q(ac, '[data-ac-input]');
       input.name = field.name;
       input.id = inputId;
       input.value = field.value || '';
@@ -207,16 +306,18 @@ function buildFormFields(form, block, hooks) {
       input.dataset.pbDynamic = field.dynamic_options ? '1' : '';
       if (hooks && hooks.onDynamicOptions && field.dynamic_options) hooks.onDynamicOptions(input, field);
       control.appendChild(ac);
+    } else if (field.type === 'textarea') {
+      control.appendChild(buildTextareaField(field, inputId));
     } else {
-      input = document.createElement('input');
+      const input = document.createElement('input');
       input.type = field.type === 'number' ? 'number' : 'text';
       input.name = field.name;
       input.id = inputId;
       input.value = field.value || '';
       if (field.placeholder) input.placeholder = field.placeholder;
       input.className = 'form-field';
+      control.appendChild(input);
     }
-    if (field.type !== 'autocomplete') control.appendChild(input);
     wrap.appendChild(row);
   });
 }
@@ -305,6 +406,10 @@ export function renderBlock(block, hooks) {
       buildFormFields(node, block, hooks);
       q(node, '[data-submit]').textContent = block.submit || 'Apply';
       if (!block.auto_submit) node.setAttribute('data-plugin-auto-wait', '1');
+      // Marks a filter-style form (submits itself on change); the page
+      // runtime keeps its values after a successful submit instead of
+      // resetting it.
+      if (block.auto_submit) node.dataset.pluginAuto = '1';
       const submitBtn = q(node, '[data-submit]');
       const cancelBtn = q(node, '[data-cancel]');
       if (block.auto_submit) submitBtn.remove();

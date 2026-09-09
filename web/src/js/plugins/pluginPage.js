@@ -10,7 +10,7 @@
 // markdown) in a knot-styled modal. All wiring is delegated from the page
 // root so patched columns never re-bind.
 
-import { renderBlock, initPluginChart } from './pluginBlocks.js';
+import { renderBlock, initPluginChart, resetPluginForm } from './pluginBlocks.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -748,12 +748,15 @@ window.pluginPage = function pluginPage(url) {
         this.toast(envelope.message || 'Done.', 'ok');
         // Popup forms: success closes the popup. Filter forms instead fold
         // their fields into the page's params so refreshed columns fetch
-        // with the new filters.
+        // with the new filters; plain forms keep the params fold (harmless
+        // for one-shot forms) and then reset, so the next entry starts
+        // clean — one note after another without retyping-over.
         const popup = form && form.closest('[data-plugin-modal]');
         if (popup) {
           this.closeModal();
         } else if (form) {
           try { this.params = new URLSearchParams(new FormData(form)).toString(); } catch (e) { /* form detached */ }
+          if (!form.dataset.pluginAuto) resetPluginForm(form);
         }
         // Refresh the columns the handler names (or all). Each node drives
         // its own handler (declared on the wrapper), so duplicate column
