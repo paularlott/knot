@@ -33,6 +33,10 @@ def _custom_fields(fields):
             default = ""
         elif not isinstance(default, str):
             default = str(default)
+        options = cf.get("options", [])
+        if options is None:
+            options = []
+        options = [str(o) for o in options]
         out.append({
             "name": str(cf.get("name", "")),
             "description": str(cf.get("description", "")),
@@ -41,6 +45,7 @@ def _custom_fields(fields):
             "language": str(cf.get("language", "") or ""),
             "default": default,
             "required": bool(cf.get("required", False)),
+            "options": options,
         })
     return out
 
@@ -164,7 +169,8 @@ def create(name, job="", description="", platform="", volumes="", active=True,
 
     custom_fields is a list of dicts declaring the template's custom
     fields: name, description, type ("text", "masked", "number", "bool",
-    "autocomplete" or "textarea"), handler (autocomplete only), language
+    "select", "autocomplete" or "textarea"), handler, or a manual options
+    list (select and autocomplete — exactly one of the two)
     (textarea only), default (a bool default becomes "true"/"false") and
     required (bool).
     """

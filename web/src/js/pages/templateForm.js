@@ -25,7 +25,7 @@ import { scriptLibraries } from "./scriptCompletions.js";
 
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
-    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, handlers: [] },
+    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, options: '', handlers: [] },
     iconList: [],
     scriptList: [],
     templateId: templateId,
@@ -778,6 +778,10 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.fieldConfig.handlers = data.handlers || [];
         }
       } catch (e) { /* leave empty: no plugins or no permission */ }
+      // Plugin-first picker: derive the plugin from the bound handler's
+      // entry — after the fetch, so reopening shows plugin → handler
+      // exactly as it was saved.
+      this.fieldConfig.options = (this.formData.custom_fields[index].options || []).join('\n');
       this.fieldConfig.show = true;
     },
 
@@ -785,7 +789,23 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       const field = this.formData.custom_fields[this.fieldConfig.index];
       if (!field) return;
       field.type = this.fieldConfig.type === 'text' ? '' : this.fieldConfig.type;
-      field.handler = field.type === 'autocomplete' ? this.fieldConfig.handler : '';
+      // Options source for select/autocomplete: a handler, or the manual
+      // list (which applies whenever no handler is selected).
+      const manualOptions = this.fieldConfig.options
+        ? this.fieldConfig.options.split('\n').map((l) => l.trim()).filter(Boolean)
+        : [];
+      if (['autocomplete', 'select'].includes(field.type)) {
+        if (this.fieldConfig.handler) {
+          field.handler = this.fieldConfig.handler;
+          field.options = [];
+        } else {
+          field.handler = '';
+          field.options = manualOptions;
+        }
+      } else {
+        field.handler = '';
+        field.options = [];
+      }
       field.language = field.type === 'textarea' ? this.fieldConfig.language : '';
       field.default = this.fieldConfig.default;
       field.required = !!this.fieldConfig.required;

@@ -171,7 +171,7 @@ func buildTemplateExportDetails(template *model.Template, db database.DbDriver) 
 	if len(template.CustomFields) > 0 {
 		details.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))
 		for i, cf := range template.CustomFields {
-			details.CustomFields[i] = apiclient.CustomFieldDef{Name: cf.Name, Description: cf.Description, Type: cf.Type, Handler: cf.Handler, Language: cf.Language, Default: cf.Default, Required: cf.Required}
+			details.CustomFields[i] = apiclient.CustomFieldDef{Name: cf.Name, Description: cf.Description, Type: cf.Type, Handler: cf.Handler, Language: cf.Language, Default: cf.Default, Required: cf.Required, Options: cf.Options}
 		}
 	}
 	if len(template.Schedule) > 0 {

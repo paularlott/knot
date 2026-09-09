@@ -106,6 +106,9 @@ type TemplateCustomField struct {
 	// the space create/update API rejects): absent, empty or
 	// whitespace-only values fail. A bool field is never blank.
 	Required bool `json:"required,omitempty"`
+	// Options is a select field's manual option list — the alternative to
+	// Handler. Values are stored verbatim.
+	Options []string `json:"options,omitempty"`
 }
 
 // ApplyCustomFieldDefaults returns provided with the template's default

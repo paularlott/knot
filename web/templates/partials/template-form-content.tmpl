@@ -577,6 +577,7 @@
                   <input type="text" class="form-field mr-2 max-w-xs" x-model="formData.custom_fields[index].name" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Variable Name" aria-label="Variable Name">
                   <input type="text" class="form-field mr-2" x-model="formData.custom_fields[index].description" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Field Label / Description" aria-label="Field Label / Description">
                   <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded px-1.5 py-1 mr-2 whitespace-nowrap" x-text="fieldTypeLabel(formData.custom_fields[index])"></span>
+                  <span x-show="formData.custom_fields[index].required" x-cloak class="text-xs text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 rounded px-1.5 py-1 mr-2 whitespace-nowrap" title="A required field cannot be left blank">required</span>
                   <button type="button" x-on:click="openFieldConfig(index)" aria-label="Configure field" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
@@ -607,10 +608,11 @@
             <option value="masked">Masked</option>
             <option value="number">Number</option>
             <option value="bool">Bool (true/false)</option>
-            <option x-show="fieldConfig.handlers.length > 0 || fieldConfig.type === 'autocomplete'" value="autocomplete">Autocomplete</option>
+            <option value="select">Select (dropdown)</option>
+            <option value="autocomplete">Autocomplete</option>
             <option value="textarea">Text Area (code editor)</option>
           </select>
-          <p class="description">Values are stored as strings; masked hides the value while typing but is not a secret.</p>
+          <p class="description">Values are stored as strings; masked hides the value while typing but is not a secret; select and autocomplete take their options from a plugin handler.</p>
         </div>
         <div x-show="fieldConfig.type === 'textarea'">
           <label class="form-label" for="field-config-language">Editor Language</label>
@@ -625,15 +627,21 @@
           </select>
           <p class="description">The editor's highlighting on the space form.</p>
         </div>
-        <div x-show="fieldConfig.type === 'autocomplete'">
-          <label class="form-label" for="field-config-handler">Plugin Handler (suggestions)</label>
+        <div x-show="fieldConfig.type === 'autocomplete' || fieldConfig.type === 'select'">
+          <label class="form-label" for="field-config-handler">Plugin handler (options)</label>
           <select id="field-config-handler" class="form-field" x-model="fieldConfig.handler">
-            <option value="">Select a handler…</option>
+            <option value="">Manual list…</option>
             <template x-for="h in fieldConfig.handlers" :key="h.id">
               <option :value="h.id" x-text="h.label + ' (' + h.id + ')'"></option>
             </template>
           </select>
-          <p class="description">Suggestions come from the plugin; the field stays pick-or-create.</p>
+          <p class="description" x-show="fieldConfig.handlers.length">The handler's plugin serves the options as the requesting user; selecting one implies its plugin.</p>
+          <p class="description" x-show="!fieldConfig.handlers.length" x-cloak>No plugins with option handlers are installed — use the manual list below.</p>
+          <div x-show="!fieldConfig.handler" class="mt-4">
+            <label class="form-label" for="field-config-options">Options (one per line)</label>
+            <textarea id="field-config-options" class="form-field font-mono" rows="3" x-model="fieldConfig.options" placeholder="small&#10;medium&#10;large"></textarea>
+            <p class="description">A manual list instead of a plugin: it applies while the list is non-empty and no handler is selected.</p>
+          </div>
         </div>
         <div>
           <label class="flex items-center cursor-pointer">

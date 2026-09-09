@@ -52,8 +52,11 @@ function parseStub(content) {
   let match;
   while ((match = fnRegex.exec(content)) !== null) {
     // Look ahead from the end of this match for a docstring on the
-    // following lines (the injection puts it right after the def).
-    const afterEnd = content.slice(match.index + match[0].length, match.index + match[0].length + 500);
+    // following lines (the injection puts it right after the def). The
+    // window just needs to clear the longest docstring — 500 once cut
+    // multi-paragraph docstrings off and silently fell back to the
+    // name-derived description.
+    const afterEnd = content.slice(match.index + match[0].length, match.index + match[0].length + 4000);
     const docMatch2 = afterEnd.match(/^\s*"""([\s\S]*?)"""/);
     const docstring = docMatch2 ? docMatch2[1].trim() : "";
 
@@ -95,7 +98,7 @@ function parseStub(content) {
     const methodRegex = /def\s+(\w+)\s*\(([^()]*)\)\s*->\s*([^\n:]+?)\s*:/g;
     let mm;
     while ((mm = methodRegex.exec(body)) !== null) {
-      const after = body.slice(mm.index + mm[0].length, mm.index + mm[0].length + 500);
+      const after = body.slice(mm.index + mm[0].length, mm.index + mm[0].length + 4000);
       const dm = after.match(/^\s*"""([\s\S]*?)"""/);
       methods.push({ name: mm[1], params: mm[2].replace(/\s+/g, " ").trim(), returns: mm[3].trim(), docstring: dm ? dm[1].trim() : "" });
     }

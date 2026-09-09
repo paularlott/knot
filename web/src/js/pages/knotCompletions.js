@@ -1484,7 +1484,7 @@ export const knotLibraries = [
       {
         "name": "create",
         "signature": "create(name, job, description, platform, volumes, active, custom_fields, **kwargs: Any)",
-        "description": "Create item",
+        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects; jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields.\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement.",
         "returns": "string"
       },
       {

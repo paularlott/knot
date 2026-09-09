@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
+	"strings"
 )
 
 // HandleGetPluginFieldHandlers lists every declared field handler, for the
@@ -25,7 +26,15 @@ func HandleGetPluginFieldHandlers(w http.ResponseWriter, r *http.Request) {
 	handlers := registry.FieldHandlers()
 	out := make([]map[string]any, 0, len(handlers))
 	for _, h := range handlers {
-		out = append(out, map[string]any{"id": h.Id, "label": h.Label})
+		// The plugin segment of the qualified id — the template form's
+		// picker offers plugin first, then that plugin's handlers.
+		plugin := h.Id
+		if rest := strings.TrimPrefix(h.Id, "plugin."); rest != h.Id {
+			if i := strings.Index(rest, "."); i > 0 {
+				plugin = rest[:i]
+			}
+		}
+		out = append(out, map[string]any{"id": h.Id, "label": h.Label, "plugin": plugin})
 	}
 	rest.WriteResponse(http.StatusOK, w, r, map[string]any{"handlers": out})
 }

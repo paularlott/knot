@@ -15,6 +15,7 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
+	"strings"
 )
 
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +101,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 				Language:    field.Language,
 				Default:     field.Default,
 				Required:    field.Required,
+				Options:     field.Options,
 			}
 		}
 
@@ -490,7 +492,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 // renders the styled toggle; its value is the string "true" or "false",
 // stored as a string like every other type.
 var templateCustomFieldTypes = map[string]bool{
-	"text": true, "masked": true, "number": true, "bool": true, "autocomplete": true, "textarea": true,
+	"text": true, "masked": true, "number": true, "bool": true, "select": true, "autocomplete": true, "textarea": true,
 }
 
 var templateFieldLanguages = map[string]bool{
@@ -517,16 +519,36 @@ func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateC
 			fieldType = "text"
 		}
 		if !templateCustomFieldTypes[fieldType] {
-			return nil, fmt.Sprintf("custom_fields[%d].type must be one of text, masked, number, bool, autocomplete or textarea", i)
+			return nil, fmt.Sprintf("custom_fields[%d].type must be one of text, masked, number, bool, select, autocomplete or textarea", i)
 		}
 		handler := field.Handler
 		language := field.Language
-		if fieldType == "autocomplete" {
-			if !pluginHandlerIdRe.MatchString(handler) {
-				return nil, fmt.Sprintf("custom_fields[%d].handler must be a plugin field handler id (plugin.<name>.<function>)", i)
+		// select and autocomplete take their options from exactly one
+		// source: a plugin field handler, or a manual option list (select
+		// renders a dropdown, autocomplete a pick-or-create combobox).
+		// Other types take neither.
+		options := field.Options
+		if fieldType == "select" || fieldType == "autocomplete" {
+			if len(options) > 0 {
+				if handler != "" {
+					return nil, fmt.Sprintf("custom_fields[%d]: %s takes either a handler or a manual option list, not both", i, fieldType)
+				}
+				trimmed := make([]string, 0, len(options))
+				for _, option := range options {
+					if option = strings.TrimSpace(option); option != "" {
+						trimmed = append(trimmed, option)
+					}
+				}
+				if len(trimmed) == 0 {
+					return nil, fmt.Sprintf("custom_fields[%d].options must have at least one entry", i)
+				}
+				options = trimmed
+			} else if !pluginHandlerIdRe.MatchString(handler) {
+				return nil, fmt.Sprintf("custom_fields[%d]: %s needs a plugin field handler or a list of options", i, fieldType)
 			}
 		} else {
 			handler = ""
+			options = nil
 		}
 		if fieldType == "textarea" {
 			if !templateFieldLanguages[language] {
@@ -543,6 +565,7 @@ func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateC
 			Language:    language,
 			Default:     field.Default,
 			Required:    field.Required,
+			Options:     options,
 		})
 	}
 	return out, ""

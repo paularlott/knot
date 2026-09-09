@@ -18,14 +18,15 @@ func TestNormalizeCustomFields(t *testing.T) {
 		{Name: "secret", Type: "masked"},
 		{Name: "count", Type: "number"},
 		{Name: "debug", Type: "bool", Default: "true"},
+		{Name: "env2", Type: "select", Handler: "plugin.demo-scriptling.field_environment"},
 		{Name: "env", Type: "autocomplete", Handler: "plugin.demo-scriptling.field_environment"},
 		{Name: "config", Type: "textarea", Language: "yaml"},
 	})
 	if errMsg != "" {
 		t.Fatalf("valid fields rejected: %s", errMsg)
 	}
-	if len(fields) != 6 {
-		t.Fatalf("fields = %d, want 6", len(fields))
+	if len(fields) != 7 {
+		t.Fatalf("fields = %d, want 7", len(fields))
 	}
 	if fields[0].Type != "text" || fields[0].Handler != "" || fields[0].Language != "" {
 		t.Errorf("defaults = %+v, want type text with no extras", fields[0])
@@ -35,11 +36,14 @@ func TestNormalizeCustomFields(t *testing.T) {
 	if fields[3].Type != "bool" || fields[3].Default != "true" || fields[3].Handler != "" || fields[3].Language != "" {
 		t.Errorf("bool field = %+v", fields[3])
 	}
-	if fields[4].Handler != "plugin.demo-scriptling.field_environment" {
-		t.Errorf("handler = %q", fields[4].Handler)
+	if fields[4].Type != "select" || fields[4].Handler != "plugin.demo-scriptling.field_environment" {
+		t.Errorf("select field = %+v, want handler kept", fields[4])
 	}
-	if fields[5].Language != "yaml" {
-		t.Errorf("language = %q", fields[5].Language)
+	if fields[5].Handler != "plugin.demo-scriptling.field_environment" {
+		t.Errorf("handler = %q", fields[5].Handler)
+	}
+	if fields[6].Language != "yaml" {
+		t.Errorf("language = %q", fields[6].Language)
 	}
 
 	// Defaults ride along verbatim, on every type.
@@ -91,6 +95,52 @@ func TestNormalizeCustomFields(t *testing.T) {
 	// handlers are qualified ids too.
 	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "autocomplete"}}); errMsg == "" || !strings.Contains(errMsg, "handler") {
 		t.Errorf("missing handler: errMsg = %q, want a handler error", errMsg)
+	}
+	// select draws its options from a handler too: same requirement.
+	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "select"}}); errMsg == "" || !strings.Contains(errMsg, "handler") {
+		t.Errorf("select without handler: errMsg = %q, want a handler error", errMsg)
+	}
+
+	// A manual option list is select's other source — exactly one of the
+	// two, never both, and options are trimmed of blank lines.
+	fields, errMsg = normalizeCustomFields([]apiclient.CustomFieldDef{
+		{Name: "size", Type: "select", Options: []string{" small ", "", "large", ""}},
+	})
+	if errMsg != "" {
+		t.Fatalf("select with manual options rejected: %s", errMsg)
+	}
+	if len(fields[0].Options) != 2 || fields[0].Options[0] != "small" || fields[0].Options[1] != "large" || fields[0].Handler != "" {
+		t.Errorf("manual options = %+v, want trimmed [small large] with no handler", fields[0])
+	}
+	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "select", Handler: "plugin.demo.h", Options: []string{"a"}}}); errMsg == "" || !strings.Contains(errMsg, "not both") {
+		t.Errorf("select with both sources: errMsg = %q", errMsg)
+	}
+	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "select", Options: []string{"  "}}}); errMsg == "" || !strings.Contains(errMsg, "options") {
+		t.Errorf("select with blank-only options: errMsg = %q", errMsg)
+	}
+	// Autocomplete takes the same two sources as select — including a
+	// manual list — and rejects mixing them.
+	fields, errMsg = normalizeCustomFields([]apiclient.CustomFieldDef{
+		{Name: "x", Type: "autocomplete", Options: []string{"dev", "prod"}},
+	})
+	if errMsg != "" {
+		t.Fatalf("autocomplete with manual options rejected: %s", errMsg)
+	}
+	if len(fields[0].Options) != 2 || fields[0].Handler != "" {
+		t.Errorf("autocomplete manual options = %+v", fields[0])
+	}
+	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "autocomplete", Handler: "plugin.demo.h", Options: []string{"a"}}}); errMsg == "" || !strings.Contains(errMsg, "not both") {
+		t.Errorf("autocomplete with both sources: errMsg = %q", errMsg)
+	}
+	// Options are cleared on the types that don't take them.
+	fields, errMsg = normalizeCustomFields([]apiclient.CustomFieldDef{
+		{Name: "y", Options: []string{"a"}},
+	})
+	if errMsg != "" {
+		t.Fatalf("options on other types rejected: %s", errMsg)
+	}
+	if fields[0].Options != nil {
+		t.Errorf("options not cleared: %+v", fields[0])
 	}
 	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "autocomplete", Handler: "field_environment"}}); errMsg == "" {
 		t.Errorf("unqualified handler accepted: %q", errMsg)

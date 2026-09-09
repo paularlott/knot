@@ -131,10 +131,39 @@ window.customFieldEditor = function customFieldEditor(index, language) {
   };
 };
 
-window.fieldAutocompleter = function fieldAutocompleter(handlerId) {
+// Dropdown twin of the autocompleter for select custom fields: the same
+// plugin field handler serves the options (key/text pairs or plain
+// strings); the select stores the key and shows the text. Loaded once when
+// the field renders.
+window.fieldSelect = function fieldSelect(handlerId, staticOptions) {
+  return {
+    options: Array.isArray(staticOptions) && staticOptions.length ? staticOptions.map(String) : [],
+    loaded: false,
+    async init() {
+      if (this.loaded || this.options.length) return;
+      try {
+        const response = await fetch(`/api/plugins/field-handlers/${encodeURIComponent(handlerId)}`);
+        if (response.ok) {
+          const data = await response.json();
+          const options = Array.isArray(data) ? data : data.options;
+          this.options = options || [];
+        }
+      } catch (e) { /* keep empty */ }
+      this.loaded = true;
+    },
+    optKey(option) {
+      return typeof option === 'object' && option !== null ? (option.key ?? option.text ?? '') : String(option);
+    },
+    optText(option) {
+      return typeof option === 'object' && option !== null ? (option.text || option.key) : String(option);
+    },
+  };
+};
+
+window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions) {
   return {
     search: '',
-    options: [],
+    options: Array.isArray(staticOptions) && staticOptions.length ? staticOptions.map(String) : [],
     loaded: false,
     showList: false,
     selectedIndex: -1,
@@ -205,7 +234,15 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId) {
     },
 
     async loadOptions() {
-      if (this.loaded) return;
+      if (this.loaded || this.options.length) {
+        // Manual (static) options need no fetch — but the stored-key
+        // display resolution below still applies to them.
+        if (!this.loaded) {
+          this.loaded = true;
+          this.resolveStoredDisplay();
+        }
+        return;
+      }
       try {
         const response = await fetch(`/api/plugins/field-handlers/${encodeURIComponent(handlerId)}`);
         if (response.ok) {
@@ -215,8 +252,11 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId) {
         }
       } catch (e) { /* keep empty */ }
       this.loaded = true;
-      // The field displays TEXT; the store holds the KEY. If the stored
-      // value is a key we now know the text for, resolve the display.
+      this.resolveStoredDisplay();
+    },
+    // The field displays TEXT; the store holds the KEY. If the stored
+    // value is a key we now know the text for, resolve the display.
+    resolveStoredDisplay() {
       const ctx = this.formDataCtx();
       if (ctx) {
         const stored = ctx.data.formData.custom_fields[ctx.index].value;
