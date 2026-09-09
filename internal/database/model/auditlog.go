@@ -68,12 +68,13 @@ const (
 	AuditEventVarDelete = "Variable Delete"
 
 	// Users
-	AuditEventUserCreate = "User Create"
-	AuditEventUserUpdate = "User Update"
-	AuditEventUserDelete = "User Delete"
-	AuditEventUserLink   = "User Link"
-	AuditEventUserUnlink = "User Unlink"
-	AuditEventUserSwitch = "User Switch"
+	AuditEventUserCreate       = "User Create"
+	AuditEventUserUpdate       = "User Update"
+	AuditEventUserDelete       = "User Delete"
+	AuditEventUserLink         = "User Link"
+	AuditEventUserUnlink       = "User Unlink"
+	AuditEventUserSwitch       = "User Switch"
+	AuditEventUserSwitchDenied = "User Switch Denied"
 
 	// Volumes
 	AuditEventVolumeCreate = "Volume Create"

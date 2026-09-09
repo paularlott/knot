@@ -61,10 +61,12 @@ const (
 	// toggle) on the user's own spaces; viewing them is always allowed.
 	PermissionEditSpaceJobs // Can edit the scheduled jobs of own spaces
 	PermissionViewPlugins   // Can View the plugins inventory
-	// PermissionLinkUsers gates connecting user accounts into a switch
-	// group (user manager); any member of a group can then switch the
-	// session between its accounts from the profile menu.
-	PermissionLinkUsers // Can link user accounts for profile switching
+	// PermissionLinkUsers gates granting one user the ability to become
+	// another (user manager): the linked accounts join its become-list
+	// and its profile menu offers them. One way only. This is
+	// impersonation-grade: whoever holds it can link to any account —
+	// administrators included — and act as it fully.
+	PermissionLinkUsers // Can link user accounts for fast user switching
 )
 
 type PermissionName struct {
@@ -144,7 +146,7 @@ var PermissionNames = []PermissionName{
 	{PermissionManageGroups, "User Management", "Manage Groups", "Create, edit, and delete user groups."},
 	{PermissionManageRoles, "User Management", "Manage Roles", "Create, edit, and delete roles and their permissions."},
 	{PermissionManageUsers, "User Management", "Manage Users", "Create, edit, and delete user accounts."},
-	{PermissionLinkUsers, "User Management", "Link Users", "Link user accounts into a switch group so their sessions can move between them from the profile menu."},
+	{PermissionLinkUsers, "User Management", "Link Users", "Grant one user the ability to switch into another account from the profile menu — full access to that account, administrators included. One way: the linked account cannot become the linking user. Treat as impersonation-grade."},
 
 	{PermissionManageSpaces, "Resource Management", "Manage Spaces", "Manage any space, including those owned by other users."},
 	{PermissionManageTemplates, "Resource Management", "Manage Templates", "Create, edit, and delete space templates."},
@@ -272,6 +274,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionUsePools,
 			PermissionManageEvents,
 			PermissionManageGlobalEvents,
+			PermissionLinkUsers,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

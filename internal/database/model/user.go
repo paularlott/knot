@@ -2,7 +2,6 @@ package model
 
 import (
 	"math/rand"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,10 +33,10 @@ type User struct {
 	ExternalAuthProviders map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
 	Roles                 []string                    `json:"roles" db:"roles,json" msgpack:"roles"`
 	Groups                []string                    `json:"groups" db:"groups,json" msgpack:"groups"`
-	// LinkedUsers holds the other members of this user's switch group.
-	// Every member stores the same group minus itself, so the profile
-	// menu offers the full group from any member and the list survives
-	// switches. Maintained only through the link/unlink endpoints.
+	// LinkedUsers holds the accounts this user may become — fast user
+	// switching, one way. The link grants nothing in return: a listed
+	// user cannot become this one. Maintained only through the
+	// link/unlink endpoints.
 	LinkedUsers    []string       `json:"linked_users" db:"linked_users,json" msgpack:"linked_users"`
 	Active         bool           `json:"active" db:"active" msgpack:"active"`
 	IsDeleted      bool           `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
@@ -346,80 +345,36 @@ func (u *User) SetNavStarred(order []string) {
 	u.Preferences[PrefNavStarred] = order
 }
 
-// LinkUsers joins the switch groups of a and b into one and returns the
-// merged member ids (including a.Id and b.Id). a and b's in-memory records
-// are updated; the caller persists every member of the returned set —
-// transitive members from either side need their lists rewritten too, via
-// SetLinkedGroup.
-func LinkUsers(a, b *User) []string {
-	if a == nil || b == nil || a.Id == b.Id {
-		return nil
+// LinkUsers adds other to user's become-list: user may switch its session
+// to other, never the other way around. Returns false when the link
+// already exists or either side is missing; the caller persists user.
+func LinkUsers(user, other *User) bool {
+	if user == nil || other == nil || user.Id == other.Id {
+		return false
 	}
-	group := map[string]bool{a.Id: true, b.Id: true}
-	for _, id := range a.LinkedUsers {
-		group[id] = true
-	}
-	for _, id := range b.LinkedUsers {
-		group[id] = true
-	}
-
-	out := sortedKeys(group)
-	a.LinkedUsers = linkedListFor(a.Id, out)
-	b.LinkedUsers = linkedListFor(b.Id, out)
-	a.UpdatedAt = hlc.Now()
-	b.UpdatedAt = hlc.Now()
-	return out
-}
-
-// UnlinkUser detaches other from user's switch group and returns the
-// remaining member ids (including user.Id). Other keeps no links while the
-// remaining members keep each other; the caller persists every returned
-// member plus other.
-func UnlinkUser(user, other *User) []string {
-	if user == nil || other == nil {
-		return nil
-	}
-	group := map[string]bool{user.Id: true}
 	for _, id := range user.LinkedUsers {
-		group[id] = true
-	}
-	delete(group, other.Id)
-
-	out := sortedKeys(group)
-	user.LinkedUsers = linkedListFor(user.Id, out)
-	other.LinkedUsers = nil
-	user.UpdatedAt = hlc.Now()
-	other.UpdatedAt = hlc.Now()
-	return out
-}
-
-// SetLinkedGroup writes group (which must contain u's own id) onto u as its
-// linked-users list minus itself.
-func SetLinkedGroup(u *User, group []string) {
-	u.LinkedUsers = linkedListFor(u.Id, group)
-	u.UpdatedAt = hlc.Now()
-}
-
-// linkedListFor returns group minus self, sorted so every member stores the
-// same canonical list.
-func linkedListFor(selfId string, group []string) []string {
-	links := make([]string, 0, len(group))
-	for _, id := range group {
-		if id != selfId {
-			links = append(links, id)
+		if id == other.Id {
+			return false
 		}
 	}
-	sort.Strings(links)
-	return links
+	user.LinkedUsers = append(user.LinkedUsers, other.Id)
+	user.UpdatedAt = hlc.Now()
+	return true
 }
 
-func sortedKeys(set map[string]bool) []string {
-	out := make([]string, 0, len(set))
-	for id := range set {
-		out = append(out, id)
+// UnlinkUser removes other from user's become-list; other's own list is
+// untouched — links were only ever one way. The caller persists user.
+func UnlinkUser(user, other *User) {
+	if user == nil || other == nil {
+		return
 	}
-	sort.Strings(out)
-	return out
+	for i, id := range user.LinkedUsers {
+		if id == other.Id {
+			user.LinkedUsers = append(user.LinkedUsers[:i], user.LinkedUsers[i+1:]...)
+			user.UpdatedAt = hlc.Now()
+			return
+		}
+	}
 }
 
 func generateRandomString(length int) string {

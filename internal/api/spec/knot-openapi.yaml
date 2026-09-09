@@ -829,7 +829,7 @@ paths:
       tags:
         - Users
       summary: Link User
-      description: Join the switch groups of two users. Every member of the merged group can then move their web session to any other member from the profile menu. Requires the link_users permission.
+      description: Grant one user the ability to switch into another - the linked user joins the target's become-list, offered in the target's profile menu. Full access to the linked account, administrators included; one way - the linked user cannot become the target. Requires the link_users permission.
       operationId: linkUser
       parameters:
         - name: user_id
@@ -841,7 +841,7 @@ paths:
         - name: linked_user_id
           in: path
           required: true
-          description: The ID or username of the user to link into the first user's switch group.
+          description: The ID or username of the user the first user will be able to become.
           schema:
             type: string
       responses:
@@ -867,7 +867,7 @@ paths:
       tags:
         - Users
       summary: Unlink User
-      description: Detach a user from another's switch group. The detached user keeps no links while the remaining members keep each other. Requires the link_users permission.
+      description: Remove one user from another's become-list. The unlinked user's own list is untouched. Requires the link_users permission.
       operationId: unlinkUser
       parameters:
         - name: user_id
@@ -8666,7 +8666,7 @@ components:
           description: Whether the user is the current user
         has_linked_users:
           type: boolean
-          description: Whether the user has linked users (a switch group with other members).
+          description: Whether the user has linked users (accounts it may become).
         last_login_at:
           type: string
           format: date-time
@@ -8915,7 +8915,7 @@ components:
                 format: uuid
               username:
                 type: string
-          description: The other members of this user's switch group (profile menu Switch User list).
+          description: The accounts this user may become (profile menu Become User list). One way - these accounts cannot become this user.
         roles:
           type: array
           items:

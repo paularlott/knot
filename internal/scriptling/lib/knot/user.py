@@ -121,21 +121,22 @@ def delete(user_id):
 
 
 def link_user(user_id, linked_user_id):
-    """Join two users' switch groups.
+    """Grant one user the ability to become another.
 
-    Afterwards every member of the merged group can switch their session
-    to any other member from the profile menu. Requires the link_users
-    permission.
+    The linked user joins user_id's become-list: that account can switch
+    its session into the linked user from the profile menu and flick back
+    to its own. One way — the linked user cannot become user_id. Requires
+    the link_users permission.
     """
     api.put(f"/api/users/{_enc(user_id)}/linked-users/{_enc(linked_user_id)}")
     return True
 
 
 def unlink_user(user_id, linked_user_id):
-    """Detach a user from another's switch group.
+    """Remove one user from another's become-list.
 
-    The detached user keeps no links; the remaining members keep each
-    other. Requires the link_users permission.
+    The unlinked user's own list is untouched. Requires the link_users
+    permission.
     """
     api.delete(f"/api/users/{_enc(user_id)}/linked-users/{_enc(linked_user_id)}")
     return True
@@ -214,5 +215,5 @@ def _parse_user(response):
         "current": response.get("current", False),
         "roles": response.get("roles", []),
         "groups": response.get("groups", []),
-        "linked_users": response.get("linked_users", [])
+        "linked_users": response.get("linked_users", [])  # accounts this user may become
     }

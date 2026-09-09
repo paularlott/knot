@@ -67,9 +67,11 @@ window.Alpine = Alpine;
 import Chart from 'chart.js/auto';
 window.Chart = Chart;
 
-// Switch the session to another member of the user's switch group (the
-// profile menu's Switch User list) and reload into it. The server refuses
-// targets outside the group, so a failed or forged call just lands home.
+// Switch the session to another user the current one may become (the
+// profile menu's Switch User list) or back to the session's origin, then
+// reload into it. The server answers with a bare status — it never
+// redirects, so fetch cannot render a throwaway page — and refuses
+// anything else, so a failed or forged call just lands home.
 window.knotSwitchUser = function knotSwitchUser(userId) {
   fetch('/switch-user/' + encodeURIComponent(userId), { method: 'POST' })
     .then(() => { window.location.href = '/'; })

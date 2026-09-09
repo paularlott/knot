@@ -166,12 +166,12 @@
                 </svg>
               </button>
             </div>
-            <p class="description">Linked users form a switch group: any member can move their session to another member from the profile menu, and the list travels with them. Linking two users merges their groups.</p>
+            <p class="description">The accounts this user can become. Access is one way: this user can switch into the listed accounts (their spaces included) from the profile menu, but the listed accounts cannot become this user.</p>
             <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700" x-show="linkedUsers.length > 0">
               <template x-for="lu in linkedUsers" :key="lu.user_id">
                 <li class="flex items-center justify-between px-4 py-2.5 gap-4">
                   <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="lu.username"></span>
-                  <button type="button" @click="confirmUnlinkLinkedUser(lu.user_id, lu.username)" class="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">Unlink</button>
+                  <button type="button" @click="confirmUnlinkLinkedUser(lu.user_id, lu.username)" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-3 py-1.5 text-center text-xs font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Unlink</button>
                 </li>
               </template>
             </ul>
@@ -297,7 +297,7 @@
         </div>
 
         {{ if and (not .isProfile) .permissionLinkUsers }}
-        <!-- Modal: link a user into this user's switch group -->
+        <!-- Modal: grant this user the ability to become another -->
         <div x-cloak x-show="linkModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="linkModal.show" @keydown.esc.window="closeLinkModal()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="linkUserTitle">
           <div x-show="linkModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
             <div class="ui-modal-header">
@@ -314,7 +314,7 @@
               </button>
             </div>
             <div class="ui-modal-body">
-              <p class="text-sm text-gray-500 dark:text-gray-400">Search for a user to share this account's session with. Linking merges both users' switch groups; either account can then switch to the other from the profile menu.</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Search for an account this user can become. The grant is one way: the account you pick gains nothing — this user can switch into it, not the other way around.</p>
               <div class="relative mt-4" x-data="autocompleterUser()" x-init="setDataSource('linkableUsers'); loadUserOptions()" data-parent-var-group="linkUserForm" data-parent-variable="userId" data-parent-variable-username="username" @refresh-autocompleter.window="refresh()">
                 <label class="form-label" for="linked-user-search">User</label>
                 <input id="linked-user-search" x-model="search" x-ref="linkUserSearch" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" autocomplete="off">
@@ -352,8 +352,8 @@
               </button>
             </div>
             <div class="ui-modal-body text-center">
-              <p>Are you sure you want to unlink <strong x-text="linkedUnlinkConfirm.username"></strong>?</p>
-              <p>Neither account will be able to switch to the other; the remaining members of the group keep each other.</p>
+              <p>Stop <span x-text="formData.username" class="font-medium"></span> becoming <strong x-text="linkedUnlinkConfirm.username"></strong>?</p>
+              <p>This user will no longer be able to switch into that account; the other account is unaffected.</p>
             </div>
             <div class="ui-modal-footer">
               <button @click="linkedUnlinkConfirm.show = false" type="button" class="ui-button-secondary sm:mr-auto">Keep Linked</button>

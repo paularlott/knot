@@ -381,7 +381,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         .map(p => ({ ...p, linking: false }));
     },
 
-    // ---- linked users (switch group) ----
+    // ---- linked users (become-list) ----
 
     async loadUserOptions() {
       if (isProfile || this.allUserOptions.length) return;

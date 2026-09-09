@@ -702,10 +702,10 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 
 	applyNav(user, cfg, r.URL.Path, data)
 
-	// The profile menu's switch list: the current user's switch group,
-	// filtered to members a session can actually become. Deleted or
-	// inactive members stay out of the menu (the switch endpoint would
-	// refuse them anyway).
+	// The profile menu's switch list: the accounts this user may become,
+	// filtered to ones a session can actually switch to (deleted or
+	// inactive users stay out — the switch endpoint would refuse them
+	// anyway).
 	if len(user.LinkedUsers) > 0 {
 		db := database.GetInstance()
 		linked := make([]map[string]string, 0, len(user.LinkedUsers))
@@ -717,6 +717,16 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 			linked = append(linked, map[string]string{"Id": member.Id, "Username": member.Username})
 		}
 		data["linkedUsers"] = linked
+	}
+	// Fast user switching's way back: when the session has become another
+	// user, the menu offers returning to the account that authenticated —
+	// the origin grants nothing, the session simply remembers it.
+	if session, ok := r.Context().Value("session").(*model.Session); ok && session != nil {
+		if session.OriginalUserId != "" && session.OriginalUserId != user.Id {
+			if origin, err := database.GetInstance().GetUser(session.OriginalUserId); err == nil && origin != nil && !origin.IsDeleted {
+				data["switchBackUser"] = map[string]string{"Id": origin.Id, "Username": origin.Username}
+			}
+		}
 	}
 	data["permissionLinkUsers"] = user.HasPermission(model.PermissionLinkUsers)
 

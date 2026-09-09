@@ -1562,13 +1562,13 @@ export const knotLibraries = [
       {
         "name": "link_user",
         "signature": "link_user(user_id, linked_user_id)",
-        "description": "Join two users' switch groups: members can switch sessions between them (requires the link_users permission)",
+        "description": "Grant user_id the ability to become linked_user_id (one way; requires the link_users permission)",
         "returns": "bool"
       },
       {
         "name": "unlink_user",
         "signature": "unlink_user(user_id, linked_user_id)",
-        "description": "Detach a user from another's switch group (requires the link_users permission)",
+        "description": "Remove linked_user_id from user_id's become-list (requires the link_users permission)",
         "returns": "bool"
       },
       {

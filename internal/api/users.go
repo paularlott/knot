@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
@@ -252,8 +253,8 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, &userData)
 }
 
-// linkedUserInfos resolves a user's switch-group member ids to id/username
-// pairs for API responses. Unresolvable ids (deleted members) are skipped.
+// linkedUserInfos resolves a user's become-list ids to id/username pairs
+// for API responses. Unresolvable ids (deleted users) are skipped.
 func linkedUserInfos(db database.DbDriver, user *model.User) []apiclient.LinkedUserInfo {
 	if len(user.LinkedUsers) == 0 {
 		return []apiclient.LinkedUserInfo{}
@@ -269,37 +270,35 @@ func linkedUserInfos(db database.DbDriver, user *model.User) []apiclient.LinkedU
 	return out
 }
 
-// persistLinkedGroup saves a and b (which already carry their updated
-// linked-users lists) and rewrites every other member in ids onto group,
-// so the whole switch group stays consistent. Gossiping each save keeps
-// cluster peers in step.
-func persistLinkedGroup(db database.DbDriver, a, b *model.User, ids, group []string) error {
-	for _, member := range []*model.User{a, b} {
-		if err := db.SaveUser(member, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
-			return err
-		}
-		service.GetTransport().GossipUser(member)
+// revokeSwitchedSessions deletes the sessions a linking user's logins
+// currently have switched into linkedUserId — sessions running as
+// linkedUserId whose origin is linkUserId. It returns the killed sessions
+// so the caller can gossip and invalidate their live connections; the
+// deleted marker mirrors the logout tombstone (expiry kept long enough to
+// gossip, IsDeleted doing the actual refusing).
+func revokeSwitchedSessions(linkUserId, linkedUserId string) []*model.Session {
+	sessions, err := database.GetSessionStorage().GetSessionsForUser(linkedUserId)
+	if err != nil {
+		return nil
 	}
-	for _, id := range ids {
-		if id == a.Id || id == b.Id {
+	var revoked []*model.Session
+	for _, session := range sessions {
+		if session.OriginalUserId != linkUserId || session.IsDeleted {
 			continue
 		}
-		member, err := db.GetUser(id)
-		if err != nil || member == nil {
-			continue
+		session.IsDeleted = true
+		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
+		session.UpdatedAt = hlc.Now()
+		if err := database.GetSessionStorage().SaveSession(session); err == nil {
+			revoked = append(revoked, session)
 		}
-		model.SetLinkedGroup(member, group)
-		if err := db.SaveUser(member, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
-			return err
-		}
-		service.GetTransport().GossipUser(member)
 	}
-	return nil
+	return revoked
 }
 
-// HandleLinkUser joins the switch groups of two users: afterwards every
-// member of the merged group can switch the session to any other member
-// from the profile menu.
+// HandleLinkUser grants one user the ability to become another: the linked
+// user joins target's become-list, so target's profile menu offers it. The
+// grant is one way — the linked user cannot become target.
 func HandleLinkUser(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
@@ -319,30 +318,30 @@ func HandleLinkUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	group := model.LinkUsers(target, linked)
-	if err := persistLinkedGroup(db, target, linked, group, group); err != nil {
+	model.LinkUsers(target, linked)
+	if err := db.SaveUser(target, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	service.GetTransport().GossipUser(target)
 
 	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventUserLink,
-		fmt.Sprintf("Linked user %s to %s", linked.Username, target.Username),
+		fmt.Sprintf("Granted %s become access to %s", target.Username, linked.Username),
 		&map[string]interface{}{
 			"user_id":        target.Id,
 			"linked_user":    linked.Username,
 			"linked_user_id": linked.Id,
-			"group_members":  group,
 		},
 	)
 
 	rest.WriteResponse(http.StatusOK, w, r, &apiclient.CreateUserResponse{Status: true})
 }
 
-// HandleUnlinkUser detaches a user from another's switch group: the
-// detached user keeps no links while the remaining members keep each other.
+// HandleUnlinkUser removes one user from another's become-list. The
+// unlinked user's own list is untouched — links were only ever one way.
 func HandleUnlinkUser(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
@@ -358,24 +357,30 @@ func HandleUnlinkUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remaining members (target included) keep each other; linked itself
-	// is detached and persisted via the a/b path above.
-	remaining := model.UnlinkUser(target, linked)
-	if err := persistLinkedGroup(db, target, linked, remaining, remaining); err != nil {
+	model.UnlinkUser(target, linked)
+	if err := db.SaveUser(target, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
+	}
+	service.GetTransport().GossipUser(target)
+
+	// The grant is gone, so sessions the linking user currently has
+	// switched into the unlinked account lose their right to be that user:
+	// kill them now rather than at their next switch attempt.
+	for _, switched := range revokeSwitchedSessions(target.Id, linked.Id) {
+		service.GetTransport().GossipSession(switched)
+		sse.GetHub().InvalidateSession(switched.Id)
 	}
 
 	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventUserUnlink,
-		fmt.Sprintf("Unlinked user %s from %s", linked.Username, target.Username),
+		fmt.Sprintf("Revoked %s become access to %s", target.Username, linked.Username),
 		&map[string]interface{}{
 			"user_id":        target.Id,
 			"linked_user":    linked.Username,
 			"linked_user_id": linked.Id,
-			"group_members":  remaining,
 		},
 	)
 
