@@ -167,7 +167,7 @@
       <div class="space-y-6">
         <template x-for="(field, index) in template.custom_fields" :key="index">
           <div>
-            <label class="form-label" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')' + (template.custom_fields[index].type === 'textarea' && template.custom_fields[index].language ? ' - ' + template.custom_fields[index].language : '')"></label>
+            <template x-if="template.custom_fields[index].type !== 'bool'"><label class="form-label" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')' + (template.custom_fields[index].type === 'textarea' && template.custom_fields[index].language ? ' - ' + template.custom_fields[index].language : '')"></label></template>
             <template x-if="template.custom_fields[index].type === 'autocomplete' && template.custom_fields[index].handler">
               <div class="relative" x-data="fieldAutocompleter(template.custom_fields[index].handler)" :data-cf-index="index" x-id="['cfac']"
                    x-init="search = formData.custom_fields[index].value || ''">
@@ -193,7 +193,14 @@
             <template x-if="template.custom_fields[index].type === 'number'">
               <input type="number" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
             </template>
-            <template x-if="!['autocomplete', 'masked', 'number', 'textarea'].includes(template.custom_fields[index].type)">
+            <template x-if="template.custom_fields[index].type === 'bool'">
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer" :checked="formData.custom_fields[index].value === 'true'" @change="formData.custom_fields[index].value = $event.target.checked ? 'true' : 'false'" :aria-label="template.custom_fields[index].description + ' value'">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')'"></span>
+              </label>
+            </template>
+            <template x-if="!['autocomplete', 'masked', 'number', 'textarea', 'bool'].includes(template.custom_fields[index].type)">
               <input type="text" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value" :aria-label="template.custom_fields[index].description + ' value'">
             </template>
           </div>

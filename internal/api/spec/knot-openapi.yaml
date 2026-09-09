@@ -7517,7 +7517,7 @@ components:
           description: The optional description for the field.
         type:
           type: string
-          description: Field input type - text (default), masked, number, textarea or autocomplete. "password" is accepted as a legacy alias for masked and stored as masked.
+          description: Field input type - text (default), masked, number, bool, textarea or autocomplete. A bool field renders a true/false toggle and stores the string "true" or "false". "password" is accepted as a legacy alias for masked and stored as masked.
         handler:
           type: string
           description: For autocomplete fields, the bound plugin field handler (plugin.<name>.<handler>).
@@ -7526,7 +7526,7 @@ components:
           description: For textarea fields, the editor language - scriptling, yaml, toml, json, markdown or shell.
         default:
           type: string
-          description: Value prefilled when creating a space. Applied only when the create request omits the field entirely - a field sent with an empty value keeps the empty value.
+          description: Value prefilled when creating a space, stored as a string (a bool field prefills "true" or "false"). Applied only when the create request omits the field entirely - a field sent with an empty value keeps the empty value.
 
     TemplateCreateRequest:
       type: object

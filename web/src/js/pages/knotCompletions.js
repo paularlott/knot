@@ -1483,14 +1483,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, job, description, platform, volumes, active, **kwargs: Any)",
-        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects; jobs is a list of {name, command, schedule, enabled} objects copied into new spaces.",
+        "signature": "create(name, job, description, platform, volumes, active, custom_fields, **kwargs: Any)",
+        "description": "Create item",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(template_id, name, job, description, platform, **kwargs: Any)",
-        "description": "Update template properties, including health_check_type, health_check_auto_restart, ports and jobs",
+        "signature": "update(template_id, name, job, description, platform, custom_fields, **kwargs: Any)",
+        "description": "Update template properties, including health_check_type, health_check_auto_restart, ports and jobs. custom_fields, when given, replaces the template's custom fields (same shape as create); omitted leaves them unchanged.",
         "returns": "bool"
       },
       {

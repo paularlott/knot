@@ -485,9 +485,11 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 // the template editor offers. Anything else is a load error, not a silent
 // downgrade: an unknown type would fall through to the plain-text input on
 // the space form. "masked" is the masking input (a browser type="password"
-// control) - presentation only, values are stored as plain strings.
+// control) - presentation only, values are stored as plain strings. "bool"
+// renders the styled toggle; its value is the string "true" or "false",
+// stored as a string like every other type.
 var templateCustomFieldTypes = map[string]bool{
-	"text": true, "masked": true, "number": true, "autocomplete": true, "textarea": true,
+	"text": true, "masked": true, "number": true, "bool": true, "autocomplete": true, "textarea": true,
 }
 
 var templateFieldLanguages = map[string]bool{
@@ -514,7 +516,7 @@ func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateC
 			fieldType = "text"
 		}
 		if !templateCustomFieldTypes[fieldType] {
-			return nil, fmt.Sprintf("custom_fields[%d].type must be one of text, masked, number, autocomplete or textarea", i)
+			return nil, fmt.Sprintf("custom_fields[%d].type must be one of text, masked, number, bool, autocomplete or textarea", i)
 		}
 		handler := field.Handler
 		language := field.Language

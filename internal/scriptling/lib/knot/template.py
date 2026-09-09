@@ -10,6 +10,40 @@ def _enc(s):
     """URL-encode a path segment for safe interpolation into a URL."""
     return urllib.parse.quote(str(s), safe='')
 
+def _custom_fields(fields):
+    """Normalize custom field declarations for the API.
+
+    Each entry is a dict: name (required), description, type ("text"
+    default, "masked", "number", "bool", "autocomplete" or "textarea"),
+    handler (plugin field handler id, autocomplete only), language (editor
+    language, textarea only) and default. A boolean default becomes the
+    string "true"/"false"; other scalars are stringified — values are
+    stored as strings regardless of type.
+    """
+    if fields is None:
+        return []
+    out = []
+    for cf in fields:
+        default = cf.get("default", "")
+        if default is True:
+            default = "true"
+        elif default is False:
+            default = "false"
+        elif default is None:
+            default = ""
+        elif not isinstance(default, str):
+            default = str(default)
+        out.append({
+            "name": str(cf.get("name", "")),
+            "description": str(cf.get("description", "")),
+            "type": cf.get("type", "text") or "text",
+            "handler": str(cf.get("handler", "") or ""),
+            "language": str(cf.get("language", "") or ""),
+            "default": default,
+        })
+    return out
+
+
 def list(include_inactive=False):
     """List all templates visible to the current user.
 
@@ -123,8 +157,15 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            groups=None, zones=None, paths=None, disable_user_activity=False,
            health_check_type="none", health_check_config="", health_check_skip_ssl_verify=False,
            health_check_timeout=10, health_check_interval=30, health_check_max_failures=3,
-           health_check_auto_restart=False, ports=None, jobs=None):
-    """Create a new template."""
+           health_check_auto_restart=False, ports=None, jobs=None,
+           custom_fields=None):
+    """Create a new template.
+
+    custom_fields is a list of dicts declaring the template's custom
+    fields: name, description, type ("text", "masked", "number", "bool",
+    "autocomplete" or "textarea"), handler (autocomplete only), language
+    (textarea only) and default (a bool default becomes "true"/"false").
+    """
     volumes = _with_paths(volumes, paths)
     body = {
         "name": name,
@@ -146,7 +187,7 @@ def create(name, job="", description="", platform="", volumes="", active=True,
         "groups": groups or [],
         "zones": zones or [],
         "schedule": [],
-        "custom_fields": [],
+        "custom_fields": _custom_fields(custom_fields),
         "disable_user_activity": disable_user_activity,
         "health_check_type": health_check_type,
         "health_check_config": "" if health_check_type in ("none", "agent") else health_check_config,
@@ -171,8 +212,13 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            icon_url=None, groups=None, zones=None, paths=None, disable_user_activity=None,
            health_check_type=None, health_check_config=None, health_check_skip_ssl_verify=None,
            health_check_timeout=None, health_check_interval=None, health_check_max_failures=None,
-           health_check_auto_restart=None, ports=None, jobs=None):
-    """Update template properties."""
+           health_check_auto_restart=None, ports=None, jobs=None,
+           custom_fields=None):
+    """Update template properties.
+
+    custom_fields, when given, replaces the template's custom fields (same
+    shape as create); omitted leaves them unchanged.
+    """
     current = api.get(f"/api/templates/{_enc(template_id)}")
     volumes_value = volumes if volumes is not None else current.get("volumes", "")
     volumes_value = _with_paths(volumes_value, paths)
@@ -197,7 +243,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "groups": groups if groups is not None else current.get("groups", []),
         "zones": zones if zones is not None else current.get("zones", []),
         "schedule": current.get("schedule", []),
-        "custom_fields": current.get("custom_fields", []),
+        "custom_fields": _custom_fields(custom_fields) if custom_fields is not None else current.get("custom_fields", []),
         "startup_script_id": current.get("startup_script_id", ""),
         "shutdown_script_id": current.get("shutdown_script_id", ""),
         "auto_start": current.get("auto_start", False),

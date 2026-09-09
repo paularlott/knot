@@ -606,10 +606,11 @@
             <option value="text">Text</option>
             <option value="masked">Masked</option>
             <option value="number">Number</option>
+            <option value="bool">Bool (true/false)</option>
             <option x-show="fieldConfig.handlers.length > 0 || fieldConfig.type === 'autocomplete'" value="autocomplete">Autocomplete</option>
             <option value="textarea">Text area (code editor)</option>
           </select>
-          <p class="description">All values are stored as strings. Masked hides the value while typing (stored as plain text - not a secret); number validates digits; autocomplete binds to a plugin handler; text area is an ace editor for multi-line values.</p>
+          <p class="description">All values are stored as strings. Masked hides the value while typing (stored as plain text - not a secret); number validates digits; bool is a true/false toggle; autocomplete binds to a plugin handler; text area is an ace editor for multi-line values.</p>
         </div>
         <div x-show="fieldConfig.type === 'textarea'">
           <label class="form-label" for="field-config-language">Editor language</label>
@@ -636,7 +637,16 @@
         </div>
         <div>
           <label class="form-label" for="field-config-default">Default value</label>
-          <textarea id="field-config-default" class="form-field font-mono" rows="2" x-model="fieldConfig.default" placeholder="Optional" aria-label="Default value"></textarea>
+          <template x-if="fieldConfig.type === 'bool'">
+            <select id="field-config-default" class="form-field" x-model="fieldConfig.default" aria-label="Default value">
+              <option value="">No default</option>
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </template>
+          <template x-if="fieldConfig.type !== 'bool'">
+            <textarea id="field-config-default" class="form-field font-mono" rows="2" x-model="fieldConfig.default" placeholder="Optional" aria-label="Default value"></textarea>
+          </template>
           <p class="description">Pre-fills the field when creating a space.</p>
         </div>
       </div>
