@@ -612,7 +612,7 @@
             <option value="autocomplete">Autocomplete</option>
             <option value="textarea">Text Area (code editor)</option>
           </select>
-          <p class="description">Values are stored as strings; masked hides the value while typing but is not a secret; select and autocomplete take their options from a plugin handler.</p>
+          <p class="description">Values are stored as strings; masked hides the value while typing but is not a secret; select and autocomplete take their options from a plugin handler or manual list.</p>
         </div>
         <div x-show="fieldConfig.type === 'textarea'">
           <label class="form-label" for="field-config-language">Editor Language</label>
@@ -631,16 +631,18 @@
           <label class="form-label" for="field-config-handler">Plugin handler (options)</label>
           <select id="field-config-handler" class="form-field" x-model="fieldConfig.handler">
             <option value="">Manual list…</option>
+            <template x-if="extraHandlerOption()">
+              <option :value="extraHandlerOption().value" :selected="true" x-text="extraHandlerOption().label"></option>
+            </template>
             <template x-for="h in fieldConfig.handlers" :key="h.id">
               <option :value="h.id" x-text="h.label + ' (' + h.id + ')'"></option>
             </template>
           </select>
-          <p class="description" x-show="fieldConfig.handlers.length">The handler's plugin serves the options as the requesting user; selecting one implies its plugin.</p>
-          <p class="description" x-show="!fieldConfig.handlers.length" x-cloak>No plugins with option handlers are installed — use the manual list below.</p>
+          <p class="description" x-show="!fieldConfig.handlers.length" x-cloak>No plugins with option handlers are installed.</p>
           <div x-show="!fieldConfig.handler" class="mt-4">
             <label class="form-label" for="field-config-options">Options (one per line)</label>
             <textarea id="field-config-options" class="form-field font-mono" rows="3" x-model="fieldConfig.options" placeholder="small&#10;medium&#10;large"></textarea>
-            <p class="description">A manual list instead of a plugin: it applies while the list is non-empty and no handler is selected.</p>
+            <p class="description">Manual list instead options.</p>
           </div>
         </div>
         <div>

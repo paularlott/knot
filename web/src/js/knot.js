@@ -142,7 +142,7 @@ window.fieldSelect = function fieldSelect(handlerId, staticOptions) {
     async init() {
       if (this.loaded || this.options.length) return;
       try {
-        const response = await fetch(`/api/plugins/field-handlers/${encodeURIComponent(handlerId)}`);
+        const response = await fetch(`/api/plugins/field-handlers/${encodeURIComponent(handlerId)}`, { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
           const options = Array.isArray(data) ? data : data.options;
@@ -244,7 +244,7 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
         return;
       }
       try {
-        const response = await fetch(`/api/plugins/field-handlers/${encodeURIComponent(handlerId)}`);
+        const response = await fetch(`/api/plugins/field-handlers/${encodeURIComponent(handlerId)}`, { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
           const options = Array.isArray(data) ? data : data.options;

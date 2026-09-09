@@ -110,18 +110,21 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 			return
 		}
 
-		// Add headers to allow caching for 4 hours
-		w.Header().Set("Cache-Control", "public, max-age=14400")
-
 		// If server.html_path is given then serve the files from that path otherwise serve the embedded files
 		htmlPath := cfg.HTMLPath
 		if htmlPath != "" {
 			// If the file does exist then return a 404
 			info, err := os.Stat(filepath.Join(htmlPath, fileName))
 			if os.IsNotExist(err) || info.IsDir() {
+				// Deliberately no cache headers: a miss must not be
+				// cacheable — a 404 here cached for hours would keep
+				// answering for an API route registered later.
 				showPageNotFound(w, r)
 				return
 			}
+
+			// Add headers to allow caching for 4 hours
+			w.Header().Set("Cache-Control", "public, max-age=14400")
 
 			// Calculate the ETag and set it
 			etag := fmt.Sprintf("%x", info.ModTime().Unix())
