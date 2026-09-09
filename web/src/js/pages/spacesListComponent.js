@@ -2006,8 +2006,11 @@ window.spacesListComponent = function (
         }
       }
     },
-    // Mirrors the server's create-time checks (CheckUserQuotas): max
-    // spaces blocks everything, storage units are per template.
+    // Mirrors the server's own quota rules: max spaces and storage units
+    // are checked at create (CheckUserQuotas), compute units at start —
+    // but a template that could never start is not a usable choice, so
+    // the picker blocks on all three. Quota 0 means unlimited, as on the
+    // server.
     applyQuotaToTemplates() {
       const quota = this.quota;
       if (!quota || this.templateSelector.templates.length === 0) return;
@@ -2018,7 +2021,12 @@ window.spacesListComponent = function (
           quota.storage_units > 0 &&
           quota.used_storage_units + template.storage_units >
             quota.storage_units;
-        template.quotaBlocked = maxSpacesReached || storageBlocked;
+        const computeBlocked =
+          quota.compute_units > 0 &&
+          quota.used_compute_units + template.compute_units >
+            quota.compute_units;
+        template.quotaBlocked =
+          maxSpacesReached || storageBlocked || computeBlocked;
       });
     },
     anyUsableTemplate() {
