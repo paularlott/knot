@@ -55,6 +55,14 @@ func TestLoadExamplePlugins(t *testing.T) {
 	if len(scriptling.ActionIcons) != 7 || !strings.Contains(scriptling.ActionIcons["assets/archive.svg"], "<path") {
 		t.Errorf("demo-scriptling action icons = %+v", scriptling.ActionIcons)
 	}
+	// Its declared export modules are read and linted at load: client.py
+	// (also aliased as the plugin.<name> root) plus the format helper.
+	if len(scriptling.Exports) != 2 || scriptling.Exports[0].Path != "client.py" || scriptling.Exports[1].Path != "format.py" {
+		t.Errorf("demo-scriptling exports = %+v", scriptling.Exports)
+	}
+	if !strings.Contains(scriptling.Exports[0].Source, "class Widgets:") {
+		t.Errorf("demo-scriptling client source = %q", scriptling.Exports[0].Source)
+	}
 	// demo-scriptling ships a themed pair, which claims the site logo.
 	if !scriptling.SiteLogo {
 		t.Error("demo-scriptling's logo pair should claim the site logo")

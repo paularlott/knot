@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/scriptling/lint"
 	"github.com/paularlott/scriptling/metadata"
 	pluginpkg "github.com/paularlott/scriptling/plugin"
 )
@@ -89,6 +90,7 @@ var toolKnotKeys = map[string]bool{
 	"field_handlers": true,
 	"icons":          true,
 	"api":            true,
+	"export":         true,
 }
 
 var mcpToolKeys = map[string]bool{
@@ -132,6 +134,11 @@ var pageKeys = map[string]bool{
 
 // handlerNameRe accepts a function name or module.function reference.
 var handlerNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`)
+
+// moduleNameRe accepts a scriptling module name (one identifier segment):
+// an exported module's stem becomes part of its plugin.<name>.<stem>
+// library name.
+var moduleNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // ValidHandlerName reports whether name is a legal handler reference (a
 // function name or module.function path) — the same shape [tool.knot] pages
@@ -326,6 +333,51 @@ func parseToolKnot(ctx context.Context, name string, src *assetSource, table map
 	}
 	// A declared logo pair is the site-logo claim.
 	p.SiteLogo = p.LogoLight != ""
+
+	// export declares the plugin's exported modules: scriptling modules
+	// materialized in user tool environments as plugin.<name>.<stem>, the
+	// first also aliased as plugin.<name> — client SDKs over
+	// knot.plugin.call. They run in the CALLER's environment with the
+	// caller's authority; every call rides the gated loopback like a
+	// hand-written one, so the declaration adds ergonomics, never
+	// authority. Each module is read once here (peer fetcher first, disk
+	// second) and linted — a broken export fails the plugin at load, not
+	// the user at run time.
+	if v, ok := table["export"]; ok {
+		list, ok := v.([]any)
+		if !ok || len(list) == 0 {
+			return nil, fmt.Errorf("[tool.knot]: export must be a non-empty list of module paths")
+		}
+		stems := map[string]bool{}
+		for i, raw := range list {
+			rel, ok := raw.(string)
+			if !ok || rel == "" {
+				return nil, fmt.Errorf("[tool.knot]: export[%d] must be a module path", i)
+			}
+			if err := validateAssetShape(rel); err != nil {
+				return nil, fmt.Errorf("[tool.knot]: export[%d]: %w", i, err)
+			}
+			if strings.ToLower(filepath.Ext(rel)) != ".py" {
+				return nil, fmt.Errorf("[tool.knot]: export[%d] must be a .py module in the plugin folder", i)
+			}
+			stem := strings.TrimSuffix(filepath.Base(rel), ".py")
+			if !moduleNameRe.MatchString(stem) {
+				return nil, fmt.Errorf("[tool.knot]: export[%d]: %q is not a valid module name", i, stem)
+			}
+			if stems[stem] {
+				return nil, fmt.Errorf("[tool.knot]: export[%d]: duplicate module %q", i, stem)
+			}
+			stems[stem] = true
+			source, err := src.Read(ctx, rel)
+			if err != nil {
+				return nil, fmt.Errorf("[tool.knot]: export[%d]: %w", i, err)
+			}
+			if result := lint.Lint(string(source), &lint.Options{Filename: rel}); result.HasErrors {
+				return nil, fmt.Errorf("[tool.knot]: export[%d] %s: %s", i, rel, result.String())
+			}
+			p.Exports = append(p.Exports, ScriptExport{Path: rel, Source: string(source)})
+		}
+	}
 
 	// Menus.
 	if v, ok := table["menus"]; ok {

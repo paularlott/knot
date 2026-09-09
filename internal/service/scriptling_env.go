@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -396,6 +397,27 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 		// transport as the knot.* libraries, real web dispatch, declared
 		// gates enforced. Never in-process.
 		registerPluginLoopbackCallLibrary(env, client, opts.User)
+
+		// The one deliberate exception to "no plugin code in this
+		// environment": a plugin's declared export modules
+		// ([tool.knot] export) are materialized here — each as
+		// plugin.<name>.<stem>, the first also as plugin.<name> — client
+		// SDKs whose classes wrap knot.plugin.call. They execute with the
+		// caller's authority and every call rides the gated loopback
+		// above, exactly like a hand-written call, so the declaration adds
+		// ergonomics, never authority. Read and linted once at plugin
+		// load; anything a plugin did not declare stays unattached.
+		if registry := plugins.GetRegistry(); registry != nil {
+			for _, p := range registry.All() {
+				for i, ex := range p.Exports {
+					stem := strings.TrimSuffix(filepath.Base(ex.Path), ".py")
+					env.RegisterScriptLibrary("plugin."+p.ScriptNamespace+"."+stem, ex.Source)
+					if i == 0 {
+						env.RegisterScriptLibrary("plugin."+p.ScriptNamespace, ex.Source)
+					}
+				}
+			}
+		}
 
 		if opts.EventEnvelope != nil {
 			env.RegisterLibrary(knotscriptling.GetEventLibrary())

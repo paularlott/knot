@@ -30,6 +30,11 @@ A folder plugin (`main.py` + `assets/`) declaring:
   currentColor-stroked SVG that themes with the UI like knot's built-ins,
   and its row-action buttons use its own declared assets (the `icons` list
   in its metadata) — knot ships no built-in action set.
+- **exported client modules** (`export = ["client.py", "format.py"]`):
+  user tools `import plugin.demo_scriptling` and get the `Widgets` class
+  over the plugin's declared handlers — a client SDK wrapping
+  `knot.plugin.call`, ergonomics without authority; the second module
+  shows exports importing each other by their user-side name.
 
 **Logos**: demo-scriptling declares a themed `logo_light`/`logo_dark` pair;
 demo-go declares only `logo_light`, which knot copies to the dark slot so one

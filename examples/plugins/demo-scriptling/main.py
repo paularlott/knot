@@ -11,6 +11,7 @@
 # permissions = ["view_dashboard", "admin_dashboard"]
 # logo_light = "assets/logo-light.svg"
 # logo_dark = "assets/logo-dark.svg"
+# export = ["client.py", "format.py"]
 # icons = [
 #   "assets/edit.svg",
 #   "assets/notes.svg",

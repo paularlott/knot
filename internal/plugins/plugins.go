@@ -162,6 +162,13 @@ type Plugin struct {
 	// disk — those keep streaming from disk as before.
 	Assets map[string][]byte `json:"-"`
 
+	// Exports are the modules declared in [tool.knot] export: scriptling
+	// modules materialized in user tool environments as
+	// plugin.<name>.<stem> — client SDKs wrapping knot.plugin.call. The
+	// first declared module is also aliased as plugin.<name> itself. Each
+	// source is read and linted once at load.
+	Exports []ScriptExport `json:"exports,omitempty"`
+
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem. Empty for a peer plugin with
 	// no main.py.
@@ -184,6 +191,13 @@ type Plugin struct {
 	Namespaces []string `json:"-"`
 
 	scope *plugin.Manager // owns this plugin's bin/ peers, nil when none
+}
+
+// ScriptExport is one module declared in [tool.knot] export: its path as
+// declared and its source, read and linted once at plugin load.
+type ScriptExport struct {
+	Path   string `json:"path"`
+	Source string `json:"-"`
 }
 
 // Scope returns the manager owning this plugin's binary peers (which the
