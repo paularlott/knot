@@ -125,10 +125,17 @@ type Plugin struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
 	Description string `json:"description"`
-	Dir         string `json:"-"`                    // the plugin folder
-	EntryFile   string `json:"-"`                    // main.py
-	LogoLight   string `json:"logo_light,omitempty"` // relative paths
-	LogoDark    string `json:"logo_dark,omitempty"`
+	// APIVersion is the plugin system generation this plugin targets
+	// ([tool.knot] api; absent = 1, the only generation today). Breaking
+	// changes to the plugin contract — the [tool.knot] shape, the handler
+	// request/response contract, the block document — happen only behind a
+	// new generation, and a knot that doesn't know a generation rejects the
+	// plugin loudly at load rather than mis-parsing it.
+	APIVersion int    `json:"api,omitempty"`
+	Dir        string `json:"-"`                    // the plugin folder
+	EntryFile  string `json:"-"`                    // main.py
+	LogoLight  string `json:"logo_light,omitempty"` // relative paths
+	LogoDark   string `json:"logo_dark,omitempty"`
 	// SiteLogo reports that the plugin's logo pair claims the main page
 	// logo (login included) — a declared pair is the claim. At most one
 	// plugin's claim takes effect — see SiteLogoURLs.

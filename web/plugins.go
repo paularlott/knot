@@ -301,6 +301,12 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 			if len(plugin.ActionIcons) > 0 {
 				document["icons"] = plugin.ActionIcons
 			}
+			// The plugin system generation the document targets — the same
+			// [tool.knot] api the plugin declared (1 when absent), so the
+			// block document is self-describing for any future consumer.
+			if plugin.APIVersion > 0 {
+				document["api"] = plugin.APIVersion
+			}
 
 			tmpl, err := newTemplate("page-plugin.tmpl")
 			if err != nil {

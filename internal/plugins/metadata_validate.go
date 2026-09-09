@@ -85,6 +85,7 @@ var toolKnotKeys = map[string]bool{
 	"mcp_tools":      true,
 	"field_handlers": true,
 	"icons":          true,
+	"api":            true,
 }
 
 var mcpToolKeys = map[string]bool{
@@ -143,15 +144,51 @@ var menuKeys = map[string]bool{
 	"icon":       true,
 }
 
+// apiVersionValue coerces an api declaration from either manifest flavour:
+// TOML integers arrive as int64, JSON (peer handshake) numbers as float64.
+func apiVersionValue(v any) (int, error) {
+	switch t := v.(type) {
+	case int:
+		return t, nil
+	case int64:
+		return int(t), nil
+	case float64:
+		if t != float64(int(t)) {
+			return 0, fmt.Errorf("got %v", t)
+		}
+		return int(t), nil
+	default:
+		return 0, fmt.Errorf("got %T", v)
+	}
+}
+
 // parseToolKnot validates the [tool.knot] table into a Plugin. pluginDir is
 // the plugin folder. All validation is static — no plugin code runs.
 func parseToolKnot(name, pluginDir string, table map[string]any) (*Plugin, error) {
-	p := &Plugin{Name: name}
+	// Absent api means generation 1 — every plugin defaults to today's
+	// contract unless it explicitly targets a newer one.
+	p := &Plugin{Name: name, APIVersion: 1}
 
 	for key := range table {
 		if !toolKnotKeys[key] {
 			return nil, fmt.Errorf("[tool.knot]: unknown key %q", key)
 		}
+	}
+
+	// api is the plugin system generation the plugin targets (absent = 1).
+	// It is read first so a plugin written for a newer generation is
+	// rejected with a clear message before any incidental unknown-key or
+	// semantic error can mislead — and so a future host can route by
+	// generation here, the one place both manifest flavours meet.
+	if v, ok := table["api"]; ok {
+		version, err := apiVersionValue(v)
+		if err != nil {
+			return nil, fmt.Errorf("[tool.knot]: api must be a whole number: %w", err)
+		}
+		if version != 1 {
+			return nil, fmt.Errorf("[tool.knot]: api %d is not supported — this knot implements plugin api 1", version)
+		}
+		p.APIVersion = version
 	}
 
 	// requires_knot is the optional host bound: the knot version this
