@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
@@ -270,32 +269,6 @@ func linkedUserInfos(db database.DbDriver, user *model.User) []apiclient.LinkedU
 	return out
 }
 
-// revokeSwitchedSessions deletes the sessions a linking user's logins
-// currently have switched into linkedUserId — sessions running as
-// linkedUserId whose origin is linkUserId. It returns the killed sessions
-// so the caller can gossip and invalidate their live connections; the
-// deleted marker mirrors the logout tombstone (expiry kept long enough to
-// gossip, IsDeleted doing the actual refusing).
-func revokeSwitchedSessions(linkUserId, linkedUserId string) []*model.Session {
-	sessions, err := database.GetSessionStorage().GetSessionsForUser(linkedUserId)
-	if err != nil {
-		return nil
-	}
-	var revoked []*model.Session
-	for _, session := range sessions {
-		if session.OriginalUserId != linkUserId || session.IsDeleted {
-			continue
-		}
-		session.IsDeleted = true
-		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
-		session.UpdatedAt = hlc.Now()
-		if err := database.GetSessionStorage().SaveSession(session); err == nil {
-			revoked = append(revoked, session)
-		}
-	}
-	return revoked
-}
-
 // HandleLinkUser grants one user the ability to become another: the linked
 // user joins target's become-list, so target's profile menu offers it. The
 // grant is one way — the linked user cannot become target.
@@ -364,13 +337,11 @@ func HandleUnlinkUser(w http.ResponseWriter, r *http.Request) {
 	}
 	service.GetTransport().GossipUser(target)
 
-	// The grant is gone, so sessions the linking user currently has
-	// switched into the unlinked account lose their right to be that user:
-	// kill them now rather than at their next switch attempt.
-	for _, switched := range revokeSwitchedSessions(target.Id, linked.Id) {
-		service.GetTransport().GossipSession(switched)
-		sse.GetHub().InvalidateSession(switched.Id)
-	}
+	// Deliberately no session revocation: a session the linking user
+	// already has switched into the unlinked account keeps running until
+	// it switches back or expires — kicking an admin's live session out
+	// proved worse than the short overlap. The link is still gone, so it
+	// cannot switch in again.
 
 	audit.LogWithRequest(r,
 		user.Username,

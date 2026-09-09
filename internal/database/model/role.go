@@ -146,7 +146,7 @@ var PermissionNames = []PermissionName{
 	{PermissionManageGroups, "User Management", "Manage Groups", "Create, edit, and delete user groups."},
 	{PermissionManageRoles, "User Management", "Manage Roles", "Create, edit, and delete roles and their permissions."},
 	{PermissionManageUsers, "User Management", "Manage Users", "Create, edit, and delete user accounts."},
-	{PermissionLinkUsers, "User Management", "Link Users", "Grant one user the ability to switch into another account from the profile menu — full access to that account, administrators included. One way: the linked account cannot become the linking user. Treat as impersonation-grade."},
+	{PermissionLinkUsers, "User Management", "Link Users", "Grant one user the ability to switch into another account from the profile menu. Treat as impersonation-grade."},
 
 	{PermissionManageSpaces, "Resource Management", "Manage Spaces", "Manage any space, including those owned by other users."},
 	{PermissionManageTemplates, "Resource Management", "Manage Templates", "Create, edit, and delete space templates."},

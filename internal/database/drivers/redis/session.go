@@ -10,6 +10,19 @@ import (
 )
 
 func (db *RedisDbDriver) SaveSession(session *model.Session) error {
+	// A switch rewrites UserId; drop the by-user index left under the
+	// previous user or the session lingers in their per-user listings.
+	// Only switched sessions can have one, so everyone else skips the
+	// extra read on this per-request hot path.
+	if session.OriginalUserId != "" {
+		if v, err := db.get(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id)); err == nil && v != "" {
+			var old model.Session
+			if json.Unmarshal([]byte(v), &old) == nil && old.UserId != "" && old.UserId != session.UserId {
+				db.del(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, old.UserId, session.Id))
+			}
+		}
+	}
+
 	data, err := json.Marshal(session)
 	if err != nil {
 		return err
