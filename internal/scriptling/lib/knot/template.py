@@ -40,6 +40,7 @@ def _custom_fields(fields):
             "handler": str(cf.get("handler", "") or ""),
             "language": str(cf.get("language", "") or ""),
             "default": default,
+            "required": bool(cf.get("required", False)),
         })
     return out
 
@@ -164,7 +165,8 @@ def create(name, job="", description="", platform="", volumes="", active=True,
     custom_fields is a list of dicts declaring the template's custom
     fields: name, description, type ("text", "masked", "number", "bool",
     "autocomplete" or "textarea"), handler (autocomplete only), language
-    (textarea only) and default (a bool default becomes "true"/"false").
+    (textarea only), default (a bool default becomes "true"/"false") and
+    required (bool).
     """
     volumes = _with_paths(volumes, paths)
     body = {

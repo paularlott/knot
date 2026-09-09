@@ -7527,6 +7527,9 @@ components:
         default:
           type: string
           description: Value prefilled when creating a space, stored as a string (a bool field prefills "true" or "false"). Applied only when the create request omits the field entirely - a field sent with an empty value keeps the empty value.
+        required:
+          type: boolean
+          description: When true the field cannot be left blank - space create/update is rejected (absent, empty or whitespace-only values) unless the template default satisfies it. A bool field is never blank.
 
     TemplateCreateRequest:
       type: object

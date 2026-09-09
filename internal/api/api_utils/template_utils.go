@@ -130,6 +130,7 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 			Handler:     field.Handler,
 			Language:    field.Language,
 			Default:     field.Default,
+			Required:    field.Required,
 		}
 	}
 

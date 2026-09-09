@@ -25,7 +25,7 @@ import { scriptLibraries } from "./scriptCompletions.js";
 
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
-    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', handlers: [] },
+    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, handlers: [] },
     iconList: [],
     scriptList: [],
     templateId: templateId,
@@ -754,7 +754,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     },
     addField() {
       this.customFieldValid.push(true);
-      this.formData.custom_fields.push({ name: "", description: "", default: "" });
+      this.formData.custom_fields.push({ name: "", description: "", default: "", required: false });
     },
     fieldTypeLabel(field) {
       const type = field.type || 'text';
@@ -768,6 +768,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       this.fieldConfig.handler = this.formData.custom_fields[index].handler || '';
       this.fieldConfig.language = this.formData.custom_fields[index].language || '';
       this.fieldConfig.default = this.formData.custom_fields[index].default || '';
+      this.fieldConfig.required = !!this.formData.custom_fields[index].required;
       // Refetch on every open: the installed plugin set can change between
       // opens.
       try {
@@ -787,6 +788,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       field.handler = field.type === 'autocomplete' ? this.fieldConfig.handler : '';
       field.language = field.type === 'textarea' ? this.fieldConfig.language : '';
       field.default = this.fieldConfig.default;
+      field.required = !!this.fieldConfig.required;
       this.fieldConfig.show = false;
     },
 

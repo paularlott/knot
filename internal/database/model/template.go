@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/log"
+	"strings"
 )
 
 const (
@@ -101,6 +102,10 @@ type TemplateCustomField struct {
 	// field entirely, never when the field arrives with an empty value —
 	// clearing a prefilled default is an intentional blank.
 	Default string `json:"default,omitempty"`
+	// Required marks a field the space form refuses to leave blank (and
+	// the space create/update API rejects): absent, empty or
+	// whitespace-only values fail. A bool field is never blank.
+	Required bool `json:"required,omitempty"`
 }
 
 // ApplyCustomFieldDefaults returns provided with the template's default
@@ -123,6 +128,31 @@ func ApplyCustomFieldDefaults(template *Template, provided []SpaceCustomField) [
 		provided = append(provided, SpaceCustomField{Name: field.Name, Value: field.Default})
 	}
 	return provided
+}
+
+// MissingRequiredCustomFields returns the names of the template's required
+// custom fields the provided values leave blank — absent, empty, or
+// whitespace-only. A default can satisfy a requirement, so callers run it
+// after ApplyCustomFieldDefaults. A bool field is never blank (it is always
+// "true" or "false").
+func MissingRequiredCustomFields(template *Template, provided []SpaceCustomField) []string {
+	if len(template.CustomFields) == 0 {
+		return nil
+	}
+	values := make(map[string]string, len(provided))
+	for _, field := range provided {
+		values[field.Name] = field.Value
+	}
+	var missing []string
+	for _, field := range template.CustomFields {
+		if !field.Required || field.Type == "bool" {
+			continue
+		}
+		if strings.TrimSpace(values[field.Name]) == "" {
+			missing = append(missing, field.Name)
+		}
+	}
+	return missing
 }
 
 type TemplatePort struct {

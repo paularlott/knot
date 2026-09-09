@@ -260,3 +260,43 @@ func TestApplyCustomFieldDefaults(t *testing.T) {
 		t.Errorf("no-field template = %+v, want the input unchanged", got)
 	}
 }
+
+// TestMissingRequiredCustomFields pins the required rule: absent, empty and
+// whitespace-only values count as blank; a default applied beforehand
+// satisfies the requirement; bool fields are never blank; non-required
+// fields never report.
+func TestMissingRequiredCustomFields(t *testing.T) {
+	template := &Template{CustomFields: []TemplateCustomField{
+		{Name: "branch", Required: true},
+		{Name: "note", Type: "textarea", Required: true},
+		{Name: "debug", Type: "bool", Required: true},
+		{Name: "optional"},
+	}}
+
+	// Nothing provided: both non-bool required fields are missing.
+	if got := MissingRequiredCustomFields(template, nil); len(got) != 2 || got[0] != "branch" || got[1] != "note" {
+		t.Errorf("missing = %v, want [branch note]", got)
+	}
+
+	// Blank and whitespace-only count as blank.
+	if got := MissingRequiredCustomFields(template, []SpaceCustomField{
+		{Name: "branch", Value: "   "},
+		{Name: "note", Value: ""},
+	}); len(got) != 2 {
+		t.Errorf("blank values = %v, want both missing", got)
+	}
+
+	// A default applied beforehand satisfies the requirement.
+	withDefault := &Template{CustomFields: []TemplateCustomField{
+		{Name: "branch", Required: true, Default: "main"},
+	}}
+	if got := MissingRequiredCustomFields(withDefault, ApplyCustomFieldDefaults(withDefault, nil)); len(got) != 0 {
+		t.Errorf("default should satisfy required, got %v", got)
+	}
+	if got := MissingRequiredCustomFields(template, []SpaceCustomField{
+		{Name: "branch", Value: "main"},
+		{Name: "note", Value: "hello"},
+	}); len(got) != 0 {
+		t.Errorf("filled values = %v, want none missing", got)
+	}
+}

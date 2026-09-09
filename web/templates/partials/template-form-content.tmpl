@@ -599,21 +599,21 @@
   <div x-show="fieldConfig.show" x-cloak class="ui-modal-backdrop" @keydown.escape.window="fieldConfig.show = false">
     <div class="ui-modal-panel rounded-2xl max-w-lg" role="dialog" aria-modal="true" aria-label="Configure custom field">
       <div class="p-5 space-y-4">
-        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure custom field</h3>
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure Custom Field</h3>
         <div>
-          <label class="form-label" for="field-config-type">Field type</label>
+          <label class="form-label" for="field-config-type">Field Type</label>
           <select id="field-config-type" class="form-field" x-model="fieldConfig.type">
             <option value="text">Text</option>
             <option value="masked">Masked</option>
             <option value="number">Number</option>
             <option value="bool">Bool (true/false)</option>
             <option x-show="fieldConfig.handlers.length > 0 || fieldConfig.type === 'autocomplete'" value="autocomplete">Autocomplete</option>
-            <option value="textarea">Text area (code editor)</option>
+            <option value="textarea">Text Area (code editor)</option>
           </select>
-          <p class="description">All values are stored as strings. Masked hides the value while typing (stored as plain text - not a secret); number validates digits; bool is a true/false toggle; autocomplete binds to a plugin handler; text area is an ace editor for multi-line values.</p>
+          <p class="description">Values are stored as strings; masked hides the value while typing but is not a secret.</p>
         </div>
         <div x-show="fieldConfig.type === 'textarea'">
-          <label class="form-label" for="field-config-language">Editor language</label>
+          <label class="form-label" for="field-config-language">Editor Language</label>
           <select id="field-config-language" class="form-field" x-model="fieldConfig.language">
             <option value="">Text</option>
             <option value="scriptling">Scriptling</option>
@@ -623,20 +623,28 @@
             <option value="markdown">Markdown</option>
             <option value="shell">Shell</option>
           </select>
-          <p class="description">Sets the editor's highlighting and completions on the space form; scriptling gets the same completions as the script editors.</p>
+          <p class="description">The editor's highlighting on the space form.</p>
         </div>
         <div x-show="fieldConfig.type === 'autocomplete'">
-          <label class="form-label" for="field-config-handler">Plugin handler (suggestions)</label>
+          <label class="form-label" for="field-config-handler">Plugin Handler (suggestions)</label>
           <select id="field-config-handler" class="form-field" x-model="fieldConfig.handler">
             <option value="">Select a handler…</option>
             <template x-for="h in fieldConfig.handlers" :key="h.id">
               <option :value="h.id" x-text="h.label + ' (' + h.id + ')'"></option>
             </template>
           </select>
-          <p class="description">The field becomes a pick-or-create autocompleter on the space form; the plugin serves suggestions as the requesting user.</p>
+          <p class="description">Suggestions come from the plugin; the field stays pick-or-create.</p>
         </div>
         <div>
-          <label class="form-label" for="field-config-default">Default value</label>
+          <label class="flex items-center cursor-pointer">
+            <input type="checkbox" id="field-config-required" class="sr-only peer" x-model="fieldConfig.required">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Field Required</span>
+          </label>
+          <p class="description">A required field cannot be left blank.</p>
+        </div>
+        <div>
+          <label class="form-label" for="field-config-default">Default Value</label>
           <template x-if="fieldConfig.type === 'bool'">
             <select id="field-config-default" class="form-field" x-model="fieldConfig.default" aria-label="Default value">
               <option value="">No default</option>

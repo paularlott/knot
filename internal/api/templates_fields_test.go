@@ -66,6 +66,18 @@ func TestNormalizeCustomFields(t *testing.T) {
 	if fields[0].Handler != "" || fields[0].Language != "" || fields[0].Default != "false" {
 		t.Errorf("bool stray extras stored: %+v, want cleared and default kept", fields[0])
 	}
+
+	// Required rides along on every type.
+	fields, errMsg = normalizeCustomFields([]apiclient.CustomFieldDef{
+		{Name: "branch", Required: true},
+		{Name: "debug", Type: "bool", Required: true, Default: "true"},
+	})
+	if errMsg != "" {
+		t.Fatalf("required fields rejected: %s", errMsg)
+	}
+	if !fields[0].Required || !fields[1].Required {
+		t.Errorf("required = %v / %v, want both true", fields[0].Required, fields[1].Required)
+	}
 	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "x", Type: "boolean"}}); errMsg == "" || !strings.Contains(errMsg, "custom_fields[0].type") {
 		t.Errorf("\"boolean\" should be rejected (the type is \"bool\"): errMsg = %q", errMsg)
 	}

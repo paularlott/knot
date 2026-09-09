@@ -390,6 +390,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	// decides whether a default applies.
 	customFields = model.ApplyCustomFieldDefaults(template, customFields)
 
+	// Required fields cannot be left blank — the form enforces this
+	// client-side, the API for every caller. A default can satisfy the
+	// requirement, hence the order.
+	if missing := model.MissingRequiredCustomFields(template, customFields); len(missing) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "missing required custom field(s): " + strings.Join(missing, ", ")})
+		return
+	}
+
 	// Select node for space
 	nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
 	if err != nil {
@@ -851,6 +859,12 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	// Required fields cannot be left blank on edit either.
+	if missing := model.MissingRequiredCustomFields(template, customFields); len(missing) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "missing required custom field(s): " + strings.Join(missing, ", ")})
 		return
 	}
 

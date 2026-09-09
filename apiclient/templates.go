@@ -14,6 +14,7 @@ type CustomFieldDef struct {
 	Handler     string `json:"handler,omitempty"`
 	Language    string `json:"language,omitempty"`
 	Default     string `json:"default,omitempty"`
+	Required    bool   `json:"required,omitempty"`
 }
 
 type TemplateCreateRequest struct {

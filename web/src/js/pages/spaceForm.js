@@ -68,6 +68,7 @@ window.spaceForm = function (
     loading: true,
     buttonLabelWorking: isEdit ? "Saving..." : "Creating...",
     nameValid: true,
+    customFieldValid: [],
     addressValid: true,
     forUsername: forUserUsername,
     volume_size_valid: {},
@@ -420,8 +421,10 @@ window.spaceForm = function (
             };
           },
         );
+        this.customFieldValid = this.template.custom_fields.map(() => true);
       } else {
         this.formData.custom_fields = [];
+        this.customFieldValid = [];
       }
 
       // Get if the template is manual
@@ -542,6 +545,29 @@ window.spaceForm = function (
       this.descValid = this.formData.description.length <= 1024;
       return this.descValid;
     },
+
+    // Required custom fields validate like Space Name: live per field
+    // (debounced keyup on the field's own input) plus once more on submit.
+    customFieldIsValid(index) {
+      const field = this.template && this.template.custom_fields[index];
+      if (!field || !field.required || field.type === "bool") return true;
+      const value = (this.formData.custom_fields[index] || {}).value;
+      return String(value ?? "").trim() !== "";
+    },
+
+    checkCustomField(index) {
+      if (index >= 0 && index < this.customFieldValid.length) {
+        this.customFieldValid[index] = this.customFieldIsValid(index);
+      }
+    },
+
+    checkCustomFields() {
+      const fields = this.template ? this.template.custom_fields : [];
+      this.customFieldValid = fields.map((field, index) =>
+        this.customFieldIsValid(index),
+      );
+      return this.customFieldValid.every(Boolean);
+    },
     submitData() {
       let err = false;
       const self = this;
@@ -550,6 +576,7 @@ window.spaceForm = function (
       self.stayOnPage = false;
       err = !this.checkName() || err;
       err = !this.checkDesc() || err;
+      err = !this.checkCustomFields() || err;
 
       // Remove the blank alt names
       for (let i = this.formData.alt_names.length - 1; i >= 0; i--) {

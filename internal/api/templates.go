@@ -99,6 +99,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 				Handler:     field.Handler,
 				Language:    field.Language,
 				Default:     field.Default,
+				Required:    field.Required,
 			}
 		}
 
@@ -541,6 +542,7 @@ func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateC
 			Handler:     handler,
 			Language:    language,
 			Default:     field.Default,
+			Required:    field.Required,
 		})
 	}
 	return out, ""
