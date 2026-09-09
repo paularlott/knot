@@ -971,9 +971,9 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <template x-for="t in templateSelector.templates" :key="t.template_id">
                 <template x-if="!t.searchHide">
-                  <div :class="{'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer': !t.quotaBlocked, 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed': t.quotaBlocked}" class="border rounded-lg p-4 transition-colors" @click="t.quotaBlocked || selectTemplate(t.template_id)">
-                    <!-- Greyscale the card content only: the quota badge sits outside the filter so its colour survives. -->
-                    <div :class="{'grayscale': t.quotaBlocked}">
+                  <div :class="{'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer': !t.quotaBlocked, 'border-gray-200 dark:border-gray-700 cursor-not-allowed': t.quotaBlocked}" class="border rounded-lg p-4 transition-colors" @click="t.quotaBlocked || selectTemplate(t.template_id)">
+                    <!-- Fade and greyscale the card content only: the quota badge sits outside both so its colour and opacity survive. -->
+                    <div :class="{'grayscale opacity-50': t.quotaBlocked}">
                     <div class="flex items-start gap-4">
                       <img x-show="t.icon_url && t.icon_url_exists" :src="t.icon_url" alt="Icon" class="size-12 flex-shrink-0" />
 
@@ -1022,7 +1022,7 @@
                     </div>
 
                     <div x-show="t.quotaBlocked" x-cloak class="mt-2">
-                      <span class="app-badge-purple" title="Creating a space from this template would exceed the owner's quota">Insufficient quota</span>
+                      <span class="app-badge-purple" title="Creating a space from this template would exceed the owner's quota">Insufficient Quota</span>
                     </div>
                   </div>
                 </template>
