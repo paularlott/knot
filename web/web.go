@@ -639,7 +639,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"hideAPITokens":                       cfg.UI.HideAPITokens,
 		"useGravatar":                         cfg.UI.EnableGravatar,
 		"adminSectionActive":                  isAdminPath(r.URL.Path, cfg.LeafNode),
-		"moreSectionActive":                   isMorePath(r.URL.Path, cfg.LeafNode),
 		"permissionManageUsers":               user.HasPermission(model.PermissionManageUsers),
 		"permissionManageGroups":              user.HasPermission(model.PermissionManageGroups),
 		"permissionManageRoles":               user.HasPermission(model.PermissionManageRoles),
@@ -744,23 +743,6 @@ func isAdminPath(path string, leafNode bool) bool {
 	if !leafNode {
 		paths = append(paths, "/templates", "/variables")
 	}
-	for _, p := range paths {
-		if path == p || strings.HasPrefix(path, p+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-// isMorePath reports whether the given request path belongs to one of the
-// secondary pages collapsed under the "More" section in the sidebar. Used to
-// auto-expand that section so users don't lose their place.
-func isMorePath(path string, leafNode bool) bool {
-	paths := []string{"/stacks", "/scripts", "/events", "/skills", "/commands", "/mcp-servers"}
-	if !leafNode {
-		paths = append(paths, "/templates", "/variables")
-	}
-	paths = append(paths, "/users", "/groups", "/roles", "/audit-logs", "/cluster-info", "/plugins")
 	for _, p := range paths {
 		if path == p || strings.HasPrefix(path, p+"/") {
 			return true

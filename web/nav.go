@@ -209,7 +209,8 @@ func buildNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool) (
 // normally live on top — collapses into "More" (demoted primary items first).
 // With no pinned items (Mode A) the layout is exactly the legacy default.
 //
-// moreActive reports whether "More" should render expanded for requestPath.
+// moreActive reports whether "More" should render expanded for requestPath
+// (see moreActiveFor).
 func resolveNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool, requestPath string) (modeB bool, starred, top, more []NavItem, moreActive bool) {
 	top, more = buildNav(user, cfg, auditAvailable)
 
@@ -236,7 +237,7 @@ func resolveNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool,
 
 	if len(starred) == 0 {
 		// Mode A: default layout.
-		return false, nil, top, more, pathMatchesAny(requestPath, more)
+		return false, nil, top, more, moreActiveFor(requestPath, top, more)
 	}
 
 	// Mode B: pinned items on top; the rest go under "More", with the demoted
@@ -258,14 +259,42 @@ func resolveNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool,
 	if len(moreB) == 0 {
 		moreB = nil
 	}
-	return true, starred, nil, moreB, pathMatchesAny(requestPath, moreB)
+	return true, starred, nil, moreB, moreActiveFor(requestPath, starred, moreB)
 }
 
-// pathMatchesAny reports whether requestPath is, or lives under, any of the
-// given nav URLs (e.g. "/spaces" matches "/spaces" and "/spaces/123").
-func pathMatchesAny(requestPath string, items []NavItem) bool {
-	for _, it := range items {
-		if requestPath == it.URL || strings.HasPrefix(requestPath, it.URL+"/") {
+// navPathOwner returns the item whose URL owns requestPath — an exact match
+// or a whole-segment prefix ("/spaces" owns "/spaces/123") — preferring the
+// longest URL when several items match.
+func navPathOwner(requestPath string, lists ...[]NavItem) (NavItem, bool) {
+	var best NavItem
+	found := false
+	for _, list := range lists {
+		for _, it := range list {
+			if requestPath == it.URL || strings.HasPrefix(requestPath, it.URL+"/") {
+				if !found || len(it.URL) > len(best.URL) {
+					best = it
+					found = true
+				}
+			}
+		}
+	}
+	return best, found
+}
+
+// moreActiveFor reports whether "More" should render expanded for
+// requestPath: the page's owning item — the longest URL match across the top
+// region (pinned or primary) and the collapsed More entries — must itself be
+// a More entry. The longest-match rule keeps nested URLs honest: a plugin
+// page under /plugins/<name> is owned by the plugin's own menu item, not the
+// shorter /plugins inventory entry, so pinning the plugin item closes More
+// instead of leaving it wedged open by its neighbour.
+func moreActiveFor(requestPath string, topRegion, more []NavItem) bool {
+	owner, ok := navPathOwner(requestPath, topRegion, more)
+	if !ok {
+		return false
+	}
+	for _, it := range more {
+		if it.URL == owner.URL {
 			return true
 		}
 	}
