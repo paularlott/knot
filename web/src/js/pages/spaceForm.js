@@ -546,13 +546,21 @@ window.spaceForm = function (
       return this.descValid;
     },
 
-    // Required custom fields validate like Space Name: live per field
-    // (debounced keyup on the field's own input) plus once more on submit.
+    // Custom fields validate like Space Name: live per field (debounced
+    // keyup on the field's own input) plus once more on submit. Required
+    // fields cannot be blank; select / autocomplete fields also only accept
+    // option values (or blank when not required) — manual lists are checked
+    // here, handler-backed fields only ever store picked keys (the API
+    // validates both).
     customFieldIsValid(index) {
       const field = this.template && this.template.custom_fields[index];
-      if (!field || !field.required || field.type === "bool") return true;
-      const value = (this.formData.custom_fields[index] || {}).value;
-      return String(value ?? "").trim() !== "";
+      if (!field || field.type === "bool") return true;
+      const value = String((this.formData.custom_fields[index] || {}).value ?? "");
+      if (field.required && value.trim() === "") return false;
+      if ((field.type === "select" || field.type === "autocomplete") && value.trim() !== "" && Array.isArray(field.options) && field.options.length) {
+        return field.options.includes(value);
+      }
+      return true;
     },
 
     checkCustomField(index) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/api/api_utils"
@@ -543,6 +544,13 @@ func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateC
 					return nil, fmt.Sprintf("custom_fields[%d].options must have at least one entry", i)
 				}
 				options = trimmed
+				// A default the field can never hold would fail every
+				// create once option validation runs, so reject it here.
+				// Handler-backed fields are checked at create time instead
+				// — their options are only known per request.
+				if field.Default != "" && !slices.Contains(options, field.Default) {
+					return nil, fmt.Sprintf("custom_fields[%d].default must be one of the options", i)
+				}
 			} else if !pluginHandlerIdRe.MatchString(handler) {
 				return nil, fmt.Sprintf("custom_fields[%d]: %s needs a plugin field handler or a list of options", i, fieldType)
 			}

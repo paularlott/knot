@@ -162,4 +162,29 @@ func TestNormalizeCustomFields(t *testing.T) {
 	if fields[0].Handler != "" || fields[0].Language != "" {
 		t.Errorf("stray extras stored: %+v, want cleared", fields[0])
 	}
+
+	// A manual option list's default must be one of the options — the
+	// value could never pass validation at create time. Handler-backed
+	// fields can't be checked here (options are per request).
+	fields, errMsg = normalizeCustomFields([]apiclient.CustomFieldDef{
+		{Name: "size", Type: "select", Options: []string{"small", "large"}, Default: "large"},
+	})
+	if errMsg != "" {
+		t.Fatalf("default matching an option rejected: %s", errMsg)
+	}
+	if fields[0].Default != "large" {
+		t.Errorf("default = %q, want it kept", fields[0].Default)
+	}
+	if _, errMsg := normalizeCustomFields([]apiclient.CustomFieldDef{{Name: "size", Type: "select", Options: []string{"small", "large"}, Default: "medium"}}); errMsg == "" || !strings.Contains(errMsg, "custom_fields[0].default") {
+		t.Errorf("default not an option: errMsg = %q, want a default error", errMsg)
+	}
+	fields, errMsg = normalizeCustomFields([]apiclient.CustomFieldDef{
+		{Name: "env", Type: "autocomplete", Handler: "plugin.demo.h", Default: "anything"},
+	})
+	if errMsg != "" {
+		t.Fatalf("handler-backed default rejected: %s", errMsg)
+	}
+	if fields[0].Default != "anything" {
+		t.Errorf("handler-backed default = %q, want it kept for create-time validation", fields[0].Default)
+	}
 }

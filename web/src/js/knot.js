@@ -173,6 +173,18 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
     positionTimeout: null,
     optKey(o) { return typeof o === 'object' && o !== null ? o.key : o; },
     optText(o) { return typeof o === 'object' && o !== null ? (o.text || o.key) : o; },
+    // The field holds option KEYS only — the API rejects values that are
+    // not one of the options. Typing never writes free text into the form:
+    // an exact match of an option's key or text snaps to that key, anything
+    // else clears the value (the picker sets it properly).
+    snapValue(index) {
+      const q = this.search;
+      const match = this.options.find((o) => this.optKey(o) === q || this.optText(o) === q);
+      const ctx = this.formDataCtx();
+      if (ctx) {
+        try { ctx.data.formData.custom_fields[index].value = match ? this.optKey(match) : ''; } catch (e) { /* index race */ }
+      }
+    },
     get filteredOptions() {
       const q = (this.search || '').toLowerCase();
       if (!q) return this.options;

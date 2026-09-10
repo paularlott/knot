@@ -398,6 +398,16 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Select and autocomplete values must be one of the field's options —
+	// the form restricts picking, the API for every caller.
+	if invalid, err := invalidCustomFieldOptions(r.Context(), user, template, customFields, nil, pluginFieldOptionKeys); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	} else if len(invalid) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid value for custom field(s): " + strings.Join(invalid, ", ")})
+		return
+	}
+
 	// Select node for space
 	nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
 	if err != nil {
@@ -848,6 +858,10 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
 	space.IconURL = request.IconURL
+	// Captured before the overwrite: option validation skips fields whose
+	// value is unchanged, so an edit is never blocked by an option list
+	// that has moved on since the value was set.
+	previousCustomFields := space.CustomFields
 	space.CustomFields = customFields
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn
@@ -865,6 +879,21 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	// Required fields cannot be left blank on edit either.
 	if missing := model.MissingRequiredCustomFields(template, customFields); len(missing) > 0 {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "missing required custom field(s): " + strings.Join(missing, ", ")})
+		return
+	}
+
+	// Select and autocomplete values must be one of the field's options;
+	// values carried over unchanged from the stored space are not
+	// re-validated.
+	previousValues := make(map[string]string, len(previousCustomFields))
+	for _, field := range previousCustomFields {
+		previousValues[field.Name] = field.Value
+	}
+	if invalid, err := invalidCustomFieldOptions(r.Context(), user, template, customFields, previousValues, pluginFieldOptionKeys); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	} else if len(invalid) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid value for custom field(s): " + strings.Join(invalid, ", ")})
 		return
 	}
 
