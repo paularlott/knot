@@ -15,7 +15,11 @@ When run without --daemon the tunnel lives for the life of this command (until
 Ctrl-C). With --daemon the tunnel is handed to the knot agent and kept alive for
 the life of the agent; the command returns immediately.
 
-The tunnel is exposed as <user>--<tunnel_name>.<domain>.`,
+The tunnel is exposed as <user>--<tunnel_name>.<domain>.
+
+By default the tunnel is created on the server that owns this space. A
+foreground tunnel (no --daemon) can target any other knot server by giving
+--server and --token, or -a with an alias configured in the config file.`,
 	MaxArgs: cli.NoArgs,
 	Commands: []*cli.Command{
 		HttpTunnelCmd,

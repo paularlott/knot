@@ -2,7 +2,6 @@ package cmdutil
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -10,25 +9,44 @@ import (
 	"github.com/paularlott/knot/internal/config"
 )
 
+// ExplicitServerAddr returns the server the user explicitly targeted via a
+// --server and --token pair (flag or env), or via an --alias that resolves in
+// the config file. It returns nil when neither is given, so inside a space
+// callers can fall back to the server that owns the space.
+//
+// Note the both-non-empty rule for the flags: spaces always have KNOT_SERVER
+// set to the owning server's URL, so a token alone must never count as an
+// explicit target. An --alias is only honoured when actually given on the
+// command line — the "default" alias is never consulted implicitly, so a
+// config file carried into a space cannot silently redirect tunnels.
+func ExplicitServerAddr(cmd *cli.Command) *config.ServerAddr {
+	if server, token := cmd.GetString("server"), cmd.GetString("token"); server != "" && token != "" {
+		return config.NewServerAddr(server, token)
+	}
+	if cmd.HasFlag("alias") {
+		if cfg, ok := config.LookupServerAddr(cmd.GetString("alias"), cmd); ok {
+			return cfg
+		}
+	}
+	return nil
+}
+
 func GetServerAddr(cmd *cli.Command) *config.ServerAddr {
 	if agentlink.IsAgentRunning() {
+		// In a space: an explicit --server/--token or --alias tunnels via
+		// that server from this process; otherwise the agentlink socket
+		// carries the connection to the server that owns the space.
+		if cfg := ExplicitServerAddr(cmd); cfg != nil {
+			return cfg
+		}
+
 		server, token, err := agentlink.GetConnectionInfo()
 		if err != nil {
 			fmt.Printf("Error: failed to get agent connection info: %v\n", err)
 			return nil
 		}
 
-		httpServer := server
-		if !strings.HasPrefix(httpServer, "http://") && !strings.HasPrefix(httpServer, "https://") {
-			httpServer = "https://" + httpServer
-		}
-		httpServer = strings.TrimSuffix(httpServer, "/")
-
-		return &config.ServerAddr{
-			HttpServer: httpServer,
-			WsServer:   "ws" + httpServer[4:],
-			ApiToken:   token,
-		}
+		return config.NewServerAddr(server, token)
 	}
 
 	alias := cmd.GetString("alias")

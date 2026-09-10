@@ -71,7 +71,7 @@ func newWebTunnelCmd(name, protocol, description string, withDaemon bool) *cli.C
 	if withDaemon {
 		flags = append(flags, &cli.BoolFlag{
 			Name:  "daemon",
-			Usage: "Hand the tunnel to the knot agent and exit. The tunnel then lives for the life of the agent.",
+			Usage: "Hand the tunnel to the knot agent and exit. The tunnel then lives for the life of the agent. Daemon tunnels always run on the server that owns the space.",
 		})
 	}
 
@@ -189,6 +189,14 @@ func startDaemonTunnel(protocol string, port uint16, name string, cmd *cli.Comma
 		return fmt.Errorf("agent not running, --daemon requires the knot agent to be running")
 	}
 
+	// The agent creates daemon tunnels on the server that owns the space, so
+	// an explicit --server/--token or --alias (which foreground mode honours)
+	// cannot be satisfied here — refuse rather than silently tunnel via the
+	// space's own server.
+	if err := daemonRemoteTargetErr(cmd); err != nil {
+		return err
+	}
+
 	request := agentlink.StartTunnelRequest{
 		Protocol:      protocol,
 		Port:          port,
@@ -208,5 +216,16 @@ func startDaemonTunnel(protocol string, port uint16, name string, cmd *cli.Comma
 
 	fmt.Printf("Tunnel URL: %s\n", response.URL)
 	fmt.Println("Tunnel running in agent (daemon mode).")
+	return nil
+}
+
+// daemonRemoteTargetErr reports an error when the command explicitly targets
+// a server other than the one that owns the space: the agent can only create
+// daemon tunnels on its own server, and the tunnel should run in this process
+// (without --daemon) to reach the target.
+func daemonRemoteTargetErr(cmd *cli.Command) error {
+	if cfg := cmdutil.ExplicitServerAddr(cmd); cfg != nil {
+		return fmt.Errorf("--daemon tunnels are created on the server that owns the space; run without --daemon to tunnel via %s from this process", cfg.HttpServer)
+	}
 	return nil
 }
