@@ -128,7 +128,7 @@ func BenchmarkPluginDispatchLease(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		request := RequestObject("GET", "/plugins/bench/handler_0", map[string]any{}, user)
+		request := RequestObject("GET", "/plugins/bench/handler_0", map[string]any{}, user, nil)
 		if _, err := env.CallFunctionWithContext(ctx, qualified, request); err != nil {
 			b.Fatal(err)
 		}

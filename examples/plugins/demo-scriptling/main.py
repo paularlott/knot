@@ -41,6 +41,9 @@
 # [[tool.knot.handlers]]
 # handler = "lib_exports"
 #
+# [[tool.knot.handlers]]
+# handler = "config_echo"
+#
 # [[tool.knot.mcp_tools]]
 # name = "echo_word"
 # description = "Echo a word back in upper case, with its length."
@@ -173,8 +176,13 @@ def showcase(request):
             {
                 "columns": [
                     {"id": "notes", "type": "markdown", "title": "Markdown", "handler": "col_notes", "width": 2},
-                    {"id": "clock", "type": "html", "title": "Trusted html (kp-* helpers)", "handler": "col_clock", "refresh": 60, "width": 1},
-                    {"id": "echo", "type": "html", "title": "Trusted html (Alpine calling the plugin)", "handler": "col_echo", "width": 1},
+                    {"id": "clock", "type": "html", "title": "Trusted html (kp-* helpers)", "handler": "col_clock", "refresh": 60, "width": 2},
+                ],
+            },
+            {
+                "columns": [
+                    {"id": "echo", "type": "html", "title": "Trusted html (Alpine calling the plugin)", "handler": "col_echo", "width": 2},
+                    {"id": "config", "type": "html", "title": "Plugin configuration", "handler": "col_config", "width": 2},
                 ],
             },
             {
@@ -497,6 +505,29 @@ def col_echo(request):
     }
 
 
+def col_config(request):
+    # The plugin's server configuration as a live read: the button calls
+    # the declared config_echo handler, which reads request["config"] -
+    # the [plugins.demo-scriptling] table from the server's knot.toml.
+    # Same transport, auth and gates as every column fetch; no refresh
+    # key, an interactive column must not have its content replaced under
+    # the user.
+    return {
+        "html": """
+<div class="kp-card" x-data="{ cfg: '', busy: false }">
+  <div class="kp-label">Server configuration</div>
+  <div class="kp-flex" style="margin-top:0.5rem">
+    <button class="kp-button"
+            :disabled="busy"
+            @click="busy = true; try { const c = await pluginFetch('config_echo'); cfg = c.greeting + (c.configured ? '' : ' (set [plugins.demo-scriptling] in knot.toml)') } finally { busy = false }"
+            x-text="busy ? '...' : 'Read config'"></button>
+  </div>
+  <div class="kp-muted" style="margin-top:0.5rem; min-height:1.2rem" x-show="cfg" x-text="cfg"></div>
+</div>
+"""
+    }
+
+
 def echo_word(request):
     params = request["params"]
     # Called by the echo widget's pluginFetch; params arrive like any
@@ -566,4 +597,19 @@ def col_libs(request):
             "to an import, so exported code that needs one self-gates via "
             "`knot.identity.user()` (see `gated_report` in the table)."
         )
+    }
+
+
+def config_echo(request):
+    """Echo the plugin's server configuration ([plugins.demo-scriptling]).
+
+    Handlers read their per-plugin configuration from request["config"] —
+    an empty table when the server has none configured, so defaults live
+    with the plugin.
+    """
+    cfg = request["config"]
+    return {
+        "greeting": cfg.get("greeting", "unconfigured"),
+        "configured": len(cfg) > 0,
+        "config": cfg,
     }

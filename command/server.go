@@ -914,7 +914,14 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// Load plugins: scan PluginsPath, parse declarations from metadata, load
 	// binary peers. Loading is pure parsing — no plugin code runs at boot —
 	// and per-plugin failures are recorded for the admin page, never fatal.
-	pluginRegistry, err := plugins.Load(cfg.PluginsPath)
+	// Each plugin's [plugins.<name>] table rides along: validated at load
+	// (declared keys present, size capped) and delivered to handlers as
+	// request["config"].
+	pluginConfigs, configWarnings := config.PluginConfigs(cmd)
+	for _, warning := range configWarnings {
+		logger.Warn(warning)
+	}
+	pluginRegistry, err := plugins.LoadWithConfigs(cfg.PluginsPath, pluginConfigs)
 	if err != nil {
 		logger.Error("Failed to load plugins", "error", err)
 	}

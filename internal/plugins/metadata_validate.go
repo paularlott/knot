@@ -81,6 +81,7 @@ var toolKnotKeys = map[string]bool{
 	"description":    true,
 	"permissions":    true,
 	"requires_knot":  true,
+	"config":         true,
 	"logo_light":     true,
 	"logo_dark":      true,
 	"menus":          true,
@@ -278,6 +279,24 @@ func parseToolKnot(ctx context.Context, name string, src *assetSource, table map
 			return nil, fmt.Errorf("[tool.knot]: description must be a string")
 		}
 		p.Description = s
+	}
+
+	// config names the required keys of this plugin's [plugins.<name>]
+	// table in the server configuration — the table itself is free-form,
+	// these keys must be present or the plugin fails at load. The values
+	// reach handlers as request["config"].
+	if v, ok := table["config"]; ok {
+		list, ok := v.([]any)
+		if !ok {
+			return nil, fmt.Errorf("[tool.knot]: config must be a list of key names")
+		}
+		for _, entry := range list {
+			key, ok := entry.(string)
+			if !ok || key == "" {
+				return nil, fmt.Errorf("[tool.knot]: config must be a list of non-empty key names")
+			}
+			p.RequiredConfig = append(p.RequiredConfig, key)
+		}
 	}
 
 	// Permissions: a plain list of ids, qualified at load.

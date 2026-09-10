@@ -33,7 +33,7 @@ func dispatchPage(t *testing.T, client *apiclient.ApiClient, user *model.User, p
 	}
 	defer ReleasePluginEnv(env, plugin)
 
-	request := RequestObject("GET", "/test", map[string]any{}, user)
+	request := RequestObject("GET", "/test", map[string]any{}, user, plugin.Config)
 	result, err := env.CallFunctionWithContext(ctx, QualifiedHandler(plugin, handler), request)
 	if err != nil {
 		t.Fatalf("handler %q: %v", handler, err)

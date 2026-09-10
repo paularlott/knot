@@ -221,16 +221,17 @@ func HandlePluginPage(w http.ResponseWriter, r *http.Request) {
 	// The handler receives one argument: the request object, carrying the
 	// method, path, the params dict (query parameters plus — for actions —
 	// a POST body, which wins on key conflicts; _data included, which
-	// dynamic-option fetches use to name the field they want), and an inert
-	// snapshot of the requesting user. No globals — everything the handler
-	// sees arrives in this argument, and anything with authority goes
-	// through knot.identity / knot.* over the gated loopback.
+	// dynamic-option fetches use to name the field they want), the
+	// plugin's [plugins.<name>] configuration as request["config"], and an
+	// inert snapshot of the requesting user. No globals — everything the
+	// handler sees arrives in this argument, and anything with authority
+	// goes through knot.identity / knot.* over the gated loopback.
 	params, err := pluginParams(r)
 	if err != nil {
 		renderPluginPageError(w, r, plugin, page, "invalid request body")
 		return
 	}
-	request := service.RequestObject(r.Method, r.URL.Path, params, user)
+	request := service.RequestObject(r.Method, r.URL.Path, params, user, plugin.Config)
 
 	// Handler-URL dispatch: call the addressed handler directly and answer
 	// as JSON. A declared handler stands on its own gate; an undeclared one

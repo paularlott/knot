@@ -27,6 +27,7 @@ package plugins
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -161,6 +162,18 @@ type Plugin struct {
 	// from memory. Empty when every asset came from the plugin folder on
 	// disk — those keep streaming from disk as before.
 	Assets map[string][]byte `json:"-"`
+
+	// RequiredConfig lists the config keys this plugin requires in the
+	// server's [plugins.<name>] table, declared as [tool.knot] config — a
+	// list of key names. Presence is validated at load: a missing key
+	// fails the plugin with a reason on the admin page rather than a
+	// handler failing at first use.
+	RequiredConfig []string `json:"required_config,omitempty"`
+
+	// Config is the plugin's [plugins.<name>] table from the server
+	// configuration, attached at load and injected into every handler
+	// request as request["config"] (an empty table when unconfigured).
+	Config map[string]any `json:"-"`
 
 	// Exports are the modules declared in [tool.knot] export: scriptling
 	// modules materialized in user tool environments as
@@ -547,6 +560,24 @@ var scriptlingVersionForVerify = build.ScriptlingVersion
 // empty or missing disables plugins (nil registry, no error). Failures are
 // per-plugin: a broken plugin is recorded and the server continues.
 func Load(pluginsPath string) (*Registry, error) {
+	return LoadWithConfigs(pluginsPath, nil)
+}
+
+// maxPluginConfigBytes caps a plugin's [plugins.<name>] table: the channel
+// carries configuration (URLs, flags, small lists), not data — a table
+// beyond this fails the plugin at load instead of ballooning every
+// handler request.
+const maxPluginConfigBytes = 64 * 1024
+
+// LoadWithConfigs is Load with per-plugin configuration: each plugin's
+// [plugins.<name>] table from the server config, attached to the plugin
+// and injected into every handler request as request["config"]. Validation
+// happens at load so a misconfigured server fails the plugin with a
+// reason on the admin page: a table over the size cap, or a key the
+// plugin declared in [tool.knot] config missing. A section naming no
+// loaded plugin is reported as a warning — stale config left behind by a
+// removed plugin.
+func LoadWithConfigs(pluginsPath string, configs map[string]map[string]any) (*Registry, error) {
 	logger := log.WithGroup("plugins")
 
 	if pluginsPath == "" {
@@ -604,6 +635,40 @@ func Load(pluginsPath string) (*Registry, error) {
 		loaded = append(loaded, p)
 	}
 	registry.manager = parent
+
+	// Attach and validate per-plugin configuration. A plugin that fails
+	// validation moves to the failed list with a reason, exactly like a
+	// parse failure — the server still starts. The pass always runs: a
+	// plugin declaring required keys must fail even when the server
+	// configured nothing at all.
+	consumed := make(map[string]bool, len(loaded))
+	kept := make([]*Plugin, 0, len(loaded))
+	for _, p := range loaded {
+		consumed[p.Name] = true
+		if reason := validatePluginConfig(p, configs[p.Name]); reason != "" {
+			logger.Error("plugin failed to load", "plugin", p.Name, "error", reason)
+			registry.failed = append(registry.failed, FailedPlugin{Name: p.Name, Path: p.Dir, Reason: reason})
+			continue
+		}
+		p.Config = configs[p.Name]
+		kept = append(kept, p)
+	}
+	loaded = kept
+
+	if len(configs) > 0 {
+		var orphans []string
+		for name := range configs {
+			if !consumed[name] {
+				orphans = append(orphans, name)
+			}
+		}
+		sort.Strings(orphans)
+		for _, name := range orphans {
+			registry.warnings = append(registry.warnings, fmt.Sprintf(
+				"[plugins.%s] configuration exists but no plugin named %q is loaded", name, name))
+		}
+	}
+
 	registry.plugins = loaded
 
 	// Deterministic site-logo resolution with a warning when several plugins
@@ -644,6 +709,35 @@ func Load(pluginsPath string) (*Registry, error) {
 		old.Close()
 	}
 	return registry, nil
+}
+
+// validatePluginConfig checks a plugin's [plugins.<name>] table against
+// its declaration: the serialized size stays under maxPluginConfigBytes,
+// and every key the manifest's [tool.knot] config lists is present. An
+// empty or missing table is valid unless the plugin requires keys. It
+// returns "" when valid, or the failure reason.
+func validatePluginConfig(p *Plugin, cfg map[string]any) string {
+	if len(cfg) > 0 {
+		encoded, err := json.Marshal(cfg)
+		if err != nil {
+			return fmt.Sprintf("[plugins.%s]: configuration cannot be serialized: %v", p.Name, err)
+		}
+		if len(encoded) > maxPluginConfigBytes {
+			return fmt.Sprintf("[plugins.%s]: configuration is %d bytes, over the %d byte cap — the plugins table carries configuration, not data", p.Name, len(encoded), maxPluginConfigBytes)
+		}
+	}
+	if len(p.RequiredConfig) > 0 {
+		var missing []string
+		for _, key := range p.RequiredConfig {
+			if _, ok := cfg[key]; !ok {
+				missing = append(missing, key)
+			}
+		}
+		if len(missing) > 0 {
+			return fmt.Sprintf("[tool.knot] config requires keys missing from [plugins.%s]: %s", p.Name, strings.Join(missing, ", "))
+		}
+	}
+	return ""
 }
 
 // candidate is a discovered plugin location before metadata parsing. path is

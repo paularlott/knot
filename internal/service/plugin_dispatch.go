@@ -29,7 +29,7 @@ import (
 // round-trip over the gated loopback. Browser fetches carry the real method
 // and URL; knot.plugin.call carries its method (GET default) with the
 // handler's plugin-root URL; MCP tool execution carries "CALL".
-func RequestObject(method, path string, params map[string]any, user *model.User) object.Object {
+func RequestObject(method, path string, params map[string]any, user *model.User, pluginConfig map[string]any) object.Object {
 	req := &object.Dict{Pairs: map[string]object.DictPair{}}
 	set := func(key string, value object.Object) {
 		req.Pairs[object.DictKey(object.NewString(key))] = object.DictPair{Key: object.NewString(key), Value: value}
@@ -38,6 +38,14 @@ func RequestObject(method, path string, params map[string]any, user *model.User)
 	set("path", object.NewString(path))
 	set("params", conversion.FromGo(params))
 	set("user", userDataObject(user))
+	// The plugin's [plugins.<name>] configuration as inert data — same
+	// posture as user: a per-call conversion, so handlers can never
+	// mutate shared state, and an empty table when the server configured
+	// none (a stable shape for plugin code to rely on).
+	if pluginConfig == nil {
+		pluginConfig = map[string]any{}
+	}
+	set("config", conversion.FromGo(pluginConfig))
 	return req
 }
 
@@ -93,7 +101,7 @@ func acquirePluginEnv(ctx context.Context, client *apiclient.ApiClient, user *mo
 		return nil, nil, nil, err
 	}
 	release := func() { ReleasePluginEnv(env, plugin) }
-	request := RequestObject(method, fmt.Sprintf("/plugins/%s/%s", plugin.Name, handler), params, user)
+	request := RequestObject(method, fmt.Sprintf("/plugins/%s/%s", plugin.Name, handler), params, user, plugin.Config)
 	return env, request, release, nil
 }
 
