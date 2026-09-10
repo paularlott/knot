@@ -11,19 +11,18 @@ import (
 
 // handleTunnelStartExecution handles the tunnel start command from the server.
 // It runs in the same process as agentlink, so it directly uses the shared
-// agenttunnel registry — the same one the in-space CLI path populates.
+// agenttunnel registry — the same one the in-space CLI path populates. A
+// request carrying its own server/token targets that knot server instead of
+// the one that owns the space.
 func handleTunnelStartExecution(stream net.Conn, tunnelCmd msg.TunnelStartRequest, agentClient *AgentClient) {
-	server := agentClient.GetServerURL()
-	token := agentClient.GetAgentToken()
-	if server == "" || token == "" {
-		log.Error("Failed to get connection info from agent")
-		msg.WriteMessage(stream, &msg.TunnelStartResponse{Success: false, Error: "failed to get connection info"})
+	server, token, skipVerify, err := agenttunnel.Credentials(tunnelCmd.Server, tunnelCmd.Token, tunnelCmd.ServerTlsSkipVerify, agentClient.GetServerURL(), agentClient.GetAgentToken(), config.GetAgentConfig().TLS.SkipVerify)
+	if err != nil {
+		log.Error("Failed to resolve tunnel server", "error", err)
+		msg.WriteMessage(stream, &msg.TunnelStartResponse{Success: false, Error: err.Error()})
 		return
 	}
 
-	cfg := config.GetAgentConfig()
-
-	url, err := agenttunnel.CreateWebTunnel(tunnelCmd.Name, tunnelCmd.Protocol, tunnelCmd.Port, tunnelCmd.TlsName, tunnelCmd.TlsSkipVerify, server, token, cfg.TLS.SkipVerify)
+	url, err := agenttunnel.CreateWebTunnel(tunnelCmd.Name, tunnelCmd.Protocol, tunnelCmd.Port, tunnelCmd.TlsName, tunnelCmd.TlsSkipVerify, server, token, skipVerify)
 	if err != nil {
 		log.WithError(err).Error("Failed to create tunnel")
 		msg.WriteMessage(stream, &msg.TunnelStartResponse{Success: false, Error: err.Error()})

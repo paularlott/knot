@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/mcptools"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
 	"github.com/paularlott/scriptling/conversion"
@@ -109,6 +111,29 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		userIdMap[script.Name] = script.UserId // Empty string for global scripts
 	}
 
+	// Plugin-exposed tools ([[tool.knot.mcp_tools]]): appended after
+	// scripts, so a script with the same name shadows the plugin tool —
+	// matching ExecuteTool's resolution order (boot, scripts, plugins).
+	// Gates (permission/group) apply at listing exactly as at execution.
+	if registry := plugins.GetRegistry(); registry != nil {
+		for _, plugin := range registry.All() {
+			for _, tool := range plugin.MCPTools {
+				if _, taken := toolsMap[tool.Name]; taken {
+					continue
+				}
+				if !pluginToolAllowed(p.user, &tool) {
+					continue
+				}
+				toolsMap[tool.Name] = mcp.MCPTool{
+					Name:        tool.Name,
+					Description: tool.Description,
+					InputSchema: pluginToolInputSchema(&tool),
+					Visibility:  mcp.ToolVisibilityNative,
+				}
+			}
+		}
+	}
+
 	// Convert map to slice
 	tools := make([]mcp.MCPTool, 0, len(toolsMap))
 	for _, tool := range toolsMap {
@@ -146,6 +171,11 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	// Resolve script with user override and zone filtering
 	script, err := service.ResolveScriptByName(name, p.user.Id)
 	if err != nil {
+		// Not a script — try plugin-exposed tools before giving up.
+		result, perr, handled := p.executePluginTool(ctx, name, params)
+		if handled {
+			return result, perr
+		}
 		return nil, nil // Tool not found - let other providers handle it
 	}
 	if script.ScriptType != "tool" {
@@ -182,4 +212,84 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	}
 
 	return mcp.NewToolResponseAuto(result), nil
+}
+
+// pluginToolAllowed reports whether the user passes the tool's declared
+// permission gate.
+func pluginToolAllowed(user *model.User, tool *plugins.MCPTool) bool {
+	return user.PassesPluginGate(tool.Permission)
+}
+
+// executePluginTool dispatches a plugin-exposed MCP tool by name. handled
+// reports whether the name matched a plugin tool (result/err carry the
+// outcome); when false the caller continues its not-found path.
+func (p *scriptToolsProvider) executePluginTool(ctx context.Context, name string, params map[string]interface{}) (*mcp.ToolResponse, error, bool) {
+	registry := plugins.GetRegistry()
+	if registry == nil {
+		return nil, nil, false
+	}
+	for _, plugin := range registry.All() {
+		for i := range plugin.MCPTools {
+			tool := &plugin.MCPTools[i]
+			if tool.Name != name {
+				continue
+			}
+			if !pluginToolAllowed(p.user, tool) {
+				return nil, fmt.Errorf("permission denied to execute tool '%s'", name), true
+			}
+			result, response, exitCode, err := service.DispatchPluginMCPTool(ctx, apiclient.NewMuxClient(p.user), p.user, plugin, tool.Handler, params)
+			switch {
+			case exitCode != 0:
+				// return_error: the response carries the actual error body —
+				// prefer it over the bare SystemExit error, like script tools.
+				if response != "" {
+					return nil, fmt.Errorf("%s", response), true
+				}
+				if err != nil {
+					return nil, err, true
+				}
+				return nil, fmt.Errorf("tool exited with code %d", exitCode), true
+			case response != "":
+				// return_string / return_object: the explicit response wins.
+				return mcp.NewToolResponseAuto(response), nil, true
+			default:
+				// A plain return value: converted the handler way.
+				if err != nil {
+					return nil, err, true
+				}
+				return mcp.NewToolResponseAuto(result), nil, true
+			}
+		}
+	}
+	return nil, nil, false
+}
+
+// pluginToolInputSchema builds the MCP input schema from the tool's
+// declared parameters — types map to JSON schema types, descriptions ride
+// along for MCP clients and LLMs, defaults and required-ness included. An
+// undeclared tool gets the permissive empty-object schema.
+func pluginToolInputSchema(tool *plugins.MCPTool) map[string]interface{} {
+	properties := map[string]interface{}{}
+	required := []string{}
+	for _, param := range tool.Parameters {
+		prop := map[string]interface{}{"type": plugins.MCPToolParamSchemaType(param.Type)}
+		if param.Description != "" {
+			prop["description"] = param.Description
+		}
+		if param.Default != nil {
+			prop["default"] = param.Default
+		}
+		properties[param.Name] = prop
+		if param.Required {
+			required = append(required, param.Name)
+		}
+	}
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": properties,
+	}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+	return schema
 }

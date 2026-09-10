@@ -10,9 +10,9 @@
 #   knot.apiclient.configure("https://knot.example.com", "your-token")
 #   perms = knot.permission.list()
 #
-#   # Use constants
-#   if user_has_permission(knot.permission.MANAGE_SPACES):
-#       print("User can manage spaces")
+#   # Use constants with the role/user APIs that take permission ids
+#   perms = knot.permission.list()
+#   print(knot.permission.MANAGE_SPACES in [p["id"] for p in perms])
 
 import knot.apiclient as api
 
@@ -62,6 +62,39 @@ EXECUTE_OWN_SCRIPTS = 26
 MANAGE_GLOBAL_SKILLS = 27
 MANAGE_OWN_SKILLS = 28
 
+# Space Forms & Templates
+SET_SPACE_DEPENDENCIES = 29
+USE_SPACE_STARTUP_SCRIPT = 30
+
+# Audit
+DOWNLOAD_AUDIT_LOGS = 31
+
+# Stack Definitions
+MANAGE_STACK_DEFINITIONS = 32
+MANAGE_OWN_STACK_DEFINITIONS = 33
+USE_STACK_DEFINITIONS = 34
+
+# Methods & Pools
+USE_METHODS = 35
+USE_POOLS = 36
+
+# Events
+MANAGE_EVENTS = 37
+MANAGE_GLOBAL_EVENTS = 38
+
+# Slash Commands
+MANAGE_GLOBAL_SLASH_COMMANDS = 39
+MANAGE_OWN_SLASH_COMMANDS = 40
+
+# MCP Servers
+MANAGE_MCP_SERVERS = 41
+
+# Plugins
+VIEW_PLUGINS = 44
+
+# User Management
+LINK_USERS = 45
+
 # Aliases for convenience
 SPACE_MANAGE = MANAGE_SPACES
 SPACE_USE = USE_SPACES
@@ -89,6 +122,31 @@ def list():
             "id": perm.get("id"),
             "name": perm.get("name"),
             "group": perm.get("group")
+        })
+
+    return result
+
+
+def list_plugin():
+    """List the permissions declared by loaded plugins.
+
+    Returns:
+        A list of dicts, each containing:
+        - id: The qualified grant (e.g. "plugin.metrics.read")
+        - plugin: The declaring plugin's name
+        - label: The declared id
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    response = api.get("/api/permissions")
+
+    result = []
+    for perm in response.get("plugin_permissions", []):
+        result.append({
+            "id": perm.get("id"),
+            "plugin": perm.get("plugin"),
+            "label": perm.get("label")
         })
 
     return result

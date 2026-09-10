@@ -7,7 +7,7 @@ import (
 
 var (
 	// Current version of knot
-	Version string = "0.33.0"
+	Version string = "0.34.0"
 
 	// The date the binary was built
 	Date string
@@ -16,8 +16,10 @@ var (
 const scriptlingModulePath = "github.com/paularlott/scriptling"
 
 // ScriptlingVersion returns the version of the embedded scriptling module,
-// read from the binary's build metadata. Returns "unknown" if it can't be
-// determined, or "local" when a replace directive points at a working copy.
+// read from the binary's build metadata, normalized to dotted numeric form
+// (no leading "v") so version constraints can compare it directly. Returns
+// "unknown" if it can't be determined, or "local" when a replace directive
+// points at a working copy.
 func ScriptlingVersion() string {
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -27,7 +29,7 @@ func ScriptlingVersion() string {
 		if v == "" || v == "(devel)" {
 			return "local"
 		}
-		return v
+		return strings.TrimPrefix(v, "v")
 	}
 	for _, dep := range bi.Deps {
 		if dep.Path != scriptlingModulePath {
@@ -44,7 +46,7 @@ func ScriptlingVersion() string {
 // FullVersion returns the knot version annotated with the embedded scriptling
 // runtime version, e.g. "0.27.0 (scriptling v0.14.0)".
 func FullVersion() string {
-	return Version + " (scriptling " + ScriptlingVersion() + ")"
+	return Version + " (scriptling v" + ScriptlingVersion() + ")"
 }
 
 // IsCompatible reports whether other can talk to a build of this version.

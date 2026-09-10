@@ -60,6 +60,13 @@ const (
 	// PermissionEditSpaceJobs gates editing job definitions (and the runner
 	// toggle) on the user's own spaces; viewing them is always allowed.
 	PermissionEditSpaceJobs // Can edit the scheduled jobs of own spaces
+	PermissionViewPlugins   // Can View the plugins inventory
+	// PermissionLinkUsers gates granting one user the ability to become
+	// another (user manager): the linked accounts join its become-list
+	// and its profile menu offers them. One way only. This is
+	// impersonation-grade: whoever holds it can link to any account —
+	// administrators included — and act as it fully.
+	PermissionLinkUsers // Can link user accounts for fast user switching
 )
 
 type PermissionName struct {
@@ -69,15 +76,77 @@ type PermissionName struct {
 	Description string `json:"description"`
 }
 
+// permissionKeys maps each built-in permission constant to its stable
+// snake_case key — the machine identifier plugins check
+// (user.has_permission("manage_spaces")). Display names are for humans and
+// may be reworded; keys never change. The keysComplete test fails when a
+// new permission ships without a key.
+// PermissionKey returns the stable snake_case key for a built-in
+// permission id, or "" when unknown.
+func PermissionKey(id uint16) string {
+	return permissionKeys[id]
+}
+
+var permissionKeys = map[uint16]string{
+	PermissionClusterInfo:               "cluster_info",
+	PermissionCopyFiles:                 "copy_files",
+	PermissionDownloadAuditLogs:         "download_audit_logs",
+	PermissionEditSpaceJobs:             "edit_space_jobs",
+	PermissionExecuteOwnScripts:         "execute_own_scripts",
+	PermissionExecuteScripts:            "execute_scripts",
+	PermissionManageEvents:              "manage_events",
+	PermissionManageGlobalEvents:        "manage_global_events",
+	PermissionManageGlobalSkills:        "manage_global_skills",
+	PermissionManageGlobalSlashCommands: "manage_global_slash_commands",
+	PermissionManageGroups:              "manage_groups",
+	PermissionManageMCPServers:          "manage_mcp_servers",
+	PermissionManageOwnScripts:          "manage_own_scripts",
+	PermissionManageOwnSkills:           "manage_own_skills",
+	PermissionManageOwnSlashCommands:    "manage_own_slash_commands",
+	PermissionManageOwnStackDefinitions: "manage_own_stack_definitions",
+	PermissionManageRoles:               "manage_roles",
+	PermissionManageScripts:             "manage_scripts",
+	PermissionManageSpaces:              "manage_spaces",
+	PermissionManageStackDefinitions:    "manage_stack_definitions",
+	PermissionManageTemplates:           "manage_templates",
+	PermissionManageUsers:               "manage_users",
+	PermissionManageVariables:           "manage_variables",
+	PermissionManageVolumes:             "manage_volumes",
+	PermissionLinkUsers:                 "link_users",
+	PermissionRunCommands:               "run_commands",
+	PermissionSetSpaceDependencies:      "set_space_dependencies",
+	PermissionShareSpaces:               "share_spaces",
+	PermissionTransferSpaces:            "transfer_spaces",
+	PermissionUseCodeServer:             "use_code_server",
+	PermissionUseLogSinks:               "use_log_sinks",
+	PermissionUseLogs:                   "use_logs",
+	PermissionUseMCPServer:              "use_mcp_server",
+	PermissionUseMethods:                "use_methods",
+	PermissionUsePools:                  "use_pools",
+	PermissionUseSSH:                    "use_ssh",
+	PermissionUseSpaceStartupScript:     "use_space_startup_script",
+	PermissionUseSpaces:                 "use_spaces",
+	PermissionUseStackDefinitions:       "use_stack_definitions",
+	PermissionUseTunnels:                "use_tunnels",
+	PermissionUseVNC:                    "use_vnc",
+	PermissionUseVSCodeTunnel:           "use_vs_code_tunnel",
+	PermissionUseWebAssistant:           "use_web_assistant",
+	PermissionUseWebTerminal:            "use_web_terminal",
+	PermissionViewAuditLogs:             "view_audit_logs",
+	PermissionViewPlugins:               "view_plugins",
+}
+
 var PermissionNames = []PermissionName{
 	{PermissionViewAuditLogs, "Audit", "View Audit Logs", "View the audit log of system activity."},
 	{PermissionDownloadAuditLogs, "Audit", "Download Audit Logs", "Export audit log entries to a file."},
 
 	{PermissionClusterInfo, "System", "View Cluster Info", "View cluster node and topology information."},
+	{PermissionViewPlugins, "System", "View Plugins", "View the loaded plugins inventory."},
 
 	{PermissionManageGroups, "User Management", "Manage Groups", "Create, edit, and delete user groups."},
 	{PermissionManageRoles, "User Management", "Manage Roles", "Create, edit, and delete roles and their permissions."},
 	{PermissionManageUsers, "User Management", "Manage Users", "Create, edit, and delete user accounts."},
+	{PermissionLinkUsers, "User Management", "Link Users", "Grant one user the ability to switch into another account from the profile menu. Treat as impersonation-grade."},
 
 	{PermissionManageSpaces, "Resource Management", "Manage Spaces", "Manage any space, including those owned by other users."},
 	{PermissionManageTemplates, "Resource Management", "Manage Templates", "Create, edit, and delete space templates."},
@@ -130,14 +199,15 @@ var PermissionNames = []PermissionName{
 
 // Role
 type Role struct {
-	Id            string        `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
-	Name          string        `json:"name" db:"name" msgpack:"name"`
-	Permissions   []uint16      `json:"permissions" db:"permissions,json" msgpack:"permissions"`
-	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
-	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
-	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
-	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	Id                string        `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
+	Name              string        `json:"name" db:"name" msgpack:"name"`
+	Permissions       []uint16      `json:"permissions" db:"permissions,json" msgpack:"permissions"`
+	PluginPermissions []string      `json:"plugin_permissions" db:"plugin_permissions,json" msgpack:"plugin_permissions"`
+	IsDeleted         bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	CreatedUserId     string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt         time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId     string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt         hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 // Roles
@@ -177,6 +247,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionTransferSpaces,
 			PermissionShareSpaces,
 			PermissionClusterInfo,
+			PermissionViewPlugins,
 			PermissionUseVNC,
 			PermissionUseWebTerminal,
 			PermissionUseSSH,
@@ -203,6 +274,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionUsePools,
 			PermissionManageEvents,
 			PermissionManageGlobalEvents,
+			PermissionLinkUsers,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

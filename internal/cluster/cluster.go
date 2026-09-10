@@ -25,6 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/crypt"
 
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/logger"
@@ -363,10 +364,24 @@ func (c *Cluster) manageElection() {
 	}
 }
 
-func (c *Cluster) Start(peers []string, originServer string, originToken string) {
+func (c *Cluster) Start(peers []string, originServer string, originToken string) error {
 	if c.gossipCluster != nil {
 		c.logger.Info("starting gossip cluster")
-		c.gossipCluster.Start()
+		// The gossip library signals startup failures (a bound port,
+		// mostly) by panicking rather than returning an error; recover
+		// here so the server stops with an error instead of a stack
+		// trace.
+		if err := func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("failed to create cluster listener: %v", r)
+				}
+			}()
+			c.gossipCluster.Start()
+			return nil
+		}(); err != nil {
+			return err
+		}
 
 		// Process the peers list, any that start with ws://, wss://, http:// or https:// need the path to be /cluster
 		for i, peer := range peers {
@@ -483,6 +498,8 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 	} else if originServer != "" && originToken != "" {
 		c.runLeafClient(originServer, originToken)
 	}
+
+	return nil
 }
 
 func (c *Cluster) Stop() {

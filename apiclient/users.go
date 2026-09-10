@@ -8,34 +8,40 @@ import (
 	"time"
 )
 
+type LinkedUserInfo struct {
+	Id       string `json:"user_id"`
+	Username string `json:"username"`
+}
+
 type UserResponse struct {
-	Id                         string     `json:"user_id"`
-	Username                   string     `json:"username"`
-	Email                      string     `json:"email"`
-	ServicePassword            string     `json:"service_password"`
-	Roles                      []string   `json:"roles"`
-	Groups                     []string   `json:"groups"`
-	Active                     bool       `json:"active"`
-	MaxSpaces                  uint32     `json:"max_spaces"`
-	ComputeUnits               uint32     `json:"compute_units"`
-	StorageUnits               uint32     `json:"storage_units"`
-	MaxTunnels                 uint32     `json:"max_tunnels"`
-	SSHPublicKey               string     `json:"ssh_public_key"`
-	SSHPrivateKey              string     `json:"ssh_private_key"`
-	GitHubUsername             string     `json:"github_username"`
-	PreferredShell             string     `json:"preferred_shell"`
-	Timezone                   string     `json:"timezone"`
-	Current                    bool       `json:"current"`
-	LastLoginAt                *time.Time `json:"last_login_at"`
-	CreatedAt                  time.Time  `json:"created_at"`
-	UpdatedAt                  time.Time  `json:"updated_at"`
-	TOTPSecret                 string     `json:"totp_secret"`
-	NumberSpaces               int        `json:"number_spaces"`
-	NumberSpacesDeployed       int        `json:"number_spaces_deployed"`
-	NumberSpacesDeployedInZone int        `json:"number_spaces_deployed_in_zone"`
-	UsedComputeUnits           uint32     `json:"used_compute_units"`
-	UsedStorageUnits           uint32     `json:"used_storage_units"`
-	UsedTunnels                uint32     `json:"used_tunnels"`
+	Id                         string           `json:"user_id"`
+	Username                   string           `json:"username"`
+	Email                      string           `json:"email"`
+	ServicePassword            string           `json:"service_password"`
+	Roles                      []string         `json:"roles"`
+	Groups                     []string         `json:"groups"`
+	LinkedUsers                []LinkedUserInfo `json:"linked_users"`
+	Active                     bool             `json:"active"`
+	MaxSpaces                  uint32           `json:"max_spaces"`
+	ComputeUnits               uint32           `json:"compute_units"`
+	StorageUnits               uint32           `json:"storage_units"`
+	MaxTunnels                 uint32           `json:"max_tunnels"`
+	SSHPublicKey               string           `json:"ssh_public_key"`
+	SSHPrivateKey              string           `json:"ssh_private_key"`
+	GitHubUsername             string           `json:"github_username"`
+	PreferredShell             string           `json:"preferred_shell"`
+	Timezone                   string           `json:"timezone"`
+	Current                    bool             `json:"current"`
+	LastLoginAt                *time.Time       `json:"last_login_at"`
+	CreatedAt                  time.Time        `json:"created_at"`
+	UpdatedAt                  time.Time        `json:"updated_at"`
+	TOTPSecret                 string           `json:"totp_secret"`
+	NumberSpaces               int              `json:"number_spaces"`
+	NumberSpacesDeployed       int              `json:"number_spaces_deployed"`
+	NumberSpacesDeployedInZone int              `json:"number_spaces_deployed_in_zone"`
+	UsedComputeUnits           uint32           `json:"used_compute_units"`
+	UsedStorageUnits           uint32           `json:"used_storage_units"`
+	UsedTunnels                uint32           `json:"used_tunnels"`
 }
 
 type CreateUserRequest struct {
@@ -92,6 +98,7 @@ type UserInfo struct {
 	StorageUnits               uint32     `json:"storage_units"`
 	MaxTunnels                 uint32     `json:"max_tunnels"`
 	Current                    bool       `json:"current"`
+	HasLinkedUsers             bool       `json:"has_linked_users"`
 	LastLoginAt                *time.Time `json:"last_login_at"`
 	NumberSpaces               int        `json:"number_spaces"`
 	NumberSpacesDeployed       int        `json:"number_spaces_deployed"`
@@ -118,7 +125,8 @@ type UserQuota struct {
 }
 
 type UserPermissions struct {
-	Permissions []uint16 `json:"permissions"`
+	Permissions       []uint16 `json:"permissions"`
+	PluginPermissions []string `json:"plugin_permissions,omitempty"`
 }
 
 type UserHasPermission struct {
@@ -134,9 +142,11 @@ type UpdateOwnSSHPrivateKeyRequest struct {
 	SSHPrivateKey string `json:"ssh_private_key"`
 }
 
-// ValidNavURLs is the set of sidebar URLs that may be pinned to the top of the
-// navigation. The server validates preference updates against it so clients
-// can't store arbitrary strings in the preferences blob.
+// ValidNavURLs is the set of core sidebar URLs that may be pinned to the top
+// of the navigation. The server validates preference updates against it so
+// clients can't store arbitrary strings in the preferences blob; plugin menu
+// URLs are validated separately against the menus the user can currently
+// see (plugins.Registry.VisibleMenuURLs).
 var ValidNavURLs = map[string]bool{
 	"/spaces": true, "/tunnels": true, "/api-tokens": true, "/volumes": true,
 	"/templates": true, "/variables": true, "/stacks": true, "/scripts": true,
@@ -265,6 +275,23 @@ func (c *ApiClient) GetUserQuota(ctx context.Context, userId string) (*UserQuota
 		} else {
 			return nil, err
 		}
+	}
+
+	return &response, nil
+}
+
+// GetUserPermissionsFull returns both halves of a user's effective
+// permissions: the built-in ids resolved from roles, and the qualified
+// plugin grants.
+func (c *ApiClient) GetUserPermissionsFull(ctx context.Context, userId string) (*UserPermissions, error) {
+	response := UserPermissions{}
+
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId+"/permissions", &response)
+	if err != nil {
+		if code == 404 {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
 	}
 
 	return &response, nil

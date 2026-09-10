@@ -25,6 +25,7 @@ import { scriptLibraries } from "./scriptCompletions.js";
 
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
+    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, options: '', handlers: [] },
     iconList: [],
     scriptList: [],
     templateId: templateId,
@@ -215,7 +216,12 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.max_uptime = template.max_uptime;
           this.formData.max_uptime_unit = template.max_uptime_unit;
           this.formData.icon_url = template.icon_url;
-          this.formData.custom_fields = template.custom_fields;
+          // "password" is the pre-rename spelling of "masked"; normalised
+          // here so the config dialog shows Masked and the next save heals
+          // the stored value.
+          this.formData.custom_fields = (template.custom_fields || []).map(
+            (f) => (f.type === "password" ? { ...f, type: "masked" } : f),
+          );
           this.formData.ports = template.ports || [];
           this.formData.jobs = (template.jobs || []).map((job) => ({ ...job }));
           this.formData.jobsTouched = this.formData.jobs.map(() => ({}));
@@ -748,8 +754,93 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     },
     addField() {
       this.customFieldValid.push(true);
-      this.formData.custom_fields.push({ name: "", description: "" });
+      this.formData.custom_fields.push({ name: "", description: "", default: "", required: false });
     },
+    fieldTypeLabel(field) {
+      const type = field.type || 'text';
+      if (type === 'textarea') return field.language || 'textarea';
+      return type;
+    },
+
+    async openFieldConfig(index) {
+      this.fieldConfig.index = index;
+      this.fieldConfig.type = this.formData.custom_fields[index].type || 'text';
+      this.fieldConfig.handler = this.formData.custom_fields[index].handler || '';
+      this.fieldConfig.language = this.formData.custom_fields[index].language || '';
+      this.fieldConfig.default = this.formData.custom_fields[index].default || '';
+      this.fieldConfig.required = !!this.formData.custom_fields[index].required;
+      // Refetch on every open: the installed plugin set can change between
+      // opens. A failed fetch (no permission to list, store hiccup) is not
+      // "no handlers" — remember it so the dialog doesn't label a live
+      // handler "(missing plugin)".
+      this.fieldConfig.handlersFailed = false;
+      try {
+        const response = await fetch('/api/plugins/field-handlers', { cache: 'no-store' });
+        if (response.ok) {
+          const data = await response.json();
+          this.fieldConfig.handlers = data.handlers || [];
+        } else {
+          this.fieldConfig.handlersFailed = true;
+        }
+      } catch (e) {
+        this.fieldConfig.handlersFailed = true;
+      }
+      // Plugin-first picker: derive the plugin from the bound handler's
+      // entry — after the fetch, so reopening shows plugin → handler
+      // exactly as it was saved.
+      this.fieldConfig.options = (this.formData.custom_fields[index].options || []).join('\n');
+      this.fieldConfig.show = true;
+      // A dead handler's "(missing plugin)" option enters the DOM after
+      // x-model has already set the select's value — re-apply it so the
+      // dialog opens showing the truth instead of silently "Manual list".
+      this.$nextTick(() => {
+        const el = document.getElementById('field-config-handler');
+        if (el) el.value = this.fieldConfig.handler;
+      });
+    },
+
+    // The handler dropdown lists installed handlers; a bound handler not
+    // in that list stays selectable as one extra option so the dialog
+    // states the truth and never silently drops the binding:
+    //   - fetch ok, handler not installed → "(missing plugin) <id>"
+    //   - fetch failed (e.g. no permission to list) → the id, unlabelled
+    // Picking the manual list — or a live handler — switches away normally.
+    extraHandlerOption() {
+      const handler = this.fieldConfig.handler;
+      if (!handler) return null;
+      if (this.fieldConfig.handlers.some((h) => h.id === handler)) return null;
+      return this.fieldConfig.handlersFailed
+        ? { value: handler, label: handler }
+        : { value: handler, label: '(missing plugin) ' + handler };
+    },
+
+    applyFieldConfig() {
+      const field = this.formData.custom_fields[this.fieldConfig.index];
+      if (!field) return;
+      field.type = this.fieldConfig.type === 'text' ? '' : this.fieldConfig.type;
+      // Options source for select/autocomplete: a handler, or the manual
+      // list (which applies whenever no handler is selected).
+      const manualOptions = this.fieldConfig.options
+        ? this.fieldConfig.options.split('\n').map((l) => l.trim()).filter(Boolean)
+        : [];
+      if (['autocomplete', 'select'].includes(field.type)) {
+        if (this.fieldConfig.handler) {
+          field.handler = this.fieldConfig.handler;
+          field.options = [];
+        } else {
+          field.handler = '';
+          field.options = manualOptions;
+        }
+      } else {
+        field.handler = '';
+        field.options = [];
+      }
+      field.language = field.type === 'textarea' ? this.fieldConfig.language : '';
+      field.default = this.fieldConfig.default;
+      field.required = !!this.fieldConfig.required;
+      this.fieldConfig.show = false;
+    },
+
     removeField(index) {
       this.formData.custom_fields.splice(index, 1);
       this.customFieldValid.splice(index, 1);

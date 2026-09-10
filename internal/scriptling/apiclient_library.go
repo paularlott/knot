@@ -37,8 +37,16 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return errors.ParameterError("path", err)
 		}
 
-		// Append query params if provided
-		if paramsObj := kwargs.Get("params"); paramsObj != nil {
+		// Append query params if provided. The Python transport's signature is
+		// get(path, params=None), so a positional dict is honoured too — the
+		// knot.* libs (space.list, skill.search, ...) all pass it positionally.
+		paramsObj := kwargs.Get("params")
+		if paramsObj == nil && len(args) > 1 {
+			if dict, ok := args[1].(*object.Dict); ok {
+				paramsObj = dict
+			}
+		}
+		if paramsObj != nil {
 			if paramsDict, ok := paramsObj.(*object.Dict); ok {
 				params := url.Values{}
 				for _, pair := range paramsDict.Pairs {

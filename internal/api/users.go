@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
@@ -215,6 +216,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		Email:                      user.Email,
 		Roles:                      user.Roles,
 		Groups:                     user.Groups,
+		LinkedUsers:                linkedUserInfos(db, user),
 		Active:                     user.Active,
 		MaxSpaces:                  user.MaxSpaces,
 		ComputeUnits:               user.ComputeUnits,
@@ -248,6 +250,112 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, &userData)
+}
+
+// linkedUserInfos resolves a user's become-list ids to id/username pairs
+// for API responses. Unresolvable ids (deleted users) are skipped.
+func linkedUserInfos(db database.DbDriver, user *model.User) []apiclient.LinkedUserInfo {
+	if len(user.LinkedUsers) == 0 {
+		return []apiclient.LinkedUserInfo{}
+	}
+	out := make([]apiclient.LinkedUserInfo, 0, len(user.LinkedUsers))
+	for _, id := range user.LinkedUsers {
+		member, err := db.GetUser(id)
+		if err != nil || member == nil {
+			continue
+		}
+		out = append(out, apiclient.LinkedUserInfo{Id: member.Id, Username: member.Username})
+	}
+	return out
+}
+
+// HandleLinkUser grants one user the ability to become another: the linked
+// user joins target's become-list, so target's profile menu offers it. The
+// grant is one way — the linked user cannot become target.
+func HandleLinkUser(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	target, err := db.GetUser(r.PathValue("user_id"))
+	if err != nil || target == nil || target.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+	linked, err := db.GetUser(r.PathValue("linked_user_id"))
+	if err != nil || linked == nil || linked.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "linked user not found"})
+		return
+	}
+	if target.Id == linked.Id {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot link a user to itself"})
+		return
+	}
+
+	model.LinkUsers(target, linked)
+	if err := db.SaveUser(target, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	service.GetTransport().GossipUser(target)
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventUserLink,
+		fmt.Sprintf("Granted %s become access to %s", target.Username, linked.Username),
+		&map[string]interface{}{
+			"user_id":        target.Id,
+			"linked_user":    linked.Username,
+			"linked_user_id": linked.Id,
+		},
+	)
+
+	rest.WriteResponse(http.StatusOK, w, r, &apiclient.CreateUserResponse{Status: true})
+}
+
+// HandleUnlinkUser removes one user from another's become-list. The
+// unlinked user's own list is untouched — links were only ever one way.
+func HandleUnlinkUser(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	target, err := db.GetUser(r.PathValue("user_id"))
+	if err != nil || target == nil || target.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+	linked, err := db.GetUser(r.PathValue("linked_user_id"))
+	if err != nil || linked == nil || linked.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "linked user not found"})
+		return
+	}
+
+	model.UnlinkUser(target, linked)
+	if err := db.SaveUser(target, []string{"LinkedUsers", "UpdatedAt"}); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	service.GetTransport().GossipUser(target)
+
+	// Deliberately no session revocation: a session the linking user
+	// already has switched into the unlinked account keeps running until
+	// it switches back or expires — kicking an admin's live session out
+	// proved worse than the short overlap. The link is still gone, so it
+	// cannot switch in again.
+
+	audit.LogWithRequest(r,
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventUserUnlink,
+		fmt.Sprintf("Revoked %s become access to %s", target.Username, linked.Username),
+		&map[string]interface{}{
+			"user_id":        target.Id,
+			"linked_user":    linked.Username,
+			"linked_user_id": linked.Id,
+		},
+	)
+
+	rest.WriteResponse(http.StatusOK, w, r, &apiclient.CreateUserResponse{Status: true})
 }
 
 func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
@@ -371,9 +479,12 @@ func HandleGetOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleUpdateOwnNavPreferences replaces the current user's pinned sidebar
-// ordering. URLs are validated against apiclient.ValidNavURLs and de-duplicated
-// (preserving order); an empty slice clears the preference, returning the
-// sidebar to its default layout. The canonical stored order is returned.
+// ordering. Core URLs are validated against apiclient.ValidNavURLs; plugin
+// menu URLs against the plugin menus this user can currently see (the same
+// gate the sidebar renders by), so an item is pinnable exactly when it is
+// visible and arbitrary strings still can't enter the preferences blob.
+// Entries are de-duplicated preserving order; an empty slice clears the
+// preference, returning the sidebar to its default layout.
 func HandleUpdateOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	request := apiclient.UpdateOwnNavPreferencesRequest{}
@@ -383,10 +494,15 @@ func HandleUpdateOwnNavPreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var pluginMenuURLs map[string]bool
+	if registry := plugins.GetRegistry(); registry != nil {
+		pluginMenuURLs = registry.VisibleMenuURLs(user)
+	}
+
 	seen := make(map[string]bool, len(request.Starred))
 	cleaned := make([]string, 0, len(request.Starred))
 	for _, u := range request.Starred {
-		if apiclient.ValidNavURLs[u] && !seen[u] {
+		if (apiclient.ValidNavURLs[u] || pluginMenuURLs[u]) && !seen[u] {
 			seen[u] = true
 			cleaned = append(cleaned, u)
 		}
@@ -452,6 +568,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			data.StorageUnits = user.StorageUnits
 			data.MaxTunnels = user.MaxTunnels
 			data.Current = user.Id == activeUser.Id
+			// Marks accounts with linked subaccounts on the users list.
+			data.HasLinkedUsers = len(user.LinkedUsers) > 0
 
 			// Get the users quota
 			quota, err := database.GetUserQuota(user)
@@ -797,11 +915,13 @@ func HandleGetUserPermissions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get all permissions for the user (resolved from roles)
+	// Get all permissions for the user (resolved from roles): built-in
+	// ids plus the qualified plugin grants their roles carry.
 	permissions := model.GetUserPermissions(user)
 
 	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{
-		"permissions": permissions,
+		"permissions":        permissions,
+		"plugin_permissions": user.GrantedPluginPermissions(),
 	})
 }
 

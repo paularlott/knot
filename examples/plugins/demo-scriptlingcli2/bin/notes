@@ -1,0 +1,53 @@
+#!/usr/bin/env -S scriptling --json-rpc
+"""demo-scriptlingcli2's entire self: a scriptling CLI peer with no main.py.
+
+The peer-manifest model in scriptling form — the same shape as demo-go, only
+the language of the peer differs. serve() carries the plugin's [tool.knot]
+declaration table in the handshake (metadata=...), and knot parses it exactly
+like a main.py metadata block, so this folder needs no main.py at all: every
+declaration and every handler lives in the peer. knot spawns this file from
+bin/ exactly as it spawns a Go peer — the shebang hands it to the scriptling
+CLI — and addresses each handler as plugin.notes.<fn>. The implementation
+lives in impl.py beside it (a peer's handlers must resolve from a module,
+not the entry script)."""
+
+import scriptling.runtime.plugin as plugin_srv
+import scriptling.runtime as runtime
+
+import impl
+
+plugin_srv.serve(
+    "notes",
+    "1.0.0",
+    "sqlite-backed notes store: a pure scriptling CLI peer, no main.py",
+    metadata={
+        "tool.knot": {
+            "version": "1.0.0",
+            "description": "Demo plugin whose entire self lives in a scriptling CLI peer: the peer serves both the [tool.knot] manifest (as handshake metadata, parsed exactly like a main.py block) and every handler, so the folder ships no main.py at all. knot spawns the script like a binary — the shebang hands it to the scriptling CLI — and the CLI's sqlite driver backs a small persistent notes store. The wrap-and-extend sibling, demo-scriptlingcli, keeps a main.py to orchestrate its peer; this one shows the fully self-contained flavour. Requires the scriptling CLI on the server's PATH.",
+            "permissions": ["use_notes"],
+            "icons": ["assets/view.svg", "assets/delete.svg"],
+            "pages": [
+                {
+                    "path": "/notes",
+                    "handler": "notes_page",
+                    "label": "Notes (pure CLI peer)",
+                    "menu_label": "Notes (CLI)",
+                    "permission": "use_notes",
+                    "icon": "assets/icon.svg",
+                }
+            ],
+        }
+    },
+)
+
+plugin_srv.register_function("notes_page", "impl.notes_page")
+plugin_srv.register_function("col_notes", "impl.col_notes")
+plugin_srv.register_function("col_add", "impl.col_add")
+plugin_srv.register_function("note_view", "impl.note_view")
+
+# Serve the declared assets from the script itself (impl.py inlines the
+# SVGs) — the scriptling single-file equivalent of a Go peer's embedded
+# assets, so the plugin folder is bin/ alone.
+plugin_srv.register_fetcher("notes", "impl.fetch_read")
+
+runtime.start_server()

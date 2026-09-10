@@ -385,6 +385,31 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fill in template defaults for fields the request didn't mention. A
+	// field sent with an empty value keeps it — presence, not emptiness,
+	// decides whether a default applies.
+	customFields = model.ApplyCustomFieldDefaults(template, customFields)
+
+	// Required fields cannot be left blank — the form enforces this
+	// client-side, the API for every caller. A default can satisfy the
+	// requirement, hence the order. The error names each field's type and
+	// options so callers (LLMs included) can retry correctly.
+	if missing := model.MissingRequiredCustomFields(template, customFields); len(missing) > 0 {
+		missing = describeMissingRequired(r.Context(), user, template, missing, pluginFieldOptionKeys)
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "missing required custom field(s): " + strings.Join(missing, ", ")})
+		return
+	}
+
+	// Select and autocomplete values must be one of the field's options —
+	// the form restricts picking, the API for every caller.
+	if invalid, err := invalidCustomFieldOptions(r.Context(), user, template, customFields, nil, pluginFieldOptionKeys); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	} else if len(invalid) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid value for custom field(s): " + strings.Join(invalid, ", ")})
+		return
+	}
+
 	// Select node for space
 	nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
 	if err != nil {
@@ -835,6 +860,10 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
 	space.IconURL = request.IconURL
+	// Captured before the overwrite: option validation skips fields whose
+	// value is unchanged, so an edit is never blocked by an option list
+	// that has moved on since the value was set.
+	previousCustomFields := space.CustomFields
 	space.CustomFields = customFields
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn
@@ -846,6 +875,28 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	// Required fields cannot be left blank on edit either.
+	if missing := model.MissingRequiredCustomFields(template, customFields); len(missing) > 0 {
+		missing = describeMissingRequired(r.Context(), user, template, missing, pluginFieldOptionKeys)
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "missing required custom field(s): " + strings.Join(missing, ", ")})
+		return
+	}
+
+	// Select and autocomplete values must be one of the field's options;
+	// values carried over unchanged from the stored space are not
+	// re-validated.
+	previousValues := make(map[string]string, len(previousCustomFields))
+	for _, field := range previousCustomFields {
+		previousValues[field.Name] = field.Value
+	}
+	if invalid, err := invalidCustomFieldOptions(r.Context(), user, template, customFields, previousValues, pluginFieldOptionKeys); err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	} else if len(invalid) > 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid value for custom field(s): " + strings.Join(invalid, ", ")})
 		return
 	}
 

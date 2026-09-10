@@ -33,18 +33,23 @@ type User struct {
 	ExternalAuthProviders map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
 	Roles                 []string                    `json:"roles" db:"roles,json" msgpack:"roles"`
 	Groups                []string                    `json:"groups" db:"groups,json" msgpack:"groups"`
-	Active                bool                        `json:"active" db:"active" msgpack:"active"`
-	IsDeleted             bool                        `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	MaxSpaces             uint32                      `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
-	ComputeUnits          uint32                      `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
-	StorageUnits          uint32                      `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
-	MaxTunnels            uint32                      `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
-	PreferredShell        string                      `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
-	Timezone              string                      `json:"timezone" db:"timezone" msgpack:"timezone"`
-	Preferences           map[string]any              `json:"preferences" db:"preferences,json" msgpack:"preferences"`
-	LastLoginAt           *time.Time                  `json:"last_login_at" db:"last_login_at" msgpack:"last_login_at"`
-	UpdatedAt             hlc.Timestamp               `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
-	CreatedAt             time.Time                   `json:"created_at" db:"created_at" msgpack:"created_at"`
+	// LinkedUsers holds the accounts this user may become — fast user
+	// switching, one way. The link grants nothing in return: a listed
+	// user cannot become this one. Maintained only through the
+	// link/unlink endpoints.
+	LinkedUsers    []string       `json:"linked_users" db:"linked_users,json" msgpack:"linked_users"`
+	Active         bool           `json:"active" db:"active" msgpack:"active"`
+	IsDeleted      bool           `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	MaxSpaces      uint32         `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits   uint32         `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
+	StorageUnits   uint32         `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
+	MaxTunnels     uint32         `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
+	PreferredShell string         `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
+	Timezone       string         `json:"timezone" db:"timezone" msgpack:"timezone"`
+	Preferences    map[string]any `json:"preferences" db:"preferences,json" msgpack:"preferences"`
+	LastLoginAt    *time.Time     `json:"last_login_at" db:"last_login_at" msgpack:"last_login_at"`
+	UpdatedAt      hlc.Timestamp  `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	CreatedAt      time.Time      `json:"created_at" db:"created_at" msgpack:"created_at"`
 }
 
 type Usage struct {
@@ -123,6 +128,91 @@ func (u *User) HasPermission(permission uint16) bool {
 	}
 
 	return false
+}
+
+// HasPluginPermission reports whether any of the user's roles carries the
+// fully qualified plugin grant (e.g. "plugin.metrics.read"). Plugin grants
+// are text so they are cluster-order independent and survive plugin
+// uninstall/reinstall inertly (PLUGINS2.md §5). The fixed admin role cannot
+// be granted per-plugin permissions through the API, so it passes every
+// plugin permission check.
+// PassesPluginGate reports whether the user passes a declared plugin
+// permission gate: an empty permission means any logged-in user, a set
+// one requires the qualified grant (admins pass every check). This is the
+// one predicate every declared gate — pages, handlers, menus, tools,
+// field handlers — checks through.
+func (u *User) PassesPluginGate(permission string) bool {
+	return permission == "" || u.HasPluginPermission(permission)
+}
+
+func (u *User) HasPluginPermission(name string) bool {
+	if u.IsAdmin() {
+		return true
+	}
+	for _, role := range u.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.PluginPermissions {
+				if p == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// GrantedPermissionKeys returns the stable snake_case keys of the built-in
+// permissions the user holds across their roles; the fixed admin role
+// holds all of them. Keys — not display names — are the machine surface
+// (user.has_permission), so rewording a permission's display string can
+// never break plugin logic. The enforcement surface remains HasPermission.
+func (u *User) GrantedPermissionKeys() []string {
+	out := []string{}
+	seen := map[uint16]bool{}
+	if u.IsAdmin() {
+		for _, pn := range PermissionNames {
+			if !seen[uint16(pn.Id)] {
+				seen[uint16(pn.Id)] = true
+				if key := permissionKeys[uint16(pn.Id)]; key != "" {
+					out = append(out, key)
+				}
+			}
+		}
+		return out
+	}
+	for _, role := range u.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.Permissions {
+				if !seen[p] {
+					seen[p] = true
+					if key := permissionKeys[p]; key != "" {
+						out = append(out, key)
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// GrantedPluginPermissions returns the qualified plugin grants (e.g.
+// "plugin.metrics.read") the user holds across their roles. The admin role
+// passes every plugin permission check without carrying grants; callers
+// treat is-admin as the superset signal.
+func (u *User) GrantedPluginPermissions() []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, role := range u.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.PluginPermissions {
+				if !seen[p] {
+					seen[p] = true
+					out = append(out, p)
+				}
+			}
+		}
+	}
+	return out
 }
 
 func (u *User) HasAnyGroup(groups *[]string) bool {
@@ -253,6 +343,38 @@ func (u *User) SetNavStarred(order []string) {
 		return
 	}
 	u.Preferences[PrefNavStarred] = order
+}
+
+// LinkUsers adds other to user's become-list: user may switch its session
+// to other, never the other way around. Returns false when the link
+// already exists or either side is missing; the caller persists user.
+func LinkUsers(user, other *User) bool {
+	if user == nil || other == nil || user.Id == other.Id {
+		return false
+	}
+	for _, id := range user.LinkedUsers {
+		if id == other.Id {
+			return false
+		}
+	}
+	user.LinkedUsers = append(user.LinkedUsers, other.Id)
+	user.UpdatedAt = hlc.Now()
+	return true
+}
+
+// UnlinkUser removes other from user's become-list; other's own list is
+// untouched — links were only ever one way. The caller persists user.
+func UnlinkUser(user, other *User) {
+	if user == nil || other == nil {
+		return
+	}
+	for i, id := range user.LinkedUsers {
+		if id == other.Id {
+			user.LinkedUsers = append(user.LinkedUsers[:i], user.LinkedUsers[i+1:]...)
+			user.UpdatedAt = hlc.Now()
+			return
+		}
+	}
 }
 
 func generateRandomString(length int) string {

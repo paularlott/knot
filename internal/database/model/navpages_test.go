@@ -27,7 +27,7 @@ func TestVisibleNavPages_AdminNonLeaf(t *testing.T) {
 	u := allPermsUser(t)
 	cfg := &config.ServerConfig{} // non-leaf, no ListenTunnel, no cluster advertise
 
-	got := pageURLs(VisibleNavPages(u, cfg, true))
+	got := pageURLs(VisibleNavPages(u, cfg, true, false))
 
 	// Admin sees the full set in sidebar order; no tunnels (no ListenTunnel)
 	// and no cluster-info (no advertise addr) on a non-leaf.
@@ -43,7 +43,7 @@ func TestVisibleNavPages_LeafPromotesTemplatesAndVariables(t *testing.T) {
 	u := allPermsUser(t)
 	cfg := &config.ServerConfig{LeafNode: true}
 
-	got := pageURLs(VisibleNavPages(u, cfg, true))
+	got := pageURLs(VisibleNavPages(u, cfg, true, false))
 
 	// Leaf hides users/groups/roles/cluster; keeps mcp-servers + audit-logs.
 	want := []string{
@@ -58,10 +58,10 @@ func TestVisibleNavPages_AuditGatedByAvailability(t *testing.T) {
 	u := allPermsUser(t)
 	cfg := &config.ServerConfig{}
 
-	if has := contains(pageURLs(VisibleNavPages(u, cfg, true)), "/audit-logs"); !has {
+	if has := contains(pageURLs(VisibleNavPages(u, cfg, true, false)), "/audit-logs"); !has {
 		t.Fatal("audit-logs should be visible when auditAvailable=true")
 	}
-	if has := contains(pageURLs(VisibleNavPages(u, cfg, false)), "/audit-logs"); has {
+	if has := contains(pageURLs(VisibleNavPages(u, cfg, false, false)), "/audit-logs"); has {
 		t.Fatal("audit-logs must be hidden when auditAvailable=false")
 	}
 }
@@ -71,7 +71,7 @@ func TestVisibleNavPages_NoPermissions(t *testing.T) {
 	u := &User{Id: "u2", Username: "nobody", Roles: nil}
 	cfg := &config.ServerConfig{}
 
-	got := pageURLs(VisibleNavPages(u, cfg, true))
+	got := pageURLs(VisibleNavPages(u, cfg, true, false))
 	// Only API Tokens is unconditional (!HideAPITokens); everything else is
 	// permission-gated. Spaces requires useSpaces/manageSpaces which nobody lacks.
 	want := []string{"/api-tokens"}
@@ -83,7 +83,7 @@ func TestVisibleNavPages_HideAPITokens(t *testing.T) {
 	cfg := &config.ServerConfig{}
 	cfg.UI.HideAPITokens = true
 
-	if has := contains(pageURLs(VisibleNavPages(u, cfg, true)), "/api-tokens"); has {
+	if has := contains(pageURLs(VisibleNavPages(u, cfg, true, false)), "/api-tokens"); has {
 		t.Fatal("/api-tokens must be hidden when HideAPITokens is true")
 	}
 }

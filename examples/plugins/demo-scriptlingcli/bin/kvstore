@@ -1,0 +1,17 @@
+#!/usr/bin/env -S scriptling --json-rpc
+"""A scriptling peer that looks like a binary: knot spawns this file from
+bin/ exactly as it spawns a Go peer, the shebang hands it to the
+scriptling CLI, and the CLI serves the plugin protocol with the database
+drivers compiled in. The implementation lives in impl.py beside it (a
+peer's handlers must resolve from a module, not the entry script)."""
+
+import scriptling.runtime.plugin as plugin_srv
+import scriptling.runtime as runtime
+
+import impl
+
+plugin_srv.serve("kvstore", "1.0", "sqlite-backed key/value store via the scriptling CLI")
+plugin_srv.register_function("add", "impl.add")
+plugin_srv.register_function("remember", "impl.remember")
+plugin_srv.register_function("recall", "impl.recall")
+runtime.start_server()

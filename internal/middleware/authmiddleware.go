@@ -168,13 +168,13 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					ctx = context.WithValue(r.Context(), "access_token", token)
 				}
 			} else {
-			// Get the session
-			session, err := GetSessionFromCookie(r)
-			if session == nil {
-				logger.Debug("session not found", "path", r.URL.Path, "user_agent", r.Header.Get("User-Agent"))
-				returnUnauthorized(w, r)
-				return
-			}
+				// Get the session
+				session, err := GetSessionFromCookie(r)
+				if session == nil {
+					logger.Debug("session not found", "path", r.URL.Path, "user_agent", r.Header.Get("User-Agent"))
+					returnUnauthorized(w, r)
+					return
+				}
 				if err != nil {
 					logger.Error("failed to get session", "error", err)
 					rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
@@ -346,6 +346,10 @@ func ApiPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+func ApiPermissionLinkUsers(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionLinkUsers, "No permission to link users")
+}
+
 func ApiPermissionManageUsersOrSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {
@@ -481,12 +485,19 @@ func TokenScopesRequired(next http.HandlerFunc) http.HandlerFunc {
 var tokenScopeAllowedPaths = map[string][]string{
 	model.ScopeMethods: {"/api/methods"},
 	model.ScopeMCP:     {"/mcp"},
+	model.ScopeTunnels: {"/tunnel/", "/api/tunnels"},
 }
 
 func tokenScopeAllows(scopes []string, path string) bool {
 	for _, scope := range scopes {
 		for _, prefix := range tokenScopeAllowedPaths[scope] {
-			if strings.HasPrefix(path, prefix) {
+			if path == prefix {
+				return true
+			}
+			// A prefix covers the paths below it, but only across a path
+			// boundary: "/api/tunnels" must not cover "/api/tunnels-extra".
+			if strings.HasPrefix(path, prefix) &&
+				(prefix[len(prefix)-1] == '/' || (len(path) > len(prefix) && path[len(prefix)] == '/')) {
 				return true
 			}
 		}
@@ -515,6 +526,19 @@ func OptionalWebAuth(next http.HandlerFunc) http.HandlerFunc {
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.WithGroup("auth")
+
+		// In-process callers — the loopback transport MCP tools use —
+		// arrive with the user already in context and no session cookie
+		// to validate. Context values cannot arrive over the wire, so
+		// this fast path is knot's own callers only; the same pattern
+		// ApiAuth uses for the MuxClient.
+		if userVal := r.Context().Value("user"); userVal != nil {
+			if user, ok := userVal.(*model.User); ok && user != nil && user.Active && !user.IsDeleted {
+				logger.Trace("context user authenticated", "user_id", user.Id)
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
 
 		// If no session then redirect to login
 		session, err := GetSessionFromCookie(r)

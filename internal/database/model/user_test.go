@@ -305,3 +305,50 @@ func TestClearOAuthTokens(t *testing.T) {
 		t.Fatalf("GetOAuthRefreshToken() = %q, want empty", got)
 	}
 }
+
+func TestLinkUsers(t *testing.T) {
+	a := &User{Id: "a"}
+	b := &User{Id: "b"}
+
+	// The link is one way: a may become b, b gains nothing.
+	if !LinkUsers(a, b) {
+		t.Fatal("fresh link refused")
+	}
+	if len(a.LinkedUsers) != 1 || a.LinkedUsers[0] != "b" {
+		t.Errorf("a.LinkedUsers = %v, want [b]", a.LinkedUsers)
+	}
+	if len(b.LinkedUsers) != 0 {
+		t.Errorf("b.LinkedUsers = %v, want empty — links are one way", b.LinkedUsers)
+	}
+
+	// Duplicate and self links are refused.
+	if LinkUsers(a, b) {
+		t.Error("duplicate link accepted")
+	}
+	if LinkUsers(a, a) {
+		t.Error("self link accepted")
+	}
+
+	// Links do not compose: linking c to b gives c -> b, not c -> a.
+	c := &User{Id: "c"}
+	LinkUsers(c, b)
+	if len(c.LinkedUsers) != 1 || c.LinkedUsers[0] != "b" {
+		t.Errorf("c.LinkedUsers = %v, want [b] only", c.LinkedUsers)
+	}
+}
+
+func TestUnlinkUser(t *testing.T) {
+	a := &User{Id: "a", LinkedUsers: []string{"b", "c"}}
+	b := &User{Id: "b"}
+
+	UnlinkUser(a, b)
+	if len(a.LinkedUsers) != 1 || a.LinkedUsers[0] != "c" {
+		t.Errorf("a.LinkedUsers = %v, want [c]", a.LinkedUsers)
+	}
+
+	// Removing a link that is not there is a no-op.
+	UnlinkUser(a, b)
+	if len(a.LinkedUsers) != 1 {
+		t.Errorf("a.LinkedUsers = %v, want unchanged", a.LinkedUsers)
+	}
+}

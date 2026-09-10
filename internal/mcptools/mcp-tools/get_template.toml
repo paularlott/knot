@@ -1,0 +1,9 @@
+description = "Get one template's full custom field definitions - names, types, required flags, defaults and valid option values (handler-backed lists resolved live as the requesting user). Use after list_templates to see exactly what custom_fields to send when creating a space from the template."
+keywords = ["template", "get", "custom fields", "discovery", "options", "definition"]
+discoverable = true
+
+[[parameters]]
+name = "template"
+type = "string"
+description = "Template name or ID"
+required = true

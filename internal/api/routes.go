@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
+	"github.com/paularlott/knot/internal/plugins"
 )
 
 func ApiRoutes(router *http.ServeMux) {
@@ -29,6 +30,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/users/{user_id}/quota", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserQuota)))
 	router.HandleFunc("GET /api/users/{user_id}/permissions", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserPermissions)))
 	router.HandleFunc("GET /api/users/{user_id}/has-permission", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserHasPermission)))
+	router.HandleFunc("PUT /api/users/{user_id}/linked-users/{linked_user_id}", middleware.ApiAuth(middleware.ApiPermissionLinkUsers(HandleLinkUser)))
+	router.HandleFunc("DELETE /api/users/{user_id}/linked-users/{linked_user_id}", middleware.ApiAuth(middleware.ApiPermissionLinkUsers(HandleUnlinkUser)))
 
 	// Groups
 	router.HandleFunc("GET /api/groups", middleware.ApiAuth(HandleGetGroups))
@@ -47,6 +50,16 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Icons
 	router.HandleFunc("GET /api/icons", middleware.ApiAuth(HandleGetIcons))
+
+	// Plugins — the inventory feeds the admin plugins page and the role
+	// editor's plugin-permissions section, so it follows role management.
+	// With no plugins loaded the endpoint does not exist; the role form
+	// skips the section on a non-200.
+	if plugins.GetRegistry().Present() {
+		router.HandleFunc("GET /api/plugins", middleware.ApiAuth(middleware.ApiPermissionManageRoles(HandleGetPlugins)))
+		router.HandleFunc("GET /api/plugins/field-handlers", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleGetPluginFieldHandlers)))
+		router.HandleFunc("GET /api/plugins/field-handlers/{handler_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetPluginFieldHandlerOptions)))
+	}
 
 	// Roles
 	router.HandleFunc("GET /api/roles", middleware.ApiAuth(HandleGetRoles))

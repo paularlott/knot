@@ -10,12 +10,137 @@ def _enc(s):
     """URL-encode a path segment for safe interpolation into a URL."""
     return urllib.parse.quote(str(s), safe='')
 
-def list(include_inactive=False):
+def _custom_fields(fields):
+    """Normalize custom field declarations for the API.
+
+    Each entry is a dict: name (required), description, type ("text"
+    default, "masked", "number", "bool", "autocomplete" or "textarea"),
+    handler (plugin field handler id, autocomplete only), language (editor
+    language, textarea only) and default. A boolean default becomes the
+    string "true"/"false"; other scalars are stringified — values are
+    stored as strings regardless of type.
+    """
+    if fields is None:
+        return []
+    out = []
+    for cf in fields:
+        default = cf.get("default", "")
+        if default is True:
+            default = "true"
+        elif default is False:
+            default = "false"
+        elif default is None:
+            default = ""
+        elif not isinstance(default, str):
+            default = str(default)
+        options = cf.get("options", [])
+        if options is None:
+            options = []
+        options = [str(o) for o in options]
+        out.append({
+            "name": str(cf.get("name", "")),
+            "description": str(cf.get("description", "")),
+            "type": cf.get("type", "text") or "text",
+            "handler": str(cf.get("handler", "") or ""),
+            "language": str(cf.get("language", "") or ""),
+            "default": default,
+            "required": bool(cf.get("required", False)),
+            "options": options,
+        })
+    return out
+
+
+def field_options(handler_id):
+    """Resolve a plugin field handler's option keys as the requesting user.
+
+    Returns the valid values for a handler-backed custom field — the same
+    list the space form's dropdown offers and the API's validation accepts —
+    or None when the handler cannot be reached. Entries may be plain strings
+    or key/text pairs; keys are returned (text stands in when a pair carries
+    no key).
+    """
+    try:
+        response = api.get(f"/api/plugins/field-handlers/{_enc(handler_id)}")
+    except Exception:
+        return None
+    if not response:
+        return None
+    # Careful with type names here: this module defines a function named
+    # list, which shadows the list builtin — isinstance(x, list) passes the
+    # function and fails. Dict is safe, so branch on that and treat
+    # everything else as the bare option array.
+    if isinstance(response, dict):
+        options = response.get("options")
+    else:
+        options = response
+    if options is None:
+        return None
+    keys = []
+    try:
+        for option in options:
+            if isinstance(option, dict):
+                keys.append(str(option.get("key", option.get("text", ""))))
+            else:
+                keys.append(str(option))
+    except Exception:
+        return None
+    return keys
+
+
+def _custom_field_defs(fields, resolve_options=False):
+    """Parse template custom field definitions.
+
+    Each entry carries name, description, type, required, default and its
+    option source: options (a manual list) or handler (a plugin field
+    handler id). With resolve_options, handler-backed fields get their
+    options resolved via field_options — the same dispatch the space form
+    and the API's validation use, so the discovered values are exactly the
+    values the API accepts. A handler that cannot be reached is skipped;
+    its options stay unset.
+    """
+    out = []
+    for cf in fields or []:
+        entry = {
+            "name": cf.get("name", ""),
+            "description": cf.get("description", ""),
+            "type": cf.get("type") or "text",
+            "required": bool(cf.get("required", False)),
+        }
+        default = cf.get("default", "")
+        if default != "":
+            entry["default"] = default
+        options = cf.get("options") or []
+        handler = cf.get("handler", "")
+        if options:
+            # Never call the list() builtin here: this module defines a
+            # function named list (the public API), which shadows it inside
+            # the module — list(options) would recurse through list() back
+            # into this helper.
+            entry["options"] = options
+        elif handler:
+            entry["handler"] = handler
+            if resolve_options:
+                keys = field_options(handler)
+                if keys is not None:
+                    entry["options"] = keys
+        out.append(entry)
+    return out
+
+
+def list(include_inactive=False, resolve_options=False):
     """List all templates visible to the current user.
+
+    Custom fields carry their full definitions (type, required, default,
+    options or handler). With resolve_options=True, handler-backed fields
+    have their options resolved as the requesting user — one plugin call
+    per field — so callers (e.g. MCP discovery tools) see exactly the
+    values the API accepts.
 
     Args:
         include_inactive: If True, include inactive templates. Default False
             (only active templates are returned).
+        resolve_options: Resolve handler-backed option lists live. Default
+            False (such fields name their handler instead).
     """
     response = api.get("/api/templates")
 
@@ -23,13 +148,6 @@ def list(include_inactive=False):
     for tmpl in response.get("templates", []):
         if not include_inactive and not tmpl.get("active", False):
             continue
-
-        custom_fields = []
-        for cf in tmpl.get("custom_fields", []):
-            custom_fields.append({
-                "name": cf.get("name", ""),
-                "description": cf.get("description", ""),
-            })
 
         result.append({
             "id": tmpl.get("template_id"),
@@ -39,16 +157,22 @@ def list(include_inactive=False):
             "active": tmpl.get("active", False),
             "usage": tmpl.get("usage", 0),
             "deployed": tmpl.get("deployed", 0),
-            "custom_fields": custom_fields,
+            "custom_fields": _custom_field_defs(tmpl.get("custom_fields"), resolve_options),
         })
 
     return result
 
 
-def get(template_id):
-    """Get template by ID or name."""
+def get(template_id, resolve_options=False):
+    """Get template by ID or name.
+
+    Custom fields carry their full definitions (type, required, default,
+    options). With resolve_options=True, handler-backed fields have their
+    options resolved as the requesting user — one handler call per field —
+    so callers (e.g. MCP tools) see exactly the values the API accepts.
+    """
     response = api.get(f"/api/templates/{_enc(template_id)}")
-    return _parse_template(response)
+    return _parse_template(response, resolve_options)
 
 
 def validate(platform, job="", volumes=""):
@@ -123,8 +247,17 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            groups=None, zones=None, paths=None, disable_user_activity=False,
            health_check_type="none", health_check_config="", health_check_skip_ssl_verify=False,
            health_check_timeout=10, health_check_interval=30, health_check_max_failures=3,
-           health_check_auto_restart=False, ports=None, jobs=None):
-    """Create a new template."""
+           health_check_auto_restart=False, ports=None, jobs=None,
+           custom_fields=None):
+    """Create a new template.
+
+    custom_fields is a list of dicts declaring the template's custom
+    fields: name, description, type ("text", "masked", "number", "bool",
+    "select", "autocomplete" or "textarea"), handler, or a manual options
+    list (select and autocomplete — exactly one of the two)
+    (textarea only), default (a bool default becomes "true"/"false") and
+    required (bool).
+    """
     volumes = _with_paths(volumes, paths)
     body = {
         "name": name,
@@ -146,7 +279,7 @@ def create(name, job="", description="", platform="", volumes="", active=True,
         "groups": groups or [],
         "zones": zones or [],
         "schedule": [],
-        "custom_fields": [],
+        "custom_fields": _custom_fields(custom_fields),
         "disable_user_activity": disable_user_activity,
         "health_check_type": health_check_type,
         "health_check_config": "" if health_check_type in ("none", "agent") else health_check_config,
@@ -171,8 +304,13 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            icon_url=None, groups=None, zones=None, paths=None, disable_user_activity=None,
            health_check_type=None, health_check_config=None, health_check_skip_ssl_verify=None,
            health_check_timeout=None, health_check_interval=None, health_check_max_failures=None,
-           health_check_auto_restart=None, ports=None, jobs=None):
-    """Update template properties."""
+           health_check_auto_restart=None, ports=None, jobs=None,
+           custom_fields=None):
+    """Update template properties.
+
+    custom_fields, when given, replaces the template's custom fields (same
+    shape as create); omitted leaves them unchanged.
+    """
     current = api.get(f"/api/templates/{_enc(template_id)}")
     volumes_value = volumes if volumes is not None else current.get("volumes", "")
     volumes_value = _with_paths(volumes_value, paths)
@@ -197,7 +335,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "groups": groups if groups is not None else current.get("groups", []),
         "zones": zones if zones is not None else current.get("zones", []),
         "schedule": current.get("schedule", []),
-        "custom_fields": current.get("custom_fields", []),
+        "custom_fields": _custom_fields(custom_fields) if custom_fields is not None else current.get("custom_fields", []),
         "startup_script_id": current.get("startup_script_id", ""),
         "shutdown_script_id": current.get("shutdown_script_id", ""),
         "auto_start": current.get("auto_start", False),
@@ -282,7 +420,7 @@ def _with_paths(volumes, paths):
     return result
 
 
-def _parse_template(response):
+def _parse_template(response, resolve_options=False):
     """Parse a template response into a standardized dict."""
     schedule = []
     for day in response.get("schedule", []):
@@ -292,12 +430,7 @@ def _parse_template(response):
             "to": day.get("to", "")
         })
 
-    custom_fields = []
-    for cf in response.get("custom_fields", []):
-        custom_fields.append({
-            "name": cf.get("name", ""),
-            "description": cf.get("description", "")
-        })
+    custom_fields = _custom_field_defs(response.get("custom_fields"), resolve_options)
 
     return {
         "id": response.get("template_id"),

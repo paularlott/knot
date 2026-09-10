@@ -10,8 +10,9 @@ type PermissionInfo struct {
 }
 
 type PermissionInfoList struct {
-	Count       int              `json:"count"`
-	Permissions []PermissionInfo `json:"permissions"`
+	Count             int                    `json:"count"`
+	Permissions       []PermissionInfo       `json:"permissions"`
+	PluginPermissions []PluginPermissionInfo `json:"plugin_permissions,omitempty"`
 }
 
 func (c *ApiClient) GetPermissions(ctx context.Context) (*PermissionInfoList, int, error) {

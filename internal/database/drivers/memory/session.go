@@ -15,6 +15,12 @@ func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
 	// left this node's copy frozen at its original expiry, so once it lapsed any
 	// request routed here returned 401 / redirected to login — random logouts.
 	if existing, ok := db.sessions[session.Id]; ok {
+		// A switch rewrites UserId; the by-user index must follow or the
+		// session lingers under a user it no longer runs as.
+		if existing.UserId != session.UserId {
+			db.removeFromUserIndex(existing.UserId, existing.Id)
+			db.sessionsByUserId[session.UserId] = append(db.sessionsByUserId[session.UserId], existing)
+		}
 		*existing = *session
 	} else {
 		db.sessionsByUserId[session.UserId] = append(db.sessionsByUserId[session.UserId], session)
@@ -22,6 +28,15 @@ func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
 	}
 
 	return nil
+}
+
+func (db *MemoryDbDriver) removeFromUserIndex(userId, sessionId string) {
+	for i, s := range db.sessionsByUserId[userId] {
+		if s.Id == sessionId {
+			db.sessionsByUserId[userId] = append(db.sessionsByUserId[userId][:i], db.sessionsByUserId[userId][i+1:]...)
+			return
+		}
+	}
 }
 
 func (db *MemoryDbDriver) DeleteSession(session *model.Session) error {

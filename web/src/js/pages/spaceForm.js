@@ -68,6 +68,7 @@ window.spaceForm = function (
     loading: true,
     buttonLabelWorking: isEdit ? "Saving..." : "Creating...",
     nameValid: true,
+    customFieldValid: [],
     addressValid: true,
     forUsername: forUserUsername,
     volume_size_valid: {},
@@ -362,6 +363,13 @@ window.spaceForm = function (
       );
       if (templatesResponse.status === 200) {
         this.template = await templatesResponse.json();
+        // Heal the pre-rename "password" type so masked fields stored by
+        // older templates still render as password inputs.
+        if (Array.isArray(this.template.custom_fields)) {
+          this.template.custom_fields = this.template.custom_fields.map((f) =>
+            f.type === "password" ? { ...f, type: "masked" } : f,
+          );
+        }
         this.templatePorts = this.template.ports || [];
       } else {
         // Set a default template to prevent null reference errors
@@ -394,19 +402,29 @@ window.spaceForm = function (
         this.template.custom_fields &&
         this.template.custom_fields.length > 0
       ) {
-        // If editing, preserve existing values; if creating, initialize with empty strings
+        // Stored values win, even empty ones — a field the user cleared is
+        // an intentional blank and must not re-grow its default. Fields the
+        // space has no entry for (and fresh creates) start from the
+        // template default.
         const existingFields = isEdit ? this.formData.custom_fields : [];
         this.formData.custom_fields = this.template.custom_fields.map(
           (field) => {
+            const existing = existingFields.find(
+              (f) => f.name === field.name,
+            );
             return {
               name: field.name,
               value:
-                existingFields.find((f) => f.name === field.name)?.value || "",
+                existing !== undefined
+                  ? existing.value || ""
+                  : field.default || "",
             };
           },
         );
+        this.customFieldValid = this.template.custom_fields.map(() => true);
       } else {
         this.formData.custom_fields = [];
+        this.customFieldValid = [];
       }
 
       // Get if the template is manual
@@ -527,6 +545,37 @@ window.spaceForm = function (
       this.descValid = this.formData.description.length <= 1024;
       return this.descValid;
     },
+
+    // Custom fields validate like Space Name: live per field (debounced
+    // keyup on the field's own input) plus once more on submit. Required
+    // fields cannot be blank; select / autocomplete fields also only accept
+    // option values (or blank when not required) — manual lists are checked
+    // here, handler-backed fields only ever store picked keys (the API
+    // validates both).
+    customFieldIsValid(index) {
+      const field = this.template && this.template.custom_fields[index];
+      if (!field || field.type === "bool") return true;
+      const value = String((this.formData.custom_fields[index] || {}).value ?? "");
+      if (field.required && value.trim() === "") return false;
+      if ((field.type === "select" || field.type === "autocomplete") && value.trim() !== "" && Array.isArray(field.options) && field.options.length) {
+        return field.options.includes(value);
+      }
+      return true;
+    },
+
+    checkCustomField(index) {
+      if (index >= 0 && index < this.customFieldValid.length) {
+        this.customFieldValid[index] = this.customFieldIsValid(index);
+      }
+    },
+
+    checkCustomFields() {
+      const fields = this.template ? this.template.custom_fields : [];
+      this.customFieldValid = fields.map((field, index) =>
+        this.customFieldIsValid(index),
+      );
+      return this.customFieldValid.every(Boolean);
+    },
     submitData() {
       let err = false;
       const self = this;
@@ -535,6 +584,7 @@ window.spaceForm = function (
       self.stayOnPage = false;
       err = !this.checkName() || err;
       err = !this.checkDesc() || err;
+      err = !this.checkCustomFields() || err;
 
       // Remove the blank alt names
       for (let i = this.formData.alt_names.length - 1; i >= 0; i--) {

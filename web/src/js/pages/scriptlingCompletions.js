@@ -4170,7 +4170,7 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "serve",
-        signature: "serve(name, version=\"\", description=\"\")",
+        signature: "serve(name, version=\"\", description=\"\", metadata=None)",
         description: "Declare this script as a Scriptling plugin server.",
         returns: "None",
       },
@@ -4184,6 +4184,12 @@ const scriptlingLibraries = [
         name: "register_constant",
         signature: "register_constant(name, value)",
         description: "Register a constant exported by the plugin server.",
+        returns: "None",
+      },
+      {
+        name: "register_fetcher",
+        signature: "register_fetcher(scheme, read_handler, glob_handler=None)",
+        description: "Serve sources from this plugin server.",
         returns: "None",
       },
       {
@@ -4529,6 +4535,12 @@ const scriptlingLibraries = [
             returns: "ExecResult",
           },
           {
+            name: "begin",
+            signature: "begin()",
+            description: "Start a transaction.",
+            returns: "Transaction",
+          },
+          {
             name: "get_orm",
             signature: "get_orm()",
             description: "Return the ORM bound to this connection.",
@@ -4539,6 +4551,48 @@ const scriptlingLibraries = [
             signature: "close()",
             description: "Close the connection.",
             returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Transaction",
+        description: "An open transaction from Connection.begin().",
+        methods: [
+          {
+            name: "query",
+            signature: "query(sql, *params)",
+            description: "Execute a SELECT-style statement inside the transaction.",
+            returns: "List[_Row]",
+          },
+          {
+            name: "query_iter",
+            signature: "query_iter(sql, *params)",
+            description: "Stream the statement's rows via a Cursor.",
+            returns: "Cursor",
+          },
+          {
+            name: "execute",
+            signature: "execute(sql, *params)",
+            description: "Execute a row-changing statement inside the transaction.",
+            returns: "ExecResult",
+          },
+          {
+            name: "commit",
+            signature: "commit()",
+            description: "Make the transaction's changes permanent and end it.",
+            returns: "None",
+          },
+          {
+            name: "rollback",
+            signature: "rollback()",
+            description: "Discard the transaction's changes and end it.",
+            returns: "None",
+          },
+          {
+            name: "get_orm",
+            signature: "get_orm()",
+            description: "Return the ORM bound to this transaction.",
+            returns: "ORM",
           },
         ],
       },
@@ -4775,6 +4829,12 @@ const scriptlingLibraries = [
             returns: "ExecResult",
           },
           {
+            name: "begin",
+            signature: "begin()",
+            description: "Start a transaction.",
+            returns: "Transaction",
+          },
+          {
             name: "get_orm",
             signature: "get_orm()",
             description: "Return the ORM bound to this connection.",
@@ -4785,6 +4845,48 @@ const scriptlingLibraries = [
             signature: "close()",
             description: "Close the connection and release the database handle.",
             returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Transaction",
+        description: "An open transaction from Connection.begin().",
+        methods: [
+          {
+            name: "query",
+            signature: "query(sql, *params)",
+            description: "Execute a SELECT-style statement inside the transaction.",
+            returns: "List[_Row]",
+          },
+          {
+            name: "query_iter",
+            signature: "query_iter(sql, *params)",
+            description: "Stream the statement's rows via a Cursor.",
+            returns: "Cursor",
+          },
+          {
+            name: "execute",
+            signature: "execute(sql, *params)",
+            description: "Execute a row-changing statement inside the transaction.",
+            returns: "ExecResult",
+          },
+          {
+            name: "commit",
+            signature: "commit()",
+            description: "Make the transaction's changes permanent and end it.",
+            returns: "None",
+          },
+          {
+            name: "rollback",
+            signature: "rollback()",
+            description: "Discard the transaction's changes and end it.",
+            returns: "None",
+          },
+          {
+            name: "get_orm",
+            signature: "get_orm()",
+            description: "Return the ORM bound to this transaction.",
+            returns: "ORM",
           },
         ],
       },

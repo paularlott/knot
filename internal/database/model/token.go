@@ -19,10 +19,15 @@ const (
 	// the endpoint groups named by the listed scopes.
 	ScopeMethods = "methods"
 	ScopeMCP     = "mcp"
+	// ScopeTunnels allows a token to reach the tunnel endpoints only:
+	// the web/port tunnel websockets (/tunnel/*) and the user's tunnel
+	// management API (/api/tunnels*). A tunnels-only key can create,
+	// list and delete tunnels and nothing else.
+	ScopeTunnels = "tunnels"
 )
 
 // KnownTokenScopes is the authoritative list of valid scope strings.
-var KnownTokenScopes = []string{ScopeMethods, ScopeMCP}
+var KnownTokenScopes = []string{ScopeMethods, ScopeMCP, ScopeTunnels}
 
 // IsKnownTokenScope reports whether s is a valid scope string.
 func IsKnownTokenScope(s string) bool {

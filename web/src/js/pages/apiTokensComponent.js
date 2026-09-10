@@ -9,7 +9,7 @@ window.apiTokensComponent = function () {
     }
   });
 
-  // Available scopes. Currently just "methods". Each entry has:
+  // Available scopes. Each entry has:
   //   value: the scope string stored in the DB
   //   label: human-readable label for the checkbox
   //   description: short help text
@@ -23,6 +23,11 @@ window.apiTokensComponent = function () {
       value: "mcp",
       label: "MCP",
       description: "Use the MCP server endpoint (/mcp)",
+    },
+    {
+      value: "tunnels",
+      label: "Tunnels",
+      description: "Create and manage web tunnels only",
     },
   ];
 

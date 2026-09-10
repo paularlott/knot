@@ -14,47 +14,75 @@ type ServerAddr struct {
 	ApiToken   string
 }
 
+var aliasRE = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-]{1,19}$`)
+
+// NewServerAddr normalises a server URL into a ServerAddr, adding the https
+// scheme when missing, trimming any trailing slash, and deriving the
+// websocket address.
+func NewServerAddr(server, token string) *ServerAddr {
+	if !strings.HasPrefix(server, "http://") && !strings.HasPrefix(server, "https://") {
+		server = "https://" + server
+	}
+	server = strings.TrimSuffix(server, "/")
+
+	return &ServerAddr{
+		HttpServer: server,
+		WsServer:   "ws" + server[4:],
+		ApiToken:   token,
+	}
+}
+
+// LookupServerAddr resolves the client.connection.<alias> section of the
+// config file into a ServerAddr. Unlike GetServerAddr it never exits: an
+// invalid or unconfigured alias returns ok=false so callers can fall back to
+// another connection source, e.g. the agentlink socket inside a space.
+func LookupServerAddr(alias string, cmd *cli.Command) (*ServerAddr, bool) {
+	if !aliasRE.MatchString(alias) || cmd.ConfigFile == nil {
+		return nil, false
+	}
+
+	server, _ := cmd.ConfigFile.GetValue("client.connection." + alias + ".server")
+	token, _ := cmd.ConfigFile.GetValue("client.connection." + alias + ".token")
+	serverURL, _ := server.(string)
+	apiToken, _ := token.(string)
+	if serverURL == "" || apiToken == "" {
+		return nil, false
+	}
+
+	return NewServerAddr(serverURL, apiToken), true
+}
+
 // Read the server configuration information and generate the websocket address
 func GetServerAddr(alias string, cmd *cli.Command) *ServerAddr {
-	flags := &ServerAddr{}
-
-	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-]{1,19}$`)
-	if !re.MatchString(alias) {
+	if !aliasRE.MatchString(alias) {
 		log.Fatal("Alias must be alphanumeric and can contain -, must start with a letter and be 20 characters or less")
 	}
 
 	// Use the server and token flags if given, else use the alias
+	var server, token string
 	if cmd.HasFlag("server") && cmd.HasFlag("token") {
-		flags.HttpServer = cmd.GetString("server")
-		flags.ApiToken = cmd.GetString("token")
+		server = cmd.GetString("server")
+		token = cmd.GetString("token")
 	} else {
 		v, exists := cmd.ConfigFile.GetValue("client.connection." + alias + ".server")
 		if exists {
-			flags.HttpServer = v.(string)
+			server = v.(string)
 		}
 
 		v, exists = cmd.ConfigFile.GetValue("client.connection." + alias + ".token")
 		if exists {
-			flags.ApiToken = v.(string)
+			token = v.(string)
 		}
 	}
 
-	// If flags.server empty then throw and error
-	if flags.HttpServer == "" {
+	// If no server address then throw an error
+	if server == "" {
 		log.Fatal("Missing knot server address")
 	}
 
-	if flags.ApiToken == "" {
+	if token == "" {
 		log.Fatal("Missing knot API token")
 	}
 
-	if !strings.HasPrefix(flags.HttpServer, "http://") && !strings.HasPrefix(flags.HttpServer, "https://") {
-		flags.HttpServer = "https://" + flags.HttpServer
-	}
-
-	// Fix up the address to a websocket address
-	flags.HttpServer = strings.TrimSuffix(flags.HttpServer, "/")
-	flags.WsServer = "ws" + flags.HttpServer[4:]
-
-	return flags
+	return NewServerAddr(server, token)
 }

@@ -97,6 +97,14 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 	}
 	defer cleanup()
 
+	// User-created script tools see the requesting user as a `user` global
+	// (a User instance with has_permission / in_group). Plugin handlers,
+	// by contrast, receive identity as request["user"] data and use
+	// knot.identity for authoritative checks — a different surface.
+	if err := env.SetObjectVar("user", NewUserObject(user)); err != nil {
+		return "", fmt.Errorf("failed to set the user object: %v", err)
+	}
+
 	response, exitCode, err := scriptlingmcp.RunToolScript(ctx, env, script.Content, mcpParams)
 	// When the script called return_error(), response holds the actual error
 	// message and exitCode is non-zero — prefer that over the bare SystemExit err

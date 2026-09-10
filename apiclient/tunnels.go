@@ -40,6 +40,14 @@ type SpaceTunnelStartRequest struct {
 	Protocol string `json:"protocol"`
 	Port     uint16 `json:"port"`
 	Name     string `json:"name"`
+
+	// Server/Token target a knot server other than the one that owns the
+	// space; both must be given together, and both empty means the space's
+	// own server. ServerTlsSkipVerify carries the TLS choice for the
+	// connection to that server.
+	Server              string `json:"server,omitempty"`
+	Token               string `json:"token,omitempty"`
+	ServerTlsSkipVerify bool   `json:"server_tls_skip_verify"`
 }
 
 type SpaceTunnelStartResponse struct {

@@ -1,0 +1,112 @@
+{{/* Plugin block templates: the client renderer's presentation source.
+       Each block type exists exactly once, here — the server validates and
+       ships data, the client clones these fragments and fills them. Plugin
+       strings are only ever assigned via textContent; the html block is the
+       one trusted exception (admin-installed markup, rendered raw). */}}
+{{ define "plugin-block-templates" }}
+<template id="pb-text">
+  <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words"></p>
+</template>
+
+<template id="pb-stat">
+  <div class="h-full flex flex-col">
+    <div class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" data-label></div>
+    <div class="mt-1 flex items-baseline gap-1 min-w-0">
+      <span class="text-2xl font-semibold text-gray-900 dark:text-white truncate tabular-nums" data-value></span>
+      <span class="text-sm text-gray-500 dark:text-gray-400" data-unit></span>
+    </div>
+    <div class="mt-auto pt-1 text-xs font-medium" data-delta></div>
+  </div>
+</template>
+
+<template id="pb-bar">
+  <div>
+    <div class="flex items-baseline justify-between mb-1">
+      <span class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400" data-label></span>
+      <span class="text-xs font-mono text-gray-500 dark:text-gray-400" data-reading></span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700" data-track role="progressbar" aria-valuemin="0" aria-valuemax="100">
+      <div class="h-2.5 rounded-full" data-fill></div>
+    </div>
+  </div>
+</template>
+
+<template id="pb-table">
+  <div class="w-full overflow-x-auto rounded-2xl border border-slate-200/90 bg-white/92 shadow-xl shadow-slate-900/5 ring-1 ring-slate-900/5 dark:border-slate-700 dark:bg-slate-900/82 dark:ring-white/10">
+    <table class="w-full text-sm text-left text-gray-700 dark:text-gray-300">
+      <thead class="text-xs text-gray-600 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300" data-head></thead>
+      <tbody class="divide-y divide-gray-200 dark:divide-gray-700" data-body></tbody>
+    </table>
+  </div>
+</template>
+
+<template id="pb-chart">
+  <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+    <canvas data-canvas></canvas>
+  </div>
+</template>
+
+<template id="pb-form">
+  <form class="space-y-3" data-plugin-form>
+    <div data-fields class="space-y-3"></div>
+    <button type="submit" class="btn-primary" data-submit></button>
+    <button type="button" class="btn-secondary" data-cancel data-plugin-form-cancel></button>
+  </form>
+</template>
+
+<template id="pb-form-field">
+  <div class="min-w-0">
+    <label class="form-label" data-label></label>
+    <div data-control></div>
+  </div>
+</template>
+
+<template id="pb-autocomplete">
+  <div class="relative" data-ac>
+    <input class="form-field" type="search" autocomplete="off" placeholder="Search..." data-ac-input>
+    <div class="max-h-40 overflow-auto z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" data-ac-list style="display: none;">
+      <ul class="list-none"></ul>
+    </div>
+  </div>
+</template>
+
+<template id="pb-markdown">
+  <div class="pb-markdown text-sm text-gray-700 dark:text-gray-300" data-html></div>
+</template>
+
+<template id="pb-html">
+  <div data-html></div>
+</template>
+
+<template id="pb-error">
+  <div class="rounded-lg border border-red-200 dark:border-red-900 p-4 text-sm text-red-700 dark:text-red-300" role="alert"></div>
+</template>
+
+<!-- Chrome icons: knot's own runtime iconography — dialog headers, the
+     kebab trigger, the modal close button — cloned on demand like the block
+     fragments above (class overridden at clone time). Plugin action icons
+     are declared SVG assets and ride the page document's icons map instead. -->
+<template id="pb-icon-kebab">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" />
+  </svg>
+</template>
+
+<template id="pb-icon-info">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+  </svg>
+</template>
+
+<template id="pb-icon-trash">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+  </svg>
+</template>
+
+<template id="pb-icon-close">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.4" stroke="currentColor" class="size-5" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+  </svg>
+</template>
+{{ end }}

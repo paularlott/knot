@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
+	"github.com/paularlott/knot/internal/plugins"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/logger"
@@ -33,6 +35,7 @@ import (
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
+	pluginpkg "github.com/paularlott/scriptling/plugin"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
@@ -148,10 +151,6 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	if aux == nil {
 		aux = logger.NewNullLogger()
 	}
-	if log != nil {
-	} else {
-		extlibs.RegisterLoggingLibraryDefault(env)
-	}
 
 	extlibs.RegisterYAMLLibrary(env)
 	extlibs.RegisterTOMLLibrary(env)
@@ -194,6 +193,14 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+
+	// Agent-side scriptling plugins (--plugin / --plugin-dir), loaded once at
+	// agent startup. This is how the agent reaches heavyweight drivers (e.g.
+	// the scriptling database plugins) without compiling them into the agent
+	// binary. nil when none are configured.
+	if mgr := getAgentPluginManager(); mgr != nil {
+		pluginpkg.RegisterLibraries(env, mgr)
+	}
 }
 
 // newServerLibraryLoader creates a FuncLoader that fetches libraries from the server API
@@ -383,6 +390,34 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 			mcpLib = knotscriptling.GetMCPLibraryInstance(client, opts.MCPParams)
 		}
 		registerKnotLibraries(env, client, opts.User.Id, opts.MCPParams, mcpLib, aiClient, false)
+		env.RegisterLibrary(knotscriptling.GetIdentityLibrary(NewUserObject(opts.User)))
+
+		// Server-side code — user-created tools and event sinks — reaches
+		// plugin handlers only over the authenticated loopback: same
+		// transport as the knot.* libraries, real web dispatch, declared
+		// gates enforced. Never in-process.
+		registerPluginLoopbackCallLibrary(env, client, opts.User)
+
+		// The one deliberate exception to "no plugin code in this
+		// environment": a plugin's declared export modules
+		// ([tool.knot] export) are materialized here — each as
+		// plugin.<name>.<stem>, the first also as plugin.<name> — client
+		// SDKs whose classes wrap knot.plugin.call. They execute with the
+		// caller's authority and every call rides the gated loopback
+		// above, exactly like a hand-written call, so the declaration adds
+		// ergonomics, never authority. Read and linted once at plugin
+		// load; anything a plugin did not declare stays unattached.
+		if registry := plugins.GetRegistry(); registry != nil {
+			for _, p := range registry.All() {
+				for i, ex := range p.Exports {
+					stem := strings.TrimSuffix(filepath.Base(ex.Path), ".py")
+					env.RegisterScriptLibrary("plugin."+p.ScriptNamespace+"."+stem, ex.Source)
+					if i == 0 {
+						env.RegisterScriptLibrary("plugin."+p.ScriptNamespace, ex.Source)
+					}
+				}
+			}
+		}
 
 		if opts.EventEnvelope != nil {
 			env.RegisterLibrary(knotscriptling.GetEventLibrary())
@@ -395,6 +430,15 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 				return nil, nil, nil, fmt.Errorf("failed to set event metadata: %v", err)
 			}
 		}
+		// User-created tools and event sinks are the untrusted domain: the
+		// plugin pool is deliberately NOT attached to this environment, so a
+		// user tool cannot import plugin code (plugin.<name>) at all. It
+		// reaches a plugin only through the gated loopback above
+		// (knot.plugin.call), where knot enforces the declared handler gate
+		// before any plugin code runs. This is the structural isolation the
+		// trust model rests on — the wall is "not attached", not a policy a
+		// plugin could forget. Trusted plugin-to-plugin composition is a
+		// separate surface (the plugin handler pool), unaffected.
 
 		env.SetLibraryLoader(libloader.NewChain(
 			newKnotLibsLoader(),
@@ -403,6 +447,213 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 	}
 
 	return env, mcpLib, cleanup, nil
+}
+
+// registerPluginLibraries registers the library surface for plugin handler
+// environments: the full local-processing set — stdlib, base extended
+// libraries, and the system-access libraries (os, subprocess, fs, …) that
+// server envs deny — with every path-taking library jailed to the plugin's
+// own folder. Deliberately absent: the outbound networking libraries
+// (requests, scriptling.wait_for), the runtime libraries
+// (scriptling.container, scriptling.nomad), machine-provisioning
+// (scriptling.provision.*, agent only), and scriptling.ai.memory (AI
+// scratchpad, agent only) — plugins are trusted for local compute, not for
+// reaching out or driving container runtimes. A plugin that needs a database
+// ships the driver as a bin/ peer, not an env library. Keep this list in step
+// with plugins.pluginEnvLibraries, which answers metadata dependency
+// resolution for the same set.
+func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log logger.Logger) {
+	stdlib.RegisterAll(env)
+
+	aux := log
+	if aux == nil {
+		aux = logger.NewNullLogger()
+	}
+
+	allowed := []string{pluginDir}
+	extlibs.RegisterSecretsLibrary(env)
+	extlibs.RegisterYAMLLibrary(env)
+	extlibs.RegisterTOMLLibrary(env)
+	extlibs.RegisterHTMLParserLibrary(env)
+	extlibs.RegisterLoggingLibraryDefault(env)
+	extlibs.RegisterShlexLibrary(env)
+	extlibs.RegisterCsvLibrary(env)
+	extlibs.RegisterXmlLibrary(env)
+	extlibs.RegisterTemplateHTMLLibrary(env)
+	extlibs.RegisterTemplateTextLibrary(env)
+
+	scriptlingai.Register(env)
+	agent.Register(env)
+	scriptlingaitools.Register(env)
+	scriptlingsimilarity.Register(env)
+	scriptlingmcp.Register(env)
+	scriptlingmcp.RegisterToon(env)
+	scriptlingmcp.RegisterToolHelpers(env)
+
+	telegram.Register(env, aux)
+	discord.Register(env, aux)
+	slack.Register(env, aux)
+
+	extlibs.RegisterOSLibrary(env, allowed)
+	extlibs.RegisterSubprocessLibrary(env)
+	extlibs.RegisterPathlibLibrary(env, allowed)
+	extlibs.RegisterGlobLibrary(env, allowed)
+	extlibs.RegisterTempfileLibrary(env, allowed)
+	extlibs.RegisterShutilLibrary(env, allowed)
+	extlibs.RegisterZipfileLibrary(env, allowed)
+	extlibs.RegisterTarfileLibrary(env, allowed)
+	extlibs.RegisterFSLibrary(env, allowed)
+	extlibs.RegisterGrepLibrary(env, allowed)
+	extlibs.RegisterFindLibrary(env, allowed)
+	extlibs.RegisterSedLibrary(env, allowed)
+}
+
+// NewPluginScriptlingEnv creates the environment a plugin's handlers run in
+// when dispatched for a user: registerPluginLibraries jailed to the plugin's
+// folder, knot's run-as-user libraries over the loopback API, the plugin's
+// binary peers as plugin.* libraries, and a loader chain that resolves the
+// plugin's own modules first, then knot's embedded libraries, then the
+// invoking user's lib scripts.
+func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) (*scriptling.Scriptling, error) {
+	if client == nil || user == nil {
+		return nil, fmt.Errorf("plugin env requires a client and user")
+	}
+	env := buildPluginEnv(plugin)
+	if err := bindPluginUserIdentity(env, client, user, plugin); err != nil {
+		return nil, err
+	}
+	return env, nil
+}
+
+// buildPluginEnv constructs the user-independent half of a plugin
+// environment: the jailed library surface, this plugin's own handler
+// namespace, and — because installed plugins are one trust domain — every
+// other installed plugin's exports for cross-plugin composition. It is the
+// reusable part; the pooled envs keep it across leases.
+//
+// The trust model (docs/plugin-architecture.md): installed = trusted.
+// Plugins share one execution domain and compose freely — a handler imports
+// another plugin's library or class as plugin.<name> and uses it ungated.
+// This is the shared trusted pool. The isolation boundary is structural:
+// this whole surface is simply NOT attached to the MCP-tool environment
+// (NewServerScriptlingEnv), so untrusted user tools cannot import plugin
+// code and reach a plugin only through the gated loopback.
+func buildPluginEnv(plugin *plugins.Plugin) *scriptling.Scriptling {
+	env := scriptling.New()
+	env.EnableOutputCapture()
+	registerPluginLibraries(env, plugin.Dir, nil)
+
+	// This plugin's own handler namespace: a pure-script plugin's main.py is
+	// registered as the plugin.<ScriptNamespace> library so its declared
+	// handlers are addressable as plugin.<ns>.<fn>, the same shape a peer's
+	// exports take. A peer plugin has no EntrySource — its peer registers
+	// plugin.<peer> below via the shared-pool pass.
+	if plugin.EntrySource != "" {
+		env.RegisterScriptLibrary("plugin."+plugin.ScriptNamespace, plugin.EntrySource)
+	}
+
+	// Every installed plugin's exports, this one included, under plugin.*:
+	// binary peers over the plugin protocol, scriptling libs (libs/*.py) and
+	// peer main.py handler namespaces as in-process script libraries. First
+	// registrant by plugin name wins a collision, matching the read-only
+	// aggregation the MCP env would do — but here it is the live trusted
+	// surface handlers compose against, not a read-only import view.
+	registerTrustedPluginPool(env, plugin)
+	return env
+}
+
+// registerTrustedPluginPool registers every installed plugin's exported
+// surface into a plugin handler environment: the shared trusted pool. self
+// is the plugin whose env this is — its own main.py namespace is already
+// registered by the caller, so it is skipped here to avoid a double
+// registration, but its peers and libs are included through the normal
+// pass. Name collisions resolve first-by-name (same policy as logos and the
+// MCP read-only import aggregation).
+func registerTrustedPluginPool(env *scriptling.Scriptling, self *plugins.Plugin) {
+	registry := plugins.GetRegistry()
+	if registry == nil {
+		// No registry (unit tests build a lone plugin): fall back to just
+		// this plugin's own peers and libs.
+		if scope := self.Scope(); scope != nil {
+			pluginpkg.RegisterLibraries(env, scope)
+		}
+		for _, lib := range self.Libs {
+			env.RegisterScriptLibrary("plugin."+lib.Name, lib.Source)
+		}
+		return
+	}
+
+	seen := map[string]bool{}
+	if self.ScriptNamespace != "" {
+		seen["plugin."+self.ScriptNamespace] = true
+	}
+	for _, p := range registry.All() {
+		// A peer plugin's handler namespace is plugin.<peer>, supplied by
+		// its peer's client registration below; a pure-script plugin's is
+		// plugin.<ScriptNamespace>. Register main.py namespaces for plugins
+		// other than self (self's is registered by buildPluginEnv already).
+		if p.Name != self.Name && p.EntrySource != "" {
+			name := "plugin." + p.ScriptNamespace
+			if !seen[name] {
+				seen[name] = true
+				env.RegisterScriptLibrary(name, p.EntrySource)
+			}
+		}
+		for _, lib := range p.Libs {
+			name := "plugin." + lib.Name
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
+			env.RegisterScriptLibrary(name, lib.Source)
+		}
+		if scope := p.Scope(); scope != nil {
+			for _, meta := range scope.List() {
+				// A peer's handshake name is already namespaced under
+				// "plugin." (scriptling NamespacePrefix); normalize the
+				// dedup key so it lines up with the plugin.<ns> keys above.
+				name := "plugin." + strings.TrimPrefix(meta.Name, "plugin.")
+				if seen[name] {
+					continue
+				}
+				client, ok := scope.Get(meta.Name)
+				if !ok {
+					continue
+				}
+				seen[name] = true
+				pluginpkg.RegisterClientLibrary(env, client)
+			}
+		}
+	}
+}
+
+// bindPluginUserIdentity attaches the requesting user to a plugin env: the
+// run-as-user knot.* transports (knot.ai, the apiclient transport, the MCP
+// tools library — re-registered by name, replacing any previous user's
+// binding), the ai_client var, and the loader chain ending in the user's
+// lib scripts. Every surface that carries identity is bound here, so a
+// pooled env rebound per lease runs entirely as its new user.
+func bindPluginUserIdentity(env *scriptling.Scriptling, client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) error {
+	aiClient := createServerAIClient(client, user)
+	if aiClient != nil {
+		if err := env.SetObjectVar("ai_client", scriptlingai.WrapClient(aiClient)); err != nil {
+			return err
+		}
+	}
+	registerKnotLibraries(env, client, user.Id, nil, nil, aiClient, false)
+	registerPluginCallLibrary(env, client, user)
+	// knot.identity is the authoritative identity surface for a plugin env.
+	// A handler receives the caller as request["user"] data (passed per
+	// call by the dispatcher), but module code — peers, lib scripts — never
+	// sees a handler's request, so it reads the user through knot.identity.
+	// Re-registered on every rebind so a pooled env answers as its current
+	// user.
+	env.RegisterLibrary(knotscriptling.GetIdentityLibrary(NewUserObject(user)))
+
+	loaders := []libloader.LibraryLoader{newKnotLibsLoader(), libloader.NewFilesystem(plugin.Dir),
+		newServerLibraryLoaderWithContext(client, user)}
+	env.SetLibraryLoader(libloader.NewChain(loaders...))
+	return nil
 }
 
 // AgentScriptlingOptions configures an agent-side (in-space) scriptling

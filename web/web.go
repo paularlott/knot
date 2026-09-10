@@ -7,13 +7,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"html/template"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
@@ -22,6 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
+	"github.com/paularlott/knot/internal/plugins"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -40,6 +44,41 @@ var (
 	//go:embed packages/*.zip packages/*.sha256
 	packageFiles embed.FS
 )
+
+// assetVersionKey keys version-stamped asset URLs (?_v=): a hash over
+// every embedded asset (path + bytes), so the key changes if and only if
+// any served byte does. Content addressing makes one cache policy correct
+// for every build kind - no dev/release distinction, no stamping
+// discipline.
+var assetVersionKey = sync.OnceValue(func() string {
+	assets, err := fs.Sub(publicHTML, "public_html/assets")
+	if err != nil {
+		return build.Version
+	}
+	h := fnv.New64a()
+	err = fs.WalkDir(assets, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		f, err := assets.Open(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		h.Write([]byte(p))
+		if _, err := io.Copy(h, f); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return build.Version
+	}
+	return fmt.Sprintf("%s.x%016x", build.Version, h.Sum64())
+})
 
 func HandlePageNotFound(next *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,18 +110,21 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 			return
 		}
 
-		// Add headers to allow caching for 4 hours
-		w.Header().Set("Cache-Control", "public, max-age=14400")
-
 		// If server.html_path is given then serve the files from that path otherwise serve the embedded files
 		htmlPath := cfg.HTMLPath
 		if htmlPath != "" {
 			// If the file does exist then return a 404
 			info, err := os.Stat(filepath.Join(htmlPath, fileName))
 			if os.IsNotExist(err) || info.IsDir() {
+				// Deliberately no cache headers: a miss must not be
+				// cacheable — a 404 here cached for hours would keep
+				// answering for an API route registered later.
 				showPageNotFound(w, r)
 				return
 			}
+
+			// Add headers to allow caching for 4 hours
+			w.Header().Set("Cache-Control", "public, max-age=14400")
 
 			// Calculate the ETag and set it
 			etag := fmt.Sprintf("%x", info.ModTime().Unix())
@@ -108,11 +150,16 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 				return
 			}
 
-			// Set ETag header to the version
-			w.Header().Set("ETag", build.Version)
-
-			// Check if the ETag matches and return 304 if it does
-			if match := r.Header.Get("If-None-Match"); match == build.Version {
+			// Content-addressed keys are safe to cache hard for every
+			// build kind: the URL changes exactly when any served byte
+			// does, and an unchanged asset answers 304.
+			w.Header().Set("ETag", assetVersionKey())
+			if strings.Contains(r.URL.RawQuery, "_v=") {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				w.Header().Set("Cache-Control", "no-cache")
+			}
+			if match := r.Header.Get("If-None-Match"); match == assetVersionKey() {
 				w.WriteHeader(http.StatusNotModified)
 				return
 			}
@@ -263,6 +310,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /profile", middleware.WebAuth(HandleUserProfilePage))
 	router.HandleFunc("GET /logout", middleware.WebAuth(HandleLogoutPage))
+	router.HandleFunc("POST /switch-user/{user_id}", middleware.WebAuth(HandleSwitchUserPage))
 	router.HandleFunc("GET /usage", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /terminal/{space_id}", middleware.WebAuth(HandleTerminalPage))
 	router.HandleFunc("GET /terminal/{space_id}/{vsc}", middleware.WebAuth(HandleTerminalPage))
@@ -297,6 +345,24 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /groups", middleware.WebAuth(checkPermissionManageGroups(HandleSimplePage)))
 
 	router.HandleFunc("GET /roles", middleware.WebAuth(checkPermissionManageRoles(HandleSimplePage)))
+
+	// Plugin inventory (admin) and declared-plugin assets (logos). The whole
+	// surface exists only when the plugins path produced anything — with no
+	// plugins there is no page, no route, no trace. Assets are served
+	// unauthenticated: a logo may replace the main page logo, which shows on
+	// the login page before any session exists, and logos are admin-installed
+	// branding. Only files a plugin declared at load are reachable.
+	if plugins.GetRegistry().Present() {
+		router.HandleFunc("GET /plugins", middleware.WebAuth(checkPermission(HandleSimplePage, model.PermissionViewPlugins)))
+	}
+	if plugins.GetRegistry() != nil {
+		router.HandleFunc("GET /plugins/{plugin_name}/assets/{asset_path...}", HandlePluginAsset)
+		router.HandleFunc("GET /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+		// Actions POST to the same handler: the body's params drive the
+		// plugin's logic and the JSON block document comes back for the
+		// client to reconcile.
+		router.HandleFunc("POST /plugins/{plugin_name}/{path...}", middleware.WebAuth(HandlePluginPage))
+	}
 
 	router.HandleFunc("GET /volumes", middleware.WebAuth(checkPermissionManageVolumes(HandleSimplePage)))
 
@@ -427,7 +493,8 @@ func showPageNotFound(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNotFound)
 	err = tmpl.Execute(w, map[string]interface{}{
-		"version": build.Version,
+		"version":      build.Version,
+		"assetVersion": assetVersionKey(),
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -448,6 +515,7 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusForbidden)
 	err = tmpl.Execute(w, map[string]interface{}{
 		"version":             build.Version,
+		"assetVersion":        assetVersionKey(),
 		"permissionUseSpaces": canUseSpaces,
 	})
 	if err != nil {
@@ -513,6 +581,18 @@ func newTemplate(name string) (*template.Template, error) {
 		return tmpl, nil
 	}
 
+	// Embedded templates are immutable, so the parsed result is cached and
+	// every render skips re-parsing the partials and layouts. The
+	// server.template_path override above stays uncached — it exists for
+	// live editing during development. The funcs are pure, so sharing the
+	// parsed template across requests is safe.
+	templateCacheMu.RLock()
+	cached, ok := templateCache[name]
+	templateCacheMu.RUnlock()
+	if ok {
+		return cached, nil
+	}
+
 	// Check if template exists
 	file, err := tmplFiles.Open(fmt.Sprintf("templates/%s", name))
 	if err != nil {
@@ -526,8 +606,19 @@ func newTemplate(name string) (*template.Template, error) {
 		return nil, err
 	}
 
+	templateCacheMu.Lock()
+	templateCache[name] = tmpl
+	templateCacheMu.Unlock()
+
 	return tmpl, err
 }
+
+// templateCache memoizes newTemplate's embedded path: parsed templates are
+// immutable and the funcs they carry are pure.
+var (
+	templateCacheMu sync.RWMutex
+	templateCache   = map[string]*template.Template{}
+)
 
 func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}) {
 	user := r.Context().Value("user").(*model.User)
@@ -539,6 +630,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		withDownloads = true
 	}
 
+	pluginLogoLight, pluginLogoDark := pluginLogoURLs(cfg)
+
 	data := map[string]interface{}{
 		"username": user.Username,
 		"user_id":  user.Id, "user_email": user.Email,
@@ -549,7 +642,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"hideAPITokens":                       cfg.UI.HideAPITokens,
 		"useGravatar":                         cfg.UI.EnableGravatar,
 		"adminSectionActive":                  isAdminPath(r.URL.Path, cfg.LeafNode),
-		"moreSectionActive":                   isMorePath(r.URL.Path, cfg.LeafNode),
 		"permissionManageUsers":               user.HasPermission(model.PermissionManageUsers),
 		"permissionManageGroups":              user.HasPermission(model.PermissionManageGroups),
 		"permissionManageRoles":               user.HasPermission(model.PermissionManageRoles),
@@ -593,6 +685,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseMCPServer":              user.HasPermission(model.PermissionUseMCPServer),
 		"permissionUseWebAssistant":           user.HasPermission(model.PermissionUseWebAssistant),
 		"version":                             build.Version,
+		"assetVersion":                        assetVersionKey(),
 		"buildDate":                           build.Date,
 		"zone":                                cfg.Zone,
 		"timezone":                            cfg.Timezone,
@@ -602,12 +695,43 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isLeafNode":                          cfg.LeafNode,
 		"logoURL":                             cfg.UI.LogoURL,
 		"logoInvert":                          cfg.UI.LogoInvert,
+		"pluginLogoLight":                     pluginLogoLight,
+		"pluginLogoDark":                      pluginLogoDark,
 		"aiChatEnabled":                       cfg.Chat.Enabled,
 		"aiChatStyle":                         cfg.Chat.UIStyle,
 		"requestHost":                         r.Host,
 	}
 
 	applyNav(user, cfg, r.URL.Path, data)
+
+	// The profile menu's switch list: the accounts this user may become,
+	// filtered to ones a session can actually switch to (deleted or
+	// inactive users stay out — the switch endpoint would refuse them
+	// anyway).
+	if len(user.LinkedUsers) > 0 {
+		db := database.GetInstance()
+		linked := make([]map[string]string, 0, len(user.LinkedUsers))
+		for _, id := range user.LinkedUsers {
+			member, err := db.GetUser(id)
+			if err != nil || member == nil || member.IsDeleted || !member.Active {
+				continue
+			}
+			linked = append(linked, map[string]string{"Id": member.Id, "Username": member.Username})
+		}
+		data["linkedUsers"] = linked
+	}
+	// Fast user switching's way back: when the session has become another
+	// user, the menu offers returning to the account that authenticated —
+	// the origin grants nothing, the session simply remembers it.
+	if session, ok := r.Context().Value("session").(*model.Session); ok && session != nil {
+		if session.OriginalUserId != "" && session.OriginalUserId != user.Id {
+			if origin, err := database.GetInstance().GetUser(session.OriginalUserId); err == nil && origin != nil && !origin.IsDeleted {
+				data["switchBackUser"] = map[string]string{"Id": origin.Id, "Username": origin.Username}
+			}
+		}
+	}
+	data["permissionLinkUsers"] = user.HasPermission(model.PermissionLinkUsers)
+
 	return user, data
 }
 
@@ -618,27 +742,10 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 // non-leaf deployments; on a leaf node they remain top-level entries, so they
 // are only treated as admin paths when leafNode is false.
 func isAdminPath(path string, leafNode bool) bool {
-	paths := []string{"/users", "/groups", "/roles", "/audit-logs", "/cluster-info"}
+	paths := []string{"/users", "/groups", "/roles", "/audit-logs", "/cluster-info", "/plugins"}
 	if !leafNode {
 		paths = append(paths, "/templates", "/variables")
 	}
-	for _, p := range paths {
-		if path == p || strings.HasPrefix(path, p+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-// isMorePath reports whether the given request path belongs to one of the
-// secondary pages collapsed under the "More" section in the sidebar. Used to
-// auto-expand that section so users don't lose their place.
-func isMorePath(path string, leafNode bool) bool {
-	paths := []string{"/stacks", "/scripts", "/events", "/skills", "/commands", "/mcp-servers"}
-	if !leafNode {
-		paths = append(paths, "/templates", "/variables")
-	}
-	paths = append(paths, "/users", "/groups", "/roles", "/audit-logs", "/cluster-info")
 	for _, p := range paths {
 		if path == p || strings.HasPrefix(path, p+"/") {
 			return true

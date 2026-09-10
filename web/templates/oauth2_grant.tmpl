@@ -7,6 +7,9 @@
   <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
     {{ if .logoURL }}
     <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">
+    {{ else if .pluginLogoLight }}
+    <img src="{{ .pluginLogoLight }}" alt="Logo" class="h-11 dark:hidden">
+    <img src="{{ .pluginLogoDark }}" alt="Logo" class="h-11 hidden dark:block">
     {{ else }}
     <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Authorize Access
     {{ end }}

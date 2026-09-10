@@ -155,6 +155,31 @@
         </fieldset>
         {{ end }}
 
+        {{ if and (not .isProfile) .permissionLinkUsers }}
+        <div x-show="userFormModal.isEdit" x-cloak>
+          <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-sm font-medium text-gray-900 dark:text-white px-2">Linked Users</span>
+              <button type="button" x-on:click="openLinkModal()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0" aria-label="Link a user">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </div>
+            <p class="description">The accounts this user can become. Access is one way: this user can switch into the listed accounts (their spaces included) from the profile menu, but the listed accounts cannot become this user.</p>
+            <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700" x-show="linkedUsers.length > 0">
+              <template x-for="lu in linkedUsers" :key="lu.user_id">
+                <li class="flex items-center justify-between px-4 py-2.5 gap-4">
+                  <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="lu.username"></span>
+                  <button type="button" @click="confirmUnlinkLinkedUser(lu.user_id, lu.username)" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-3 py-1.5 text-center text-xs font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Unlink</button>
+                </li>
+              </template>
+            </ul>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-show="linkedUsers.length === 0">No linked users.</p>
+          </fieldset>
+        </div>
+        {{ end }}
+
         {{ if .isProfile }}
         <div x-show="isEdit && (Object.keys(formData.external_auth_providers || {}).length > 0 || linkableProviders.length > 0)" x-cloak>
           <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -270,6 +295,73 @@
             </div>
           </div>
         </div>
+
+        {{ if and (not .isProfile) .permissionLinkUsers }}
+        <!-- Modal: grant this user the ability to become another -->
+        <div x-cloak x-show="linkModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="linkModal.show" @keydown.esc.window="closeLinkModal()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="linkUserTitle">
+          <div x-show="linkModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+            <div class="ui-modal-header">
+              <div class="ui-modal-icon-info">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+              </div>
+              <h3 id="linkUserTitle" class="ui-modal-title">Link a User</h3>
+              <button @click="closeLinkModal()" aria-label="close modal" class="ui-modal-close">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ui-modal-body">
+              <p class="text-sm text-gray-500 dark:text-gray-400">Search for an account this user can become. The grant is one way: the account you pick gains nothing — this user can switch into it, not the other way around.</p>
+              <div class="relative mt-4" x-data="autocompleterUser()" x-init="setDataSource('linkableUsers'); loadUserOptions()" data-parent-var-group="linkUserForm" data-parent-variable="userId" data-parent-variable-username="username" @refresh-autocompleter.window="refresh()">
+                <label class="form-label" for="linked-user-search">User</label>
+                <input id="linked-user-search" x-model="search" x-ref="linkUserSearch" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" autocomplete="off">
+                <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                  <ul class="list-none" role="listbox" :id="_listboxId">
+                    <template x-for="(option, index) in filteredOptions" :key="index">
+                      <li @click="selectOption(option)" x-text="option.username" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+              <div class="text-sm text-gray-500 dark:text-gray-400 mt-3" x-show="linkableUsers.length === 0" x-cloak>No other users are available to link.</div>
+            </div>
+            <div class="ui-modal-footer">
+              <button @click="closeLinkModal()" type="button" class="ui-button-secondary">Cancel</button>
+              <button type="button" class="ui-button-primary" @click="linkUserAction()" :disabled="!linkUserForm.userId || linkBusy" x-text="linkBusy ? 'Linking…' : 'Link User'"></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: confirm unlinking a linked user -->
+        <div x-cloak x-show="linkedUnlinkConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="linkedUnlinkConfirm.show" @keydown.esc.window="linkedUnlinkConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="unlinkUserTitle">
+          <div x-show="linkedUnlinkConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+            <div class="ui-modal-header">
+              <div class="ui-modal-icon-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <h3 id="unlinkUserTitle" class="ui-modal-title">Unlink User</h3>
+              <button @click="linkedUnlinkConfirm.show = false" aria-label="close modal" class="ui-modal-close">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ui-modal-body text-center">
+              <p>Stop <span x-text="formData.username" class="font-medium"></span> becoming <strong x-text="linkedUnlinkConfirm.username"></strong>?</p>
+              <p>This user will no longer be able to switch into that account; the other account is unaffected.</p>
+            </div>
+            <div class="ui-modal-footer">
+              <button @click="linkedUnlinkConfirm.show = false" type="button" class="ui-button-secondary sm:mr-auto">Keep Linked</button>
+              <button @click="unlinkLinkedUser()" type="button" class="ui-button-danger">Unlink User</button>
+            </div>
+          </div>
+        </div>
+        {{ end }}
 
       </form>
   </div>

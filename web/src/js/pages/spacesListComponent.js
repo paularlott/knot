@@ -30,6 +30,7 @@ window.spacesListComponent = function (
   permissionManageOwnStackDefinitions,
   permissionUseStackDefinitions,
   permissionEditSpaceJobs,
+  isLeafNode,
 ) {
   return {
     loading: true,
@@ -183,6 +184,11 @@ window.spacesListComponent = function (
       searchTerm: "",
       intent: "space", // "space" or "pool"
     },
+    // Quota of the user the new space will belong to (self, or the user an
+    // admin is creating for). Drives the template picker's tinting and the
+    // out-of-quota fallback; leaf nodes never check quotas.
+    quota: null,
+    quotaLimitShow: false,
     stackDefSelector: {
       show: false,
       definitions: [],
@@ -1891,8 +1897,19 @@ window.spacesListComponent = function (
     },
     async openTemplateSelector() {
       this.templateSelector.intent = "space";
-      this.templateSelector.show = true;
       await this.getTemplatesForSelector();
+      // Quota blocks every available template: show the out-of-quota popup
+      // instead of a picker where every card is tinted out. (No templates
+      // at all still opens the selector — different problem, different
+      // message.)
+      const anyVisible = this.templateSelector.templates.some(
+        (t) => !t.searchHide,
+      );
+      if (anyVisible && !this.anyUsableTemplate()) {
+        this.quotaLimitShow = true;
+        return;
+      }
+      this.templateSelector.show = true;
       // Focus the search input after modal transition
       this.$nextTick(() => {
         this.$refs.templateSearchInput?.focus();
@@ -1928,41 +1945,94 @@ window.spacesListComponent = function (
           return;
         });
 
-      // Fetch templates
-      await fetch("/api/templates", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((response) => {
-          if (response.status === 200) {
-            response.json().then((templateList) => {
-              this.templateSelector.templates = templateList.templates;
+      // Fetch templates — awaited so the caller (openTemplateSelector) can
+      // decide on the out-of-quota fallback with the full list in hand.
+      try {
+        const response = await fetch("/api/templates", {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        if (response.status === 200) {
+          const templateList = await response.json();
+          this.templateSelector.templates = templateList.templates;
 
-              this.templateSelector.templates.forEach((template) => {
-                template.icon_url_exists = this.imageExists(template.icon_url);
+          this.templateSelector.templates.forEach((template) => {
+            template.icon_url_exists = this.imageExists(template.icon_url);
 
-                // Convert group IDs to names
-                template.group_names = [];
-                template.groups.forEach((groupId) => {
-                  this.templateSelector.groups.forEach((group) => {
-                    if (group.group_id === groupId) {
-                      template.group_names.push(group.name);
-                    }
-                  });
-                });
+            // Convert group IDs to names
+            template.group_names = [];
+            template.groups.forEach((groupId) => {
+              this.templateSelector.groups.forEach((group) => {
+                if (group.group_id === groupId) {
+                  template.group_names.push(group.name);
+                }
               });
-
-              // Apply search filter
-              this.templateSearchChanged();
             });
+          });
+
+          // Apply search filter
+          this.templateSearchChanged();
+          this.applyQuotaToTemplates();
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+        }
+      } catch (e) {
+        // Don't logout on network errors
+      }
+
+      // Fetch the space owner's quota, mirroring the server's create-time
+      // checks. Pool creation skips this: pool spaces belong to a dedicated
+      // pool user whose quota the picker can't see.
+      if (this.templateSelector.intent === "space" && !isLeafNode) {
+        try {
+          const response = await fetch(
+            `/api/users/${this.forUserId || userId}/quota`,
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            },
+          );
+          if (response.status === 200) {
+            this.quota = await response.json();
+            this.applyQuotaToTemplates();
           } else if (response.status === 401) {
             window.location.href = "/logout";
           }
-        })
-        .catch(() => {
-          // Don't logout on network errors
-        });
+        } catch (e) {
+          // No quota info: leave templates untinted, the server still
+          // enforces the real checks at create.
+        }
+      }
+    },
+    // Mirrors the server's own quota rules: max spaces and storage units
+    // are checked at create (CheckUserQuotas), compute units at start —
+    // but a template that could never start is not a usable choice, so
+    // the picker blocks on all three. Quota 0 means unlimited, as on the
+    // server.
+    applyQuotaToTemplates() {
+      const quota = this.quota;
+      if (!quota || this.templateSelector.templates.length === 0) return;
+      const maxSpacesReached =
+        quota.max_spaces > 0 && quota.number_spaces + 1 > quota.max_spaces;
+      this.templateSelector.templates.forEach((template) => {
+        const storageBlocked =
+          quota.storage_units > 0 &&
+          quota.used_storage_units + template.storage_units >
+            quota.storage_units;
+        const computeBlocked =
+          quota.compute_units > 0 &&
+          quota.used_compute_units + template.compute_units >
+            quota.compute_units;
+        template.quotaBlocked =
+          maxSpacesReached || storageBlocked || computeBlocked;
+      });
+    },
+    anyUsableTemplate() {
+      return this.templateSelector.templates.some(
+        (t) => !t.searchHide && !t.quotaBlocked,
+      );
     },
     templateSearchChanged() {
       const term = this.templateSelector.searchTerm.toLowerCase();

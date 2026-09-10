@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
@@ -77,6 +79,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 
 	role.Name = request.Name
 	role.Permissions = request.Permissions
+	role.PluginPermissions = normalizePluginPermissions(request.PluginPermissions)
 	role.UpdatedUserId = user.Id
 	role.UpdatedAt = hlc.Now()
 
@@ -120,6 +123,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role := model.NewRole(request.Name, request.Permissions, user.Id)
+	role.PluginPermissions = normalizePluginPermissions(request.PluginPermissions)
 
 	err = database.GetInstance().SaveRole(role)
 	if err != nil {
@@ -223,10 +227,39 @@ func HandleGetRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := apiclient.RoleDetails{
-		Id:          role.Id,
-		Name:        role.Name,
-		Permissions: role.Permissions,
+		Id:                role.Id,
+		Name:              role.Name,
+		Permissions:       role.Permissions,
+		PluginPermissions: role.PluginPermissions,
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, data)
+}
+
+// pluginPermissionRe is the canonical grant form carried by roles. Grants
+// are stored as text so they are cluster-order independent (PLUGINS2.md §5);
+// the API accepts only well-formed strings and drops duplicates.
+var pluginPermissionRe = regexp.MustCompile(`^plugin\.[a-z0-9_-]+\.[a-z0-9_]+$`)
+
+func normalizePluginPermissions(perms []string) []string {
+	if len(perms) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(perms))
+	out := make([]string, 0, len(perms))
+	for _, p := range perms {
+		p = strings.TrimSpace(p)
+		if p == "" || seen[p] {
+			continue
+		}
+		if !pluginPermissionRe.MatchString(p) {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

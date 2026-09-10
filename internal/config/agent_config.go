@@ -12,8 +12,13 @@ type AgentConfig struct {
 	DisableSpaceIO       bool
 	MethodsFile          string
 	DNSResolver          bool
-	Port                 PortConfig
-	TLS                  TLSConfig
+	// Scriptling plugins to load into space script environments: explicit
+	// executables (Plugins) and directories to scan (PluginDirs), mirroring
+	// the scriptling CLI's --plugin / --plugin-dir. Empty by default.
+	Plugins    []string
+	PluginDirs []string
+	Port       PortConfig
+	TLS        TLSConfig
 
 	// Registration handshake: the per-space key proving the agent may
 	// register for SpaceID, and the pinned fingerprint (sha256 of the

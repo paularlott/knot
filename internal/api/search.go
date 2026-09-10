@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -275,14 +276,27 @@ func HandleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- Pages (navigation destinations) ---
-	// Same visibility gates as the sidebar (model.VisibleNavPages), so a page
-	// only appears if the user would see it in the menu.
+	// Same visibility gates as the sidebar (model.VisibleNavPages for core,
+	// plugins.Registry.VisibleMenus for plugin items), so a page only appears
+	// if the user would see it in the menu.
 	auditAvailable := db.HasAuditLog() && cfg.Audit.Routing != "external"
-	for _, p := range model.VisibleNavPages(user, cfg, auditAvailable) {
+	for _, p := range model.VisibleNavPages(user, cfg, auditAvailable, plugins.GetRegistry().Present()) {
 		if match(p.Label) || match(p.URL) {
 			out.Pages = append(out.Pages, apiclient.SearchHit{Id: p.URL, Name: p.Label})
 			if len(out.Pages) >= searchLimitPerType {
 				break
+			}
+		}
+	}
+	if len(out.Pages) < searchLimitPerType {
+		if registry := plugins.GetRegistry(); registry != nil {
+			for _, menu := range registry.VisibleMenus(user) {
+				if match(menu.Label) || match(menu.URL) {
+					out.Pages = append(out.Pages, apiclient.SearchHit{Id: menu.URL, Name: menu.Label})
+					if len(out.Pages) >= searchLimitPerType {
+						break
+					}
+				}
 			}
 		}
 	}
