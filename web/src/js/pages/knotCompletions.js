@@ -26,6 +26,18 @@ export const knotLibraries = [
     "description": "API client — configured automatically by the knot runtime.",
     "functions": [
       {
+        "name": "configure",
+        "signature": "configure(url, token, insecure, ai_url, ai_token, ai_model, ai_provider)",
+        "description": "Configure the API client for use outside the knot runtime (spaces and server scripts get it pre-configured). ai_url defaults to url + \"/v1\", ai_token to token; ai_provider is openai, claude, gemini, ollama or mistral",
+        "returns": "bool"
+      },
+      {
+        "name": "is_configured",
+        "signature": "is_configured()",
+        "description": "Check if the client has been configured (explicitly or via env vars)",
+        "returns": "bool"
+      },
+      {
         "name": "get",
         "signature": "get(path)",
         "description": "GET request to the Knot API. params is an optional dict of query parameters",
@@ -235,7 +247,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list()",
         "description": "List all groups",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -373,7 +385,7 @@ export const knotLibraries = [
         "name": "list_tools",
         "signature": "list_tools()",
         "description": "Get list of available MCP tools and their parameters",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "call_tool",
@@ -385,7 +397,7 @@ export const knotLibraries = [
         "name": "tool_search",
         "signature": "tool_search(query, max_results)",
         "description": "Search for tools by keyword. Returns list of matching tools",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "execute_tool",
@@ -522,10 +534,16 @@ export const knotLibraries = [
     "description": "Permission constants for role management.",
     "functions": [
       {
+        "name": "list",
+        "signature": "list()",
+        "description": "List all built-in permissions with their IDs, names, and groups",
+        "returns": "list of dicts"
+      },
+      {
         "name": "list_plugin",
         "signature": "list_plugin()",
         "description": "List the permissions declared by loaded plugins: dicts with id (the qualified grant, e.g. \"plugin.metrics.read\"), plugin (the declaring plugin's name) and label (the declared id).",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "MANAGE_USERS",
@@ -843,7 +861,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list()",
         "description": "List visible pools with utilization",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -897,7 +915,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list()",
         "description": "List all roles",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -933,13 +951,13 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list(owner, all_zones, include_inactive, script_type)",
         "description": "List scripts visible to the current user. Defaults to active scripts in the current zone; use script_type='script' to filter to runnable scripts (exclude MCP tool definitions).",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "list_global",
         "signature": "list_global(all_zones)",
         "description": "List global scripts available for template editing",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -1011,7 +1029,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list(owner)",
         "description": "List skills (filtered by permissions/groups/zones)",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -1041,7 +1059,7 @@ export const knotLibraries = [
         "name": "search",
         "signature": "search(query)",
         "description": "Fuzzy search skills by name/description",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       }
     ]
   },
@@ -1053,7 +1071,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list(owner, all_zones)",
         "description": "List slash commands the user has access to. Pass owner to filter to a user's own commands, all_zones=True to include other zones",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -1089,7 +1107,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list(all_zones)",
         "description": "List spaces visible to the current user. Defaults to the current server's zone; pass all_zones=True to include other zones.",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -1161,7 +1179,7 @@ export const knotLibraries = [
         "name": "usage_history",
         "signature": "usage_history(name, range)",
         "description": "Get historical resource usage for a space",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "set_description",
@@ -1179,7 +1197,7 @@ export const knotLibraries = [
         "name": "get_dependencies",
         "signature": "get_dependencies(name)",
         "description": "Get dependency space IDs for a space",
-        "returns": "builtins.list[str>"
+        "returns": "list of strings"
       },
       {
         "name": "set_dependencies",
@@ -1263,19 +1281,19 @@ export const knotLibraries = [
         "name": "grep",
         "signature": "grep(name, pattern, path, literal, recursive, ignore_case, glob, follow_links, max_size, workdir)",
         "description": "Search file contents in a running space via a parallel worker pool in the agent",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "find",
         "signature": "find(name, path, recursive, type, name_glob, mtime_min, mtime_max, size_min, size_max, include_hidden, follow_links, max_depth, workdir)",
         "description": "Find files and directories in a running space by name, type, mtime, or size. Returns path strings only.",
-        "returns": "builtins.list[str>"
+        "returns": "list of strings"
       },
       {
         "name": "find_entries",
         "signature": "find_entries(name, path, recursive, type, name_glob, mtime_min, mtime_max, size_min, size_max, include_hidden, follow_links, max_depth, include_hash, include_symlinks, workdir)",
         "description": "Same as find() but each entry is a dict with path, size, mtime, is_dir, file_perm. Pass include_hash=True for a crc64 hash field, include_symlinks=True for symlink entries with link_target.",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "sed_replace",
@@ -1293,7 +1311,7 @@ export const knotLibraries = [
         "name": "sed_extract",
         "signature": "sed_extract(name, pattern, path, recursive, ignore_case, glob, follow_links, max_size, workdir)",
         "description": "Extract regex capture groups from files in a running space (read-only)",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "edit_file",
@@ -1317,7 +1335,7 @@ export const knotLibraries = [
         "name": "port_list",
         "signature": "port_list(name)",
         "description": "List active port forwards for a space",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "port_stop",
@@ -1339,44 +1357,20 @@ export const knotLibraries = [
       },
       {
         "name": "tunnel_start",
-        "signature": "tunnel_start(space, protocol, port, name)",
-        "description": "Start an agent-owned web tunnel in a space, exposing <port> as <user>--<name>.<domain>. Owned by the space's agent; not persisted.",
+        "signature": "tunnel_start(space, protocol, port, name, server, token)",
+        "description": "Start an agent-owned web tunnel in a space, exposing <port> as <user>--<name>.<domain>. Owned by the space's agent; not persisted. Pass both server and token to create the tunnel on a different knot server the space can reach.",
         "returns": "string"
       },
       {
         "name": "tunnel_list",
         "signature": "tunnel_list(space)",
         "description": "List agent-owned web tunnels in a space",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "tunnel_stop",
         "signature": "tunnel_stop(space, name)",
         "description": "Stop an agent-owned web tunnel in a space by name",
-        "returns": "bool"
-      }
-    ]
-  },
-  {
-    "module": "knot.token",
-    "description": "Manage API tokens.",
-    "functions": [
-      {
-        "name": "list",
-        "signature": "list()",
-        "description": "List the current user's API tokens (id is the bearer key, scopes empty for full access)",
-        "returns": "builtins.list[dict<str,>]"
-      },
-      {
-        "name": "create",
-        "signature": "create(name, scopes=None)",
-        "description": "Create an API token and return its value. scopes narrows it: \"methods\", \"mcp\", \"tunnels\" (tunnels only); empty means full access",
-        "returns": "string"
-      },
-      {
-        "name": "delete",
-        "signature": "delete(token_id)",
-        "description": "Delete a token by id (its value), revoking it immediately",
         "returns": "bool"
       }
     ]
@@ -1389,7 +1383,7 @@ export const knotLibraries = [
         "name": "list_defs",
         "signature": "list_defs()",
         "description": "List stack definitions visible to the current user",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get_def",
@@ -1437,7 +1431,7 @@ export const knotLibraries = [
         "name": "create",
         "signature": "create(definition_name, prefix, stack_name)",
         "description": "Create spaces from a stack definition",
-        "returns": "builtins.list[str>"
+        "returns": "list of strings"
       },
       {
         "name": "delete",
@@ -1467,7 +1461,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list()",
         "description": "List stacks by grouping spaces by stack name",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       }
     ]
   },
@@ -1476,15 +1470,21 @@ export const knotLibraries = [
     "description": "Manage space templates.",
     "functions": [
       {
+        "name": "field_options",
+        "signature": "field_options(handler_id)",
+        "description": "Resolve a plugin field handler's option keys as the requesting user — the exact values the space form offers and the API's validation accepts. None when the handler cannot be reached.",
+        "returns": "list of strings or None"
+      },
+      {
         "name": "list",
-        "signature": "list(include_inactive)",
-        "description": "List templates visible to the current user. Defaults to active templates only; pass include_inactive=True to include retired ones.",
-        "returns": "builtins.list[dict<str,>]"
+        "signature": "list(include_inactive, resolve_options)",
+        "description": "List templates visible to the current user. Defaults to active templates only; pass include_inactive=True to include retired ones. With resolve_options=True, handler-backed custom fields carry their options resolved live (one plugin call per field) instead of naming their handler.",
+        "returns": "list of dicts"
       },
       {
         "name": "get",
-        "signature": "get(template_id)",
-        "description": "Get template by ID or name",
+        "signature": "get(template_id, resolve_options)",
+        "description": "Get template by ID or name. With resolve_options=True, handler-backed custom fields carry their options resolved live instead of naming their handler.",
         "returns": "dict"
       },
       {
@@ -1503,7 +1503,7 @@ export const knotLibraries = [
         "name": "nodes",
         "signature": "nodes(template_id)",
         "description": "List available placement nodes for a local-container template",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "create",
@@ -1527,7 +1527,31 @@ export const knotLibraries = [
         "name": "get_icons",
         "signature": "get_icons()",
         "description": "Get list of available icons",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
+      }
+    ]
+  },
+  {
+    "module": "knot.token",
+    "description": "Manage API tokens.",
+    "functions": [
+      {
+        "name": "list",
+        "signature": "list()",
+        "description": "List the current user's API tokens; id is the bearer key itself, and scopes is empty for full access",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "create",
+        "signature": "create(name, scopes)",
+        "description": "Create an API token and return its value (the bearer key). scopes narrows it to endpoint groups: \"methods\" (/api/methods*), \"mcp\" (/mcp) and \"tunnels\" (/tunnel/* and /api/tunnels*: tunnels only); None means full access",
+        "returns": "string"
+      },
+      {
+        "name": "delete",
+        "signature": "delete(token_id)",
+        "description": "Delete an API token by its value, revoking it immediately",
+        "returns": "bool"
       }
     ]
   },
@@ -1551,7 +1575,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list(state, zone)",
         "description": "List all users with optional state/zone filter",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "create",
@@ -1605,13 +1629,13 @@ export const knotLibraries = [
         "name": "list_permissions",
         "signature": "list_permissions(user_id)",
         "description": "List all permissions for a user",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "list_plugin_permissions",
         "signature": "list_plugin_permissions(user_id)",
         "description": "List the plugin permissions a user holds: qualified grant strings (e.g. \"plugin.metrics.read\") resolved from their roles; admins hold every grant.",
-        "returns": "builtins.list[str>"
+        "returns": "list of strings"
       },
       {
         "name": "has_permission",
@@ -1629,7 +1653,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list()",
         "description": "List all template variables",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -1671,7 +1695,7 @@ export const knotLibraries = [
         "name": "list",
         "signature": "list()",
         "description": "List all volumes",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "get",
@@ -1683,7 +1707,7 @@ export const knotLibraries = [
         "name": "nodes",
         "signature": "nodes(platform)",
         "description": "List available nodes for a platform",
-        "returns": "builtins.list[dict<str,>]"
+        "returns": "list of dicts"
       },
       {
         "name": "validate",

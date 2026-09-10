@@ -125,3 +125,28 @@ def list():
         })
 
     return result
+
+
+def list_plugin():
+    """List the permissions declared by loaded plugins.
+
+    Returns:
+        A list of dicts, each containing:
+        - id: The qualified grant (e.g. "plugin.metrics.read")
+        - plugin: The declaring plugin's name
+        - label: The declared id
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    response = api.get("/api/permissions")
+
+    result = []
+    for perm in response.get("plugin_permissions", []):
+        result.append({
+            "id": perm.get("id"),
+            "plugin": perm.get("plugin"),
+            "label": perm.get("label")
+        })
+
+    return result

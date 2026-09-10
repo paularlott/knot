@@ -155,9 +155,14 @@ function formatReturnType(pyType) {
     "dict[str, Any]": "dict",
     "list[dict[str, Any]]": "list of dicts",
     "list[str]": "list of strings",
+    "list[str] | None": "list of strings or None",
     None: "None",
   };
-  return mapping[pyType] || pyType.replace(/ Any/g, "").replace(/dict\[/, "dict<").replace(/\]/, ">").trim();
+  // Stubs annotate builtins as builtins.list[...] (the knot libs shadow some
+  // builtins at module scope); strip the prefix so those hit the mapping
+  // instead of the bracket-rewrite fallback ("builtins.list[dict<str,]>").
+  const bare = pyType.replace(/^builtins\./, "");
+  return mapping[pyType] || mapping[bare] || bare.replace(/ Any/g, "").replace(/dict\[/, "dict<").replace(/\]/, ">").trim();
 }
 
 // ── Generation ───────────────────────────────────────────────────────────────
