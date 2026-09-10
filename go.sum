@@ -36,6 +36,8 @@ github.com/go-sql-driver/mysql v1.10.1 h1:arlSnNLq6a5yxGxV7qg9lF4j0C+KwD6NbQyKr9
 github.com/go-sql-driver/mysql v1.10.1/go.mod h1:M+cqaI7+xxXGG9swrdeUIoPG3Y3KCkF0pZej+SK+nWk=
 github.com/go-webgpu/goffi v0.6.3 h1:p4gKGikHBAQ/8iUiew9MV4C5M1ZGIsk8QGFGuJjMj+A=
 github.com/go-webgpu/goffi v0.6.3/go.mod h1:wfoxNsJkU+5RFbV1kNN1kunhc1lFHuJKK3zpgx08/uM=
+github.com/go-webgpu/goffi v0.6.4 h1:8UkFpiQk9nRWtft/avVYZXIt6YYpQSDW4ZIJ95Zl268=
+github.com/go-webgpu/goffi v0.6.4/go.mod h1:wfoxNsJkU+5RFbV1kNN1kunhc1lFHuJKK3zpgx08/uM=
 github.com/godbus/dbus/v5 v5.2.2 h1:TUR3TgtSVDmjiXOgAAyaZbYmIeP3DPkld3jgKGV8mXQ=
 github.com/godbus/dbus/v5 v5.2.2/go.mod h1:3AAv2+hPq5rdnr5txxxRwiGjPXamgoIHgz9FPBfOp3c=
 github.com/gogpu/systray v0.3.0 h1:1kbYI/XujAvbwaVs/4o/UAjSNW8DMgsGoBeACKTH+S0=
@@ -80,8 +82,6 @@ github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.25.0 h1:HT/tE1eqzsI4aP93twQRYQEWGN0qaq40a0+xnX1lZNo=
 github.com/paularlott/mcp v0.25.0/go.mod h1:J+Ix/SFnJKcZGu7DHLwnHS5F7IaIvRoyQFh0TQHZKvY=
-github.com/paularlott/scriptling v0.24.4 h1:DljJrfiXDW7IKbnxQ4IDjcK+qXVJKZ64CdfB6KiQZME=
-github.com/paularlott/scriptling v0.24.4/go.mod h1:c0q7ZITMXoD9tWNSAagT/5PZHVLRSRXEMCugiDL7AIQ=
 github.com/paularlott/scriptling v0.24.6 h1:fZNoFNQ/Zcp6ObuPi2yY8YhER9JqJWrSGdFSB0eSP9g=
 github.com/paularlott/scriptling v0.24.6/go.mod h1:c0q7ZITMXoD9tWNSAagT/5PZHVLRSRXEMCugiDL7AIQ=
 github.com/paularlott/snapshotkv v0.6.0 h1:bGUVANfPg7+2fsVnnnCWQvkuDrBWPg3mchGoEgel28Q=
