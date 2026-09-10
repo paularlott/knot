@@ -145,7 +145,19 @@ def get(name):
 def create(name, template_name, description="", shell="bash", depends_on=None,
            stack="", selected_node_id="", alt_names=None, icon_url="",
            custom_fields=None, startup_script_id="", start_on_create=False):
-    """Create a new space and return its ID."""
+    """Create a new space and return its ID.
+
+    Args:
+        name: Name for the new space
+        template_name: Template name or ID to create the space from
+        description: Optional description
+        custom_fields: Custom field values as {"name": ..., "value": ...}.
+            Required fields must be set, and select/autocomplete values
+            must be one of the field's options — knot.template.get(name,
+            resolve_options=True) lists each field's definition and valid
+            values; a rejected value raises an error naming what to fix.
+        start_on_create: Start the space immediately after creation
+    """
     body = {
         "name": name,
         "description": description,

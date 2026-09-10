@@ -526,7 +526,8 @@ func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateC
 		language := field.Language
 		// select and autocomplete take their options from exactly one
 		// source: a plugin field handler, or a manual option list (select
-		// renders a dropdown, autocomplete a pick-or-create combobox).
+		// renders a dropdown, autocomplete a combobox that only submits
+		// picked options).
 		// Other types take neither.
 		options := field.Options
 		if fieldType == "select" || fieldType == "autocomplete" {

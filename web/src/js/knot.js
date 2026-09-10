@@ -78,9 +78,6 @@ window.knotSwitchUser = function knotSwitchUser(userId) {
     .catch(() => { window.location.href = '/'; });
 };
 
-// Autocompleter for template custom fields bound to a plugin field
-// handler: suggestions come from /api/plugins/field-handlers/<id>, the
-// value stays free-typed so pick-or-create works.
 // Ace-backed editor for textarea custom fields: seeded from the field's
 // stored string, every change writes straight back to formData.
 window.customFieldEditor = function customFieldEditor(index, language) {

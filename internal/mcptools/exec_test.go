@@ -145,8 +145,10 @@ func TestExecute_ListTemplates(t *testing.T) {
 						"description": "Ubuntu dev environment",
 						"active":      true,
 						"platform":    "linux/amd64",
-						"custom_fields": []map[string]string{
+						"custom_fields": []map[string]interface{}{
 							{"name": "VERSION", "description": "Ubuntu version"},
+							{"name": "ENV", "description": "Environment", "type": "select", "required": true, "options": []string{"dev", "prod"}},
+							{"name": "AUTO", "description": "Handled", "type": "autocomplete", "handler": "plugin.demo.h"},
 						},
 					},
 					{
@@ -155,6 +157,14 @@ func TestExecute_ListTemplates(t *testing.T) {
 						"description": "Retired template",
 						"active":      false,
 					},
+				},
+			})
+		},
+		"GET /api/plugins/field-handlers/plugin.demo.h": func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"options": []map[string]string{
+					{"key": "alpha", "text": "Alpha"},
+					{"key": "beta", "text": "Beta"},
 				},
 			})
 		},
@@ -174,8 +184,11 @@ func TestExecute_ListTemplates(t *testing.T) {
 			Description  string `json:"description"`
 			Active       bool   `json:"active"`
 			CustomFields []struct {
-				Name        string `json:"name"`
-				Description string `json:"description"`
+				Name        string   `json:"name"`
+				Description string   `json:"description"`
+				Type        string   `json:"type"`
+				Required    bool     `json:"required"`
+				Options     []string `json:"options"`
 			} `json:"custom_fields"`
 		} `json:"templates"`
 	}
@@ -194,11 +207,25 @@ func TestExecute_ListTemplates(t *testing.T) {
 	if !tmpl.Active {
 		t.Errorf("expected template to be active")
 	}
-	if len(tmpl.CustomFields) != 1 {
-		t.Fatalf("expected 1 custom field, got %d", len(tmpl.CustomFields))
+	if len(tmpl.CustomFields) != 3 {
+		t.Fatalf("expected 3 custom fields, got %d", len(tmpl.CustomFields))
 	}
 	if tmpl.CustomFields[0].Name != "VERSION" {
 		t.Errorf("expected custom field name %q, got %q", "VERSION", tmpl.CustomFields[0].Name)
+	}
+	selectField := tmpl.CustomFields[1]
+	if selectField.Name != "ENV" || selectField.Type != "select" || !selectField.Required {
+		t.Errorf("select field = %+v, want ENV select required", selectField)
+	}
+	if len(selectField.Options) != 2 || selectField.Options[0] != "dev" || selectField.Options[1] != "prod" {
+		t.Errorf("select field options = %v, want [dev prod]", selectField.Options)
+	}
+	autoField := tmpl.CustomFields[2]
+	if autoField.Name != "AUTO" {
+		t.Fatalf("expected custom field name %q, got %q", "AUTO", autoField.Name)
+	}
+	if len(autoField.Options) != 2 || autoField.Options[0] != "alpha" || autoField.Options[1] != "beta" {
+		t.Errorf("handler-backed field options = %v, want [alpha beta]", autoField.Options)
 	}
 
 	t.Logf("response: %s", response)
@@ -939,5 +966,74 @@ func TestExecute_GetSkill_List(t *testing.T) {
 	}
 	if result["count"].(float64) != 1 {
 		t.Errorf("count = %v, want 1 (inactive excluded)", result["count"])
+	}
+}
+
+// TestExecute_GetTemplate proves the single-template discovery tool:
+// handler-backed fields resolve their options as the requesting user and
+// the handler id drops out of the result.
+func TestExecute_GetTemplate(t *testing.T) {
+	if err := LoadTools("", nil); err != nil {
+		t.Fatalf("LoadTools failed: %v", err)
+	}
+
+	server := mockAPIServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
+		"GET /api/templates/ubuntu": func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"template_id": "tpl-1",
+				"name":        "ubuntu",
+				"description": "Ubuntu dev environment",
+				"platform":    "linux/amd64",
+				"active":      true,
+				"custom_fields": []map[string]interface{}{
+					{"name": "ENV", "description": "Environment", "type": "select", "required": true, "options": []string{"dev", "prod"}},
+					{"name": "AUTO", "description": "Handled", "type": "autocomplete", "handler": "plugin.demo.h"},
+				},
+			})
+		},
+		"GET /api/plugins/field-handlers/plugin.demo.h": func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"options": []map[string]string{
+					{"key": "alpha", "text": "Alpha"},
+				},
+			})
+		},
+	})
+	defer server.Close()
+
+	response, err := runTool(t, "get_template", server.URL, map[string]interface{}{
+		"template": "ubuntu",
+	})
+	if err != nil {
+		t.Fatalf("RunToolScript failed: %v", err)
+	}
+
+	var result struct {
+		ID           string `json:"id"`
+		Name         string `json:"name"`
+		CustomFields []struct {
+			Name    string   `json:"name"`
+			Handler string   `json:"handler"`
+			Options []string `json:"options"`
+		} `json:"custom_fields"`
+	}
+	if err := json.NewDecoder(strings.NewReader(response)).Decode(&result); err != nil {
+		t.Fatalf("failed to parse response %q as JSON: %v", response, err)
+	}
+	if result.ID != "tpl-1" || result.Name != "ubuntu" {
+		t.Errorf("template = %s/%s, want tpl-1/ubuntu", result.ID, result.Name)
+	}
+	if len(result.CustomFields) != 2 {
+		t.Fatalf("expected 2 custom fields, got %d", len(result.CustomFields))
+	}
+	if got := result.CustomFields[0].Options; len(got) != 2 || got[0] != "dev" || got[1] != "prod" {
+		t.Errorf("manual options = %v, want [dev prod]", got)
+	}
+	auto := result.CustomFields[1]
+	if len(auto.Options) != 1 || auto.Options[0] != "alpha" {
+		t.Errorf("handler-backed options = %v, want [alpha]", auto.Options)
+	}
+	if auto.Handler != "" {
+		t.Errorf("handler id leaked into discovery output: %+v", auto)
 	}
 }

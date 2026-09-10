@@ -14,11 +14,29 @@ import (
 	"github.com/paularlott/knot/internal/service"
 )
 
+// maxOptionsInErrors caps how many option keys an error message lists; the
+// remainder is summarised by count so the message stays readable (and cheap
+// for an LLM's context) on long lists.
+const maxOptionsInErrors = 20
+
+// formatOptionList renders option keys for an error message.
+func formatOptionList(keys []string) string {
+	if len(keys) == 0 {
+		return "no options"
+	}
+	if len(keys) <= maxOptionsInErrors {
+		return strings.Join(keys, ", ")
+	}
+	return fmt.Sprintf("%s, … (%d more)", strings.Join(keys[:maxOptionsInErrors], ", "), len(keys)-maxOptionsInErrors)
+}
+
 // invalidCustomFieldOptions validates the values of a template's select and
 // autocomplete custom fields against their option lists — the form restricts
 // picking, the API for every caller. A value must be one of the field's
 // option keys; a blank value is left to the required-field check (absent or
-// empty passes here). It returns the names of fields holding invalid values.
+// empty passes here). It returns one segment per invalid field, formatted
+// `name (got "value"; valid: a, b, …)` so the error alone tells the caller
+// what to send.
 //
 // previous maps field names to their prior stored values; a field whose
 // value is unchanged is not re-validated, so an update is never blocked by
@@ -70,11 +88,50 @@ func invalidCustomFieldOptions(ctx context.Context, user *model.User, template *
 		}
 
 		if !slices.Contains(keys, value) {
-			invalid = append(invalid, field.Name)
+			invalid = append(invalid, fmt.Sprintf("%s (got %q; valid: %s)", field.Name, value, formatOptionList(keys)))
 		}
 	}
 
 	return invalid, nil
+}
+
+// describeMissingRequired enriches the field names returned by
+// MissingRequiredCustomFields with each field's type and options, so an API
+// error alone tells the caller — LLM or human — what to send. Enrichment
+// never fails the request: a handler that cannot be reached degrades to
+// naming it.
+func describeMissingRequired(ctx context.Context, user *model.User, template *model.Template, missing []string, fetchKeys func(context.Context, *model.User, model.TemplateCustomField) ([]string, error)) []string {
+	fields := make(map[string]model.TemplateCustomField, len(template.CustomFields))
+	for _, field := range template.CustomFields {
+		fields[field.Name] = field
+	}
+
+	out := make([]string, 0, len(missing))
+	for _, name := range missing {
+		field, ok := fields[name]
+		if !ok {
+			out = append(out, name)
+			continue
+		}
+
+		fieldType := field.Type
+		if fieldType == "" {
+			fieldType = "text"
+		}
+		description := fmt.Sprintf("%s (%s", name, fieldType)
+		switch {
+		case len(field.Options) > 0:
+			description += "; options: " + formatOptionList(field.Options)
+		case field.Handler != "":
+			if keys, err := fetchKeys(ctx, user, field); err == nil && len(keys) > 0 {
+				description += "; options: " + formatOptionList(keys)
+			} else {
+				description += "; options from handler " + field.Handler
+			}
+		}
+		out = append(out, description+")")
+	}
+	return out
 }
 
 // pluginFieldOptionKeys resolves a handler-backed custom field's option keys

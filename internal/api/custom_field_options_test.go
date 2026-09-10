@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -100,8 +101,14 @@ func TestInvalidCustomFieldOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(invalid) != 2 || invalid[0] != "manual" || invalid[1] != "served" {
-			t.Fatalf("got %v, want [manual served]", invalid)
+		if len(invalid) != 2 {
+			t.Fatalf("got %v, want two segments", invalid)
+		}
+		if invalid[0] != `manual (got "three"; valid: one, two)` {
+			t.Errorf("manual segment = %q", invalid[0])
+		}
+		if invalid[1] != `served (got "gamma"; valid: alpha, beta)` {
+			t.Errorf("handler segment = %q", invalid[1])
 		}
 	})
 
@@ -158,8 +165,8 @@ func TestInvalidCustomFieldOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(invalid) != 1 || invalid[0] != "served" {
-			t.Fatalf("got %v, want [served]", invalid)
+		if len(invalid) != 1 || invalid[0] != `served (got "gamma"; valid: alpha, beta)` {
+			t.Fatalf("got %v, want one served segment", invalid)
 		}
 	})
 
@@ -183,5 +190,66 @@ func TestOptionKeysFromResultKeyTextFallback(t *testing.T) {
 	}})
 	if len(keys) != 1 || keys[0] != "Only Text" {
 		t.Fatalf("got %v, want [Only Text]", keys)
+	}
+}
+
+func TestDescribeMissingRequired(t *testing.T) {
+	template := &model.Template{CustomFields: []model.TemplateCustomField{
+		{Name: "size", Type: "select", Options: []string{"small", "large"}, Required: true},
+		{Name: "env", Type: "autocomplete", Handler: "plugin.p.list", Required: true},
+		{Name: "team", Required: true}, // no type: the default is text
+	}}
+	fake := &fakeFetchKeys{keys: map[string][]string{
+		"plugin.p.list": {"dev", "prod"},
+	}}
+
+	described := describeMissingRequired(context.Background(), nil, template, []string{"size", "env", "team"}, fake.fetch)
+	want := []string{
+		"size (select; options: small, large)",
+		"env (autocomplete; options: dev, prod)",
+		"team (text)",
+	}
+	if len(described) != len(want) {
+		t.Fatalf("got %v, want %v", described, want)
+	}
+	for i := range want {
+		if described[i] != want[i] {
+			t.Errorf("segment %d = %q, want %q", i, described[i], want[i])
+		}
+	}
+
+	// A handler that cannot be reached degrades to naming it — the error
+	// still fails the request, enrichment never does.
+	failing := &fakeFetchKeys{err: map[string]error{"plugin.p.list": errors.New("plugin missing")}}
+	described = describeMissingRequired(context.Background(), nil, template, []string{"env"}, failing.fetch)
+	if len(described) != 1 || described[0] != "env (autocomplete; options from handler plugin.p.list)" {
+		t.Fatalf("got %v, want handler fallback", described)
+	}
+
+	// A name with no matching field passes through untouched.
+	described = describeMissingRequired(context.Background(), nil, template, []string{"ghost"}, fake.fetch)
+	if len(described) != 1 || described[0] != "ghost" {
+		t.Fatalf("got %v, want [ghost]", described)
+	}
+}
+
+func TestFormatOptionListCap(t *testing.T) {
+	keys := make([]string, 25)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("opt%d", i)
+	}
+
+	// At or under the cap: everything listed.
+	if got := formatOptionList(keys[:20]); got != strings.Join(keys[:20], ", ") {
+		t.Fatalf("cap-boundary list = %q", got)
+	}
+	if got := formatOptionList(nil); got != "no options" {
+		t.Fatalf("empty list = %q", got)
+	}
+
+	// Over the cap: first 20 plus a count of the rest.
+	got := formatOptionList(keys)
+	if !strings.HasPrefix(got, "opt0, opt1, opt2") || !strings.HasSuffix(got, "… (5 more)") {
+		t.Fatalf("capped list = %q", got)
 	}
 }

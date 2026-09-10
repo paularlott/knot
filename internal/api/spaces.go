@@ -392,8 +392,10 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Required fields cannot be left blank — the form enforces this
 	// client-side, the API for every caller. A default can satisfy the
-	// requirement, hence the order.
+	// requirement, hence the order. The error names each field's type and
+	// options so callers (LLMs included) can retry correctly.
 	if missing := model.MissingRequiredCustomFields(template, customFields); len(missing) > 0 {
+		missing = describeMissingRequired(r.Context(), user, template, missing, pluginFieldOptionKeys)
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "missing required custom field(s): " + strings.Join(missing, ", ")})
 		return
 	}
@@ -878,6 +880,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Required fields cannot be left blank on edit either.
 	if missing := model.MissingRequiredCustomFields(template, customFields); len(missing) > 0 {
+		missing = describeMissingRequired(r.Context(), user, template, missing, pluginFieldOptionKeys)
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "missing required custom field(s): " + strings.Join(missing, ", ")})
 		return
 	}

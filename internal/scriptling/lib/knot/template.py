@@ -50,12 +50,97 @@ def _custom_fields(fields):
     return out
 
 
-def list(include_inactive=False):
+def field_options(handler_id):
+    """Resolve a plugin field handler's option keys as the requesting user.
+
+    Returns the valid values for a handler-backed custom field — the same
+    list the space form's dropdown offers and the API's validation accepts —
+    or None when the handler cannot be reached. Entries may be plain strings
+    or key/text pairs; keys are returned (text stands in when a pair carries
+    no key).
+    """
+    try:
+        response = api.get(f"/api/plugins/field-handlers/{_enc(handler_id)}")
+    except Exception:
+        return None
+    if not response:
+        return None
+    # Careful with type names here: this module defines a function named
+    # list, which shadows the list builtin — isinstance(x, list) passes the
+    # function and fails. Dict is safe, so branch on that and treat
+    # everything else as the bare option array.
+    if isinstance(response, dict):
+        options = response.get("options")
+    else:
+        options = response
+    if options is None:
+        return None
+    keys = []
+    try:
+        for option in options:
+            if isinstance(option, dict):
+                keys.append(str(option.get("key", option.get("text", ""))))
+            else:
+                keys.append(str(option))
+    except Exception:
+        return None
+    return keys
+
+
+def _custom_field_defs(fields, resolve_options=False):
+    """Parse template custom field definitions.
+
+    Each entry carries name, description, type, required, default and its
+    option source: options (a manual list) or handler (a plugin field
+    handler id). With resolve_options, handler-backed fields get their
+    options resolved via field_options — the same dispatch the space form
+    and the API's validation use, so the discovered values are exactly the
+    values the API accepts. A handler that cannot be reached is skipped;
+    its options stay unset.
+    """
+    out = []
+    for cf in fields or []:
+        entry = {
+            "name": cf.get("name", ""),
+            "description": cf.get("description", ""),
+            "type": cf.get("type") or "text",
+            "required": bool(cf.get("required", False)),
+        }
+        default = cf.get("default", "")
+        if default != "":
+            entry["default"] = default
+        options = cf.get("options") or []
+        handler = cf.get("handler", "")
+        if options:
+            # Never call the list() builtin here: this module defines a
+            # function named list (the public API), which shadows it inside
+            # the module — list(options) would recurse through list() back
+            # into this helper.
+            entry["options"] = options
+        elif handler:
+            entry["handler"] = handler
+            if resolve_options:
+                keys = field_options(handler)
+                if keys is not None:
+                    entry["options"] = keys
+        out.append(entry)
+    return out
+
+
+def list(include_inactive=False, resolve_options=False):
     """List all templates visible to the current user.
+
+    Custom fields carry their full definitions (type, required, default,
+    options or handler). With resolve_options=True, handler-backed fields
+    have their options resolved as the requesting user — one plugin call
+    per field — so callers (e.g. MCP discovery tools) see exactly the
+    values the API accepts.
 
     Args:
         include_inactive: If True, include inactive templates. Default False
             (only active templates are returned).
+        resolve_options: Resolve handler-backed option lists live. Default
+            False (such fields name their handler instead).
     """
     response = api.get("/api/templates")
 
@@ -63,13 +148,6 @@ def list(include_inactive=False):
     for tmpl in response.get("templates", []):
         if not include_inactive and not tmpl.get("active", False):
             continue
-
-        custom_fields = []
-        for cf in tmpl.get("custom_fields", []):
-            custom_fields.append({
-                "name": cf.get("name", ""),
-                "description": cf.get("description", ""),
-            })
 
         result.append({
             "id": tmpl.get("template_id"),
@@ -79,16 +157,22 @@ def list(include_inactive=False):
             "active": tmpl.get("active", False),
             "usage": tmpl.get("usage", 0),
             "deployed": tmpl.get("deployed", 0),
-            "custom_fields": custom_fields,
+            "custom_fields": _custom_field_defs(tmpl.get("custom_fields"), resolve_options),
         })
 
     return result
 
 
-def get(template_id):
-    """Get template by ID or name."""
+def get(template_id, resolve_options=False):
+    """Get template by ID or name.
+
+    Custom fields carry their full definitions (type, required, default,
+    options). With resolve_options=True, handler-backed fields have their
+    options resolved as the requesting user — one handler call per field —
+    so callers (e.g. MCP tools) see exactly the values the API accepts.
+    """
     response = api.get(f"/api/templates/{_enc(template_id)}")
-    return _parse_template(response)
+    return _parse_template(response, resolve_options)
 
 
 def validate(platform, job="", volumes=""):
@@ -336,7 +420,7 @@ def _with_paths(volumes, paths):
     return result
 
 
-def _parse_template(response):
+def _parse_template(response, resolve_options=False):
     """Parse a template response into a standardized dict."""
     schedule = []
     for day in response.get("schedule", []):
@@ -346,12 +430,7 @@ def _parse_template(response):
             "to": day.get("to", "")
         })
 
-    custom_fields = []
-    for cf in response.get("custom_fields", []):
-        custom_fields.append({
-            "name": cf.get("name", ""),
-            "description": cf.get("description", "")
-        })
+    custom_fields = _custom_field_defs(response.get("custom_fields"), resolve_options)
 
     return {
         "id": response.get("template_id"),
