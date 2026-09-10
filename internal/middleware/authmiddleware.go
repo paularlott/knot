@@ -485,12 +485,19 @@ func TokenScopesRequired(next http.HandlerFunc) http.HandlerFunc {
 var tokenScopeAllowedPaths = map[string][]string{
 	model.ScopeMethods: {"/api/methods"},
 	model.ScopeMCP:     {"/mcp"},
+	model.ScopeTunnels: {"/tunnel/", "/api/tunnels"},
 }
 
 func tokenScopeAllows(scopes []string, path string) bool {
 	for _, scope := range scopes {
 		for _, prefix := range tokenScopeAllowedPaths[scope] {
-			if strings.HasPrefix(path, prefix) {
+			if path == prefix {
+				return true
+			}
+			// A prefix covers the paths below it, but only across a path
+			// boundary: "/api/tunnels" must not cover "/api/tunnels-extra".
+			if strings.HasPrefix(path, prefix) &&
+				(prefix[len(prefix)-1] == '/' || (len(path) > len(prefix) && path[len(prefix)] == '/')) {
 				return true
 			}
 		}
