@@ -12,6 +12,15 @@ type TunnelStartRequest struct {
 	Name          string `json:"name" msgpack:"name"`
 	TlsName       string `json:"tls_name,omitempty" msgpack:"tls_name,omitempty"`
 	TlsSkipVerify bool   `json:"tls_skip_verify,omitempty" msgpack:"tls_skip_verify,omitempty"`
+
+	// Server/Token target a knot server other than the one that owns the
+	// space; both must be given together, and both empty means the agent's
+	// own server. ServerTlsSkipVerify carries the requester's TLS choice for
+	// the connection to that server (always encoded so an explicit false
+	// survives the omitempty rules).
+	Server              string `json:"server,omitempty" msgpack:"server,omitempty"`
+	Token               string `json:"token,omitempty" msgpack:"token,omitempty"`
+	ServerTlsSkipVerify bool   `json:"server_tls_skip_verify" msgpack:"server_tls_skip_verify"`
 }
 
 type TunnelStartResponse struct {

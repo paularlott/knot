@@ -18,23 +18,26 @@ import (
 )
 
 // tunnelBaseFlags are the flags shared by the http and https subcommands. The
-// server/token/alias/TLS flags are only used in foreground mode.
+// server/token/alias/TLS flags are only used in foreground mode. The
+// --tunnel-* aliases mirror `knot space tunnel`'s target flags so the same
+// spelling works in-space and from the desktop.
 func tunnelBaseFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "server",
-			Aliases: []string{"s"},
+			Aliases: []string{"s", "tunnel-server"},
 			Usage:   "The address of the remote server to create the tunnel on.",
 			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
 		},
 		&cli.StringFlag{
 			Name:    "token",
-			Aliases: []string{"t"},
+			Aliases: []string{"t", "tunnel-token"},
 			Usage:   "The token to use for authentication.",
 			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
 		},
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",
+			Aliases:      []string{"tunnel-tls-skip-verify"},
 			Usage:        "Skip TLS verification when talking to server.",
 			ConfigPath:   []string{"tls.skip_verify"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
@@ -53,7 +56,7 @@ func tunnelBaseFlags() []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:         "alias",
-			Aliases:      []string{"a"},
+			Aliases:      []string{"a", "tunnel-alias"},
 			Usage:        "The server alias to use.",
 			DefaultValue: "default",
 		},
@@ -71,7 +74,7 @@ func newWebTunnelCmd(name, protocol, description string, withDaemon bool) *cli.C
 	if withDaemon {
 		flags = append(flags, &cli.BoolFlag{
 			Name:  "daemon",
-			Usage: "Hand the tunnel to the knot agent and exit. The tunnel then lives for the life of the agent. Daemon tunnels always run on the server that owns the space.",
+			Usage: "Hand the tunnel to the knot agent and exit. The tunnel then lives for the life of the agent.",
 		})
 	}
 
@@ -189,21 +192,7 @@ func startDaemonTunnel(protocol string, port uint16, name string, cmd *cli.Comma
 		return fmt.Errorf("agent not running, --daemon requires the knot agent to be running")
 	}
 
-	// The agent creates daemon tunnels on the server that owns the space, so
-	// an explicit --server/--token or --alias (which foreground mode honours)
-	// cannot be satisfied here — refuse rather than silently tunnel via the
-	// space's own server.
-	if err := daemonRemoteTargetErr(cmd); err != nil {
-		return err
-	}
-
-	request := agentlink.StartTunnelRequest{
-		Protocol:      protocol,
-		Port:          port,
-		Name:          name,
-		TlsName:       cmd.GetString("port-tls-name"),
-		TlsSkipVerify: cmd.GetBool("port-tls-skip-verify"),
-	}
+	request := buildStartTunnelRequest(protocol, port, name, cmd)
 
 	var response agentlink.StartTunnelResponse
 	if err := agentlink.SendWithResponseMsg(agentlink.CommandStartTunnel, &request, &response); err != nil {
@@ -219,13 +208,24 @@ func startDaemonTunnel(protocol string, port uint16, name string, cmd *cli.Comma
 	return nil
 }
 
-// daemonRemoteTargetErr reports an error when the command explicitly targets
-// a server other than the one that owns the space: the agent can only create
-// daemon tunnels on its own server, and the tunnel should run in this process
-// (without --daemon) to reach the target.
-func daemonRemoteTargetErr(cmd *cli.Command) error {
-	if cfg := cmdutil.ExplicitServerAddr(cmd); cfg != nil {
-		return fmt.Errorf("--daemon tunnels are created on the server that owns the space; run without --daemon to tunnel via %s from this process", cfg.HttpServer)
+// buildStartTunnelRequest assembles the agentlink start-tunnel request. An
+// explicit --server/--token pair (flag or env) or an --alias that resolves in
+// the config file targets that server; without one the agent creates the
+// tunnel on the server that owns the space.
+func buildStartTunnelRequest(protocol string, port uint16, name string, cmd *cli.Command) agentlink.StartTunnelRequest {
+	request := agentlink.StartTunnelRequest{
+		Protocol:            protocol,
+		Port:                port,
+		Name:                name,
+		TlsName:             cmd.GetString("port-tls-name"),
+		TlsSkipVerify:       cmd.GetBool("port-tls-skip-verify"),
+		ServerTlsSkipVerify: cmd.GetBool("tls-skip-verify"),
 	}
-	return nil
+
+	if cfg := cmdutil.ExplicitServerAddr(cmd); cfg != nil {
+		request.Server = cfg.HttpServer
+		request.Token = cfg.ApiToken
+	}
+
+	return request
 }

@@ -17,9 +17,9 @@ the life of the agent; the command returns immediately.
 
 The tunnel is exposed as <user>--<tunnel_name>.<domain>.
 
-By default the tunnel is created on the server that owns this space. A
-foreground tunnel (no --daemon) can target any other knot server by giving
---server and --token, or -a with an alias configured in the config file.`,
+By default the tunnel is created on the server that owns this space. Giving
+--server and --token, or -a with an alias configured in the config file,
+targets any other knot server instead, in foreground or daemon mode (--tunnel-server/--tunnel-token/--tunnel-alias are accepted as synonyms).`,
 	MaxArgs: cli.NoArgs,
 	Commands: []*cli.Command{
 		HttpTunnelCmd,

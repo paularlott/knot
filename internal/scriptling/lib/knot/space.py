@@ -1209,7 +1209,7 @@ def _space_id(space):
     return resolved.get("id", space) if resolved else space
 
 
-def tunnel_start(space, protocol, port, name):
+def tunnel_start(space, protocol, port, name, server="", token=""):
     """Start an agent-owned web tunnel in a space.
 
     The tunnel exposes a port inside the space on the internet as
@@ -1221,6 +1221,9 @@ def tunnel_start(space, protocol, port, name):
         protocol: "http" or "https"
         port: The port within the space to tunnel
         name: The tunnel name (forms <user>--<name>.<domain>)
+        server: Optional knot server to create the tunnel on instead of the
+            space's own; the space must be able to reach it
+        token: API token valid on server (required when server is given)
 
     Returns:
         The public tunnel URL string
@@ -1229,11 +1232,17 @@ def tunnel_start(space, protocol, port, name):
         Exception if not configured or on API error
     """
     space_id = _space_id(space)
-    response = api.post(f"/space-io/{_enc(space_id)}/tunnel/start", {
+    body = {
         "protocol": protocol,
         "port": port,
         "name": name,
-    })
+    }
+    if server or token:
+        if not (server and token):
+            raise Exception("both server and token are required to target another server")
+        body["server"] = server
+        body["token"] = token
+    response = api.post(f"/space-io/{_enc(space_id)}/tunnel/start", body)
     if response and not response.get("success", True):
         raise Exception(response.get("error", "failed to start tunnel"))
     return response.get("url", "") if response else ""
@@ -1250,7 +1259,8 @@ def tunnel_list(space):
         - port: Port number within the space
         - protocol: "http" or "https"
         - name: Tunnel name
-        - url: Public tunnel URL
+        - url: Public tunnel URL (its domain shows which server the tunnel
+          runs on)
 
     Raises:
         Exception if not configured or on API error

@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/paularlott/cli"
@@ -21,7 +22,11 @@ var TunnelCmd = &cli.Command{
 
 A tunnel exposes a port inside the space on the internet as
 <user>--<name>.<domain>. The tunnel is owned by the space's agent and runs until
-the agent exits or the tunnel is stopped; it is not persisted.`,
+the agent exits or the tunnel is stopped; it is not persisted.
+
+By default the tunnel is created on the server that owns the space. The
+--tunnel-server/--tunnel-token or --tunnel-alias flags target any other knot
+server instead.`,
 	MaxArgs: cli.NoArgs,
 	Commands: []*cli.Command{
 		spaceTunnelHttpCmd,
@@ -29,6 +34,60 @@ the agent exits or the tunnel is stopped; it is not persisted.`,
 		spaceTunnelStopCmd,
 		spaceTunnelListCmd,
 	},
+}
+
+// tunnelTargetFlags are the flags on `knot space tunnel http|https` that
+// select which knot server the agent creates the tunnel on. They are named
+// --tunnel-* because -s/-t/-a on `knot space` commands select the server the
+// CLI itself talks to, which must be the space's own server here.
+func tunnelTargetFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:  "tunnel-server",
+			Usage: "Create the tunnel on this knot server instead of the space's own.",
+		},
+		&cli.StringFlag{
+			Name:  "tunnel-token",
+			Usage: "API token for --tunnel-server, must be valid on that server.",
+		},
+		&cli.StringFlag{
+			Name:  "tunnel-alias",
+			Usage: "Use this configured server alias (client.connection.<alias>) as the tunnel target.",
+		},
+		&cli.BoolFlag{
+			Name:         "tunnel-tls-skip-verify",
+			Usage:        "Skip TLS verification when the agent talks to the target server.",
+			DefaultValue: true,
+		},
+	}
+}
+
+// resolveTunnelTarget resolves the --tunnel-* flags into the server/token the
+// agent should create the tunnel on. An empty server means the space's own
+// server.
+func resolveTunnelTarget(cmd *cli.Command) (server, token string, skipVerify bool, err error) {
+	skipVerify = cmd.GetBool("tunnel-tls-skip-verify")
+
+	server, token = cmd.GetString("tunnel-server"), cmd.GetString("tunnel-token")
+	switch {
+	case server != "" && token != "":
+		addr := config.NewServerAddr(server, token)
+		return addr.HttpServer, addr.ApiToken, skipVerify, nil
+
+	case server != "" || token != "":
+		return "", "", false, fmt.Errorf("both --tunnel-server and --tunnel-token are required to target another server")
+	}
+
+	if cmd.HasFlag("tunnel-alias") {
+		alias := cmd.GetString("tunnel-alias")
+		cfg, ok := config.LookupServerAddr(alias, cmd)
+		if !ok {
+			return "", "", false, fmt.Errorf("no server configured for alias %q", alias)
+		}
+		return cfg.HttpServer, cfg.ApiToken, skipVerify, nil
+	}
+
+	return "", "", skipVerify, nil
 }
 
 func newSpaceTunnelStartCmd(name, protocol string) *cli.Command {
@@ -53,6 +112,7 @@ func newSpaceTunnelStartCmd(name, protocol string) *cli.Command {
 				Required: true,
 			},
 		},
+		Flags:   tunnelTargetFlags(),
 		MaxArgs: cli.NoArgs,
 		Run: func(ctx context.Context, cmd *cli.Command) error {
 			return runSpaceTunnelStart(ctx, cmd, protocol)
@@ -88,10 +148,18 @@ func runSpaceTunnelStart(ctx context.Context, cmd *cli.Command, protocol string)
 		return err
 	}
 
+	server, token, skipVerify, err := resolveTunnelTarget(cmd)
+	if err != nil {
+		return err
+	}
+
 	response, code, err := client.StartSpaceTunnel(ctx, spaceId, &apiclient.SpaceTunnelStartRequest{
-		Protocol: protocol,
-		Port:     uint16(port),
-		Name:     name,
+		Protocol:            protocol,
+		Port:                uint16(port),
+		Name:                name,
+		Server:              server,
+		Token:               token,
+		ServerTlsSkipVerify: skipVerify,
 	})
 	if err != nil {
 		return spaceApiError(code, err, "start tunnel")

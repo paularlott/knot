@@ -9610,6 +9610,21 @@ components:
           type: string
           example: myapp
           description: The tunnel name; combined with the owner as <user>--<name>.<domain>.
+        server:
+          type: string
+          format: uri
+          example: https://other.knot.internal
+          description: >-
+            Create the tunnel on this knot server instead of the space's own.
+            Must be given together with token; the space must be able to reach
+            the server and the token must be valid on it.
+        token:
+          type: string
+          description: API token for server; both server and token are required together.
+        server_tls_skip_verify:
+          type: boolean
+          default: true
+          description: Skip TLS verification for the agent's connection to the target server.
 
     SpaceTunnelStartResponse:
       type: object
@@ -9643,6 +9658,7 @@ components:
           type: string
           format: uri
           example: https://alice--myapp.tunnels.knot.internal
+          description: The public tunnel URL; its domain shows which server the tunnel runs on.
 
     SpaceTunnelListResponse:
       type: object

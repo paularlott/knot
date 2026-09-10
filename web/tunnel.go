@@ -51,6 +51,10 @@ func HandleTunnelStart(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, r, http.StatusBadRequest, "Invalid name, must be all lowercase and only contain letters, numbers and dashes")
 		return
 	}
+	if (request.Server == "") != (request.Token == "") {
+		writeJSONError(w, r, http.StatusBadRequest, "Both server and token are required to target another server")
+		return
+	}
 
 	agentSession := agent_server.GetSession(spaceId)
 	if agentSession == nil {
@@ -59,9 +63,12 @@ func HandleTunnelStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response, err := agentSession.SendTunnelStart(&msg.TunnelStartRequest{
-		Protocol: request.Protocol,
-		Port:     request.Port,
-		Name:     request.Name,
+		Protocol:            request.Protocol,
+		Port:                request.Port,
+		Name:                request.Name,
+		Server:              request.Server,
+		Token:               request.Token,
+		ServerTlsSkipVerify: request.ServerTlsSkipVerify,
 	})
 	if err != nil {
 		log.WithError(err).Error("Failed to send tunnel start command to agent")
