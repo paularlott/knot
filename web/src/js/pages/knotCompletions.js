@@ -1358,6 +1358,30 @@ export const knotLibraries = [
     ]
   },
   {
+    "module": "knot.token",
+    "description": "Manage API tokens.",
+    "functions": [
+      {
+        "name": "list",
+        "signature": "list()",
+        "description": "List the current user's API tokens (id is the bearer key, scopes empty for full access)",
+        "returns": "builtins.list[dict<str,>]"
+      },
+      {
+        "name": "create",
+        "signature": "create(name, scopes=None)",
+        "description": "Create an API token and return its value. scopes narrows it: \"methods\", \"mcp\", \"tunnels\" (tunnels only); empty means full access",
+        "returns": "string"
+      },
+      {
+        "name": "delete",
+        "signature": "delete(token_id)",
+        "description": "Delete a token by id (its value), revoking it immediately",
+        "returns": "bool"
+      }
+    ]
+  },
+  {
     "module": "knot.stack",
     "description": "Manage stacks and stack definitions.",
     "functions": [
