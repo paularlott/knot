@@ -452,17 +452,21 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 // registerPluginLibraries registers the library surface for plugin handler
 // environments: the full local-processing set — stdlib, base extended
 // libraries, and the system-access libraries (os, subprocess, fs, …) that
-// server envs deny — with every path-taking library jailed to the plugin's
-// own folder. Deliberately absent: the outbound networking libraries
-// (requests, scriptling.wait_for), the runtime libraries
+// server envs deny — with unrestricted filesystem access as the knot
+// process user: installed plugins are one trusted domain and subprocess was
+// never jailed, so the folder restriction was an inconsistency, not a
+// boundary — a binary peer has the same authority. Outbound HTTP runs
+// through requests resolving via knot's DNS resolvers when any are
+// configured and nothing else — AllowAll carries no host or address policy,
+// matching that same peer trust. Deliberately absent:
+// scriptling.wait_for (network waiting), the runtime libraries
 // (scriptling.container, scriptling.nomad), machine-provisioning
 // (scriptling.provision.*, agent only), and scriptling.ai.memory (AI
-// scratchpad, agent only) — plugins are trusted for local compute, not for
-// reaching out or driving container runtimes. A plugin that needs a database
-// ships the driver as a bin/ peer, not an env library. Keep this list in step
-// with plugins.pluginEnvLibraries, which answers metadata dependency
-// resolution for the same set.
-func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log logger.Logger) {
+// scratchpad, agent only). A plugin that needs a database ships the driver
+// as a bin/ peer, not an env library. Keep this list in step with
+// plugins.pluginEnvLibraries, which answers metadata dependency resolution
+// for the same set.
+func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	stdlib.RegisterAll(env)
 
 	aux := log
@@ -470,7 +474,7 @@ func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log l
 		aux = logger.NewNullLogger()
 	}
 
-	allowed := []string{pluginDir}
+	extlibs.RegisterRequestsLibrary(env, scriptNetConfig())
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterYAMLLibrary(env)
 	extlibs.RegisterTOMLLibrary(env)
@@ -494,26 +498,28 @@ func registerPluginLibraries(env *scriptling.Scriptling, pluginDir string, log l
 	discord.Register(env, aux)
 	slack.Register(env, aux)
 
-	extlibs.RegisterOSLibrary(env, allowed)
+	// nil allowed-paths: no filesystem restriction — the plugin reads and
+	// writes anywhere the knot process user can.
+	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterSubprocessLibrary(env)
-	extlibs.RegisterPathlibLibrary(env, allowed)
-	extlibs.RegisterGlobLibrary(env, allowed)
-	extlibs.RegisterTempfileLibrary(env, allowed)
-	extlibs.RegisterShutilLibrary(env, allowed)
-	extlibs.RegisterZipfileLibrary(env, allowed)
-	extlibs.RegisterTarfileLibrary(env, allowed)
-	extlibs.RegisterFSLibrary(env, allowed)
-	extlibs.RegisterGrepLibrary(env, allowed)
-	extlibs.RegisterFindLibrary(env, allowed)
-	extlibs.RegisterSedLibrary(env, allowed)
+	extlibs.RegisterPathlibLibrary(env, nil)
+	extlibs.RegisterGlobLibrary(env, nil)
+	extlibs.RegisterTempfileLibrary(env, nil)
+	extlibs.RegisterShutilLibrary(env, nil)
+	extlibs.RegisterZipfileLibrary(env, nil)
+	extlibs.RegisterTarfileLibrary(env, nil)
+	extlibs.RegisterFSLibrary(env, nil)
+	extlibs.RegisterGrepLibrary(env, nil)
+	extlibs.RegisterFindLibrary(env, nil)
+	extlibs.RegisterSedLibrary(env, nil)
 }
 
 // NewPluginScriptlingEnv creates the environment a plugin's handlers run in
-// when dispatched for a user: registerPluginLibraries jailed to the plugin's
-// folder, knot's run-as-user libraries over the loopback API, the plugin's
-// binary peers as plugin.* libraries, and a loader chain that resolves the
-// plugin's own modules first, then knot's embedded libraries, then the
-// invoking user's lib scripts.
+// when dispatched for a user: registerPluginLibraries, knot's run-as-user
+// libraries over the loopback API, the plugin's binary peers as plugin.*
+// libraries, and a loader chain that resolves the plugin's own modules
+// first, then knot's embedded libraries, then the invoking user's lib
+// scripts.
 func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugin *plugins.Plugin) (*scriptling.Scriptling, error) {
 	if client == nil || user == nil {
 		return nil, fmt.Errorf("plugin env requires a client and user")
@@ -526,7 +532,7 @@ func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugi
 }
 
 // buildPluginEnv constructs the user-independent half of a plugin
-// environment: the jailed library surface, this plugin's own handler
+// environment: the trusted library surface, this plugin's own handler
 // namespace, and — because installed plugins are one trust domain — every
 // other installed plugin's exports for cross-plugin composition. It is the
 // reusable part; the pooled envs keep it across leases.
@@ -541,7 +547,7 @@ func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugi
 func buildPluginEnv(plugin *plugins.Plugin) *scriptling.Scriptling {
 	env := scriptling.New()
 	env.EnableOutputCapture()
-	registerPluginLibraries(env, plugin.Dir, nil)
+	registerPluginLibraries(env, nil)
 
 	// This plugin's own handler namespace: a pure-script plugin's main.py is
 	// registered as the plugin.<ScriptNamespace> library so its declared

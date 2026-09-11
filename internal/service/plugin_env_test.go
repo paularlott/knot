@@ -42,7 +42,7 @@ func dispatchPage(t *testing.T, client *apiclient.ApiClient, user *model.User, p
 }
 
 // TestPluginPageDispatch verifies the dispatch pipeline on a fixture plugin:
-// fresh env, jailed libraries, entry evaluation, handler call, and Go
+// fresh env, trusted libraries, entry evaluation, handler call, and Go
 // conversion of the returned dict. The empty API mux stands in for the
 // loopback — handlers that make no knot.* calls never touch it.
 func TestPluginPageDispatch(t *testing.T) {

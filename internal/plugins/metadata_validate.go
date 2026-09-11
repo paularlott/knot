@@ -19,9 +19,9 @@ import (
 // pluginEnvLibraries are the library names knot registers in plugin handler
 // environments (see internal/service registerPluginLibraries), used both by
 // that env and by metadata dependency resolution at load time. Keep the two
-// lists in step. Deliberately absent: requests and scriptling.wait_for
-// (outbound networking), scriptling.container / scriptling.nomad (runtime
-// access), scriptling.provision.* (machine provisioning — agent only), and
+// lists in step. Deliberately absent: scriptling.wait_for (network waiting),
+// scriptling.container / scriptling.nomad (runtime access),
+// scriptling.provision.* (machine provisioning — agent only), and
 // scriptling.ai.memory (AI scratchpad — agent only). A plugin that needs a
 // database ships the driver as a bin/ peer, not an env library.
 var pluginEnvLibraries = map[string]bool{
@@ -29,10 +29,13 @@ var pluginEnvLibraries = map[string]bool{
 	"json": true, "re": true, "math": true, "time": true, "datetime": true,
 	"itertools": true, "random": true, "string": true, "collections": true,
 	"functools": true,
-	"base64":    true, "hashlib": true, "hmac": true,
-	"uuid": true, "urllib": true, "statistics": true,
+	"base64": true, "hashlib": true, "hmac": true,
+	"uuid": true, "urllib": true, "urllib.parse": true, "statistics": true,
+	"contextlib": true, "difflib": true, "html": true, "io": true,
+	"msgpack": true, "platform": true, "textwrap": true,
 
 	// base extended libraries
+	"requests":                      true,
 	"secrets":                       true,
 	"html.parser":                   true,
 	"yaml":                          true,
@@ -54,7 +57,8 @@ var pluginEnvLibraries = map[string]bool{
 	"scriptling.messaging.discord":  true,
 	"scriptling.messaging.slack":    true,
 
-	// system access (scoped to the plugin folder in the env)
+	// system access (unrestricted in the env: the knot process user's
+	// filesystem, plus subprocess)
 	"os": true, "os.path": true, "pathlib": true, "glob": true,
 	"tempfile": true, "shutil": true, "zipfile": true, "tarfile": true,
 	"fs": true, "subprocess": true,

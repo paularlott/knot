@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -392,6 +393,108 @@ func TestPluginEnvLibrariesInSync(t *testing.T) {
 		if _, err := env.EvalWithContext(context.Background(), "import "+name); err != nil {
 			t.Errorf("pluginEnvLibraries lists %q, but importing it in the plugin env fails: %v", name, err)
 		}
+	}
+}
+
+// TestPluginEnvRequestsFetch pins the plugin env's outbound HTTP end to
+// end: not just that requests imports (the drift test above), but that a
+// fetch made from inside a plugin handler environment reaches a real HTTP
+// server and parses its JSON — the shape of a plugin whose handlers read
+// a remote API.
+func TestPluginEnvRequestsFetch(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`["main", "feature-x"]`))
+	}))
+	defer srv.Close()
+
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{})
+	model.SetRoleCache(nil)
+
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "fetcher")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	source := "# /// script\n# requires-scriptling = \">=0.24\"\n#\n# [tool.knot]\n# version = \"1.0\"\n# ///\ndef unused():\n    return {}\n"
+	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := plugins.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins.SetRegistry(registry)
+	t.Cleanup(func() {
+		registry.Close()
+		plugins.SetRegistry(nil)
+	})
+
+	user := &model.User{Username: "fetcher", Id: "u-f"}
+	env, err := NewPluginScriptlingEnv(apiclient.NewMuxClient(user), user, registry.ByName("fetcher"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "import requests\n" +
+		"r = requests.get('" + srv.URL + "/api/branches/demo', timeout=5)\n" +
+		"r.raise_for_status()\n" +
+		"branches = r.json()\n" +
+		"assert len(branches) == 2, 'wanted 2 branches'\n"
+	if _, err := env.EvalWithContext(context.Background(), script); err != nil {
+		t.Fatalf("requests fetch in the plugin env failed: %v", err)
+	}
+	if gotPath != "/api/branches/demo" {
+		t.Errorf("test server saw %q, want /api/branches/demo", gotPath)
+	}
+}
+
+// TestPluginEnvFilesystemUnjailed pins the plugin env's filesystem reach:
+// the path-taking libraries are registered unrestricted, so a handler reads
+// anywhere the knot process user can — the same authority a binary peer
+// has. Subprocess was never jailed, so the old plugin-folder restriction
+// was an inconsistency, not a boundary; this test keeps the intended
+// behaviour pinned.
+func TestPluginEnvFilesystemUnjailed(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(dir, "outside-marker.txt")
+	if err := os.WriteFile(outside, []byte("beyond the plugin folder"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pluginDir := filepath.Join(dir, "fsplugin")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	source := "# /// script\n# requires-scriptling = \">=0.24\"\n#\n# [tool.knot]\n# version = \"1.0\"\n# ///\ndef unused():\n    return {}\n"
+	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := plugins.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins.SetRegistry(registry)
+	t.Cleanup(func() {
+		registry.Close()
+		plugins.SetRegistry(nil)
+	})
+
+	rest.SetAPIMux(http.NewServeMux())
+	config.SetServerConfig(&config.ServerConfig{})
+	model.SetRoleCache(nil)
+	user := &model.User{Username: "fsprobe", Id: "u-fs"}
+	env, err := NewPluginScriptlingEnv(apiclient.NewMuxClient(user), user, registry.ByName("fsplugin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "import fs\n" +
+		"content = fs.read_bytes('" + outside + "', 0, 64)\n" +
+		"assert content == 'beyond the plugin folder', content\n"
+	if _, err := env.EvalWithContext(context.Background(), script); err != nil {
+		t.Fatalf("reading outside the plugin folder failed: %v", err)
 	}
 }
 
