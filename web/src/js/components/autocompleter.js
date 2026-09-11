@@ -57,15 +57,95 @@ const autocompleterBase = () => ({
   _listboxId: Math.random().toString(36).slice(2)
 });
 
+// The fixed-position dropdown members an autocompleter needs to escape a
+// clipping ancestor (a modal body): the list is positioned in the viewport
+// from the input's rect, flips above the input when space below is short,
+// hides when the input scrolls out of its scroll container, and follows any
+// scroll while open. Spread into a component whose input carries
+// x-ref="searchInput" and whose dropdown carries x-ref="dropdown"; wire the
+// showList watcher from init as autocompleterUser does below.
+const fixedDropdownMembers = () => ({
+  dropdownStyle: '',
+  dropdownVisible: false,
+  scrollListener: null,
+  positionTimeout: null,
+  clearPositionTimeout() {
+    if (this.positionTimeout) {
+      clearTimeout(this.positionTimeout);
+      this.positionTimeout = null;
+    }
+  },
+  schedulePositioning() {
+    this.positionDropdown();
+    requestAnimationFrame(() => this.positionDropdown());
+    this.clearPositionTimeout();
+    this.positionTimeout = setTimeout(() => {
+      this.positionDropdown();
+      this.positionTimeout = null;
+    }, 220);
+  },
+  attachScrollListener() {
+    this.scrollListener = () => this.positionDropdown();
+    document.addEventListener('scroll', this.scrollListener, true);
+  },
+  detachScrollListener() {
+    if (this.scrollListener) {
+      document.removeEventListener('scroll', this.scrollListener, true);
+    }
+  },
+  positionDropdown() {
+    const input = this.$refs.searchInput;
+    const dropdown = this.$refs.dropdown;
+    if (!input || !dropdown) return;
+
+    const scrollContainer = autocompleteScrollContainer(input);
+    if (scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const inputRect = input.getBoundingClientRect();
+      this.dropdownVisible = inputRect.bottom >= containerRect.top && inputRect.top <= containerRect.bottom;
+    } else {
+      this.dropdownVisible = true;
+    }
+
+    const rect = input.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const dropdownHeight = 160; // max-h-40 = 10rem = 160px
+    const gap = 4;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    if (spaceBelow >= dropdownHeight || spaceBelow >= spaceAbove) {
+      this.dropdownStyle = `top: ${rect.bottom + gap}px; left: ${rect.left}px; width: ${rect.width}px;`;
+    } else {
+      this.dropdownStyle = `bottom: ${viewportHeight - rect.top + gap}px; left: ${rect.left}px; width: ${rect.width}px;`;
+    }
+    this.dropdownVisible = true;
+  }
+});
+
 window.autocompleter = function() {
   return {
     ...autocompleterBase(),
+    ...fixedDropdownMembers(),
     options: [],
     parentVariable: '',
     parentVarGroup: '',
     dataSource: [],
     init() {
       this.$watch('search', () => { this.selectedIndex = -1; });
+      this.$watch('showList', (value) => {
+        if (value) {
+          this.dropdownVisible = false;
+          this.$nextTick(() => {
+            this.schedulePositioning();
+            this.attachScrollListener();
+          });
+        } else {
+          this.dropdownVisible = false;
+          this.clearPositionTimeout();
+          this.detachScrollListener();
+        }
+      });
     },
     setData(data) {
       this.dataSource = data;
@@ -97,6 +177,7 @@ window.autocompleter = function() {
 window.autocompleterUser = function() {
   return {
     ...autocompleterBase(),
+    ...fixedDropdownMembers(),
     parentVariable: '',
     parentVariableUsername: '',
     parentVarGroup: '',
@@ -104,6 +185,19 @@ window.autocompleterUser = function() {
     element: null,
     init() {
       this.$watch('search', () => { this.selectedIndex = -1; });
+      this.$watch('showList', (value) => {
+        if (value) {
+          this.dropdownVisible = false;
+          this.$nextTick(() => {
+            this.schedulePositioning();
+            this.attachScrollListener();
+          });
+        } else {
+          this.dropdownVisible = false;
+          this.clearPositionTimeout();
+          this.detachScrollListener();
+        }
+      });
     },
     setDataSource(dataSource) {
       this.dataSource = dataSource;

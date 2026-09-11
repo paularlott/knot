@@ -45,8 +45,8 @@
             <div>
               <label for="tz" class="form-label">Timezone</label>
               <div x-data="autocompleter()" x-init="setData(window.Timezones)" data-parent-variable="timezone" @refresh-autocompleter.window="refresh()" class="relative">
-                <input id="tz" x-model="search" class="form-field" type="search" placeholder="Search..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)">
-                <div x-show="showList && filteredOptions.length" x-cloak class="max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <input id="tz" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)">
+                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                   <ul class="list-none">
                     <template x-for="(option, index) in filteredOptions" :key="index">
                       <li @click="selectOption(option)" x-text="option" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
@@ -171,7 +171,7 @@
               <template x-for="lu in linkedUsers" :key="lu.user_id">
                 <li class="flex items-center justify-between px-4 py-2.5 gap-4">
                   <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="lu.username"></span>
-                  <button type="button" @click="confirmUnlinkLinkedUser(lu.user_id, lu.username)" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-3 py-1.5 text-center text-xs font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Unlink</button>
+                  <button type="button" @click="confirmUnlinkLinkedUser(lu.user_id, lu.username)" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Unlink</button>
                 </li>
               </template>
             </ul>
@@ -317,8 +317,8 @@
               <p class="text-sm text-gray-500 dark:text-gray-400">Search for an account this user can become. The grant is one way: the account you pick gains nothing — this user can switch into it, not the other way around.</p>
               <div class="relative mt-4" x-data="autocompleterUser()" x-init="setDataSource('linkableUsers'); loadUserOptions()" data-parent-var-group="linkUserForm" data-parent-variable="userId" data-parent-variable-username="username" @refresh-autocompleter.window="refresh()">
                 <label class="form-label" for="linked-user-search">User</label>
-                <input id="linked-user-search" x-model="search" x-ref="linkUserSearch" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" autocomplete="off">
-                <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <input id="linked-user-search" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" autocomplete="off">
+                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                   <ul class="list-none" role="listbox" :id="_listboxId">
                     <template x-for="(option, index) in filteredOptions" :key="index">
                       <li @click="selectOption(option)" x-text="option.username" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>

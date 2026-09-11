@@ -416,7 +416,9 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     openLinkModal() {
       this.linkUserForm = { userId: "", username: "" };
       this.linkModal.show = true;
-      this.$nextTick(() => this.$refs.linkUserSearch?.focus());
+      // Query by id: the input lives inside the autocompleter's nested
+      // x-data scope, so it is not reachable through this component's refs.
+      this.$nextTick(() => this.$root?.querySelector('#linked-user-search')?.focus());
     },
     closeLinkModal() {
       this.linkModal.show = false;

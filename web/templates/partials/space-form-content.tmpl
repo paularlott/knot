@@ -202,7 +202,7 @@
               </label>
             </template>
             <template x-if="template.custom_fields[index].type === 'select' && (template.custom_fields[index].handler || (template.custom_fields[index].options && template.custom_fields[index].options.length))">
-              <select x-data="fieldSelect(template.custom_fields[index].handler, template.custom_fields[index].options)" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" x-model="formData.custom_fields[index].value" x-on:change="checkCustomField(index)" :aria-label="template.custom_fields[index].description + ' value'">
+              <select x-data="fieldSelect(template.custom_fields[index].handler, template.custom_fields[index].options)" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" x-model="formData.custom_fields[index].value" x-on:change="$nextTick(() => checkCustomField(index))" :aria-label="template.custom_fields[index].description + ' value'">
                 <option value="">Select an option…</option>
                 <template x-for="(option, oi) in options" :key="oi">
                   <option :value="optKey(option)" x-text="optText(option)"></option>

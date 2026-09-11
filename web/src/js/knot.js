@@ -295,10 +295,15 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
       this.showList = false;
       this.selectedIndex = -1;
       // Store the KEY directly on the form's data - no input events, so
-      // nothing can race the display back to the key.
+      // nothing can race the display back to the key - and revalidate at
+      // once: a required-field error from an earlier check must clear the
+      // moment a value is picked, not on the next focus/blur of the input.
       const ctx = this.formDataCtx();
       if (ctx) {
         try { ctx.data.formData.custom_fields[ctx.index].value = this.optKey(option); } catch (e) { /* index race */ }
+        if (typeof ctx.data.checkCustomField === 'function') {
+          ctx.data.checkCustomField(ctx.index);
+        }
       }
     },
   };
