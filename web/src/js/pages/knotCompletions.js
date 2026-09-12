@@ -113,7 +113,7 @@ export const knotLibraries = [
         "name": "get_list",
         "signature": "get_list(name, default)",
         "description": "Get a payload parameter as list (sink scripts only)",
-        "returns": "list[Any>"
+        "returns": "list<Any>"
       },
       {
         "name": "get_dict",

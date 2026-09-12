@@ -199,6 +199,24 @@ func (h *Hub) Broadcast(event *Event) {
 	}
 }
 
+// CloseSession drops every SSE stream of a session without the logout
+// signal: the clients' send channels close, their streams end, and the
+// browsers reconnect as the session's current user. Fast user switching
+// uses this — the session stays valid, only the identity it carries
+// changed, so the clients must not receive auth:required (the client
+// answers that by navigating to /logout, which would delete the
+// just-switched session from any tab that lost the navigation race).
+func (h *Hub) CloseSession(sessionId string) {
+	h.mu.Lock()
+	for client := range h.clients {
+		if client.sessionId == sessionId {
+			delete(h.clients, client)
+			close(client.send)
+		}
+	}
+	h.mu.Unlock()
+}
+
 // InvalidateSession sends an auth required event to all clients with a specific session
 func (h *Hub) InvalidateSession(sessionId string) {
 	event := &Event{

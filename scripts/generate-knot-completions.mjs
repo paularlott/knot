@@ -162,7 +162,13 @@ function formatReturnType(pyType) {
   // builtins at module scope); strip the prefix so those hit the mapping
   // instead of the bracket-rewrite fallback ("builtins.list[dict<str,]>").
   const bare = pyType.replace(/^builtins\./, "");
-  return mapping[pyType] || mapping[bare] || bare.replace(/ Any/g, "").replace(/dict\[/, "dict<").replace(/\]/, ">").trim();
+  // Fallback for unmapped generics: rewrite every bracket pair, not just
+  // the first — nested shapes like list[list[str]] must close both.
+  return mapping[pyType] || mapping[bare] || bare
+    .replace(/ Any/g, "")
+    .replace(/\b(dict|list)\[/g, "$1<")
+    .replace(/\]/g, ">")
+    .trim();
 }
 
 // ── Generation ───────────────────────────────────────────────────────────────

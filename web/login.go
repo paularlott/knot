@@ -102,7 +102,7 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 		sse.GetHub().InvalidateSession(session.Id)
 	}
 
-	middleware.DeleteSessionCookie(w)
+	middleware.DeleteSessionCookie(w, r)
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
@@ -158,7 +158,12 @@ func HandleSwitchUserPage(w http.ResponseWriter, r *http.Request) {
 	session.UpdatedAt = hlc.Now()
 	database.GetSessionStorage().SaveSession(session)
 	service.GetTransport().GossipSession(session)
-	sse.GetHub().InvalidateSession(session.Id)
+	// Drop the SSE streams bound to the old identity so they reconnect as
+	// the target user — WITHOUT the auth:required signal InvalidateSession
+	// uses: the client answers that by navigating to /logout, which deletes
+	// the just-switched session (and races the switcher's own navigation to
+	// /, so which one won was random).
+	sse.GetHub().CloseSession(session.Id)
 
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -42,7 +42,7 @@ func Initialize() {
 func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
 	// Clear any stale session cookies so a leftover host-only cookie (from
 	// before wildcard-domain widening) can't shadow a fresh login attempt.
-	DeleteSessionCookie(w)
+	DeleteSessionCookie(w, r)
 	rest.WriteResponse(http.StatusUnauthorized, w, r, struct {
 		Error string `json:"error"`
 	}{
@@ -544,7 +544,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		session, err := GetSessionFromCookie(r)
 		if session == nil {
 			logger.Debug("session not found", "path", r.URL.Path, "error", err, "user_agent", r.Header.Get("User-Agent"))
-			DeleteSessionCookie(w)
+			DeleteSessionCookie(w, r)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
@@ -555,13 +555,13 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if session.ExpiresAfter.Before(time.Now().UTC()) {
 			logger.Debug("session expired", "session_id", session.Id, "path", r.URL.Path, "expires", session.ExpiresAfter)
-			DeleteSessionCookie(w)
+			DeleteSessionCookie(w, r)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 		if session.IsDeleted {
 			logger.Debug("session deleted", "session_id", session.Id, "path", r.URL.Path)
-			DeleteSessionCookie(w)
+			DeleteSessionCookie(w, r)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
@@ -580,7 +580,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if !user.Active || user.IsDeleted {
 			logger.Debug("user inactive or deleted", "session_id", session.Id, "user_id", session.UserId, "path", r.URL.Path)
-			DeleteSessionCookie(w)
+			DeleteSessionCookie(w, r)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}

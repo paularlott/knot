@@ -151,14 +151,14 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		cfg := config.GetServerConfig()
 		// Drop any stale cookies first (e.g. a host-only cookie from before
 		// wildcard-domain widening) so they can't shadow the fresh session.
-		middleware.DeleteSessionCookie(w)
+		middleware.DeleteSessionCookie(w, r)
 		cookie := &http.Cookie{
 			Name:     model.WebSessionCookie,
 			Value:    session.Id,
 			Path:     "/",
 			Domain:   cfg.SessionCookieDomain(),
 			HttpOnly: true,
-			Secure:   cfg.TLS.UseTLS,
+			Secure:   middleware.CookieSecure(r, cfg),
 			SameSite: http.SameSiteLaxMode,
 		}
 
