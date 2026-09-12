@@ -184,10 +184,11 @@
         <div x-show="isEdit && (Object.keys(formData.external_auth_providers || {}).length > 0 || linkableProviders.length > 0)" x-cloak>
           <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Connected Accounts</legend>
-            <ul class="space-y-2 mt-1" x-show="Object.keys(formData.external_auth_providers || {}).length > 0">
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 mt-1" x-show="Object.keys(formData.external_auth_providers || {}).length > 0">
               <template x-for="[providerID, ep] in Object.entries(formData.external_auth_providers || {})" :key="providerID">
-                <li class="flex items-center justify-between text-sm text-gray-700 dark:text-gray-300">
-                  <div class="flex items-center gap-2">
+                <li class="group flex items-center justify-between px-4 py-2.5 gap-4 text-sm text-gray-700 dark:text-gray-300">
+                  <div class="flex items-center gap-2 min-w-0">
+                    {{ template "partials/provider-icon.tmpl" . }}
                     <span class="font-medium capitalize" x-text="providerID"></span>
                     <span class="text-gray-400">&middot;</span>
                     <span class="font-mono" x-text="ep.username"></span>
@@ -222,10 +223,11 @@
         <div x-show="isEdit && Object.keys(formData.external_auth_providers || {}).length > 0" x-cloak>
           <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Linked Accounts</legend>
-            <ul class="space-y-2 mt-1">
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 mt-1">
               <template x-for="[providerID, ep] in Object.entries(formData.external_auth_providers || {})" :key="providerID">
-                <li class="flex items-center justify-between text-sm text-gray-700 dark:text-gray-300">
-                  <div class="flex items-center gap-2">
+                <li class="group flex items-center justify-between px-4 py-2.5 gap-4 text-sm text-gray-700 dark:text-gray-300">
+                  <div class="flex items-center gap-2 min-w-0">
+                    {{ template "partials/provider-icon.tmpl" . }}
                     <span class="font-medium capitalize" x-text="providerID"></span>
                     <span class="text-gray-400">&middot;</span>
                     <span class="font-mono" x-text="ep.username"></span>

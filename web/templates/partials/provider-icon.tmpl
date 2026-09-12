@@ -1,0 +1,38 @@
+{{ define "partials/provider-icon.tmpl" }}
+{{- /* Brand icons for external auth providers, keyed by provider id — the
+       same icons and shell styling the login page's provider buttons use
+       (github / google / gitlab / auth0, generic mark for anything else).
+       Rendered inside an Alpine row loop, so the branch is x-if on the
+       row's providerID rather than a server-side template chain; the
+       shell's group-hover scale needs the row's <li> to carry `group`. */ -}}
+<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-gradient-to-br from-white to-gray-100 text-gray-900 shadow-sm transition-transform duration-200 group-hover:scale-105 dark:border-gray-600 dark:from-gray-700 dark:to-gray-800 dark:text-white">
+  <template x-if="providerID === 'github'">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.93c.58.11.79-.25.79-.56v-1.95c-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.78 1.2 1.78 1.2 1.03 1.77 2.7 1.26 3.36.97.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.72 0-1.27.45-2.31 1.19-3.12-.12-.3-.52-1.5.11-3.13 0 0 .97-.31 3.19 1.19a11.06 11.06 0 0 1 5.8 0c2.21-1.5 3.18-1.19 3.18-1.19.63 1.63.23 2.83.11 3.13.74.81 1.19 1.85 1.19 3.12 0 4.45-2.71 5.43-5.29 5.71.42.36.79 1.06.79 2.14v3.18c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+    </svg>
+  </template>
+  <template x-if="providerID === 'google'">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.42c-.24 1.25-.96 2.32-2.03 3.03l3.28 2.54c1.91-1.76 3.01-4.35 3.01-7.42 0-.72-.06-1.41-.18-2.05H12Z"/>
+      <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.61-2.43l-3.28-2.54c-.9.61-2.05.97-3.33.97-2.56 0-4.72-1.73-5.49-4.05H3.12v2.62A9.98 9.98 0 0 0 12 22Z"/>
+      <path fill="#4A90E2" d="M6.51 13.95A5.98 5.98 0 0 1 6.2 12c0-.68.11-1.33.31-1.95V7.43H3.12A9.98 9.98 0 0 0 2 12c0 1.61.38 3.13 1.12 4.57l3.39-2.62Z"/>
+      <path fill="#FBBC05" d="M12 5.95c1.47 0 2.78.51 3.81 1.49l2.85-2.85C16.95 3 14.7 2 12 2a9.98 9.98 0 0 0-8.88 5.43l3.39 2.62C7.28 7.68 9.44 5.95 12 5.95Z"/>
+    </svg>
+  </template>
+  <template x-if="providerID === 'gitlab'">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M22.66 14.89l-1.29-3.97-2.55-7.86a.44.44 0 0 0-.84 0l-2.55 7.86H8.57L6.02 3.06a.44.44 0 0 0-.84 0L2.63 10.92 1.34 14.89a.88.88 0 0 0 .32.99l9.67 7.03a.34.34 0 0 0 .41 0l9.67-7.03a.88.88 0 0 0 .32-.99Z"/>
+    </svg>
+  </template>
+  <template x-if="providerID === 'auth0'">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 0L1.5 7.5v9L12 24l10.5-7.5v-9L12 0zm0 2.16l8.4 6v6.84L12 21.84l-8.4-6V8.16L12 2.16zM12 5.16L6.72 15h3.12l1.08-2.16h2.16L14.16 15h3.12L12 5.16zm.72 5.52h-1.44L12 8.52l.72 2.16z"/>
+    </svg>
+  </template>
+  <template x-if="!['github', 'google', 'gitlab', 'auth0'].includes(providerID)">
+    <svg class="h-5 w-5" viewBox="0 0 448 512" aria-hidden="true">
+      <path fill="#F78C40" d="M271.5 432l-68 32C88.5 453.7 0 392.5 0 318.2 0 246.7 82.5 187.2 191.7 173.9l0 43c-71.5 12.5-124 53-124 101.3 0 51 58.5 93.3 135.7 103l0-340 68-33.2 0 384 .1 0zM448 291l-131.3-28.5 36.8-20.7c-19.5-11.5-43.5-20-70-24.8l0-43c46.2 5.5 87.7 19.5 120.3 39.3l35-19.8 9.2 97.5z"/>
+    </svg>
+  </template>
+</div>
+{{ end }}
