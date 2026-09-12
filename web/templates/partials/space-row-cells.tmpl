@@ -56,7 +56,7 @@
 
                       <div class="2xl:hidden">
                         <template x-if="hasShare(s)">
-                          <span class="mt-2 text-xs inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 whitespace-nowrap" x-text="shareBadgeText(s)"></span>
+                          <span class="mt-2 text-xs inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
                         </template>
                       </div>
 
@@ -383,7 +383,7 @@
                 <!-- Share (desktop only) -->
                 <td class="px-4 py-3 hidden 2xl:table-cell text-xs">
                   <template x-if="hasShare(s)">
-                    <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 whitespace-nowrap" x-text="shareBadgeText(s)"></span>
+                    <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
                   </template>
                   <template x-if="!hasShare(s)">
                     <div class="text-gray-500 dark:text-gray-400">-</div>

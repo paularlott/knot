@@ -235,6 +235,15 @@ window.spacesListComponent = function (
     hasSpaceAccessForCurrentUser(space) {
       return space.user_id === userId || this.isSharedWithCurrentUser(space);
     },
+    usernameForUserId(id) {
+      const user = (this.users || []).find((u) => u.user_id === id);
+      return user ? user.username : "";
+    },
+    shareUsernames(space) {
+      return this.shareUserIds(space)
+        .map((id) => this.usernameForUserId(id))
+        .filter(Boolean);
+    },
     shareBadgeText(space) {
       const shareCount = this.shareUserIds(space).length;
       if (!shareCount) {
@@ -243,10 +252,24 @@ window.spacesListComponent = function (
       if (this.isSharedWithCurrentUser(space)) {
         return `Shared By: ${space.username}`;
       }
+      // Mirror the recipient's "Shared By: <owner>": name who the space is
+      // shared with. The users list is only loaded for viewers with
+      // manage/transfer/share permission; without it fall back to the
+      // count-only badge rather than showing bare ids.
+      const names = this.shareUsernames(space);
+      if (names.length) {
+        return shareCount === 1
+          ? `Shared With: ${names[0]}`
+          : `Shared With: ${names[0]} +${shareCount - 1}`;
+      }
       if (shareCount === 1) {
         return "Shared";
       }
       return `Shared (${shareCount})`;
+    },
+    shareBadgeTitle(space) {
+      const names = this.shareUsernames(space);
+      return names.length > 1 ? names.join(", ") : "";
     },
 
     async init() {
