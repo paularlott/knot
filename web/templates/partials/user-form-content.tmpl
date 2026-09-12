@@ -166,8 +166,7 @@
                 </svg>
               </button>
             </div>
-            <p class="description">The accounts this user can become. Access is one way: this user can switch into the listed accounts (their spaces included) from the profile menu, but the listed accounts cannot become this user.</p>
-            <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700" x-show="linkedUsers.length > 0">
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700" x-show="linkedUsers.length > 0">
               <template x-for="lu in linkedUsers" :key="lu.user_id">
                 <li class="flex items-center justify-between px-4 py-2.5 gap-4">
                   <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="lu.username"></span>
@@ -176,6 +175,7 @@
               </template>
             </ul>
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-show="linkedUsers.length === 0">No linked users.</p>
+            <p class="description mt-2">The accounts this user can become. Access is one way: this user can switch into the listed accounts (their spaces included) from the profile menu, but the listed accounts cannot become this user.</p>
           </fieldset>
         </div>
         {{ end }}
