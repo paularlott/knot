@@ -29,24 +29,35 @@ func ParseKvmNetwork(template *Template) (*KvmNetwork, error) {
 		return nil, fmt.Errorf("KVM network CIDR %q must be an IPv4 network", template.KvmNetworkCidr)
 	}
 
-	start := net.ParseIP(template.KvmIPRangeStart)
-	if start == nil || start.To4() == nil {
-		return nil, fmt.Errorf("KVM IP range start %q is not a valid IPv4 address", template.KvmIPRangeStart)
-	}
-	if !ipNet.Contains(start) {
-		return nil, fmt.Errorf("KVM IP range start %s is outside the network %s", start, ipNet)
-	}
+	// The range is optional: empty means the network's whole usable
+	// address space (network+1 through broadcast-1), with the gateway still
+	// excluded at pick time — the right default for a subnet dedicated to
+	// VMs. Admins carving a slice out of a shared subnet set it explicitly.
+	var start, end net.IP
+	if template.KvmIPRangeStart != "" || template.KvmIPRangeEnd != "" {
+		if template.KvmIPRangeStart == "" || template.KvmIPRangeEnd == "" {
+			return nil, fmt.Errorf("KVM IP range needs both start and end (or neither)")
+		}
 
-	end := net.ParseIP(template.KvmIPRangeEnd)
-	if end == nil || end.To4() == nil {
-		return nil, fmt.Errorf("KVM IP range end %q is not a valid IPv4 address", template.KvmIPRangeEnd)
-	}
-	if !ipNet.Contains(end) {
-		return nil, fmt.Errorf("KVM IP range end %s is outside the network %s", end, ipNet)
-	}
+		start = net.ParseIP(template.KvmIPRangeStart)
+		if start == nil || start.To4() == nil {
+			return nil, fmt.Errorf("KVM IP range start %q is not a valid IPv4 address", template.KvmIPRangeStart)
+		}
+		if !ipNet.Contains(start) {
+			return nil, fmt.Errorf("KVM IP range start %s is outside the network %s", start, ipNet)
+		}
 
-	if bytes.Compare(start.To4(), end.To4()) > 0 {
-		return nil, fmt.Errorf("KVM IP range start %s is after the range end %s", start, end)
+		end = net.ParseIP(template.KvmIPRangeEnd)
+		if end == nil || end.To4() == nil {
+			return nil, fmt.Errorf("KVM IP range end %q is not a valid IPv4 address", template.KvmIPRangeEnd)
+		}
+		if !ipNet.Contains(end) {
+			return nil, fmt.Errorf("KVM IP range end %s is outside the network %s", end, ipNet)
+		}
+
+		if bytes.Compare(start.To4(), end.To4()) > 0 {
+			return nil, fmt.Errorf("KVM IP range start %s is after the range end %s", start, end)
+		}
 	}
 
 	var gateway net.IP
@@ -61,6 +72,43 @@ func ParseKvmNetwork(template *Template) (*KvmNetwork, error) {
 	}
 
 	return &KvmNetwork{IPNet: ipNet, Start: start, End: end, Gateway: gateway}, nil
+}
+
+// Range returns the effective pick range: the configured start/end, or the
+// network's whole usable address space when no range is set.
+func (n *KvmNetwork) Range() (net.IP, net.IP) {
+	if n.Start != nil && n.End != nil {
+		return n.Start, n.End
+	}
+	return nextIP(n.IPNet.IP), prevIP(n.Broadcast())
+}
+
+// nextIP returns the address one above ip (the network base's next is the
+// first usable address).
+func nextIP(ip net.IP) net.IP {
+	out := make(net.IP, len(ip))
+	copy(out, ip)
+	for i := len(out) - 1; i >= 0; i-- {
+		out[i]++
+		if out[i] != 0 {
+			break
+		}
+	}
+	return out
+}
+
+// prevIP returns the address one below ip (nil-safe enough for our use:
+// only applied to a network's broadcast address).
+func prevIP(ip net.IP) net.IP {
+	out := make(net.IP, len(ip))
+	copy(out, ip)
+	for i := len(out) - 1; i >= 0; i-- {
+		out[i]--
+		if out[i] != 255 {
+			break
+		}
+	}
+	return out
 }
 
 // Broadcast returns the subnet's broadcast address.
@@ -97,9 +145,10 @@ func (n *KvmNetwork) ValidateSpaceIP(ipStr string) error {
 		return fmt.Errorf("IP address %s is the gateway address", ip)
 	}
 
+	start, end := n.Range()
 	ip4 := ip.To4()
-	if bytes.Compare(ip4, n.Start.To4()) < 0 || bytes.Compare(ip4, n.End.To4()) > 0 {
-		return fmt.Errorf("IP address %s is outside the template's range %s - %s", ip, n.Start, n.End)
+	if bytes.Compare(ip4, start.To4()) < 0 || bytes.Compare(ip4, end.To4()) > 0 {
+		return fmt.Errorf("IP address %s is outside the template's range %s - %s", ip, start, end)
 	}
 
 	return nil

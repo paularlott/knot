@@ -54,6 +54,30 @@ func TestParseKvmNetworkErrors(t *testing.T) {
 	}
 }
 
+func TestOptionalIPRange(t *testing.T) {
+	// No range: the whole usable subnet is pickable (gateway and broadcast
+	// still excluded at pick time).
+	network, err := ParseKvmNetwork(kvmTemplate("192.0.2.0/24", "", "", "192.0.2.1"))
+	if err != nil {
+		t.Fatalf("empty range should parse: %v", err)
+	}
+	start, end := network.Range()
+	if start.String() != "192.0.2.1" || end.String() != "192.0.2.254" {
+		t.Fatalf("default range = %s - %s, want 192.0.2.1 - 192.0.2.254", start, end)
+	}
+	if err := network.ValidateSpaceIP("192.0.2.200"); err != nil {
+		t.Errorf("192.0.2.200 should be pickable with no range: %v", err)
+	}
+	if err := network.ValidateSpaceIP("192.0.2.255"); err == nil {
+		t.Error("broadcast must still be rejected with no range")
+	}
+
+	// Half a range is a config error, not a silent default.
+	if _, err := ParseKvmNetwork(kvmTemplate("192.0.2.0/24", "192.0.2.10", "", "")); err == nil {
+		t.Error("start without end must fail")
+	}
+}
+
 func TestValidateSpaceIP(t *testing.T) {
 	network, err := ParseKvmNetwork(kvmTemplate("192.168.50.0/24", "192.168.50.10", "192.168.50.100", "192.168.50.1"))
 	if err != nil {

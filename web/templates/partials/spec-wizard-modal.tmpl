@@ -151,7 +151,7 @@
               </div>
             </template>
           </div>
-          <p class="description" x-show="specWizard.spec.kvm_network.mode !== 'nat'">Bridged: spaces pick their VM's static IP from the range at creation time. Values must be literal (no template variables). The gateway is optional, it defaults to the network's first usable address. The bridge is a host Linux bridge on the node with the physical NIC enslaved (see the README), defaulting to br0.</p>
+          <p class="description" x-show="specWizard.spec.kvm_network.mode !== 'nat'">Bridged: spaces pick their VM's static IP at creation time. Values must be literal (no template variables). The IP range is optional, empty uses the network's whole usable address space.</p>
           <p class="description" x-show="specWizard.spec.kvm_network.mode === 'nat'" x-cloak>NAT: VMs attach to a libvirt NAT network and get their address by DHCP.</p>
         </fieldset>
 

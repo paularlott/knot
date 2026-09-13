@@ -112,9 +112,8 @@
             :class="{'form-field-error': !ipAddressValid}">
           <div class="description" x-show="!isEdit">
             The VM's static IP, chosen from the template's network
-            <span x-text="template.kvm_network_cidr"></span>
-            (range <span x-text="template.kvm_ip_range_start"></span> – <span x-text="template.kvm_ip_range_end"></span>).
-            It is validated against the range and the addresses already in use, and can be changed while the space is stopped.
+            <span x-text="template.kvm_network_cidr"></span><span x-show="template.kvm_ip_range_start">(range <span x-text="template.kvm_ip_range_start"></span> – <span x-text="template.kvm_ip_range_end"></span>)</span>.
+            It is validated against the addresses already in use, and can be changed while the space is stopped.
           </div>
           <div class="description" x-show="isEdit && formData.ip_address">The VM's static IP. Changing it requires the space to be restarted.</div>
           <div class="description" x-show="isEdit && !formData.ip_address">

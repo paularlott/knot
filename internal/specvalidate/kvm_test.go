@@ -160,6 +160,29 @@ network:
 	}
 }
 
+func TestValidateKvmOptionalIPRange(t *testing.T) {
+	issues := ValidateTemplateSpec("kvm", `image: base
+network:
+  mode: bridged
+  cidr: 192.0.2.0/24
+  bridge: br0
+`, "")
+	if len(issues) != 0 {
+		t.Fatalf("bridged network without an IP range should be valid (whole-subnet default), got %+v", issues)
+	}
+
+	// Half a range is still rejected.
+	issues = ValidateTemplateSpec("kvm", `image: base
+network:
+  mode: bridged
+  cidr: 192.0.2.0/24
+  ip_range_start: 192.0.2.10
+`, "")
+	if !containsIssue(issues, 3, "needs both start and end") {
+		t.Fatalf("expected half-range rejection, got %+v", issues)
+	}
+}
+
 func TestValidateKvmVolumesRejected(t *testing.T) {
 	issues := ValidateTemplateSpec("kvm", "image: /tmp/base.qcow2\nnetwork:\n  cidr: 192.168.50.0/24\n  ip_range_start: 192.168.50.10\n  ip_range_end: 192.168.50.100\n", "volumes:\n  data: {}\n")
 	if len(issues) != 1 || !strings.Contains(issues[0].Message, "cannot define volumes") {
