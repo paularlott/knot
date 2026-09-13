@@ -23,6 +23,7 @@ import (
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
+	"github.com/paularlott/knot/internal/container/runtime"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
@@ -1352,6 +1353,12 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// Inject the .stack.* variable resolver so templates can reference sibling
 	// spaces within a stack (registered after the database is ready).
 	model.SetStackResolver(service.BuildStackVariableData)
+
+	// Start background runtime availability tracking — probing runtimes
+	// (docker info, virsh …) has multi-second timeouts, and everything from
+	// the template list to boot cleanup reads the result. The first probe
+	// is synchronous so boot-time consumers start with data.
+	runtime.StartBackgroundRefresh()
 
 	// Stop orphaned runtimes and clean up broken space states before joining the cluster
 	service.GetContainerService().CleanupOnBoot()

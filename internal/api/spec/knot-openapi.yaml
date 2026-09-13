@@ -7497,6 +7497,9 @@ components:
         kvm_bridge:
           type: string
           description: KVM only. The Linux bridge VMs attach to on the node; defaults to br0. The bridge must exist on the node — boots fail with an error otherwise.
+        runtime_available:
+          type: boolean
+          description: Whether any node in the zone currently offers the runtime the template needs. Always true for manual and Nomad templates.
         custom_fields:
           type: array
           items:

@@ -458,6 +458,9 @@ def _parse_template(response, resolve_options=False):
         "kvm_ip_range_end": response.get("kvm_ip_range_end", ""),
         "kvm_gateway": response.get("kvm_gateway", ""),
         "kvm_bridge": response.get("kvm_bridge", ""),
+        # Whether any node in the zone currently offers the runtime this
+        # template needs (always true for manual and Nomad templates).
+        "runtime_available": response.get("runtime_available", True),
         "schedule_enabled": response.get("schedule_enabled", False),
         "auto_start": response.get("auto_start", False),
         "max_uptime": response.get("max_uptime", 0),

@@ -128,6 +128,10 @@ type TemplateInfo struct {
 	KvmIPRangeEnd      string               `json:"kvm_ip_range_end,omitempty"`
 	KvmGateway         string               `json:"kvm_gateway,omitempty"`
 	KvmBridge          string               `json:"kvm_bridge,omitempty"`
+	// RuntimeAvailable reports whether any node in the zone currently
+	// offers the runtime the template needs (always true for manual and
+	// Nomad templates).
+	RuntimeAvailable bool `json:"runtime_available"`
 }
 
 type TemplateList struct {

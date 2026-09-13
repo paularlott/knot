@@ -65,7 +65,10 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build a json array of data to return to the client
+	// Build a json array of data to return to the client. The zone's
+	// available runtimes are resolved once — per-template availability is
+	// then a map lookup.
+	availableRuntimes := service.AvailableZoneRuntimes()
 	templateResponse := apiclient.TemplateList{
 		Count:     0,
 		Templates: []apiclient.TemplateInfo{},
@@ -93,6 +96,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Ports = template.Ports
 		templateData.Jobs = template.Jobs
 		templateData.KvmNetworkMode = template.KvmNetworkMode
+		templateData.RuntimeAvailable = service.TemplateRuntimeAvailableIn(template, availableRuntimes)
 		templateData.KvmNetworkCidr = template.KvmNetworkCidr
 		templateData.KvmIPRangeStart = template.KvmIPRangeStart
 		templateData.KvmIPRangeEnd = template.KvmIPRangeEnd

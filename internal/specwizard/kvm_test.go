@@ -202,9 +202,9 @@ func TestKvmNATBuildDropsStaleStaticFields(t *testing.T) {
 
 func TestKvmDevicesRoundTrip(t *testing.T) {
 	spec := &apiclient.UnifiedSpec{
-		Image: "base",
+		Image:       "base",
 		HostDevices: []string{"pci_0000_01_00_0", "0x8086:0x1234"},
-		KvmNetwork: &apiclient.SpecKvmNetwork{Mode: "nat"},
+		KvmNetwork:  &apiclient.SpecKvmNetwork{Mode: "nat"},
 	}
 	job, _, err := BuildKvmYAML(spec, "", "")
 	if err != nil {

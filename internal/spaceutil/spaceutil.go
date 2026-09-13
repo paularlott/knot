@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/paularlott/gossip/hlc"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/apple"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/kvm"
@@ -47,10 +46,9 @@ func ListRunningRuntimeRefs(template *model.Template, spaces []*model.Space) (ma
 		return map[string]bool{}, nil
 	}
 
-	cfg := config.GetServerConfig()
 	platform := template.Platform
 	if platform == model.PlatformContainer {
-		platform = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+		platform = runtime.DetectLocalContainerRuntime()
 		if platform == "" {
 			return nil, fmt.Errorf("no local container runtime detected")
 		}

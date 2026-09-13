@@ -40,7 +40,7 @@ func HandleGetClusterNode(w http.ResponseWriter, r *http.Request) {
 		ApiEndpoint:     cfg.URL,
 		AllocatedSpaces: allocated,
 		RunningSpaces:   running,
-		Runtimes:        runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref),
+		Runtimes:        runtime.DetectAllAvailableRuntimes(),
 	})
 }
 
@@ -80,7 +80,7 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 		metadata["allocated_spaces"] = fmt.Sprintf("%d", allocated)
 		metadata["running_spaces"] = fmt.Sprintf("%d", running)
 		if nodeId == localNodeId {
-			if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+			if runtimes := runtime.DetectAllAvailableRuntimes(); len(runtimes) > 0 {
 				metadata["runtimes"] = strings.Join(runtimes, ",")
 			}
 		}
@@ -104,7 +104,7 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 			"allocated_spaces": fmt.Sprintf("%d", allocated),
 			"running_spaces":   fmt.Sprintf("%d", running),
 		}
-		if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+		if runtimes := runtime.DetectAllAvailableRuntimes(); len(runtimes) > 0 {
 			metadata["runtimes"] = strings.Join(runtimes, ",")
 		}
 		response = append(response, apiclient.ClusterNodeInfo{

@@ -671,7 +671,10 @@ window.spacesListComponent = function (
       await this.getTemplatesForSelector();
       this.poolFormModal.templateId =
         this.templateSelector.templates.find(
-          (template) => template.active && !template.searchHide,
+          (template) =>
+            template.active &&
+            !template.searchHide &&
+            !this.templateBlocked(template),
         )?.template_id || "";
       this.$nextTick(() => {
         this.$refs.poolNameInput?.focus();
@@ -1982,6 +1985,12 @@ window.spacesListComponent = function (
           const templateList = await response.json();
           this.templateSelector.templates = templateList.templates;
 
+          // A template whose runtime no node in the zone offers is
+          // selectable-looking but unstartable — tint it like quota blocks.
+          this.templateSelector.templates.forEach((template) => {
+            template.runtimeBlocked = template.runtime_available === false;
+          });
+
           this.templateSelector.templates.forEach((template) => {
             template.icon_url_exists = this.imageExists(template.icon_url);
 
@@ -2053,6 +2062,9 @@ window.spacesListComponent = function (
         template.quotaBlocked =
           maxSpacesReached || storageBlocked || computeBlocked;
       });
+    },
+    templateBlocked(t) {
+      return !!(t.quotaBlocked || t.runtimeBlocked);
     },
     anyUsableTemplate() {
       return this.templateSelector.templates.some(

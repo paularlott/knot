@@ -84,7 +84,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 	if !cfg.LeafNode {
 		if peers == nil {
 			// Single server mode
-			if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimesWithKVM(cfg.LocalContainerRuntimePref)) {
+			if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimesWithKVM()) {
 				counts := spaceCounts[localNodeId]
 				nodes = append(nodes, AvailableNode{
 					NodeId:        localNodeId,
@@ -108,7 +108,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 				var hostname string
 
 				if nodeId == localNodeId {
-					runtimes = runtime.DetectAllAvailableRuntimesWithKVM(cfg.LocalContainerRuntimePref)
+					runtimes = runtime.DetectAllAvailableRuntimesWithKVM()
 					hostname = cfg.Hostname
 				} else {
 					runtimes = strings.Split(peer.Metadata.GetString("runtimes"), ",")

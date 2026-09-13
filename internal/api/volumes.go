@@ -357,7 +357,7 @@ func HandleGetVolumeNodes(w http.ResponseWriter, r *http.Request) {
 
 	if !cfg.LeafNode {
 		if peers == nil {
-			if hasRequiredRuntime(fakeTemplate, runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)) {
+			if hasRequiredRuntime(fakeTemplate, runtime.DetectAllAvailableRuntimes()) {
 				nodes = append(nodes, AvailableNode{
 					NodeId:   localNodeId,
 					Hostname: cfg.Hostname,
@@ -376,7 +376,7 @@ func HandleGetVolumeNodes(w http.ResponseWriter, r *http.Request) {
 				var runtimes []string
 				var hostname string
 				if nodeId == localNodeId {
-					runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+					runtimes = runtime.DetectAllAvailableRuntimes()
 					hostname = cfg.Hostname
 				} else {
 					runtimes = strings.Split(peer.Metadata.GetString("runtimes"), ",")

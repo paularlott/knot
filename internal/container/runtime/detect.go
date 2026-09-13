@@ -4,136 +4,140 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 )
 
-// Detection shells out to the runtime CLI and logs its result, and callers
-// hit it per operation (boot cleanup, reconcile, client creation) — without
-// caching a boot with N local-container spaces probes and logs N times over.
-// Results are cached briefly so a runtime that appears or disappears mid-run
-// (someone starts Docker later) is still picked up.
-const detectCacheTTL = 30 * time.Second
+// Runtime availability is maintained by a background refresher: probing
+// shells out (docker info, podman info, virsh …) with multi-second timeouts
+// when a runtime is absent, so request paths read a snapshot the refresher
+// holds rather than probing themselves. A runtime that appears or disappears
+// mid-run (someone starts Docker later) is picked up on the next refresh.
+const refreshInterval = 30 * time.Second
 
-var (
-	detectMu       sync.Mutex
-	detectCache    = map[string]detectCacheEntry{}
-	detectAllCache = map[string]detectAllCacheEntry{}
-)
-
-type detectCacheEntry struct {
-	value   string
-	expires time.Time
+// snapshot is one refresh's outcome. Preferred is the first available
+// container runtime in preference order ("" when none); AllWithKVM is the
+// full set including KVM — what nodes gossip and placement filters on.
+// Container runtimes stay in preference order so "first available" and the
+// ordered list derive from the same probe.
+type snapshot struct {
+	Preferred  string
+	AllWithKVM []string
+	kvm        bool
 }
 
-type detectAllCacheEntry struct {
-	value   []string
-	expires time.Time
+var (
+	currentSnapshot atomic.Pointer[snapshot]
+	refreshOnce     sync.Once
+	fallbackOnce    sync.Once
+)
+
+// StartBackgroundRefresh probes once synchronously — so boot-time consumers
+// such as CleanupOnBoot start with data — then re-probes on an interval for
+// the life of the process. Safe to call multiple times; only the first
+// starts the refresher. Without it (unit tests, embedded use), reads fall
+// back to one synchronous probe on first use.
+func StartBackgroundRefresh() {
+	refreshOnce.Do(func() {
+		refreshSnapshot()
+		go func() {
+			for {
+				time.Sleep(refreshInterval)
+				refreshSnapshot()
+			}
+		}()
+	})
+}
+
+func refreshSnapshot() {
+	defer func() { recover() }() // a probe panic must never take the server down
+
+	prefs := defaultPreferences()
+	if cfg := config.GetServerConfig(); cfg != nil {
+		prefs = normalizePreferences(cfg.LocalContainerRuntimePref)
+	}
+
+	s := &snapshot{}
+	for _, rt := range prefs {
+		if isRuntimeAvailable(rt) {
+			if s.Preferred == "" {
+				log.WithGroup("server").Info("detected local container runtime:", "runtime", rt)
+				s.Preferred = rt
+			}
+			s.AllWithKVM = append(s.AllWithKVM, rt)
+		}
+	}
+	if s.Preferred == "" {
+		log.Warn("No local container runtime detected")
+	}
+	if s.kvm = isKvmAvailable(); s.kvm {
+		s.AllWithKVM = append(s.AllWithKVM, model.PlatformKvm)
+	}
+
+	currentSnapshot.Store(s)
+}
+
+// getSnapshot returns the current refresh result, probing synchronously once
+// if the refresher never ran (unit tests, embedded use).
+func getSnapshot() *snapshot {
+	if s := currentSnapshot.Load(); s != nil {
+		return s
+	}
+	fallbackOnce.Do(func() { currentSnapshot.Store(&snapshot{}) })
+	refreshSnapshot()
+	return currentSnapshot.Load()
 }
 
 func normalizePreferences(preferences []string) []string {
 	if len(preferences) == 0 {
-		return []string{model.PlatformDocker, model.PlatformPodman, model.PlatformApple}
+		return defaultPreferences()
 	}
 	return preferences
 }
 
-func cacheKey(preferences []string) string {
-	return strings.Join(normalizePreferences(preferences), ",")
+func defaultPreferences() []string {
+	return []string{model.PlatformDocker, model.PlatformPodman, model.PlatformApple}
 }
 
-// DetectLocalContainerRuntime detects which local container runtime is available
-// based on the preference order specified in config and checks if the daemon is running
-func DetectLocalContainerRuntime(preferences []string) string {
-	key := cacheKey(preferences)
-
-	detectMu.Lock()
-	defer detectMu.Unlock()
-
-	if entry, ok := detectCache[key]; ok && time.Now().Before(entry.expires) {
-		return entry.value
-	}
-
-	runtime := detectLocalContainerRuntime(normalizePreferences(preferences))
-	detectCache[key] = detectCacheEntry{value: runtime, expires: time.Now().Add(detectCacheTTL)}
-	return runtime
+// DetectLocalContainerRuntime returns the local container runtime to use —
+// the first available in the configured preference order, "" when none is
+// running.
+func DetectLocalContainerRuntime() string {
+	return getSnapshot().Preferred
 }
 
-func detectLocalContainerRuntime(preferences []string) string {
-	for _, runtime := range preferences {
-		if isRuntimeAvailable(runtime) {
-			log.WithGroup("server").Info("detected local container runtime:", "runtime", runtime)
-			return runtime
+// DetectAllAvailableRuntimes returns the available container runtimes, in
+// preference order. KVM is deliberately excluded so container
+// auto-detection never picks it — use DetectAllAvailableRuntimesWithKVM.
+func DetectAllAvailableRuntimes() []string {
+	all := getSnapshot().AllWithKVM
+	out := make([]string, 0, len(all))
+	for _, rt := range all {
+		if rt != model.PlatformKvm {
+			out = append(out, rt)
 		}
 	}
-
-	log.Warn("No local container runtime detected")
-	return ""
-}
-
-// DetectAllAvailableRuntimes returns all available container runtimes that are running
-// Only runtimes listed in preferences are checked
-func DetectAllAvailableRuntimes(preferences []string) []string {
-	key := cacheKey(preferences)
-
-	detectMu.Lock()
-	defer detectMu.Unlock()
-
-	if entry, ok := detectAllCache[key]; ok && time.Now().Before(entry.expires) {
-		// Copy so callers can't mutate the cached slice.
-		out := make([]string, len(entry.value))
-		copy(out, entry.value)
-		return out
-	}
-
-	runtimes := []string{}
-	for _, rt := range normalizePreferences(preferences) {
-		if isRuntimeAvailable(rt) {
-			runtimes = append(runtimes, rt)
-		}
-	}
-	detectAllCache[key] = detectAllCacheEntry{value: runtimes, expires: time.Now().Add(detectCacheTTL)}
-
-	out := make([]string, len(runtimes))
-	copy(out, runtimes)
 	return out
 }
 
-// DetectAllAvailableRuntimesWithKVM returns DetectAllAvailableRuntimes plus
-// "kvm" when the node can run KVM virtual machines. This is the list nodes
-// gossip as their runtimes metadata and that placement decisions filter on;
-// the plain container variant deliberately excludes KVM so container
-// auto-detection never picks it.
-func DetectAllAvailableRuntimesWithKVM(preferences []string) []string {
-	runtimes := DetectAllAvailableRuntimes(preferences)
-	if DetectKVMAvailable() {
-		runtimes = append(runtimes, model.PlatformKvm)
-	}
-	return runtimes
+// DetectAllAvailableRuntimesWithKVM returns the available container runtimes
+// plus "kvm" when the node can run KVM virtual machines. This is the list
+// nodes gossip as their runtimes metadata and that placement filters on.
+func DetectAllAvailableRuntimesWithKVM() []string {
+	all := getSnapshot().AllWithKVM
+	out := make([]string, len(all))
+	copy(out, all)
+	return out
 }
 
-// DetectKVMAvailable reports whether this node can run KVM virtual machines:
-// /dev/kvm present, virsh and virt-install installed, and the local libvirt
-// daemon reachable. Result is cached like the container detections.
+// DetectKVMAvailable reports whether this node can run KVM virtual machines.
 func DetectKVMAvailable() bool {
-	detectMu.Lock()
-	defer detectMu.Unlock()
-
-	if entry, ok := detectCache[model.PlatformKvm]; ok && time.Now().Before(entry.expires) {
-		return entry.value == model.PlatformKvm
-	}
-
-	available := isKvmAvailable()
-	if available {
-		detectCache[model.PlatformKvm] = detectCacheEntry{value: model.PlatformKvm, expires: time.Now().Add(detectCacheTTL)}
-	} else {
-		detectCache[model.PlatformKvm] = detectCacheEntry{value: "", expires: time.Now().Add(detectCacheTTL)}
-	}
-	return available
+	return getSnapshot().kvm
 }
 
 func isKvmAvailable() bool {

@@ -72,6 +72,8 @@ def create(name, template_name, startup_script_id="", desired_count=1, active=Tr
 
     Accepts a template name (resolved to ID internally).
     If active is True, spaces are started as they are created.
+    Bridged KVM templates are rejected — their spaces need an IP address
+    chosen at creation, which a pool can't provide; NAT KVM templates work.
     """
     import knot.template
     tmpl = knot.template.get(template_name)

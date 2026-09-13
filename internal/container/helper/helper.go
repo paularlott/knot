@@ -35,8 +35,7 @@ func NewContainerHelper() *Helper {
 func (h *Helper) createClient(platform string) (container.ContainerManager, error) {
 	// Map "container" to detected runtime
 	if platform == model.PlatformContainer {
-		cfg := config.GetServerConfig()
-		platform = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+		platform = runtime.DetectLocalContainerRuntime()
 		if platform == "" {
 			return nil, fmt.Errorf("no local container runtime detected")
 		}
@@ -523,12 +522,12 @@ func (h *Helper) CleanupOnBoot() {
 
 			resolved := template.Platform
 			if resolved == model.PlatformContainer {
-				resolved = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+				resolved = runtime.DetectLocalContainerRuntime()
 			}
 			if resolved == "" {
 				continue
 			}
-			available := runtime.DetectAllAvailableRuntimesWithKVM(cfg.LocalContainerRuntimePref)
+			available := runtime.DetectAllAvailableRuntimesWithKVM()
 			found := false
 			for _, rt := range available {
 				if rt == resolved {
@@ -549,7 +548,7 @@ func (h *Helper) CleanupOnBoot() {
 
 		runtimeKey := template.Platform
 		if template.Platform == model.PlatformContainer {
-			runtimeKey = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+			runtimeKey = runtime.DetectLocalContainerRuntime()
 		}
 		if template.Platform == model.PlatformNomad {
 			runtimeKey = template.Platform + ":" + spaceutil.NormalizeNomadNamespace(space.NomadNamespace)
