@@ -814,6 +814,8 @@ func Parse(platform, job, volumes string, hclParser HCLParser) (*apiclient.Unifi
 		return ParseContainerYAML(job, volumes)
 	case model.PlatformNomad:
 		return ParseNomadHCL(job, volumes, hclParser)
+	case model.PlatformKvm:
+		return ParseKvmYAML(job, volumes)
 	default:
 		return nil, false, "unsupported platform"
 	}
@@ -828,6 +830,8 @@ func Build(platform string, spec *apiclient.UnifiedSpec, originalJob, originalVo
 		return BuildContainerYAML(spec, originalJob, originalVolumes)
 	case model.PlatformNomad:
 		return BuildNomadHCL(spec, originalJob, originalVolumes)
+	case model.PlatformKvm:
+		return BuildKvmYAML(spec, originalJob, originalVolumes)
 	default:
 		return "", "", fmt.Errorf("unsupported platform: %s", platform)
 	}

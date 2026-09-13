@@ -248,6 +248,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		IsRemote:           isRemote,
 		NodeId:             space.NodeId,
 		NodeHostname:       nodeHostname,
+		IPAddress:          space.IPAddress,
 		Healthy:            healthy,
 		HealthKnown:        healthKnown,
 		Stack:              space.Stack,

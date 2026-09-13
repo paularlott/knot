@@ -26,8 +26,8 @@ func SelectNodeForSpace(template *model.Template, selectedNodeId string) (string
 		return "", nil
 	}
 
-	// If not a local container template, skip node selection
-	if !template.IsLocalContainer() {
+	// Only node-local runtimes (containers and KVM) are pinned to a node
+	if !template.IsNodeRuntime() {
 		return "", nil
 	}
 
@@ -68,7 +68,7 @@ func SelectNodeForSpace(template *model.Template, selectedNodeId string) (string
 
 	if peers == nil {
 		// Single server mode - check if local node has required runtime
-		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)) {
+		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimesWithKVM(cfg.LocalContainerRuntimePref)) {
 			candidate := spaceCounts[localNodeId]
 			if candidate == nil {
 				candidate = &nodeCandidate{nodeId: localNodeId}
@@ -89,7 +89,7 @@ func SelectNodeForSpace(template *model.Template, selectedNodeId string) (string
 			nodeId := peer.ID.String()
 			var runtimes []string
 			if nodeId == localNodeId {
-				runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+				runtimes = runtime.DetectAllAvailableRuntimesWithKVM(cfg.LocalContainerRuntimePref)
 			} else {
 				runtimes = strings.Split(peer.Metadata.GetString("runtimes"), ",")
 			}
@@ -141,7 +141,14 @@ func SelectNodeForSpace(template *model.Template, selectedNodeId string) (string
 
 func hasRequiredRuntime(template *model.Template, runtimes []string) bool {
 	if template.Platform == model.PlatformContainer {
-		return len(runtimes) > 0
+		// "container" means any local *container* runtime — KVM alone does
+		// not satisfy it.
+		for _, rt := range runtimes {
+			if rt != model.PlatformKvm {
+				return true
+			}
+		}
+		return false
 	}
 
 	for _, rt := range runtimes {

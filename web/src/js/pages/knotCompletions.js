@@ -1117,14 +1117,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, template_name, description, shell, depends_on, stack, selected_node_id, alt_names, icon_url, custom_fields, startup_script_id, start_on_create)",
-        "description": "Create a new space and return its ID",
+        "signature": "create(name, template_name, description, shell, depends_on, stack, selected_node_id, alt_names, icon_url, custom_fields, startup_script_id, ip_address, start_on_create)",
+        "description": "Create a new space and return its ID. ip_address sets the static IP for bridged KVM templates (validated against the template's range); unused by other platforms.",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(name, new_name, description, shell, template_name, depends_on, stack, selected_node_id, alt_names, icon_url, custom_fields, startup_script_id)",
-        "description": "Update space properties while preserving fields not passed. Lifecycle changes use start()/stop()/restart().",
+        "signature": "update(name, new_name, description, shell, template_name, depends_on, stack, selected_node_id, alt_names, icon_url, custom_fields, startup_script_id, ip_address)",
+        "description": "Update space properties while preserving fields not passed. Lifecycle changes use start()/stop()/restart(). ip_address (bridged KVM only) requires the space stopped; applied at next boot.",
         "returns": "bool"
       },
       {
@@ -1192,6 +1192,18 @@ export const knotLibraries = [
         "signature": "get_description(name)",
         "description": "Get space description",
         "returns": "string"
+      },
+      {
+        "name": "get_ip_address",
+        "signature": "get_ip_address(name)",
+        "description": "Get a bridged KVM space's static IP address (empty for other platforms)",
+        "returns": "string"
+      },
+      {
+        "name": "set_ip_address",
+        "signature": "set_ip_address(name, ip_address)",
+        "description": "Set or change a bridged KVM space's static IP; requires the space stopped, applied at next boot",
+        "returns": "bool"
       },
       {
         "name": "get_dependencies",

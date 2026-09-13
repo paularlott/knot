@@ -507,6 +507,29 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 
+		// KVM flags
+		&cli.StringFlag{
+			Name:         "kvm-images-path",
+			Usage:        "Directory for KVM base images and per-space disk overlays/cloud-init seeds. Must be writable by knot and readable by the qemu user libvirt runs VMs as.",
+			ConfigPath:   []string{"server.kvm.images_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_IMAGES_PATH"},
+			DefaultValue: "/var/lib/libvirt/images/knot",
+		},
+		&cli.StringSliceFlag{
+			Name:         "kvm-resolvers",
+			Usage:        "DNS servers handed to bridged KVM virtual machines via cloud-init.",
+			ConfigPath:   []string{"server.kvm.resolvers"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_RESOLVERS"},
+			DefaultValue: []string{"1.1.1.1", "1.0.0.1"},
+		},
+		&cli.StringFlag{
+			Name:         "kvm-cloud-image-path",
+			Usage:        "Directory holding the node's cloud images. A bare image name in a KVM spec (e.g. ubuntu-24.04) resolves to <dir>/<name>.qcow2. Defaults to /var/lib/libvirt/images/knot/cloud-images.",
+			ConfigPath:   []string{"server.kvm.cloud_image_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_CLOUD_IMAGE_PATH"},
+			DefaultValue: "/var/lib/libvirt/images/knot/cloud-images",
+		},
+
 		// MySQL flags
 		&cli.BoolFlag{
 			Name:         "mysql-enabled",
@@ -1427,6 +1450,20 @@ func envFallback(v, env string) string {
 	return os.Getenv(env)
 }
 
+// absPath resolves a filesystem path against the directory knot was started
+// from, so relative KVM paths (e.g. a cloud image path of ".") keep that
+// meaning regardless of what later code does. Empty stays empty — it means
+// "use the default".
+func absPath(v string) string {
+	if v == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(v); err == nil {
+		return abs
+	}
+	return v
+}
+
 func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger := log.WithGroup("server")
 
@@ -1558,6 +1595,11 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			// working without explicit config; the flags/config/KNOT_* override.
 			DC:     envFallback(cmd.GetString("nomad-dc"), "NOMAD_DC"),
 			Region: envFallback(cmd.GetString("nomad-region"), "NOMAD_REGION"),
+		},
+		KVM: config.KVMConfig{
+			ImagesPath:     absPath(cmd.GetString("kvm-images-path")),
+			CloudImagePath: absPath(cmd.GetString("kvm-cloud-image-path")),
+			Resolvers:      cmd.GetStringSlice("kvm-resolvers"),
 		},
 		TLS: config.TLSConfig{
 			CertFile:   cmd.GetString("cert-file"),

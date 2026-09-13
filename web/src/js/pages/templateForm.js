@@ -401,6 +401,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         "nomad",
         "apple",
         "container",
+        "kvm",
       ]);
     },
     checkName() {
@@ -464,14 +465,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       }
 
       this.jobEditor.session.setMode(
-        this.isLocalContainer() ? "ace/mode/yaml" : "ace/mode/terraform",
+        this.isSpecYaml() ? "ace/mode/yaml" : "ace/mode/terraform",
       );
       this.volumeEditor.session.setMode("ace/mode/yaml");
 
       setSpecCompleter(
         this.jobEditor,
         [
-          ...(this.isLocalContainer()
+          ...(this.isSpecYaml()
             ? containerSpecCompletions
             : nomadJobCompletions),
           ...templateVariableCompletions,
@@ -480,7 +481,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       setSpecCompleter(
         this.volumeEditor,
         [
-          ...(this.isLocalContainer()
+          ...(this.isSpecYaml()
             ? localVolumeSpecCompletions
             : nomadVolumeSpecCompletions),
           ...templateVariableCompletions,
@@ -940,6 +941,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         this.formData.platform === "apple" ||
         this.formData.platform === "container"
       );
+    },
+    isKvm() {
+      return this.formData.platform === "kvm";
+    },
+    // KVM VM specs are YAML like the container specs (not Nomad HCL).
+    isSpecYaml() {
+      return this.isLocalContainer() || this.isKvm();
     },
 
     // ── Template spec wizard ────────────────────────────────────────────
@@ -1416,6 +1424,19 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         memory_max: s.memory_max || "",
         cpus: s.cpus || "",
         cpu_type: s.cpu_type || "",
+        disk: s.disk || "",
+        host_devices: toArray(s.host_devices),
+        kvm_network:
+          s.kvm_network && typeof s.kvm_network === "object"
+            ? {
+                mode: s.kvm_network.mode || "bridged",
+                cidr: s.kvm_network.cidr || "",
+                bridge: s.kvm_network.bridge || "",
+                ip_range_start: s.kvm_network.ip_range_start || "",
+                ip_range_end: s.kvm_network.ip_range_end || "",
+                gateway: s.kvm_network.gateway || "",
+              }
+            : { mode: "bridged", cidr: "", bridge: "", ip_range_start: "", ip_range_end: "", gateway: "" },
         auth: s.auth || null,
         driver: s.driver || (this.formData.platform === "nomad" ? "docker" : ""),
         templates: toArray(s.templates),
@@ -1425,6 +1446,15 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     // Wizard list helpers — the array variants need a stable shape for x-for.
     // New entries go at the top so they're visible without scrolling once the
     // list gets long.
+    wizardAddHostDevice() {
+      if (!Array.isArray(this.specWizard.spec.host_devices)) {
+        this.specWizard.spec.host_devices = [];
+      }
+      this.specWizard.spec.host_devices.unshift("");
+    },
+    wizardRemoveHostDevice(i) {
+      this.specWizard.spec.host_devices.splice(i, 1);
+    },
     wizardAddEnv() {
       this.specWizard.spec.environment.unshift({ key: "", value: "" });
     },

@@ -29,7 +29,7 @@ var pluginEnvLibraries = map[string]bool{
 	"json": true, "re": true, "math": true, "time": true, "datetime": true,
 	"itertools": true, "random": true, "string": true, "collections": true,
 	"functools": true,
-	"base64": true, "hashlib": true, "hmac": true,
+	"base64":    true, "hashlib": true, "hmac": true,
 	"uuid": true, "urllib": true, "urllib.parse": true, "statistics": true,
 	"contextlib": true, "difflib": true, "html": true, "io": true,
 	"msgpack": true, "platform": true, "textwrap": true,

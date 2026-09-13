@@ -22,6 +22,10 @@ const (
 	PlatformNomad     = "nomad"
 	PlatformApple     = "apple"
 	PlatformContainer = "container"
+	PlatformKvm       = "kvm"
+
+	KvmNetworkModeBridged = "bridged"
+	KvmNetworkModeNat     = "nat"
 
 	LeafNodeZone = "<leaf-node>"
 
@@ -74,10 +78,22 @@ type Template struct {
 	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
 	Ports                    []TemplatePort         `json:"ports" db:"ports,json"`
 	Jobs                     []SpaceJob             `json:"jobs" db:"jobs,json"`
-	CreatedUserId            string                 `json:"created_user_id" db:"created_user_id"`
-	CreatedAt                time.Time              `json:"created_at" db:"created_at"`
-	UpdatedUserId            string                 `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt                hlc.Timestamp          `json:"updated_at" db:"updated_at"`
+	// KVM network configuration, derived from the job spec's network:
+	// block. Bridged mode attaches VMs to a host bridge (or libvirt
+	// network) and gives each space a static IP chosen from the
+	// kvm_ip_range at create time; NAT mode attaches to a libvirt NAT
+	// network (named by the bridge field, default "default") and the VM
+	// DHCPs — no addresses to manage.
+	KvmNetworkMode  string        `json:"kvm_network_mode,omitempty" db:"kvm_network_mode"`
+	KvmNetworkCidr  string        `json:"kvm_network_cidr,omitempty" db:"kvm_network_cidr"`
+	KvmIPRangeStart string        `json:"kvm_ip_range_start,omitempty" db:"kvm_ip_range_start"`
+	KvmIPRangeEnd   string        `json:"kvm_ip_range_end,omitempty" db:"kvm_ip_range_end"`
+	KvmGateway      string        `json:"kvm_gateway,omitempty" db:"kvm_gateway"`
+	KvmBridge       string        `json:"kvm_bridge,omitempty" db:"kvm_bridge"`
+	CreatedUserId   string        `json:"created_user_id" db:"created_user_id"`
+	CreatedAt       time.Time     `json:"created_at" db:"created_at"`
+	UpdatedUserId   string        `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt       hlc.Timestamp `json:"updated_at" db:"updated_at"`
 }
 
 type TemplateScheduleDays struct {
@@ -245,7 +261,13 @@ func (template *Template) GetVolumes(space *Space, user *User, variables map[str
 }
 
 func (template *Template) UpdateHash() {
-	hash := md5.Sum([]byte(template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.WithRunCommand, template.AllowNodeMigration, template.CustomFields)))
+	hashInput := template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.WithRunCommand, template.AllowNodeMigration, template.CustomFields)
+	// KVM network fields only feed the hash for KVM templates, so existing
+	// templates' hashes are unchanged by the fields existing at all.
+	if template.Platform == PlatformKvm {
+		hashInput += template.KvmNetworkMode + template.KvmNetworkCidr + template.KvmIPRangeStart + template.KvmIPRangeEnd + template.KvmGateway + template.KvmBridge
+	}
+	hash := md5.Sum([]byte(hashInput))
 	template.Hash = hex.EncodeToString(hash[:])
 }
 
@@ -308,6 +330,30 @@ func (template *Template) IsManual() bool {
 
 func (template *Template) IsLocalContainer() bool {
 	return template.Platform == PlatformDocker || template.Platform == PlatformPodman || template.Platform == PlatformApple || template.Platform == PlatformContainer
+}
+
+func (template *Template) IsKvm() bool {
+	return template.Platform == PlatformKvm
+}
+
+// IsKvmNat reports whether KVM spaces of this template attach to a libvirt
+// NAT network and DHCP instead of carrying a static IP.
+func (template *Template) IsKvmNat() bool {
+	return template.Platform == PlatformKvm && template.KvmNetworkMode == KvmNetworkModeNat
+}
+
+// IsKvmBridged reports whether KVM spaces of this template carry a static
+// IP from the template's network range.
+func (template *Template) IsKvmBridged() bool {
+	return template.Platform == PlatformKvm && template.KvmNetworkMode != KvmNetworkModeNat
+}
+
+// IsNodeRuntime reports whether spaces of this template run directly on a
+// cluster node (local container runtimes and KVM virtual machines) rather than
+// through an external scheduler. Node-runtime spaces are pinned to a node at
+// create time and their requests are forwarded to the owning node.
+func (template *Template) IsNodeRuntime() bool {
+	return template.IsLocalContainer() || template.IsKvm()
 }
 
 // IsValidForZone determines whether the template is valid for deployment in the specified zone.

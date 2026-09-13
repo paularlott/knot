@@ -117,6 +117,10 @@ func buildSiblingEntry(
 			"stack":        sib.Stack,
 			"stack_prefix": sib.StackPrefix,
 			"first_boot":   sib.TemplateHash == "",
+			// Bridged KVM spaces only: the VM's static IP, so mixed stacks
+			// can wire a container to a sibling VM service. Empty for
+			// containers and NAT spaces.
+			"ip_address": sib.IPAddress,
 		},
 		// Global groups shared across all spaces.
 		"server": serverGroup,

@@ -132,6 +132,7 @@ type Space struct {
 	TemplateHash     string             `json:"template_hash" db:"template_hash" msgpack:"template_hash"`
 	NomadNamespace   string             `json:"nomad_namespace" db:"nomad_namespace" msgpack:"nomad_namespace"`
 	ContainerId      string             `json:"container_id" db:"container_id" msgpack:"container_id"`
+	IPAddress        string             `json:"ip_address,omitempty" db:"ip_address" msgpack:"ip_address,omitempty"` // KVM spaces: the VM's static IP, chosen at create time
 	IconURL          string             `json:"icon_url" db:"icon_url" msgpack:"icon_url"`
 	VolumeData       VolumeDataMap      `json:"volume_data" db:"volume_data" msgpack:"volume_data"`
 	SSHHostSigner    string             `json:"ssh_host_signer" db:"ssh_host_signer" msgpack:"ssh_host_signer"`

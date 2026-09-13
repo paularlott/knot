@@ -54,6 +54,7 @@ def _parse_space(space):
         "http_ports": space.get("http_ports", {}),
         "node_id": space.get("node_id", ""),
         "node_hostname": space.get("node_hostname", ""),
+        "ip_address": space.get("ip_address", ""),
         "created_at": space.get("created_at", ""),
         "started_at": space.get("started_at", ""),
         "alt_names": space.get("alt_names", []),
@@ -112,6 +113,10 @@ def _build_space_update_body(space, **overrides):
         "startup_script_id": space.get("startup_script_id", ""),
         "depends_on": space.get("depends_on", []),
         "stack": space.get("stack", ""),
+        # Always sent: blank means "unchanged" on the server, which both
+        # preserves the stored IP for partial updates and is the only way
+        # to leave it alone for non-KVM spaces.
+        "ip_address": space.get("ip_address", ""),
     }
     body.update(overrides)
     return body
@@ -144,7 +149,8 @@ def get(name):
 
 def create(name, template_name, description="", shell="bash", depends_on=None,
            stack="", selected_node_id="", alt_names=None, icon_url="",
-           custom_fields=None, startup_script_id="", start_on_create=False):
+           custom_fields=None, startup_script_id="", ip_address="",
+           start_on_create=False):
     """Create a new space and return its ID.
 
     Args:
@@ -156,6 +162,10 @@ def create(name, template_name, description="", shell="bash", depends_on=None,
             must be one of the field's options — knot.template.get(name,
             resolve_options=True) lists each field's definition and valid
             values; a rejected value raises an error naming what to fix.
+        ip_address: Static IP for bridged KVM templates, chosen from the
+            template's network range (validated against the range and the
+            addresses already in use). Not used by other platforms; NAT KVM
+            templates never take an IP.
         start_on_create: Start the space immediately after creation
     """
     body = {
@@ -170,6 +180,7 @@ def create(name, template_name, description="", shell="bash", depends_on=None,
         "startup_script_id": startup_script_id,
         "depends_on": _resolve_dependency_ids(depends_on),
         "stack": stack,
+        "ip_address": ip_address,
     }
 
     response = api.post("/api/spaces", body)
@@ -181,8 +192,13 @@ def create(name, template_name, description="", shell="bash", depends_on=None,
 
 def update(name, new_name=None, description=None, shell=None, template_name=None,
            depends_on=None, stack=None, selected_node_id=None, alt_names=None,
-           icon_url=None, custom_fields=None, startup_script_id=None):
-    """Update space properties while preserving fields not explicitly changed."""
+           icon_url=None, custom_fields=None, startup_script_id=None,
+           ip_address=None):
+    """Update space properties while preserving fields not explicitly changed.
+
+    ip_address applies to bridged KVM spaces and requires the space to be
+    stopped — the new address is applied to the VM at its next boot.
+    """
     space = get(name)
     overrides = {}
 
@@ -208,6 +224,8 @@ def update(name, new_name=None, description=None, shell=None, template_name=None
         overrides["custom_fields"] = custom_fields
     if startup_script_id is not None:
         overrides["startup_script_id"] = startup_script_id
+    if ip_address is not None:
+        overrides["ip_address"] = ip_address
 
     body = _build_space_update_body(space, **overrides)
     api.put(f"/api/spaces/{_enc(space.get('id'))}", body)
@@ -405,6 +423,39 @@ def get_description(name):
     """
     space = get(name)
     return space.get("description", "")
+
+
+def get_ip_address(name):
+    """Get a bridged KVM space's static IP address (empty for other platforms).
+
+    Args:
+        name: Space name or ID
+
+    Returns:
+        The VM's static IP address string ("" if none)
+    """
+    space = get(name)
+    return space.get("ip_address", "")
+
+
+def set_ip_address(name, ip_address):
+    """Set or change a bridged KVM space's static IP address.
+
+    The space must be stopped — the new address is validated against the
+    template's network range and the addresses already in use, and applied
+    to the VM by cloud-init at its next boot.
+
+    Args:
+        name: Space name or ID
+        ip_address: New static IP address
+
+    Returns:
+        True if successful
+    """
+    space = get(name)
+    body = _build_space_update_body(space, ip_address=ip_address)
+    api.put(f"/api/spaces/{_enc(space.get('id'))}", body)
+    return True
 
 
 def get_dependencies(name):

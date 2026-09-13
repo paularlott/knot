@@ -48,7 +48,11 @@ func HandleCreatePool(w http.ResponseWriter, r *http.Request) {
 	pool := model.NewPoolDefinition(request.Name, request.TemplateId, request.StartupScriptId, request.DesiredCount, user.Id)
 	pool.Active = request.Active
 	if err := service.GetPoolService().Create(pool, user); err != nil {
-		if pool.Id != "" && !pool.IsDeleted {
+		// Creation can partially succeed (definition saved, a member failed).
+		// Distinguish that from plain rejection — e.g. a bridged KVM
+		// template — by checking the definition actually persisted; the
+		// model assigns an ID up front, so pool.Id alone proves nothing.
+		if saved, resolveErr := service.GetPoolService().Resolve(pool.Id); resolveErr == nil && saved != nil && !saved.IsDeleted {
 			rest.WriteResponse(http.StatusCreated, w, r, apiclient.PoolCreateResponse{Status: true, Id: pool.Id, Message: err.Error()})
 		} else {
 			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})

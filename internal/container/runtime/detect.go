@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -100,6 +101,58 @@ func DetectAllAvailableRuntimes(preferences []string) []string {
 	out := make([]string, len(runtimes))
 	copy(out, runtimes)
 	return out
+}
+
+// DetectAllAvailableRuntimesWithKVM returns DetectAllAvailableRuntimes plus
+// "kvm" when the node can run KVM virtual machines. This is the list nodes
+// gossip as their runtimes metadata and that placement decisions filter on;
+// the plain container variant deliberately excludes KVM so container
+// auto-detection never picks it.
+func DetectAllAvailableRuntimesWithKVM(preferences []string) []string {
+	runtimes := DetectAllAvailableRuntimes(preferences)
+	if DetectKVMAvailable() {
+		runtimes = append(runtimes, model.PlatformKvm)
+	}
+	return runtimes
+}
+
+// DetectKVMAvailable reports whether this node can run KVM virtual machines:
+// /dev/kvm present, virsh and virt-install installed, and the local libvirt
+// daemon reachable. Result is cached like the container detections.
+func DetectKVMAvailable() bool {
+	detectMu.Lock()
+	defer detectMu.Unlock()
+
+	if entry, ok := detectCache[model.PlatformKvm]; ok && time.Now().Before(entry.expires) {
+		return entry.value == model.PlatformKvm
+	}
+
+	available := isKvmAvailable()
+	if available {
+		detectCache[model.PlatformKvm] = detectCacheEntry{value: model.PlatformKvm, expires: time.Now().Add(detectCacheTTL)}
+	} else {
+		detectCache[model.PlatformKvm] = detectCacheEntry{value: "", expires: time.Now().Add(detectCacheTTL)}
+	}
+	return available
+}
+
+func isKvmAvailable() bool {
+	if _, err := os.Stat("/dev/kvm"); err != nil {
+		return false
+	}
+	if _, err := exec.LookPath("virsh"); err != nil {
+		return false
+	}
+	if _, err := exec.LookPath("virt-install"); err != nil {
+		return false
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Reach the daemon, not just the binary — an unreachable libvirtd means
+	// no VMs can actually be created here.
+	return exec.CommandContext(ctx, "virsh", "--connect", "qemu:///system", "list").Run() == nil
 }
 
 // isRuntimeAvailable checks if a specific runtime is available and running

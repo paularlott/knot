@@ -666,6 +666,7 @@ window.spacesListComponent = function (
       this.poolNameValid = true;
     },
     async openCreatePool() {
+      this.templateSelector.intent = "pool";
       this.resetPoolForm();
       await this.getTemplatesForSelector();
       this.poolFormModal.templateId =
@@ -677,6 +678,7 @@ window.spacesListComponent = function (
       });
     },
     async openEditPool(pool) {
+      this.templateSelector.intent = "pool";
       await this.getTemplatesForSelector();
       await this.loadScriptList();
 
@@ -2063,6 +2065,17 @@ window.spacesListComponent = function (
       this.templateSelector.templates.forEach((template) => {
         // Only show active templates
         let showRow = template.active;
+
+        // Pools can't back bridged KVM templates — their spaces need an IP
+        // address chosen at creation, which nothing picks for a pool member.
+        // NAT KVM templates are fine (no addresses to assign).
+        if (
+          this.templateSelector.intent === "pool" &&
+          template.platform === "kvm" &&
+          (template.kvm_network_mode || "") !== "nat"
+        ) {
+          showRow = false;
+        }
 
         const zones = template.zones || [];
         if (zones.length > 0) {

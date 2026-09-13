@@ -63,6 +63,7 @@ type ServerConfig struct {
 	Docker                    DockerConfig
 	Podman                    PodmanConfig
 	Nomad                     NomadConfig
+	KVM                       KVMConfig
 	TLS                       TLSConfig
 	MCP                       MCPConfig
 	Chat                      ChatConfig
@@ -205,6 +206,26 @@ type NomadConfig struct {
 	Token  string
 	DC     string // Nomad datacenter, exposed as ${{ .nomad.dc }}. Defaults to NOMAD_DC.
 	Region string // Nomad region, exposed as ${{ .nomad.region }}. Defaults to NOMAD_REGION.
+}
+
+type KVMConfig struct {
+	// ImagesPath is the directory KVM base images are downloaded into and
+	// per-space disk overlays + cloud-init seeds live under. It must be
+	// writable by knot and readable by the qemu user libvirt runs VMs as —
+	// the libvirt images dir (/var/lib/libvirt/images) is the conventional
+	// choice when knot runs as root.
+	ImagesPath string
+	// CloudImagePath is a read-only library of cloud images admins keep on
+	// the node. A bare image name in a KVM spec (e.g. "ubuntu-24.04")
+	// resolves to <CloudImagePath>/<name> (with ".qcow2" appended when the
+	// name has no extension). Defaults to
+	// /var/lib/libvirt/images/knot/cloud-images; note it does not follow a
+	// custom ImagesPath unless set explicitly.
+	CloudImagePath string
+	// Resolvers are the DNS servers handed to bridged VMs via cloud-init.
+	// Defaults to Cloudflare's pair; the gateway is no longer injected
+	// implicitly — admins who want the router to answer DNS list it here.
+	Resolvers []string
 }
 
 type MCPRemoteServerConfig struct {

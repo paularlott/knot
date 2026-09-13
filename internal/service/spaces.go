@@ -130,6 +130,20 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 	space.Zone = cfg.Zone
 	space.NormalizeDependsOn()
 
+	// KVM spaces may be created without an IP (stacks and pools in
+	// particular) — bridged ones simply cannot start until one is set,
+	// NAT ones never use IPs. A provided IP is validated against the
+	// template's network and the addresses already handed out.
+	if template.IsKvmBridged() {
+		if space.IPAddress != "" {
+			if err := ValidateKvmSpaceAddress(template, space.IPAddress, ""); err != nil {
+				return err
+			}
+		}
+	} else {
+		space.IPAddress = ""
+	}
+
 	// Copy the template's job definitions so the space owns an editable
 	// copy; later template changes do not propagate to existing spaces.
 	if len(template.Jobs) > 0 {

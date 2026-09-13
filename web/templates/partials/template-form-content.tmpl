@@ -127,7 +127,30 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- KVM radio -->
+                <label class="relative">
+                  <input
+                    type="radio"
+                    name="platform"
+                    value="kvm"
+                    x-model="formData.platform"
+                    class="sr-only peer"
+                    {{ if .isEdit }}@change="showPlatformWarning = true"{{ end }}
+                  >
+                  <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                    peer-checked:bg-blue-600 peer-checked:text-white
+                    peer-focus:ring-2 peer-focus:ring-blue-300
+                    transition-colors duration-200 ease-in-out
+                    text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                    hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                    KVM
+                  </div>
+                </label>
               </div>
+              <p x-show="formData.platform === 'kvm'" x-cloak class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Spaces run as full virtual machines on a KVM-capable node, booted from a cloud-init image. Networking is part of the specification's network block — bridged with static IPs, or NAT.
+              </p>
             </div>
             <div x-show="formData.platform != 'manual'" x-cloak>
               <label class="flex items-center cursor-pointer mb-2">
@@ -152,8 +175,9 @@
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <label class="form-label mb-0">
-                  <span x-show="!isLocalContainer()">Nomad Job (HCL)</span>
+                  <span x-show="!isSpecYaml()">Nomad Job (HCL)</span>
                   <span x-show="isLocalContainer()">Container Specification (YAML)</span>
+                  <span x-show="isKvm()">Virtual Machine Specification (YAML)</span>
                 </label>
                 <!-- Wizard button (opens modal) -->
                 <button type="button"
@@ -183,7 +207,7 @@
                 </template>
               </div>
             </div>
-            <div>
+            <div x-show="!isKvm()">
               <label class="form-label">Volume Definition (YAML)</label>
               <div class="mid-editor">
                 <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">

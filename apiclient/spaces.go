@@ -24,6 +24,10 @@ type SpaceRequest struct {
 	DependsOn       []string             `json:"depends_on"`
 	Stack           string               `json:"stack"`
 	StackPrefix     string               `json:"stack_prefix"`
+	// IPAddress is the KVM space's static IP, chosen from the template's
+	// network range at create time. Ignored for other platforms; immutable
+	// once the space exists.
+	IPAddress string `json:"ip_address,omitempty"`
 }
 
 type CreateSpaceResponse struct {
@@ -78,6 +82,7 @@ type SpaceInfo struct {
 	Healthy                 bool                 `json:"healthy"`
 	HealthKnown             bool                 `json:"health_known"`
 	NodeHostname            string               `json:"node_hostname"`
+	IPAddress               string               `json:"ip_address,omitempty"`
 	Stack                   string               `json:"stack"`
 	StackPrefix             string               `json:"stack_prefix"`
 	ResourceUsage           *SpaceResourceUsage  `json:"resource_usage,omitempty"`
@@ -159,6 +164,7 @@ type SpaceDefinition struct {
 	IsRemote           bool                         `json:"is_remote"`
 	NodeId             string                       `json:"node_id"`
 	NodeHostname       string                       `json:"node_hostname"`
+	IPAddress          string                       `json:"ip_address,omitempty"` // KVM spaces: the VM's static IP
 	Stack              string                       `json:"stack"`
 	StackPrefix        string                       `json:"stack_prefix"`
 	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`

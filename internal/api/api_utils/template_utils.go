@@ -100,6 +100,12 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		DisableUserActivity:      template.DisableUserActivity,
 		Ports:                    template.Ports,
 		Jobs:                     template.Jobs,
+		KvmNetworkMode:           template.KvmNetworkMode,
+		KvmNetworkCidr:           template.KvmNetworkCidr,
+		KvmIPRangeStart:          template.KvmIPRangeStart,
+		KvmIPRangeEnd:            template.KvmIPRangeEnd,
+		KvmGateway:               template.KvmGateway,
+		KvmBridge:                template.KvmBridge,
 	}
 
 	// Handle schedule

@@ -8,11 +8,11 @@ import (
 )
 
 type CustomFieldDef struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Type        string `json:"type,omitempty"`
-	Handler     string `json:"handler,omitempty"`
-	Language    string `json:"language,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Type        string   `json:"type,omitempty"`
+	Handler     string   `json:"handler,omitempty"`
+	Language    string   `json:"language,omitempty"`
 	Default     string   `json:"default,omitempty"`
 	Required    bool     `json:"required,omitempty"`
 	Options     []string `json:"options,omitempty"`
@@ -122,6 +122,12 @@ type TemplateInfo struct {
 	Ports              []model.TemplatePort `json:"ports"`
 	Jobs               []model.SpaceJob     `json:"jobs"`
 	CustomFields       []CustomFieldDef     `json:"custom_fields"`
+	KvmNetworkMode     string               `json:"kvm_network_mode,omitempty"`
+	KvmNetworkCidr     string               `json:"kvm_network_cidr,omitempty"`
+	KvmIPRangeStart    string               `json:"kvm_ip_range_start,omitempty"`
+	KvmIPRangeEnd      string               `json:"kvm_ip_range_end,omitempty"`
+	KvmGateway         string               `json:"kvm_gateway,omitempty"`
+	KvmBridge          string               `json:"kvm_bridge,omitempty"`
 }
 
 type TemplateList struct {
@@ -176,6 +182,12 @@ type TemplateDetails struct {
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
 	Ports                    []model.TemplatePort `json:"ports"`
 	Jobs                     []model.SpaceJob     `json:"jobs"`
+	KvmNetworkMode           string               `json:"kvm_network_mode,omitempty"`
+	KvmNetworkCidr           string               `json:"kvm_network_cidr,omitempty"`
+	KvmIPRangeStart          string               `json:"kvm_ip_range_start,omitempty"`
+	KvmIPRangeEnd            string               `json:"kvm_ip_range_end,omitempty"`
+	KvmGateway               string               `json:"kvm_gateway,omitempty"`
+	KvmBridge                string               `json:"kvm_bridge,omitempty"`
 }
 
 func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {
