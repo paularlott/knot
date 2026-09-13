@@ -115,6 +115,115 @@ export const containerSpecCompletions = [
   },
 ];
 
+export const kvmSpecCompletions = [
+  {
+    caption: "image",
+    value: "image: ubuntu-24.04",
+    meta: "kvm",
+    score: 1000,
+    docHTML: docs("image", "Cloud-init capable qcow2 image: a bare name resolved in the node's cloud images directory (.qcow2 appended), a URL (downloaded and cached), or an absolute path."),
+  },
+  {
+    caption: "network",
+    value:
+      "network:\n  mode: bridged\n  bridge: br0\n  cidr: 192.0.2.0/24",
+    meta: "kvm",
+    score: 990,
+    docHTML: docs("network", "VM networking — required. Bridged attaches to a host bridge with static IPs from the range; NAT attaches to a libvirt network and the VM DHCPs (no addressing fields)."),
+  },
+  {
+    caption: "network: nat",
+    value: 'network:\n  mode: nat\n  bridge: "default"',
+    meta: "kvm",
+    score: 989,
+    docHTML: docs("network: nat", "NAT mode: the VM attaches to a libvirt network (default 'default') and gets its address by DHCP. cidr, ip_range_*, and gateway must not be set."),
+  },
+  {
+    caption: "cidr",
+    value: "cidr: 192.0.2.0/24",
+    meta: "kvm",
+    score: 980,
+    docHTML: docs("cidr", "Bridged only. The IPv4 network the VMs live on; supplies the address prefix and anchors the gateway/broadcast defaults."),
+  },
+  {
+    caption: "ip_range_start",
+    value: "ip_range_start: 192.0.2.10",
+    meta: "kvm",
+    score: 979,
+    docHTML: docs("ip_range_start", "Bridged only, optional. With ip_range_end: the slice of the subnet spaces pick their IP from. Omit both to use the network's whole usable address space (gateway never handed out). Both or neither."),
+  },
+  {
+    caption: "ip_range_end",
+    value: "ip_range_end: 192.0.2.100",
+    meta: "kvm",
+    score: 978,
+    docHTML: docs("ip_range_end", "Bridged only, optional. See ip_range_start — both or neither."),
+  },
+  {
+    caption: "gateway",
+    value: "gateway: 192.0.2.1",
+    meta: "kvm",
+    score: 977,
+    docHTML: docs("gateway", "Bridged only, optional. Defaults to the network's first usable address."),
+  },
+  {
+    caption: "bridge",
+    value: "bridge: br0",
+    meta: "kvm",
+    score: 976,
+    docHTML: docs("bridge", "Bridged: host Linux bridge (default br0) with the physical NIC enslaved. NAT: libvirt network name (default 'default')."),
+  },
+  {
+    caption: "devices",
+    value: 'devices:\n  - pci_0000_01_00_0',
+    meta: "kvm",
+    score: 970,
+    docHTML: docs("devices", "Host device passthrough: PCI address (pci_0000_01_00_0), USB pair (usb_002_003) or vendor:product (0x8086:0x1234). PCI needs IOMMU + vfio on the node."),
+  },
+  {
+    caption: "memory",
+    value: "memory: 2G",
+    meta: "kvm",
+    score: 960,
+    docHTML: docs("memory", "VM memory, e.g. 2G. Defaults to 512M."),
+  },
+  {
+    caption: "cpus",
+    value: "cpus: 2",
+    meta: "kvm",
+    score: 950,
+    docHTML: docs("cpus", "vCPU count. Defaults to 1."),
+  },
+  {
+    caption: "disk",
+    value: "disk: 20G",
+    meta: "kvm",
+    score: 940,
+    docHTML: docs("disk", "Caps the VM disk's virtual size. Empty keeps the base image's size; the disk persists across stop/start."),
+  },
+  {
+    caption: "name",
+    value: "name: ${{ .user.username }}-${{ .space.name }}",
+    meta: "kvm",
+    score: 930,
+    docHTML: docs("name", "libvirt domain name. Defaults to <username>-<spacename>."),
+  },
+  {
+    caption: "hostname",
+    value: "hostname: ${{ .space.name }}",
+    meta: "kvm",
+    score: 920,
+    docHTML: docs("hostname", "VM hostname. Defaults to the space name."),
+  },
+  {
+    caption: "environment",
+    value: 'environment:\n  - "KEY=value"',
+    meta: "kvm",
+    score: 910,
+    docHTML: docs("environment", "Written into the agent's environment file inside the VM; values are single-quoted automatically."),
+  },
+];
+
 export const localVolumeSpecCompletions = [
   {
     caption: "volumes",

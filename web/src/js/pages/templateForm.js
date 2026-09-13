@@ -16,6 +16,7 @@ import "./aceEditorCompleter.js";
 import { setSpecCompleter } from "./aceSpecCompleter.js";
 import {
   containerSpecCompletions,
+  kvmSpecCompletions,
   localVolumeSpecCompletions,
   nomadJobCompletions,
   nomadVolumeSpecCompletions,
