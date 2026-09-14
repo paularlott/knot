@@ -390,6 +390,15 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		userData.LastLoginAt = &t
 	}
 
+	// Scoped API tokens learn only their owner's identity, not their owner's
+	// credentials: a tunnels-only key needs the username to build tunnel
+	// URLs, not the SSH keys or service password.
+	if token, _ := r.Context().Value("access_token").(*model.Token); token != nil && len(token.Scopes) > 0 {
+		userData.ServicePassword = ""
+		userData.SSHPublicKey = ""
+		userData.SSHPrivateKey = ""
+	}
+
 	rest.WriteResponse(http.StatusOK, w, r, &userData)
 }
 

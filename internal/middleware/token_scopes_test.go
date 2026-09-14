@@ -23,6 +23,17 @@ func TestTokenScopeAllows(t *testing.T) {
 		{"tunnels denies methods", []string{model.ScopeTunnels}, "/api/methods/call", false},
 		{"tunnels denies mcp", []string{model.ScopeTunnels}, "/mcp", false},
 		{"tunnels denies near-miss tunnel path", []string{model.ScopeTunnels}, "/api/tunnels-extra", false},
+		{"tunnels denies users list", []string{model.ScopeTunnels}, "/api/users", false},
+
+		// Every scoped token can read its own identity: the tunnel client
+		// needs the username to build tunnel URLs.
+		{"tunnels allows whoami", []string{model.ScopeTunnels}, "/api/users/whoami", true},
+		{"methods allows whoami", []string{model.ScopeMethods}, "/api/users/whoami", true},
+		{"mcp allows whoami", []string{model.ScopeMCP}, "/api/users/whoami", true},
+		// ...but the exact match must not open the credential writes or
+		// reads beneath the whoami path.
+		{"tunnels denies whoami ssh write", []string{model.ScopeTunnels}, "/api/users/whoami/ssh-public-key", false},
+		{"tunnels denies whoami ssh private write", []string{model.ScopeTunnels}, "/api/users/whoami/ssh-private-key", false},
 
 		// The pre-existing scopes keep their shape.
 		{"methods allows", []string{model.ScopeMethods}, "/api/methods/list", true},

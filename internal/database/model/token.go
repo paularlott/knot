@@ -22,7 +22,9 @@ const (
 	// ScopeTunnels allows a token to reach the tunnel endpoints only:
 	// the web/port tunnel websockets (/tunnel/*) and the user's tunnel
 	// management API (/api/tunnels*). A tunnels-only key can create,
-	// list and delete tunnels and nothing else.
+	// list and delete tunnels and nothing else, apart from reading its
+	// own identity at /api/users/whoami (credential fields withheld),
+	// which every scoped token may do.
 	ScopeTunnels = "tunnels"
 )
 

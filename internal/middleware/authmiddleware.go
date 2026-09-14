@@ -488,7 +488,20 @@ var tokenScopeAllowedPaths = map[string][]string{
 	model.ScopeTunnels: {"/tunnel/", "/api/tunnels"},
 }
 
+// tokenScopeBaselinePaths are the endpoints every scoped token can reach
+// regardless of its scopes: the token's own identity, which scoped clients
+// need to operate (e.g. the tunnel client reads the username to build its
+// tunnel URLs). Exact matches only — "/api/users/whoami" must not open the
+// whoami/ssh-*-key write endpoints beneath it. Handlers are expected to
+// withhold credential fields from scoped-token callers (see HandleWhoAmI).
+var tokenScopeBaselinePaths = []string{"/api/users/whoami"}
+
 func tokenScopeAllows(scopes []string, path string) bool {
+	for _, allowed := range tokenScopeBaselinePaths {
+		if path == allowed {
+			return true
+		}
+	}
 	for _, scope := range scopes {
 		for _, prefix := range tokenScopeAllowedPaths[scope] {
 			if path == prefix {
