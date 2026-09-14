@@ -525,3 +525,9 @@
   </div>
 </main>
 {{ end }}
+
+<script>
+  // Platform allowlist from the server's enabled-backends config; the
+  // template editor offers only these. Empty array = everything offered.
+  window.knotEnabledBackends = {{ .enabledBackendsJSON }};
+</script>

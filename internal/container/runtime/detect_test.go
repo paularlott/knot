@@ -17,7 +17,7 @@ func TestDetectLocalContainerRuntime(t *testing.T) {
 		{model.PlatformPodman, model.PlatformDocker},
 		{model.PlatformApple},
 	} {
-		config.SetServerConfig(&config.ServerConfig{LocalContainerRuntimePref: prefs})
+		config.SetServerConfig(&config.ServerConfig{EnabledBackends: prefs})
 		refreshSnapshot()
 
 		result := DetectLocalContainerRuntime()

@@ -42,28 +42,32 @@ type ServerConfig struct {
 	// Failed-login rate limiting: block auth after AuthRateLimitAttempts
 	// failures within AuthRateLimitWindow seconds, for AuthRateLimitBlock
 	// seconds.
-	AuthRateLimitAttempts     int
-	AuthRateLimitWindow       int // seconds
-	AuthRateLimitBlock        int // seconds
-	DNSEnabled                bool
-	DNSListen                 string
-	Nameservers               []string
-	LocalContainerRuntimePref []string
-	MCPToolTimeout            int
-	ScriptFSAllowedPaths      []string
-	Origin                    OriginConfig
-	TOTP                      TOTPConfig
-	UI                        UIConfig
-	Cluster                   ClusterConfig
-	MySQL                     MySQLConfig
-	BadgerDB                  BadgerDBConfig
-	Redis                     RedisConfig
-	Audit                     AuditConfig
-	LogOutput                 LogOutputConfig
-	Docker                    DockerConfig
-	Podman                    PodmanConfig
-	Nomad                     NomadConfig
-	KVM                       KVMConfig
+	AuthRateLimitAttempts int
+	AuthRateLimitWindow   int // seconds
+	AuthRateLimitBlock    int // seconds
+	DNSEnabled            bool
+	DNSListen             string
+	Nameservers           []string
+	MCPToolTimeout        int
+	ScriptFSAllowedPaths  []string
+	Origin                OriginConfig
+	TOTP                  TOTPConfig
+	UI                    UIConfig
+	Cluster               ClusterConfig
+	MySQL                 MySQLConfig
+	BadgerDB              BadgerDBConfig
+	Redis                 RedisConfig
+	Audit                 AuditConfig
+	LogOutput             LogOutputConfig
+	Docker                DockerConfig
+	Podman                PodmanConfig
+	Nomad                 NomadConfig
+	KVM                   KVMConfig
+	// EnabledBackends is the admin's platform allowlist: which backends the
+	// template editor offers and template creation accepts (docker, podman,
+	// apple, nomad, kvm). Empty means all. Independent of runtime
+	// detection — a listed backend still needs a node that can run it.
+	EnabledBackends           []string
 	TLS                       TLSConfig
 	MCP                       MCPConfig
 	Chat                      ChatConfig

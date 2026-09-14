@@ -106,3 +106,40 @@ func TestValidateSpaceIP(t *testing.T) {
 		}
 	}
 }
+
+// The allowlist gates what's offered; empty = all, "container" is offered
+// when any container runtime is, manual always.
+func TestBackendEnabled(t *testing.T) {
+	all := []string{}
+	if !BackendEnabled(PlatformDocker, all) || !BackendEnabled(PlatformKvm, all) || !BackendEnabled(PlatformNomad, all) {
+		t.Error("empty allowlist must offer everything")
+	}
+
+	dockerOnly := []string{PlatformDocker}
+	if !BackendEnabled(PlatformDocker, dockerOnly) {
+		t.Error("docker must be offered")
+	}
+	if BackendEnabled(PlatformPodman, dockerOnly) || BackendEnabled(PlatformNomad, dockerOnly) || BackendEnabled(PlatformKvm, dockerOnly) {
+		t.Error("unlisted platforms must not be offered")
+	}
+	if !BackendEnabled(PlatformContainer, dockerOnly) {
+		t.Error("container (auto) must be offered when a container runtime is listed")
+	}
+	if BackendEnabled(PlatformManual, dockerOnly) {
+		t.Error("manual must follow the allowlist — excluded when not listed")
+	}
+	if !BackendEnabled(PlatformManual, []string{PlatformDocker, PlatformManual}) {
+		t.Error("manual must be offered when listed")
+	}
+
+	// An effectively empty list (blank entries from an empty env var or
+	// config value) means all — never "nothing offered".
+	if !BackendEnabled(PlatformDocker, []string{""}) || !BackendEnabled(PlatformManual, []string{""}) {
+		t.Error("blank-only allowlist must offer everything")
+	}
+
+	kvmOnly := []string{PlatformKvm}
+	if BackendEnabled(PlatformContainer, kvmOnly) {
+		t.Error("container must not be offered on a KVM-only allowlist")
+	}
+}

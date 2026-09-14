@@ -27,6 +27,32 @@ import { scriptLibraries } from "./scriptCompletions.js";
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
     fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, options: '', handlers: [] },
+    // Server's enabled-backends allowlist ([] = all offered).
+    enabledBackends: (() => {
+      const v = window.knotEnabledBackends;
+      if (Array.isArray(v)) return v;
+      if (typeof v === "string" && v.length > 0) {
+        try { return JSON.parse(v); } catch { return []; }
+      }
+      return [];
+    })(),
+    // The current platform is always offerable so legacy templates on a
+    // since-disabled backend can still be edited (the server rejects
+    // switching TO a disabled platform).
+    platformOfferable(platform) {
+      return (
+        this.enabledBackends.length === 0 ||
+        this.enabledBackends.includes(platform) ||
+        (platform === "container" &&
+          this.enabledBackends.some((b) => ["docker", "podman", "apple"].includes(b))) ||
+        this.formData.platform === platform
+      );
+    },
+    get containerBackendsOffered() {
+      const all = ["docker", "podman", "apple"];
+      if (this.enabledBackends.length === 0) return all;
+      return all.filter((b) => this.enabledBackends.includes(b));
+    },
     iconList: [],
     scriptList: [],
     templateId: templateId,
@@ -41,7 +67,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       ports: [],
       jobs: [],
       jobsTouched: [],
-      platform: "nomad",
+      platform: "",
       with_terminal: false,
       with_vscode_tunnel: false,
       with_code_server: false,
@@ -139,6 +165,22 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     advancedForcedReason: "",
 
     async initData() {
+      // On create, start on an offered platform (the server's allowlist may
+      // exclude the old hardcoded default); edits keep the stored platform
+      // even when it's no longer offered.
+      if (!isEdit && !this.formData.platform) {
+        this.formData.platform =
+          this.platformOfferable("nomad") ? "nomad"
+          // Multiple container backends: start on Local Container (auto)
+          // and let the user pin docker/podman explicitly; a single offered
+          // backend has no auto indirection to offer.
+          : this.containerBackendsOffered.length > 1 ? "container"
+          : this.containerBackendsOffered.length === 1 ? this.containerBackendsOffered[0]
+          : this.platformOfferable("kvm") ? "kvm"
+          : this.platformOfferable("manual") ? "manual"
+          : "";
+      }
+
       focus.Element('input[name="name"]');
 
       const iconsResponse = await fetch("/api/icons", {

@@ -57,9 +57,16 @@ func StartBackgroundRefresh() {
 func refreshSnapshot() {
 	defer func() { recover() }() // a probe panic must never take the server down
 
+	// Detection order comes from the enabled-backends allowlist: container
+	// backends are probed in the order listed (podman before docker makes
+	// podman the auto-detected runtime), with the default order when the
+	// list is empty or names no container backend. nomad/kvm entries are
+	// not detection candidates and are ignored here.
 	prefs := defaultPreferences()
 	if cfg := config.GetServerConfig(); cfg != nil {
-		prefs = normalizePreferences(cfg.LocalContainerRuntimePref)
+		if listed := containerBackendsInOrder(cfg.EnabledBackends); len(listed) > 0 {
+			prefs = listed
+		}
 	}
 
 	s := &snapshot{}
@@ -98,6 +105,19 @@ func normalizePreferences(preferences []string) []string {
 		return defaultPreferences()
 	}
 	return preferences
+}
+
+// containerBackendsInOrder filters an enabled-backends list down to the
+// container runtimes, preserving the listed order.
+func containerBackendsInOrder(enabled []string) []string {
+	var out []string
+	for _, backend := range enabled {
+		switch backend {
+		case model.PlatformDocker, model.PlatformPodman, model.PlatformApple:
+			out = append(out, backend)
+		}
+	}
+	return out
 }
 
 func defaultPreferences() []string {

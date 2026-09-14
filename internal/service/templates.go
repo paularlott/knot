@@ -91,10 +91,23 @@ func (s *TemplateService) GetTemplate(templateId string) (*model.Template, error
 }
 
 // CreateTemplate creates a new template with validation
+// requireEnabledBackend rejects platforms outside the server's
+// enabled-backends allowlist.
+func requireEnabledBackend(platform string) error {
+	if model.BackendEnabled(platform, config.GetServerConfig().EnabledBackends) {
+		return nil
+	}
+	return fmt.Errorf("platform %q is not enabled on this server", platform)
+}
+
 func (s *TemplateService) CreateTemplate(template *model.Template, user *model.User) error {
 	// Validate permissions
 	if !user.HasPermission(model.PermissionManageTemplates) {
 		return fmt.Errorf("no permission to manage templates")
+	}
+
+	if err := requireEnabledBackend(template.Platform); err != nil {
+		return err
 	}
 
 	// Validate input
@@ -152,6 +165,16 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 
 	if existing.IsManaged {
 		return fmt.Errorf("cannot update managed template")
+	}
+
+	// A platform disabled by the enabled-backends allowlist can't be
+	// switched TO, but a template already on one stays editable —
+	// disabling a backend shouldn't lock unrelated edits of legacy
+	// templates.
+	if template.Platform != existing.Platform {
+		if err := requireEnabledBackend(template.Platform); err != nil {
+			return err
+		}
 	}
 
 	// Validate input

@@ -674,13 +674,13 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
 
-		// Local container runtime preference
+		// Enabled backends (platform allowlist for templates)
 		&cli.StringSliceFlag{
-			Name:         "local-container-runtime-pref",
-			Usage:        "Preference order for local container runtimes (docker, podman, apple). First available will be used.",
-			ConfigPath:   []string{"server.local_containers.runtime_pref"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOCAL_CONTAINERS_RUNTIME_PREF"},
-			DefaultValue: []string{"docker", "podman", "apple"},
+			Name:         "enabled-backends",
+			Usage:        "Backends templates may use: manual, docker, podman, apple, nomad, kvm. Empty means all are offered (manual included). Container backends are auto-detected in the listed order.",
+			ConfigPath:   []string{"server.enabled_backends"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENABLED_BACKENDS"},
+			DefaultValue: []string{},
 		},
 
 		// Template spec wizard flags
@@ -1608,6 +1608,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			CloudImagePath: absPath(cmd.GetString("kvm-cloud-image-path")),
 			Resolvers:      cmd.GetStringSlice("kvm-resolvers"),
 		},
+		EnabledBackends: cmd.GetStringSlice("enabled-backends"),
 		TLS: config.TLSConfig{
 			CertFile:   cmd.GetString("cert-file"),
 			KeyFile:    cmd.GetString("key-file"),
@@ -1705,7 +1706,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 
 			return chatCfg
 		}(),
-		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 		BaseImageRegistry:         cmd.GetString("base-image-registry"),
 		BaseImagesManifest:        cmd.GetString("base-images-manifest"),
 		BaseImageRegistryUser:     cmd.GetString("base-image-registry-user"),

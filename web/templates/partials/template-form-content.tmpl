@@ -41,7 +41,7 @@
             <div class="mb-4">
               <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>
               <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
-                <template x-for="platform in ['Manual', 'Nomad']" :key="platform">
+                <template x-for="platform in ['Manual', 'Nomad'].filter(p => platformOfferable(p.toLowerCase()))" :key="platform">
                   <label class="relative">
                     <input
                       type="radio"
@@ -62,8 +62,31 @@
                   </label>
                 </template>
 
-                <!-- Local Container split button -->
-                <div class="relative inline-flex" x-data="{ open: false, isLocalContainer() { return ['docker', 'podman', 'apple', 'container'].includes(formData.platform); } }">
+                <!-- Local Container: a plain radio when the allowlist offers a
+                     single container backend, otherwise the split dropdown
+                     (auto + each offered backend). Hidden when none offered,
+                     except when editing a template already on one. -->
+                <template x-if="containerBackendsOffered.length === 1 && formData.platform !== 'container'">
+                  <label class="relative">
+                    <input
+                      type="radio"
+                      name="platform"
+                      :value="containerBackendsOffered[0]"
+                      x-model="formData.platform"
+                      class="sr-only peer"
+                      {{ if .isEdit }}@change="showPlatformWarning = true"{{ end }}
+                    >
+                    <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                      peer-checked:bg-blue-600 peer-checked:text-white
+                      peer-focus:ring-2 peer-focus:ring-blue-300
+                      transition-colors duration-200 ease-in-out
+                      text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                      hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                      <span x-text="containerBackendsOffered[0] === 'docker' ? 'Docker' : containerBackendsOffered[0] === 'podman' ? 'Podman' : 'Apple'"></span>
+                    </div>
+                  </label>
+                </template>
+                <div class="relative inline-flex" x-show="containerBackendsOffered.length > 1 || formData.platform === 'container'" x-data="{ open: false, isLocalContainer() { return ['docker', 'podman', 'apple', 'container'].includes(formData.platform); } }">
                   <label class="relative group">
                     <input
                       type="radio"
@@ -103,33 +126,21 @@
                       >
                         Local Container
                       </button>
-                      <button
-                        type="button"
-                        @click="formData.platform = 'docker'; open = false; {{ if .isEdit }}showPlatformWarning = true{{ end }}"
-                        class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-                      >
-                        Docker
-                      </button>
-                      <button
-                        type="button"
-                        @click="formData.platform = 'podman'; open = false; {{ if .isEdit }}showPlatformWarning = true{{ end }}"
-                        class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-                      >
-                        Podman
-                      </button>
-                      <button
-                        type="button"
-                        @click="formData.platform = 'apple'; open = false; {{ if .isEdit }}showPlatformWarning = true{{ end }}"
-                        class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-                      >
-                        Apple
-                      </button>
+                      <template x-for="backend in containerBackendsOffered" :key="backend">
+                        <button
+                          type="button"
+                          @click="formData.platform = backend; open = false; {{ if .isEdit }}showPlatformWarning = true{{ end }}"
+                          class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                          x-text="backend === 'docker' ? 'Docker' : backend === 'podman' ? 'Podman' : 'Apple'"
+                        >
+                        </button>
+                      </template>
                     </div>
                   </div>
                 </div>
 
                 <!-- KVM radio -->
-                <label class="relative">
+                <label class="relative" x-show="platformOfferable('kvm')">
                   <input
                     type="radio"
                     name="platform"
@@ -148,9 +159,6 @@
                   </div>
                 </label>
               </div>
-              <p x-show="formData.platform === 'kvm'" x-cloak class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Spaces run as full virtual machines on a KVM-capable node, booted from a cloud-init image. Networking is part of the specification's network block — bridged with static IPs, or NAT.
-              </p>
             </div>
             <div x-show="formData.platform != 'manual'" x-cloak>
               <label class="flex items-center cursor-pointer mb-2">

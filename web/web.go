@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -632,9 +633,20 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 
 	pluginLogoLight, pluginLogoDark := pluginLogoURLs(cfg)
 
+	// JSON-encoded so Go templates can drop it straight into Alpine state.
+	// template.JS is essential: html/template would otherwise JS-escape the
+	// value inside the <script> tag, turning [] into the two-character
+	// string "[]" — truthy, never "empty means all".
+	enabledBackendsJSON, _ := json.Marshal(cfg.EnabledBackends)
+	if cfg.EnabledBackends == nil {
+		enabledBackendsJSON = []byte("[]")
+	}
+	enabledBackendsJS := template.JS(enabledBackendsJSON)
+
 	data := map[string]interface{}{
-		"username": user.Username,
-		"user_id":  user.Id, "user_email": user.Email,
+		"enabledBackendsJSON": enabledBackendsJS,
+		"username":            user.Username,
+		"user_id":             user.Id, "user_email": user.Email,
 		"preferredShell":                      user.PreferredShell,
 		"user_email_md5":                      fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
 		"withDownloads":                       withDownloads,

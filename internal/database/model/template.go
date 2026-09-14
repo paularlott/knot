@@ -332,6 +332,39 @@ func (template *Template) IsLocalContainer() bool {
 	return template.Platform == PlatformDocker || template.Platform == PlatformPodman || template.Platform == PlatformApple || template.Platform == PlatformContainer
 }
 
+// BackendEnabled reports whether a platform is offered by the server's
+// enabled-backends allowlist. An empty list means everything is offered
+// (manual included); a non-empty list must name a platform to offer it,
+// manual included. The "container" platform (auto-detect) is offered when
+// any container runtime is.
+func BackendEnabled(platform string, enabled []string) bool {
+	// Blank entries (an empty env var parses as [""]) are ignored — an
+	// effectively empty list means every backend is offered.
+	listed := make([]string, 0, len(enabled))
+	for _, backend := range enabled {
+		if backend != "" {
+			listed = append(listed, backend)
+		}
+	}
+	if len(listed) == 0 {
+		return true
+	}
+	if platform == PlatformContainer {
+		for _, backend := range listed {
+			if backend == PlatformDocker || backend == PlatformPodman || backend == PlatformApple {
+				return true
+			}
+		}
+		return false
+	}
+	for _, backend := range listed {
+		if backend == platform {
+			return true
+		}
+	}
+	return false
+}
+
 func (template *Template) IsKvm() bool {
 	return template.Platform == PlatformKvm
 }
