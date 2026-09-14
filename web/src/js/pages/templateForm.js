@@ -48,7 +48,23 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         this.formData.platform === platform
       );
     },
-    get containerBackendsOffered() {
+    // The single platform choice offered, or null when there are none or
+    // several. Used to auto-select on create: with exactly one possibility
+    // there's no guess to get wrong.
+    singleOfferablePlatform() {
+      const options = [];
+      if (this.platformOfferable("manual")) options.push("manual");
+      if (this.platformOfferable("nomad")) options.push("nomad");
+      if (this.platformOfferable("kvm")) options.push("kvm");
+      const c = this.containerBackendsOffered();
+      if (c.length === 1) options.push(c[0]);
+      else if (c.length > 1) options.push("container");
+      return options.length === 1 ? options[0] : null;
+    },
+    // A method, not a getter: getters read in x-if/x-show are not always
+    // tracked by Alpine's reactivity, whereas a method that reads reactive
+    // state (platformOfferable works this way) is.
+    containerBackendsOffered() {
       const all = ["docker", "podman", "apple"];
       if (this.enabledBackends.length === 0) return all;
       return all.filter((b) => this.enabledBackends.includes(b));
@@ -165,20 +181,12 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     advancedForcedReason: "",
 
     async initData() {
-      // On create, start on an offered platform (the server's allowlist may
-      // exclude the old hardcoded default); edits keep the stored platform
-      // even when it's no longer offered.
+      // Auto-select when exactly one platform is offered (it can't be a
+      // wrong guess and it populates the orchestration box); otherwise
+      // leave it unselected for the user to pick. Edits keep the stored
+      // platform even when it's no longer offered.
       if (!isEdit && !this.formData.platform) {
-        this.formData.platform =
-          this.platformOfferable("nomad") ? "nomad"
-          // Multiple container backends: start on Local Container (auto)
-          // and let the user pin docker/podman explicitly; a single offered
-          // backend has no auto indirection to offer.
-          : this.containerBackendsOffered.length > 1 ? "container"
-          : this.containerBackendsOffered.length === 1 ? this.containerBackendsOffered[0]
-          : this.platformOfferable("kvm") ? "kvm"
-          : this.platformOfferable("manual") ? "manual"
-          : "";
+        this.formData.platform = this.singleOfferablePlatform() || "";
       }
 
       focus.Element('input[name="name"]');

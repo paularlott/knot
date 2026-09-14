@@ -66,15 +66,15 @@
                      single container backend, otherwise the split dropdown
                      (auto + each offered backend). Hidden when none offered,
                      except when editing a template already on one. -->
-                <template x-if="containerBackendsOffered.length === 1 && formData.platform !== 'container'">
+                <template x-if="containerBackendsOffered().length === 1 && formData.platform !== 'container'">
                   <label class="relative">
                     <input
                       type="radio"
                       name="platform"
-                      :value="containerBackendsOffered[0]"
-                      x-model="formData.platform"
+                      :value="containerBackendsOffered()[0]"
+                      :checked="formData.platform === containerBackendsOffered()[0]"
+                      @change="formData.platform = containerBackendsOffered()[0]; {{ if .isEdit }}showPlatformWarning = true{{ end }}"
                       class="sr-only peer"
-                      {{ if .isEdit }}@change="showPlatformWarning = true"{{ end }}
                     >
                     <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
                       peer-checked:bg-blue-600 peer-checked:text-white
@@ -82,17 +82,17 @@
                       transition-colors duration-200 ease-in-out
                       text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
                       hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
-                      <span x-text="containerBackendsOffered[0] === 'docker' ? 'Docker' : containerBackendsOffered[0] === 'podman' ? 'Podman' : 'Apple'"></span>
+                      <span x-text="containerBackendsOffered()[0] === 'docker' ? 'Docker' : containerBackendsOffered()[0] === 'podman' ? 'Podman' : 'Apple'"></span>
                     </div>
                   </label>
                 </template>
-                <div class="relative inline-flex" x-show="containerBackendsOffered.length > 1 || formData.platform === 'container'" x-data="{ open: false, isLocalContainer() { return ['docker', 'podman', 'apple', 'container'].includes(formData.platform); } }">
+                <div class="relative inline-flex" x-show="splitActive()" x-data="{ open: false, isLocalContainer() { return ['docker', 'podman', 'apple', 'container'].includes(formData.platform); }, splitActive() { return containerBackendsOffered().length > 1 || formData.platform === 'container'; } }">
                   <label class="relative group">
                     <input
                       type="radio"
                       name="platform"
                       :value="isLocalContainer() ? formData.platform : 'container'"
-                      :checked="isLocalContainer()"
+                      :checked="splitActive() && isLocalContainer()"
                       @change="if (!isLocalContainer()) formData.platform = 'container'; {{ if .isEdit }}showPlatformWarning = true{{ end }}"
                       class="sr-only peer"
                     >
@@ -126,7 +126,7 @@
                       >
                         Local Container
                       </button>
-                      <template x-for="backend in containerBackendsOffered" :key="backend">
+                      <template x-for="backend in containerBackendsOffered()" :key="backend">
                         <button
                           type="button"
                           @click="formData.platform = backend; open = false; {{ if .isEdit }}showPlatformWarning = true{{ end }}"
@@ -159,6 +159,7 @@
                   </div>
                 </label>
               </div>
+              <div x-show="!['manual','docker','podman','nomad','apple','container','kvm'].includes(formData.platform)" class="error-message mt-2" x-cloak>Select a platform to continue.</div>
             </div>
             <div x-show="formData.platform != 'manual'" x-cloak>
               <label class="flex items-center cursor-pointer mb-2">
@@ -183,9 +184,10 @@
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <label class="form-label mb-0">
-                  <span x-show="!isSpecYaml()">Nomad Job (HCL)</span>
                   <span x-show="isLocalContainer()">Container Specification (YAML)</span>
                   <span x-show="isKvm()">Virtual Machine Specification (YAML)</span>
+                  <span x-show="formData.platform === 'nomad'">Nomad Job (HCL)</span>
+                  <span x-show="!['docker','podman','apple','container','kvm','nomad'].includes(formData.platform)">Template Specification</span>
                 </label>
                 <!-- Wizard button (opens modal) -->
                 <button type="button"
