@@ -1139,6 +1139,9 @@ window.spacesListComponent = function (
     openTerminal(spaceId) {
       popup.openTerminal(spaceId);
     },
+    openConsole(spaceId) {
+      popup.openConsole(spaceId);
+    },
     openLogWindow(spaceId) {
       popup.openLogWindow(spaceId);
     },

@@ -203,24 +203,13 @@ func (c *KVMClient) CreateSpaceJob(user *model.User, template *model.Template, s
 		needsDefine := false
 
 		if state == "" {
-			// First boot: no domain exists — create the disk overlay and
-			// cloud-init seed, then define and start the VM.
+			// First boot — or a define that failed after the domain was
+			// undefined (a redefine interrupted by a virt-install error).
+			// Either way, a disk that is already present is the space's
+			// machine: recreating the overlay would wipe it.
 			needsDefine = true
-			base, err := c.resolveBaseImage(ctx, spec.Image)
-			if err != nil {
-				c.logger.Error("resolving base image error", "image", spec.Image, "error", err)
-				return
-			}
-
-			if err := os.MkdirAll(spaceDir, 0755); err != nil {
-				c.logger.Error("creating space directory error",
-					"dir", spaceDir,
-					"error", err,
-					"hint", "the KVM images path must be writable by the knot user and traversable by the qemu user — pre-create it with e.g. 'mkdir -p /var/lib/libvirt/images/knot && chown <knot-user> /var/lib/libvirt/images/knot'")
-				return
-			}
-			if err := c.createOverlay(ctx, base, diskPath, spec.Disk); err != nil {
-				c.logger.Error("creating disk overlay error", "domain", domain, "error", err)
+			if err := c.ensureSpaceDisk(ctx, spec.Image, spec.Disk, domain, spaceDir, diskPath); err != nil {
+				c.logger.Error("ensuring space disk error", "domain", domain, "error", err)
 				return
 			}
 		} else if previousHash != "" && previousHash != template.Hash {

@@ -31,8 +31,8 @@ const (
 )
 
 type tunnelServer struct {
-	ctx                context.Context
-	cancel             context.CancelFunc
+	ctx     context.Context
+	cancel  context.CancelFunc
 	client  *TunnelClient
 	address string
 	logger  logger.Logger

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -19,6 +20,11 @@ import (
 // Libvirt URI the backend talks to. KVM spaces always target the local
 // system instance — the owning node is chosen at space create time.
 const libvirtURI = "qemu:///system"
+
+// downloadLocks serialises base image downloads per destination file:
+// without it, two spaces first booting the same image URL write the same
+// .part file concurrently and corrupt the cached base under both VMs.
+var downloadLocks sync.Map
 
 type KVMClient struct {
 	logger logger.Logger
@@ -69,6 +75,16 @@ func (c *KVMClient) domainState(ctx context.Context, name string) (string, error
 	return strings.TrimSpace(strings.SplitN(out, "\n", 2)[0]), nil
 }
 
+// DomainRunning reports whether the named domain exists and is running —
+// the precondition for attaching its serial console.
+func (c *KVMClient) DomainRunning(ctx context.Context, domain string) (bool, error) {
+	state, err := c.domainState(ctx, domain)
+	if err != nil {
+		return false, err
+	}
+	return state == "running", nil
+}
+
 // ---- image management ----
 
 // imagesDir returns the configured base directory for KVM images as an
@@ -89,9 +105,9 @@ func imagesDir() string {
 }
 
 // cloudImagesDir returns the directory bare image names resolve against,
-// as an absolute path (see imagesDir for why). The flag default is the
-// explicit /var/lib/libvirt/images/knot/cloud-images; the images-path
-// derived fallback only applies to empty programmatic config.
+// as an absolute path (see imagesDir for why). Empty config follows the
+// images path (<images path>/cloud-images); --kvm-cloud-image-path pins it
+// elsewhere.
 func cloudImagesDir() string {
 	cfg := config.GetServerConfig()
 	dir := ""
@@ -100,6 +116,25 @@ func cloudImagesDir() string {
 	}
 	if dir == "" {
 		dir = filepath.Join(imagesDir(), "cloud-images")
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		return abs
+	}
+	return dir
+}
+
+// baseImagesDir returns the cache directory for URL-downloaded base images,
+// as an absolute path (see imagesDir for why). Empty config follows the
+// images path (<images path>/base) so relocating the images path moves the
+// cache too; --kvm-base-image-path pins it elsewhere.
+func baseImagesDir() string {
+	cfg := config.GetServerConfig()
+	dir := ""
+	if cfg != nil {
+		dir = cfg.KVM.BaseImagePath
+	}
+	if dir == "" {
+		dir = filepath.Join(imagesDir(), "base")
 	}
 	if abs, err := filepath.Abs(dir); err == nil {
 		return abs
@@ -119,7 +154,7 @@ func (c *KVMClient) resolveBaseImage(ctx context.Context, image string) (string,
 	}
 
 	if strings.HasPrefix(image, "http://") || strings.HasPrefix(image, "https://") {
-		baseDir := filepath.Join(imagesDir(), "base")
+		baseDir := baseImagesDir()
 		if err := os.MkdirAll(baseDir, 0755); err != nil {
 			return "", err
 		}
@@ -134,6 +169,12 @@ func (c *KVMClient) resolveBaseImage(ctx context.Context, image string) (string,
 		}
 
 		dest := filepath.Join(baseDir, name)
+
+		lockAny, _ := downloadLocks.LoadOrStore(dest, &sync.Mutex{})
+		lock := lockAny.(*sync.Mutex)
+		lock.Lock()
+		defer lock.Unlock()
+
 		if info, err := os.Stat(dest); err == nil && info.Size() > 0 {
 			return dest, nil
 		}
@@ -227,6 +268,32 @@ func (c *KVMClient) createOverlay(ctx context.Context, base, overlay, size strin
 	}
 	_, err := c.runCommand(ctx, "qemu-img", args...)
 	return err
+}
+
+// ensureSpaceDisk makes sure the space's disk exists, creating the overlay on
+// first boot. A disk that is already present is kept as-is: it is the space's
+// machine — typically left behind by a define that failed after the domain
+// was undefined (an interrupted redefine), and recreating the overlay would
+// destroy the data on it. The space directory is created with a hint for the
+// common permission problem on the images path.
+func (c *KVMClient) ensureSpaceDisk(ctx context.Context, image, diskSize, domain, spaceDir, diskPath string) error {
+	if _, err := os.Stat(diskPath); err == nil {
+		c.logger.Info("domain missing but disk exists, defining over existing disk", "domain", domain)
+		return nil
+	}
+
+	base, err := c.resolveBaseImage(ctx, image)
+	if err != nil {
+		return fmt.Errorf("resolving base image: %w", err)
+	}
+
+	if err := os.MkdirAll(spaceDir, 0755); err != nil {
+		return fmt.Errorf("creating space directory %s: %w — the KVM images path must be writable by the knot user and traversable by the qemu user; pre-create it with e.g. 'mkdir -p /var/lib/libvirt/images/knot && chown <knot-user> /var/lib/libvirt/images/knot'", spaceDir, err)
+	}
+	if err := c.createOverlay(ctx, base, diskPath, diskSize); err != nil {
+		return fmt.Errorf("creating disk overlay: %w", err)
+	}
+	return nil
 }
 
 // bridgeExists reports whether name is an existing Linux bridge on the host.

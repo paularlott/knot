@@ -222,10 +222,16 @@ type KVMConfig struct {
 	// CloudImagePath is a read-only library of cloud images admins keep on
 	// the node. A bare image name in a KVM spec (e.g. "ubuntu-24.04")
 	// resolves to <CloudImagePath>/<name> (with ".qcow2" appended when the
-	// name has no extension). Defaults to
-	// /var/lib/libvirt/images/knot/cloud-images; note it does not follow a
-	// custom ImagesPath unless set explicitly.
+	// name has no extension). Empty follows ImagesPath
+	// (<ImagesPath>/cloud-images), so relocating the images path moves the
+	// library too unless this pins it elsewhere.
 	CloudImagePath string
+	// BaseImagePath is the cache for base images downloaded from URLs in
+	// KVM specs: each file lands under it named after the URL's last path
+	// segment and is reused by every later space on the node. Empty follows
+	// ImagesPath (<ImagesPath>/base), so relocating the images path moves
+	// the cache too unless this pins it elsewhere.
+	BaseImagePath string
 	// Resolvers are the DNS servers handed to bridged VMs via cloud-init.
 	// Defaults to Cloudflare's pair; the gateway is no longer injected
 	// implicitly — admins who want the router to answer DNS list it here.

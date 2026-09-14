@@ -12,6 +12,7 @@ import (
 func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /proxy/spaces/{space_id}/code-server/", middleware.ApiAuth(HandleSpacesCodeServerProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_id}/terminal/{shell}", middleware.ApiAuth(HandleSpacesTerminalProxy))
+	router.HandleFunc("GET /proxy/spaces/{space_id}/console", middleware.ApiAuth(HandleSpacesConsoleProxy))
 
 	router.HandleFunc("GET /proxy/spaces/{space_name}/port/{port}", middleware.ApiAuth(HandleSpacesPortProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_name}/ssh/", middleware.ApiAuth(HandleSpacesSSHProxy))

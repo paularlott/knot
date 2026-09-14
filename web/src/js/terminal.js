@@ -28,7 +28,12 @@ window.initializeTerminal = function(options) {
   }
 
   const protocol = (location.protocol === "https:") ? "wss://" : "ws://";
-  const url = protocol + location.host + (options.logView ? `/logs/${options.spaceId}/stream` : `/proxy/spaces/${options.spaceId}/terminal/${options.shell}`);
+  const path = options.logView
+    ? `/logs/${options.spaceId}/stream`
+    : options.consoleView
+      ? `/proxy/spaces/${options.spaceId}/console`
+      : `/proxy/spaces/${options.spaceId}/terminal/${options.shell}`;
+  const url = protocol + location.host + path;
   const ws = new WebSocket(url);
 
   const attachAddon = new AttachAddon(ws);

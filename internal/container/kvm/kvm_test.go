@@ -3,11 +3,16 @@ package kvm
 import (
 	"context"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
@@ -235,5 +240,136 @@ func TestBuildCloudInitNATNilPlan(t *testing.T) {
 	}
 	if !strings.Contains(data.MetaData, "instance-id: knot-test-space-") {
 		t.Fatalf("meta-data must carry the hashed instance-id: %q", data.MetaData)
+	}
+}
+
+// TestEnsureSpaceDiskKeepsExistingDisk guards the interrupted-redefine path:
+// a disk without a domain is the space's machine and must be defined over,
+// not recreated — qemu-img create would silently wipe it. Runs against a
+// fake qemu-img so the test needs no virtualization tooling.
+func TestEnsureSpaceDiskKeepsExistingDisk(t *testing.T) {
+	imagesDir := t.TempDir()
+	cloudDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cloudDir, "base.qcow2"), []byte("fake base"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config.SetServerConfig(&config.ServerConfig{
+		KVM: config.KVMConfig{ImagesPath: imagesDir, CloudImagePath: cloudDir},
+	})
+
+	// A fake qemu-img that records invocations and creates nothing.
+	binDir := t.TempDir()
+	logPath := filepath.Join(binDir, "invocations.log")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$QEMU_LOG\"\n"
+	if err := os.WriteFile(filepath.Join(binDir, "qemu-img"), []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("QEMU_LOG", logPath)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	client := NewClient()
+	spaceDir := filepath.Join(imagesDir, "user-space")
+	diskPath := filepath.Join(spaceDir, "disk.qcow2")
+
+	// No disk yet: the overlay is created through qemu-img.
+	if err := client.ensureSpaceDisk(context.Background(), "base", "", "user-space", spaceDir, diskPath); err != nil {
+		t.Fatalf("ensureSpaceDisk on a fresh space: %v", err)
+	}
+	if data, err := os.ReadFile(logPath); err != nil || len(data) == 0 {
+		t.Fatalf("expected qemu-img create to run for a fresh space, log %q, err %v", data, err)
+	}
+
+	// A disk left behind by an interrupted define: kept as-is, qemu-img
+	// must not run again and the content must survive.
+	before, _ := os.ReadFile(logPath)
+	if err := os.WriteFile(diskPath, []byte("the space's machine"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.ensureSpaceDisk(context.Background(), "base", "", "user-space", spaceDir, diskPath); err != nil {
+		t.Fatalf("ensureSpaceDisk over an existing disk: %v", err)
+	}
+	after, _ := os.ReadFile(logPath)
+	if string(before) != string(after) {
+		t.Fatalf("qemu-img ran again for an existing disk: %q", after)
+	}
+	if data, _ := os.ReadFile(diskPath); string(data) != "the space's machine" {
+		t.Fatalf("existing disk was modified: %q", data)
+	}
+}
+
+// TestResolveBaseImageConcurrentDownloads guards the image cache: two spaces
+// first booting the same image URL must not write the same cache file
+// concurrently — downloads serialise on the destination and the URL is
+// fetched exactly once.
+func TestResolveBaseImageConcurrentDownloads(t *testing.T) {
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		time.Sleep(200 * time.Millisecond)
+		w.Write([]byte("fake qcow2 payload"))
+	}))
+	defer server.Close()
+
+	imagesDir := t.TempDir()
+	cloudDir := t.TempDir()
+	config.SetServerConfig(&config.ServerConfig{
+		KVM: config.KVMConfig{ImagesPath: imagesDir, CloudImagePath: cloudDir},
+	})
+
+	client := NewClient()
+	url := server.URL + "/image.qcow2"
+
+	var wg sync.WaitGroup
+	results := make([]string, 2)
+	for i := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			path, err := client.resolveBaseImage(context.Background(), url)
+			if err != nil {
+				t.Errorf("resolveBaseImage: %v", err)
+				return
+			}
+			results[i] = path
+		}(i)
+	}
+	wg.Wait()
+
+	if n := hits.Load(); n != 1 {
+		t.Fatalf("expected exactly one download of the base image, got %d", n)
+	}
+	if results[0] == "" || results[0] != results[1] {
+		t.Fatalf("callers disagreed on the image path: %q vs %q", results[0], results[1])
+	}
+}
+
+// TestBaseImagesDirFollowsImagesPath checks the base-image cache location:
+// empty config keeps the cache under the images path, --kvm-base-image-path
+// pins it elsewhere. The cloud image library follows the same rule via
+// --kvm-cloud-image-path.
+func TestBaseImagesDirFollowsImagesPath(t *testing.T) {
+	imagesDir := t.TempDir()
+
+	config.SetServerConfig(&config.ServerConfig{
+		KVM: config.KVMConfig{ImagesPath: imagesDir},
+	})
+	if got := baseImagesDir(); got != filepath.Join(imagesDir, "base") {
+		t.Fatalf("expected the cache to follow the images path, got %s", got)
+	}
+	if got := cloudImagesDir(); got != filepath.Join(imagesDir, "cloud-images") {
+		t.Fatalf("expected the cloud image library to follow the images path, got %s", got)
+	}
+
+	pinned := t.TempDir()
+	cloudPinned := t.TempDir()
+	config.SetServerConfig(&config.ServerConfig{
+		KVM: config.KVMConfig{ImagesPath: imagesDir, BaseImagePath: pinned, CloudImagePath: cloudPinned},
+	})
+	if got := baseImagesDir(); got != pinned {
+		t.Fatalf("expected the pinned cache path %s, got %s", pinned, got)
+	}
+	if got := cloudImagesDir(); got != cloudPinned {
+		t.Fatalf("expected the pinned cloud image path %s, got %s", cloudPinned, got)
 	}
 }

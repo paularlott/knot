@@ -25,10 +25,10 @@ type fakeTunnelServer struct {
 	url      string
 	upgrades atomic.Int32
 
-	mu      sync.Mutex
-	conns   []*websocket.Conn // every websocket ever accepted, so a restart can drop them
-	live    atomic.Pointer[yamux.Session]
-	closed  atomic.Int32 // sessions whose connection the client side closed
+	mu     sync.Mutex
+	conns  []*websocket.Conn // every websocket ever accepted, so a restart can drop them
+	live   atomic.Pointer[yamux.Session]
+	closed atomic.Int32 // sessions whose connection the client side closed
 }
 
 func (f *fakeTunnelServer) handler() http.Handler {
@@ -178,9 +178,9 @@ func TestWebTunnelReconnectsAfterServerRestart(t *testing.T) {
 	server := serveTunnelServer(t, fake, listener)
 
 	client := NewTunnelClient("ws"+fake.url[4:], fake.url, "token", true, &TunnelOpts{
-		Type:      WebTunnel,
-		Protocol:  "http",
-		LocalPort: uint16(echoPort),
+		Type:       WebTunnel,
+		Protocol:   "http",
+		LocalPort:  uint16(echoPort),
 		TunnelName: "reconnect",
 	})
 	if err = client.ConnectAndServe(); err != nil {

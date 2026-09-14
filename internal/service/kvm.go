@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 )
 
 // ValidateKvmSpaceAddress checks that a KVM space's chosen IP is valid for
 // the template's network: inside the configured range, not a reserved
-// address, and not already taken by another space in the same zone. An
-// ignoreSpaceId lets the caller skip the space being validated (reserved
-// for future re-validation paths; create passes "").
+// address, and not already taken by another space. Uniqueness is scoped to
+// the local zone — different zones run independent bridged networks, so the
+// same address there is not a conflict. An ignoreSpaceId lets the caller
+// skip the space being validated (reserved for future re-validation paths;
+// create passes "").
 //
 // The template's own network fields are validated at template create/update
 // time; a parse failure here means the template changed since, and is
@@ -33,9 +36,10 @@ func ValidateKvmSpaceAddress(template *model.Template, ipAddress string, ignoreS
 		return err
 	}
 
+	zone := config.GetServerConfig().Zone
 	ip := strings.TrimSpace(ipAddress)
 	for _, space := range spaces {
-		if space.IsDeleted || space.Id == ignoreSpaceId || space.IPAddress == "" {
+		if space.IsDeleted || space.Id == ignoreSpaceId || space.IPAddress == "" || space.Zone != zone {
 			continue
 		}
 		if space.IPAddress == ip {

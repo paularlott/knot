@@ -510,8 +510,8 @@ var ServerCmd = &cli.Command{
 
 		// KVM flags
 		&cli.StringFlag{
-			Name:         "kvm-images-path",
-			Usage:        "Directory for KVM base images and per-space disk overlays/cloud-init seeds. Must be writable by knot and readable by the qemu user libvirt runs VMs as.",
+			Name:  "kvm-images-path",
+			Usage: "Working storage for KVM spaces: per-space disk overlays and cloud-init seeds, one directory per space. The base-image cache and cloud image library default to subdirectories of it unless pinned by their own flags. Must be writable by knot and readable by the qemu user libvirt runs VMs as.",
 			ConfigPath:   []string{"server.kvm.images_path"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_IMAGES_PATH"},
 			DefaultValue: "/var/lib/libvirt/images/knot",
@@ -524,11 +524,16 @@ var ServerCmd = &cli.Command{
 			DefaultValue: []string{"1.1.1.1", "1.0.0.1"},
 		},
 		&cli.StringFlag{
-			Name:         "kvm-cloud-image-path",
-			Usage:        "Directory holding the node's cloud images. A bare image name in a KVM spec (e.g. ubuntu-24.04) resolves to <dir>/<name>.qcow2. Defaults to /var/lib/libvirt/images/knot/cloud-images.",
-			ConfigPath:   []string{"server.kvm.cloud_image_path"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_CLOUD_IMAGE_PATH"},
-			DefaultValue: "/var/lib/libvirt/images/knot/cloud-images",
+			Name:       "kvm-cloud-image-path",
+			Usage:      "Directory holding the node's cloud images. A bare image name in a KVM spec (e.g. ubuntu-24.04) resolves to <dir>/<name>.qcow2. Empty follows the images path (<kvm-images-path>/cloud-images).",
+			ConfigPath: []string{"server.kvm.cloud_image_path"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_KVM_CLOUD_IMAGE_PATH"},
+		},
+		&cli.StringFlag{
+			Name:       "kvm-base-image-path",
+			Usage:      "Cache directory for base images downloaded from URLs in KVM specs; each file is named after the URL's last path segment and reused by later spaces. Empty follows the images path (<kvm-images-path>/base).",
+			ConfigPath: []string{"server.kvm.base_image_path"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_KVM_BASE_IMAGE_PATH"},
 		},
 
 		// MySQL flags
@@ -1606,6 +1611,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		KVM: config.KVMConfig{
 			ImagesPath:     absPath(cmd.GetString("kvm-images-path")),
 			CloudImagePath: absPath(cmd.GetString("kvm-cloud-image-path")),
+			BaseImagePath:  absPath(cmd.GetString("kvm-base-image-path")),
 			Resolvers:      cmd.GetStringSlice("kvm-resolvers"),
 		},
 		EnabledBackends: cmd.GetStringSlice("enabled-backends"),

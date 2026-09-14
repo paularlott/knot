@@ -67,6 +67,7 @@ window.spaceForm = function (
     },
     isManual: false,
     isKvmBridged: false,
+    isKvm: false,
     ipAddressValid: true,
     loading: true,
     buttonLabelWorking: isEdit ? "Saving..." : "Creating...",
@@ -90,6 +91,9 @@ window.spaceForm = function (
     canEditNodeSelection() {
       return (
         !this.isManual &&
+        // KVM spaces are pinned to their node's disk — the node is chosen at
+        // create and never changes.
+        !this.isKvm &&
         (
           !this.formData.has_ever_started ||
           (
@@ -435,6 +439,7 @@ window.spaceForm = function (
       this.isManual = this.template
         ? this.template.platform === "manual"
         : false;
+      this.isKvm = !!this.template && this.template.platform === "kvm";
       // Bridged KVM templates take an IP; NAT ones DHCP — no IP to pick.
       this.isKvmBridged =
         !!this.template &&

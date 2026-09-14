@@ -49,8 +49,11 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 	// are routine on a local dev machine.
 	if cfg := config.GetServerConfig(); cfg != nil && cfg.Audit.SpaceSessions {
 		method := "terminal"
-		if r.PathValue("vsc") == "vscode-tunnel" {
+		switch r.PathValue("vsc") {
+		case "vscode-tunnel":
 			method = "vscode-tunnel"
+		case "console":
+			method = "console"
 		}
 		audit.LogWithRequest(r,
 			user.Username,
@@ -73,16 +76,22 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 		renderer = "canvas"
 	}
 
-	// If the last segment of the url is vscode-tunnel log it
+	// If the last segment of the url is vscode-tunnel or console select it
 	shell := space.Shell
+	consoleView := false
 	if r.PathValue("vsc") == "vscode-tunnel" {
 		shell = "vscode-tunnel"
+	} else if r.PathValue("vsc") == "console" {
+		shell = "console"
+		consoleView = true
 	}
 
 	data := map[string]interface{}{
 		"shell":        shell,
 		"renderer":     renderer,
 		"spaceId":      spaceId,
+		"logView":      false,
+		"consoleView":  consoleView,
 		"version":      build.Version,
 		"assetVersion": assetVersionKey(),
 	}
