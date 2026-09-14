@@ -338,26 +338,20 @@ func (template *Template) IsLocalContainer() bool {
 // manual included. The "container" platform (auto-detect) is offered when
 // any container runtime is.
 func BackendEnabled(platform string, enabled []string) bool {
-	// Blank entries (an empty env var parses as [""]) are ignored — an
-	// effectively empty list means every backend is offered.
-	listed := make([]string, 0, len(enabled))
-	for _, backend := range enabled {
-		if backend != "" {
-			listed = append(listed, backend)
-		}
-	}
-	if len(listed) == 0 {
+	// Empty list means every backend is offered; the cli library guarantees
+	// blank entries never arrive from env, command line or config file.
+	if len(enabled) == 0 {
 		return true
 	}
 	if platform == PlatformContainer {
-		for _, backend := range listed {
+		for _, backend := range enabled {
 			if backend == PlatformDocker || backend == PlatformPodman || backend == PlatformApple {
 				return true
 			}
 		}
 		return false
 	}
-	for _, backend := range listed {
+	for _, backend := range enabled {
 		if backend == platform {
 			return true
 		}

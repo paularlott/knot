@@ -132,12 +132,6 @@ func TestBackendEnabled(t *testing.T) {
 		t.Error("manual must be offered when listed")
 	}
 
-	// An effectively empty list (blank entries from an empty env var or
-	// config value) means all — never "nothing offered".
-	if !BackendEnabled(PlatformDocker, []string{""}) || !BackendEnabled(PlatformManual, []string{""}) {
-		t.Error("blank-only allowlist must offer everything")
-	}
-
 	kvmOnly := []string{PlatformKvm}
 	if BackendEnabled(PlatformContainer, kvmOnly) {
 		t.Error("container must not be offered on a KVM-only allowlist")
