@@ -153,14 +153,18 @@ func (c *TunnelClient) ConnectAndServe() error {
 }
 
 func (c *TunnelClient) Shutdown() {
+	// Cancel before clearing the server list: a server-list refresh that is
+	// already in flight must not re-add (and reconnect) servers once the
+	// client is shutting down. The derived tunnelServer contexts also see
+	// the cancellation, so no connection loop can outlive the client.
+	c.cancel()
+
 	c.serverListMutex.Lock()
 	for _, server := range c.serverList {
 		server.Shutdown()
 	}
 	c.serverList = make(map[string]*tunnelServer) // Clear the server list
 	c.serverListMutex.Unlock()
-
-	c.cancel()
 }
 
 func (c *TunnelClient) GetCtx() context.Context {

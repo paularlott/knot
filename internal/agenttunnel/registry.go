@@ -28,7 +28,9 @@ type Entry struct {
 }
 
 // Start registers a running web tunnel. It returns false if the name already
-// has a tunnel.
+// has a tunnel. The entry removes itself once the tunnel client's context
+// ends (e.g. the server closed the tunnel), so the list never reports dead
+// tunnels as running.
 func Start(name string, port uint16, protocol, url string, client *tunnel_server.TunnelClient) (*Entry, bool) {
 	tunnelsMux.Lock()
 	defer tunnelsMux.Unlock()
@@ -45,6 +47,19 @@ func Start(name string, port uint16, protocol, url string, client *tunnel_server
 		Client:   client,
 	}
 	tunnels[name] = entry
+
+	go func() {
+		<-client.GetCtx().Done()
+
+		tunnelsMux.Lock()
+		defer tunnelsMux.Unlock()
+		// Identity check: Stop/StopAll may already have removed the entry,
+		// and a new tunnel may since have taken the name.
+		if tunnels[name] == entry {
+			delete(tunnels, name)
+		}
+	}()
+
 	return entry, true
 }
 

@@ -130,7 +130,15 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 		session.muxSession.Close()
 		session.ws.Close()
 
+		// Only clean up if this session still owns the name: a client that
+		// reconnected after a restart replaces the map entry, and this stale
+		// session's cleanup must not evict (or announce the death of) the
+		// live one.
 		tunnelMutex.Lock()
+		if tunnels[webName] != session {
+			tunnelMutex.Unlock()
+			return
+		}
 		delete(tunnels, webName)
 		tunnelMutex.Unlock()
 		audit.Log(session.user.Username,
