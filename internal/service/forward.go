@@ -37,14 +37,17 @@ func getForwardClient() *rest.HTTPClient {
 	return forwardClient
 }
 
-// ForwardToNode forwards an HTTP request to another node in the cluster
-func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error {
+// NodeAPIEndpoint resolves a cluster node's public API base URL (e.g.
+// "https://knot-node-2:8443") from its gossip metadata, falling back to the
+// advertised gossip address. Returns an error when the node is unknown or
+// advertises nothing usable.
+func NodeAPIEndpoint(nodeId string) (string, error) {
 	transport := GetTransport()
 
 	// Get the node from gossip
 	nodes := transport.Nodes()
 	if nodes == nil {
-		return errors.New("cluster not available")
+		return "", errors.New("cluster not available")
 	}
 
 	var targetNode string
@@ -75,12 +78,22 @@ func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error 
 	}
 
 	if targetNode == "" {
-		return errors.New("target node not found in cluster or does not advertise an API endpoint (set server.url on it)")
+		return "", errors.New("target node not found in cluster or does not advertise an API endpoint (set server.url on it)")
 	}
 
 	// Normalise: scheme and host only, no trailing slash or path.
 	if u, err := url.Parse(targetNode); err == nil && u.Host != "" {
 		targetNode = u.Scheme + "://" + u.Host
+	}
+
+	return targetNode, nil
+}
+
+// ForwardToNode forwards an HTTP request to another node in the cluster
+func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error {
+	targetNode, err := NodeAPIEndpoint(nodeId)
+	if err != nil {
+		return err
 	}
 
 	// Read request body

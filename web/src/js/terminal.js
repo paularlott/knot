@@ -89,6 +89,13 @@ window.initializeTerminal = function(options) {
       terminal.write('\r\n\nconnection terminated, refresh to restart\n');
       return;
     }
+    if (options.consoleView) {
+      // The server writes the reason for a failed console (missing virsh,
+      // VM not running, wrong node) into the terminal before closing — keep
+      // the window open so it can be read, and let a refresh reconnect.
+      terminal.write('\r\n\n[console ended — refresh to reconnect]\r\n');
+      return;
+    }
     // The space terminated (server closed the WS). Close the popup, whether
     // this is a shell terminal or a log view.
     closePopup();

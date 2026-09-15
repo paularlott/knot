@@ -1,14 +1,20 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/kvm"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -18,11 +24,25 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
+// writeConsoleError reports a failure into the terminal before closing: a
+// popup that dies silently gives the user nothing to act on.
+func writeConsoleError(conn *websocket.Conn, format string, args ...interface{}) {
+	message := fmt.Sprintf("\r\n\x1b[31m[console error]\x1b[0m %s\r\n", fmt.Sprintf(format, args...))
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		log.WithError(err).Error("console: failed to send error to client")
+	}
+	conn.Close()
+}
+
 // HandleSpacesConsoleProxy bridges a websocket to a KVM space's serial
 // console (`virsh console` under a pty), giving the browser access to the VM
 // itself: login works with the owner's knot username and service password
 // even when the agent never connected. Only the node that owns the VM can
 // serve it — virsh talks to the local libvirt.
+//
+// The websocket is upgraded before any console precondition is checked, and
+// every failure is written into the terminal as a [console error] line: a
+// popup that dies silently gives the user nothing to act on.
 func HandleSpacesConsoleProxy(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
@@ -45,40 +65,9 @@ func HandleSpacesConsoleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !user.HasPermission(model.PermissionUseWebTerminal) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil || template == nil || !template.IsKvm() {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	if space.ContainerId == "" {
-		w.WriteHeader(http.StatusConflict)
-		return
-	}
-
-	// A space on another node has its VM — and therefore its console — on
-	// that node's libvirt; this server cannot reach it.
-	if forward, _ := service.ShouldForwardToNode(space.NodeId); forward {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		return
-	}
-
-	running, err := kvm.NewClient().DomainRunning(r.Context(), space.ContainerId)
-	if err != nil {
-		log.WithError(err).Error("console: checking domain state", "domain", space.ContainerId)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if !running {
-		w.WriteHeader(http.StatusConflict)
-		return
-	}
-
+	// Upgrade before the console preconditions: from here on, every failure
+	// is reported as a readable line in the terminal instead of a closed
+	// popup.
 	conn := util.UpgradeToWS(w, r)
 	if conn == nil {
 		log.Error("console: error while upgrading to websocket")
@@ -86,13 +75,60 @@ func HandleSpacesConsoleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fail := func(format string, args ...interface{}) {
+		writeConsoleError(conn, format, args...)
+	}
+
+	if !user.HasPermission(model.PermissionUseWebTerminal) {
+		fail("you do not have permission to use the web terminal")
+		return
+	}
+
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil || template == nil || !template.IsKvm() {
+		fail("the space is not a KVM space — the console only applies to virtual machines")
+		return
+	}
+
+	if space.ContainerId == "" {
+		fail("the space has not been started yet — start it first")
+		return
+	}
+
+	// A space on another node has its VM — and therefore its console — on
+	// that node's libvirt; bridge the browser through to that node's server,
+	// which runs this same handler locally.
+	if forward, nodeId := service.ShouldForwardToNode(space.NodeId); forward {
+		proxyConsoleToNode(conn, user, nodeId, spaceId)
+		return
+	}
+
+	running, err := kvm.NewClient().DomainRunning(r.Context(), space.ContainerId)
+	if err != nil {
+		log.WithError(err).Error("console: checking domain state", "domain", space.ContainerId)
+		fail("failed to check the VM's state: %v", err)
+		return
+	}
+	if !running {
+		fail("the VM is not running — start the space first")
+		return
+	}
+
+	if _, err := exec.LookPath("virsh"); err != nil {
+		fail("virsh was not found in the server's PATH — the console requires running on the KVM node")
+		return
+	}
+
 	// virsh console needs a tty on stdin; the pty is also what carries the
-	// terminal size. Killing the process ends both directions.
+	// terminal size. Killing the process ends both directions. Its stderr
+	// (e.g. "unable to find console device") lands in the server log, since
+	// the pty only carries stdout.
 	cmd := exec.Command("virsh", "--connect", "qemu:///system", "console", space.ContainerId)
+	cmd.Stderr = os.Stderr
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
 		log.WithError(err).Error("console: failed to start virsh console", "domain", space.ContainerId)
-		conn.Close()
+		fail("failed to start the console: %v", err)
 		return
 	}
 
@@ -153,4 +189,65 @@ func HandleSpacesConsoleProxy(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	<-consoleDone
+}
+
+// proxyConsoleToNode bridges the browser's console websocket to the space's
+// owning node, which runs the same handler against its local libvirt. Frames
+// flow untouched in both directions, so the node's [console error] lines and
+// the serial console itself reach the browser verbatim. Cluster credentials
+// authenticate the inter-server connection (ApiAuth accepts X-Cluster-Key).
+func proxyConsoleToNode(conn *websocket.Conn, user *model.User, nodeId, spaceId string) {
+	endpoint, err := service.NodeAPIEndpoint(nodeId)
+	if err != nil {
+		writeConsoleError(conn, "the VM runs on another node which could not be reached: %v", err)
+		return
+	}
+
+	url := strings.Replace(endpoint, "http://", "ws://", 1)
+	url = strings.Replace(url, "https://", "wss://", 1)
+	url += "/proxy/spaces/" + spaceId + "/console"
+
+	cfg := config.GetServerConfig()
+	header := http.Header{}
+	header.Set("X-Cluster-Key", cfg.Cluster.Key)
+	header.Set("X-Cluster-User-Id", user.Id)
+
+	dialer := &websocket.Dialer{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		HandshakeTimeout:  10 * time.Second,
+		EnableCompression: false,
+	}
+	node, _, err := dialer.Dial(url, header)
+	if err != nil {
+		log.WithError(err).Error("console: failed to dial the owning node", "node", nodeId, "url", url)
+		writeConsoleError(conn, "failed to reach the VM's node (%s): %v", nodeId, err)
+		return
+	}
+
+	pumpWebsockets(conn, node)
+}
+
+// pumpWebsockets copies websocket frames between two connections until one
+// side closes; closing both unblocks the copy in the other direction.
+func pumpWebsockets(a, b *websocket.Conn) {
+	done := make(chan struct{}, 2)
+	pump := func(dst, src *websocket.Conn) {
+		defer func() { done <- struct{}{} }()
+		for {
+			messageType, data, err := src.ReadMessage()
+			if err != nil {
+				return
+			}
+			if err := dst.WriteMessage(messageType, data); err != nil {
+				return
+			}
+		}
+	}
+
+	go pump(a, b)
+	go pump(b, a)
+
+	<-done
+	a.Close()
+	b.Close()
 }
