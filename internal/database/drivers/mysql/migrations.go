@@ -146,6 +146,8 @@ var migrations = []string{
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS ip_address VARCHAR(64) DEFAULT ''`,
 	// 72: add KVM network mode (bridged or nat) to templates
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_network_mode VARCHAR(16) NOT NULL DEFAULT ''`,
+	// 73: expose the VM's built-in QEMU VNC display via a knot bridge
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS with_vnc TINYINT(1) NOT NULL DEFAULT 0`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

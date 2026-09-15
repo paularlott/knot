@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 100%; overflow: hidden; position: fixed; width: 100%;">
+<head>
+	<title>VM Display</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+	<script>if(localStorage.getItem('_x_darkMode') !== 'false') { document.documentElement.classList.add('dark') }</script>
+	<link rel="stylesheet" href="/assets/css/knot.css?_v={{ .assetVersion }}" />
+	<style>
+		html, body { margin: 0; height: 100%; background: #111; }
+		#screen { width: 100%; height: 100%; display: block; }
+		#vnc-status {
+			position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+			color: #e5e7eb; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem;
+			text-align: center; padding: 2rem; background: #111; z-index: 10;
+		}
+	</style>
+</head>
+<body>
+	<div id="screen" data-space-id="{{ .spaceId }}"></div>
+	<div id="vnc-status">Connecting to the VM's display…</div>
+
+	<script type="module" src="/assets/js/vnc.js?_v={{ .assetVersion }}"></script>
+</body>
+</html>

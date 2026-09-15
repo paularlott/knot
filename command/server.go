@@ -510,8 +510,8 @@ var ServerCmd = &cli.Command{
 
 		// KVM flags
 		&cli.StringFlag{
-			Name:  "kvm-images-path",
-			Usage: "Working storage for KVM spaces: per-space disk overlays and cloud-init seeds, one directory per space. The base-image cache and cloud image library default to subdirectories of it unless pinned by their own flags. Must be writable by knot and readable by the qemu user libvirt runs VMs as.",
+			Name:         "kvm-images-path",
+			Usage:        "Working storage for KVM spaces: per-space disk overlays and cloud-init seeds, one directory per space. The base-image cache and cloud image library default to subdirectories of it unless pinned by their own flags. Must be writable by knot and readable by the qemu user libvirt runs VMs as.",
 			ConfigPath:   []string{"server.kvm.images_path"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_IMAGES_PATH"},
 			DefaultValue: "/var/lib/libvirt/images/knot",

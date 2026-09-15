@@ -106,6 +106,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.TemplateHasTerminal = template.WithTerminal
 			s.TemplateHasCodeServer = template.WithCodeServer
 			s.TemplateHasVSCodeTunnel = template.WithVSCodeTunnel
+			s.TemplateHasVNC = template.WithVNC
 		}
 		if space.AltNames != nil {
 			s.AltNames = space.AltNames

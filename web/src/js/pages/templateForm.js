@@ -89,6 +89,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       with_code_server: false,
       with_ssh: false,
       with_run_command: false,
+      with_vnc: false,
       allow_node_migration: false,
       startup_script_id: "",
       shutdown_script_id: "",
@@ -258,6 +259,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.with_run_command = template.with_run_command;
           this.formData.allow_node_migration =
             template.allow_node_migration || false;
+          this.formData.with_vnc = template.with_vnc || false;
           this.formData.compute_units = template.compute_units;
           this.formData.storage_units = template.storage_units;
           this.formData.active = template.active;
@@ -672,6 +674,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         allow_node_migration: this.isLocalContainer()
           ? this.formData.allow_node_migration
           : false,
+        with_vnc: this.isKvm() ? this.formData.with_vnc : false,
         startup_script_id:
           this.formData.platform === "manual"
             ? ""
@@ -1073,6 +1076,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         cap_add: [],
         cap_drop: [],
         network: "",
+        kvm_network: {
+          mode: "bridged",
+          cidr: "",
+          bridge: "",
+          ip_range_start: "",
+          ip_range_end: "",
+          gateway: "",
+        },
         privileged: false,
         memory: "",
         cpus: "",

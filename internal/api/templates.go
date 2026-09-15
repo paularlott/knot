@@ -84,6 +84,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Platform = template.Platform
 		templateData.IsManaged = template.IsManaged
 		templateData.AllowNodeMigration = template.AllowNodeMigration
+		templateData.WithVNC = template.WithVNC
 		templateData.ComputeUnits = template.ComputeUnits
 		templateData.StorageUnits = template.StorageUnits
 		templateData.ScheduleEnabled = template.ScheduleEnabled
@@ -179,6 +180,9 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	if request.Platform == model.PlatformKvm {
 		request.AllowNodeMigration = false
 		request.Volumes = ""
+	} else {
+		// The QEMU VNC bridge only applies to KVM templates.
+		request.WithVNC = false
 	}
 
 	// Support lookup by both ID and name
@@ -211,6 +215,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.WithCodeServer = request.WithCodeServer
 	template.WithSSH = request.WithSSH
 	template.WithRunCommand = request.WithRunCommand
+	template.WithVNC = request.WithVNC
 	template.AllowNodeMigration = request.AllowNodeMigration
 	template.StartupScriptId = request.StartupScriptId
 	template.ShutdownScriptId = request.ShutdownScriptId
@@ -307,6 +312,9 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	if request.Platform == model.PlatformKvm {
 		request.AllowNodeMigration = false
 		request.Volumes = ""
+	} else {
+		// The QEMU VNC bridge only applies to KVM templates.
+		request.WithVNC = false
 	}
 
 	user := r.Context().Value("user").(*model.User)
@@ -360,6 +368,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.IconURL,
 		customFields,
 	)
+	template.WithVNC = request.WithVNC
 	template.HealthCheckType = request.HealthCheckType
 	template.HealthCheckConfig = request.HealthCheckConfig
 	template.HealthCheckSkipSSLVerify = request.HealthCheckSkipSSLVerify

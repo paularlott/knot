@@ -31,6 +31,7 @@ type TemplateCreateRequest struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	WithVNC                  bool                 `json:"with_vnc"`
 	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
@@ -69,6 +70,7 @@ type TemplateUpdateRequest struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	WithVNC                  bool                 `json:"with_vnc"`
 	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
@@ -110,6 +112,7 @@ type TemplateInfo struct {
 	Active             bool                 `json:"active"`
 	IsManaged          bool                 `json:"is_managed"`
 	AllowNodeMigration bool                 `json:"allow_node_migration"`
+	WithVNC            bool                 `json:"with_vnc"`
 	ScheduleEnabled    bool                 `json:"schedule_enabled"`
 	AutoStart          bool                 `json:"auto_start"`
 	ComputeUnits       uint32               `json:"compute_units"`
@@ -163,6 +166,7 @@ type TemplateDetails struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	WithVNC                  bool                 `json:"with_vnc"`
 	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`

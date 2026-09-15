@@ -272,6 +272,15 @@ func (c *KVMClient) CreateSpaceJob(user *model.User, template *model.Template, s
 				// by cloud-init) talks over; without it 'virsh domifaddr
 				// --source agent' can never see the VM's static address.
 				"--channel", "unix,target_type=virtio,name=org.qemu.guest_agent.0",
+				// Explicit localhost VNC: the framebuffer QEMU renders is the
+				// display knot's VNC bridge proxies to the browser (the
+				// listen address is pinned so the only door is the node
+				// itself). virtio-gpu is the video device: modern guests
+				// kernel-drive it (a bare VGA/cirrus device often leaves the
+				// cloud image with no framebuffer console, i.e. a blank
+				// display).
+				"--graphics", "vnc,listen=127.0.0.1",
+				"--video", "virtio",
 				"--os-variant", "generic",
 				"--import",
 				"--noautoconsole",

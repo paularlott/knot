@@ -92,6 +92,7 @@ type SpaceInfo struct {
 	TemplateHasTerminal     bool                 `json:"template_has_terminal"`
 	TemplateHasCodeServer   bool                 `json:"template_has_code_server"`
 	TemplateHasVSCodeTunnel bool                 `json:"template_has_vscode_tunnel"`
+	TemplateHasVNC          bool                 `json:"template_has_vnc"`
 }
 
 type SpaceInfoList struct {

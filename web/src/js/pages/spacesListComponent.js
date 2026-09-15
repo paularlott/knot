@@ -1142,6 +1142,9 @@ window.spacesListComponent = function (
     openConsole(spaceId) {
       popup.openConsole(spaceId);
     },
+    openVMDisplay(spaceId) {
+      popup.openVMDisplay(spaceId);
+    },
     openLogWindow(spaceId) {
       popup.openLogWindow(spaceId);
     },

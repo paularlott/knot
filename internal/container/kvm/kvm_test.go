@@ -373,3 +373,37 @@ func TestBaseImagesDirFollowsImagesPath(t *testing.T) {
 		t.Fatalf("expected the pinned cloud image path %s, got %s", cloudPinned, got)
 	}
 }
+
+// TestParseVNCAddress covers domdisplay output to dialable address
+// conversion: the URI carries the VNC display number, which maps to TCP
+// port 5900+N.
+func TestParseVNCAddress(t *testing.T) {
+	cases := []struct {
+		display   string
+		host      string
+		port      int
+		expectErr bool
+	}{
+		{"vnc://127.0.0.1:0", "127.0.0.1", 5900, false},
+		{"vnc://127.0.0.1:3", "127.0.0.1", 5903, false},
+		{"vnc://:2", "127.0.0.1", 5902, false},
+		{"spice://127.0.0.1:5900", "", 0, true},
+		{"", "", 0, true},
+	}
+
+	for _, c := range cases {
+		host, port, err := parseVNCAddress(c.display)
+		if c.expectErr {
+			if err == nil {
+				t.Fatalf("expected an error for %q", c.display)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("parseVNCAddress(%q): %v", c.display, err)
+		}
+		if host != c.host || port != c.port {
+			t.Fatalf("parseVNCAddress(%q) = %s:%d, want %s:%d", c.display, host, port, c.host, c.port)
+		}
+	}
+}

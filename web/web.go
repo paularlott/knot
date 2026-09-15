@@ -315,6 +315,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /usage", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /terminal/{space_id}", middleware.WebAuth(HandleTerminalPage))
 	router.HandleFunc("GET /terminal/{space_id}/{vsc}", middleware.WebAuth(HandleTerminalPage))
+	router.HandleFunc("GET /vnc/{space_id}", middleware.WebAuth(HandleVNCPage))
 
 	router.HandleFunc("GET /api-tokens", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /api-tokens/create/{token_name}", middleware.WebAuth(HandleTokenCreatePage))

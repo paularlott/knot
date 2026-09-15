@@ -39,21 +39,25 @@ const (
 
 // Template object
 type Template struct {
-	Id                       string                 `json:"template_id" db:"template_id,pk"`
-	Name                     string                 `json:"name" db:"name"`
-	Description              string                 `json:"description" db:"description"`
-	Hash                     string                 `json:"hash" db:"hash"`
-	Platform                 string                 `json:"platform" db:"platform"`
-	IconURL                  string                 `json:"icon_url" db:"icon_url"`
-	Job                      string                 `json:"job" db:"job"`
-	Volumes                  string                 `json:"volumes" db:"volumes"`
-	Groups                   []string               `json:"groups" db:"groups,json"`
-	Active                   bool                   `json:"active" db:"active"`
-	WithTerminal             bool                   `json:"with_terminal" db:"with_terminal"`
-	WithVSCodeTunnel         bool                   `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
-	WithCodeServer           bool                   `json:"with_code_server" db:"with_code_server"`
-	WithSSH                  bool                   `json:"with_ssh" db:"with_ssh"`
-	WithRunCommand           bool                   `json:"with_run_command" db:"with_run_command"`
+	Id               string   `json:"template_id" db:"template_id,pk"`
+	Name             string   `json:"name" db:"name"`
+	Description      string   `json:"description" db:"description"`
+	Hash             string   `json:"hash" db:"hash"`
+	Platform         string   `json:"platform" db:"platform"`
+	IconURL          string   `json:"icon_url" db:"icon_url"`
+	Job              string   `json:"job" db:"job"`
+	Volumes          string   `json:"volumes" db:"volumes"`
+	Groups           []string `json:"groups" db:"groups,json"`
+	Active           bool     `json:"active" db:"active"`
+	WithTerminal     bool     `json:"with_terminal" db:"with_terminal"`
+	WithVSCodeTunnel bool     `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
+	WithCodeServer   bool     `json:"with_code_server" db:"with_code_server"`
+	WithSSH          bool     `json:"with_ssh" db:"with_ssh"`
+	WithRunCommand   bool     `json:"with_run_command" db:"with_run_command"`
+	// WithVNC exposes the VM's built-in QEMU VNC display (the framebuffer
+	// QEMU itself renders — bootloader, console, desktop) in the browser via
+	// knot's websocket bridge. KVM-only; nothing is installed in the guest.
+	WithVNC                  bool                   `json:"with_vnc" db:"with_vnc"`
 	AllowNodeMigration       bool                   `json:"allow_node_migration" db:"allow_node_migration"`
 	StartupScriptId          string                 `json:"startup_script_id" db:"startup_script_id"`
 	ShutdownScriptId         string                 `json:"shutdown_script_id" db:"shutdown_script_id"`

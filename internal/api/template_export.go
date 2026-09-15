@@ -156,6 +156,7 @@ func buildTemplateExportDetails(template *model.Template, db database.DbDriver) 
 		WithCodeServer:           template.WithCodeServer,
 		WithSSH:                  template.WithSSH,
 		WithRunCommand:           template.WithRunCommand,
+		WithVNC:                  template.WithVNC,
 		AllowNodeMigration:       template.AllowNodeMigration,
 		HealthCheckType:          template.HealthCheckType,
 		HealthCheckConfig:        template.HealthCheckConfig,

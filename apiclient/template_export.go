@@ -61,6 +61,7 @@ type TemplateExportFeatures struct {
 	WithCodeServer     bool `yaml:"with_code_server,omitempty"`
 	WithSSH            bool `yaml:"with_ssh,omitempty"`
 	WithRunCommand     bool `yaml:"with_run_command,omitempty"`
+	WithVNC            bool `yaml:"with_vnc,omitempty"`
 	AllowNodeMigration bool `yaml:"allow_node_migration,omitempty"`
 }
 
@@ -130,6 +131,7 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 		WithCodeServer:           e.Features.WithCodeServer,
 		WithSSH:                  e.Features.WithSSH,
 		WithRunCommand:           e.Features.WithRunCommand,
+		WithVNC:                  e.Features.WithVNC,
 		AllowNodeMigration:       e.Features.AllowNodeMigration,
 		StartupScriptId:          e.StartupScript,
 		ShutdownScriptId:         e.ShutdownScript,
@@ -199,6 +201,7 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 			WithCodeServer:     d.WithCodeServer,
 			WithSSH:            d.WithSSH,
 			WithRunCommand:     d.WithRunCommand,
+			WithVNC:            d.WithVNC,
 			AllowNodeMigration: d.AllowNodeMigration,
 		},
 	}

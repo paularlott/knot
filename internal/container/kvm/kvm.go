@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -79,6 +81,40 @@ func (c *KVMClient) domainState(ctx context.Context, name string) (string, error
 // off"), or "" when the domain does not exist on this host's libvirt.
 func (c *KVMClient) DomainState(ctx context.Context, name string) (string, error) {
 	return c.domainState(ctx, name)
+}
+
+// VNCAddress returns the host and TCP port of the domain's VNC display —
+// the framebuffer QEMU itself renders, served on the node's loopback.
+// domdisplay reports the VNC display number (e.g. "vnc://127.0.0.1:0"),
+// which maps to TCP port 5900+N.
+func (c *KVMClient) VNCAddress(ctx context.Context, domain string) (string, int, error) {
+	out, err := c.runVirsh(ctx, "domdisplay", domain)
+	if err != nil {
+		return "", 0, err
+	}
+	return parseVNCAddress(out)
+}
+
+// parseVNCAddress converts a virsh domdisplay URI into a dialable address.
+func parseVNCAddress(display string) (string, int, error) {
+	display = strings.TrimSpace(strings.SplitN(display, "\n", 2)[0])
+
+	u, err := url.Parse(display)
+	if err != nil || u.Scheme != "vnc" {
+		return "", 0, fmt.Errorf("domain has no VNC display (domdisplay: %q)", display)
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
+	displayNumber, err := strconv.Atoi(u.Port())
+	if err != nil || displayNumber < 0 || displayNumber > 100 {
+		return "", 0, fmt.Errorf("cannot derive a VNC port from display %q", display)
+	}
+
+	return host, 5900 + displayNumber, nil
 }
 
 // ---- image management ----
