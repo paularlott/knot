@@ -80,7 +80,7 @@ func refreshSnapshot() {
 		}
 	}
 	if s.Preferred == "" {
-		log.Warn("No local container runtime detected")
+		log.Debug("No local container runtime detected")
 	}
 	if s.kvm = isKvmAvailable(); s.kvm {
 		s.AllWithKVM = append(s.AllWithKVM, model.PlatformKvm)
