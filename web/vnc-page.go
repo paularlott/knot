@@ -63,6 +63,7 @@ func HandleVNCPage(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]interface{}{
 		"spaceId":      spaceId,
+		"spaceName":    space.Name,
 		"version":      build.Version,
 		"assetVersion": assetVersionKey(),
 	}
