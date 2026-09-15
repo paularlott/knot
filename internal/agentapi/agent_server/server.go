@@ -185,7 +185,7 @@ func reconcileAgentLoss(spaceId, reason string, logger logger.Logger) agentLossR
 		return agentLossReconcileResult{}
 	}
 
-	if template.IsLocalContainer() {
+	if template.IsNodeRuntime() {
 		if nodeIdCfg, err := db.GetCfgValue("node_id"); err == nil && nodeIdCfg != nil && space.NodeId != "" && space.NodeId != nodeIdCfg.Value {
 			return agentLossReconcileResult{}
 		}
@@ -370,7 +370,7 @@ func shouldRestartOnAgentLoss(template *model.Template) bool {
 		template.HealthCheckAutoRestart &&
 		template.HealthCheckType != "" &&
 		template.HealthCheckType != model.HealthCheckNone &&
-		(template.IsLocalContainer() || template.Platform == model.PlatformNomad)
+		(template.IsNodeRuntime() || template.Platform == model.PlatformNomad)
 }
 
 func agentLossMaxFailures(template *model.Template) uint32 {

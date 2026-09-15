@@ -102,6 +102,27 @@
           </select>
           <div class="description">The shell that will be used when you open a web terminal in this space.</div>
         </div>
+        <div x-show="isKvmBridged" x-cloak>
+          <label for="ip_address" class="form-label">IP Address</label>
+          <input type="text" id="ip_address" name="ip_address" class="form-field font-mono"
+            x-model="formData.ip_address"
+            :disabled="isEdit && formData.ip_address && (formData.is_deployed || formData.is_pending)"
+            @input="checkIPAddress()"
+            placeholder="e.g. 192.168.50.42"
+            :class="{'form-field-error': !ipAddressValid}">
+          <div class="description" x-show="!isEdit">
+            The VM's static IP, chosen from the template's network
+            <span x-text="template.kvm_network_cidr"></span><span x-show="template.kvm_ip_range_start">(range <span x-text="template.kvm_ip_range_start"></span> – <span x-text="template.kvm_ip_range_end"></span>)</span>.
+            It is validated against the addresses already in use, and can be changed while the space is stopped.
+          </div>
+          <div class="description" x-show="isEdit && formData.ip_address">The VM's static IP. Changing it requires the space to be restarted.</div>
+          <div class="description" x-show="isEdit && !formData.ip_address">
+            This virtual machine has no IP address yet. Choose one from the template's network
+            <span x-text="template.kvm_network_cidr"></span>
+            (range <span x-text="template.kvm_ip_range_start"></span> – <span x-text="template.kvm_ip_range_end"></span>) — the space cannot start until it is set.
+          </div>
+          <div x-show="!ipAddressValid" class="error-message" x-cloak>Enter a valid IPv4 address from the template's range.</div>
+        </div>
         <div x-show="showNodeSelection()" x-cloak>
           <label for="node" class="form-label">Node</label>
           <select class="form-field" name="node" id="node"

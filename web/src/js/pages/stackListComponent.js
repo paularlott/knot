@@ -222,6 +222,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       modal.error = "";
 
       const created = [];
+      const needsIP = [];
 
       try {
         // Refuse to create a stack whose name is already in use — reusing an
@@ -280,6 +281,11 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
 
           const data = await res.json();
           created.push({ key: comp.name, id: data.space_id, comp });
+          // KVM spaces created without an IP: they exist but can't start
+          // until one is set via the space's edit form.
+          if (data.requires_ip) {
+            needsIP.push(spaceName);
+          }
         }
 
         // Build key-to-ID map
@@ -333,10 +339,17 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
         }
 
         modal.show = false;
-        this.$dispatch("show-alert", {
-          msg: `Stack "${stackName}" created with ${created.length} space(s)`,
-          type: "success",
-        });
+        if (needsIP.length > 0) {
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" created with ${created.length} space(s), but ${needsIP.length} virtual machine(s) still need an IP address — edit ${needsIP.join(", ")} to set one from the template's network range before starting them.`,
+            type: "warning",
+          });
+        } else {
+          this.$dispatch("show-alert", {
+            msg: `Stack "${stackName}" created with ${created.length} space(s)`,
+            type: "success",
+          });
+        }
       } catch (err) {
         // Cleanup created spaces on failure
         for (const s of created) {

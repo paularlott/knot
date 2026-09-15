@@ -10,6 +10,10 @@ type ServerInfoResponse struct {
 	// WildcardDomain is the server's wildcard domain used to build space
 	// web-port dev URLs (e.g. "*.knot.example.com"). Empty when not configured.
 	WildcardDomain string `json:"wildcard_domain"`
+	// TunnelDomain is the server's tunnel domain as it is stored on the
+	// running config — a dot-prefixed suffix (".tunnel.example.com") that
+	// appends straight after a tunnel name. Empty when not configured.
+	TunnelDomain string `json:"tunnel_domain"`
 	// Clustered reports whether this server is running a gossip cluster (i.e.
 	// a cluster advertise address is configured). Clients use it to decide
 	// whether cluster-wide fan-out operations make sense.

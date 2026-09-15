@@ -135,6 +135,23 @@ type UnifiedSpec struct {
 	// Ignored by the container YAML emitter.
 	CPUType string `json:"cpu_type,omitempty"`
 
+	// Disk is KVM-only: the space VM disk's virtual size (e.g. "20G").
+	// Empty keeps the base image's size. Ignored by the container and Nomad
+	// emitters.
+	Disk string `json:"disk,omitempty"`
+
+	// HostDevices is KVM-only: host devices passed through to the VM in
+	// virt-install hostdev form (pci_0000_01_00_0, usb_002_003 or
+	// 0x8086:0x1234). Ignored by the container and Nomad emitters.
+	HostDevices []string `json:"host_devices,omitempty"`
+
+	// KvmNetwork is KVM-only: the network the template's VMs attach to,
+	// emitted as the job spec's `network:` block (the name differs from
+	// the container `Network` string, which is a docker network mode).
+	// The template's structured network fields are derived from this block
+	// at save time. Ignored by the container and Nomad emitters.
+	KvmNetwork *SpecKvmNetwork `json:"kvm_network,omitempty"`
+
 	// Auth, when non-nil, toggles registry auth for the image pull. The
 	// username/password are stored in the spec as-is; admins who want secret
 	// handling should reference ${{ .var.* }} or ${{ .custom.* }} values.
@@ -173,6 +190,21 @@ type NomadTemplate struct {
 	ChangeSignal  string `json:"change_signal,omitempty"`
 	MountTarget   string `json:"mount_target,omitempty"`
 	MountReadonly bool   `json:"mount_readonly,omitempty"`
+}
+
+// SpecKvmNetwork is the KVM job spec's `network:` block: the admin-defined
+// network VMs attach to. Values must be literal (no template variables) —
+// they're validated at template save time and used to validate space IPs at
+// create time.
+type SpecKvmNetwork struct {
+	// Mode is "bridged" (static IPs from the range, the default when
+	// empty) or "nat" (libvirt NAT network, DHCP inside the VM, no IPs).
+	Mode         string `json:"mode,omitempty"`
+	Cidr         string `json:"cidr"`
+	Bridge       string `json:"bridge,omitempty"`
+	IPRangeStart string `json:"ip_range_start"`
+	IPRangeEnd   string `json:"ip_range_end"`
+	Gateway      string `json:"gateway,omitempty"`
 }
 
 // KeyValue is a single environment variable or generic KEY=value pair.

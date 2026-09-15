@@ -77,6 +77,7 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		WithCodeServer:           template.WithCodeServer,
 		WithSSH:                  template.WithSSH,
 		WithRunCommand:           template.WithRunCommand,
+		WithVNC:                  template.WithVNC,
 		AllowNodeMigration:       template.AllowNodeMigration,
 		StartupScriptId:          template.StartupScriptId,
 		ShutdownScriptId:         template.ShutdownScriptId,
@@ -100,6 +101,12 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		DisableUserActivity:      template.DisableUserActivity,
 		Ports:                    template.Ports,
 		Jobs:                     template.Jobs,
+		KvmNetworkMode:           template.KvmNetworkMode,
+		KvmNetworkCidr:           template.KvmNetworkCidr,
+		KvmIPRangeStart:          template.KvmIPRangeStart,
+		KvmIPRangeEnd:            template.KvmIPRangeEnd,
+		KvmGateway:               template.KvmGateway,
+		KvmBridge:                template.KvmBridge,
 	}
 
 	// Handle schedule

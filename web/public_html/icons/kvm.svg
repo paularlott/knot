@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="KVM">
+  <!-- KVM (kernel-based virtual machine) chip -->
+  <g fill="#115e59">
+    <rect x="6.2" y="1.2" width="1.6" height="2.6" rx="0.8"/>
+    <rect x="11.2" y="1.2" width="1.6" height="2.6" rx="0.8"/>
+    <rect x="16.2" y="1.2" width="1.6" height="2.6" rx="0.8"/>
+    <rect x="6.2" y="20.2" width="1.6" height="2.6" rx="0.8"/>
+    <rect x="11.2" y="20.2" width="1.6" height="2.6" rx="0.8"/>
+    <rect x="16.2" y="20.2" width="1.6" height="2.6" rx="0.8"/>
+    <rect x="1.2" y="6.2" width="2.6" height="1.6" rx="0.8"/>
+    <rect x="1.2" y="11.2" width="2.6" height="1.6" rx="0.8"/>
+    <rect x="1.2" y="16.2" width="2.6" height="1.6" rx="0.8"/>
+    <rect x="20.2" y="6.2" width="2.6" height="1.6" rx="0.8"/>
+    <rect x="20.2" y="11.2" width="2.6" height="1.6" rx="0.8"/>
+    <rect x="20.2" y="16.2" width="2.6" height="1.6" rx="0.8"/>
+  </g>
+  <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="#14b8a6" stroke="#115e59" stroke-width="1.2"/>
+  <g fill="none" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7.2 9.9 V14.6"/>
+    <path d="M9.8 9.9 L7.2 12.2 L9.8 14.6"/>
+    <path d="M10.6 9.9 L12 14.6 L13.4 9.9"/>
+    <path d="M14.2 14.6 V9.9 L15.9 12.5 L17.6 9.9 V14.6"/>
+  </g>
+</svg>

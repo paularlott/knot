@@ -114,6 +114,7 @@
                             <span x-show="t.platform == 'podman'" class="app-badge-info w-fit">Podman</span>
                             <span x-show="t.platform == 'apple'" class="app-badge-info w-fit">Apple</span>
                             <span x-show="t.platform == 'container'" class="app-badge-info w-fit">Container</span>
+<span x-show="t.platform == 'kvm'" class="app-badge-info w-fit">KVM</span>
                             <span x-show="t.platform == 'nomad'" class="app-badge-success w-fit">Nomad</span>
                             <span x-show="t.platform == 'manual'" class="app-badge-warning w-fit">Manual</span>
                             {{ if .isLeafNode }}
@@ -204,6 +205,7 @@
                       <span x-show="t.platform == 'podman'" class="app-badge-info w-fit">Podman</span>
                       <span x-show="t.platform == 'apple'" class="app-badge-info w-fit">Apple</span>
                       <span x-show="t.platform == 'container'" class="app-badge-info w-fit">Container</span>
+<span x-show="t.platform == 'kvm'" class="app-badge-info w-fit">KVM</span>
                       <span x-show="t.platform == 'nomad'" class="app-badge-success w-fit">Nomad</span>
                       <span x-show="t.platform == 'manual'" class="app-badge-warning w-fit">Manual</span>
                       {{ if .isLeafNode }}
@@ -523,3 +525,9 @@
   </div>
 </main>
 {{ end }}
+
+<script>
+  // Platform allowlist from the server's enabled-backends config; the
+  // template editor offers only these. Empty array = everything offered.
+  window.knotEnabledBackends = {{ .enabledBackendsJSON }};
+</script>

@@ -48,8 +48,8 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only return nodes for local container templates
-	if !template.IsLocalContainer() {
+	// Only return nodes for node-local runtime templates (containers and KVM)
+	if !template.IsNodeRuntime() {
 		rest.WriteResponse(http.StatusOK, w, r, []AvailableNode{})
 		return
 	}
@@ -84,7 +84,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 	if !cfg.LeafNode {
 		if peers == nil {
 			// Single server mode
-			if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)) {
+			if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimesWithKVM()) {
 				counts := spaceCounts[localNodeId]
 				nodes = append(nodes, AvailableNode{
 					NodeId:        localNodeId,
@@ -108,7 +108,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 				var hostname string
 
 				if nodeId == localNodeId {
-					runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+					runtimes = runtime.DetectAllAvailableRuntimesWithKVM()
 					hostname = cfg.Hostname
 				} else {
 					runtimes = strings.Split(peer.Metadata.GetString("runtimes"), ",")
@@ -135,7 +135,14 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 
 func hasRequiredRuntime(template *model.Template, runtimes []string) bool {
 	if template.Platform == model.PlatformContainer {
-		return len(runtimes) > 0
+		// "container" means any local *container* runtime — KVM alone does
+		// not satisfy it.
+		for _, rt := range runtimes {
+			if rt != model.PlatformKvm {
+				return true
+			}
+		}
+		return false
 	}
 
 	for _, rt := range runtimes {

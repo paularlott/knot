@@ -1802,6 +1802,9 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created space.
+                  requires_ip:
+                    type: boolean
+                    description: Present and true when a KVM virtual machine was created without an IP address — the space cannot start until one is set via the update API.
         "400":
           $ref: "#/components/responses/bad-request"
         "401":
@@ -3557,7 +3560,7 @@ paths:
   /api/spec/parse:
     post:
       summary: Parse a Template Spec into Wizard JSON
-      description: Convert a native template spec (Nomad HCL or local container YAML) into the unified JSON the template spec wizard edits. Returns `wizardable=false` when the spec can't be safely presented in the wizard (e.g. multi-task Nomad job, unparseable HCL, unsupported driver).
+      description: Convert a native template spec (Nomad HCL, local container YAML or KVM VM YAML) into the unified JSON the template spec wizard edits. Returns `wizardable=false` when the spec can't be safely presented in the wizard (e.g. multi-task Nomad job, unparseable HCL, unsupported driver).
       operationId: parseSpec
       tags:
         - Templates
@@ -6773,6 +6776,10 @@ components:
           type: string
           example: "*.knot.example.com"
           description: The server's wildcard domain used to build space web-port URLs. Empty when not configured.
+        tunnel_domain:
+          type: string
+          example: ".tunnel.example.com"
+          description: The server's tunnel domain as a dot-prefixed suffix that appends straight after a tunnel name. Empty when not configured.
         clustered:
           type: boolean
           description: Whether this server is running a gossip cluster (a cluster advertise address is configured). Clients use it to decide whether cluster-wide fan-out operations apply.
@@ -6904,7 +6911,10 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
+        ip_address:
+          type: string
+          description: KVM spaces only. The VM's static IP address.
         shares:
           type: array
           description: The users the space is shared with.
@@ -7098,6 +7108,9 @@ components:
           type: string
           format: uuid
           description: The ID of the node to run the space on, or empty for auto-select.
+        ip_address:
+          type: string
+          description: KVM only. The VM's static IP, chosen from the template's network range. Optional at create (the space cannot start until one is set); settable and changeable while the space is stopped, applied at the next boot. Ignored for other platforms.
         startup_script_id:
           type: string
           format: uuid
@@ -7287,6 +7300,9 @@ components:
         node_hostname:
           type: string
           description: The hostname of the node assigned to host the space.
+        ip_address:
+          type: string
+          description: KVM spaces only. The VM's static IP address.
         healthy:
           type: boolean
           description: Whether the space is currently healthy on this zone. Defaults to true when no health checks are configured or when health is not known locally.
@@ -7409,7 +7425,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -7470,6 +7486,24 @@ components:
           items:
             $ref: "#/components/schemas/SpaceJob"
           description: The jobs copied into spaces created from this template, where they can be edited or removed.
+        kvm_network_cidr:
+          type: string
+          description: KVM only. The IPv4 network (CIDR) the template's VMs are attached to.
+        kvm_ip_range_start:
+          type: string
+          description: KVM only. First address spaces may pick their IP from.
+        kvm_ip_range_end:
+          type: string
+          description: KVM only. Last address spaces may pick their IP from.
+        kvm_gateway:
+          type: string
+          description: KVM only. The network's gateway; empty defaults to the network's first usable address.
+        kvm_bridge:
+          type: string
+          description: KVM only. The Linux bridge VMs attach to on the node; defaults to br0. The bridge must exist on the node — boots fail with an error otherwise.
+        runtime_available:
+          type: boolean
+          description: Whether any node in the zone currently offers the runtime the template needs. Always true for manual and Nomad templates.
         custom_fields:
           type: array
           items:
@@ -7563,7 +7597,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
         active:
           type: boolean
           description: If the template is active.
@@ -7725,7 +7759,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -7881,7 +7915,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -8004,6 +8038,21 @@ components:
           items:
             $ref: "#/components/schemas/SpaceJob"
           description: The jobs copied into spaces created from this template, where they can be edited or removed.
+        kvm_network_cidr:
+          type: string
+          description: KVM only. The IPv4 network (CIDR) the template's VMs are attached to.
+        kvm_ip_range_start:
+          type: string
+          description: KVM only. First address spaces may pick their IP from.
+        kvm_ip_range_end:
+          type: string
+          description: KVM only. Last address spaces may pick their IP from.
+        kvm_gateway:
+          type: string
+          description: KVM only. The network's gateway; empty defaults to the network's first usable address.
+        kvm_bridge:
+          type: string
+          description: KVM only. The Linux bridge VMs attach to on the node; defaults to br0. The bridge must exist on the node — boots fail with an error otherwise.
 
     TemplateDetailsDay:
       type: object
@@ -8025,11 +8074,11 @@ components:
       properties:
         platform:
           type: string
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
           description: The platform the template targets.
         job:
           type: string
-          description: Nomad HCL or local container YAML, depending on platform.
+          description: Nomad HCL, local container YAML or KVM VM YAML, depending on platform. KVM VM YAML must include a literal `network:` block (cidr, bridge, ip_range_start, ip_range_end, optional gateway) — spaces pick their static IP from it.
         volumes:
           type: string
           description: YAML volume definition for the selected platform.
@@ -8170,7 +8219,7 @@ components:
       properties:
         platform:
           type: string
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
         job:
           type: string
         volumes:
@@ -8193,7 +8242,7 @@ components:
       properties:
         platform:
           type: string
-          enum: ["manual", "docker", "podman", "nomad", "apple", "container"]
+          enum: ["manual", "docker", "podman", "nomad", "apple", "container", "kvm"]
         original_job:
           type: string
           description: Current native spec text (may have been hand-edited since the last parse).

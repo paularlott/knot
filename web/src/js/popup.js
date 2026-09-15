@@ -5,6 +5,21 @@ export const popup = {
     return false;
   },
 
+  // Open the serial console of a KVM space's VM (login with the owner's
+  // knot username and service password).
+  openConsole(spaceId) {
+    const timestamp = new Date().getTime();
+    window.open(`/terminal/${spaceId}/console`, `spaces_${spaceId}_console_${timestamp}`, 'width=800,height=500');
+    return false;
+  },
+
+  // Open the QEMU display of a KVM space's VM in a noVNC window.
+  openVMDisplay(spaceId) {
+    const timestamp = new Date().getTime();
+    window.open(`/vnc/${spaceId}`, `spaces_${spaceId}_vnc_${timestamp}`, 'width=1024,height=768');
+    return false;
+  },
+
   openTerminalTunnel(spaceId) {
     const width = Math.min(screen.width, 900);
     window.open(`/terminal/${spaceId}/vscode-tunnel`, `spaces_${spaceId}_tunnel`, `width=${width},height=400`);

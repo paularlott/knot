@@ -42,27 +42,32 @@ type ServerConfig struct {
 	// Failed-login rate limiting: block auth after AuthRateLimitAttempts
 	// failures within AuthRateLimitWindow seconds, for AuthRateLimitBlock
 	// seconds.
-	AuthRateLimitAttempts     int
-	AuthRateLimitWindow       int // seconds
-	AuthRateLimitBlock        int // seconds
-	DNSEnabled                bool
-	DNSListen                 string
-	Nameservers               []string
-	LocalContainerRuntimePref []string
-	MCPToolTimeout            int
-	ScriptFSAllowedPaths      []string
-	Origin                    OriginConfig
-	TOTP                      TOTPConfig
-	UI                        UIConfig
-	Cluster                   ClusterConfig
-	MySQL                     MySQLConfig
-	BadgerDB                  BadgerDBConfig
-	Redis                     RedisConfig
-	Audit                     AuditConfig
-	LogOutput                 LogOutputConfig
-	Docker                    DockerConfig
-	Podman                    PodmanConfig
-	Nomad                     NomadConfig
+	AuthRateLimitAttempts int
+	AuthRateLimitWindow   int // seconds
+	AuthRateLimitBlock    int // seconds
+	DNSEnabled            bool
+	DNSListen             string
+	Nameservers           []string
+	MCPToolTimeout        int
+	ScriptFSAllowedPaths  []string
+	Origin                OriginConfig
+	TOTP                  TOTPConfig
+	UI                    UIConfig
+	Cluster               ClusterConfig
+	MySQL                 MySQLConfig
+	BadgerDB              BadgerDBConfig
+	Redis                 RedisConfig
+	Audit                 AuditConfig
+	LogOutput             LogOutputConfig
+	Docker                DockerConfig
+	Podman                PodmanConfig
+	Nomad                 NomadConfig
+	KVM                   KVMConfig
+	// EnabledBackends is the admin's platform allowlist: which backends the
+	// template editor offers and template creation accepts (docker, podman,
+	// apple, nomad, kvm). Empty means all. Independent of runtime
+	// detection — a listed backend still needs a node that can run it.
+	EnabledBackends           []string
 	TLS                       TLSConfig
 	MCP                       MCPConfig
 	Chat                      ChatConfig
@@ -205,6 +210,32 @@ type NomadConfig struct {
 	Token  string
 	DC     string // Nomad datacenter, exposed as ${{ .nomad.dc }}. Defaults to NOMAD_DC.
 	Region string // Nomad region, exposed as ${{ .nomad.region }}. Defaults to NOMAD_REGION.
+}
+
+type KVMConfig struct {
+	// ImagesPath is the directory KVM base images are downloaded into and
+	// per-space disk overlays + cloud-init seeds live under. It must be
+	// writable by knot and readable by the qemu user libvirt runs VMs as —
+	// the libvirt images dir (/var/lib/libvirt/images) is the conventional
+	// choice when knot runs as root.
+	ImagesPath string
+	// CloudImagePath is a read-only library of cloud images admins keep on
+	// the node. A bare image name in a KVM spec (e.g. "ubuntu-24.04")
+	// resolves to <CloudImagePath>/<name> (with ".qcow2" appended when the
+	// name has no extension). Empty follows ImagesPath
+	// (<ImagesPath>/cloud-images), so relocating the images path moves the
+	// library too unless this pins it elsewhere.
+	CloudImagePath string
+	// BaseImagePath is the cache for base images downloaded from URLs in
+	// KVM specs: each file lands under it named after the URL's last path
+	// segment and is reused by every later space on the node. Empty follows
+	// ImagesPath (<ImagesPath>/base), so relocating the images path moves
+	// the cache too unless this pins it elsewhere.
+	BaseImagePath string
+	// Resolvers are the DNS servers handed to bridged VMs via cloud-init.
+	// Defaults to Cloudflare's pair; the gateway is no longer injected
+	// implicitly — admins who want the router to answer DNS list it here.
+	Resolvers []string
 }
 
 type MCPRemoteServerConfig struct {

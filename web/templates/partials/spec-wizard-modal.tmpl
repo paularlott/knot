@@ -44,9 +44,10 @@
                 <input type="text"
                   class="form-field"
                   x-model="specWizard.spec.image"
-                  placeholder="registry.example.com/image:tag"
-                  aria-label="Container image">
+                  :placeholder="formData.platform === 'kvm' ? 'ubuntu-24.04 (from the node\u0027s cloud images), a URL or a path' : 'registry.example.com/image:tag'"
+                  :aria-label="formData.platform === 'kvm' ? 'VM base image' : 'Container image'">
                 <button type="button"
+                  x-show="formData.platform !== 'kvm'"
                   @click="specWizard.imageDropdownOpen = !specWizard.imageDropdownOpen; if (specWizard.imageDropdownOpen) { specWizard.imageActiveIndex = 0; $nextTick(() => $refs.baseImageSearch.focus()) }"
                   class="absolute right-1 top-1 bottom-1 px-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                   title="Pick from base images"
@@ -57,7 +58,7 @@
                 </button>
 
                 <!-- Image picker dropdown -->
-                <div x-show="specWizard.imageDropdownOpen" x-cloak class="absolute z-[80] mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-72 overflow-auto">
+                <div x-show="formData.platform !== 'kvm' && specWizard.imageDropdownOpen" x-cloak class="absolute z-[80] mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-72 overflow-auto">
                   <div class="sticky top-0 bg-white dark:bg-gray-800 p-2 border-b border-gray-200 dark:border-gray-700">
                     <input type="search"
                       x-ref="baseImageSearch"
@@ -97,7 +98,82 @@
               </div>
             </div>
             <div x-show="specWizard.baseImagesError" class="text-xs text-amber-600 dark:text-amber-400" x-text="specWizard.baseImagesError"></div>
+            <p x-show="formData.platform === 'kvm'" x-cloak class="description">A cloud-init capable qcow2 image matching the node's architecture. A bare name resolves in the node's cloud images directory (<code>.qcow2</code> appended when missing); URLs are downloaded and cached on the node.</p>
           </div>
+        </fieldset>
+
+        <!-- VM Network (KVM only) — part of the job spec's `network:` block,
+             written into the YAML on Apply alongside the other fields. -->
+        <fieldset x-show="formData.platform === 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">VM Network</legend>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mode</label>
+              <select class="form-field" x-model="specWizard.spec.kvm_network.mode"
+                @change="if (specWizard.spec.kvm_network.mode === 'nat') {
+                  specWizard.spec.kvm_network.cidr = '';
+                  specWizard.spec.kvm_network.gateway = '';
+                  specWizard.spec.kvm_network.ip_range_start = '';
+                  specWizard.spec.kvm_network.ip_range_end = '';
+                }">
+                <option value="bridged">Bridged (static IPs)</option>
+                <option value="nat">NAT (DHCP)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                x-text="specWizard.spec.kvm_network.mode === 'nat' ? 'Libvirt Network' : 'Bridge'">Bridge</label>
+              <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.bridge"
+                :placeholder="specWizard.spec.kvm_network.mode === 'nat' ? 'default' : 'br0 or default'">
+            </div>
+            <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Network CIDR</label>
+                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.cidr" placeholder="192.168.50.0/24">
+              </div>
+            </template>
+            <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gateway</label>
+                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.gateway" placeholder="192.168.50.1">
+              </div>
+            </template>
+            <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IP Range Start</label>
+                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.ip_range_start" placeholder="192.168.50.10">
+              </div>
+            </template>
+            <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IP Range End</label>
+                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.ip_range_end" placeholder="192.168.50.100">
+              </div>
+            </template>
+          </div>
+          <p class="description" x-show="specWizard.spec.kvm_network.mode !== 'nat'">Bridged: spaces pick their VM's static IP at creation time. Values must be literal (no template variables). The IP range is optional, empty uses the network's whole usable address space.</p>
+          <p class="description" x-show="specWizard.spec.kvm_network.mode === 'nat'" x-cloak>NAT: VMs attach to a libvirt NAT network and get their address by DHCP.</p>
+        </fieldset>
+
+        <!-- Host Devices (KVM only) — PCI/USB passthrough entries -->
+        <fieldset x-show="formData.platform === 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-2 mb-2">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Host Devices</legend>
+            <button type="button" @click="wizardAddHostDevice()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              <span class="sr-only">Add device</span>
+            </button>
+          </div>
+          <template x-for="(d, i) in specWizard.spec.host_devices" :key="i">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="text" class="form-field font-mono grow" x-model="specWizard.spec.host_devices[i]" placeholder="pci_0000_01_00_0, usb_002_003 or 0x8086:0x1234" aria-label="Host device">
+              <button type="button" @click="wizardRemoveHostDevice(i)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                <span class="sr-only">Remove device</span>
+              </button>
+            </div>
+          </template>
+          <p class="description">Host hardware passed through to the VM: PCI addresses (pci_0000_01_00_0), USB pairs (usb_002_003) or vendor:product pairs (0x8086:0x1234). PCI needs IOMMU and vfio on the node; devices are held exclusively while the VM runs.</p>
         </fieldset>
 
         <!-- Resources -->
@@ -110,12 +186,13 @@
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                x-text="formData.platform === 'nomad' ? 'Job Name' : 'Container Name'">Name</label>
+                x-text="formData.platform === 'nomad' ? 'Job Name' : formData.platform === 'kvm' ? 'Domain Name' : 'Container Name'">Name</label>
               <input type="text" class="form-field" x-model="specWizard.spec.name"
-                :placeholder="formData.platform === 'nomad' ? 'job \u0022&lt;name&gt;\u0022 { ... }' : 'container_name'">
+                :placeholder="formData.platform === 'nomad' ? 'job \u0022&lt;name&gt;\u0022 { ... }' : formData.platform === 'kvm' ? '${{ .user.username }}-${{ .space.name }}' : 'container_name'">
             </div>
           </div>
-          <p class="description mb-3">Name (<span x-text="formData.platform === 'nomad' ? 'the Nomad job label' : 'container_name'"></span>) is separate from Hostname. Both are commonly <code>${{ .user.username }}-${{ .space.name }}</code> / <code>${{ .space.name }}</code>.</p>
+          <p class="description mb-3" x-show="formData.platform !== 'kvm'">Name (<span x-text="formData.platform === 'nomad' ? 'the Nomad job label' : 'container_name'"></span>) is separate from Hostname. Both are commonly <code>${{ .user.username }}-${{ .space.name }}</code> / <code>${{ .space.name }}</code>.</p>
+          <p class="description mb-3" x-show="formData.platform === 'kvm'" x-cloak>Name is the libvirt domain name; Hostname is the VM's hostname. Leave blank to default to <code>${{ .user.username }}-${{ .space.name }}</code> / <code>${{ .space.name }}</code>.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Memory</label>
@@ -140,6 +217,10 @@
                 </template>
               </div>
             </div>
+            <div x-show="formData.platform === 'kvm'" x-cloak>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Disk Size</label>
+              <input type="text" class="form-field" x-model="specWizard.spec.disk" placeholder="e.g. 20G">
+            </div>
             <div x-show="formData.platform === 'nomad'" x-cloak>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task driver</label>
               <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
@@ -154,7 +235,7 @@
               </div>
             </div>
           </div>
-          <label class="flex items-center cursor-pointer mt-3">
+          <label class="flex items-center cursor-pointer mt-3" x-show="formData.platform !== 'kvm'">
             <input type="checkbox" class="sr-only peer" x-model="specWizard.spec.privileged">
             <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Privileged</span>
@@ -189,7 +270,7 @@
 
         <!-- Linux capabilities (cap_add only — cap_drop stays a hand-edit, and
              any existing cap_drop in the spec is preserved on Apply) -->
-        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <!-- click.outside wraps the toggle button AND the dropdown together.
                When the button lived outside this container, clicking it counted
                as an "outside" click on the same event, closing the dropdown
@@ -254,7 +335,7 @@
         </fieldset>
 
         <!-- Storage -->
-        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
             <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Storage</legend>
             <div class="flex gap-1">
@@ -323,7 +404,7 @@
         </fieldset>
 
         <!-- Ports -->
-        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
             <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Container Ports</legend>
             <button type="button" @click="wizardAddPort()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">

@@ -3,43 +3,54 @@ package runtime
 import (
 	"testing"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 )
 
 func TestDetectLocalContainerRuntime(t *testing.T) {
-	tests := []struct {
-		name        string
-		preferences []string
-	}{
-		{
-			name:        "default preferences",
-			preferences: []string{},
-		},
-		{
-			name:        "docker first",
-			preferences: []string{model.PlatformDocker, model.PlatformPodman},
-		},
-		{
-			name:        "podman first",
-			preferences: []string{model.PlatformPodman, model.PlatformDocker},
-		},
-		{
-			name:        "apple only",
-			preferences: []string{model.PlatformApple},
-		},
-	}
+	// Preferences come from server config at refresh time; probe each
+	// ordering and confirm the snapshot's preferred runtime is a valid
+	// platform (or none at all).
+	for _, prefs := range [][]string{
+		{},
+		{model.PlatformDocker, model.PlatformPodman},
+		{model.PlatformPodman, model.PlatformDocker},
+		{model.PlatformApple},
+	} {
+		config.SetServerConfig(&config.ServerConfig{EnabledBackends: prefs})
+		refreshSnapshot()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := DetectLocalContainerRuntime(tt.preferences)
-			// Result can be empty or one of the valid platforms
-			if result != "" &&
-				result != model.PlatformDocker &&
-				result != model.PlatformPodman &&
-				result != model.PlatformApple {
-				t.Errorf("Unexpected runtime detected: %s", result)
+		result := DetectLocalContainerRuntime()
+		if result != "" &&
+			result != model.PlatformDocker &&
+			result != model.PlatformPodman &&
+			result != model.PlatformApple {
+			t.Errorf("Unexpected runtime detected: %s", result)
+		}
+
+		all := DetectAllAvailableRuntimesWithKVM()
+		if result != "" {
+			found := false
+			for _, rt := range all {
+				if rt == result {
+					found = true
+					break
+				}
 			}
-		})
+			if !found {
+				t.Errorf("preferred runtime %q missing from all-runtimes %v", result, all)
+			}
+		}
+		// KVM membership matches DetectKVMAvailable exactly — one snapshot.
+		hasKVM := false
+		for _, rt := range all {
+			if rt == model.PlatformKvm {
+				hasKVM = true
+			}
+		}
+		if hasKVM != DetectKVMAvailable() {
+			t.Error("KVM membership disagrees with DetectKVMAvailable")
+		}
 	}
 }
 

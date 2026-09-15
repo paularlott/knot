@@ -39,10 +39,15 @@ func BuildStackVariableData(space *model.Space, variables map[string]interface{}
 	if len(wildcardDomain) > 0 && wildcardDomain[0] == '*' {
 		wildcardDomain = wildcardDomain[1:]
 	}
+	// The tunnel domain without the *, mirroring the wildcard domain — the
+	// running config keeps it as a dot-prefixed suffix (".tunnel.example.com")
+	// that appends straight after a tunnel name.
+	tunnelDomain := strings.TrimPrefix(cfg.TunnelDomain, "*")
 	serverGroup := map[string]interface{}{
 		"url":             strings.TrimSuffix(cfg.URL, "/"),
 		"agent_endpoint":  cfg.AgentEndpoint,
 		"wildcard_domain": wildcardDomain,
+		"tunnel_domain":   tunnelDomain,
 		"zone":            cfg.Zone,
 		"timezone":        cfg.Timezone,
 	}
@@ -117,6 +122,10 @@ func buildSiblingEntry(
 			"stack":        sib.Stack,
 			"stack_prefix": sib.StackPrefix,
 			"first_boot":   sib.TemplateHash == "",
+			// Bridged KVM spaces only: the VM's static IP, so mixed stacks
+			// can wire a container to a sibling VM service. Empty for
+			// containers and NAT spaces.
+			"ip_address": sib.IPAddress,
 		},
 		// Global groups shared across all spaces.
 		"server": serverGroup,

@@ -38,6 +38,10 @@ func ValidateTemplateSpecWithNomadParser(platform, job, volumes string, parseNom
 		issues := validateNomadJob(job, parseNomadJob)
 		issues = append(issues, validateNomadVolumes("volumes", volumes, false)...)
 		return issues
+	case model.PlatformKvm:
+		issues := validateKvmJob(job)
+		issues = append(issues, validateKvmVolumes("volumes", volumes)...)
+		return issues
 	default:
 		return []Issue{{Field: "platform", Message: "unsupported platform"}}
 	}
@@ -184,6 +188,232 @@ func validateLocalContainerJob(job string) []Issue {
 	}
 
 	return issues
+}
+
+// validateKvmJob validates a KVM virtual machine spec by walking the decoded
+// YAML node tree so every issue can carry the line of the offending content.
+func validateKvmJob(job string) []Issue {
+	if strings.TrimSpace(job) == "" {
+		return []Issue{{Field: "job", Message: "virtual machine specification is required"}}
+	}
+
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(job), &root); err != nil {
+		return []Issue{{Field: "job", Line: lineFromError(err), Message: cleanYAMLError(err.Error())}}
+	}
+	mapping := docMapping(&root)
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		line := 1
+		if mapping != nil {
+			line = mapping.Line
+		}
+		return []Issue{{Field: "job", Line: line, Message: "virtual machine specification must be a YAML mapping"}}
+	}
+
+	var issues []Issue
+	hasImage := false
+	hasNetwork := false
+
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		keyNode, valNode := mapping.Content[i], mapping.Content[i+1]
+		switch keyNode.Value {
+		case "image":
+			hasImage = true
+			if strings.TrimSpace(scalarValue(valNode)) == "" {
+				issues = append(issues, Issue{Field: "job", Line: valNode.Line, Message: "image must be set"})
+			}
+		case "environment":
+			issues = append(issues, validateStringList(valNode, "environment", validateEnvEntry)...)
+		case "memory":
+			if v := strings.TrimSpace(scalarValue(valNode)); v != "" {
+				if _, err := util.ConvertToBytes(v); err != nil {
+					issues = append(issues, Issue{Field: "job", Line: valNode.Line, Message: fmt.Sprintf("invalid memory value %q (expected e.g. 512M, 4G)", v)})
+				}
+			}
+		case "cpus":
+			if v := strings.TrimSpace(scalarValue(valNode)); v != "" {
+				if cpus, err := strconv.ParseFloat(v, 64); err != nil || cpus <= 0 {
+					issues = append(issues, Issue{Field: "job", Line: valNode.Line, Message: fmt.Sprintf("invalid cpus value %q (expected a positive number, e.g. 2)", v)})
+				}
+			}
+		case "disk":
+			if v := strings.TrimSpace(scalarValue(valNode)); v != "" {
+				if _, err := util.ConvertToBytes(v); err != nil {
+					issues = append(issues, Issue{Field: "job", Line: valNode.Line, Message: fmt.Sprintf("invalid disk value %q (expected e.g. 20G)", v)})
+				}
+			}
+		case "network":
+			issues = append(issues, validateKvmNetwork(valNode)...)
+			hasNetwork = true
+		case "devices":
+			issues = append(issues, validateStringList(valNode, "devices", validateKvmDevice)...)
+		case "name", "hostname":
+			// accepted, not validated
+		default:
+			issues = append(issues, Issue{Field: "job", Line: keyNode.Line, Message: fmt.Sprintf("unknown field %q", keyNode.Value)})
+		}
+	}
+
+	if !hasImage {
+		issues = append(issues, Issue{Field: "job", Line: mapping.Line, Message: "image must be set"})
+	}
+	if !hasNetwork {
+		issues = append(issues, Issue{Field: "job", Line: mapping.Line, Message: "network must be configured (mode, cidr, bridge, ip_range_start, ip_range_end)"})
+	}
+
+	return issues
+}
+
+// validateKvmNetwork checks the spec's `network:` block: the mapping shape
+// plus the CIDR/range/gateway consistency reused from the model layer. Values
+// must be literal — template variables are rejected as invalid addresses.
+func validateKvmNetwork(node *yaml.Node) []Issue {
+	line := node.Line
+	if node.Kind != yaml.MappingNode {
+		if node.Kind == yaml.ScalarNode && node.Value == "" {
+			return []Issue{{Field: "job", Line: line, Message: "network must be a mapping (cidr, bridge, ip_range_start, ip_range_end)"}}
+		}
+		return []Issue{{Field: "job", Line: line, Message: "network must be a mapping (cidr, bridge, ip_range_start, ip_range_end)"}}
+	}
+
+	var block struct {
+		Mode         string `yaml:"mode"`
+		Cidr         string `yaml:"cidr"`
+		Bridge       string `yaml:"bridge"`
+		IPRangeStart string `yaml:"ip_range_start"`
+		IPRangeEnd   string `yaml:"ip_range_end"`
+		Gateway      string `yaml:"gateway"`
+	}
+	if err := node.Decode(&block); err != nil {
+		return []Issue{{Field: "job", Line: line, Message: "network block parse failed: " + cleanYAMLError(err.Error())}}
+	}
+
+	// Known sub-keys only, so typos surface instead of being dropped.
+	known := map[string]bool{"mode": true, "cidr": true, "bridge": true, "ip_range_start": true, "ip_range_end": true, "gateway": true}
+	var issues []Issue
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key := node.Content[i]
+		if key.Kind == yaml.ScalarNode && !known[key.Value] {
+			issues = append(issues, Issue{Field: "job", Line: key.Line, Message: fmt.Sprintf("unknown network field %q", key.Value)})
+		}
+	}
+
+	if mode := strings.TrimSpace(block.Mode); mode != "" && mode != model.KvmNetworkModeNat && mode != model.KvmNetworkModeBridged {
+		return append(issues, Issue{Field: "job", Line: line, Message: fmt.Sprintf("invalid network mode %q (expected nat or bridged)", block.Mode)})
+	}
+
+	if strings.TrimSpace(block.Mode) == model.KvmNetworkModeNat {
+		// NAT mode: the VM DHCPs from the libvirt network — static
+		// addressing fields must not be set.
+		for _, pair := range []struct{ key, value string }{
+			{"cidr", block.Cidr},
+			{"ip_range_start", block.IPRangeStart},
+			{"ip_range_end", block.IPRangeEnd},
+			{"gateway", block.Gateway},
+		} {
+			if strings.TrimSpace(pair.value) != "" {
+				issues = append(issues, Issue{Field: "job", Line: line, Message: fmt.Sprintf("network field %q must not be set in nat mode — the VM gets its address from the libvirt network", pair.key)})
+			}
+		}
+		return issues
+	}
+
+	stub := &model.Template{
+		Platform:        model.PlatformKvm,
+		KvmNetworkCidr:  block.Cidr,
+		KvmIPRangeStart: block.IPRangeStart,
+		KvmIPRangeEnd:   block.IPRangeEnd,
+		KvmGateway:      block.Gateway,
+	}
+	if _, err := model.ParseKvmNetwork(stub); err != nil {
+		issues = append(issues, Issue{Field: "job", Line: line, Message: err.Error()})
+	}
+
+	return issues
+}
+
+// validateKvmDevice checks a host device passthrough entry in the forms
+// virt-install's --hostdev accepts: a PCI address (pci_0000_01_00_0), a USB
+// bus.device pair (usb_002_003) or a vendor:product hex pair (0x8086:0x1234).
+func validateKvmDevice(v string) error {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return fmt.Errorf("device entry is empty")
+	}
+
+	lower := strings.ToLower(v)
+	switch {
+	case strings.HasPrefix(lower, "pci_"):
+		parts := strings.Split(strings.TrimPrefix(lower, "pci_"), "_")
+		if len(parts) != 4 {
+			return fmt.Errorf("device %q must be a PCI address like pci_0000_01_00_0", v)
+		}
+		for i, p := range parts {
+			// domain/bus/device are 2-4 hex digits, function 1-2.
+			min := 2
+			if i == 3 {
+				min = 1
+			}
+			if len(p) < min || len(p) > 4 {
+				return fmt.Errorf("device %q must be a PCI address like pci_0000_01_00_0", v)
+			}
+			for _, r := range p {
+				if !strings.ContainsRune("0123456789abcdef", r) {
+					return fmt.Errorf("device %q must be a PCI address like pci_0000_01_00_0", v)
+				}
+			}
+		}
+		return nil
+	case strings.HasPrefix(lower, "usb_"):
+		parts := strings.Split(strings.TrimPrefix(lower, "usb_"), "_")
+		if len(parts) != 2 {
+			return fmt.Errorf("device %q must be a USB bus.device pair like usb_002_003", v)
+		}
+		for _, p := range parts {
+			if len(p) == 0 || len(p) > 3 {
+				return fmt.Errorf("device %q must be a USB bus.device pair like usb_002_003", v)
+			}
+			for _, r := range p {
+				if r < '0' || r > '9' {
+					return fmt.Errorf("device %q must be a USB bus.device pair like usb_002_003", v)
+				}
+			}
+		}
+		return nil
+	}
+
+	// vendor:product hex pair, 0x prefix optional.
+	vp := strings.TrimPrefix(lower, "0x")
+	if left, right, found := strings.Cut(vp, ":"); found {
+		if strings.HasPrefix(right, "0x") {
+			right = strings.TrimPrefix(right, "0x")
+		}
+		hexOk := func(s string) bool {
+			if len(s) == 0 || len(s) > 4 {
+				return false
+			}
+			for _, r := range s {
+				if !strings.ContainsRune("0123456789abcdef", r) {
+					return false
+				}
+			}
+			return true
+		}
+		if hexOk(left) && hexOk(right) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("device %q must be a PCI address (pci_0000_01_00_0), USB pair (usb_002_003) or vendor:product pair (0x8086:0x1234)", v)
+}
+
+// validateKvmVolumes rejects any volume definition: KVM spaces carry no
+// managed volumes, the VM's disk is created with the job.
+func validateKvmVolumes(field, volumes string) []Issue {
+	if strings.TrimSpace(volumes) == "" {
+		return nil
+	}
+	return []Issue{{Field: field, Message: "KVM templates cannot define volumes"}}
 }
 
 func validateLocalVolumeDefinitions(field, volumes string, requireSingle bool) []Issue {

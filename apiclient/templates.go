@@ -8,11 +8,11 @@ import (
 )
 
 type CustomFieldDef struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Type        string `json:"type,omitempty"`
-	Handler     string `json:"handler,omitempty"`
-	Language    string `json:"language,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Type        string   `json:"type,omitempty"`
+	Handler     string   `json:"handler,omitempty"`
+	Language    string   `json:"language,omitempty"`
 	Default     string   `json:"default,omitempty"`
 	Required    bool     `json:"required,omitempty"`
 	Options     []string `json:"options,omitempty"`
@@ -31,6 +31,7 @@ type TemplateCreateRequest struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	WithVNC                  bool                 `json:"with_vnc"`
 	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
@@ -69,6 +70,7 @@ type TemplateUpdateRequest struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	WithVNC                  bool                 `json:"with_vnc"`
 	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
@@ -110,6 +112,7 @@ type TemplateInfo struct {
 	Active             bool                 `json:"active"`
 	IsManaged          bool                 `json:"is_managed"`
 	AllowNodeMigration bool                 `json:"allow_node_migration"`
+	WithVNC            bool                 `json:"with_vnc"`
 	ScheduleEnabled    bool                 `json:"schedule_enabled"`
 	AutoStart          bool                 `json:"auto_start"`
 	ComputeUnits       uint32               `json:"compute_units"`
@@ -122,6 +125,16 @@ type TemplateInfo struct {
 	Ports              []model.TemplatePort `json:"ports"`
 	Jobs               []model.SpaceJob     `json:"jobs"`
 	CustomFields       []CustomFieldDef     `json:"custom_fields"`
+	KvmNetworkMode     string               `json:"kvm_network_mode,omitempty"`
+	KvmNetworkCidr     string               `json:"kvm_network_cidr,omitempty"`
+	KvmIPRangeStart    string               `json:"kvm_ip_range_start,omitempty"`
+	KvmIPRangeEnd      string               `json:"kvm_ip_range_end,omitempty"`
+	KvmGateway         string               `json:"kvm_gateway,omitempty"`
+	KvmBridge          string               `json:"kvm_bridge,omitempty"`
+	// RuntimeAvailable reports whether any node in the zone currently
+	// offers the runtime the template needs (always true for manual and
+	// Nomad templates).
+	RuntimeAvailable bool `json:"runtime_available"`
 }
 
 type TemplateList struct {
@@ -153,6 +166,7 @@ type TemplateDetails struct {
 	WithCodeServer           bool                 `json:"with_code_server"`
 	WithSSH                  bool                 `json:"with_ssh"`
 	WithRunCommand           bool                 `json:"with_run_command"`
+	WithVNC                  bool                 `json:"with_vnc"`
 	AllowNodeMigration       bool                 `json:"allow_node_migration"`
 	StartupScriptId          string               `json:"startup_script_id"`
 	ShutdownScriptId         string               `json:"shutdown_script_id"`
@@ -176,6 +190,12 @@ type TemplateDetails struct {
 	DisableUserActivity      bool                 `json:"disable_user_activity"`
 	Ports                    []model.TemplatePort `json:"ports"`
 	Jobs                     []model.SpaceJob     `json:"jobs"`
+	KvmNetworkMode           string               `json:"kvm_network_mode,omitempty"`
+	KvmNetworkCidr           string               `json:"kvm_network_cidr,omitempty"`
+	KvmIPRangeStart          string               `json:"kvm_ip_range_start,omitempty"`
+	KvmIPRangeEnd            string               `json:"kvm_ip_range_end,omitempty"`
+	KvmGateway               string               `json:"kvm_gateway,omitempty"`
+	KvmBridge                string               `json:"kvm_bridge,omitempty"`
 }
 
 func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {

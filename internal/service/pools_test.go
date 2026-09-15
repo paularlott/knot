@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -329,5 +330,25 @@ func TestPoolConcurrentCreateUniqueOrdinals(t *testing.T) {
 		if got := ordinalOf(t, pool.Name, m); got != i {
 			t.Fatalf("member %d = %q (number %d), want contiguous %d", i, m.Name, got, i)
 		}
+	}
+}
+
+func TestPoolRejectsBridgedKvmTemplate(t *testing.T) {
+	config.SetServerConfig(&config.ServerConfig{
+		BadgerDB: config.BadgerDBConfig{Enabled: true, Path: t.TempDir()},
+	})
+	db := database.GetInstance()
+	user := newTestUser(t)
+
+	bridged := model.NewTemplate("bridged", "", "image: base\nnetwork:\n  mode: bridged\n  cidr: 192.0.2.0/24\n  bridge: br0\n  ip_range_start: 192.0.2.10\n  ip_range_end: 192.0.2.100\n", "", "", nil, model.PlatformKvm, true, false, false, false, false, false, "", "", 0, 0, false, nil, nil, false, true, 0, "disabled", "", nil)
+	bridged.KvmNetworkMode = model.KvmNetworkModeBridged
+	if err := db.SaveTemplate(bridged, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	pool := model.NewPoolDefinition("badpool", bridged.Id, "", 1, user.Id)
+	err := GetPoolService().Create(pool, user)
+	if err == nil || !strings.Contains(err.Error(), "bridged KVM templates cannot back pools") {
+		t.Fatalf("expected bridged KVM pool rejection, got %v", err)
 	}
 }

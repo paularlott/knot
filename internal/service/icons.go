@@ -163,6 +163,7 @@ func getDefaultIcons() []Icon {
 		{Description: "HTML5", Source: "built-in", URL: "/icons/html5.svg"},
 		{Description: "Java", Source: "built-in", URL: "/icons/java.svg"},
 		{Description: "JavaScript", Source: "built-in", URL: "/icons/javascript.svg"},
+		{Description: "KVM", Source: "built-in", URL: "/icons/kvm.svg"},
 		{Description: "Laravel", Source: "built-in", URL: "/icons/laravel.svg"},
 		{Description: "Linux Mint", Source: "built-in", URL: "/icons/linux-mint.svg"},
 		{Description: "Linux", Source: "built-in", URL: "/icons/linux.svg"},

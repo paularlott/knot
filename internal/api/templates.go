@@ -16,6 +16,7 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
+	"gopkg.in/yaml.v3"
 	"strings"
 )
 
@@ -64,7 +65,10 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build a json array of data to return to the client
+	// Build a json array of data to return to the client. The zone's
+	// available runtimes are resolved once — per-template availability is
+	// then a map lookup.
+	availableRuntimes := service.AvailableZoneRuntimes()
 	templateResponse := apiclient.TemplateList{
 		Count:     0,
 		Templates: []apiclient.TemplateInfo{},
@@ -80,6 +84,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Platform = template.Platform
 		templateData.IsManaged = template.IsManaged
 		templateData.AllowNodeMigration = template.AllowNodeMigration
+		templateData.WithVNC = template.WithVNC
 		templateData.ComputeUnits = template.ComputeUnits
 		templateData.StorageUnits = template.StorageUnits
 		templateData.ScheduleEnabled = template.ScheduleEnabled
@@ -91,6 +96,13 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.IconURL = template.IconURL
 		templateData.Ports = template.Ports
 		templateData.Jobs = template.Jobs
+		templateData.KvmNetworkMode = template.KvmNetworkMode
+		templateData.RuntimeAvailable = service.TemplateRuntimeAvailableIn(template, availableRuntimes)
+		templateData.KvmNetworkCidr = template.KvmNetworkCidr
+		templateData.KvmIPRangeStart = template.KvmIPRangeStart
+		templateData.KvmIPRangeEnd = template.KvmIPRangeEnd
+		templateData.KvmGateway = template.KvmGateway
+		templateData.KvmBridge = template.KvmBridge
 
 		templateData.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))
 		for i, field := range template.CustomFields {
@@ -163,6 +175,15 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	if request.Platform == model.PlatformNomad {
 		request.AllowNodeMigration = false
 	}
+	// KVM spaces are pinned to their node's disk; migration between nodes
+	// would require moving the VM's disk image.
+	if request.Platform == model.PlatformKvm {
+		request.AllowNodeMigration = false
+		request.Volumes = ""
+	} else {
+		// The QEMU VNC bridge only applies to KVM templates.
+		request.WithVNC = false
+	}
 
 	// Support lookup by both ID and name
 	db := database.GetInstance()
@@ -194,6 +215,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.WithCodeServer = request.WithCodeServer
 	template.WithSSH = request.WithSSH
 	template.WithRunCommand = request.WithRunCommand
+	template.WithVNC = request.WithVNC
 	template.AllowNodeMigration = request.AllowNodeMigration
 	template.StartupScriptId = request.StartupScriptId
 	template.ShutdownScriptId = request.ShutdownScriptId
@@ -216,6 +238,10 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
 	template.Jobs = request.Jobs
+	if errStr := deriveKvmTemplateNetwork(template); errStr != "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: errStr})
+		return
+	}
 
 	// Convert schedule
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
@@ -281,6 +307,15 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	if request.Platform == model.PlatformNomad {
 		request.AllowNodeMigration = false
 	}
+	// KVM spaces are pinned to their node's disk; migration between nodes
+	// would require moving the VM's disk image.
+	if request.Platform == model.PlatformKvm {
+		request.AllowNodeMigration = false
+		request.Volumes = ""
+	} else {
+		// The QEMU VNC bridge only applies to KVM templates.
+		request.WithVNC = false
+	}
 
 	user := r.Context().Value("user").(*model.User)
 
@@ -333,6 +368,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.IconURL,
 		customFields,
 	)
+	template.WithVNC = request.WithVNC
 	template.HealthCheckType = request.HealthCheckType
 	template.HealthCheckConfig = request.HealthCheckConfig
 	template.HealthCheckSkipSSLVerify = request.HealthCheckSkipSSLVerify
@@ -343,6 +379,10 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
 	template.Jobs = request.Jobs
+	if errStr := deriveKvmTemplateNetwork(template); errStr != "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: errStr})
+		return
+	}
 
 	templateService := service.GetTemplateService()
 	err = templateService.CreateTemplate(template, user)
@@ -506,6 +546,87 @@ var templateFieldLanguages = map[string]bool{
 // until it is reinstalled (cluster-order independent storage), and the
 // options endpoint re-resolves the handler on every fetch.
 var pluginHandlerIdRe = regexp.MustCompile(`^plugin\.[a-z0-9_-]+\.[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$`)
+
+// deriveKvmTemplateNetwork populates the template's structured KVM network
+// fields from the `network:` block of its job spec YAML — the YAML is the
+// source of truth (the wizard writes it), the fields are the derived form
+// used for space IP validation at create time. KVM templates need a complete
+// consistent network; other platforms carry no KVM fields at all. Returns a
+// human-readable error string, empty when valid.
+func deriveKvmTemplateNetwork(template *model.Template) string {
+	if template.Platform != model.PlatformKvm {
+		template.KvmNetworkMode = ""
+		template.KvmNetworkCidr = ""
+		template.KvmIPRangeStart = ""
+		template.KvmIPRangeEnd = ""
+		template.KvmGateway = ""
+		template.KvmBridge = ""
+		return ""
+	}
+
+	var spec struct {
+		Network *struct {
+			Mode         string `yaml:"mode"`
+			Cidr         string `yaml:"cidr"`
+			Bridge       string `yaml:"bridge"`
+			IPRangeStart string `yaml:"ip_range_start"`
+			IPRangeEnd   string `yaml:"ip_range_end"`
+			Gateway      string `yaml:"gateway"`
+		} `yaml:"network"`
+	}
+	if err := yaml.Unmarshal([]byte(template.Job), &spec); err != nil {
+		return "KVM VM specification is not valid YAML: " + err.Error()
+	}
+	if spec.Network == nil {
+		return "KVM VM specification must configure a network block (mode, cidr, bridge, ip_range_start, ip_range_end)"
+	}
+
+	template.KvmNetworkMode = strings.TrimSpace(spec.Network.Mode)
+	if template.KvmNetworkMode == "" {
+		template.KvmNetworkMode = model.KvmNetworkModeBridged
+	}
+	if template.KvmNetworkMode != model.KvmNetworkModeBridged && template.KvmNetworkMode != model.KvmNetworkModeNat {
+		return fmt.Sprintf("invalid network mode %q (expected nat or bridged)", template.KvmNetworkMode)
+	}
+
+	template.KvmNetworkCidr = strings.TrimSpace(spec.Network.Cidr)
+	template.KvmIPRangeStart = strings.TrimSpace(spec.Network.IPRangeStart)
+	template.KvmIPRangeEnd = strings.TrimSpace(spec.Network.IPRangeEnd)
+	template.KvmGateway = strings.TrimSpace(spec.Network.Gateway)
+	template.KvmBridge = strings.TrimSpace(spec.Network.Bridge)
+
+	if template.KvmNetworkMode == model.KvmNetworkModeNat {
+		// NAT: the bridge field names the libvirt network (default
+		// "default"); no static addressing to derive or validate.
+		for _, pair := range []struct{ key, value string }{
+			{"cidr", template.KvmNetworkCidr},
+			{"ip_range_start", template.KvmIPRangeStart},
+			{"ip_range_end", template.KvmIPRangeEnd},
+			{"gateway", template.KvmGateway},
+		} {
+			if pair.value != "" {
+				return fmt.Sprintf("network field %q must not be set in nat mode — the VM gets its address from the libvirt network", pair.key)
+			}
+		}
+		if template.KvmBridge == "" {
+			template.KvmBridge = "default"
+		}
+		return ""
+	}
+
+	// The bridge defaults to br0 rather than staying blank so the stored
+	// value is explicit — an empty bridge resolving differently per node
+	// (or silently via libvirt's default NAT network, virbr0) is exactly
+	// the ambiguity static-IP spaces cannot tolerate.
+	if template.KvmBridge == "" {
+		template.KvmBridge = "br0"
+	}
+
+	if _, err := model.ParseKvmNetwork(template); err != nil {
+		return err.Error()
+	}
+	return ""
+}
 
 // normalizeCustomFields validates custom field declarations on template
 // create/update: type must be one the space form renders, an autocomplete

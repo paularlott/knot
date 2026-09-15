@@ -3,9 +3,9 @@ package apiclient
 import "context"
 
 type RoleDetails struct {
-	Id               string   `json:"role_id"`
-	Name             string   `json:"name"`
-	Permissions      []uint16 `json:"permissions"`
+	Id                string   `json:"role_id"`
+	Name              string   `json:"name"`
+	Permissions       []uint16 `json:"permissions"`
 	PluginPermissions []string `json:"plugin_permissions"`
 }
 

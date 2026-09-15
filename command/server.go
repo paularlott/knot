@@ -23,6 +23,7 @@ import (
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
+	"github.com/paularlott/knot/internal/container/runtime"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
@@ -507,6 +508,34 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 
+		// KVM flags
+		&cli.StringFlag{
+			Name:         "kvm-images-path",
+			Usage:        "Working storage for KVM spaces: per-space disk overlays and cloud-init seeds, one directory per space. The base-image cache and cloud image library default to subdirectories of it unless pinned by their own flags. Must be writable by knot and readable by the qemu user libvirt runs VMs as.",
+			ConfigPath:   []string{"server.kvm.images_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_IMAGES_PATH"},
+			DefaultValue: "/var/lib/libvirt/images/knot",
+		},
+		&cli.StringSliceFlag{
+			Name:         "kvm-resolvers",
+			Usage:        "DNS servers handed to bridged KVM virtual machines via cloud-init.",
+			ConfigPath:   []string{"server.kvm.resolvers"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KVM_RESOLVERS"},
+			DefaultValue: []string{"1.1.1.1", "1.0.0.1"},
+		},
+		&cli.StringFlag{
+			Name:       "kvm-cloud-image-path",
+			Usage:      "Directory holding the node's cloud images. A bare image name in a KVM spec (e.g. ubuntu-24.04) resolves to <dir>/<name>.qcow2. Empty follows the images path (<kvm-images-path>/cloud-images).",
+			ConfigPath: []string{"server.kvm.cloud_image_path"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_KVM_CLOUD_IMAGE_PATH"},
+		},
+		&cli.StringFlag{
+			Name:       "kvm-base-image-path",
+			Usage:      "Cache directory for base images downloaded from URLs in KVM specs; each file is named after the URL's last path segment and reused by later spaces. Empty follows the images path (<kvm-images-path>/base).",
+			ConfigPath: []string{"server.kvm.base_image_path"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_KVM_BASE_IMAGE_PATH"},
+		},
+
 		// MySQL flags
 		&cli.BoolFlag{
 			Name:         "mysql-enabled",
@@ -650,13 +679,13 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
 
-		// Local container runtime preference
+		// Enabled backends (platform allowlist for templates)
 		&cli.StringSliceFlag{
-			Name:         "local-container-runtime-pref",
-			Usage:        "Preference order for local container runtimes (docker, podman, apple). First available will be used.",
-			ConfigPath:   []string{"server.local_containers.runtime_pref"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOCAL_CONTAINERS_RUNTIME_PREF"},
-			DefaultValue: []string{"docker", "podman", "apple"},
+			Name:         "enabled-backends",
+			Usage:        "Backends templates may use: manual, docker, podman, apple, nomad, kvm. Empty means all are offered (manual included). Container backends are auto-detected in the listed order.",
+			ConfigPath:   []string{"server.enabled_backends"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENABLED_BACKENDS"},
+			DefaultValue: []string{},
 		},
 
 		// Template spec wizard flags
@@ -1330,6 +1359,12 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// spaces within a stack (registered after the database is ready).
 	model.SetStackResolver(service.BuildStackVariableData)
 
+	// Start background runtime availability tracking — probing runtimes
+	// (docker info, virsh …) has multi-second timeouts, and everything from
+	// the template list to boot cleanup reads the result. The first probe
+	// is synchronous so boot-time consumers start with data.
+	runtime.StartBackgroundRefresh()
+
 	// Stop orphaned runtimes and clean up broken space states before joining the cluster
 	service.GetContainerService().CleanupOnBoot()
 
@@ -1425,6 +1460,20 @@ func envFallback(v, env string) string {
 		return v
 	}
 	return os.Getenv(env)
+}
+
+// absPath resolves a filesystem path against the directory knot was started
+// from, so relative KVM paths (e.g. a cloud image path of ".") keep that
+// meaning regardless of what later code does. Empty stays empty — it means
+// "use the default".
+func absPath(v string) string {
+	if v == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(v); err == nil {
+		return abs
+	}
+	return v
 }
 
 func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
@@ -1559,6 +1608,13 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			DC:     envFallback(cmd.GetString("nomad-dc"), "NOMAD_DC"),
 			Region: envFallback(cmd.GetString("nomad-region"), "NOMAD_REGION"),
 		},
+		KVM: config.KVMConfig{
+			ImagesPath:     absPath(cmd.GetString("kvm-images-path")),
+			CloudImagePath: absPath(cmd.GetString("kvm-cloud-image-path")),
+			BaseImagePath:  absPath(cmd.GetString("kvm-base-image-path")),
+			Resolvers:      cmd.GetStringSlice("kvm-resolvers"),
+		},
+		EnabledBackends: cmd.GetStringSlice("enabled-backends"),
 		TLS: config.TLSConfig{
 			CertFile:   cmd.GetString("cert-file"),
 			KeyFile:    cmd.GetString("key-file"),
@@ -1656,7 +1712,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 
 			return chatCfg
 		}(),
-		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 		BaseImageRegistry:         cmd.GetString("base-image-registry"),
 		BaseImagesManifest:        cmd.GetString("base-images-manifest"),
 		BaseImageRegistryUser:     cmd.GetString("base-image-registry-user"),

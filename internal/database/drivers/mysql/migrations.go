@@ -136,6 +136,18 @@ var migrations = []string{
 	`ALTER TABLE roles ADD COLUMN IF NOT EXISTS plugin_permissions JSON DEFAULT NULL`,
 	// 65: add linked users (the accounts a user may become) to users
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS linked_users JSON NOT NULL DEFAULT '[]'`,
+	// 66-70: add KVM network configuration to templates
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_network_cidr VARCHAR(64) NOT NULL DEFAULT ''`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_ip_range_start VARCHAR(64) NOT NULL DEFAULT ''`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_ip_range_end VARCHAR(64) NOT NULL DEFAULT ''`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_gateway VARCHAR(64) NOT NULL DEFAULT ''`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_bridge VARCHAR(64) NOT NULL DEFAULT ''`,
+	// 71: add the KVM space's static IP address to spaces
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS ip_address VARCHAR(64) DEFAULT ''`,
+	// 72: add KVM network mode (bridged or nat) to templates
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_network_mode VARCHAR(16) NOT NULL DEFAULT ''`,
+	// 73: expose the VM's built-in QEMU VNC display via a knot bridge
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS with_vnc TINYINT(1) NOT NULL DEFAULT 0`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

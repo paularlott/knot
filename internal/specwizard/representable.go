@@ -23,6 +23,8 @@ func CheckFullyRepresentable(platform, job, volumes string, spec *apiclient.Unif
 		return checkContainerRepresentable(job)
 	case platform == "nomad":
 		return checkNomadRepresentable(job)
+	case platform == "kvm":
+		return checkKvmRepresentable(job)
 	}
 	return true, ""
 }
@@ -78,6 +80,53 @@ func checkContainerRepresentable(job string) (bool, string) {
 			continue
 		}
 		if !containerWizardFields[key.Value] {
+			unknown = append(unknown, key.Value)
+		}
+	}
+	if len(unknown) == 0 {
+		return true, ""
+	}
+	return false, "spec contains fields outside the wizard: " + strings.Join(unknown, ", ")
+}
+
+// kvmWizardFields is the set of top-level YAML keys the wizard controls for
+// KVM VM specs. Any key outside this set means the spec has content the
+// wizard can't show.
+var kvmWizardFields = map[string]bool{
+	"name":        true,
+	"hostname":    true,
+	"image":       true,
+	"memory":      true,
+	"cpus":        true,
+	"disk":        true,
+	"network":     true,
+	"devices":     true,
+	"environment": true,
+}
+
+func checkKvmRepresentable(job string) (bool, string) {
+	if strings.TrimSpace(job) == "" {
+		return true, ""
+	}
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(job), &root); err != nil {
+		return true, "" // parse failures are handled by wizardable check
+	}
+	if root.Kind != yaml.DocumentNode || len(root.Content) == 0 {
+		return true, ""
+	}
+	mapping := root.Content[0]
+	if mapping.Kind != yaml.MappingNode {
+		return true, ""
+	}
+
+	var unknown []string
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		key := mapping.Content[i]
+		if key.Kind != yaml.ScalarNode {
+			continue
+		}
+		if !kvmWizardFields[key.Value] {
 			unknown = append(unknown, key.Value)
 		}
 	}

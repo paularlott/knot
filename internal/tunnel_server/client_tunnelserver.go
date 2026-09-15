@@ -21,17 +21,21 @@ import (
 )
 
 const (
-	maxConnectionAttempts = 5               // Maximum number of connection attempts before giving up
-	connectRetryDelay     = 1 * time.Second // Delay before retrying connection
+	// connectRetryDelay is the delay before the first reconnect attempt; it
+	// doubles per consecutive failed attempt up to maxConnectRetryDelay and
+	// resets once connected. Tunnels retry forever, so a knot server restart
+	// (or any outage shorter than the agent's lifetime) reforms the tunnel
+	// instead of killing it.
+	connectRetryDelay    = 1 * time.Second
+	maxConnectRetryDelay = 30 * time.Second
 )
 
 type tunnelServer struct {
-	ctx                context.Context
-	cancel             context.CancelFunc
-	client             *TunnelClient
-	address            string
-	connectionAttempts int
-	logger             logger.Logger
+	ctx     context.Context
+	cancel  context.CancelFunc
+	client  *TunnelClient
+	address string
+	logger  logger.Logger
 
 	// Active connection state, protected by connMu. Shutdown() closes these
 	// directly because the serve goroutine is normally blocked in
@@ -42,21 +46,26 @@ type tunnelServer struct {
 }
 
 func newTunnelServer(client *TunnelClient, address string) *tunnelServer {
-	ctx, cancel := context.WithCancel(context.Background())
+	// Derive from the client's context: cancelling the client (shutdown, or
+	// the server asking the tunnel to close) must stop every connection
+	// loop. A loop with its own background context would keep reconnecting
+	// after the tunnel was stopped — the tunnel would stay alive while its
+	// registry entry is gone.
+	ctx, cancel := context.WithCancel(client.ctx)
 
 	return &tunnelServer{
-		client:             client,
-		address:            address,
-		connectionAttempts: 0,
-		ctx:                ctx,
-		cancel:             cancel,
-		logger:             log.WithGroup("tunnel"),
+		client:  client,
+		address: address,
+		ctx:     ctx,
+		cancel:  cancel,
+		logger:  log.WithGroup("tunnel"),
 	}
 }
 
 func (ts *tunnelServer) ConnectAndServe() {
 	go func() {
 		ts.logger.Debug("connecting to tunnel server at", "server", ts.address)
+		retryDelay := connectRetryDelay
 		for {
 		StartConnectionLoop:
 
@@ -65,23 +74,6 @@ func (ts *tunnelServer) ConnectAndServe() {
 			case <-ts.ctx.Done():
 				return
 			default:
-			}
-
-			// Check if the max connection attempts have been reached
-			if ts.connectionAttempts >= maxConnectionAttempts {
-				ts.logger.Error("maximum connection attempts reached for server , giving up", "server", ts.address)
-
-				// Remove the server from the list of servers
-				ts.client.serverListMutex.Lock()
-				delete(ts.client.serverList, ts.address)
-
-				// If there's no more servers in the list then exit
-				if len(ts.client.serverList) == 0 {
-					ts.client.cancel()
-				}
-				ts.client.serverListMutex.Unlock()
-
-				return
 			}
 
 			// Set the target URL
@@ -119,8 +111,8 @@ func (ts *tunnelServer) ConnectAndServe() {
 				}
 
 				log.WithError(err).Error("Error while opening websocket:")
-				time.Sleep(connectRetryDelay)
-				ts.connectionAttempts++
+				time.Sleep(retryDelay)
+				retryDelay = min(retryDelay*2, maxConnectRetryDelay)
 				continue
 			}
 
@@ -140,8 +132,8 @@ func (ts *tunnelServer) ConnectAndServe() {
 			if err != nil {
 				log.WithError(err).Error("Creating mux session:")
 				ws.Close()
-				time.Sleep(connectRetryDelay)
-				ts.connectionAttempts++
+				time.Sleep(retryDelay)
+				retryDelay = min(retryDelay*2, maxConnectRetryDelay)
 				goto StartConnectionLoop
 			}
 
@@ -150,6 +142,9 @@ func (ts *tunnelServer) ConnectAndServe() {
 			ts.ws = ws
 			ts.muxSession = muxSession
 			ts.connMu.Unlock()
+
+			// Connected: reset the backoff so the next drop retries promptly.
+			retryDelay = connectRetryDelay
 
 			// Loop forever waiting for connections on the mux session
 			for {

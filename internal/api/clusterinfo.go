@@ -31,7 +31,7 @@ func HandleGetClusterNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	spaces, _ := db.GetSpaces()
-	allocated, running := countSpaces(spaces, localNodeId, cfg.Zone)
+	allocated, running := countSpaces(spaces, localNodeId)
 
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.ClusterNode{
 		NodeId:          localNodeId,
@@ -40,7 +40,7 @@ func HandleGetClusterNode(w http.ResponseWriter, r *http.Request) {
 		ApiEndpoint:     cfg.URL,
 		AllocatedSpaces: allocated,
 		RunningSpaces:   running,
-		Runtimes:        runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref),
+		Runtimes:        runtime.DetectAllAvailableRuntimes(),
 	})
 }
 
@@ -64,8 +64,7 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 		if nodeId == localNodeId {
 			selfSeen = true
 		}
-		nodeZone := p.Metadata.GetString("zone")
-		allocated, running := countSpaces(spaces, nodeId, nodeZone)
+		allocated, running := countSpaces(spaces, nodeId)
 
 		hostname := cfg.Hostname
 		if nodeId != localNodeId {
@@ -80,7 +79,7 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 		metadata["allocated_spaces"] = fmt.Sprintf("%d", allocated)
 		metadata["running_spaces"] = fmt.Sprintf("%d", running)
 		if nodeId == localNodeId {
-			if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+			if runtimes := runtime.DetectAllAvailableRuntimes(); len(runtimes) > 0 {
 				metadata["runtimes"] = strings.Join(runtimes, ",")
 			}
 		}
@@ -97,14 +96,14 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 	// never appears in the peer list; report the local node so cluster info
 	// is complete on single-server deployments.
 	if !selfSeen && localNodeId != "" {
-		allocated, running := countSpaces(spaces, localNodeId, cfg.Zone)
+		allocated, running := countSpaces(spaces, localNodeId)
 		metadata := map[string]string{
 			"zone":             cfg.Zone,
 			"hostname":         cfg.Hostname,
 			"allocated_spaces": fmt.Sprintf("%d", allocated),
 			"running_spaces":   fmt.Sprintf("%d", running),
 		}
-		if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+		if runtimes := runtime.DetectAllAvailableRuntimes(); len(runtimes) > 0 {
 			metadata["runtimes"] = strings.Join(runtimes, ",")
 		}
 		response = append(response, apiclient.ClusterNodeInfo{
@@ -122,13 +121,16 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
-func countSpaces(spaces []*model.Space, nodeId string, nodeZone string) (allocated int, running int) {
+func countSpaces(spaces []*model.Space, nodeId string) (allocated int, running int) {
 	for _, space := range spaces {
 		if space.IsDeleted {
 			continue
 		}
-		// Count spaces assigned to this node or pending spaces in this zone
-		if space.NodeId == nodeId || (space.NodeId == "" && space.Zone == nodeZone) {
+		// Exact node assignment only. A space with no node assignment
+		// (manual and Nomad platforms, or spaces predating node pinning)
+		// belongs to no specific node — counting it here would attribute it
+		// to every node in the zone.
+		if space.NodeId == nodeId {
 			allocated++
 			if space.IsDeployed {
 				running++

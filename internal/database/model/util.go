@@ -77,6 +77,11 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 		wildcardDomain = wildcardDomain[1:]
 	}
 
+	// Get the tunnel domain without the *, mirroring the wildcard domain —
+	// in the running config it is already a dot-prefixed suffix
+	// (".tunnel.example.com") that appends straight after a tunnel name.
+	tunnelDomain := strings.TrimPrefix(cfg.TunnelDomain, "*")
+
 	data := map[string]interface{}{
 		"space": map[string]interface{}{
 			"id":           "",
@@ -84,6 +89,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"stack":        "",
 			"stack_prefix": "",
 			"first_boot":   false,
+			"ip_address":   "",
 		},
 		"template": map[string]interface{}{
 			"id":   "",
@@ -100,6 +106,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"url":                          strings.TrimSuffix(cfg.URL, "/"),
 			"agent_endpoint":               cfg.AgentEndpoint,
 			"wildcard_domain":              wildcardDomain,
+			"tunnel_domain":                tunnelDomain,
 			"zone":                         cfg.Zone,
 			"timezone":                     cfg.Timezone,
 			"base_image_registry":          cfg.BaseImageRegistry,
@@ -121,6 +128,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"stack":        space.Stack,
 			"stack_prefix": space.StackPrefix,
 			"first_boot":   space.TemplateHash == "",
+			"ip_address":   space.IPAddress,
 		}
 	}
 

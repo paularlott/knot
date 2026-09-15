@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/paularlott/gossip/hlc"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/apple"
 	"github.com/paularlott/knot/internal/container/docker"
+	"github.com/paularlott/knot/internal/container/kvm"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/container/podman"
 	"github.com/paularlott/knot/internal/container/runtime"
@@ -46,10 +46,9 @@ func ListRunningRuntimeRefs(template *model.Template, spaces []*model.Space) (ma
 		return map[string]bool{}, nil
 	}
 
-	cfg := config.GetServerConfig()
 	platform := template.Platform
 	if platform == model.PlatformContainer {
-		platform = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+		platform = runtime.DetectLocalContainerRuntime()
 		if platform == "" {
 			return nil, fmt.Errorf("no local container runtime detected")
 		}
@@ -74,6 +73,8 @@ func ListRunningRuntimeRefs(template *model.Template, spaces []*model.Space) (ma
 			return nil, fmt.Errorf("failed to create apple client")
 		}
 		return client.ListRunningSpaceRuntimeRefs()
+	case model.PlatformKvm:
+		return kvm.NewClient().ListRunningSpaceRuntimeRefs()
 	case model.PlatformNomad:
 		client, err := nomad.NewClient()
 		if err != nil {

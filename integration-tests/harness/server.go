@@ -163,7 +163,7 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		"--badgerdb-enabled",
 		"--badgerdb-path", filepath.Join(dataDir, "badger"),
 		"--zone", cfg.Zone,
-		"--local-container-runtime-pref", cfg.Runtime,
+		"--enabled-backends", cfg.Runtime,
 		"--encrypt", hex.EncodeToString(encKey),
 	}
 	if cfg.Registry() != "" {

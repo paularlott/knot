@@ -25,6 +25,7 @@
     "@alpinejs/focus": "^3.14.1",
     "@alpinejs/persist": "^3.13.8",
     "@awcodes/alpine-floating-ui": "^3.6.3",
+    "@novnc/novnc": "^1.7.0",
     "@tailwindcss/forms": "^0.5.9",
     "@tailwindcss/vite": "^4.1.0",
     "@xterm/addon-attach": "^0.10.0",

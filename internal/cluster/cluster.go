@@ -237,7 +237,7 @@ func NewCluster(
 		metadata.SetString("api_endpoint", cfg.URL)
 		metadata.SetString("agent_endpoint", cfg.AgentEndpoint)
 		metadata.SetString("tunnel_server", cfg.TunnelServer)
-		if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+		if runtimes := runtime.DetectAllAvailableRuntimesWithKVM(); len(runtimes) > 0 {
 			metadata.SetString("runtimes", strings.Join(runtimes, ","))
 		}
 
@@ -246,7 +246,7 @@ func NewCluster(
 			defer ticker.Stop()
 			for range ticker.C {
 				m := cluster.gossipCluster.LocalMetadata()
-				runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+				runtimes := runtime.DetectAllAvailableRuntimesWithKVM()
 				if len(runtimes) > 0 {
 					m.SetString("runtimes", strings.Join(runtimes, ","))
 				} else {

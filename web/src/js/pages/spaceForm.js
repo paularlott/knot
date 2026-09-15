@@ -56,6 +56,7 @@ window.spaceForm = function (
       depends_on: [],
       stack: "",
       stack_prefix: "",
+      ip_address: "",
     },
     stackSuggestions: [],
     template_id: templateId,
@@ -65,6 +66,9 @@ window.spaceForm = function (
       allow_node_migration: false,
     },
     isManual: false,
+    isKvmBridged: false,
+    isKvm: false,
+    ipAddressValid: true,
     loading: true,
     buttonLabelWorking: isEdit ? "Saving..." : "Creating...",
     nameValid: true,
@@ -87,6 +91,9 @@ window.spaceForm = function (
     canEditNodeSelection() {
       return (
         !this.isManual &&
+        // KVM spaces are pinned to their node's disk — the node is chosen at
+        // create and never changes.
+        !this.isKvm &&
         (
           !this.formData.has_ever_started ||
           (
@@ -344,6 +351,7 @@ window.spaceForm = function (
           this.dependencyTargetZone = space.zone || "";
           this.formData.stack = space.stack || "";
           this.formData.stack_prefix = space.stack_prefix || "";
+          this.formData.ip_address = space.ip_address || "";
           this.formData.http_ports = space.http_ports || {};
           this._pendingAltNames = space.alt_names || [];
           await this.loadDependencyOptions(this.formData.user_id || userId);
@@ -431,6 +439,12 @@ window.spaceForm = function (
       this.isManual = this.template
         ? this.template.platform === "manual"
         : false;
+      this.isKvm = !!this.template && this.template.platform === "kvm";
+      // Bridged KVM templates take an IP; NAT ones DHCP — no IP to pick.
+      this.isKvmBridged =
+        !!this.template &&
+        this.template.platform === "kvm" &&
+        (this.template.kvm_network_mode || "") !== "nat";
       this.startOnCreate = !this.isManual;
 
       if (!isEdit) {
@@ -546,6 +560,25 @@ window.spaceForm = function (
       return this.descValid;
     },
 
+    // KVM spaces need an IPv4 address from the template's configured range;
+    // this is a shape check only — the server validates range and
+    // uniqueness. Required at create; on edit a blank stays valid (the
+    // space simply can't start until an IP is set) but a typed value must
+    // look like an IPv4 address.
+    checkIPAddress() {
+      if (!this.isKvmBridged) {
+        this.ipAddressValid = true;
+        return true;
+      }
+      const ip = this.formData.ip_address.trim();
+      if (ip === "") {
+        this.ipAddressValid = isEdit ? true : false;
+        return this.ipAddressValid;
+      }
+      this.ipAddressValid = /^(\d{1,3}\.){3}\d{1,3}$/.test(ip);
+      return this.ipAddressValid;
+    },
+
     // Custom fields validate like Space Name: live per field (debounced
     // keyup on the field's own input) plus once more on submit. Required
     // fields cannot be blank; select / autocomplete fields also only accept
@@ -585,6 +618,7 @@ window.spaceForm = function (
       err = !this.checkName() || err;
       err = !this.checkDesc() || err;
       err = !this.checkCustomFields() || err;
+      err = !this.checkIPAddress() || err;
 
       // Remove the blank alt names
       for (let i = this.formData.alt_names.length - 1; i >= 0; i--) {

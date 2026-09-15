@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/apple"
 	"github.com/paularlott/knot/internal/container/docker"
+	"github.com/paularlott/knot/internal/container/kvm"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/container/podman"
 	"github.com/paularlott/knot/internal/container/runtime"
@@ -34,8 +35,7 @@ func NewContainerHelper() *Helper {
 func (h *Helper) createClient(platform string) (container.ContainerManager, error) {
 	// Map "container" to detected runtime
 	if platform == model.PlatformContainer {
-		cfg := config.GetServerConfig()
-		platform = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+		platform = runtime.DetectLocalContainerRuntime()
 		if platform == "" {
 			return nil, fmt.Errorf("no local container runtime detected")
 		}
@@ -62,13 +62,15 @@ func (h *Helper) createClient(platform string) (container.ContainerManager, erro
 			return nil, fmt.Errorf("failed to create apple client")
 		}
 		return client, nil
+	case model.PlatformKvm:
+		return kvm.NewClient(), nil
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
 }
 
 func (h *Helper) CleanupMigratedSpaceArtifacts(space *model.Space, template *model.Template) error {
-	if template == nil || !template.IsLocalContainer() {
+	if template == nil || !template.IsNodeRuntime() {
 		return nil
 	}
 
@@ -146,6 +148,14 @@ func (h *Helper) DeleteVolume(volume *model.Volume) error {
 
 func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *model.User) error {
 	db := database.GetInstance()
+
+	// A bridged KVM space with no IP cannot boot: the address is baked
+	// into the VM's cloud-init network configuration. Blank IPs are
+	// creatable (stacks, pools) and startable only after being set via
+	// edit. NAT spaces DHCP and need no IP.
+	if template.IsKvmBridged() && strings.TrimSpace(space.IPAddress) == "" {
+		return fmt.Errorf("space has no IP address set — edit the space to choose one from the template's network range before starting it")
+	}
 
 	// Mark the space as pending and save it
 	space.IsPending = true
@@ -505,19 +515,19 @@ func (h *Helper) CleanupOnBoot() {
 			continue
 		}
 
-		if template.IsLocalContainer() {
+		if template.IsNodeRuntime() {
 			if space.NodeId != "" && space.NodeId != localNodeId {
 				continue
 			}
 
 			resolved := template.Platform
 			if resolved == model.PlatformContainer {
-				resolved = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+				resolved = runtime.DetectLocalContainerRuntime()
 			}
 			if resolved == "" {
 				continue
 			}
-			available := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+			available := runtime.DetectAllAvailableRuntimesWithKVM()
 			found := false
 			for _, rt := range available {
 				if rt == resolved {
@@ -538,7 +548,7 @@ func (h *Helper) CleanupOnBoot() {
 
 		runtimeKey := template.Platform
 		if template.Platform == model.PlatformContainer {
-			runtimeKey = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
+			runtimeKey = runtime.DetectLocalContainerRuntime()
 		}
 		if template.Platform == model.PlatformNomad {
 			runtimeKey = template.Platform + ":" + spaceutil.NormalizeNomadNamespace(space.NomadNamespace)

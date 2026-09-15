@@ -223,6 +223,11 @@ func (s *PoolService) validate(pool *model.PoolDefinition) error {
 	if err != nil || template == nil || template.IsDeleted || !template.Active {
 		return fmt.Errorf("template not found")
 	}
+	// Bridged KVM spaces need an IP address chosen at creation, which pools
+	// can't provide; NAT KVM templates work (no addresses to assign).
+	if template.IsKvmBridged() {
+		return fmt.Errorf("bridged KVM templates cannot back pools — their spaces need an IP address chosen at creation; use a NAT mode KVM template instead")
+	}
 	if pool.StartupScriptId != "" {
 		if _, err := db.GetScript(pool.StartupScriptId); err != nil {
 			return fmt.Errorf("startup script not found")

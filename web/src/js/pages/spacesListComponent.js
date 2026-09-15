@@ -666,17 +666,22 @@ window.spacesListComponent = function (
       this.poolNameValid = true;
     },
     async openCreatePool() {
+      this.templateSelector.intent = "pool";
       this.resetPoolForm();
       await this.getTemplatesForSelector();
       this.poolFormModal.templateId =
         this.templateSelector.templates.find(
-          (template) => template.active && !template.searchHide,
+          (template) =>
+            template.active &&
+            !template.searchHide &&
+            !this.templateBlocked(template),
         )?.template_id || "";
       this.$nextTick(() => {
         this.$refs.poolNameInput?.focus();
       });
     },
     async openEditPool(pool) {
+      this.templateSelector.intent = "pool";
       await this.getTemplatesForSelector();
       await this.loadScriptList();
 
@@ -1133,6 +1138,12 @@ window.spacesListComponent = function (
     },
     openTerminal(spaceId) {
       popup.openTerminal(spaceId);
+    },
+    openConsole(spaceId) {
+      popup.openConsole(spaceId);
+    },
+    openVMDisplay(spaceId) {
+      popup.openVMDisplay(spaceId);
     },
     openLogWindow(spaceId) {
       popup.openLogWindow(spaceId);
@@ -1980,6 +1991,12 @@ window.spacesListComponent = function (
           const templateList = await response.json();
           this.templateSelector.templates = templateList.templates;
 
+          // A template whose runtime no node in the zone offers is
+          // selectable-looking but unstartable — tint it like quota blocks.
+          this.templateSelector.templates.forEach((template) => {
+            template.runtimeBlocked = template.runtime_available === false;
+          });
+
           this.templateSelector.templates.forEach((template) => {
             template.icon_url_exists = this.imageExists(template.icon_url);
 
@@ -2052,6 +2069,9 @@ window.spacesListComponent = function (
           maxSpacesReached || storageBlocked || computeBlocked;
       });
     },
+    templateBlocked(t) {
+      return !!(t.quotaBlocked || t.runtimeBlocked);
+    },
     anyUsableTemplate() {
       return this.templateSelector.templates.some(
         (t) => !t.searchHide && !t.quotaBlocked,
@@ -2063,6 +2083,17 @@ window.spacesListComponent = function (
       this.templateSelector.templates.forEach((template) => {
         // Only show active templates
         let showRow = template.active;
+
+        // Pools can't back bridged KVM templates — their spaces need an IP
+        // address chosen at creation, which nothing picks for a pool member.
+        // NAT KVM templates are fine (no addresses to assign).
+        if (
+          this.templateSelector.intent === "pool" &&
+          template.platform === "kvm" &&
+          (template.kvm_network_mode || "") !== "nat"
+        ) {
+          showRow = false;
+        }
 
         const zones = template.zones || [];
         if (zones.length > 0) {

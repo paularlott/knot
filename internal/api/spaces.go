@@ -97,6 +97,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.Zone = space.Zone
 		s.IsRemote = space.Zone != "" && space.Zone != cfg.Zone
 		s.Platform = templatePlatform
+		s.IPAddress = space.IPAddress
 		s.IconURL = space.IconURL
 
 		// Template-declared capabilities (available whether the space is running or not)
@@ -105,6 +106,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.TemplateHasTerminal = template.WithTerminal
 			s.TemplateHasCodeServer = template.WithCodeServer
 			s.TemplateHasVSCodeTunnel = template.WithVSCodeTunnel
+			s.TemplateHasVNC = template.WithVNC
 		}
 		if space.AltNames != nil {
 			s.AltNames = space.AltNames
@@ -410,6 +412,22 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bridged KVM spaces take a static IP from the template's configured
+	// network range. The IP is optional at create (stacks and pools create
+	// VMs without one); when given it is validated against the range and
+	// the addresses already handed out, and the space cannot start until
+	// set. NAT spaces DHCP and carry no IP.
+	ipAddress := strings.TrimSpace(request.IPAddress)
+	if ipAddress != "" && !template.IsKvmBridged() {
+		ipAddress = ""
+	}
+	if template.IsKvmBridged() && ipAddress != "" {
+		if err := service.ValidateKvmSpaceAddress(template, ipAddress, ""); err != nil {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
 	// Select node for space
 	nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
 	if err != nil {
@@ -426,6 +444,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	// Create the space
 	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, shell, &request.AltNames, "", request.IconURL, customFields)
 	space.NodeId = nodeId
+	space.IPAddress = ipAddress
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn
 	space.Stack = request.Stack
@@ -455,9 +474,13 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusCreated, w, r, struct {
 		Status  bool   `json:"status"`
 		SpaceID string `json:"space_id"`
+		// RequiresIP is true for KVM spaces created without an IP address:
+		// they cannot start until one is set via the edit form.
+		RequiresIP bool `json:"requires_ip,omitempty"`
 	}{
-		Status:  true,
-		SpaceID: space.Id,
+		Status:     true,
+		SpaceID:    space.Id,
+		RequiresIP: template.IsKvmBridged() && ipAddress == "",
 	})
 }
 
@@ -585,6 +608,13 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	// Test if the schedule allows the space to be started
 	if !template.AllowedBySchedule() {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "outside of schedule"})
+		return
+	}
+
+	// A bridged KVM space with no IP cannot boot — its network
+	// configuration is generated from the address at start time.
+	if template.IsKvmBridged() && strings.TrimSpace(space.IPAddress) == "" {
+		rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "this virtual machine has no IP address set — edit the space to choose one from the template's network range before starting it"})
 		return
 	}
 
@@ -876,6 +906,35 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "template not found"})
 		return
+	}
+
+	// A KVM space's IP is applied to the VM by cloud-init at boot, so it
+	// can be set or changed while the space is stopped (stacks and pools
+	// create VMs without one) but not while it runs. A blank IP in the
+	// request leaves the stored value untouched — the stack deploy PUTs
+	// partial bodies when wiring dependencies. Other platforms carry no IP.
+	newIP := strings.TrimSpace(request.IPAddress)
+	if template.IsKvmNat() && newIP != "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "NAT virtual machines do not use IP addresses"})
+		return
+	}
+	if template.IsKvmBridged() {
+		if newIP != "" && newIP != space.IPAddress {
+			if space.IsDeployed || space.IsPending || space.IsDeleting {
+				rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "stop the virtual machine before changing its IP address — the new address is applied at boot"})
+				return
+			}
+			if err := service.ValidateKvmSpaceAddress(template, newIP, space.Id); err != nil {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+			space.IPAddress = newIP
+		}
+	} else if newIP != "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "a space's IP address cannot be set for this template"})
+		return
+	} else {
+		space.IPAddress = ""
 	}
 
 	// Required fields cannot be left blank on edit either.
@@ -1297,6 +1356,14 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// A KVM space's OS user and network identity are baked into the VM's
+	// disk by cloud-init; ownership transfer would leave the previous
+	// owner's account inside the machine. Sharing remains available.
+	if template.IsKvm() {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "KVM spaces cannot be transferred"})
 		return
 	}
 

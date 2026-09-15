@@ -16,6 +16,7 @@ import "./aceEditorCompleter.js";
 import { setSpecCompleter } from "./aceSpecCompleter.js";
 import {
   containerSpecCompletions,
+  kvmSpecCompletions,
   localVolumeSpecCompletions,
   nomadJobCompletions,
   nomadVolumeSpecCompletions,
@@ -26,6 +27,48 @@ import { scriptLibraries } from "./scriptCompletions.js";
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
     fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, options: '', handlers: [] },
+    // Server's enabled-backends allowlist ([] = all offered).
+    enabledBackends: (() => {
+      const v = window.knotEnabledBackends;
+      if (Array.isArray(v)) return v;
+      if (typeof v === "string" && v.length > 0) {
+        try { return JSON.parse(v); } catch { return []; }
+      }
+      return [];
+    })(),
+    // The current platform is always offerable so legacy templates on a
+    // since-disabled backend can still be edited (the server rejects
+    // switching TO a disabled platform).
+    platformOfferable(platform) {
+      return (
+        this.enabledBackends.length === 0 ||
+        this.enabledBackends.includes(platform) ||
+        (platform === "container" &&
+          this.enabledBackends.some((b) => ["docker", "podman", "apple"].includes(b))) ||
+        this.formData.platform === platform
+      );
+    },
+    // The single platform choice offered, or null when there are none or
+    // several. Used to auto-select on create: with exactly one possibility
+    // there's no guess to get wrong.
+    singleOfferablePlatform() {
+      const options = [];
+      if (this.platformOfferable("manual")) options.push("manual");
+      if (this.platformOfferable("nomad")) options.push("nomad");
+      if (this.platformOfferable("kvm")) options.push("kvm");
+      const c = this.containerBackendsOffered();
+      if (c.length === 1) options.push(c[0]);
+      else if (c.length > 1) options.push("container");
+      return options.length === 1 ? options[0] : null;
+    },
+    // A method, not a getter: getters read in x-if/x-show are not always
+    // tracked by Alpine's reactivity, whereas a method that reads reactive
+    // state (platformOfferable works this way) is.
+    containerBackendsOffered() {
+      const all = ["docker", "podman", "apple"];
+      if (this.enabledBackends.length === 0) return all;
+      return all.filter((b) => this.enabledBackends.includes(b));
+    },
     iconList: [],
     scriptList: [],
     templateId: templateId,
@@ -40,12 +83,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       ports: [],
       jobs: [],
       jobsTouched: [],
-      platform: "nomad",
+      platform: "",
       with_terminal: false,
       with_vscode_tunnel: false,
       with_code_server: false,
       with_ssh: false,
       with_run_command: false,
+      with_vnc: false,
       allow_node_migration: false,
       startup_script_id: "",
       shutdown_script_id: "",
@@ -138,6 +182,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     advancedForcedReason: "",
 
     async initData() {
+      // Auto-select when exactly one platform is offered (it can't be a
+      // wrong guess and it populates the orchestration box); otherwise
+      // leave it unselected for the user to pick. Edits keep the stored
+      // platform even when it's no longer offered.
+      if (!isEdit && !this.formData.platform) {
+        this.formData.platform = this.singleOfferablePlatform() || "";
+      }
+
       focus.Element('input[name="name"]');
 
       const iconsResponse = await fetch("/api/icons", {
@@ -207,6 +259,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.with_run_command = template.with_run_command;
           this.formData.allow_node_migration =
             template.allow_node_migration || false;
+          this.formData.with_vnc = template.with_vnc || false;
           this.formData.compute_units = template.compute_units;
           this.formData.storage_units = template.storage_units;
           this.formData.active = template.active;
@@ -401,6 +454,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         "nomad",
         "apple",
         "container",
+        "kvm",
       ]);
     },
     checkName() {
@@ -464,14 +518,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       }
 
       this.jobEditor.session.setMode(
-        this.isLocalContainer() ? "ace/mode/yaml" : "ace/mode/terraform",
+        this.isSpecYaml() ? "ace/mode/yaml" : "ace/mode/terraform",
       );
       this.volumeEditor.session.setMode("ace/mode/yaml");
 
       setSpecCompleter(
         this.jobEditor,
         [
-          ...(this.isLocalContainer()
+          ...(this.isSpecYaml()
             ? containerSpecCompletions
             : nomadJobCompletions),
           ...templateVariableCompletions,
@@ -480,7 +534,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       setSpecCompleter(
         this.volumeEditor,
         [
-          ...(this.isLocalContainer()
+          ...(this.isSpecYaml()
             ? localVolumeSpecCompletions
             : nomadVolumeSpecCompletions),
           ...templateVariableCompletions,
@@ -620,6 +674,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         allow_node_migration: this.isLocalContainer()
           ? this.formData.allow_node_migration
           : false,
+        with_vnc: this.isKvm() ? this.formData.with_vnc : false,
         startup_script_id:
           this.formData.platform === "manual"
             ? ""
@@ -941,6 +996,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         this.formData.platform === "container"
       );
     },
+    isKvm() {
+      return this.formData.platform === "kvm";
+    },
+    // KVM VM specs are YAML like the container specs (not Nomad HCL).
+    isSpecYaml() {
+      return this.isLocalContainer() || this.isKvm();
+    },
 
     // ── Template spec wizard ────────────────────────────────────────────
     //
@@ -1014,6 +1076,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         cap_add: [],
         cap_drop: [],
         network: "",
+        kvm_network: {
+          mode: "bridged",
+          cidr: "",
+          bridge: "",
+          ip_range_start: "",
+          ip_range_end: "",
+          gateway: "",
+        },
         privileged: false,
         memory: "",
         cpus: "",
@@ -1416,6 +1486,19 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         memory_max: s.memory_max || "",
         cpus: s.cpus || "",
         cpu_type: s.cpu_type || "",
+        disk: s.disk || "",
+        host_devices: toArray(s.host_devices),
+        kvm_network:
+          s.kvm_network && typeof s.kvm_network === "object"
+            ? {
+                mode: s.kvm_network.mode || "bridged",
+                cidr: s.kvm_network.cidr || "",
+                bridge: s.kvm_network.bridge || "",
+                ip_range_start: s.kvm_network.ip_range_start || "",
+                ip_range_end: s.kvm_network.ip_range_end || "",
+                gateway: s.kvm_network.gateway || "",
+              }
+            : { mode: "bridged", cidr: "", bridge: "", ip_range_start: "", ip_range_end: "", gateway: "" },
         auth: s.auth || null,
         driver: s.driver || (this.formData.platform === "nomad" ? "docker" : ""),
         templates: toArray(s.templates),
@@ -1425,6 +1508,15 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     // Wizard list helpers — the array variants need a stable shape for x-for.
     // New entries go at the top so they're visible without scrolling once the
     // list gets long.
+    wizardAddHostDevice() {
+      if (!Array.isArray(this.specWizard.spec.host_devices)) {
+        this.specWizard.spec.host_devices = [];
+      }
+      this.specWizard.spec.host_devices.unshift("");
+    },
+    wizardRemoveHostDevice(i) {
+      this.specWizard.spec.host_devices.splice(i, 1);
+    },
     wizardAddEnv() {
       this.specWizard.spec.environment.unshift({ key: "", value: "" });
     },

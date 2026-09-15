@@ -21,6 +21,7 @@ Knot is a powerful tool to manage Cloud Development Environment within a Nomad c
 - **Environment Templates:** Customizable templates for creating consistent development environments.
 - **Integration with Nomad:** Ensures seamless integration with Nomad for efficient cluster management.
 - **Local Containers:** Run containers on the local machine using Docker or Podman.
+- **KVM Virtual Machines:** Run spaces as full virtual machines on KVM-capable nodes, with bridged or NAT networking — see [KVM Nodes](#kvm-nodes).
 - **Quotas:** Limit by resource usage and by number of spaces per user.
 - **Development URL Management:** Automatically generated URLs for development spaces.
 - **Support for VNC:** Support for web based VNC servers such as KasmVNC.
@@ -31,6 +32,10 @@ Knot is a powerful tool to manage Cloud Development Environment within a Nomad c
 - **Tunneling:** Securely expose development environments to the internet when required.
 - **Local Services** Securely connect to services on your local machine from within a space.
 - **API:** Provides an API for integration with other systems.
+
+## KVM Nodes
+
+KVM spaces run as full virtual machines on nodes with `/dev/kvm` and a reachable libvirt daemon, booted from cloud images with bridged (static IP) or NAT networking. Setup and configuration are documented at [getknot.dev/docs/configuration/kvm](https://getknot.dev/docs/configuration/kvm/), with the VM specification reference at [getknot.dev/docs/templates/kvm-templates](https://getknot.dev/docs/templates/kvm-templates/).
 
 ## API Versioning
 

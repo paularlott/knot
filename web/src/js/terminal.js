@@ -28,7 +28,12 @@ window.initializeTerminal = function(options) {
   }
 
   const protocol = (location.protocol === "https:") ? "wss://" : "ws://";
-  const url = protocol + location.host + (options.logView ? `/logs/${options.spaceId}/stream` : `/proxy/spaces/${options.spaceId}/terminal/${options.shell}`);
+  const path = options.logView
+    ? `/logs/${options.spaceId}/stream`
+    : options.consoleView
+      ? `/proxy/spaces/${options.spaceId}/console`
+      : `/proxy/spaces/${options.spaceId}/terminal/${options.shell}`;
+  const url = protocol + location.host + path;
   const ws = new WebSocket(url);
 
   const attachAddon = new AttachAddon(ws);
@@ -82,6 +87,13 @@ window.initializeTerminal = function(options) {
       // Never connected — the space likely isn't running. Leave the window
       // open so the user can refresh once it starts.
       terminal.write('\r\n\nconnection terminated, refresh to restart\n');
+      return;
+    }
+    if (options.consoleView) {
+      // The server writes the reason for a failed console (missing virsh,
+      // VM not running, wrong node) into the terminal before closing — keep
+      // the window open so it can be read, and let a refresh reconnect.
+      terminal.write('\r\n\n[console ended — refresh to reconnect]\r\n');
       return;
     }
     // The space terminated (server closed the WS). Close the popup, whether
