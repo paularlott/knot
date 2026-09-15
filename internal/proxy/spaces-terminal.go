@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -137,24 +136,24 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 
 		// handle resizing
 		if mt == websocket.BinaryMessage {
-			data := make([]byte, 2048)
-			_, err = r.Read(data)
+			// Read the whole frame: a single Read can return a partial frame
+			// when it straddles a TCP segment boundary, which would drop part
+			// of a resize or keystroke payload and leave the terminal and the
+			// pty with different sizes.
+			data, err := io.ReadAll(r)
 			if err != nil {
-				log.WithError(err).Error("failed to read data type from websocket:")
+				log.WithError(err).Error("failed to read binary message from websocket:")
 				return
 			}
-
-			data = bytes.Trim(data, "\x00")
 
 			if len(data) > 0 {
 				if data[0] == 1 {
 					ttySize := &msg.TerminalWindowSize{}
-					resizeMessage := bytes.Trim(data[1:], " \n\r\t\x00\x01")
-					if err := json.Unmarshal(resizeMessage, ttySize); err != nil {
-						log.Error("failed to unmarshal resize message '':", "failed", string(resizeMessage), err)
+					if err := json.Unmarshal(data[1:], ttySize); err != nil {
+						log.Error("failed to unmarshal resize message", "failed", string(data[1:]), "error", err)
 						continue
 					}
-					log.Trace("resizing tty to use  x", "resizing", ttySize.Rows, "tty", ttySize.Cols)
+					log.Trace("resizing tty", "rows", ttySize.Rows, "cols", ttySize.Cols)
 
 					if err := msg.WriteCommand(stream, msg.MSG_TERMINAL_RESIZE); err != nil {
 						log.WithError(err).Error("error writing command to stream:")
