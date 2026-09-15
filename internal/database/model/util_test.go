@@ -67,3 +67,42 @@ func TestResolveVariablesStackFields(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveVariablesServerDomains(t *testing.T) {
+	render := func(cfg *config.ServerConfig) string {
+		config.SetServerConfig(cfg)
+		out, err := ResolveVariables(`${{ .server.wildcard_domain }}|${{ .server.tunnel_domain }}`, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatalf("ResolveVariables returned error: %v", err)
+		}
+		return out
+	}
+
+	t.Run("tunnel domain matches the wildcard domain's normalization", func(t *testing.T) {
+		// The running config keeps the tunnel domain as a dot-prefixed suffix.
+		if got, want := render(&config.ServerConfig{TunnelDomain: ".tunnel.example.com"}), "|.tunnel.example.com"; got != want {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+		// The raw configured form carries the wildcard's leading * instead;
+		// only the star is stripped, like the wildcard domain variable.
+		if got, want := render(&config.ServerConfig{TunnelDomain: "*.tunnel.example.com"}), "|.tunnel.example.com"; got != want {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("wildcard and tunnel domains together", func(t *testing.T) {
+		cfg := &config.ServerConfig{
+			WildcardDomain: "*.knot.example.com",
+			TunnelDomain:   ".tunnel.example.com",
+		}
+		if got, want := render(cfg), ".knot.example.com|.tunnel.example.com"; got != want {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("both empty when unconfigured", func(t *testing.T) {
+		if got, want := render(&config.ServerConfig{}), "|"; got != want {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+	})
+}

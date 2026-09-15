@@ -492,17 +492,24 @@ export const templateVariableCompletions = [
     docHTML: docs("Wildcard Domain", "Wildcard domain used to expose space ports (without the leading <code>*</code>)."),
   },
   {
+    caption: "${{ .server.tunnel_domain }}",
+    value: "${{ .server.tunnel_domain }}",
+    meta: "server",
+    score: 847,
+    docHTML: docs("Tunnel Domain", "Domain used for web tunnel addresses — append it straight after the tunnel name, e.g. <code>mytunnel${{ .server.tunnel_domain }}</code> (without the leading <code>*</code>; empty if tunnels are not configured)."),
+  },
+  {
     caption: "${{ .server.zone }}",
     value: "${{ .server.zone }}",
     meta: "server",
-    score: 847,
+    score: 846,
     docHTML: docs("Server Zone", "Zone name of the knot server."),
   },
   {
     caption: "${{ .server.timezone }}",
     value: "${{ .server.timezone }}",
     meta: "server",
-    score: 846,
+    score: 845,
     docHTML: docs("Server Timezone", "Timezone configured on the knot server."),
   },
   // .nomad
