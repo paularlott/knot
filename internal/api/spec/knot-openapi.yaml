@@ -6776,6 +6776,10 @@ components:
           type: string
           example: "*.knot.example.com"
           description: The server's wildcard domain used to build space web-port URLs. Empty when not configured.
+        tunnel_domain:
+          type: string
+          example: ".tunnel.example.com"
+          description: The server's tunnel domain as a dot-prefixed suffix that appends straight after a tunnel name. Empty when not configured.
         clustered:
           type: boolean
           description: Whether this server is running a gossip cluster (a cluster advertise address is configured). Clients use it to decide whether cluster-wide fan-out operations apply.
