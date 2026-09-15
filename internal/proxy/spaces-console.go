@@ -90,27 +90,46 @@ func HandleSpacesConsoleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The console is gated on the template's terminal feature like the agent
+	// terminal: a template author who disabled terminal access must not have
+	// it bypassed through the serial console.
+	if !template.WithTerminal {
+		fail("the template has the terminal feature disabled")
+		return
+	}
+
 	if space.ContainerId == "" {
 		fail("the space has not been started yet — start it first")
 		return
 	}
 
-	// A space on another node has its VM — and therefore its console — on
-	// that node's libvirt; bridge the browser through to that node's server,
-	// which runs this same handler locally.
+	// A space on another node has its VM on that node's libvirt. When that
+	// node is a current cluster member, bridge through to its server. A node
+	// that is no longer in the cluster (a node_id that was regenerated, or a
+	// space that moved with a restored database) falls through to the local
+	// libvirt — a VM that is actually here stays console-able, and the state
+	// checks below produce a readable error when it is not.
 	if forward, nodeId := service.ShouldForwardToNode(space.NodeId); forward {
-		proxyConsoleToNode(conn, user, nodeId, spaceId)
-		return
+		if endpoint, err := service.NodeAPIEndpoint(nodeId); err == nil {
+			proxyConsoleToNode(conn, user, nodeId, spaceId, endpoint)
+			return
+		} else {
+			log.Warn("console: space's node is not in the cluster, trying the local libvirt", "space_id", space.Id, "space_node", nodeId, "reason", err)
+		}
 	}
 
-	running, err := kvm.NewClient().DomainRunning(r.Context(), space.ContainerId)
+	state, err := kvm.NewClient().DomainState(r.Context(), space.ContainerId)
 	if err != nil {
 		log.WithError(err).Error("console: checking domain state", "domain", space.ContainerId)
 		fail("failed to check the VM's state: %v", err)
 		return
 	}
-	if !running {
-		fail("the VM is not running — start the space first")
+	if state == "" {
+		fail("the VM's domain was not found on this server and its node (%s) is not in the cluster", space.NodeId)
+		return
+	}
+	if state != "running" {
+		fail("the VM is not running (state: %s) — start the space first", state)
 		return
 	}
 
@@ -196,13 +215,7 @@ func HandleSpacesConsoleProxy(w http.ResponseWriter, r *http.Request) {
 // flow untouched in both directions, so the node's [console error] lines and
 // the serial console itself reach the browser verbatim. Cluster credentials
 // authenticate the inter-server connection (ApiAuth accepts X-Cluster-Key).
-func proxyConsoleToNode(conn *websocket.Conn, user *model.User, nodeId, spaceId string) {
-	endpoint, err := service.NodeAPIEndpoint(nodeId)
-	if err != nil {
-		writeConsoleError(conn, "the VM runs on another node which could not be reached: %v", err)
-		return
-	}
-
+func proxyConsoleToNode(conn *websocket.Conn, user *model.User, nodeId, spaceId, endpoint string) {
 	url := strings.Replace(endpoint, "http://", "ws://", 1)
 	url = strings.Replace(url, "https://", "wss://", 1)
 	url += "/proxy/spaces/" + spaceId + "/console"

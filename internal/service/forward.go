@@ -43,6 +43,9 @@ func getForwardClient() *rest.HTTPClient {
 // advertises nothing usable.
 func NodeAPIEndpoint(nodeId string) (string, error) {
 	transport := GetTransport()
+	if transport == nil {
+		return "", errors.New("cluster not available")
+	}
 
 	// Get the node from gossip
 	nodes := transport.Nodes()

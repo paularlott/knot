@@ -75,14 +75,10 @@ func (c *KVMClient) domainState(ctx context.Context, name string) (string, error
 	return strings.TrimSpace(strings.SplitN(out, "\n", 2)[0]), nil
 }
 
-// DomainRunning reports whether the named domain exists and is running —
-// the precondition for attaching its serial console.
-func (c *KVMClient) DomainRunning(ctx context.Context, domain string) (bool, error) {
-	state, err := c.domainState(ctx, domain)
-	if err != nil {
-		return false, err
-	}
-	return state == "running", nil
+// DomainState returns the domain's state string (e.g. "running", "shut
+// off"), or "" when the domain does not exist on this host's libvirt.
+func (c *KVMClient) DomainState(ctx context.Context, name string) (string, error) {
+	return c.domainState(ctx, name)
 }
 
 // ---- image management ----

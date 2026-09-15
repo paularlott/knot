@@ -73,3 +73,64 @@ func TestConsoleReportsFailuresInTheTerminal(t *testing.T) {
 		t.Fatalf("expected a [console error] line, got: %q", string(message))
 	}
 }
+
+// TestConsoleFallsBackToLocalForPhantomNode covers stale node assignments:
+// a space whose node is not a cluster member falls back to the local
+// libvirt instead of refusing — here surfacing the domain-state check's
+// error (virsh is absent on a dev machine) rather than a forwarding
+// failure.
+func TestConsoleFallsBackToLocalForPhantomNode(t *testing.T) {
+	prev := config.GetServerConfig()
+	config.SetServerConfig(&config.ServerConfig{
+		BadgerDB: config.BadgerDBConfig{Enabled: true, Path: t.TempDir()},
+	})
+	t.Cleanup(func() { config.SetServerConfig(prev) })
+
+	db := database.GetInstance()
+
+	user := model.NewUser("console-fallback", "fallback@example.com", "password", nil, nil, "", "/bin/sh", "", 1, "", 0, 0, 0)
+	if err := db.SaveUser(user, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	template := model.NewTemplate("kvm-fallback-test", "", "image: base", "", user.Id, nil,
+		model.PlatformKvm, true, false, false, false, false, false, "", "",
+		0, 0, false, nil, nil, false, true, 0, "disabled", "", nil)
+	if err := db.SaveTemplate(template, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	space := model.NewSpace("fallback-space", "", user.Id, template.Id, "/bin/sh", &[]model.AltNameEntry{}, "", "", nil)
+	space.ContainerId = "user-fallback-space"
+	space.NodeId = "00000000-0000-7000-8000-000000000000" // not this node, not in any cluster
+	if err := db.SaveSpace(space, []string{}); err != nil {
+		t.Fatal(err)
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /proxy/spaces/{space_id}/console", func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(context.WithValue(r.Context(), "user", user))
+		HandleSpacesConsoleProxy(w, r)
+	})
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	url := strings.Replace(server.URL, "http://", "ws://", 1) + "/proxy/spaces/" + space.Id + "/console"
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("failed to open console websocket: %v", err)
+	}
+	defer conn.Close()
+
+	conn.SetReadLimit(4096)
+	_, message, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("expected an error message before the close, got: %v", err)
+	}
+	if !strings.Contains(string(message), "[console error]") {
+		t.Fatalf("expected a [console error] line, got: %q", string(message))
+	}
+	if strings.Contains(string(message), "another node which could not be reached") {
+		t.Fatalf("expected the local fallback, not a forwarding refusal: %q", string(message))
+	}
+}
