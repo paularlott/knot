@@ -26,8 +26,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(`These tools manage spaces, templates, and other resources.
 
-All tools are directly callable on the /mcp endpoint.
-Use tool_search to discover tools by keyword or description.`)
+All tools are directly callable on the /mcp endpoint.`)
 
 	if enableWebEndpoint {
 		// Create unified handler for /mcp endpoint
