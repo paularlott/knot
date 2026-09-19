@@ -50,6 +50,7 @@ type ServerConfig struct {
 	Nameservers           []string
 	MCPToolTimeout        int
 	ScriptFSAllowedPaths  []string
+	ScriptNetPolicyFile   string
 	Origin                OriginConfig
 	TOTP                  TOTPConfig
 	UI                    UIConfig

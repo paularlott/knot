@@ -233,6 +233,12 @@ var ServerCmd = &cli.Command{
 			ConfigPath: []string{"server.script_fs_allowed_paths"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SCRIPT_FS_ALLOWED_PATHS"},
 		},
+		&cli.StringFlag{
+			Name:       "script-net-policy",
+			Usage:      "Path to a scriptling network policy TOML file (same schema as the scriptling CLI's --network-policy) restricting outbound access for server-side scripts (MCP tools, event sinks) via requests, wait_for, scriptling.ai and scriptling.mcp — https_only, allow_ip_literals, allow_loopback, allow_private_ips, allow_hosts, deny_hosts, allow_cidrs, deny_cidrs, dns_servers, client_timeout. Unset leaves outbound network access unrestricted.",
+			ConfigPath: []string{"server.script_net_policy"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SCRIPT_NET_POLICY"},
+		},
 		&cli.BoolFlag{
 			Name:         "disable-space-create",
 			Usage:        "Disable the ability to create spaces.",
@@ -909,6 +915,12 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		logger.Fatal("agent endpoint not given")
 	}
 
+	// Fail fast on a broken script-net-policy file rather than only on the
+	// first MCP tool call or event sink run.
+	if err := service.ValidateServerNetPolicy(); err != nil {
+		logger.Fatal("invalid script-net-policy", "error", err)
+	}
+
 	logger.Info("starting knot version", "version", build.Version)
 	logger.Info("starting on", "listen", listen)
 
@@ -1532,6 +1544,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		Nameservers:          cmd.GetStringSlice("nameservers"),
 		MCPToolTimeout:       cmd.GetInt("mcp-tool-timeout"),
 		ScriptFSAllowedPaths: cmd.GetStringSlice("script-fs-allowed-paths"),
+		ScriptNetPolicyFile:  cmd.GetString("script-net-policy"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),

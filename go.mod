@@ -1,8 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.26.1
-
-toolchain go1.26.5
+go 1.27.1
 
 //replace github.com/paularlott/gossip => ../gossip/
 
@@ -32,8 +30,8 @@ require (
 	github.com/paularlott/jsonrpc v0.2.0
 	github.com/paularlott/lmchatkit v0.9.1
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.25.0
-	github.com/paularlott/scriptling v0.25.1
+	github.com/paularlott/mcp v0.26.0
+	github.com/paularlott/scriptling v0.25.2
 	github.com/pkg/sftp v1.13.11
 	github.com/shamaton/msgpack/v3 v3.2.3
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -54,7 +52,7 @@ require (
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.4.2 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -68,7 +66,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect
 	github.com/paularlott/snapshotkv v0.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6 // indirect
+	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
 	github.com/shoenig/go-m1cpu v0.2.2 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect

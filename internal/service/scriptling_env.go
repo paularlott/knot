@@ -46,11 +46,11 @@ var (
 // registerBaseLibraries registers common libraries shared across all environments
 // customLogger is optional - pass nil to use the default logger
 // scriptNetConfig shares knot's configured nameservers with scriptling's
-// dial paths (requests, wait_for, websocket) via a resolver-only network
-// configuration — no address checks, full access. Nil when no nameservers
-// are configured (e.g. on the agent, where the container's system resolver
-// already forwards through the resident resolver), leaving the system
-// resolver in place.
+// dial paths (requests, wait_for, websocket, scriptling.ai, scriptling.mcp)
+// via a resolver-only network configuration — no address checks, full
+// access. Nil when no nameservers are configured (e.g. on the agent, where
+// the container's system resolver already forwards through the resident
+// resolver), leaving the system resolver in place.
 func scriptNetConfig() *netsecurity.Config {
 	if ns := dns.GetDefaultResolver().Nameservers(); len(ns) > 0 {
 		return &netsecurity.Config{AllowAll: true, DNSServers: ns}
@@ -58,8 +58,44 @@ func scriptNetConfig() *netsecurity.Config {
 	return nil
 }
 
-func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger) {
-	netPolicy := scriptNetConfig()
+// serverNetConfig returns the outbound network policy for the restricted
+// server-side environment (MCP tool execution, event sinks): requests,
+// wait_for, scriptling.ai and scriptling.mcp are all governed by it — the
+// network equivalent of ScriptFSAllowedPaths (registerServerFSPaths). When
+// the admin configures ScriptNetPolicyFile, it is loaded with the exact same
+// schema and loader (netsecurity.LoadConfig) as the scriptling CLI's own
+// --network-policy flag, so the full option set is available — not just a
+// host allow-list: https_only, allow_ip_literals, allow_loopback,
+// allow_private_ips, allow_hosts, deny_hosts, allow_cidrs, deny_cidrs,
+// dns_servers and client_timeout. The file is re-read on every call rather
+// than cached, so an admin can edit the policy without restarting knot;
+// parsing a small TOML file is cheap next to standing up a whole scriptling
+// environment. A non-nil error means the configured file is missing or
+// invalid — callers must fail closed (refuse to build the environment)
+// rather than silently falling back to unrestricted access. Falls back to
+// scriptNetConfig() — today's unrestricted-except-DNS behaviour — when
+// ScriptNetPolicyFile is not set.
+func serverNetConfig() (*netsecurity.Config, error) {
+	cfg := config.GetServerConfig()
+	if cfg == nil || cfg.ScriptNetPolicyFile == "" {
+		return scriptNetConfig(), nil
+	}
+	policy, err := netsecurity.LoadConfig(cfg.ScriptNetPolicyFile)
+	if err != nil {
+		return nil, fmt.Errorf("script-net-policy %s: %w", cfg.ScriptNetPolicyFile, err)
+	}
+	return policy, nil
+}
+
+// ValidateServerNetPolicy validates the configured ScriptNetPolicyFile, if
+// any, so the server refuses to start on a broken policy file rather than
+// failing on the first MCP tool call or event sink run.
+func ValidateServerNetPolicy() error {
+	_, err := serverNetConfig()
+	return err
+}
+
+func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger, netPolicy *netsecurity.Config) {
 	stdlib.RegisterAll(env)
 	extlibs.RegisterRequestsLibrary(env, netPolicy)
 	extlibs.RegisterSecretsLibrary(env)
@@ -72,11 +108,11 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 		extlibs.RegisterLoggingLibraryDefault(env)
 	}
 
-	scriptlingai.Register(env)
+	scriptlingai.Register(env, netPolicy)
 	agent.Register(env)
 	scriptlingaitools.Register(env)
 	scriptlingsimilarity.Register(env)
-	scriptlingmcp.Register(env)
+	scriptlingmcp.Register(env, netPolicy)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
 
@@ -180,7 +216,7 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	provisionfile.Register(env)
 	provisionfetch.Register(env)
 
-	scriptlingai.Register(env)
+	scriptlingai.Register(env, netPolicy)
 	aimemory.Register(env, aux)
 	agent.Register(env)
 	scriptlingaitools.Register(env) // scriptling.ai.tools — knot registers this in every env
@@ -190,7 +226,7 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	discord.Register(env, aux)
 	slack.Register(env, aux)
 
-	scriptlingmcp.Register(env)
+	scriptlingmcp.Register(env, netPolicy)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
 
@@ -358,8 +394,11 @@ type ServerScriptlingOptions struct {
 // run in the knot server: MCP tool execution and event sink scripts. This is
 // the restricted side of knot's two environments — no system access libraries
 // (subprocess, os, pathlib, …), no runtime, fs only when the admin configured
-// ScriptFSAllowedPaths, no knot.methods, and an HTTP-only plugin scope (no
-// local executables on the server). Output is captured and returned.
+// ScriptFSAllowedPaths, outbound network access (requests, wait_for,
+// scriptling.ai, scriptling.mcp) governed by the TOML policy at
+// ScriptNetPolicyFile when the admin configured one, no knot.methods, and an
+// HTTP-only plugin scope (no local executables on the server). Output is
+// captured and returned.
 //
 // Both modes get: stdlib + the base extended libraries, knot.ai, the
 // knot.apiclient transport, knot.mcp, all knot.* API libraries via the
@@ -372,9 +411,14 @@ type ServerScriptlingOptions struct {
 // With a nil client the environment is base-only (used by tests); knot
 // libraries and the loader require a client and user.
 func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOptions) (*scriptling.Scriptling, *knotscriptling.MCPLibrary, func(), error) {
+	netPolicy, err := serverNetConfig()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	env := scriptling.New()
 	env.EnableOutputCapture()
-	registerBaseLibraries(env, nil)
+	registerBaseLibraries(env, nil, netPolicy)
 	registerServerFSPaths(env)
 
 	cleanup := func() {}
@@ -474,7 +518,8 @@ func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 		aux = logger.NewNullLogger()
 	}
 
-	extlibs.RegisterRequestsLibrary(env, scriptNetConfig())
+	netPolicy := scriptNetConfig()
+	extlibs.RegisterRequestsLibrary(env, netPolicy)
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterYAMLLibrary(env)
 	extlibs.RegisterTOMLLibrary(env)
@@ -486,11 +531,11 @@ func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	extlibs.RegisterTemplateHTMLLibrary(env)
 	extlibs.RegisterTemplateTextLibrary(env)
 
-	scriptlingai.Register(env)
+	scriptlingai.Register(env, netPolicy)
 	agent.Register(env)
 	scriptlingaitools.Register(env)
 	scriptlingsimilarity.Register(env)
-	scriptlingmcp.Register(env)
+	scriptlingmcp.Register(env, netPolicy)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
 

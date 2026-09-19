@@ -2,6 +2,9 @@ package service
 
 import (
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -351,5 +354,132 @@ func TestMCPScriptlingEnv_FSRegisteredWithConfig(t *testing.T) {
 	if _, err := env.Eval(`import fs
 fs.read_bytes("/etc/passwd", 0, 4)`); err == nil {
 		t.Error("Expected error reading outside allowed paths, got nil")
+	}
+}
+
+// writeNetPolicy writes a scriptling network policy TOML file to a temp dir
+// and returns its path.
+func writeNetPolicy(t *testing.T, toml string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := dir + "/policy.toml"
+	if err := os.WriteFile(path, []byte(toml), 0o644); err != nil {
+		t.Fatalf("failed to write policy file: %v", err)
+	}
+	return path
+}
+
+// TestMCPScriptlingEnv_NetUnrestrictedByDefault verifies that requests made
+// by server-side scripts are not restricted when ScriptNetPolicyFile is not
+// configured (today's behaviour, preserved).
+func TestMCPScriptlingEnv_NetUnrestrictedByDefault(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	user := &model.User{Id: "test-user", Username: "testuser", Email: "test@example.com"}
+	env, _, cleanup, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
+	if err != nil {
+		t.Fatalf("NewServerScriptlingEnv() failed: %v", err)
+	}
+	defer cleanup()
+
+	if _, err := env.Eval("import requests\nrequests.get('" + srv.URL + "')"); err != nil {
+		t.Errorf("unrestricted request should succeed, got: %v", err)
+	}
+}
+
+// TestMCPScriptlingEnv_NetRestrictedByAllowHosts verifies that requests are
+// restricted to the policy file's allow_hosts list — the network equivalent
+// of TestMCPScriptlingEnv_FSRegisteredWithConfig.
+func TestMCPScriptlingEnv_NetRestrictedByAllowHosts(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	// Use the "localhost" hostname rather than the literal 127.0.0.1 address
+	// so the request goes through the host-allowlist check rather than the
+	// (always denied by default) IP-literal check.
+	hostURL := strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
+
+	user := &model.User{Id: "test-user", Username: "testuser", Email: "test@example.com"}
+	orig := config.GetServerConfig()
+	t.Cleanup(func() { config.SetServerConfig(orig) })
+
+	// Denied: localhost is not in the configured allow-list.
+	config.SetServerConfig(&config.ServerConfig{
+		ScriptNetPolicyFile: writeNetPolicy(t, `allow_hosts = ["allowed.example.com"]`),
+	})
+
+	env, _, cleanup, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
+	if err != nil {
+		t.Fatalf("NewServerScriptlingEnv() failed: %v", err)
+	}
+	defer cleanup()
+
+	if _, err := env.Eval("import requests\nrequests.get('" + hostURL + "')"); err == nil ||
+		!strings.Contains(err.Error(), "not in the allowed host list") {
+		t.Errorf("expected host-not-allowed error, got: %v", err)
+	}
+
+	// Allowed: localhost is explicitly listed.
+	config.SetServerConfig(&config.ServerConfig{
+		ScriptNetPolicyFile: writeNetPolicy(t, `allow_hosts = ["localhost"]`),
+	})
+	env2, _, cleanup2, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
+	if err != nil {
+		t.Fatalf("NewServerScriptlingEnv() failed: %v", err)
+	}
+	defer cleanup2()
+
+	if _, err := env2.Eval("import requests\nrequests.get('" + hostURL + "')"); err != nil {
+		t.Errorf("allow-listed host should succeed, got: %v", err)
+	}
+}
+
+// TestMCPScriptlingEnv_NetPolicyHTTPSOnly verifies that the policy file's
+// https_only option is honoured, not just allow_hosts — the admin has the
+// full scriptling network-policy schema available, not a single flag.
+func TestMCPScriptlingEnv_NetPolicyHTTPSOnly(t *testing.T) {
+	user := &model.User{Id: "test-user", Username: "testuser", Email: "test@example.com"}
+	orig := config.GetServerConfig()
+	t.Cleanup(func() { config.SetServerConfig(orig) })
+
+	config.SetServerConfig(&config.ServerConfig{
+		ScriptNetPolicyFile: writeNetPolicy(t, `https_only = true`),
+	})
+
+	env, _, cleanup, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user})
+	if err != nil {
+		t.Fatalf("NewServerScriptlingEnv() failed: %v", err)
+	}
+	defer cleanup()
+
+	if _, err := env.Eval("import requests\nrequests.get('http://example.com/')"); err == nil ||
+		!strings.Contains(err.Error(), "requires https") {
+		t.Errorf("expected https-only block, got: %v", err)
+	}
+}
+
+// TestMCPScriptlingEnv_NetPolicyInvalidFailsClosed verifies that an invalid
+// or missing policy file makes environment creation fail outright, rather
+// than silently falling back to an unrestricted policy.
+func TestMCPScriptlingEnv_NetPolicyInvalidFailsClosed(t *testing.T) {
+	user := &model.User{Id: "test-user", Username: "testuser", Email: "test@example.com"}
+	orig := config.GetServerConfig()
+	t.Cleanup(func() { config.SetServerConfig(orig) })
+
+	config.SetServerConfig(&config.ServerConfig{
+		ScriptNetPolicyFile: writeNetPolicy(t, `allow_cidrs = ["not-a-cidr"]`),
+	})
+
+	if _, _, _, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user}); err == nil {
+		t.Error("expected error creating environment with invalid script-net-policy, got nil")
+	}
+
+	config.SetServerConfig(&config.ServerConfig{ScriptNetPolicyFile: "/nonexistent/policy.toml"})
+	if _, _, _, err := NewServerScriptlingEnv(nil, ServerScriptlingOptions{User: user}); err == nil {
+		t.Error("expected error creating environment with missing script-net-policy file, got nil")
 	}
 }
