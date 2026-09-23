@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
+	"github.com/paularlott/mcp"
 )
 
 func HandleGetMCPServers(w http.ResponseWriter, r *http.Request) {
@@ -428,14 +429,82 @@ func HandleListMCPServerTools(w http.ResponseWriter, r *http.Request) {
 		if server.Namespace != "" {
 			toolName = strings.TrimPrefix(tool.Name, server.Namespace+".")
 		}
-		result = append(result, map[string]interface{}{
+		entry := map[string]interface{}{
 			"name":        toolName,
 			"description": tool.Description,
 			"enabled":     !disabledSet[toolName],
-		})
+		}
+		if len(tool.Icons) > 0 {
+			entry["icons"] = tool.Icons
+		}
+		if isMCPAppTool(tool) {
+			entry["is_app"] = true
+		}
+		result = append(result, entry)
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{"tools": result})
+}
+
+// isMCPAppTool reports whether a tool declares a linked ui:// resource (MCP
+// Apps extension, SEP-1865, _meta.ui.resourceUri) — used to badge it as an
+// "app" rather than a plain tool in the server management UI. tool.Meta
+// always arrives as map[string]any here (these tools are fetched via
+// Client.ListTools from a remote server, so it was deserialized from JSON,
+// never a native mcp.UIToolMeta value).
+func isMCPAppTool(tool mcp.MCPTool) bool {
+	raw, ok := tool.Meta["ui"]
+	if !ok || raw == nil {
+		return false
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return false
+	}
+	var ui mcp.UIToolMeta
+	if err := json.Unmarshal(b, &ui); err != nil {
+		return false
+	}
+	return ui.ResourceURI != ""
+}
+
+// HandleGetMCPServerProtocol returns the MCP protocol version actually
+// negotiated with a remote server (e.g. "2025-06-18" for a Legacy server, or
+// the Modern era's fixed revision). This isn't known until a client
+// connects, so it's fetched on demand rather than eagerly for every server
+// in the list — a connection failure here returns an empty version, not an
+// error, so the UI can treat it as "unavailable" instead of a hard failure.
+func HandleGetMCPServerProtocol(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	serverId := r.PathValue("mcp_server_id")
+
+	if !validate.UUID(serverId) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid MCP server ID"})
+		return
+	}
+
+	db := database.GetInstance()
+	server, err := db.GetMCPServer(serverId)
+	if err != nil || server.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "MCP server not found"})
+		return
+	}
+
+	cfg := config.GetServerConfig()
+	if !cfg.LeafNode {
+		if server.UserId != user.Id && !user.HasPermission(model.PermissionManageMCPServers) {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to view this MCP server"})
+			return
+		}
+	}
+
+	version, err := internalmcp.GetRemoteServerProtocolVersion(server)
+	if err != nil {
+		rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{"protocol_version": ""})
+		return
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{"protocol_version": version})
 }
 
 func toMCPServerInfo(s *model.MCPServer) apiclient.MCPServerInfo {

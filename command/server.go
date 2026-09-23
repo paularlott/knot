@@ -1094,19 +1094,21 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 			logger.Info("OpenAI endpoints enabled for web chat")
 		}
 
-		// Create script tools provider for OpenAI endpoints
-		scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
+		// Create script tools providers for OpenAI endpoints. Returned as a
+		// slice, not merged via mcp.NewMultiProvider: StandardHost's
+		// SourceScopedHost support needs to type-assert the remote server
+		// provider individually (mcp.GetToolProviders(ctx)), which a
+		// MultiProvider wrapper would hide behind its own GetTools/ExecuteTool.
+		scriptToolsProvider := func(ctx context.Context, user *model.User) []mcp.ToolProvider {
 			if user == nil {
 				return nil
 			}
-			var scriptProvider mcp.ToolProvider
+			providers := make([]mcp.ToolProvider, 0, 3)
 			if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
-				scriptProvider = internal_mcp.NewScriptToolsProvider(user)
+				providers = append(providers, internal_mcp.NewScriptToolsProvider(user))
 			}
-			if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user)); mp != nil {
-				return mp
-			}
-			return nil
+			providers = append(providers, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user))
+			return providers
 		}
 
 		openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)

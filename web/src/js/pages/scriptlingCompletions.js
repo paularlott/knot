@@ -2301,6 +2301,12 @@ const scriptlingLibraries = [
         returns: "None",
       },
       {
+        name: "return_structured",
+        signature: "return_structured(obj)",
+        description: "Return obj as the tool's structuredContent and stop execution.",
+        returns: "None",
+      },
+      {
         name: "return_toon",
         signature: "return_toon(obj)",
         description: "Return an object encoded as TOON from the tool and stop execution.",
@@ -4134,13 +4140,13 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "register_request_tool",
-        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False)",
+        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False, ui=None, icons=None)",
         description: "Register an MCP tool for this request.",
         returns: "None",
       },
       {
         name: "register_request_resource",
-        signature: "register_request_resource(uri, handler, name, description=\"\", mime_type=\"\", template=False)",
+        signature: "register_request_resource(uri, handler, name=\"\", description=\"\", mime_type=\"\", template=False)",
         description: "Register an MCP resource for this request.",
         returns: "None",
       },
@@ -4158,7 +4164,7 @@ const scriptlingLibraries = [
       },
       {
         name: "tool",
-        signature: "tool(description, params=None, keywords=None, discoverable=False)",
+        signature: "tool(description, params=None, keywords=None, discoverable=False, ui=None, icons=None)",
         description: "Decorator for MCP tools.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },

@@ -202,6 +202,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleDeleteMCPServer)))
 	router.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/toggle-tool", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleToggleMCPServerTool)))
 	router.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/tools", middleware.ApiAuth(HandleListMCPServerTools))
+	router.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/protocol", middleware.ApiAuth(HandleGetMCPServerProtocol))
 
 	// Stack Definitions
 	router.HandleFunc("GET /api/stack-definitions", middleware.ApiAuth(HandleGetStackDefinitions))

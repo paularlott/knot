@@ -30,6 +30,7 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
       serverId: "",
       namespace: "",
       tools: [],
+      protocolVersion: "",
     },
 
     async init() {
@@ -112,6 +113,7 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
       this.toolsModal.namespace = server.namespace;
       this.toolsModal.tools = [];
       this.toolsModal.error = "";
+      this.toolsModal.protocolVersion = "";
       this.toolsModal.loading = true;
       this.toolsModal.show = true;
 
@@ -130,6 +132,17 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
         this.toolsModal.error = "Failed to connect to the remote server.";
       }
       this.toolsModal.loading = false;
+
+      // Best-effort — an empty version just means "unavailable", not an error.
+      try {
+        const resp = await fetch(`/api/mcp-servers/${server.mcp_server_id}/protocol`);
+        if (resp.ok) {
+          const data = await resp.json();
+          this.toolsModal.protocolVersion = data.protocol_version || "";
+        }
+      } catch {
+        // leave protocolVersion empty
+      }
     },
 
     async toggleToolModal(tool, enabled) {

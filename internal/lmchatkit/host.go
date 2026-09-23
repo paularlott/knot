@@ -28,9 +28,14 @@ import (
 	mcplib "github.com/paularlott/mcp"
 )
 
-// ScriptToolsProvider returns a per-user MCP tool provider (script tools +
-// method tools), matching the MCPServerContext middleware logic.
-type ScriptToolsProvider func(ctx context.Context, user *model.User) mcplib.ToolProvider
+// ScriptToolsProvider returns the per-user MCP tool providers (script tools,
+// method tools, remote servers), matching the MCPServerContext middleware
+// logic. Returned as a slice — not merged into one mcp.NewMultiProvider —
+// so each provider stays individually visible to mcp.GetToolProviders(ctx):
+// StandardHost's SourceScopedHost support needs to type-assert the remote
+// server provider as a lmchatkit.SourcedToolProvider, which a MultiProvider
+// wrapper would hide (it only forwards GetTools/ExecuteTool).
+type ScriptToolsProvider func(ctx context.Context, user *model.User) []mcplib.ToolProvider
 
 // NewHost builds a lmchatkit.StandardHost configured for knot's LLM endpoint,
 // MCP server, and single persona. The per-user tool provider is injected by
@@ -66,20 +71,27 @@ func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvide
 
 // AuthMiddleware returns the middleware that wraps every lmchatkit HTTP handler.
 // It authenticates the user (delegating to knot's ApiAuth + permission check)
-// and injects the per-user MCP tool provider into the request context so that
-// StandardHost.ListTools / CallTool resolve the user's script and method tools.
+// and injects the per-user MCP tool and resource providers into the request
+// context so that StandardHost.ListTools/CallTool resolve the user's script
+// and method tools, and StandardHost.ReadResource can fetch an MCP Apps
+// view's linked ui:// resource from whichever of the user's remote servers
+// registered it.
 func AuthMiddleware(apiAuthMiddleware func(http.Handler) http.Handler, mcpServer *mcplib.Server, scriptToolsProvider ScriptToolsProvider) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// First authenticate (sets user in context), then inject MCP tools.
 		withTools := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, "mcp", mcpServer)
-			if scriptToolsProvider != nil {
-				if user, ok := ctx.Value("user").(*model.User); ok && user != nil {
-					if provider := scriptToolsProvider(ctx, user); provider != nil {
-						ctx = mcplib.WithToolProviders(ctx, provider)
+			if user, ok := ctx.Value("user").(*model.User); ok && user != nil {
+				if scriptToolsProvider != nil {
+					if providers := scriptToolsProvider(ctx, user); len(providers) > 0 {
+						ctx = mcplib.WithToolProviders(ctx, providers...)
 					}
 				}
+				// Remote servers' resources (their tools are already covered
+				// by scriptToolsProvider above) — a separate provider
+				// instance, but backed by the same cached clients.
+				ctx = mcplib.WithResourceProviders(ctx, internalmcp.NewRemoteServerProvider(user))
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
