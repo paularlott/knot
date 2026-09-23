@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	command_mcp "github.com/paularlott/knot/agent/cmd/mcpserver"
 	command_scriptling "github.com/paularlott/knot/agent/cmd/scriptlingserver"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
@@ -146,6 +147,7 @@ It offers both a user-friendly web interface and a command line interface to str
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command.ConnectCmd,
+			command_mcp.McpCmd,
 			command_method.MethodCmd,
 			commands_forward.ForwardCmd,
 			commands_port.PortCmd,
