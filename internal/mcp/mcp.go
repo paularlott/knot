@@ -14,6 +14,36 @@ import (
 	"github.com/paularlott/mcp"
 )
 
+// newKnotMCPServer builds one knot MCP server instance: name, version,
+// instructions and the MCP Apps (SEP-1865) capability declaration, which
+// script tools can carry a _meta.ui link (see ScriptToolsProvider). Doesn't
+// gate whether _meta.ui is attached to a tool descriptor — that happens
+// unconditionally, per this library's own guidance for an HTTP, multi-tenant
+// server — purely so the server's declared capabilities accurately reflect
+// what it offers.
+func newKnotMCPServer() *mcp.Server {
+	server := mcp.NewServer("knot-mcp-server", build.Version)
+	server.SetInstructions(`These tools manage spaces, templates, and other resources.
+
+All tools are directly callable on the /mcp endpoint.`)
+	server.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
+		"mimeTypes": []string{mcp.UIAppMimeType},
+	})
+	return server
+}
+
+// InitializeMCPServer builds knot's two MCP server instances and registers
+// the public /mcp HTTP endpoint.
+//
+// The endpoint server serves ONLY knot's own tools: script and method tool
+// providers, attached per request. Remote MCP servers — operator-configured
+// (server.mcp.remote_servers) and user-configured alike — are deliberately
+// NOT federated through the public endpoint: an external MCP client that
+// wants another server's tools connects to that server directly, and knot's
+// name and tool list describe knot alone. The returned server is the
+// internal one used by knot's own AI surfaces (web chat, OpenAI-compatible
+// endpoints, scriptling's knot.mcp), which keep remote servers registered —
+// those consumers have no way to attach to servers themselves.
 func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfig *config.MCPConfig) *mcp.Server {
 	// Debug: Log what we actually received
 	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
@@ -22,21 +52,12 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 		}
 	}
 
-	// Create the main unified MCP server
-	server := mcp.NewServer("knot-mcp-server", build.Version)
-	server.SetInstructions(`These tools manage spaces, templates, and other resources.
+	// The public /mcp endpoint's server: knot's own tools only.
+	endpointServer := newKnotMCPServer()
 
-All tools are directly callable on the /mcp endpoint.`)
-
-	// Advertise MCP Apps (SEP-1865) support in this server's own initialize
-	// response, since script tools can carry a _meta.ui link (see
-	// ScriptToolsProvider). Doesn't gate whether _meta.ui is attached to a
-	// tool descriptor — that happens unconditionally, per this library's own
-	// guidance for an HTTP, multi-tenant server — purely so the server's
-	// declared capabilities accurately reflect what it offers.
-	server.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
-		"mimeTypes": []string{mcp.UIAppMimeType},
-	})
+	// The internal server for knot's own AI surfaces: same natives, plus
+	// remote server federation (registered below).
+	server := newKnotMCPServer()
 
 	if enableWebEndpoint {
 		// Create unified handler for /mcp endpoint
@@ -45,21 +66,22 @@ All tools are directly callable on the /mcp endpoint.`)
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
 
-			// Add request-scoped tool providers (order preserved: scripts then methods)
+			// Add request-scoped tool providers (order preserved: scripts then
+			// methods). No remote server provider here — the public endpoint
+			// exposes knot's own tools only (see InitializeMCPServer's comment).
 			var providers []mcp.ToolProvider
 			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
 				providers = append(providers, NewScriptToolsProvider(user))
 			}
 			if user != nil {
 				providers = append(providers, NewMethodToolsProvider(user))
-				providers = append(providers, NewRemoteServerProvider(user))
 			}
 
 			// Attach providers and apply show-all mode (X-MCP-Show-All / ?show_all) in one step
 			ctx := mcp.WithShowAllFromRequest(r.Context(), r, providers...)
 
 			// Handle the MCP request
-			server.HandleRequest(w, r.WithContext(ctx))
+			endpointServer.HandleRequest(w, r.WithContext(ctx))
 		})
 
 		// Apply authentication middleware - unified endpoint
@@ -74,7 +96,9 @@ All tools are directly callable on the /mcp endpoint.`)
 	// Skills tool is now dynamically registered via provider
 
 	// =========================================================================
-	// Register remote MCP servers if configured
+	// Register remote MCP servers if configured — on the internal server only
+	// (web chat, OpenAI endpoints, scriptling), never on the public /mcp
+	// endpoint.
 	// =========================================================================
 	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
 		for _, remoteServer := range mcpConfig.RemoteServers {
@@ -141,7 +165,7 @@ All tools are directly callable on the /mcp endpoint.`)
 				tools := server.ListToolsWithContext(context.Background())
 				remoteToolCount := 0
 				for _, tool := range tools {
-					if strings.Contains(tool.Name, remoteServer.Namespace+".") {
+					if strings.Contains(tool.Name, remoteServer.Namespace+mcp.DefaultNamespaceSeparator) {
 						remoteToolCount++
 					}
 				}

@@ -10,8 +10,6 @@ go 1.27.1
 
 //replace github.com/paularlott/scriptling => ../scriptling
 
-//replace github.com/paularlott/lmchatkit => ../lmchatkit
-
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/alicebob/miniredis/v2 v2.38.0
@@ -28,7 +26,7 @@ require (
 	github.com/paularlott/cli v0.9.1
 	github.com/paularlott/gossip v0.22.0
 	github.com/paularlott/jsonrpc v0.2.0
-	github.com/paularlott/lmchatkit v0.10.2
+	github.com/paularlott/lmchatkit v0.10.3
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.27.1
 	github.com/paularlott/scriptling v0.26.0

@@ -1052,6 +1052,37 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		}
 	}
 
+	// Per-user tool providers for every consumer of the internal (chat) MCP
+	// server: the OpenAI endpoints, the web chat, and scriptling's knot.mcp
+	// transport below. Returned as a slice, not merged via
+	// mcp.NewMultiProvider: StandardHost's SourceScopedHost support needs to
+	// type-assert the remote server provider individually
+	// (mcp.GetToolProviders(ctx)), which a MultiProvider wrapper would hide
+	// behind its own GetTools/ExecuteTool.
+	scriptToolsProvider := func(ctx context.Context, user *model.User) []mcp.ToolProvider {
+		if user == nil {
+			return nil
+		}
+		providers := make([]mcp.ToolProvider, 0, 3)
+		if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
+			providers = append(providers, internal_mcp.NewScriptToolsProvider(user))
+		}
+		providers = append(providers, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user))
+		return providers
+	}
+
+	// Scriptling's knot.mcp library calls these (api/chat/tools,
+	// api/chat/tools/call) through the in-process mux client. They resolve
+	// tools through the same internal server + per-user providers as the web
+	// chat, so scripts see the same MCP servers the chat can access —
+	// including the user's remote servers. Registered whenever the MCP
+	// server exists, not just when chat is enabled, because MCP tool scripts
+	// can call knot.mcp regardless.
+	if mcpServer != nil {
+		routes.Handle("GET /api/chat/tools", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleListTools))))))
+		routes.Handle("POST /api/chat/tools/call", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleCallTool))))))
+	}
+
 	// If AI chat enabled then initialize chat service
 	// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
 	var openAIClient ai.Client
@@ -1092,23 +1123,6 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 			logger.Info("OpenAI endpoints enabled")
 		} else {
 			logger.Info("OpenAI endpoints enabled for web chat")
-		}
-
-		// Create script tools providers for OpenAI endpoints. Returned as a
-		// slice, not merged via mcp.NewMultiProvider: StandardHost's
-		// SourceScopedHost support needs to type-assert the remote server
-		// provider individually (mcp.GetToolProviders(ctx)), which a
-		// MultiProvider wrapper would hide behind its own GetTools/ExecuteTool.
-		scriptToolsProvider := func(ctx context.Context, user *model.User) []mcp.ToolProvider {
-			if user == nil {
-				return nil
-			}
-			providers := make([]mcp.ToolProvider, 0, 3)
-			if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
-				providers = append(providers, internal_mcp.NewScriptToolsProvider(user))
-			}
-			providers = append(providers, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user))
-			return providers
 		}
 
 		openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
