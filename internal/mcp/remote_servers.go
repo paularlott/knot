@@ -348,6 +348,7 @@ func createClient(server *model.MCPServer) (*mcp.Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create stdio client for %s: %w", server.Namespace, err)
 		}
+		declareUIAppsSupport(client)
 		return client, nil
 	}
 
@@ -364,8 +365,23 @@ func createClient(server *model.MCPServer) (*mcp.Client, error) {
 
 	// Notifications are always enabled — listChanged events keep tool caches fresh.
 	client.EnableNotifications()
+	declareUIAppsSupport(client)
 
 	return client, nil
+}
+
+// declareUIAppsSupport advertises this client's own support for the MCP
+// Apps extension (SEP-1865) to a remote server, mirroring llmrouter's own
+// declareUIAppsSupport. Without this, a spec-conformant remote server that
+// only attaches _meta.ui for clients that declared
+// capabilities.extensions[io.modelcontextprotocol/ui] has no way to know
+// knot can render one, and silently serves a plain-text-only tool instead —
+// MCP Apps then quietly never works for that server, with no error anywhere
+// to explain why.
+func declareUIAppsSupport(client *mcp.Client) {
+	client.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
+		"mimeTypes": []string{mcp.UIAppMimeType},
+	})
 }
 
 // ListRemoteServerTools connects to the remote MCP server and returns its tool list.

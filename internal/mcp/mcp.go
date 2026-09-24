@@ -28,6 +28,16 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 
 All tools are directly callable on the /mcp endpoint.`)
 
+	// Advertise MCP Apps (SEP-1865) support in this server's own initialize
+	// response, since script tools can carry a _meta.ui link (see
+	// ScriptToolsProvider). Doesn't gate whether _meta.ui is attached to a
+	// tool descriptor — that happens unconditionally, per this library's own
+	// guidance for an HTTP, multi-tenant server — purely so the server's
+	// declared capabilities accurately reflect what it offers.
+	server.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
+		"mimeTypes": []string{mcp.UIAppMimeType},
+	})
+
 	if enableWebEndpoint {
 		// Create unified handler for /mcp endpoint
 		// Mode is determined from X-MCP-Show-All header or show_all query parameter
@@ -85,6 +95,10 @@ All tools are directly callable on the /mcp endpoint.`)
 				}
 				client = mcp.NewClient(remoteServer.URL, authProvider, remoteServer.Namespace)
 			}
+
+			// Advertise this client's own support for the MCP Apps extension
+			// to the remote server (see declareUIAppsSupport in remote_servers.go).
+			declareUIAppsSupport(client)
 
 			// Opt the client into notifications: an HTTP client opens an SSE reader,
 			// and the propagation hook (installed by Register*) re-emits upstream

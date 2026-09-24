@@ -141,8 +141,24 @@ func buildMCPServer(cfg *config.ServerAddr, tlsSkipVerify, showAll bool) (*mcp.S
 
 	client := mcp.NewClientWithPool(url, mcp.NewBearerTokenAuth(cfg.ApiToken), "", httpPool, mcp.WithClientRequestHeaders(headers))
 	client.EnableNotifications()
+	// Advertise this client's own support for the MCP Apps extension to the
+	// remote knot server. Without this, a spec-conformant remote server that
+	// only attaches _meta.ui for clients that declared
+	// capabilities.extensions[io.modelcontextprotocol/ui] has no way to know
+	// this proxy can forward one, and silently serves a plain-text-only tool
+	// instead — MCP Apps then quietly never works, with no error to explain why.
+	client.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
+		"mimeTypes": []string{mcp.UIAppMimeType},
+	})
 
 	server := mcp.NewServer("knot", build.Version)
+	// Mirror the same declaration on the server side of this stdio proxy, so
+	// the connecting host (e.g. Claude Desktop) sees accurate capabilities —
+	// this proxy forwards whatever _meta.ui the upstream knot server sends,
+	// unconditionally, regardless of what the host itself declares.
+	server.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
+		"mimeTypes": []string{mcp.UIAppMimeType},
+	})
 	if err := server.RegisterRemoteServer(client); err != nil {
 		client.Close()
 		return nil, nil, fmt.Errorf("registering knot server %s: %w", cfg.HttpServer, err)
