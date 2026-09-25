@@ -64,18 +64,20 @@ func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvide
 			if user == nil {
 				return current
 			}
-			return current + internalmcp.BuildSkillsPrompt(user)
+			return current + internalmcp.BuildSkillsPrompt(ctx, user,
+				"Call the lmchatkit__get_skill tool with the skill URI to retrieve detailed instructions:")
 		},
 	}
 }
 
 // AuthMiddleware returns the middleware that wraps every lmchatkit HTTP handler.
 // It authenticates the user (delegating to knot's ApiAuth + permission check)
-// and injects the per-user MCP tool and resource providers into the request
-// context so that StandardHost.ListTools/CallTool resolve the user's script
-// and method tools, and StandardHost.ReadResource can fetch an MCP Apps
-// view's linked ui:// resource from whichever of the user's remote servers
-// registered it.
+// and injects the per-user MCP tool, skill and resource providers into the
+// request context so that StandardHost.ListTools/CallTool resolve the user's
+// script and method tools, StandardHost surfaces the skills extension
+// (including the lmchatkit__get_skill virtual tool and its reads), and
+// StandardHost.ReadResource can fetch an MCP Apps view's linked ui://
+// resource from whichever of the user's remote servers registered it.
 func AuthMiddleware(apiAuthMiddleware func(http.Handler) http.Handler, mcpServer *mcplib.Server, scriptToolsProvider ScriptToolsProvider) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// First authenticate (sets user in context), then inject MCP tools.
@@ -88,10 +90,13 @@ func AuthMiddleware(apiAuthMiddleware func(http.Handler) http.Handler, mcpServer
 						ctx = mcplib.WithToolProviders(ctx, providers...)
 					}
 				}
-				// Remote servers' resources (their tools are already covered
-				// by scriptToolsProvider above) — a separate provider
-				// instance, but backed by the same cached clients.
-				ctx = mcplib.WithResourceProviders(ctx, internalmcp.NewRemoteServerProvider(user))
+				// knot's own skills first (so a local skill:// URI wins any
+				// collision), then remote servers' resources (their tools are
+				// already covered by scriptToolsProvider above) — a separate
+				// provider instance, but backed by the same cached clients.
+				skills := internalmcp.NewSkillsProvider(user)
+				ctx = mcplib.WithSkillProviders(ctx, skills)
+				ctx = mcplib.WithResourceProviders(ctx, skills, internalmcp.NewRemoteServerProvider(user))
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

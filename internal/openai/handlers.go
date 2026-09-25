@@ -61,9 +61,12 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 		req.Model = s.model
 	}
 
-	// Inject system prompt only if no system message is present
+	// Inject system prompt only if no system message is present. No
+	// retrieval hint: an OpenAI-protocol client has no get_skill tool, the
+	// URIs are listed so a tool-executing model (scriptling's knot.mcp) can
+	// still read them.
 	user, _ := ctx.Value("user").(*model.User)
-	skillsPrompt := internalmcp.BuildSkillsPrompt(user)
+	skillsPrompt := internalmcp.BuildSkillsPrompt(ctx, user, "")
 	req.Messages = s.replaceSystemPrompt(req.Messages, skillsPrompt)
 
 	if req.Stream {

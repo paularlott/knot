@@ -1071,6 +1071,18 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		return providers
 	}
 
+	// Per-user skills for the same consumers: knot's database-backed skills
+	// served over the skills extension (skills/list, skills/get) with their
+	// SKILL.md files readable as skill:// resources. One provider fills both
+	// roles, so the entries and the reads stay ACL-identical.
+	skillProviders := func(ctx context.Context, user *model.User) (mcp.SkillProvider, mcp.ResourceProvider) {
+		if user == nil {
+			return nil, nil
+		}
+		provider := internal_mcp.NewSkillsProvider(user)
+		return provider, provider
+	}
+
 	// Scriptling's knot.mcp library calls these (api/chat/tools,
 	// api/chat/tools/call) through the in-process mux client. They resolve
 	// tools through the same internal server + per-user providers as the web
@@ -1079,8 +1091,8 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// server exists, not just when chat is enabled, because MCP tool scripts
 	// can call knot.mcp regardless.
 	if mcpServer != nil {
-		routes.Handle("GET /api/chat/tools", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleListTools))))))
-		routes.Handle("POST /api/chat/tools/call", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleCallTool))))))
+		routes.Handle("GET /api/chat/tools", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(api.HandleListTools))))))
+		routes.Handle("POST /api/chat/tools/call", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(api.HandleCallTool))))))
 	}
 
 	// If AI chat enabled then initialize chat service
@@ -1127,12 +1139,12 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 
 		openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
 		// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
-		routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
-		routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
-		routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
-		routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
-		routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
-		routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
+		routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleGetModels))))))
+		routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
+		routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
+		routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleGetResponse))))))
+		routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
+		routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
 
 		// Mount lmchatkit UI — uses lmchatkit.StandardHost (same as
 		// llmrouter) with the LLM endpoint configured in [server.chat].

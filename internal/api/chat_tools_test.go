@@ -47,7 +47,7 @@ func TestChatToolsEndpointsExposeChatToolView(t *testing.T) {
 	stack := func(next http.Handler) http.Handler {
 		return middleware.MCPServerContext(chatServer, func(ctx context.Context, u *model.User) []mcp.ToolProvider {
 			return []mcp.ToolProvider{knotmcp.NewMethodToolsProvider(u)}
-		})(next)
+		}, nil)(next)
 	}
 
 	// GET api/chat/tools lists the federated remote tool.

@@ -2152,7 +2152,7 @@ const scriptlingLibraries = [
             name: "skills",
             signature: "skills()",
             description: "List available skills (Skills extension, io.modelcontextprotocol/skills).",
-            returns: "list[dict[str, Any]] - List of skill entry dicts with uri (of SKILL.md), frontmatter (name, description, metadata) and resources (per-file uri, digest, size).",
+            returns: "list[dict[str, Any]] - List of skill entry dicts with uri (of SKILL.md), frontmatter (served verbatim from the SKILL.md: name, description, plus any other author fields) and resources (per-file uri, digest, size).",
           },
           {
             name: "get_skill",

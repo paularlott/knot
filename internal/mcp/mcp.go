@@ -29,6 +29,10 @@ All tools are directly callable on the /mcp endpoint.`)
 	server.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
 		"mimeTypes": []string{mcp.UIAppMimeType},
 	})
+	// Skills (SEP-2640) are served per-request from the database via
+	// SkillProviders on the context, so the capability is part of the
+	// server's identity rather than something registration declares.
+	server.DeclareExtension(mcp.SkillsExtensionID, map[string]any{})
 	return server
 }
 
@@ -77,8 +81,18 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 				providers = append(providers, NewMethodToolsProvider(user))
 			}
 
+			// knot's own skills: served over skills/list, skills/get and
+			// resources/read from the database, scoped to this user (zone,
+			// groups, user-overrides-global).
+			ctx := r.Context()
+			if user != nil {
+				skills := NewSkillsProvider(user)
+				ctx = mcp.WithSkillProviders(ctx, skills)
+				ctx = mcp.WithResourceProviders(ctx, skills)
+			}
+
 			// Attach providers and apply show-all mode (X-MCP-Show-All / ?show_all) in one step
-			ctx := mcp.WithShowAllFromRequest(r.Context(), r, providers...)
+			ctx = mcp.WithShowAllFromRequest(ctx, r, providers...)
 
 			// Handle the MCP request
 			endpointServer.HandleRequest(w, r.WithContext(ctx))
@@ -159,6 +173,11 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "command", remoteServer.Command, "visibility", visibility, "error", err)
 				continue
 			}
+
+			// Remember the client for the skills prompt: tools federate
+			// through RegisterRemoteServer, but skills do not, so
+			// BuildSkillsPrompt asks each client directly.
+			recordOperatorRemote(remoteServer.Namespace, client)
 
 			// Test if we can list tools from the remote server (only if native mode)
 			if visibility == "native" {
