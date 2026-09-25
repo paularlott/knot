@@ -10,7 +10,6 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/knot/internal/mcptools"
 
 	"github.com/paularlott/lmchatkit"
 	"github.com/paularlott/mcp"
@@ -187,7 +186,6 @@ func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, err
 				OutputSchema: tool.OutputSchema,
 				Meta:         tool.Meta,
 				Icons:        tool.Icons,
-				Keywords:     tool.Keywords,
 				Visibility:   visibility,
 			})
 		}
@@ -199,32 +197,29 @@ func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, err
 // bareNameFor reports whether name could belong to server, given its
 // namespace, and the bare (un-namespaced) name to use when calling that
 // server directly. Shared by ExecuteTool and ToolSource so they resolve a
-// namespaced name to a server identically.
+// namespaced name to a server identically. Strict matching, no guessing: a
+// namespaced server answers only its own ns__name, and a server with no
+// namespace answers bare names only — a name carrying someone else's
+// namespace never routes here.
 func bareNameFor(server *model.MCPServer, name string) (bareName string, ok bool) {
-	nsPrefix := ""
-	if server.Namespace != "" {
-		nsPrefix = server.Namespace + mcp.DefaultNamespaceSeparator
-	}
-	if strings.HasPrefix(name, nsPrefix) {
-		return strings.TrimPrefix(name, nsPrefix), true
-	}
-	if name == server.Namespace || !strings.Contains(name, mcp.DefaultNamespaceSeparator) {
-		// No namespace prefix — try matching directly
+	if server.Namespace == "" {
+		if strings.Contains(name, mcp.DefaultNamespaceSeparator) {
+			return "", false
+		}
 		return name, true
+	}
+	prefix := server.Namespace + mcp.DefaultNamespaceSeparator
+	if strings.HasPrefix(name, prefix) {
+		return strings.TrimPrefix(name, prefix), true
 	}
 	return "", false
 }
 
 func (p *remoteServerProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (*mcp.ToolResponse, error) {
-	// Try boot-loaded tools first
-	toolResult, toolErr := mcptools.ExecuteTool(name, params, p.user)
-	if toolErr == nil {
-		return mcp.NewToolResponseAuto(toolResult), nil
-	}
-	if _, exists := mcptools.GetTool(name); exists {
-		return nil, toolErr
-	}
-
+	// Dispatch routes by this provider's own listing (providerForTool in the
+	// library), so only namespaced remote-tool names ever arrive here — the
+	// old boot-loaded-mcptools first try was unreachable dead code under
+	// that routing.
 	// Try remote MCP servers
 	db := database.GetInstance()
 	servers, err := db.GetMCPServersByUser(p.user.Id)

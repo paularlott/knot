@@ -2140,13 +2140,25 @@ const scriptlingLibraries = [
             name: "tools",
             signature: "tools()",
             description: "List available tools.",
-            returns: "list[dict[str, Any]] - List of tool dicts with name, description, input_schema",
+            returns: "list[dict[str, Any]] - List of tool dicts with name, description, inputSchema, is_app. is_app is True when the tool is an MCP Apps view (linked to a ui:// resource): a host UI renders its view when it is called.",
           },
           {
             name: "call_tool",
             signature: "call_tool(name, arguments)",
             description: "Execute a tool by name with the provided arguments.",
             returns: "Any - Decoded tool response",
+          },
+          {
+            name: "skills",
+            signature: "skills()",
+            description: "List available skills (Skills extension, io.modelcontextprotocol/skills).",
+            returns: "list[dict[str, Any]] - List of skill entry dicts with uri (of SKILL.md), frontmatter (name, description, metadata) and resources (per-file uri, digest, size).",
+          },
+          {
+            name: "get_skill",
+            signature: "get_skill(uri)",
+            description: "Fetch one skill's entry (frontmatter and per-file digests) by URI.",
+            returns: "dict[str, Any] - The skill entry dict. Read file content with read_resource on any of the entry's resource URIs.",
           },
           {
             name: "refresh_tools",

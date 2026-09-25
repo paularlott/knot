@@ -101,6 +101,8 @@ func HandleCreateMCPServer(w http.ResponseWriter, r *http.Request) {
 
 	if request.Namespace == "" {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Namespace is required"})
+	} else if err := mcp.ValidateNamespace(request.Namespace); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -448,24 +450,9 @@ func HandleListMCPServerTools(w http.ResponseWriter, r *http.Request) {
 
 // isMCPAppTool reports whether a tool declares a linked ui:// resource (MCP
 // Apps extension, SEP-1865, _meta.ui.resourceUri) — used to badge it as an
-// "app" rather than a plain tool in the server management UI. tool.Meta
-// always arrives as map[string]any here (these tools are fetched via
-// Client.ListTools from a remote server, so it was deserialized from JSON,
-// never a native mcp.UIToolMeta value).
+// "app" rather than a plain tool in the server management UI.
 func isMCPAppTool(tool mcp.MCPTool) bool {
-	raw, ok := tool.Meta["ui"]
-	if !ok || raw == nil {
-		return false
-	}
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return false
-	}
-	var ui mcp.UIToolMeta
-	if err := json.Unmarshal(b, &ui); err != nil {
-		return false
-	}
-	return ui.ResourceURI != ""
+	return mcp.ToolIsApp(tool)
 }
 
 // HandleGetMCPServerProtocol returns the MCP protocol version actually
