@@ -19,12 +19,40 @@ import (
 	"github.com/paularlott/mcp"
 )
 
+// accessibleSkillsCache caches GetAccessibleSkills per user for a minute:
+// the chat surfaces hit it several times per request (the system prompt,
+// resources/list, the virtual skill tool's resource check), and none of
+// them should pay the database scan each time. Skill edits surface within
+// the TTL.
+var accessibleSkillsCache sync.Map // user id -> accessibleSkillsCacheEntry
+
+type accessibleSkillsCacheEntry struct {
+	skills  []*model.Skill
+	expires time.Time
+}
+
+// FlushAccessibleSkillsCache drops every cached listing (tests; admin
+// actions wanting immediate effect can call it too).
+func FlushAccessibleSkillsCache() {
+	accessibleSkillsCache.Range(func(key, _ any) bool {
+		accessibleSkillsCache.Delete(key)
+		return true
+	})
+}
+
 // GetAccessibleSkills returns the active, zone-valid, ACL-filtered skills for
 // the user (global + own), with user skills overriding globals of the same
 // name. Returns nil if the user is nil or the database is unreachable.
+// Results are cached per user for a minute.
 func GetAccessibleSkills(user *model.User) []*model.Skill {
 	if user == nil {
 		return nil
+	}
+
+	if cached, ok := accessibleSkillsCache.Load(user.Id); ok {
+		if entry := cached.(accessibleSkillsCacheEntry); time.Now().Before(entry.expires) {
+			return entry.skills
+		}
 	}
 
 	db := database.GetInstance()
@@ -69,6 +97,11 @@ func GetAccessibleSkills(user *model.User) []*model.Skill {
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Name < result[j].Name
+	})
+
+	accessibleSkillsCache.Store(user.Id, accessibleSkillsCacheEntry{
+		skills:  result,
+		expires: time.Now().Add(time.Minute),
 	})
 	return result
 }
@@ -227,127 +260,57 @@ func snapshotOperatorRemotes() map[string]*mcp.Client {
 	return out
 }
 
-// skillCacheEntry is a cached per-remote skills listing.
-type skillCacheEntry struct {
-	skills []mcp.Skill
-	expiry time.Time
-}
+// remoteSkillListings caches skills/list results per remote (operator
+// remotes globally, user remotes per user) for a minute, so repeat chats
+// don't pay the round trips again. The zero value is ready to use.
+var remoteSkillListings mcp.SkillsListingCache
 
-// skillCache caches skills/list results per remote (operator remotes
-// globally, user remotes per user) for a minute, so repeat chats don't pay
-// the round trips again.
-var skillCache sync.Map
-
-// listRemoteSkillLines lists every reachable remote's skills as prompt lines,
-// prefixed with the remote's namespace so same-named skills stay
-// distinguishable. Each remote is fetched in parallel with its OWN
-// one-second budget: skills are additive context, so one slow or dead remote
-// must never starve the others. Failures warn and skip.
+// listRemoteSkillLines lists every reachable remote's skills as prompt
+// lines, prefixed with the remote's namespace so same-named skills stay
+// distinguishable. Listings run through the shared mcp.SkillsListingCache:
+// parallel fetch with a one-second budget per remote, cached for a minute,
+// failed remotes warned and skipped.
 func listRemoteSkillLines(ctx context.Context, user *model.User) []string {
-	type target struct {
-		cacheKey  string
-		namespace string
-		client    *mcp.Client
-	}
-	var targets []target
-
+	var sources []mcp.RemoteSkillsSource
 	operatorRemotes := snapshotOperatorRemotes()
-	operatorNamespaces := make([]string, 0, len(operatorRemotes))
+	namespaces := make([]string, 0, len(operatorRemotes))
 	for namespace := range operatorRemotes {
-		operatorNamespaces = append(operatorNamespaces, namespace)
+		namespaces = append(namespaces, namespace)
 	}
-	sort.Strings(operatorNamespaces)
-	for _, namespace := range operatorNamespaces {
-		targets = append(targets, target{
-			cacheKey:  "operator/" + namespace,
-			namespace: namespace,
-			client:    operatorRemotes[namespace],
+	sort.Strings(namespaces)
+	for _, namespace := range namespaces {
+		sources = append(sources, mcp.RemoteSkillsSource{
+			Namespace: namespace,
+			CacheKey:  "operator/" + namespace,
+			Client:    operatorRemotes[namespace],
 		})
 	}
 	if user != nil {
 		if servers, err := NewRemoteServerProvider(user).enabledServers(); err == nil {
 			for _, server := range servers {
 				if client, err := remoteManager.getOrCreateClient(server); err == nil {
-					targets = append(targets, target{
-						cacheKey:  "user/" + user.Id + "/" + server.Namespace,
-						namespace: server.Namespace,
-						client:    client,
+					sources = append(sources, mcp.RemoteSkillsSource{
+						Namespace: server.Namespace,
+						CacheKey:  "user/" + user.Id + "/" + server.Namespace,
+						Client:    client,
 					})
 				}
 			}
 		}
 	}
 
-	type remoteResult struct {
-		namespace string
-		skills    []mcp.Skill
-	}
-	var (
-		mu      sync.Mutex
-		results []remoteResult
-		wg      sync.WaitGroup
-	)
-
-	for _, t := range targets {
-		if cached, ok := skillCache.Load(t.cacheKey); ok {
-			if entry := cached.(skillCacheEntry); time.Now().Before(entry.expiry) {
-				mu.Lock()
-				results = append(results, remoteResult{t.namespace, entry.skills})
-				mu.Unlock()
-				continue
-			}
-		}
-		wg.Add(1)
-		go func(t target) {
-			defer wg.Done()
-			remoteCtx, cancel := context.WithTimeout(ctx, time.Second)
-			defer cancel()
-			if err := t.client.Initialize(remoteCtx); err != nil {
-				log.WithGroup("mcp").Warn("skills prompt: remote not reachable, skipping",
-					"namespace", t.namespace, "error", err)
-				return
-			}
-			skills, err := t.client.ListSkills(remoteCtx)
-			if err != nil {
-				log.WithGroup("mcp").Warn("skills prompt: remote skills/list failed, skipping",
-					"namespace", t.namespace, "error", err)
-				return
-			}
-			skillCache.Store(t.cacheKey, skillCacheEntry{skills: skills, expiry: time.Now().Add(time.Minute)})
-			mu.Lock()
-			results = append(results, remoteResult{t.namespace, skills})
-			mu.Unlock()
-		}(t)
-	}
-	wg.Wait()
-
-	sort.Slice(results, func(i, j int) bool { return results[i].namespace < results[j].namespace })
+	results := remoteSkillListings.Listings(ctx, sources, func(namespace string, err error) {
+		log.WithGroup("mcp").Warn("skills prompt: remote failed, skipping", "namespace", namespace, "error", err)
+	})
+	sort.Slice(results, func(i, j int) bool { return results[i].Namespace < results[j].Namespace })
 
 	var lines []string
 	for _, res := range results {
-		for _, skill := range res.skills {
-			lines = append(lines, remoteSkillLine(res.namespace, skill))
+		for _, skill := range res.Skills {
+			lines = append(lines, mcp.SkillPromptLine(res.Namespace, skill))
 		}
 	}
 	return lines
-}
-
-// remoteSkillLine renders one remote skill as "- namespace/name:
-// description (uri)". The name comes from the remote's own frontmatter; the
-// namespace prefix keeps it distinguishable from same-named local or other
-// remote skills.
-func remoteSkillLine(namespace string, skill mcp.Skill) string {
-	name, _ := skill.Frontmatter["name"].(string)
-	if name == "" {
-		name = strings.TrimSuffix(strings.TrimPrefix(skill.URI, "skill://"), "/SKILL.md")
-	}
-	if namespace != "" {
-		name = namespace + "/" + name
-	}
-	if description, _ := skill.Frontmatter["description"].(string); description != "" {
-		return "- " + name + ": " + description + " (" + skill.URI + ")"
-	}
-	return "- " + name + " (" + skill.URI + ")"
 }
 
 // BuildSkillsPrompt returns a skills section to append to the system prompt:

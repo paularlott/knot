@@ -90,9 +90,36 @@ func (p *remoteServerProvider) clientFor(ctx context.Context, server *model.MCPS
 	return client, true
 }
 
+// remoteResourcesCache caches remoteServerProvider.GetResources per user
+// for a minute. The web chat asks for resources on every request (resource
+// menus, the virtual skill tool's existence check), and none of them should
+// re-list every remote server's resources each time.
+var remoteResourcesCache sync.Map // user id -> remoteResourcesCacheEntry
+
+type remoteResourcesCacheEntry struct {
+	resources *mcp.ProvidedResources
+	expires   time.Time
+}
+
+// FlushRemoteResourcesCache drops every cached remote listing (tests;
+// wanting immediate effect after changing a user's remote servers).
+func FlushRemoteResourcesCache() {
+	remoteResourcesCache.Range(func(key, _ any) bool {
+		remoteResourcesCache.Delete(key)
+		return true
+	})
+}
+
 // GetResources implements mcp.ResourceProvider, aggregating the resources
-// (static and templates) exposed by each of the user's remote servers.
+// (static and templates) exposed by each of the user's remote servers,
+// cached per user for a minute.
 func (p *remoteServerProvider) GetResources(ctx context.Context) (*mcp.ProvidedResources, error) {
+	if cached, ok := remoteResourcesCache.Load(p.user.Id); ok {
+		if entry := cached.(remoteResourcesCacheEntry); time.Now().Before(entry.expires) {
+			return entry.resources, nil
+		}
+	}
+
 	servers, err := p.enabledServers()
 	if err != nil {
 		return nil, err
@@ -111,6 +138,10 @@ func (p *remoteServerProvider) GetResources(ctx context.Context) (*mcp.ProvidedR
 			out.Templates = append(out.Templates, templates...)
 		}
 	}
+	remoteResourcesCache.Store(p.user.Id, remoteResourcesCacheEntry{
+		resources: out,
+		expires:   time.Now().Add(time.Minute),
+	})
 	return out, nil
 }
 

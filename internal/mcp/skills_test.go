@@ -62,6 +62,8 @@ func adminUser(id string) *model.User {
 func seedSkills(t *testing.T, skills ...*model.Skill) {
 	t.Helper()
 	testRedis.FlushAll()
+	FlushAccessibleSkillsCache()
+	FlushRemoteResourcesCache()
 	db := database.GetInstance()
 	for _, skill := range skills {
 		if err := db.SaveSkill(skill, nil); err != nil {
