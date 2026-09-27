@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"sort"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -273,5 +274,47 @@ func TestBuildSkillsPromptIncludesRemoteSkills(t *testing.T) {
 	}
 	if strings.Count(got, "fed/dashboard-ops") != 1 {
 		t.Fatalf("remote skill listed once, got:\n%s", got)
+	}
+}
+
+// Remote skills within one namespace are sorted into prompt lines by URI,
+// so a third-party server listing skills in an arbitrary order cannot
+// destabilize the system prompt (and defeat provider prompt caches).
+func TestBuildSkillsPromptSortsWithinRemoteNamespace(t *testing.T) {
+	// Exercise the same assembly listRemoteSkillLines uses: namespaces
+	// sorted first, then skills within each namespace by URI.
+	results := []mcp.RemoteSkillsResult{
+		{Namespace: "zeta", Skills: []mcp.Skill{
+			{URI: "skill://zulu/SKILL.md", Frontmatter: map[string]any{"name": "zulu", "description": "Z"}},
+			{URI: "skill://alpha/SKILL.md", Frontmatter: map[string]any{"name": "alpha", "description": "A"}},
+		}},
+		{Namespace: "alpha", Skills: []mcp.Skill{
+			{URI: "skill://mike/SKILL.md", Frontmatter: map[string]any{"name": "mike", "description": "M"}},
+			{URI: "skill://bravo/SKILL.md", Frontmatter: map[string]any{"name": "bravo", "description": "B"}},
+		}},
+	}
+
+	sort.Slice(results, func(i, j int) bool { return results[i].Namespace < results[j].Namespace })
+	var lines []string
+	for _, res := range results {
+		skills := append([]mcp.Skill{}, res.Skills...)
+		sort.Slice(skills, func(i, j int) bool { return skills[i].URI < skills[j].URI })
+		for _, skill := range skills {
+			lines = append(lines, mcp.SkillPromptLine(res.Namespace, skill))
+		}
+	}
+
+	joined := strings.Join(lines, "\n")
+	wantOrder := []string{"- alpha/bravo:", "- alpha/mike:", "- zeta/alpha:", "- zeta/zulu:"}
+	last := -1
+	for _, prefix := range wantOrder {
+		idx := strings.Index(joined, prefix)
+		if idx < 0 {
+			t.Fatalf("missing %s in %s", prefix, joined)
+		}
+		if idx < last {
+			t.Fatalf("lines not sorted: %s", joined)
+		}
+		last = idx
 	}
 }

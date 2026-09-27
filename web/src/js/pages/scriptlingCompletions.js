@@ -31,6 +31,36 @@ const scriptlingLibraries = [
     ],
   },
   {
+    module: "json",
+    description: "Scriptling json Library - Type stubs for IntelliSense support.",
+    functions: [
+      {
+        name: "loads",
+        signature: "loads(json_string)",
+        description: "Parse a JSON string into Scriptling values.",
+        returns: "Any",
+      },
+      {
+        name: "parse",
+        signature: "parse(json_string)",
+        description: "Parse a JSON string (alias for loads).",
+        returns: "Any",
+      },
+      {
+        name: "dumps",
+        signature: "dumps(obj, indent=None)",
+        description: "Serialize a Scriptling value to a JSON string.",
+        returns: "str",
+      },
+      {
+        name: "stringify",
+        signature: "stringify(obj, indent=None)",
+        description: "Serialize a Scriptling value to a JSON string (alias for dumps).",
+        returns: "str",
+      },
+    ],
+  },
+  {
     module: "msgpack",
     description: "MessagePack binary serialisation library — type stubs for IntelliSense.",
     functions: [
@@ -770,7 +800,7 @@ const scriptlingLibraries = [
         methods: [
           {
             name: "__init__",
-            signature: "__init__(client, tools=None, system_prompt=\"\", model=\"\", memory=None, max_tokens=32000, compaction_threshold=80, request_timeout=300, extra_body=None)",
+            signature: "__init__(client, tools=None, system_prompt=\"\", model=\"\", memory=None, mcp_servers=None, max_tokens=32000, compaction_threshold=80, request_timeout=300, extra_body=None)",
             description: "Initialize an Agent.",
             returns: "None",
           },
@@ -827,6 +857,10 @@ const scriptlingLibraries = [
         {
           name: "memory",
           description: "Optional[\"MemoryStore\"]",
+        },
+        {
+          name: "mcp_servers",
+          description: "list[\"MCPClient\"]",
         },
         {
           name: "max_tokens",
@@ -964,6 +998,12 @@ const scriptlingLibraries = [
             name: "add",
             signature: "add(name, description, params, handler)",
             description: "Add a tool to the registry.",
+            returns: "None",
+          },
+          {
+            name: "add_schema",
+            signature: "add_schema(name, description, schema, handler)",
+            description: "Add a tool with a full JSON Schema.",
             returns: "None",
           },
           {
@@ -2120,7 +2160,7 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "Client",
-        signature: "Client(target, namespace=\"\", bearer_token=\"\", args=None, env=None)",
+        signature: "Client(target, namespace=\"\", bearer_token=\"\", timeout=30, args=None, env=None)",
         description: "Create a new MCP client, over HTTP or stdio.",
         returns: "MCPClient - Client instance with methods for interacting with the server. For stdio clients, call close() when done to shut the subprocess down.",
       },
@@ -2226,6 +2266,12 @@ const scriptlingLibraries = [
             description: "Close the client and release its transport.",
             returns: "None",
           },
+        ],
+        properties: [
+        {
+          name: "namespace",
+          description: "str",
+        },
         ],
       },
     ],
@@ -4178,6 +4224,24 @@ const scriptlingLibraries = [
         name: "tool",
         signature: "tool(description, params=None, keywords=None, discoverable=False, ui=None, icons=None)",
         description: "Decorator for MCP tools.",
+        returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
+      },
+      {
+        name: "resource",
+        signature: "resource(uri, name=\"\", description=\"\", mime_type=\"\", template=False)",
+        description: "Decorator for MCP resources.",
+        returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
+      },
+      {
+        name: "prompt",
+        signature: "prompt(description=\"\", arguments=None)",
+        description: "Decorator for MCP prompts.",
+        returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
+      },
+      {
+        name: "skill",
+        signature: "skill(files=None)",
+        description: "Decorator for MCP skills.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },
     ],

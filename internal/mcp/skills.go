@@ -306,7 +306,12 @@ func listRemoteSkillLines(ctx context.Context, user *model.User) []string {
 
 	var lines []string
 	for _, res := range results {
-		for _, skill := range res.Skills {
+		// Sort within the namespace: a third-party remote may list its
+		// skills in any order, and an unstable prompt block defeats
+		// provider prompt caches.
+		skills := append([]mcp.Skill{}, res.Skills...)
+		sort.Slice(skills, func(i, j int) bool { return skills[i].URI < skills[j].URI })
+		for _, skill := range skills {
 			lines = append(lines, mcp.SkillPromptLine(res.Namespace, skill))
 		}
 	}
