@@ -522,7 +522,7 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "Client",
-        signature: "Client(base_url, provider=\"openai\", api_key=\"\", max_tokens=0, temperature=None, top_p=None, headers=None, remote_servers=None, max_retries=3, retry_backoff=1.0, retry_on_rate_limit=True, retry_on_server_error=True)",
+        signature: "Client(base_url, provider=\"openai\", api_key=\"\", max_tokens=0, temperature=None, top_p=None, headers=None, remote_servers=None, max_retries=3, retry_backoff=1.0, retry_on_rate_limit=True, retry_on_server_error=True, prompt_caching=True)",
         description: "Create a new AI client.",
         returns: "OpenAIClient - Client instance with methods for API calls",
       },
