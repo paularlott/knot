@@ -150,17 +150,14 @@ def stop(name):
 def _parse_lease(lease):
     """Parse a lease response into a stable dict."""
     return {
-        "lease_id": lease.get("lease_id", ""),
-        "pool_id": lease.get("pool_id", ""),
         "pool_name": lease.get("pool_name", ""),
         "space_id": lease.get("space_id", ""),
         "space_name": lease.get("space_name", ""),
-        "user_id": lease.get("user_id", ""),
         "username": lease.get("username", ""),
         "expires_at": lease.get("expires_at"),  # None = never expires
         "extensions_used": lease.get("extensions_used", 0),
         "max_extensions": lease.get("max_extensions", 0),  # -1 = unlimited
-        "state": lease.get("state", "active"),  # active | draining
+        "state": lease.get("state", "active"),  # active | draining | destroying
     }
 
 
@@ -204,19 +201,24 @@ def acquire(name, time=None, wait=None):
     return _parse_lease(response)
 
 
-def extend(name, lease_id, time=None):
-    """Extend a held lease: the new deadline is now + time (or never on
-    unlimited pools). Bounded by the pool's max extension count."""
-    response = api.post(f"/api/pools/{_enc(name)}/leases/{_enc(lease_id)}/extend", {
+def extend(space, time=None):
+    """Extend the lease held on a pool member (space name or id): the new
+    deadline is now + time (or never, on unlimited pools). Bounded by the
+    pool's max extension count."""
+    response = api.post(f"/api/spaces/{_enc(space)}/lease/extend", {
         "duration_seconds": _duration_seconds(time),
     })
     return _parse_lease(response)
 
 
-def release(name, lease_id):
-    """Release a held lease early. The member returns to the pool after
-    in-flight work drains (normally within ~15s)."""
-    response = api.delete(f"/api/pools/{_enc(name)}/leases/{_enc(lease_id)}")
+def release(space, destroy=False):
+    """Release the lease held on a pool member (space name or id — the same
+    identifier acquire returned). The member returns to the pool after
+    in-flight work drains (normally within ~15s). With destroy=True the
+    member is deleted instead and a fresh replacement is created, so the
+    next acquire gets a clean space."""
+    query = "?destroy=true" if destroy else ""
+    response = api.delete(f"/api/spaces/{_enc(space)}/lease{query}")
     return _parse_lease(response)
 
 
@@ -242,10 +244,11 @@ class leased:
     original exception.
     """
 
-    def __init__(self, name, time=None, wait=None):
+    def __init__(self, name, time=None, wait=None, destroy=False):
         self._name = name
         self._time = time
         self._wait = wait
+        self._destroy = destroy
         self.lease = None
 
     def __enter__(self):
@@ -255,7 +258,7 @@ class leased:
     def __exit__(self, exc_type, exc_value, traceback):
         if self.lease is not None:
             try:
-                release(self._name, self.lease.get("lease_id"))
+                release(self.lease.get("space_name") or self.lease.get("space_id"), destroy=self._destroy)
             except Exception:
                 pass
         return False

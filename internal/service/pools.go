@@ -17,6 +17,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -605,23 +606,49 @@ func (s *PoolService) tryAcquire(pool *model.PoolDefinition, user *model.User, d
 	return nil, ErrPoolExhausted
 }
 
-// Extend renews a held lease: the new deadline is now + duration (or never,
-// on unlimited pools), bounded by the pool's extension-count cap. Allowed
-// until the lease has been reclaimed — including while an expired lease is
-// still draining in-flight work, which rescues a lease that ran out by
-// accident.
-func (s *PoolService) Extend(pool *model.PoolDefinition, user *model.User, leaseId string, durationSeconds int) (*apiclient.LeaseInfo, error) {
+// leaseTarget resolves a held lease by its member space — id or
+// owner-scoped name — and returns the space plus its pool. The space is the
+// lease's identity: a member holds at most one lease, and callers work with
+// the space they acquired (its name is what they ssh to), never a lease id.
+func (s *PoolService) leaseTarget(user *model.User, spaceIdOrName string) (*model.Space, *model.PoolDefinition, error) {
+	db := database.GetInstance()
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceIdOrName) {
+		space, err = db.GetSpace(spaceIdOrName)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceIdOrName)
+	}
+	if err != nil || space == nil || space.IsDeleted {
+		return nil, nil, ErrLeaseNotFound
+	}
+	if space.PoolId == "" {
+		return nil, nil, fmt.Errorf("space %q is not a pool member", spaceIdOrName)
+	}
+	if space.LeaseId == "" {
+		return nil, nil, fmt.Errorf("no lease held on %q", spaceIdOrName)
+	}
+	pool, err := db.GetPoolDefinition(space.PoolId)
+	if err != nil || pool == nil || pool.IsDeleted {
+		return nil, nil, fmt.Errorf("pool not found")
+	}
+	return space, pool, nil
+}
+
+// Extend renews the lease held on a member space: the new deadline is
+// now + duration (or never, on unlimited pools), bounded by the pool's
+// extension-count cap. Allowed until the lease has been reclaimed —
+// including while an expired lease is still draining in-flight work, which
+// rescues a lease that ran out by accident.
+func (s *PoolService) Extend(user *model.User, spaceIdOrName string, durationSeconds int) (*apiclient.LeaseInfo, error) {
+	space, pool, err := s.leaseTarget(user, spaceIdOrName)
+	if err != nil {
+		return nil, err
+	}
 	if pool.LeaseMaxTime == 0 {
 		// Leasing was disabled after this lease was granted: the lease
 		// ends naturally (expiry or release), but it can't be renewed.
 		return nil, ErrPoolLeasesDisabled
-	}
-	space, err := s.leaseMember(pool, leaseId)
-	if err != nil {
-		return nil, err
-	}
-	if space.LeaseUserId != user.Id {
-		return nil, ErrLeaseNotHolder
 	}
 	if pool.LeaseMaxExtensions == 0 {
 		return nil, ErrLeaseExtendLimit
@@ -648,7 +675,7 @@ func (s *PoolService) Extend(pool *model.PoolDefinition, user *model.User, lease
 	// reclaimed, extended past its cap, or (in a cluster) moved on since
 	// the pre-lock lookup loaded its copy.
 	fresh, err := db.GetSpace(space.Id)
-	if err != nil || fresh == nil || fresh.LeaseId != leaseId {
+	if err != nil || fresh == nil || fresh.LeaseId == "" {
 		return nil, ErrLeaseNotFound
 	}
 	if fresh.LeaseUserId != user.Id {
@@ -681,11 +708,11 @@ func (s *PoolService) Extend(pool *model.PoolDefinition, user *model.User, lease
 	return s.leaseInfo(pool, fresh)
 }
 
-// Release ends a held lease early. The member does not re-enter shared
-// routing immediately: it stays excluded until in-flight method work has
-// drained, then the sweep reclaims it (normally within one sweep).
-func (s *PoolService) Release(pool *model.PoolDefinition, user *model.User, leaseId string) (*apiclient.LeaseInfo, error) {
-	space, err := s.leaseMember(pool, leaseId)
+// Release ends the lease held on a member space early. The member does not
+// re-enter shared routing immediately: it stays excluded until in-flight
+// method work has drained, then the sweep reclaims it (normally one sweep).
+func (s *PoolService) Release(user *model.User, spaceIdOrName string) (*apiclient.LeaseInfo, error) {
+	space, pool, err := s.leaseTarget(user, spaceIdOrName)
 	if err != nil {
 		return nil, err
 	}
@@ -704,7 +731,7 @@ func (s *PoolService) Release(pool *model.PoolDefinition, user *model.User, leas
 	}
 
 	fresh, err := db.GetSpace(space.Id)
-	if err != nil || fresh == nil || fresh.LeaseId != leaseId {
+	if err != nil || fresh == nil || fresh.LeaseId == "" {
 		return nil, ErrLeaseNotFound
 	}
 	if fresh.LeaseUserId != user.Id {
@@ -727,6 +754,82 @@ func (s *PoolService) Release(pool *model.PoolDefinition, user *model.User, leas
 	return s.leaseInfo(pool, fresh)
 }
 
+// ReleaseAndDestroy ends the lease held on a member space by destroying it:
+// the space goes through the normal drain → two-phase delete, and a fresh
+// replacement member is created (and started) immediately so the next
+// acquire gets a clean space without waiting for the sweep. The returned
+// LeaseInfo carries state "destroying" describing the ended lease.
+func (s *PoolService) ReleaseAndDestroy(user *model.User, spaceIdOrName string) (*apiclient.LeaseInfo, error) {
+	space, pool, err := s.leaseTarget(user, spaceIdOrName)
+	if err != nil {
+		return nil, err
+	}
+	if pool.LeaseMaxTime == 0 {
+		return nil, ErrPoolLeasesDisabled
+	}
+	if space.LeaseUserId != user.Id {
+		return nil, ErrLeaseNotHolder
+	}
+
+	db := database.GetInstance()
+	transport := GetTransport()
+	token := ""
+	if transport != nil {
+		if token = transport.LockResource(space.Id); token == "" {
+			return nil, fmt.Errorf("member is busy with another operation, retry shortly") // lock unavailable
+		}
+		defer transport.UnlockResource(space.Id, token)
+	}
+
+	fresh, err := db.GetSpace(space.Id)
+	if err != nil || fresh == nil || fresh.LeaseId == "" {
+		return nil, ErrLeaseNotFound
+	}
+	if fresh.LeaseUserId != user.Id {
+		return nil, ErrLeaseNotHolder
+	}
+
+	// Snapshot the lease description before the fields are cleared.
+	info, err := s.leaseInfo(pool, fresh)
+	if err != nil {
+		return nil, err
+	}
+	info.State = "destroying"
+
+	// End the lease and mark the member for deletion in one write; the
+	// drain inside stops new routing while the container teardown runs.
+	fresh.LeaseClear()
+	fresh.IsDeleting = true
+	fresh.UpdatedAt = hlc.Now()
+	fields := []string{"LeaseId", "LeaseUserId", "LeaseExpiresAt", "LeaseExtensions", "IsDeleting", "UpdatedAt"}
+	if err := db.SaveSpace(fresh, fields); err != nil {
+		return nil, err
+	}
+
+	s.MarkLeaseCleared(fresh.Id)
+	if transport != nil {
+		transport.GossipSpace(fresh)
+		transport.GossipPoolLeaseClear(fresh.Id)
+	}
+	sse.PublishSpaceChanged(fresh.Id, fresh.UserId)
+
+	s.drain(fresh.Id)
+	GetContainerService().DeleteSpace(fresh)
+
+	// Replace the member now rather than leaving it to the next sweep, so a
+	// follow-up acquire with a short wait finds a fresh space quickly.
+	owner, err := db.GetUser(pool.CreatedUserId)
+	if pool.Active && err == nil && owner != nil {
+		if createErr := s.createPoolSpace(pool, owner); createErr != nil {
+			// The sweep retries creation; report it but don't fail the
+			// release, which already succeeded.
+			log.Warn("lease destroy: replacement member creation deferred to sweep", "pool", pool.Name, "error", createErr.Error())
+		}
+	}
+
+	return info, nil
+}
+
 // ListLeases returns the pool's held leases — active plus draining.
 func (s *PoolService) ListLeases(pool *model.PoolDefinition, user *model.User) ([]apiclient.LeaseInfo, error) {
 	db := database.GetInstance()
@@ -746,20 +849,6 @@ func (s *PoolService) ListLeases(pool *model.PoolDefinition, user *model.User) (
 		leases = append(leases, s.leaseInfoFor(pool, sp, holder))
 	}
 	return leases, nil
-}
-
-// leaseMember finds the pool member currently holding leaseId.
-func (s *PoolService) leaseMember(pool *model.PoolDefinition, leaseId string) (*model.Space, error) {
-	spaces, err := database.GetInstance().GetSpaces()
-	if err != nil {
-		return nil, err
-	}
-	for _, sp := range poolMembers(pool, spaces) {
-		if sp.LeaseId == leaseId {
-			return sp, nil
-		}
-	}
-	return nil, ErrLeaseNotFound
 }
 
 func leaseExpiryUnix(space *model.Space) int64 {
@@ -788,12 +877,9 @@ func (s *PoolService) leaseInfoFor(pool *model.PoolDefinition, space *model.Spac
 		username = holder.Username
 	}
 	return apiclient.LeaseInfo{
-		LeaseId:        space.LeaseId,
-		PoolId:         pool.Id,
 		PoolName:       pool.Name,
 		SpaceId:        space.Id,
 		SpaceName:      space.Name,
-		UserId:         space.LeaseUserId,
 		Username:       username,
 		ExpiresAt:      space.LeaseExpiresAt,
 		ExtensionsUsed: space.LeaseExtensions,

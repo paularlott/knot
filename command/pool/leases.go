@@ -52,10 +52,9 @@ var LeasesCmd = &cli.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "LEASE\tMEMBER\tSTATE\tEXPIRES\tEXTENSIONS\tHOLDER")
+		fmt.Fprintln(w, "MEMBER\tSTATE\tEXPIRES\tEXTENSIONS\tHOLDER")
 		for _, lease := range leases.Leases {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d/%s\t%s\n",
-				lease.LeaseId,
+			fmt.Fprintf(w, "%s\t%s\t%s\t%d/%s\t%s\n",
 				lease.SpaceName,
 				lease.State,
 				formatLeaseExpiry(lease.ExpiresAt),
@@ -78,7 +77,7 @@ func formatMaxExtensions(max int) string {
 
 // printLease renders one lease for acquire/extend output.
 func printLease(lease *apiclient.LeaseInfo, verb string) {
-	fmt.Printf("Lease %s %s on member %s (space id %s).\n", lease.LeaseId, verb, lease.SpaceName, lease.SpaceId)
+	fmt.Printf("Member %s %s (space id %s).\n", lease.SpaceName, verb, lease.SpaceId)
 	fmt.Printf("  Expires: %s\n", formatLeaseExpiry(lease.ExpiresAt))
 	fmt.Printf("  Extensions used: %d (max %s)\n", lease.ExtensionsUsed, formatMaxExtensions(lease.MaxExtensions))
 	fmt.Printf("  Use the member by its own name or pin method calls with space_id %s.\n", lease.SpaceId)

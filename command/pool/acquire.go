@@ -27,7 +27,7 @@ var AcquireCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  "wait",
-			Usage: "How long to wait for a free member if all are leased, e.g. 30s, 2m (max 5m). Defaults to failing immediately.",
+			Usage: "How long to wait for a member if none is free yet (e.g. while one is being replaced or starting), e.g. 30s, 2m (max 5m). Defaults to 10s; use --wait 0s to fail immediately.",
 		},
 		leaseJSONFlag(),
 	},
@@ -39,7 +39,9 @@ var AcquireCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		wait := 0
+		// Default to a short wait so a member that's mid-replacement or
+		// mid-start is picked up instead of failing; --wait 0s fails fast.
+		wait := 10
 		if value := cmd.GetString("wait"); value != "" {
 			wait, err = parseLeaseDuration(value)
 			if err != nil {

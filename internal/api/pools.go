@@ -242,19 +242,14 @@ func HandleGetPoolLeases(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.PoolLeaseList{Count: len(leases), Leases: leases})
 }
 
-func HandlePoolLeaseExtend(w http.ResponseWriter, r *http.Request) {
+func HandleSpaceLeaseExtend(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
-	pool, err := service.GetPoolService().ResolveForUser(r.PathValue("id_or_name"), user)
-	if err != nil || pool == nil || pool.IsDeleted {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Pool not found"})
-		return
-	}
 	request := apiclient.PoolLeaseExtendRequest{}
 	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
-	lease, err := service.GetPoolService().Extend(pool, user, r.PathValue("lease_id"), request.DurationSeconds)
+	lease, err := service.GetPoolService().Extend(user, r.PathValue("space_id_or_name"), request.DurationSeconds)
 	if err != nil {
 		writeLeaseError(w, r, err)
 		return
@@ -262,14 +257,15 @@ func HandlePoolLeaseExtend(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, lease)
 }
 
-func HandlePoolLeaseRelease(w http.ResponseWriter, r *http.Request) {
+func HandleSpaceLeaseRelease(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
-	pool, err := service.GetPoolService().ResolveForUser(r.PathValue("id_or_name"), user)
-	if err != nil || pool == nil || pool.IsDeleted {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Pool not found"})
-		return
+	var lease *apiclient.LeaseInfo
+	var err error
+	if r.URL.Query().Get("destroy") == "true" {
+		lease, err = service.GetPoolService().ReleaseAndDestroy(user, r.PathValue("space_id_or_name"))
+	} else {
+		lease, err = service.GetPoolService().Release(user, r.PathValue("space_id_or_name"))
 	}
-	lease, err := service.GetPoolService().Release(pool, user, r.PathValue("lease_id"))
 	if err != nil {
 		writeLeaseError(w, r, err)
 		return

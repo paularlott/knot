@@ -102,19 +102,17 @@ type PoolList struct {
 }
 
 // LeaseInfo describes one exclusive member lease. ExpiresAt is null for a
-// never-expiring lease; MaxExtensions is -1 for unlimited.
+// never-expiring lease; MaxExtensions is -1 for unlimited. The space is the
+// lease's identity — the id and name the holder works with.
 type LeaseInfo struct {
-	LeaseId        string     `json:"lease_id"`
-	PoolId         string     `json:"pool_id"`
 	PoolName       string     `json:"pool_name"`
 	SpaceId        string     `json:"space_id"`
 	SpaceName      string     `json:"space_name"`
-	UserId         string     `json:"user_id"`
 	Username       string     `json:"username"`
 	ExpiresAt      *time.Time `json:"expires_at"`
 	ExtensionsUsed int        `json:"extensions_used"`
 	MaxExtensions  int        `json:"max_extensions"`
-	State          string     `json:"state"` // active | draining
+	State          string     `json:"state"` // active | draining | destroying
 }
 
 type PoolLeaseList struct {
@@ -183,15 +181,25 @@ func (c *ApiClient) AcquirePoolLease(ctx context.Context, idOrName string, reque
 	return response, code, err
 }
 
-func (c *ApiClient) ExtendPoolLease(ctx context.Context, idOrName, leaseId string, request *PoolLeaseExtendRequest) (*LeaseInfo, int, error) {
+// ExtendSpaceLease renews the lease held on a space (id or owner-scoped
+// name). The space is the lease's identity — a member holds at most one
+// lease.
+func (c *ApiClient) ExtendSpaceLease(ctx context.Context, spaceIdOrName string, request *PoolLeaseExtendRequest) (*LeaseInfo, int, error) {
 	response := &LeaseInfo{}
-	code, err := c.httpClient.Post(ctx, "/api/pools/"+idOrName+"/leases/"+leaseId+"/extend", request, response, 200)
+	code, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceIdOrName+"/lease/extend", request, response, 200)
 	return response, code, err
 }
 
-func (c *ApiClient) ReleasePoolLease(ctx context.Context, idOrName, leaseId string) (*LeaseInfo, int, error) {
+// ReleaseSpaceLease ends the lease held on a space (id or owner-scoped
+// name). With destroy set, the member is deleted and a fresh replacement is
+// created in its place, so the next acquire gets a clean space.
+func (c *ApiClient) ReleaseSpaceLease(ctx context.Context, spaceIdOrName string, destroy bool) (*LeaseInfo, int, error) {
+	path := "/api/spaces/" + spaceIdOrName + "/lease"
+	if destroy {
+		path += "?destroy=true"
+	}
 	response := &LeaseInfo{}
-	code, err := c.httpClient.Delete(ctx, "/api/pools/"+idOrName+"/leases/"+leaseId, nil, response, 200)
+	code, err := c.httpClient.Delete(ctx, path, nil, response, 200)
 	return response, code, err
 }
 

@@ -2,9 +2,7 @@ package command_pool
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/command/cmdutil"
@@ -12,44 +10,33 @@ import (
 
 var ReleaseCmd = &cli.Command{
 	Name:        "release",
-	Usage:       "Release a held pool lease",
-	Description: "End a lease early. The member returns to the pool once any in-flight work has finished (normally within one sweep, ~15s).",
+	Usage:       "Release a leased pool member",
+	Description: "End the lease held on a pool member. The member returns to the pool once any in-flight work has finished (normally within one sweep, ~15s). With --destroy the member is deleted instead and a fresh replacement is created, so the next acquire gets a clean space.",
 	Arguments: []cli.Argument{
 		&cli.StringArg{
-			Name:     "pool",
-			Usage:    "The name or ID of the pool",
-			Required: true,
-		},
-		&cli.StringArg{
-			Name:     "lease",
-			Usage:    "The lease id from acquire, or the held member's name / space id",
+			Name:     "space",
+			Usage:    "The held member's name or space id — the same identifier acquire returned",
 			Required: true,
 		},
 	},
 	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "destroy",
+			Usage: "Destroy the member instead of returning it — a fresh replacement is created, so the next acquire gets a clean space.",
+		},
 		leaseJSONFlag(),
 	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		poolName := cmd.GetStringArg("pool")
-		leaseArg := cmd.GetStringArg("lease")
+		spaceArg := cmd.GetStringArg("space")
+		destroy := cmd.GetBool("destroy")
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}
 
-		leaseId, err := resolveLeaseArg(context.Background(), client, poolName, leaseArg)
-		if err != nil {
-			if cmd.GetBool("json") {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				_ = enc.Encode(leaseErrorJSON{State: "error", Error: err.Error()})
-			}
-			return err
-		}
-
-		lease, code, err := client.ReleasePoolLease(context.Background(), poolName, leaseId)
+		lease, code, err := client.ReleaseSpaceLease(context.Background(), spaceArg, destroy)
 		if err != nil {
 			return handleLeaseError(cmd, code, err, "")
 		}
@@ -58,7 +45,11 @@ var ReleaseCmd = &cli.Command{
 			return printLeaseJSON(lease)
 		}
 
-		fmt.Printf("Lease %s released; the member returns to pool %q after in-flight work drains.\n", leaseArg, poolName)
+		if destroy {
+			fmt.Printf("Member %s destroyed; a fresh replacement is starting in pool %q.\n", spaceArg, lease.PoolName)
+		} else {
+			fmt.Printf("Member %s released; it returns to pool %q after in-flight work drains.\n", spaceArg, lease.PoolName)
+		}
 		return nil
 	},
 }

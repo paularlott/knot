@@ -332,8 +332,8 @@
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="pg.pool.name"></span>
                       <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + pg.spaces.filter(s => s.is_deployed && !s.is_pending).length + ' / ' + pg.pool.desired_count + ' space' + (pg.pool.desired_count !== 1 ? 's' : '') + ')'"></span>
                       <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="pg.pool.active ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'" x-text="pg.pool.active ? 'Active' : 'Stopped'"></span>
-                      <template x-if="leasedCount(pg.spaces) > 0">
-                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium bg-purple-600 text-white" x-text="leasedCount(pg.spaces) + ' leased'"></span>
+                      <template x-if="pg.pool.lease_max_time">
+                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium" :class="leasedCount(pg.spaces) > 0 ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'" x-text="leasedCount(pg.spaces) + ' leased'"></span>
                       </template>
                       <template x-if="drainingCount(pg.spaces) > 0">
                         <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" x-text="drainingCount(pg.spaces) + ' draining'"></span>

@@ -1,7 +1,6 @@
 package command_pool
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/util/validate"
 )
 
 // parseLeaseDuration converts a --time flag value into the API's
@@ -42,24 +40,6 @@ func formatLeaseExpiry(expiresAt *time.Time) string {
 		return "never"
 	}
 	return expiresAt.Local().Format(time.RFC3339)
-}
-
-// resolveLeaseArg accepts a lease id or a member name / space id and returns
-// the lease id. A member holds at most one lease, so the lookup is unique.
-func resolveLeaseArg(ctx context.Context, client *apiclient.ApiClient, poolName, arg string) (string, error) {
-	if validate.UUID(arg) {
-		return arg, nil
-	}
-	list, _, err := client.GetPoolLeases(ctx, poolName)
-	if err != nil {
-		return "", fmt.Errorf("could not list leases: %s", cleanAPIError(err))
-	}
-	for _, lease := range list.Leases {
-		if lease.SpaceName == arg || lease.SpaceId == arg {
-			return lease.LeaseId, nil
-		}
-	}
-	return "", fmt.Errorf("no lease held on %q in pool %q", arg, poolName)
 }
 
 // cleanAPIError strips the transport framing the REST client wraps around

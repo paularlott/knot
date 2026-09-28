@@ -913,14 +913,14 @@ export const knotLibraries = [
       },
       {
         "name": "extend",
-        "signature": "extend(name, lease_id, time)",
-        "description": "Extend a held lease: the new deadline is now + time (or never, on\n    unlimited pools). Bounded by the pool's max extension count.",
+        "signature": "extend(space, time)",
+        "description": "Extend the lease held on a pool member (space name or id): the new\n    deadline is now + time (or never, on unlimited pools). Bounded by the\n    pool's max extension count.",
         "returns": "dict"
       },
       {
         "name": "release",
-        "signature": "release(name, lease_id)",
-        "description": "Release a held lease early. The member returns to the pool after\n    in-flight work drains (normally within ~15s).",
+        "signature": "release(space, destroy)",
+        "description": "Release the lease held on a pool member (space name or id — the same\n    identifier acquire returned). The member returns to the pool after\n    in-flight work drains (normally within ~15s). With destroy=True the\n    member is deleted and a fresh replacement is created, so the next\n    acquire gets a clean space.",
         "returns": "dict"
       },
       {
@@ -933,7 +933,7 @@ export const knotLibraries = [
     "classes": [
       {
         "name": "leased",
-        "description": "Context manager for exclusive pool member use; releases on exit.",
+        "description": "Context manager for exclusive pool member use; releases on exit\n    (destroys the member instead when destroy=True, leaving a fresh\n    replacement behind).",
         "methods": [
           {
             "name": "lease",
@@ -943,7 +943,7 @@ export const knotLibraries = [
           },
           {
             "name": "__init__",
-            "signature": "__init__(self, name: str, time: str | int | None = ..., wait: str | int | None = ...)",
+            "signature": "__init__(self, name: str, time: str | int | None = ..., wait: str | int | None = ..., destroy: bool = ...)",
             "description": "  init  ",
             "returns": "None"
           }

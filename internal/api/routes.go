@@ -122,8 +122,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/pools/{id_or_name}/stop", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolStop)))
 	router.HandleFunc("POST /api/pools/{id_or_name}/acquire", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolAcquire)))
 	router.HandleFunc("GET /api/pools/{id_or_name}/leases", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleGetPoolLeases)))
-	router.HandleFunc("POST /api/pools/{id_or_name}/leases/{lease_id}/extend", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolLeaseExtend)))
-	router.HandleFunc("DELETE /api/pools/{id_or_name}/leases/{lease_id}", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolLeaseRelease)))
+	router.HandleFunc("POST /api/spaces/{space_id_or_name}/lease/extend", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleSpaceLeaseExtend)))
+	router.HandleFunc("DELETE /api/spaces/{space_id_or_name}/lease", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleSpaceLeaseRelease)))
 
 	// Templates
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))

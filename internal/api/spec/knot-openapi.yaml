@@ -5711,31 +5711,36 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
-  /api/pools/{id_or_name}/leases/{lease_id}:
+  /api/spaces/{space_id_or_name}/lease:
     delete:
       tags:
         - Pools
-      summary: Release Pool Lease
-      description: End a held lease early. The member returns to the shared pool once in-flight method work has drained (normally within one sweep, ~15s).
-      operationId: releasePoolLease
+      summary: Release Space Lease
+      description: Release the lease held on a pool member space (by space id or the owner's space name). The member returns to the shared pool once in-flight method work has drained (normally within one sweep, ~15s). With destroy=true the member is deleted through the normal drain-and-delete flow and a fresh replacement is created immediately, so the next acquire gets a clean space.
+      operationId: releaseSpaceLease
       parameters:
-        - name: id_or_name
+        - name: space_id_or_name
           in: path
           required: true
           schema:
             type: string
-        - name: lease_id
-          in: path
-          required: true
+          description: The held member's space id or name — the same identifier acquire returned.
+        - name: destroy
+          in: query
+          required: false
           schema:
-            type: string
+            type: boolean
+            default: false
+          description: Destroy the member instead of returning it — a fresh replacement is created, so the next acquire gets a clean space.
       responses:
         "200":
-          description: Lease released (draining before the member rejoins)
+          description: Lease released (draining before the member rejoins; with destroy=true the member is deleted and a replacement is starting)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaseInfo"
+        "400":
+          $ref: "#/components/responses/bad-request"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -5746,24 +5751,20 @@ paths:
           $ref: "#/components/responses/conflict"
       security: [BearerAuth: []]
 
-  /api/pools/{id_or_name}/leases/{lease_id}/extend:
+  /api/spaces/{space_id_or_name}/lease/extend:
     post:
       tags:
         - Pools
-      summary: Extend Pool Lease
-      description: Renew a held lease — the new deadline becomes now + duration (or never, on unlimited pools). Bounded by the pool's configured extension count. Allowed until the lease has been reclaimed, including while an expired lease is still draining.
-      operationId: extendPoolLease
+      summary: Extend Space Lease
+      description: Renew the lease held on a pool member space (by space id or the owner's space name) — the new deadline becomes now + duration (or never, on unlimited pools). Bounded by the pool's configured extension count. Allowed until the lease has been reclaimed, including while an expired lease is still draining.
+      operationId: extendSpaceLease
       parameters:
-        - name: id_or_name
+        - name: space_id_or_name
           in: path
           required: true
           schema:
             type: string
-        - name: lease_id
-          in: path
-          required: true
-          schema:
-            type: string
+          description: The held member's space id or name — the same identifier acquire returned.
       requestBody:
         required: true
         content:
@@ -10705,14 +10706,9 @@ components:
     LeaseInfo:
       type: object
       properties:
-        lease_id:
-          type: string
-          format: uuid
-        pool_id:
-          type: string
-          format: uuid
         pool_name:
           type: string
+          description: The pool the lease was granted from.
         space_id:
           type: string
           format: uuid
@@ -10720,11 +10716,9 @@ components:
         space_name:
           type: string
           description: The held member's name; pool-name port routing excludes it while held, its own name does not.
-        user_id:
-          type: string
-          format: uuid
         username:
           type: string
+          description: The lease holder.
         expires_at:
           type: string
           format: date-time
@@ -10737,8 +10731,8 @@ components:
           description: -1 = unlimited.
         state:
           type: string
-          enum: [active, draining]
-          description: draining = ended, waiting for in-flight work to finish before rejoining the pool.
+          enum: [active, draining, destroying]
+          description: draining = ended, waiting for in-flight work to finish before rejoining the pool; destroying = released with destroy, member deleted and a replacement starting.
 
     PoolLeaseList:
       type: object
