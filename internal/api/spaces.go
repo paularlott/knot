@@ -134,6 +134,10 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.Stack = space.Stack
 		s.StackPrefix = space.StackPrefix
 
+		// Exclusive pool-member lease (pool spaces only).
+		s.LeaseId = space.LeaseId
+		s.LeaseExpiresAt = space.LeaseExpiresAt
+
 		// Populate custom field values
 		s.CustomFields = make([]apiclient.CustomFieldValue, len(space.CustomFields))
 		for i, cf := range space.CustomFields {

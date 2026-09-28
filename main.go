@@ -179,7 +179,9 @@ It offers both a user-friendly web interface and a command line interface to str
 
 	err := cmd.Execute(context.Background())
 	if err != nil {
-		fmt.Println("Error:", err)
+		// stderr, not stdout: commands that emit structured output (e.g.
+		// --json modes) must keep stdout parseable on failure paths too.
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 

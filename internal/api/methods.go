@@ -71,6 +71,17 @@ func HandleCallMethod(w http.ResponseWriter, r *http.Request) {
 	handleSingleCall(w, r, body, user)
 }
 
+// pickMethodEntry routes one JSON-RPC request: pinned to the caller's
+// space when the request carries the knot-specific space_id extension
+// (used e.g. by pool lease holders to target their member), otherwise
+// shared routing across all visible providers.
+func pickMethodEntry(request *methods.JSONRPCRequest, user *model.User) (*methods.Entry, string, error) {
+	if request.SpaceID != "" {
+		return methods.DefaultRegistry().PickForSpace(request.Method, request.SpaceID, user)
+	}
+	return methods.DefaultRegistry().Pick(request.Method, user)
+}
+
 // --------------------------------------------------------------------
 // Single request / notification
 // --------------------------------------------------------------------
@@ -91,7 +102,7 @@ func handleSingleCall(w http.ResponseWriter, r *http.Request, body []byte, user 
 
 	isNotification := !jsonHasField(body, "id")
 
-	entry, localName, err := methods.DefaultRegistry().Pick(request.Method, user)
+	entry, localName, err := pickMethodEntry(&request, user)
 	if err != nil {
 		writeRouteError(w, r, err, request.ID)
 		return
@@ -172,12 +183,15 @@ func handleBatchCall(w http.ResponseWriter, r *http.Request, rawItems []json.Raw
 
 		item.isNotification = !jsonHasField(raw, "id")
 
-		entry, localName, err := methods.DefaultRegistry().Pick(item.request.Method, user)
+		entry, localName, err := pickMethodEntry(&item.request, user)
 		if err != nil {
 			item.errCode = -32601
 			item.errMsg = "method not found"
 			if errors.Is(err, methods.ErrPermission) {
 				item.errMsg = "method not visible to caller"
+			} else if errors.Is(err, methods.ErrMethodLeased) {
+				item.errCode = -32000
+				item.errMsg = "method exclusively leased"
 			} else if errors.Is(err, methods.ErrMethodDraining) {
 				item.errCode = -32000
 				item.errMsg = "method temporarily unavailable"
@@ -392,6 +406,10 @@ func writeRouteError(w http.ResponseWriter, r *http.Request, err error, id any) 
 	if errors.Is(err, methods.ErrPermission) {
 		status = http.StatusForbidden
 		message = "method not visible to caller"
+	} else if errors.Is(err, methods.ErrMethodLeased) {
+		status = http.StatusConflict
+		message = "method exclusively leased"
+		code = -32000
 	} else if errors.Is(err, methods.ErrMethodDraining) {
 		status = http.StatusServiceUnavailable
 		message = "method temporarily unavailable"

@@ -855,7 +855,7 @@ export const knotLibraries = [
   },
   {
     "module": "knot.pool",
-    "description": "Manage space pools — fixed-size, self-healing groups of identical spaces.",
+    "description": "Manage space pools — fixed-size, self-healing groups of identical spaces,",
     "functions": [
       {
         "name": "list",
@@ -904,6 +904,50 @@ export const knotLibraries = [
         "signature": "stop(name)",
         "description": "Stop a running pool: stops all member spaces without deleting them",
         "returns": "bool"
+      },
+      {
+        "name": "acquire",
+        "signature": "acquire(name, time, wait)",
+        "description": "Acquire a pool member exclusively until the lease ends (requires a\n    lease-enabled pool). time: None = the pool's maximum, \"none\" = never\n    expire (unlimited pools only), seconds or \"5m\"-style string. wait:\n    optionally wait this long for a free member before raising. Returns the\n    lease dict — the held member is space_name / space_id.",
+        "returns": "dict"
+      },
+      {
+        "name": "extend",
+        "signature": "extend(name, lease_id, time)",
+        "description": "Extend a held lease: the new deadline is now + time (or never, on\n    unlimited pools). Bounded by the pool's max extension count.",
+        "returns": "dict"
+      },
+      {
+        "name": "release",
+        "signature": "release(name, lease_id)",
+        "description": "Release a held lease early. The member returns to the pool after\n    in-flight work drains (normally within ~15s).",
+        "returns": "dict"
+      },
+      {
+        "name": "leases",
+        "signature": "leases(name)",
+        "description": "List the pool's held leases — active plus draining",
+        "returns": "list of dicts"
+      }
+    ],
+    "classes": [
+      {
+        "name": "leased",
+        "description": "Context manager for exclusive pool member use; releases on exit.",
+        "methods": [
+          {
+            "name": "lease",
+            "signature": "lease",
+            "description": "Lease ",
+            "returns": "dict"
+          },
+          {
+            "name": "__init__",
+            "signature": "__init__(self, name: str, time: str | int | None = ..., wait: str | int | None = ...)",
+            "description": "  init  ",
+            "returns": "None"
+          }
+        ]
       }
     ]
   },

@@ -282,6 +282,9 @@ func (c *AgentClient) CallMethod(req msg.CallMethodRequest) methods.JSONRPCRespo
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 
+	c.activeMethodCalls.Add(1)
+	defer c.activeMethodCalls.Add(-1)
+
 	release, acquireErr := server.acquire(ctx)
 	if acquireErr != nil {
 		return methodError(req.ID, -32000, acquireErr.Error())

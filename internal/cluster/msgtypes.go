@@ -48,4 +48,5 @@ const (
 	MCPServerFullSyncMsg
 	MCPServerGossipMsg
 	AuthFailureGossipMsg
+	PoolLeaseMsg
 )

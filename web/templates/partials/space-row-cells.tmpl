@@ -4,7 +4,12 @@
                   <div class="flex items-center gap-4">
                     <img x-show="s.icon_url.length && s.icon_url_exists" :src="s.icon_url" :alt="s.name + ' icon'" class="hidden sm:block size-8" />
                     <div>
-                      <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="s.name"></div>
+                      <div class="flex items-center gap-1.5">
+                        <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="s.name"></div>
+                        <template x-if="s.lease_id">
+                          <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="s.lease_expires_at && new Date(s.lease_expires_at) <= new Date() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'" :title="'Exclusively leased' + (s.lease_expires_at ? ' until ' + new Date(s.lease_expires_at).toLocaleString() : ' — no expiry')" x-text="s.lease_expires_at && new Date(s.lease_expires_at) <= new Date() ? 'Lease draining' : 'Leased'"></span>
+                        </template>
+                      </div>
                       <template x-if="s.node_hostname">
                         <div class="text-xs text-gray-500 dark:text-gray-400" x-text="'Host: ' + s.node_hostname"></div>
                       </template>
@@ -513,6 +518,12 @@
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7.5 15l3-3 2.25 2.25L16.5 9" />
                         </svg> Usage
+                      </button>
+
+                      <button x-show="s.lease_id" x-bind:disabled="leaseBusy[s.space_id] === true" @click="$refs.panel.close; releaseLease(s)" class="group nav-item text-sm px-4 w-full" role="menuitem" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                        </svg> Release Lease
                       </button>
 
                       <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close; openJobs(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">

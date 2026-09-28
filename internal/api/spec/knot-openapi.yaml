@@ -5618,7 +5618,7 @@ paths:
       tags:
         - Pools
       summary: Stop Pool
-      description: Set active=false and stop all member spaces without deleting them.
+      description: Set active=false and stop all member spaces without deleting them. Rejected with 400 while any member holds an active lease.
       operationId: stopPool
       parameters:
         - name: id_or_name
@@ -5635,6 +5635,158 @@ paths:
           $ref: "#/components/responses/forbidden"
         "404":
           $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/acquire:
+    post:
+      tags:
+        - Pools
+      summary: Acquire Pool Member Lease
+      description: Check out one healthy free member of the pool exclusively. While held, shared method routing and pool-name port proxying skip the member; the holder reaches it by its own space name or by pinning method calls with its space id.
+      operationId: acquirePoolLease
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolLeaseAcquireRequest"
+      responses:
+        "200":
+          description: Lease granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaseInfo"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: No free member available (pool exhausted)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/leases:
+    get:
+      tags:
+        - Pools
+      summary: List Pool Leases
+      description: List the pool's exclusively held leases — active plus draining (ended, waiting for in-flight work to finish).
+      operationId: getPoolLeases
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Leases held on the pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolLeaseList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/leases/{lease_id}:
+    delete:
+      tags:
+        - Pools
+      summary: Release Pool Lease
+      description: End a held lease early. The member returns to the shared pool once in-flight method work has drained (normally within one sweep, ~15s).
+      operationId: releasePoolLease
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lease_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lease released (draining before the member rejoins)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaseInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/leases/{lease_id}/extend:
+    post:
+      tags:
+        - Pools
+      summary: Extend Pool Lease
+      description: Renew a held lease — the new deadline becomes now + duration (or never, on unlimited pools). Bounded by the pool's configured extension count. Allowed until the lease has been reclaimed, including while an expired lease is still draining.
+      operationId: extendPoolLease
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lease_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolLeaseExtendRequest"
+      responses:
+        "200":
+          description: Lease extended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaseInfo"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
       security: [BearerAuth: []]
 
   /api/ping:
@@ -10383,6 +10535,14 @@ components:
           type: boolean
           default: false
           description: Whether to start the pool on creation. If false or omitted, pool is created stopped.
+        lease_max_time:
+          type: integer
+          default: 0
+          description: Exclusive member leases, in seconds. 0 = leases disabled (default), -1 = no timeout (leases run until released), >0 = max duration of one acquire/extend.
+        lease_max_extensions:
+          type: integer
+          default: 0
+          description: Max extensions per lease. 0 = extending forbidden (default), -1 = unlimited, >0 = max count.
 
     PoolSetSizeRequest:
       type: object
@@ -10394,6 +10554,28 @@ components:
           minimum: 1
           description: New desired member count.
 
+    PoolLeaseAcquireRequest:
+      type: object
+      properties:
+        duration_seconds:
+          type: integer
+          default: 0
+          description: "How long to hold the member. 0 = use the pool's configured maximum (never, on -1 pools), -1 = a never-expiring lease (unlimited pools only), >0 = a duration bounded by the pool maximum."
+        wait_seconds:
+          type: integer
+          minimum: 0
+          maximum: 300
+          default: 0
+          description: Optionally long-poll for a free member for up to this long before returning 409.
+
+    PoolLeaseExtendRequest:
+      type: object
+      properties:
+        duration_seconds:
+          type: integer
+          default: 0
+          description: New holding time from now. Same rules as acquire's duration_seconds; the new deadline replaces the old one.
+
     PoolUpdateRequest:
       type: object
       properties:
@@ -10404,6 +10586,12 @@ components:
         active:
           type: boolean
           description: Set true to start the pool, false to stop it. Omit to leave unchanged.
+        lease_max_time:
+          type: integer
+          description: Pool lease maximum in seconds (0 disabled, -1 no timeout). Omit to leave unchanged.
+        lease_max_extensions:
+          type: integer
+          description: Max extensions per lease (0 forbidden, -1 unlimited). Omit to leave unchanged.
 
     PoolUtilization:
       type: object
@@ -10468,6 +10656,18 @@ components:
           type: boolean
         is_deployed:
           type: boolean
+        lease_state:
+          type: string
+          enum: ["", active, draining]
+          description: Exclusive lease state. Empty = free, active = exclusively leased, draining = lease ended, waiting for in-flight work to finish.
+        lease_holder:
+          type: string
+          description: Username of the lease holder when leased.
+        lease_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Lease expiry; null = never expires.
 
     PoolInfo:
       type: object
@@ -10489,12 +10689,66 @@ components:
           type: integer
         active:
           type: boolean
+        lease_max_time:
+          type: integer
+          description: Lease maximum in seconds (0 disabled, -1 no timeout).
+        lease_max_extensions:
+          type: integer
+          description: Max extensions per lease (0 forbidden, -1 unlimited).
         utilization:
           $ref: "#/components/schemas/PoolUtilization"
         members:
           type: array
           items:
             $ref: "#/components/schemas/PoolMemberInfo"
+
+    LeaseInfo:
+      type: object
+      properties:
+        lease_id:
+          type: string
+          format: uuid
+        pool_id:
+          type: string
+          format: uuid
+        pool_name:
+          type: string
+        space_id:
+          type: string
+          format: uuid
+          description: The held member; pin method calls with this id.
+        space_name:
+          type: string
+          description: The held member's name; pool-name port routing excludes it while held, its own name does not.
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the lease ends; null = never expires.
+        extensions_used:
+          type: integer
+        max_extensions:
+          type: integer
+          description: -1 = unlimited.
+        state:
+          type: string
+          enum: [active, draining]
+          description: draining = ended, waiting for in-flight work to finish before rejoining the pool.
+
+    PoolLeaseList:
+      type: object
+      properties:
+        count:
+          type: integer
+        leases:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaseInfo"
 
     PoolList:
       type: object

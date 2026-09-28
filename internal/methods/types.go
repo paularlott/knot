@@ -66,6 +66,10 @@ type JSONRPCRequest struct {
 	Method  string          `json:"method" msgpack:"method"`
 	Params  json.RawMessage `json:"params,omitempty" msgpack:"params,omitempty"`
 	ID      any             `json:"id,omitempty" msgpack:"id,omitempty"`
+	// SpaceID optionally pins the call to one space (e.g. the member held
+	// via an exclusive pool lease). A knot-specific extension to JSON-RPC
+	// 2.0; ignored by the wire protocol, honoured by /api/methods/call.
+	SpaceID string `json:"space_id,omitempty" msgpack:"space_id,omitempty"`
 }
 
 type JSONRPCResponse struct {

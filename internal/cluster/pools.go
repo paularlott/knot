@@ -16,6 +16,18 @@ type PoolDrainRequest struct {
 	Undrain bool   `json:"undrain" msgpack:"undrain"`
 }
 
+// PoolLeaseRequest propagates an exclusive member-lease transition. Clear
+// removes the routing exclusion when the leader reclaims an ended lease;
+// otherwise ExpiresAtUnix (0 = never expires) replaces the current view —
+// covering grant, extend and early release alike, since a released lease
+// stays excluded until its in-flight work drains.
+type PoolLeaseRequest struct {
+	SpaceID       string `json:"space_id" msgpack:"space_id"`
+	Clear         bool   `json:"clear" msgpack:"clear"`
+	UserId        string `json:"user_id" msgpack:"user_id"`
+	ExpiresAtUnix int64  `json:"expires_at_unix" msgpack:"expires_at_unix"`
+}
+
 func (c *Cluster) handlePoolDefinitionFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	pools := []*model.PoolDefinition{}
 	if err := packet.Unmarshal(&pools); err != nil {
@@ -170,6 +182,42 @@ func (c *Cluster) handlePoolDrain(sender *gossip.Node, packet *gossip.Packet) er
 	} else {
 		methods.DefaultRegistry().Drain(req.SpaceID)
 		poolSvc.MarkDrained(req.SpaceID)
+	}
+	return nil
+}
+
+// GossipPoolLease fans a lease grant/extend/release transition out to the
+// cluster. The sending server has already updated its own view.
+func (c *Cluster) GossipPoolLease(spaceID, userId string, expiresAtUnix int64) {
+	if c.gossipCluster == nil || spaceID == "" {
+		return
+	}
+	c.gossipCluster.Send(PoolLeaseMsg, &PoolLeaseRequest{
+		SpaceID:       spaceID,
+		UserId:        userId,
+		ExpiresAtUnix: expiresAtUnix,
+	})
+}
+
+// GossipPoolLeaseClear fans a lease reclaim out to the cluster: the member
+// returns to shared routing on every server.
+func (c *Cluster) GossipPoolLeaseClear(spaceID string) {
+	if c.gossipCluster == nil || spaceID == "" {
+		return
+	}
+	c.gossipCluster.Send(PoolLeaseMsg, &PoolLeaseRequest{SpaceID: spaceID, Clear: true})
+}
+
+func (c *Cluster) handlePoolLease(sender *gossip.Node, packet *gossip.Packet) error {
+	req := &PoolLeaseRequest{}
+	if err := packet.Unmarshal(req); err != nil {
+		return err
+	}
+	poolSvc := service.GetPoolService()
+	if req.Clear {
+		poolSvc.MarkLeaseCleared(req.SpaceID)
+	} else {
+		poolSvc.MarkLeased(req.SpaceID, req.UserId, req.ExpiresAtUnix)
 	}
 	return nil
 }

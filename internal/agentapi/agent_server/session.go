@@ -44,6 +44,7 @@ type Session struct {
 	MethodCallsTotal      uint64
 	HTTPRequestsTotal     uint64
 	TCPConnectionsTotal   uint64
+	ActiveMethodCalls     int64
 	MethodRPS             float64
 	HTTPRPS               float64
 	TCPRPS                float64

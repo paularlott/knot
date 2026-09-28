@@ -164,6 +164,7 @@ window.spacesListComponent = function (
     collapsedStacks: {}, // tracks which stacks are collapsed
     collapsedPools: {}, // tracks which pools are collapsed (default: collapsed)
     stackBusy: {}, // tracks which stacks have an in-progress action
+    leaseBusy: {}, // tracks pool members with an in-progress lease release
     poolFormModal: {
       show: false,
       isEdit: false,
@@ -173,6 +174,12 @@ window.spacesListComponent = function (
       startupScriptId: "",
       desiredCount: 1,
       active: true,
+      leaseEnabled: false,
+      leaseMaxTimeValue: 30,
+      leaseMaxTimeUnit: "minute",
+      leaseNoLimit: false,
+      leaseMaxExtensions: 0,
+      leaseExtensionsUnlimited: false,
       error: "",
       submitting: false,
     },
@@ -549,8 +556,64 @@ window.spacesListComponent = function (
     visiblePools() {
       return this.pools.filter((pool) => !pool.searchHide);
     },
-    async poolAction(pool, action) {
-      if (!pool?.pool_id || !this.canUsePools) {
+    // Count of a pool group's spaces currently held by an active lease.
+    leasedCount(spaces) {
+      if (!Array.isArray(spaces)) {
+        return 0;
+      }
+      const now = new Date();
+      return spaces.filter(
+        (s) =>
+          s.lease_id && (!s.lease_expires_at || new Date(s.lease_expires_at) > now),
+      ).length;
+    },
+    // Count of a pool group's spaces whose lease ended but is still draining.
+    drainingCount(spaces) {
+      if (!Array.isArray(spaces)) {
+        return 0;
+      }
+      const now = new Date();
+      return spaces.filter(
+        (s) => s.lease_id && s.lease_expires_at && new Date(s.lease_expires_at) <= now,
+      ).length;
+    },
+    // Release the exclusive lease held on a pool member space.
+    async releaseLease(space) {
+      if (!space?.lease_id || !space.pool_id || !this.canUsePools) {
+        return;
+      }
+      this.leaseBusy[space.space_id] = true;
+      try {
+        const response = await fetch(
+          `/api/pools/${space.pool_id}/leases/${space.lease_id}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        if (response.status === 200) {
+          this.$dispatch("show-alert", {
+            msg: `Lease on ${space.name} released; the member returns to the pool once in-flight work drains`,
+            type: "success",
+          });
+          space.lease_id = "";
+          space.lease_expires_at = null;
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+        } else {
+          const data = await response.json().catch(() => ({}));
+          this.$dispatch("show-alert", {
+            msg: data.error || "Failed to release lease",
+            type: "error",
+          });
+        }
+      } finally {
+        this.leaseBusy[space.space_id] = false;
+      }
+    },
+    async poolAction(pool, action) {      if (!pool?.pool_id || !this.canUsePools) {
         return;
       }
       this.poolBusy[pool.pool_id] = true;
@@ -660,10 +723,62 @@ window.spacesListComponent = function (
         startupScriptId: "",
         desiredCount: 1,
         active: true,
+        ...this.poolLeaseFormDefaults(),
         error: "",
         submitting: false,
       };
       this.poolNameValid = true;
+    },
+    // Default lease form fields: disabled, and when enabled the simple
+    // allocate → use → release model — no timeout, no extension cap. The
+    // time-boxed options are opt-in for shared pools and CI.
+    poolLeaseFormDefaults() {
+      return {
+        leaseEnabled: false,
+        leaseMaxTimeValue: 30,
+        leaseMaxTimeUnit: "minute",
+        leaseNoLimit: true,
+        leaseMaxExtensions: 0,
+        leaseExtensionsUnlimited: true,
+      };
+    },
+    // Convert the API's lease_max_time (seconds; 0 off, -1 no limit) into
+    // the form's value/unit/no-limit representation.
+    poolLeaseFormFromSeconds(seconds) {
+      const form = this.poolLeaseFormDefaults();
+      if (!seconds) {
+        return form;
+      }
+      form.leaseEnabled = true;
+      if (seconds < 0) {
+        form.leaseNoLimit = true;
+        return form;
+      }
+      if (seconds >= 3600 && seconds % 3600 === 0) {
+        form.leaseMaxTimeValue = seconds / 3600;
+        form.leaseMaxTimeUnit = "hour";
+      } else {
+        form.leaseMaxTimeValue = Math.max(1, Math.round(seconds / 60));
+        form.leaseMaxTimeUnit = "minute";
+      }
+      return form;
+    },
+    // Convert the form's lease fields back to the API representation:
+    // lease_max_time seconds (0 off, -1 no limit) and lease_max_extensions
+    // (0 forbidden, -1 unlimited).
+    poolLeaseFormToSeconds() {
+      const modal = this.poolFormModal;
+      if (!modal.leaseEnabled) {
+        return { lease_max_time: 0, lease_max_extensions: 0 };
+      }
+      const seconds = modal.leaseNoLimit
+        ? -1
+        : modal.leaseMaxTimeValue *
+          (modal.leaseMaxTimeUnit === "hour" ? 3600 : 60);
+      const extensions = modal.leaseExtensionsUnlimited
+        ? -1
+        : Number.parseInt(modal.leaseMaxExtensions, 10) || 0;
+      return { lease_max_time: seconds, lease_max_extensions: extensions };
     },
     async openCreatePool() {
       this.templateSelector.intent = "pool";
@@ -712,6 +827,12 @@ window.spacesListComponent = function (
         startupScriptId: current.startup_script_id || "",
         desiredCount: current.desired_count || 1,
         active: current.active === true,
+        ...this.poolLeaseFormFromSeconds(current.lease_max_time || 0),
+        leaseMaxExtensions:
+          current.lease_max_extensions > 0
+            ? current.lease_max_extensions
+            : 0,
+        leaseExtensionsUnlimited: current.lease_max_extensions < 0,
         error: "",
         submitting: false,
       };
@@ -731,6 +852,14 @@ window.spacesListComponent = function (
         modal.error = "Template is required";
         return;
       }
+      if (
+        modal.leaseEnabled &&
+        !modal.leaseNoLimit &&
+        !(Number.parseInt(modal.leaseMaxTimeValue, 10) >= 1)
+      ) {
+        modal.error = "Max lease time must be at least 1 minute";
+        return;
+      }
       modal.submitting = true;
       try {
         const body = {
@@ -739,6 +868,7 @@ window.spacesListComponent = function (
           startup_script_id: modal.startupScriptId.trim(),
           desired_count: Number.parseInt(modal.desiredCount, 10),
           active: modal.active === true,
+          ...this.poolLeaseFormToSeconds(),
         };
         const response = await fetch(
           modal.isEdit ? `/api/pools/${modal.poolId}` : "/api/pools",
@@ -802,6 +932,8 @@ window.spacesListComponent = function (
       target.is_deployed = space.is_deployed;
       target.is_pending = space.is_pending;
       target.is_deleting = space.is_deleting;
+      target.lease_id = space.lease_id || "";
+      target.lease_expires_at = space.lease_expires_at || null;
       target.update_available = space.update_available;
       target.healthy = space.healthy;
       target.health_known = space.health_known === true;
@@ -2142,6 +2274,7 @@ window.spacesListComponent = function (
         startupScriptId: "",
         desiredCount: 1,
         active: true,
+        ...this.poolLeaseFormDefaults(),
         error: "",
         submitting: false,
       };

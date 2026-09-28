@@ -33,6 +33,7 @@ type AgentState struct {
 	MethodCallsTotal        uint64
 	HTTPRequestsTotal       uint64
 	TCPConnectionsTotal     uint64
+	ActiveMethodCalls       int64
 }
 
 type AgentStateReply struct {
@@ -46,7 +47,7 @@ type AgentStateReply struct {
 // silently freeze telemetry and usage sampling for the space.
 const stateReplyTimeout = 10 * time.Second
 
-func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string, healthy bool, cpuPercent float64, memoryUsedBytes uint64, memoryLimitBytes uint64, diskUsedBytes uint64, diskLimitBytes uint64, activityWriteCount uint32, activityCreateCount uint32, activityDeleteCount uint32, activityRenameCount uint32, activityDistinctPaths uint32, activityBucketStartUnix int64, activityBucketFinalized bool, lastActivityAtUnix int64, methodCallsTotal uint64, httpRequestsTotal uint64, tcpConnectionsTotal uint64) (AgentStateReply, error) {
+func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string, healthy bool, cpuPercent float64, memoryUsedBytes uint64, memoryLimitBytes uint64, diskUsedBytes uint64, diskLimitBytes uint64, activityWriteCount uint32, activityCreateCount uint32, activityDeleteCount uint32, activityRenameCount uint32, activityDistinctPaths uint32, activityBucketStartUnix int64, activityBucketFinalized bool, lastActivityAtUnix int64, methodCallsTotal uint64, httpRequestsTotal uint64, tcpConnectionsTotal uint64, activeMethodCalls int64) (AgentStateReply, error) {
 	logger := log.WithGroup("agent")
 	err := WriteCommand(conn, CmdUpdateState)
 	if err != nil {
@@ -80,6 +81,7 @@ func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, 
 		MethodCallsTotal:        methodCallsTotal,
 		HTTPRequestsTotal:       httpRequestsTotal,
 		TCPConnectionsTotal:     tcpConnectionsTotal,
+		ActiveMethodCalls:       activeMethodCalls,
 	})
 	if err != nil {
 		logger.WithError(err).Error("writing state message")

@@ -70,19 +70,23 @@ type SpaceInfo struct {
 	IsDeleting    bool     `json:"is_deleting"`
 	// Manual-agent registration key, only present for manual spaces the
 	// caller owns or manages: its holder can run the space's agent.
-	RegistrationKey         string               `json:"registration_key,omitempty"`
-	TcpPorts                map[string]string    `json:"tcp_ports"`
-	HttpPorts               map[string]string    `json:"http_ports"`
-	UpdateAvailable         bool                 `json:"update_available"`
-	IsRemote                bool                 `json:"is_remote"`
-	HasVSCodeTunnel         bool                 `json:"has_vscode_tunnel"`
-	VSCodeTunnel            string               `json:"vscode_tunnel_name"`
-	StartedAt               time.Time            `json:"started_at"`
-	IconURL                 string               `json:"icon_url"`
-	Healthy                 bool                 `json:"healthy"`
-	HealthKnown             bool                 `json:"health_known"`
-	NodeHostname            string               `json:"node_hostname"`
-	IPAddress               string               `json:"ip_address,omitempty"`
+	RegistrationKey string            `json:"registration_key,omitempty"`
+	TcpPorts        map[string]string `json:"tcp_ports"`
+	HttpPorts       map[string]string `json:"http_ports"`
+	UpdateAvailable bool              `json:"update_available"`
+	IsRemote        bool              `json:"is_remote"`
+	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
+	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
+	StartedAt       time.Time         `json:"started_at"`
+	IconURL         string            `json:"icon_url"`
+	Healthy         bool              `json:"healthy"`
+	HealthKnown     bool              `json:"health_known"`
+	NodeHostname    string            `json:"node_hostname"`
+	IPAddress       string            `json:"ip_address,omitempty"`
+	// Exclusive pool-member lease, set while the member is held (or its
+	// lease has ended but in-flight work is still draining).
+	LeaseId                 string               `json:"lease_id,omitempty"`
+	LeaseExpiresAt          *time.Time           `json:"lease_expires_at,omitempty"`
 	Stack                   string               `json:"stack"`
 	StackPrefix             string               `json:"stack_prefix"`
 	ResourceUsage           *SpaceResourceUsage  `json:"resource_usage,omitempty"`
@@ -163,12 +167,16 @@ type SpaceDefinition struct {
 	Healthy            bool                         `json:"healthy"`
 	HealthKnown        bool                         `json:"health_known"`
 	IsRemote           bool                         `json:"is_remote"`
-	NodeId             string                       `json:"node_id"`
-	NodeHostname       string                       `json:"node_hostname"`
-	IPAddress          string                       `json:"ip_address,omitempty"` // KVM spaces: the VM's static IP
-	Stack              string                       `json:"stack"`
-	StackPrefix        string                       `json:"stack_prefix"`
-	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`
+	// Exclusive pool-member lease, set while the member is held (or its
+	// lease has ended but in-flight work is still draining).
+	LeaseId        string              `json:"lease_id,omitempty"`
+	LeaseExpiresAt *time.Time          `json:"lease_expires_at,omitempty"`
+	NodeId         string              `json:"node_id"`
+	NodeHostname   string              `json:"node_hostname"`
+	IPAddress      string              `json:"ip_address,omitempty"` // KVM spaces: the VM's static IP
+	Stack          string              `json:"stack"`
+	StackPrefix    string              `json:"stack_prefix"`
+	ResourceUsage  *SpaceResourceUsage `json:"resource_usage,omitempty"`
 }
 
 type SpaceResourceUsage struct {

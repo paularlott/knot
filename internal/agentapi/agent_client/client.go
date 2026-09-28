@@ -78,6 +78,10 @@ type AgentClient struct {
 	methodCallsTotal      atomic.Uint64
 	httpRequestsTotal     atomic.Uint64
 	tcpConnectionsTotal   atomic.Uint64
+	// activeMethodCalls is the number of method calls currently executing
+	// (queued on the serial slot count as active). Reported to the servers
+	// so an expiring pool lease can wait for in-flight work to finish.
+	activeMethodCalls atomic.Int64
 
 	methodMu     sync.RWMutex
 	methodServer *methodServerProcess

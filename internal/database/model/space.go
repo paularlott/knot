@@ -148,6 +148,37 @@ type Space struct {
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
 	CreatedAt        time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
 	UpdatedAt        hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+
+	// Exclusive pool-member lease. Set on pool spaces only, while a lease
+	// granted from the pool is held (or has ended but in-flight work has
+	// not drained yet — the pool sweep clears all four fields once the
+	// member returns to the shared pool). A nil LeaseExpiresAt means the
+	// lease never expires (NULL column; the MySQL driver cannot round-trip
+	// a zero time.Time).
+	LeaseId         string     `json:"lease_id" db:"lease_id" msgpack:"lease_id"`
+	LeaseUserId     string     `json:"lease_user_id" db:"lease_user_id" msgpack:"lease_user_id"`
+	LeaseExpiresAt  *time.Time `json:"lease_expires_at" db:"lease_expires_at" msgpack:"lease_expires_at"`
+	LeaseExtensions int        `json:"lease_extensions" db:"lease_extensions" msgpack:"lease_extensions"`
+}
+
+// LeaseActive reports whether the space currently holds an unexpired
+// exclusive lease. A nil LeaseExpiresAt means the lease never expires.
+func (s *Space) LeaseActive() bool {
+	return s.LeaseId != "" && (s.LeaseExpiresAt == nil || time.Now().UTC().Before(*s.LeaseExpiresAt))
+}
+
+// LeasePastExpiry reports whether the space holds a lease whose time is up
+// (or that was released early) but which has not been reclaimed yet.
+func (s *Space) LeasePastExpiry() bool {
+	return s.LeaseId != "" && s.LeaseExpiresAt != nil && !time.Now().UTC().Before(*s.LeaseExpiresAt)
+}
+
+// LeaseClear removes all lease fields, returning the space to the shared pool.
+func (s *Space) LeaseClear() {
+	s.LeaseId = ""
+	s.LeaseUserId = ""
+	s.LeaseExpiresAt = nil
+	s.LeaseExtensions = 0
 }
 
 func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]AltNameEntry, zone string, iconURL string, customFields []SpaceCustomField) *Space {

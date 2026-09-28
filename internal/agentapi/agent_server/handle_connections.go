@@ -345,6 +345,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.MethodCallsTotal = state.MethodCallsTotal
 				session.HTTPRequestsTotal = state.HTTPRequestsTotal
 				session.TCPConnectionsTotal = state.TCPConnectionsTotal
+				session.ActiveMethodCalls = state.ActiveMethodCalls
 				session.SetLastStateAt(now)
 				clearAgentLossFailures(session.Id)
 

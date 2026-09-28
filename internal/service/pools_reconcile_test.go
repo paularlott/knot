@@ -15,6 +15,7 @@ func freshPoolService() *PoolService {
 	return &PoolService{
 		pendingDeletions: make(map[string]time.Time),
 		drained:          make(map[string]bool),
+		leases:           make(map[string]*leaseView),
 		rrCounters:       make(map[string]int),
 	}
 }
@@ -232,7 +233,7 @@ func TestHandleExcessKeepsFirstDrainsRest(t *testing.T) {
 	drop := f.member(t, pool, true, false, false)
 	f.svc.drain(keep.Id) // keeper starts drained; handleExcess should undrain it
 
-	f.svc.handleExcess([]*model.Space{keep, drop}, 1)
+	f.svc.handleExcess(pool, []*model.Space{keep, drop})
 
 	if f.svc.isDrained(keep.Id) {
 		t.Fatal("keeper (within DesiredCount) must be undrained")

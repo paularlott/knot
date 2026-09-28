@@ -155,6 +155,47 @@
             <label for="pool-desired-count" class="form-label">Desired Count</label>
             <input id="pool-desired-count" x-model.number="poolFormModal.desiredCount" class="form-field" type="number" min="1" required>
           </div>
+          <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Exclusive Leases</legend>
+            <div class="space-y-4">
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer" x-model="poolFormModal.leaseEnabled">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Allow checking members out exclusively</span>
+              </label>
+              <div x-show="poolFormModal.leaseEnabled" x-cloak class="space-y-4">
+                <label class="flex items-center cursor-pointer">
+                  <input type="checkbox" class="sr-only peer" x-model="poolFormModal.leaseNoLimit">
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                  <span class="ms-3 text-sm text-gray-900 dark:text-gray-300">No limit - allocate, use, release</span>
+                </label>
+                <div x-show="!poolFormModal.leaseNoLimit" x-cloak>
+                  <label for="pool-lease-max-time" class="form-label">Max lease time</label>
+                  <div class="flex gap-2">
+                    <input id="pool-lease-max-time" x-model.number="poolFormModal.leaseMaxTimeValue" class="form-field" type="number" min="1" :required="poolFormModal.leaseEnabled && !poolFormModal.leaseNoLimit">
+                    <select x-model="poolFormModal.leaseMaxTimeUnit" class="form-field sm:w-32">
+                      <option value="minute">Minutes</option>
+                      <option value="hour">Hours</option>
+                    </select>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">A safety net for forgotten releases — an expired lease returns its member to the pool once in-flight work drains.</p>
+                </div>
+                <div x-show="!poolFormModal.leaseNoLimit" x-cloak>
+                  <label class="form-label">Max extensions</label>
+                  <div class="flex items-center gap-3">
+                    <label class="flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer" x-model="poolFormModal.leaseExtensionsUnlimited">
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <span class="ms-3 text-sm text-gray-900 dark:text-gray-300">Unlimited</span>
+                    </label>
+                    <input x-show="!poolFormModal.leaseExtensionsUnlimited" x-cloak x-model.number="poolFormModal.leaseMaxExtensions" class="form-field sm:w-28" type="number" min="0">
+                    <span x-show="!poolFormModal.leaseExtensionsUnlimited" x-cloak class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">0 forbids extending</span>
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">While a member is leased it serves only its holder — shared method routing and pool-name port routing skip it until the lease ends and in-flight work has drained.</p>
+              </div>
+            </div>
+          </fieldset>
           <fieldset x-show="!poolFormModal.isEdit" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Launch</legend>
             <div class="space-y-4">
@@ -291,6 +332,12 @@
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="pg.pool.name"></span>
                       <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + pg.spaces.filter(s => s.is_deployed && !s.is_pending).length + ' / ' + pg.pool.desired_count + ' space' + (pg.pool.desired_count !== 1 ? 's' : '') + ')'"></span>
                       <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="pg.pool.active ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'" x-text="pg.pool.active ? 'Active' : 'Stopped'"></span>
+                      <template x-if="leasedCount(pg.spaces) > 0">
+                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium bg-purple-600 text-white" x-text="leasedCount(pg.spaces) + ' leased'"></span>
+                      </template>
+                      <template x-if="drainingCount(pg.spaces) > 0">
+                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" x-text="drainingCount(pg.spaces) + ' draining'"></span>
+                      </template>
                       <template x-if="pg.pool.utilization">
                         <span class="text-xs text-gray-500 dark:text-gray-400" x-text="Number(pg.pool.utilization?.combined_rps || 0).toFixed(1) + ' rps · ' + Number(pg.pool.utilization?.avg_cpu_percent || 0).toFixed(0) + '% cpu · ' + Number(pg.pool.utilization?.avg_memory_percent || 0).toFixed(0) + '% mem'"></span>
                       </template>

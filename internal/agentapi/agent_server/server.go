@@ -286,7 +286,7 @@ func checkSchedules() {
 					continue
 				}
 
-				if !template.AllowedBySchedule() || space.MaxUptimeReached(template) {
+				if !template.AllowedBySchedule() || (space.MaxUptimeReached(template) && !space.LeaseActive()) {
 					sessionStopList = append(sessionStopList, &stopListItem{
 						space:   space,
 						session: session,
@@ -594,11 +594,12 @@ func GetPoolSessionState(spaceId string) *service.PoolSessionState {
 		return nil
 	}
 	return &service.PoolSessionState{
-		CPUPercent:       session.CPUPercent,
-		MemoryUsedBytes:  session.MemoryUsedBytes,
-		MemoryLimitBytes: session.MemoryLimitBytes,
-		MethodRPS:        session.MethodRPS,
-		HTTPRPS:          session.HTTPRPS,
-		TCPRPS:           session.TCPRPS,
+		CPUPercent:        session.CPUPercent,
+		MemoryUsedBytes:   session.MemoryUsedBytes,
+		MemoryLimitBytes:  session.MemoryLimitBytes,
+		MethodRPS:         session.MethodRPS,
+		HTTPRPS:           session.HTTPRPS,
+		TCPRPS:            session.TCPRPS,
+		ActiveMethodCalls: session.ActiveMethodCalls,
 	}
 }

@@ -180,6 +180,7 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(PoolDefinitionFullSyncMsg, cluster.handlePoolDefinitionFullSync)
 		cluster.gossipCluster.HandleFunc(PoolDefinitionGossipMsg, cluster.handlePoolDefinitionGossip)
 		cluster.gossipCluster.HandleFunc(PoolDrainMsg, cluster.handlePoolDrain)
+		cluster.gossipCluster.HandleFunc(PoolLeaseMsg, cluster.handlePoolLease)
 		cluster.gossipCluster.HandleFuncWithReply(EventSinkFullSyncMsg, cluster.handleEventSinkFullSync)
 		cluster.gossipCluster.HandleFunc(EventSinkGossipMsg, cluster.handleEventSinkGossip)
 		cluster.gossipCluster.HandleFunc(EventBroadcastMsg, cluster.handleEventBroadcast)

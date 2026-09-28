@@ -1426,8 +1426,12 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 
 	service.GetPoolService().StartSweep()
 	service.GetPoolService().StartReaper()
+	service.GetPoolService().InitLeases()
 	methods.DefaultRegistry().SetDrainChecker(func(spaceID string) bool {
 		return service.GetPoolService().IsDrained(spaceID)
+	})
+	methods.DefaultRegistry().SetLeaseChecker(func(spaceID string) bool {
+		return service.GetPoolService().IsLeased(spaceID)
 	})
 
 	// Start the agent server
