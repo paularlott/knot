@@ -185,7 +185,7 @@ func TestCachingTemplateCopyOnRead(t *testing.T) {
 		Id:   "t1",
 		Name: "web",
 		Ports: []model.TemplatePort{
-			{Name: "db", Port: 5432, Protocol: "tcp", Public: true},
+			{Name: "db", Port: 5432, Protocol: "shared"},
 		},
 	}
 
@@ -195,7 +195,7 @@ func TestCachingTemplateCopyOnRead(t *testing.T) {
 	}
 	// Mutate everything the caller could reach.
 	got.Name = "mutated"
-	got.Ports[0].Public = false
+	got.Ports[0].Protocol = "tcp"
 	inner.templates["t1"].Name = "changed-behind-cache"
 
 	again, err := d.GetTemplate("t1")
@@ -205,8 +205,8 @@ func TestCachingTemplateCopyOnRead(t *testing.T) {
 	if again.Name != "web" {
 		t.Fatalf("cache corrupted by caller mutation: name = %q", again.Name)
 	}
-	if !again.Ports[0].Public {
-		t.Fatal("cache corrupted by caller mutation: port public flag lost")
+	if again.Ports[0].Protocol != "shared" {
+		t.Fatalf("cache corrupted by caller mutation: protocol = %q", again.Ports[0].Protocol)
 	}
 }
 

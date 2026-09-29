@@ -139,8 +139,8 @@ func AuthorizeForwardTarget(requester *model.User, ref string, port uint16) (*Fo
 	}
 	if targetUserId != requester.Id {
 		template, err := db.GetTemplate(pool.TemplateId)
-		if err != nil || template == nil || !template.IsPortPublic(port) {
-			return nil, &ForwardTargetError{http.StatusForbidden, fmt.Sprintf("port %d is not public on pool %s", port, ref)}
+		if err != nil || template == nil || !template.IsPortShared(port) {
+			return nil, &ForwardTargetError{http.StatusForbidden, fmt.Sprintf("port %d is not a shared port on pool %s", port, ref)}
 		}
 	}
 
@@ -181,14 +181,14 @@ func poolNameFromRef(ref string) string {
 }
 
 // authorizeForwardPort applies the single access rule: owners reach any
-// port, everyone else only ports the space's template declares public.
+// port, everyone else only ports the space's template declares shared.
 func authorizeForwardPort(requester *model.User, space *model.Space, port uint16) *ForwardTargetError {
 	if space.UserId == requester.Id {
 		return nil
 	}
 	template, err := database.GetInstance().GetTemplate(space.TemplateId)
-	if err != nil || template == nil || !template.IsPortPublic(port) {
-		return &ForwardTargetError{http.StatusForbidden, fmt.Sprintf("port %d is not public on space %s", port, space.Name)}
+	if err != nil || template == nil || !template.IsPortShared(port) {
+		return &ForwardTargetError{http.StatusForbidden, fmt.Sprintf("port %d is not a shared port on space %s", port, space.Name)}
 	}
 	return nil
 }

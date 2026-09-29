@@ -5808,6 +5808,49 @@ paths:
           $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
+  /api/forward-target:
+    get:
+      operationId: checkForwardTarget
+      summary: Check whether a port forward target is allowed
+      description: >
+        Reports whether the requesting user may forward to a target reference
+        and port right now: own spaces and pools allow any port, another
+        user's space or pool only ports its template declares shared. Agents
+        call this before creating a forward requested inside a space; the
+        proxy re-checks on every connection regardless.
+      tags: [Spaces]
+      parameters:
+        - name: target
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "The target reference: a space or pool name, user--space, or a space ID."
+        - name: port
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 65535
+          description: The remote port.
+      responses:
+        "200":
+          description: Allowed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+        "400":
+          description: Malformed target or port.
+        "403":
+          description: "Target exists but the port is not shared for this user."
+        "404":
+          description: Target not found.
+      security: [BearerAuth: []]
   /api/server-info:
     get:
       tags:
@@ -7650,7 +7693,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortForwardEntry"
-          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -7705,15 +7748,13 @@ components:
           description: The port number.
         protocol:
           type: string
-          enum: [tcp, http, https]
-          description: The protocol for this port.
-        public:
-          type: boolean
+          enum: [tcp, http, https, shared]
           description: >
-            Marks the port reachable by every user of the server, not just
-            the space's owner: port forwards may target the space (or a pool
-            of spaces from this template) as user--space on this port. The
-            owner can forward to every port regardless.
+            The port type. http and https ports get dev URLs; tcp ports are
+            published on the host. A shared port is not published anywhere;
+            every user in the same zone can reach it through a port forward
+            as user--space, while all other ports are forwardable by the
+            owner only.
 
     CustomFieldDef:
       type: object
@@ -7905,7 +7946,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortForwardEntry"
-          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -8081,7 +8122,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortForwardEntry"
-          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -8260,7 +8301,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortForwardEntry"
-          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -9590,7 +9631,7 @@ components:
         space:
           type: string
           example: paul--shared-pg
-          description: The target reference — a space or pool name you own, user--name for another user's space or pool (public ports only), or a space ID.
+          description: "The target reference: a space or pool name you own, user--name for another user's space or pool (shared ports only), or a space ID."
         remote_port:
           type: integer
           minimum: 1

@@ -16,8 +16,8 @@ type forwardFixture struct {
 	template *model.Template
 }
 
-// newForwardFixture creates two users and a template with one private port
-// (8080) and one public port (5432).
+// newForwardFixture creates two users and a template with one owner-only
+// port (8080) and one shared port (5432).
 func newForwardFixture(t *testing.T, name string) *forwardFixture {
 	t.Helper()
 	restorePoolDeps(t)
@@ -39,7 +39,7 @@ func newForwardFixture(t *testing.T, name string) *forwardFixture {
 	template := newPoolTestTemplate(t, "fwd-tmpl-"+uuid.NewString()[:8])
 	template.Ports = []model.TemplatePort{
 		{Name: "private", Port: 8080, Protocol: "tcp"},
-		{Name: "public", Port: 5432, Protocol: "tcp", Public: true},
+		{Name: "shared", Port: 5432, Protocol: "shared"},
 	}
 	if err := database.GetInstance().SaveTemplate(template, nil); err != nil {
 		t.Fatalf("SaveTemplate: %v", err)
@@ -149,19 +149,19 @@ func TestAuthorizeForwardTargetCrossUserSpace(t *testing.T) {
 	svc := f.space(t, f.owner, "svc"+uuid.NewString()[:6])
 	ref := f.owner.Username + "--" + svc.Name
 
-	// Public port: allowed, ref stays qualified.
+	// Shared port: allowed, ref stays qualified.
 	target, ferr := AuthorizeForwardTarget(f.client, ref, 5432)
 	if ferr != nil {
-		t.Fatalf("public port denied: %v", ferr.Message)
+		t.Fatalf("shared port denied: %v", ferr.Message)
 	}
 	if target.Ref != ref {
 		t.Fatalf("Ref = %q, want %q", target.Ref, ref)
 	}
 
-	// Private port: 403 with the port in the message.
+	// Owner-only port: 403 with the port in the message.
 	_, ferr = AuthorizeForwardTarget(f.client, ref, 8080)
 	if ferr == nil || ferr.Status != http.StatusForbidden {
-		t.Fatalf("private port allowed: %+v", ferr)
+		t.Fatalf("owner-only port allowed: %+v", ferr)
 	}
 
 	// The owner reaches their own space by the qualified form too.
@@ -191,13 +191,13 @@ func TestAuthorizeForwardTargetUUIDRef(t *testing.T) {
 		t.Fatalf("uuid Ref = %q, want %q", target.Ref, svc.Id)
 	}
 
-	// Another user by UUID: public port allowed, private denied. This is
-	// the form legacy stored entries use, so the rule must hold here too.
+	// Another user by UUID: shared port allowed, owner-only denied. This
+	// is the form legacy stored entries use, so the rule must hold here too.
 	if _, ferr := AuthorizeForwardTarget(f.client, svc.Id, 5432); ferr != nil {
-		t.Fatalf("uuid public port denied: %v", ferr.Message)
+		t.Fatalf("uuid shared port denied: %v", ferr.Message)
 	}
 	if _, ferr := AuthorizeForwardTarget(f.client, svc.Id, 8080); ferr == nil || ferr.Status != http.StatusForbidden {
-		t.Fatalf("uuid private port allowed: %+v", ferr)
+		t.Fatalf("uuid owner-only port allowed: %+v", ferr)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestAuthorizeForwardTargetCrossUserPool(t *testing.T) {
 	f.pool(t, f.owner, poolName, 1)
 	ref := f.owner.Username + "--" + poolName
 
-	// Public port allowed and resolves to a member.
+	// Shared port allowed and resolves to a member.
 	target, ferr := ResolveForwardTarget(f.client, ref, 5432)
 	if ferr != nil {
 		t.Fatalf("cross-user pool public port: %v", ferr.Message)
@@ -248,9 +248,9 @@ func TestAuthorizeForwardTargetCrossUserPool(t *testing.T) {
 		t.Fatalf("Ref = %q IsPool = %v", target.Ref, target.IsPool)
 	}
 
-	// Private port denied before any member is picked.
+	// Owner-only port denied before any member is picked.
 	if _, ferr = AuthorizeForwardTarget(f.client, ref, 8080); ferr == nil || ferr.Status != http.StatusForbidden {
-		t.Fatalf("cross-user pool private port allowed: %+v", ferr)
+		t.Fatalf("cross-user pool owner-only port allowed: %+v", ferr)
 	}
 }
 
@@ -311,18 +311,18 @@ func TestSpaceShadowsPoolOfSameName(t *testing.T) {
 	}
 }
 
-func TestIsPortPublic(t *testing.T) {
+func TestIsPortShared(t *testing.T) {
 	template := &model.Template{Ports: []model.TemplatePort{
-		{Name: "private", Port: 8080, Protocol: "tcp"},
-		{Name: "public", Port: 5432, Protocol: "tcp", Public: true},
+		{Name: "web", Port: 8080, Protocol: "http"},
+		{Name: "svc", Port: 5432, Protocol: "shared"},
 	}}
-	if template.IsPortPublic(5432) != true {
-		t.Error("declared public port not reported public")
+	if template.IsPortShared(5432) != true {
+		t.Error("declared shared port not reported shared")
 	}
-	if template.IsPortPublic(8080) != false {
-		t.Error("private port reported public")
+	if template.IsPortShared(8080) != false {
+		t.Error("non-shared port reported shared")
 	}
-	if template.IsPortPublic(6379) != false {
-		t.Error("undeclared port reported public")
+	if template.IsPortShared(6379) != false {
+		t.Error("undeclared port reported shared")
 	}
 }

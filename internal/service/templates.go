@@ -123,8 +123,8 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 		if port.Port < 1 || port.Port > 65535 {
 			return fmt.Errorf("port number must be between 1 and 65535")
 		}
-		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" {
-			return fmt.Errorf("port protocol must be one of tcp, http, https")
+		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" && port.Protocol != "shared" {
+			return fmt.Errorf("port protocol must be one of tcp, http, https, shared")
 		}
 	}
 
@@ -196,8 +196,8 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 		if port.Port < 1 || port.Port > 65535 {
 			return fmt.Errorf("port number must be between 1 and 65535")
 		}
-		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" {
-			return fmt.Errorf("port protocol must be one of tcp, http, https")
+		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" && port.Protocol != "shared" {
+			return fmt.Errorf("port protocol must be one of tcp, http, https, shared")
 		}
 	}
 

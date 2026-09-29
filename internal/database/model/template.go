@@ -191,18 +191,15 @@ type TemplatePort struct {
 	Name     string `json:"name"`
 	Port     uint16 `json:"port"`
 	Protocol string `json:"protocol"`
-	// Public marks the port as reachable by every user of the server, not
-	// just the space's owner: anyone may forward to the space (or a pool of
-	// spaces from this template) as user--space on this port. Owners keep
-	// access to every port either way.
-	Public bool `json:"public,omitempty"`
 }
 
-// IsPortPublic reports whether the template declares the given port public.
-// Only declared ports can be public; an undeclared port is owner-only.
-func (t *Template) IsPortPublic(port uint16) bool {
+// IsPortShared reports whether the template declares the given port shared:
+// reachable by every user of the server through port forwards, not just the
+// space's owner. Only shared-protocol ports are cross-user forward targets;
+// every other port is owner-only, same as an undeclared one.
+func (t *Template) IsPortShared(port uint16) bool {
 	for _, p := range t.Ports {
-		if p.Port == port && p.Public {
+		if p.Port == port && p.Protocol == "shared" {
 			return true
 		}
 	}

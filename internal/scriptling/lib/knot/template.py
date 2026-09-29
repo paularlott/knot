@@ -254,15 +254,17 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            custom_fields=None):
     """Create a new template.
 
-    ports is a list of dicts: name, port, protocol ("tcp", "http" or
-    "https") and public (bool — a public port is reachable by every user
-    of the server as user--space, not just the space's owner).
+    ports is a list of dicts: name, port and protocol — one of "http",
+    "https", "tcp" or "shared". http/https ports get dev URLs, tcp ports
+    are published on the host, and a shared port is reachable by every
+    user in the same zone through a port forward (as user--space), not
+    just the space's owner.
 
     port_forwards is a list of {"local_port", "space", "remote_port"} dicts
-    seeded into every space created from the template — the space connects
+    seeded into every space created from the template; the space connects
     to each target automatically when it starts. space is a target
     reference: a space or pool name you own, or user--name for another
-    user's public port.
+    user's shared port.
 
     custom_fields is a list of dicts declaring the template's custom
     fields: name, description, type ("text", "masked", "number", "bool",
