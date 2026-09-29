@@ -370,6 +370,44 @@ func (db *BadgerDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Spa
 	return spaces, err
 }
 
+func (db *BadgerDbDriver) GetSpacesByPoolId(poolId string) ([]*model.Space, error) {
+	var spaces []*model.Space
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		prefix := []byte("Spaces:")
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+
+			var space = &model.Space{}
+			err := item.Value(func(val []byte) error {
+				return json.Unmarshal(val, space)
+			})
+			if err != nil {
+				return err
+			}
+			if space.PoolId != poolId {
+				continue
+			}
+			space.NormalizeShares()
+			space.NormalizeDependsOn()
+
+			spaces = append(spaces, space)
+		}
+
+		return nil
+	})
+
+	// Sort the agents by name
+	sort.Slice(spaces, func(i, j int) bool {
+		return spaces[i].Name < spaces[j].Name
+	})
+
+	return spaces, err
+}
+
 func (db *BadgerDbDriver) GetSpaces() ([]*model.Space, error) {
 	var spaces []*model.Space
 

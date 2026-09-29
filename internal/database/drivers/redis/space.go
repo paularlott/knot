@@ -349,6 +349,33 @@ func (db *RedisDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Spac
 	return spaces, nil
 }
 
+func (db *RedisDbDriver) GetSpacesByPoolId(poolId string) ([]*model.Space, error) {
+	var spaces []*model.Space
+
+	iter := db.scan(context.Background(), fmt.Sprintf("%sSpaces:*", db.prefix))
+	for iter.Next(context.Background()) {
+		space, err := db.GetSpace(iter.Val()[len(fmt.Sprintf("%sSpaces:", db.prefix)):])
+		if err != nil {
+			return nil, err
+		}
+		if space.PoolId != poolId {
+			continue
+		}
+
+		spaces = append(spaces, space)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
+	// Sort the agents by name
+	sort.Slice(spaces, func(i, j int) bool {
+		return spaces[i].Name < spaces[j].Name
+	})
+
+	return spaces, nil
+}
+
 func (db *RedisDbDriver) GetSpaces() ([]*model.Space, error) {
 	var spaces []*model.Space
 

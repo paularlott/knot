@@ -67,28 +67,24 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 			}
 		}
 
-		if targetSpace == nil {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space not found"})
-			return
-		}
+		if targetSpace != nil {
+			// Verify target space is deployed and has an active agent
+			if !targetSpace.IsDeployed || !targetSpace.HasState {
+				sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space is not running"})
+				return
+			}
 
-		// Verify target space is deployed and has an active agent
-		if !targetSpace.IsDeployed || !targetSpace.HasState {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space is not running"})
-			return
+			// Verify both spaces are in the same zone
+			if currentSpace.Zone != targetSpace.Zone {
+				sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be in the same zone"})
+				return
+			}
 		}
-
-		// Verify both spaces are in the same zone
-		if currentSpace.Zone != targetSpace.Zone {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be in the same zone"})
-			return
-		}
-
-		// Verify both spaces are owned by the same user
-		if currentSpace.UserId != targetSpace.UserId {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be owned by the same user"})
-			return
-		}
+		// Not one of this user's spaces: it may be an own pool, another
+		// user's space or pool (user--name, ports the target template marks
+		// public only), or a stale reference. The server resolves and
+		// authorizes on every dial, so proceed and let connection errors
+		// surface from there.
 	}
 
 	// If the port is already forwarded, tear down the existing forward so the

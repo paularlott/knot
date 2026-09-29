@@ -20,9 +20,11 @@ import (
 func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
-	spaceName := r.PathValue("space_name")
-	if !validate.Name(spaceName) {
-		log.Debug("Invalid space name", "space_name", spaceName)
+	// Target reference: a bare space or pool name (requester's own), a
+	// qualified user--name, or a space UUID from stored forward entries.
+	ref := r.PathValue("space_name")
+	if !service.ValidForwardRef(ref) {
+		log.Debug("Invalid forward target reference", "ref", ref)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -35,21 +37,19 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := database.GetInstance()
-
-	// Load the space — fall back to pool routing if not found
-	space, err := db.GetSpaceByName(user.Id, spaceName)
-	if err != nil || space == nil {
-		space = service.GetPoolService().PickMemberForRouting(spaceName, user.Id)
-		if space == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	// Resolve (own space → own pool, or another user's space/pool gated by
+	// the template's public ports) and authorize in one step — per
+	// connection, so template edits apply immediately.
+	target, ferr := service.ResolveForwardTarget(user, ref, uint16(portUInt))
+	if ferr != nil {
+		log.Debug("Forward target resolution failed", "ref", ref, "status", ferr.Status, "error", ferr.Message)
+		http.Error(w, ferr.Message, ferr.Status)
+		return
 	}
 
-	agentSession := agent_server.GetSession(space.Id)
+	agentSession := agent_server.GetSession(target.Space.Id)
 	if agentSession == nil {
-		log.Debug("Space session not found", "space_name", spaceName)
+		log.Debug("Space session not found", "space", target.Ref)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

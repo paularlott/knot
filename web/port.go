@@ -64,12 +64,16 @@ func removePortForwardFromDB(space *model.Space, localPort uint16) error {
 	return nil
 }
 
-// resolvePortForwardTarget resolves a space ID or name to a space object.
-func resolvePortForwardTarget(db database.DbDriver, userId, spaceRef string) (*model.Space, error) {
-	if validate.UUID(spaceRef) {
-		return db.GetSpace(spaceRef)
+// targetDisplayName renders a resolved forward target for display: the
+// space name, or the bare pool name for pool targets.
+func targetDisplayName(target *service.ForwardTarget) string {
+	if target.Space != nil {
+		return target.Space.Name
 	}
-	return db.GetSpaceByName(userId, spaceRef)
+	if _, name, ok := service.SplitForwardRef(target.Ref); ok {
+		return name
+	}
+	return target.Ref
 }
 
 func HandlePortForward(w http.ResponseWriter, r *http.Request) {
@@ -108,14 +112,20 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if request.Space == "" {
-		writeJSONError(w, r, http.StatusBadRequest, "Target space ID is required")
+		writeJSONError(w, r, http.StatusBadRequest, "Target space is required")
+		return
+	}
+	if !service.ValidForwardRef(request.Space) {
+		writeJSONError(w, r, http.StatusBadRequest, "Invalid target: must be a space or pool name, user--name, or a space ID")
 		return
 	}
 
-	// Resolve the target space (accepts UUID or name)
-	targetSpace, err := resolvePortForwardTarget(db, space.UserId, request.Space)
-	if err != nil || targetSpace == nil {
-		writeJSONError(w, r, http.StatusNotFound, "Target space not found")
+	// Resolve and authorize the target: own space or pool by bare name,
+	// another user's space or pool as user--name (ports the target
+	// template marks public only), or a space UUID from an older entry.
+	target, ferr := service.AuthorizeForwardTarget(user, request.Space, uint16(request.RemotePort))
+	if ferr != nil {
+		writeJSONError(w, r, ferr.Status, ferr.Message)
 		return
 	}
 
@@ -128,20 +138,22 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the target space is running (unless force)
-	if !request.Force {
-		if agent_server.GetSession(targetSpace.Id) == nil {
+	// Validate the target space is running (unless force). Pool targets
+	// pick a member per connection, so there is nothing to pre-check.
+	if !target.IsPool && !request.Force {
+		if agent_server.GetSession(target.Space.Id) == nil {
 			writeJSONError(w, r, http.StatusConflict, "Target space is not running")
 			return
 		}
 	}
 
-	// Store UUID in DB, send name to agent
+	// Store the canonical dial reference in DB (survives target space
+	// recreation), send the same reference to the agent.
 	if agentSession == nil {
 
 		entry := model.PortForwardEntry{
 			LocalPort:  request.LocalPort,
-			Space:      targetSpace.Id,
+			Space:      target.Ref,
 			RemotePort: request.RemotePort,
 		}
 
@@ -155,13 +167,15 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Space is running — forward to agent using space name
+	// Space is running — forward to agent using the target reference. The
+	// agent's own pre-flight checks only understand same-user spaces, so
+	// the fact that this request is server-validated rides along as Force.
 	portForwardMsg := &msg.PortForwardRequest{
 		LocalPort:  uint16(request.LocalPort),
-		Space:      targetSpace.Name,
+		Space:      target.Ref,
 		RemotePort: uint16(request.RemotePort),
 		Persistent: request.Persistent,
-		Force:      request.Force,
+		Force:      true,
 	}
 
 	response, err := agentSession.SendPortForward(portForwardMsg)
@@ -395,8 +409,9 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve all target spaces (accepts UUID or name) and build a lookup
-	targetLookup := make(map[string]*model.Space)
+	// Resolve and authorize all targets (bare name, user--name or UUID) and
+	// build a lookup
+	targetLookup := make(map[string]*service.ForwardTarget)
 	for _, fwd := range request.Forwards {
 		if fwd.LocalPort < 1 || fwd.LocalPort > 65535 {
 			writeJSONError(w, r, http.StatusBadRequest, "Invalid local port, must be between 1 and 65535")
@@ -407,16 +422,20 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if fwd.Space == "" {
-			writeJSONError(w, r, http.StatusBadRequest, "Target space ID is required")
+			writeJSONError(w, r, http.StatusBadRequest, "Target space is required")
+			return
+		}
+		if !service.ValidForwardRef(fwd.Space) {
+			writeJSONError(w, r, http.StatusBadRequest, fmt.Sprintf("Invalid target %q: must be a space or pool name, user--name, or a space ID", fwd.Space))
 			return
 		}
 		if _, seen := targetLookup[fwd.Space]; !seen {
-			ts, err := resolvePortForwardTarget(db, space.UserId, fwd.Space)
-			if err != nil || ts == nil {
-				writeJSONError(w, r, http.StatusNotFound, fmt.Sprintf("Target space %q not found", fwd.Space))
+			target, ferr := service.AuthorizeForwardTarget(user, fwd.Space, uint16(fwd.RemotePort))
+			if ferr != nil {
+				writeJSONError(w, r, ferr.Status, fmt.Sprintf("Target %q: %s", fwd.Space, ferr.Message))
 				return
 			}
-			targetLookup[fwd.Space] = ts
+			targetLookup[fwd.Space] = target
 		}
 	}
 
@@ -435,10 +454,10 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		var applied []apiclient.PortForwardInfo
 		var stopped []apiclient.PortForwardInfo
 
-		// Build a set of desired local_ports with resolved UUIDs
+		// Build a set of desired local_ports with canonical target refs
 		type resolvedForward struct {
 			LocalPort  uint16
-			SpaceID    string
+			TargetRef  string
 			SpaceName  string
 			RemotePort uint16
 		}
@@ -447,8 +466,8 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			ts := targetLookup[fwd.Space]
 			desiredResolved[fwd.LocalPort] = resolvedForward{
 				LocalPort:  fwd.LocalPort,
-				SpaceID:    ts.Id,
-				SpaceName:  ts.Name,
+				TargetRef:  ts.Ref,
+				SpaceName:  targetDisplayName(ts),
 				RemotePort: fwd.RemotePort,
 			}
 		}
@@ -456,7 +475,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		// Remove forwards not in the desired list or that have changed
 		for _, current := range space.PortForwards {
 			desired, exists := desiredResolved[current.LocalPort]
-			if !exists || current.Space != desired.SpaceID || current.RemotePort != desired.RemotePort {
+			if !exists || current.Space != desired.TargetRef || current.RemotePort != desired.RemotePort {
 				currentName := current.Space
 				if ts, err := db.GetSpace(current.Space); err == nil && ts != nil {
 					currentName = ts.Name
@@ -470,11 +489,11 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Apply all desired forwards to the database (store UUIDs)
+		// Apply all desired forwards to the database (store target refs)
 		for _, fwd := range desiredResolved {
 			entry := model.PortForwardEntry{
 				LocalPort:  fwd.LocalPort,
-				Space:      fwd.SpaceID,
+				Space:      fwd.TargetRef,
 				RemotePort: fwd.RemotePort,
 			}
 			if err := savePortForwardToDB(space, entry); err != nil {
@@ -497,10 +516,10 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Space is running — use agent for apply
-	// Build resolved forwards with names for agent communication
+	// Build resolved forwards with target refs for agent communication
 	type agentForward struct {
 		LocalPort  uint16
-		SpaceName  string
+		TargetRef  string
 		RemotePort uint16
 		Persistent bool
 		Force      bool
@@ -510,10 +529,10 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 		ts := targetLookup[fwd.Space]
 		agentForwards[fwd.LocalPort] = agentForward{
 			LocalPort:  fwd.LocalPort,
-			SpaceName:  ts.Name,
+			TargetRef:  ts.Ref,
 			RemotePort: fwd.RemotePort,
 			Persistent: fwd.Persistent,
-			Force:      fwd.Force,
+			Force:      true, // this request is already server-validated
 		}
 	}
 
@@ -537,7 +556,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	// Phase 1: Stop forwards that are not in the desired list or have changed
 	for port, current := range currentMap {
 		desired, exists := agentForwards[port]
-		needsStop := !exists || current.Space != desired.SpaceName || current.RemotePort != desired.RemotePort
+		needsStop := !exists || current.Space != desired.TargetRef || current.RemotePort != desired.RemotePort
 
 		if needsStop {
 			stopMsg := &msg.PortStopRequest{LocalPort: port}
@@ -560,12 +579,12 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 	// Phase 2: Start forwards that are new or were just stopped
 	for _, fwd := range agentForwards {
 		current, exists := currentMap[fwd.LocalPort]
-		needsStart := !exists || current.Space != fwd.SpaceName || current.RemotePort != fwd.RemotePort
+		needsStart := !exists || current.Space != fwd.TargetRef || current.RemotePort != fwd.RemotePort
 
 		if needsStart {
 			portForwardMsg := &msg.PortForwardRequest{
 				LocalPort:  uint16(fwd.LocalPort),
-				Space:      fwd.SpaceName,
+				Space:      fwd.TargetRef,
 				RemotePort: uint16(fwd.RemotePort),
 				Persistent: fwd.Persistent,
 				Force:      fwd.Force,
@@ -578,7 +597,7 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			} else {
 				applied = append(applied, apiclient.PortForwardInfo{
 					LocalPort:  uint16(fwd.LocalPort),
-					Space:      fwd.SpaceName,
+					Space:      fwd.TargetRef,
 					RemotePort: uint16(fwd.RemotePort),
 					Persistent: fwd.Persistent,
 				})

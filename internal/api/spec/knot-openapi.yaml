@@ -7702,6 +7702,13 @@ components:
           type: string
           enum: [tcp, http, https]
           description: The protocol for this port.
+        public:
+          type: boolean
+          description: >
+            Marks the port reachable by every user of the server, not just
+            the space's owner: port forwards may target the space (or a pool
+            of spaces from this template) as user--space on this port. The
+            owner can forward to every port regardless.
 
     CustomFieldDef:
       type: object

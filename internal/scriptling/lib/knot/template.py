@@ -253,6 +253,10 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            custom_fields=None):
     """Create a new template.
 
+    ports is a list of dicts: name, port, protocol ("tcp", "http" or
+    "https") and public (bool — a public port is reachable by every user
+    of the server as user--space, not just the space's owner).
+
     custom_fields is a list of dicts declaring the template's custom
     fields: name, description, type ("text", "masked", "number", "bool",
     "select", "autocomplete" or "textarea"), handler, or a manual options

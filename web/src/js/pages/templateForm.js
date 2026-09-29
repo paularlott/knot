@@ -955,7 +955,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       }
     },
     addPort() {
-      this.formData.ports.push({ name: "", port: 0, protocol: "http" });
+      this.formData.ports.push({ name: "", port: 0, protocol: "http", public: false });
     },
     removePort(index) {
       this.formData.ports.splice(index, 1);
@@ -1428,7 +1428,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       if (image.default_port) {
         for (const dp of image.default_port) {
           if (!this.formData.ports.some((p) => p.port === dp.port)) {
-            this.formData.ports.unshift({ name: dp.name, port: dp.port, protocol: dp.protocol });
+            this.formData.ports.unshift({ name: dp.name, port: dp.port, protocol: dp.protocol, public: false });
           }
         }
       }

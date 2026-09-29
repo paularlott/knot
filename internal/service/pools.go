@@ -1606,13 +1606,13 @@ func (s *PoolService) PickMemberForRouting(poolName, userId string) *model.Space
 	if err != nil || pool == nil || pool.IsDeleted {
 		return nil
 	}
-	spaces, err := db.GetSpaces()
+	spaces, err := db.GetSpacesByPoolId(pool.Id)
 	if err != nil {
 		return nil
 	}
 	var candidates []*model.Space
 	for _, sp := range spaces {
-		if sp.PoolId != pool.Id || sp.IsDeleted || sp.IsDeleting {
+		if sp.IsDeleted || sp.IsDeleting {
 			continue
 		}
 		if !sp.IsDeployed || sp.IsPending {

@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -81,4 +82,19 @@ func GetClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 	}
 
 	return client, nil
+}
+
+// CleanAPIError strips the transport framing the REST client wraps around
+// non-2xx responses ("unexpected status code: 400: …") and returns just the
+// server's error message.
+func CleanAPIError(err error) string {
+	const prefix = "unexpected status code: "
+	msg := err.Error()
+	if strings.HasPrefix(msg, prefix) {
+		rest := msg[len(prefix):]
+		if i := strings.Index(rest, ": "); i >= 0 {
+			return rest[i+2:]
+		}
+	}
+	return msg
 }

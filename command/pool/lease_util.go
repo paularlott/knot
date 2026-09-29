@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/command/cmdutil"
 )
 
 // parseLeaseDuration converts a --time flag value into the API's
@@ -43,18 +43,9 @@ func formatLeaseExpiry(expiresAt *time.Time) string {
 }
 
 // cleanAPIError strips the transport framing the REST client wraps around
-// non-2xx responses ("unexpected status code: 400: …") and returns just the
-// server's error message.
+// non-2xx responses and returns just the server's error message.
 func cleanAPIError(err error) string {
-	const prefix = "unexpected status code: "
-	msg := err.Error()
-	if strings.HasPrefix(msg, prefix) {
-		rest := msg[len(prefix):]
-		if i := strings.Index(rest, ": "); i >= 0 {
-			return rest[i+2:]
-		}
-	}
-	return msg
+	return cmdutil.CleanAPIError(err)
 }
 
 // leaseErrorJSON is the structured failure emitted in --json mode so pipes
