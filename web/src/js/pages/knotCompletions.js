@@ -1384,7 +1384,7 @@ export const knotLibraries = [
       {
         "name": "port_forward",
         "signature": "port_forward(source_space, local_port, remote_space, remote_port, persistent, force)",
-        "description": "Forward a local port to a remote space port",
+        "description": "Forward a local port to a remote port. remote_space is a target reference: a space or pool name you own, another user's space or pool as user--space (only ports its template declares shared), or a space ID.",
         "returns": "bool"
       },
       {

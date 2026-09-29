@@ -1128,7 +1128,9 @@ def port_forward(source_space, local_port, remote_space, remote_port, persistent
     Args:
         source_space: Source space name or ID
         local_port: Local port number
-        remote_space: Remote space name or ID
+        remote_space: Target reference: a space or pool name you own, another
+            user's space or pool as user--space (only ports its template
+            declares shared), or a space ID
         remote_port: Remote port number
         persistent: Persist the forward across agent restarts (default False)
         force: Create the forward even if the target space is not running (default False)
