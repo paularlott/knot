@@ -321,7 +321,7 @@ func checkSchedules() {
 				// Policy stops happen without a request, so record them the
 				// way system events are — reason in the details and properties.
 				if err := audit.Log("System", model.AuditActorTypeSystem, model.AuditEventSpaceStop,
-					fmt.Sprintf("Stopped space %s — %s", item.space.Name, item.reason),
+					fmt.Sprintf("Stopped space %s due to %s", item.space.Name, item.reason),
 					&map[string]interface{}{
 						"space_id":    item.space.Id,
 						"space_name":  item.space.Name,
