@@ -93,6 +93,8 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Active = template.Active
 		templateData.MaxUptime = template.MaxUptime
 		templateData.MaxUptimeUnit = template.MaxUptimeUnit
+		templateData.IdleTimeout = template.IdleTimeout
+		templateData.IdleTimeoutUnit = template.IdleTimeoutUnit
 		templateData.IconURL = template.IconURL
 		templateData.Ports = template.Ports
 		templateData.Jobs = template.Jobs
@@ -170,6 +172,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes = ""
 		request.ScheduleEnabled = false
 		request.MaxUptimeUnit = "disabled"
+		request.IdleTimeoutUnit = "disabled"
 		request.AllowNodeMigration = false
 	}
 	if request.Platform == model.PlatformNomad {
@@ -226,6 +229,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.Active = request.Active
 	template.MaxUptime = request.MaxUptime
 	template.MaxUptimeUnit = request.MaxUptimeUnit
+	template.IdleTimeout = request.IdleTimeout
+	template.IdleTimeoutUnit = request.IdleTimeoutUnit
 	template.IconURL = request.IconURL
 	template.Zones = request.Zones
 	template.HealthCheckType = request.HealthCheckType
@@ -302,6 +307,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes = ""
 		request.ScheduleEnabled = false
 		request.MaxUptimeUnit = "disabled"
+		request.IdleTimeoutUnit = "disabled"
 		request.AllowNodeMigration = false
 	}
 	if request.Platform == model.PlatformNomad {
@@ -376,6 +382,8 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckInterval = request.HealthCheckInterval
 	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
+	template.IdleTimeout = request.IdleTimeout
+	template.IdleTimeoutUnit = request.IdleTimeoutUnit
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
 	template.Jobs = request.Jobs

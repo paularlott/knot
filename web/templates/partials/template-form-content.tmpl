@@ -453,16 +453,30 @@
             <div>
               <label for="uptime_unit" class="form-label">Maximum Uptime</label>
               <div class="flex grid-cols-2 gap-2">
-                <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}" aria-label="Maximum uptime value">
                 <select class="form-field pr-10 w-auto" name="uptime_unit" id="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
                   <option value="disabled">No Limit</option>
                   <option value="minute">Minutes</option>
                   <option value="hour">Hours</option>
                   <option value="day">Days</option>
                 </select>
+                <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}" aria-label="Maximum uptime value">
               </div>
               <p class="description">The maximum amount of time a space created from the template can run for.</p>
               <div x-show="!uptimeValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+            </div>
+            <div>
+              <label for="idle_timeout_unit" class="form-label">Idle Timeout</label>
+              <div class="flex grid-cols-2 gap-2">
+                <select class="form-field pr-10 w-auto" name="idle_timeout_unit" id="idle_timeout_unit" x-model="formData.idle_timeout_unit" x-on:change="checkIdleTimeout()" :class="{'form-field-error': !idleTimeoutValid}">
+                  <option value="disabled">Disabled</option>
+                  <option value="minute">Minutes</option>
+                  <option value="hour">Hours</option>
+                  <option value="day">Days</option>
+                </select>
+                <input x-cloak x-show="formData.idle_timeout_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="idle_timeout" id="idle_timeout" x-model="formData.idle_timeout" min="1" x-on:keyup.debounce.500ms="checkIdleTimeout()" :class="{'form-field-error': !idleTimeoutValid}" aria-label="Idle timeout value">
+              </div>
+              <p class="description">Stop a running space after this long with no user activity. Note: VS Code Tunnel traffic is not tracked.</p>
+              <div x-show="!idleTimeoutValid" class="error-message" x-cloak>Enter a valid number >= 1</div>
             </div>
           </div>
         </fieldset>

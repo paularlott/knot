@@ -144,6 +144,102 @@ func TestMaxUptimeReached(t *testing.T) {
 	}
 }
 
+func TestIdleTimeoutReached(t *testing.T) {
+	tests := []struct {
+		name               string
+		idleTimeout        uint32
+		idleTimeoutUnit    string
+		lastActivityAtUnix int64
+		expectedResult     bool
+	}{
+		{
+			name:               "disabled unit",
+			idleTimeout:        30,
+			idleTimeoutUnit:    "disabled",
+			lastActivityAtUnix: time.Now().UTC().Add(-24 * time.Hour).Unix(),
+			expectedResult:     false,
+		},
+		{
+			name:               "zero value is disabled, unlike max uptime",
+			idleTimeout:        0,
+			idleTimeoutUnit:    "hour",
+			lastActivityAtUnix: time.Now().UTC().Add(-24 * time.Hour).Unix(),
+			expectedResult:     false,
+		},
+		{
+			name:               "agent not reporting activity is never idle",
+			idleTimeout:        1,
+			idleTimeoutUnit:    "hour",
+			lastActivityAtUnix: 0,
+			expectedResult:     false,
+		},
+		{
+			name:               "not idle - minutes",
+			idleTimeout:        30,
+			idleTimeoutUnit:    "minute",
+			lastActivityAtUnix: time.Now().UTC().Add(-10 * time.Minute).Unix(),
+			expectedResult:     false,
+		},
+		{
+			name:               "idle - minutes",
+			idleTimeout:        10,
+			idleTimeoutUnit:    "minute",
+			lastActivityAtUnix: time.Now().UTC().Add(-15 * time.Minute).Unix(),
+			expectedResult:     true,
+		},
+		{
+			name:               "not idle - hours",
+			idleTimeout:        2,
+			idleTimeoutUnit:    "hour",
+			lastActivityAtUnix: time.Now().UTC().Add(-1 * time.Hour).Unix(),
+			expectedResult:     false,
+		},
+		{
+			name:               "idle - hours",
+			idleTimeout:        1,
+			idleTimeoutUnit:    "hour",
+			lastActivityAtUnix: time.Now().UTC().Add(-2 * time.Hour).Unix(),
+			expectedResult:     true,
+		},
+		{
+			name:               "not idle - days",
+			idleTimeout:        2,
+			idleTimeoutUnit:    "day",
+			lastActivityAtUnix: time.Now().UTC().Add(-24 * time.Hour).Unix(),
+			expectedResult:     false,
+		},
+		{
+			name:               "idle - days",
+			idleTimeout:        1,
+			idleTimeoutUnit:    "day",
+			lastActivityAtUnix: time.Now().UTC().Add(-25 * time.Hour).Unix(),
+			expectedResult:     true,
+		},
+		{
+			name:               "unknown unit falls back to hours",
+			idleTimeout:        1,
+			idleTimeoutUnit:    "fortnight",
+			lastActivityAtUnix: time.Now().UTC().Add(-2 * time.Hour).Unix(),
+			expectedResult:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			space := &Space{}
+			template := &Template{
+				IdleTimeout:     tt.idleTimeout,
+				IdleTimeoutUnit: tt.idleTimeoutUnit,
+			}
+
+			result := space.IdleTimeoutReached(template, tt.lastActivityAtUnix)
+			if result != tt.expectedResult {
+				t.Errorf("Expected %v, got %v", tt.expectedResult, result)
+			}
+		})
+	}
+}
+
 func TestVolumeDataMapValueScan(t *testing.T) {
 	volumeData := VolumeDataMap{
 		"vol1": SpaceVolume{

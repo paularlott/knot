@@ -149,6 +149,8 @@ func buildTemplateExportDetails(template *model.Template, db database.DbDriver) 
 		StorageUnits:             template.StorageUnits,
 		MaxUptime:                template.MaxUptime,
 		MaxUptimeUnit:            template.MaxUptimeUnit,
+		IdleTimeout:              template.IdleTimeout,
+		IdleTimeoutUnit:          template.IdleTimeoutUnit,
 		ScheduleEnabled:          template.ScheduleEnabled,
 		AutoStart:                template.AutoStart,
 		WithTerminal:             template.WithTerminal,

@@ -256,6 +256,21 @@ func (s *Space) MaxUptimeReached(template *Template) bool {
 	return false
 }
 
+// IdleTimeoutReached reports whether the space has gone longer than the
+// template's idle timeout without user activity. lastActivityAtUnix is the
+// agent-reported time of the most recent activity — terminal input, proxied
+// connections, method calls, sustained CPU, or (on pro) filesystem writes.
+// 0 means the agent does not report activity at all, in which case the space
+// is never idle-stopped.
+func (s *Space) IdleTimeoutReached(template *Template, lastActivityAtUnix int64) bool {
+	idleTimeout := template.IdleTimeoutDuration()
+	if idleTimeout == 0 || lastActivityAtUnix <= 0 {
+		return false
+	}
+
+	return time.Now().UTC().Unix()-lastActivityAtUnix > int64(idleTimeout/time.Second)
+}
+
 func (s *Space) NormalizeShares() {
 	seen := map[string]bool{}
 	normalized := make([]string, 0, len(s.Shares))

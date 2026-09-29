@@ -72,6 +72,8 @@ type Template struct {
 	CustomFields             []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json"`
 	MaxUptime                uint32                 `json:"max_uptime" db:"max_uptime"`
 	MaxUptimeUnit            string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
+	IdleTimeout              uint32                 `json:"idle_timeout" db:"idle_timeout"`
+	IdleTimeoutUnit          string                 `json:"idle_timeout_unit" db:"idle_timeout_unit"`
 	HealthCheckType          string                 `json:"health_check_type" db:"health_check_type"`
 	HealthCheckConfig        string                 `json:"health_check_config" db:"health_check_config"`
 	HealthCheckSkipSSLVerify bool                   `json:"health_check_skip_ssl_verify" db:"health_check_skip_ssl_verify"`
@@ -273,6 +275,28 @@ func (template *Template) UpdateHash() {
 	}
 	hash := md5.Sum([]byte(hashInput))
 	template.Hash = hex.EncodeToString(hash[:])
+}
+
+// IdleTimeoutDuration returns the template's idle timeout — how long a
+// deployed space may go without user activity before the server stops it —
+// or 0 when idle shutdown is disabled. Unlike MaxUptime a value of 0 with a
+// unit set also means disabled: an accidentally blank value must never stop
+// a space the moment it starts.
+func (template *Template) IdleTimeoutDuration() time.Duration {
+	if template.IdleTimeoutUnit == "disabled" || template.IdleTimeout == 0 {
+		return 0
+	}
+
+	switch template.IdleTimeoutUnit {
+	case "minute":
+		return time.Duration(template.IdleTimeout) * time.Minute
+	case "hour":
+		return time.Duration(template.IdleTimeout) * time.Hour
+	case "day":
+		return time.Duration(template.IdleTimeout) * 24 * time.Hour
+	default:
+		return time.Duration(template.IdleTimeout) * time.Hour // fallback to hour
+	}
 }
 
 func (template *Template) AllowedBySchedule() bool {

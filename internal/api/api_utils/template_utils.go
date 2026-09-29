@@ -89,6 +89,8 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		Active:                   template.Active,
 		MaxUptime:                template.MaxUptime,
 		MaxUptimeUnit:            template.MaxUptimeUnit,
+		IdleTimeout:              template.IdleTimeout,
+		IdleTimeoutUnit:          template.IdleTimeoutUnit,
 		IconURL:                  template.IconURL,
 		CustomFields:             make([]apiclient.CustomFieldDef, len(template.CustomFields)),
 		HealthCheckType:          template.HealthCheckType,

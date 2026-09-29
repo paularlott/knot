@@ -158,6 +158,9 @@ var migrations = []string{
 	// 79-80: add lease options to pools (INT, not UNSIGNED: -1 means no limit)
 	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS lease_max_time INT NOT NULL DEFAULT 0`,
 	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS lease_max_extensions INT NOT NULL DEFAULT 0`,
+	// 81: add idle shutdown timeout to templates
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout INT UNSIGNED NOT NULL DEFAULT 0`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout_unit VARCHAR(16) DEFAULT 'disabled'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

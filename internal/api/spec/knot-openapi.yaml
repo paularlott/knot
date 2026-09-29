@@ -7620,6 +7620,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:
@@ -7814,6 +7826,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:
@@ -7973,6 +7997,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:
@@ -8135,6 +8171,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:

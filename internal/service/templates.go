@@ -111,7 +111,7 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 	}
 
 	// Validate input
-	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
+	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, int(template.IdleTimeout), template.IdleTimeoutUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
 		return err
 	}
 
@@ -178,7 +178,7 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 	}
 
 	// Validate input
-	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
+	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, int(template.IdleTimeout), template.IdleTimeoutUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
 		return err
 	}
 
@@ -307,7 +307,7 @@ func (s *TemplateService) GetTemplateUsage(templateId string) (total int, deploy
 }
 
 // validateTemplateInput validates common template input fields
-func (s *TemplateService) validateTemplateInput(name, platform, job, volumes string, computeUnits, storageUnits, maxUptime int, maxUptimeUnit string, scheduleEnabled bool, schedule *[]model.TemplateScheduleDays, customFields []model.TemplateCustomField) error {
+func (s *TemplateService) validateTemplateInput(name, platform, job, volumes string, computeUnits, storageUnits, maxUptime int, maxUptimeUnit string, idleTimeout int, idleTimeoutUnit string, scheduleEnabled bool, schedule *[]model.TemplateScheduleDays, customFields []model.TemplateCustomField) error {
 	if !validate.Required(name) || !validate.MaxLength(name, 64) {
 		return fmt.Errorf("invalid template name given")
 	}
@@ -336,6 +336,11 @@ func (s *TemplateService) validateTemplateInput(name, platform, job, volumes str
 
 	if !validate.IsPositiveNumber(maxUptime) || !validate.OneOf(maxUptimeUnit, []string{"disabled", "minute", "hour", "day"}) {
 		return fmt.Errorf("max uptime must be a positive number and unit must be one of disabled, minute, hour, day")
+	}
+
+	// A zero idle timeout means disabled, so 0 is valid with any unit.
+	if !validate.IsPositiveNumber(idleTimeout) || !validate.OneOf(idleTimeoutUnit, []string{"disabled", "minute", "hour", "day"}) {
+		return fmt.Errorf("idle timeout must be a positive number and unit must be one of disabled, minute, hour, day")
 	}
 
 	if scheduleEnabled && schedule != nil {

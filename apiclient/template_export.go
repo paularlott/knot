@@ -30,6 +30,9 @@ type TemplateExport struct {
 	MaxUptime     uint32 `yaml:"max_uptime,omitempty"`
 	MaxUptimeUnit string `yaml:"max_uptime_unit,omitempty"`
 
+	IdleTimeout     uint32 `yaml:"idle_timeout,omitempty"`
+	IdleTimeoutUnit string `yaml:"idle_timeout_unit,omitempty"`
+
 	ScheduleEnabled bool                        `yaml:"schedule_enabled,omitempty"`
 	Schedule        []TemplateExportScheduleDay `yaml:"schedule,omitempty"`
 	AutoStart       bool                        `yaml:"auto_start,omitempty"`
@@ -142,6 +145,8 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 		Zones:                    defaultSlice(e.Zones),
 		MaxUptime:                e.MaxUptime,
 		MaxUptimeUnit:            e.MaxUptimeUnit,
+		IdleTimeout:              e.IdleTimeout,
+		IdleTimeoutUnit:          e.IdleTimeoutUnit,
 		HealthCheckType:          e.HealthCheckType,
 		HealthCheckConfig:        e.HealthCheckConfig,
 		HealthCheckSkipSSLVerify: e.HealthCheckSkipSSLVerify,
@@ -179,6 +184,8 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 		Zones:                    d.Zones,
 		MaxUptime:                d.MaxUptime,
 		MaxUptimeUnit:            d.MaxUptimeUnit,
+		IdleTimeout:              d.IdleTimeout,
+		IdleTimeoutUnit:          d.IdleTimeoutUnit,
 		ScheduleEnabled:          d.ScheduleEnabled,
 		AutoStart:                d.AutoStart,
 		StartupScript:            d.StartupScriptId,

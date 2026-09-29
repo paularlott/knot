@@ -217,7 +217,7 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 	}
 
 	if ts.client.protocol == "http" || ts.client.protocol == "tcp" {
-		agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", ts.client.localPort))
+		agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", ts.client.localPort), nil)
 	} else if ts.client.protocol == "https" || ts.client.protocol == "tls" {
 		var tlsName string
 		if ts.client.tlsName != "" {
@@ -225,6 +225,6 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 		} else {
 			tlsName = "127.0.0.1"
 		}
-		agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName, ts.client.localPortSkipTLSVerify)
+		agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName, ts.client.localPortSkipTLSVerify, nil)
 	}
 }

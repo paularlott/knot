@@ -43,6 +43,8 @@ type TemplateCreateRequest struct {
 	Zones                    []string             `json:"zones"`
 	MaxUptime                uint32               `json:"max_uptime"`
 	MaxUptimeUnit            string               `json:"max_uptime_unit"`
+	IdleTimeout              uint32               `json:"idle_timeout"`
+	IdleTimeoutUnit          string               `json:"idle_timeout_unit"`
 	IconURL                  string               `json:"icon_url"`
 	CustomFields             []CustomFieldDef     `json:"custom_fields"`
 	HealthCheckType          string               `json:"health_check_type"`
@@ -82,6 +84,8 @@ type TemplateUpdateRequest struct {
 	Zones                    []string             `json:"zones"`
 	MaxUptime                uint32               `json:"max_uptime"`
 	MaxUptimeUnit            string               `json:"max_uptime_unit"`
+	IdleTimeout              uint32               `json:"idle_timeout"`
+	IdleTimeoutUnit          string               `json:"idle_timeout_unit"`
 	IconURL                  string               `json:"icon_url"`
 	CustomFields             []CustomFieldDef     `json:"custom_fields"`
 	HealthCheckType          string               `json:"health_check_type"`
@@ -121,6 +125,8 @@ type TemplateInfo struct {
 	Zones              []string             `json:"zones"`
 	MaxUptime          uint32               `json:"max_uptime"`
 	MaxUptimeUnit      string               `json:"max_uptime_unit"`
+	IdleTimeout        uint32               `json:"idle_timeout"`
+	IdleTimeoutUnit    string               `json:"idle_timeout_unit"`
 	IconURL            string               `json:"icon_url"`
 	Ports              []model.TemplatePort `json:"ports"`
 	Jobs               []model.SpaceJob     `json:"jobs"`
@@ -178,6 +184,8 @@ type TemplateDetails struct {
 	Zones                    []string             `json:"zones"`
 	MaxUptime                uint32               `json:"max_uptime"`
 	MaxUptimeUnit            string               `json:"max_uptime_unit"`
+	IdleTimeout              uint32               `json:"idle_timeout"`
+	IdleTimeoutUnit          string               `json:"idle_timeout_unit"`
 	IconURL                  string               `json:"icon_url"`
 	CustomFields             []CustomFieldDef     `json:"custom_fields"`
 	HealthCheckType          string               `json:"health_check_type"`

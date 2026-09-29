@@ -98,6 +98,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       active: true,
       max_uptime: 0,
       max_uptime_unit: "disabled",
+      idle_timeout: 0,
+      idle_timeout_unit: "disabled",
       schedule_enabled: false,
       auto_start: false,
       is_managed: false,
@@ -159,6 +161,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     computeUnitsValid: true,
     storageUnitsValid: true,
     uptimeValid: true,
+    idleTimeoutValid: true,
     groups: [],
     fromHours: [],
     toHours: [],
@@ -268,6 +271,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.schedule = template.schedule;
           this.formData.max_uptime = template.max_uptime;
           this.formData.max_uptime_unit = template.max_uptime_unit;
+          this.formData.idle_timeout = template.idle_timeout || 0;
+          this.formData.idle_timeout_unit = template.idle_timeout_unit || "disabled";
           this.formData.icon_url = template.icon_url;
           // "password" is the pre-rename spelling of "masked"; normalised
           // here so the config dialog shows Masked and the next save heals
@@ -498,6 +503,20 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       }
       return this.uptimeValid;
     },
+    checkIdleTimeout() {
+      if (this.formData.idle_timeout_unit === "disabled") {
+        this.idleTimeoutValid = true;
+      } else {
+        this.idleTimeoutValid =
+          validate.isNumber(this.formData.idle_timeout, 1, Infinity) &&
+          validate.isOneOf(this.formData.idle_timeout_unit, [
+            "minute",
+            "hour",
+            "day",
+          ]);
+      }
+      return this.idleTimeoutValid;
+    },
     checkZonesValid() {
       let zonesValid = true;
       this.formData.zones.forEach((zone, index) => {
@@ -693,9 +712,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         active: this.formData.active,
         max_uptime: parseInt(this.formData.max_uptime),
         max_uptime_unit:
-          this.formData.platform !== "manual"
+          this.formData.platform === "manual"
             ? "disabled"
             : this.formData.max_uptime_unit,
+        idle_timeout: parseInt(this.formData.idle_timeout || 0),
+        idle_timeout_unit:
+          this.formData.platform === "manual"
+            ? "disabled"
+            : this.formData.idle_timeout_unit,
         platform: this.formData.platform,
         icon_url: this.formData.icon_url,
         custom_fields: this.formData.custom_fields,
