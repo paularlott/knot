@@ -51,6 +51,7 @@ type DbDriver interface {
 	GetSpacesForUser(userId string) ([]*model.Space, error)
 	GetSpaceByName(userId string, spaceName string) (*model.Space, error)
 	GetSpacesByTemplateId(templateId string) ([]*model.Space, error)
+	GetSpacesByPoolId(poolId string) ([]*model.Space, error)
 	GetSpaces() ([]*model.Space, error)
 	SaveSpaceUsageSample(sample *model.SpaceUsageSample) error
 	GetSpaceUsageSample(id string) (*model.SpaceUsageSample, error)
@@ -225,10 +226,15 @@ func initDrivers() {
 			logger.Debug("connected to database")
 		}
 
-		// If database driver implements a session storage interface then use it
-		if dbInstance, ok := dbInstance.(SessionStorage); ok {
+		// If database driver implements a session storage interface then use
+		// it. The capability check runs against the raw driver — before the
+		// caching wrapper below — because the wrapper satisfies the
+		// interface by delegation and would otherwise claim support the
+		// wrapped driver doesn't have (e.g. MySQL), leaving sessions with a
+		// nil backend.
+		if driver, ok := dbInstance.(SessionStorage); ok {
 			logger.Debug("session storage using main database driver")
-			dbSessionInstance = dbInstance
+			dbSessionInstance = driver
 		} else {
 			// If redis is enabled then use it for session storage
 			if cfg.Redis.Enabled {
@@ -253,6 +259,11 @@ func initDrivers() {
 				dbSessionInstance = driver
 			}
 		}
+
+		// Wrap the driver with the in-memory caches for the hot read paths
+		// (templates, pool membership, pool definitions). Invalidation rides
+		// the driver seam, so gossip-applied writes stay coherent too.
+		dbInstance = newCachingDriver(dbInstance)
 
 		// Generate a node ID if it doesn't exist
 		nodeId, err := dbInstance.GetCfgValue("node_id")

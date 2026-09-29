@@ -17,6 +17,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/util/audit"
 
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/logger"
@@ -38,8 +39,10 @@ var (
 )
 
 type stopListItem struct {
-	space   *model.Space
-	session *Session
+	space        *model.Space
+	session      *Session
+	reason       string
+	templateName string
 }
 
 func checkStaleSessions() {
@@ -286,10 +289,22 @@ func checkSchedules() {
 					continue
 				}
 
-				if !template.AllowedBySchedule() || space.MaxUptimeReached(template) {
+				var stopReason string
+				if !template.AllowedBySchedule() {
+					stopReason = "schedule"
+				} else if space.MaxUptimeReached(template) && !space.LeaseActive() {
+					stopReason = "max uptime"
+				} else if space.IdleTimeoutReached(template, session.LastActivityAtUnix) && !space.LeaseActive() {
+					logger.Info("space idle, stopping", "space_id", space.Id, "space_name", space.Name, "last_activity_at", session.LastActivityAtUnix)
+					stopReason = "idle timeout"
+				}
+
+				if stopReason != "" {
 					sessionStopList = append(sessionStopList, &stopListItem{
-						space:   space,
-						session: session,
+						space:        space,
+						session:      session,
+						reason:       stopReason,
+						templateName: template.Name,
 					})
 				}
 			}
@@ -297,8 +312,25 @@ func checkSchedules() {
 
 			// Stop sessions that need to be stopped
 			for _, item := range sessionStopList {
-				logger.Info("stopping session  due to schedule", "session_id", item.session.Id)
-				service.GetContainerService().StopSpace(item.space)
+				logger.Info("stopping session due to policy", "session_id", item.session.Id, "reason", item.reason)
+				if err := service.GetContainerService().StopSpace(item.space); err != nil {
+					logger.WithError(err).Error("failed to stop space", "space_id", item.space.Id)
+					continue
+				}
+
+				// Policy stops happen without a request, so record them the
+				// way system events are — reason in the details and properties.
+				if err := audit.Log("System", model.AuditActorTypeSystem, model.AuditEventSpaceStop,
+					fmt.Sprintf("Stopped space %s due to %s", item.space.Name, item.reason),
+					&map[string]interface{}{
+						"space_id":    item.space.Id,
+						"space_name":  item.space.Name,
+						"template":    item.templateName,
+						"template_id": item.space.TemplateId,
+						"reason":      item.reason,
+					}); err != nil {
+					logger.WithError(err).Error("failed to write stop audit entry", "space_id", item.space.Id)
+				}
 			}
 			sessionStopList = nil
 
@@ -594,11 +626,12 @@ func GetPoolSessionState(spaceId string) *service.PoolSessionState {
 		return nil
 	}
 	return &service.PoolSessionState{
-		CPUPercent:       session.CPUPercent,
-		MemoryUsedBytes:  session.MemoryUsedBytes,
-		MemoryLimitBytes: session.MemoryLimitBytes,
-		MethodRPS:        session.MethodRPS,
-		HTTPRPS:          session.HTTPRPS,
-		TCPRPS:           session.TCPRPS,
+		CPUPercent:        session.CPUPercent,
+		MemoryUsedBytes:   session.MemoryUsedBytes,
+		MemoryLimitBytes:  session.MemoryLimitBytes,
+		MethodRPS:         session.MethodRPS,
+		HTTPRPS:           session.HTTPRPS,
+		TCPRPS:            session.TCPRPS,
+		ActiveMethodCalls: session.ActiveMethodCalls,
 	}
 }

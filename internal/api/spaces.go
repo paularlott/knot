@@ -47,10 +47,17 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		Spaces: []apiclient.SpaceInfo{},
 	}
 
-	// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
-	if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
-		rest.WriteResponse(http.StatusOK, w, r, spaceData)
-		return
+	// Without permission to manage spaces, users may only list their own
+	// spaces: an omitted user_id means the requester themselves (the CLI
+	// and scriptling libraries call it that way), and any other user's id
+	// still gets an empty list.
+	if !user.HasPermission(model.PermissionManageSpaces) {
+		if userId == "" {
+			userId = user.Id
+		} else if userId != user.Id {
+			rest.WriteResponse(http.StatusOK, w, r, spaceData)
+			return
+		}
 	}
 
 	spaceService := service.GetSpaceService()
@@ -133,6 +140,10 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 		s.Stack = space.Stack
 		s.StackPrefix = space.StackPrefix
+
+		// Exclusive pool-member lease (pool spaces only).
+		s.LeaseId = space.LeaseId
+		s.LeaseExpiresAt = space.LeaseExpiresAt
 
 		// Populate custom field values
 		s.CustomFields = make([]apiclient.CustomFieldValue, len(space.CustomFields))

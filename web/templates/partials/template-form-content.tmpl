@@ -243,15 +243,16 @@
                   <span class="sr-only">Add</span>
                 </button>
               </div>
-              <p class="description mb-2">Ports exposed by spaces created from this template. Injected as KNOT_HTTP_PORT / KNOT_HTTPS_PORT / KNOT_TCP_PORT env vars.</p>
+              <p class="description mb-2">Ports exposed by spaces created from this template. HTTP and HTTPS ports get dev URLs, TCP ports are published on the host; both are injected as KNOT_HTTP_PORT / KNOT_HTTPS_PORT / KNOT_TCP_PORT env vars. A Shared port is not published anywhere; other users in the same zone can reach it only through a port forward, as user--space.</p>
               <template x-for="(port, index) in formData.ports" :key="index">
                 <div class="flex items-center gap-2 mb-2">
                   <input type="text" class="form-field grow" x-model="formData.ports[index].name" placeholder="Port name (e.g. Web)" @input="checkPort(index)" :class="{'form-field-error': formData.ports[index].name && !checkPort(index)}">
                   <input type="number" min="1" max="65535" class="form-field w-28" x-model.number="formData.ports[index].port" placeholder="Port" @change="checkPort(index)" :class="{'form-field-error': !checkPort(index)}">
-                  <select class="form-field w-28" x-model="formData.ports[index].protocol">
+                  <select class="form-field w-28" x-model="formData.ports[index].protocol" :title="formData.ports[index].protocol === 'shared' ? 'Not published anywhere; reachable by other users in the same zone only through a port forward, as user--space' : ''">
                     <option value="http">HTTP</option>
                     <option value="https">HTTPS</option>
                     <option value="tcp">TCP</option>
+                    <option value="shared">Shared</option>
                   </select>
                   <button type="button" x-on:click="removePort(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
@@ -453,16 +454,30 @@
             <div>
               <label for="uptime_unit" class="form-label">Maximum Uptime</label>
               <div class="flex grid-cols-2 gap-2">
-                <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}" aria-label="Maximum uptime value">
                 <select class="form-field pr-10 w-auto" name="uptime_unit" id="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
                   <option value="disabled">No Limit</option>
                   <option value="minute">Minutes</option>
                   <option value="hour">Hours</option>
                   <option value="day">Days</option>
                 </select>
+                <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}" aria-label="Maximum uptime value">
               </div>
               <p class="description">The maximum amount of time a space created from the template can run for.</p>
               <div x-show="!uptimeValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+            </div>
+            <div>
+              <label for="idle_timeout_unit" class="form-label">Idle Timeout</label>
+              <div class="flex grid-cols-2 gap-2">
+                <select class="form-field pr-10 w-auto" name="idle_timeout_unit" id="idle_timeout_unit" x-model="formData.idle_timeout_unit" x-on:change="checkIdleTimeout()" :class="{'form-field-error': !idleTimeoutValid}">
+                  <option value="disabled">Disabled</option>
+                  <option value="minute">Minutes</option>
+                  <option value="hour">Hours</option>
+                  <option value="day">Days</option>
+                </select>
+                <input x-cloak x-show="formData.idle_timeout_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="idle_timeout" id="idle_timeout" x-model="formData.idle_timeout" min="1" x-on:keyup.debounce.500ms="checkIdleTimeout()" :class="{'form-field-error': !idleTimeoutValid}" aria-label="Idle timeout value">
+              </div>
+              <p class="description">Stop a running space after this long with no user activity. Note: VS Code Tunnel traffic is not tracked.</p>
+              <div x-show="!idleTimeoutValid" class="error-message" x-cloak>Enter a valid number >= 1</div>
             </div>
           </div>
         </fieldset>

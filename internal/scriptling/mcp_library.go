@@ -206,7 +206,7 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 		},
 	}
 
-	result := mcpCallTool(ctx, client, object.NewString("tool_search"), searchArgs)
+	result := mcpCallTool(ctx, client, object.NewString(mcp.ToolSearchName), searchArgs)
 
 	// The result should be a scriptling object from the bridge package
 	// If it's a list with a single dict containing "text" field, parse the tools
@@ -267,7 +267,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 
 	// Create request for execute_tool
 	req := mcp.ToolCallParams{
-		Name: "execute_tool",
+		Name: mcp.ExecuteToolName,
 		Arguments: map[string]interface{}{
 			"name":       toolName,
 			"parameters": arguments,

@@ -15,6 +15,7 @@ var (
 	ErrMethodNotFound = errors.New("method not found")
 	ErrPermission     = errors.New("method not visible to caller")
 	ErrMethodDraining = errors.New("method temporarily unavailable")
+	ErrMethodLeased   = errors.New("method exclusively leased")
 )
 
 type Entry struct {
@@ -34,6 +35,7 @@ type Registry struct {
 	bySpace      map[string][]*Entry
 	rrCursor     map[string]uint64
 	drainChecker func(spaceID string) bool
+	leaseChecker func(spaceID string) bool
 }
 
 var defaultRegistry = NewRegistry()
@@ -57,6 +59,17 @@ func NewRegistry() *Registry {
 func (r *Registry) SetDrainChecker(fn func(spaceID string) bool) {
 	r.mu.Lock()
 	r.drainChecker = fn
+	r.mu.Unlock()
+}
+
+// SetLeaseChecker installs a callback that Pick and List consult to
+// determine whether a space is exclusively leased (a pool member checked
+// out via a lease). Leased entries are excluded from shared routing for
+// everyone; the lease holder reaches its space through PickForSpace, which
+// deliberately bypasses the check. The PoolService sets this.
+func (r *Registry) SetLeaseChecker(fn func(spaceID string) bool) {
+	r.mu.Lock()
+	r.leaseChecker = fn
 	r.mu.Unlock()
 }
 
@@ -208,6 +221,7 @@ func (r *Registry) List(user *model.User) []MethodInfo {
 		first    *Entry
 		count    int
 		draining int
+		leased   int
 	}
 	groups := map[string]*visibleGroup{}
 	var order []string
@@ -225,7 +239,9 @@ func (r *Registry) List(user *model.User) []MethodInfo {
 				order = append(order, name)
 			}
 			g.count++
-			if entry.draining {
+			if r.isLeasedLocked(entry.SpaceID) {
+				g.leased++
+			} else if entry.draining {
 				g.draining++
 			}
 		}
@@ -234,7 +250,7 @@ func (r *Registry) List(user *model.User) []MethodInfo {
 	result := make([]MethodInfo, 0, len(order))
 	for _, name := range order {
 		g := groups[name]
-		liveCount := g.count - g.draining
+		liveCount := g.count - g.draining - g.leased
 		if liveCount <= 0 {
 			continue
 		}
@@ -260,6 +276,7 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 
 	var candidates []*Entry
 	drainedVisible := 0
+	leasedVisible := 0
 	seen := map[*Entry]bool{}
 	add := func(e *Entry) {
 		if !seen[e] {
@@ -273,6 +290,10 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 	// non-owner's user.<owner>.<bare> form for bare canonical names).
 	for _, entry := range r.entries[methodName] {
 		if name, ok := visibleName(entry, user); ok && name == methodName {
+			if r.isLeasedLocked(entry.SpaceID) {
+				leasedVisible++
+				continue
+			}
 			if entry.draining {
 				drainedVisible++
 				continue
@@ -287,6 +308,12 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 		for _, entries := range r.entries {
 			for _, entry := range entries {
 				if name, ok := visibleName(entry, user); ok && name == methodName {
+					if r.isLeasedLocked(entry.SpaceID) {
+						if !seen[entry] {
+							leasedVisible++
+						}
+						continue
+					}
 					if entry.draining {
 						if !seen[entry] {
 							drainedVisible++
@@ -309,6 +336,12 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 					if _, ok := visibleName(entry, user); !ok {
 						continue
 					}
+					if r.isLeasedLocked(entry.SpaceID) {
+						if !seen[entry] {
+							leasedVisible++
+						}
+						continue
+					}
 					if entry.draining {
 						if !seen[entry] {
 							drainedVisible++
@@ -322,6 +355,11 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 	}
 
 	if len(candidates) == 0 {
+		// All visible providers are exclusively leased — the method exists
+		// but is checked out to a lease holder.
+		if leasedVisible > 0 {
+			return nil, "", ErrMethodLeased
+		}
 		// All visible providers are draining — method exists but temporarily
 		// unavailable.
 		if drainedVisible > 0 {
@@ -356,6 +394,56 @@ func (r *Registry) Pick(methodName string, user *model.User) (*Entry, string, er
 	selected := r.pickCandidateLocked(methodName, candidates)
 	selected.inFlight++
 	return selected, selected.LocalName, nil
+}
+
+// PickForSpace selects the entry for methodName registered by the given
+// space, visibility-checked for the caller. It bypasses lease and drain
+// exclusion: the caller explicitly targets this space, which is how the
+// holder of an exclusive pool lease reaches its member. At most one entry
+// can match, so no load balancing is involved.
+func (r *Registry) PickForSpace(methodName, spaceID string, user *model.User) (*Entry, string, error) {
+	if user == nil {
+		return nil, "", ErrPermission
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Accept the name in whatever visible form the caller uses: the bare
+	// canonical (owner), or the namespaced user.<owner>.<canonical> form
+	// (anyone the method is shared with).
+	for _, entry := range r.bySpace[spaceID] {
+		if name, ok := visibleName(entry, user); ok && name == methodName {
+			entry.inFlight++
+			return entry, entry.LocalName, nil
+		}
+	}
+	if strings.HasPrefix(methodName, "user.") {
+		if parts := strings.SplitN(methodName, ".", 3); len(parts) == 3 && parts[2] != "" {
+			for _, entry := range r.bySpace[spaceID] {
+				if entry.Name != parts[2] {
+					continue
+				}
+				if _, ok := visibleName(entry, user); !ok {
+					return nil, "", ErrPermission
+				}
+				entry.inFlight++
+				return entry, entry.LocalName, nil
+			}
+		}
+	}
+
+	// The method exists on the space but the caller can't see it.
+	for _, entry := range r.bySpace[spaceID] {
+		if entry.Name == methodName {
+			return nil, "", ErrPermission
+		}
+	}
+	return nil, "", ErrMethodNotFound
+}
+
+func (r *Registry) isLeasedLocked(spaceID string) bool {
+	return r.leaseChecker != nil && r.leaseChecker(spaceID)
 }
 
 func (r *Registry) pickCandidateLocked(routeName string, candidates []*Entry) *Entry {

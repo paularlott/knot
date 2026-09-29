@@ -10,9 +10,16 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/knot/internal/mcptools"
 
+	"github.com/paularlott/lmchatkit"
 	"github.com/paularlott/mcp"
+)
+
+// Compile-time checks: remoteServerProvider is used as all three of these.
+var (
+	_ mcp.ToolProvider              = (*remoteServerProvider)(nil)
+	_ mcp.ResourceProvider          = (*remoteServerProvider)(nil)
+	_ lmchatkit.SourcedToolProvider = (*remoteServerProvider)(nil)
 )
 
 // remoteServerManager caches MCP clients per server config, keyed by server ID.
@@ -34,20 +41,138 @@ var remoteManager = &remoteServerManager{
 	clients: make(map[string]*cachedClient),
 }
 
-// remoteServerProvider implements mcp.ToolProvider for a user's configured
-// remote MCP servers. It loads the user's enabled server configs from the
-// database, creates/caches MCP clients, and exposes their tools.
+// remoteServerProvider implements both mcp.ToolProvider and
+// mcp.ResourceProvider for a user's configured remote MCP servers. It loads
+// the user's enabled server configs from the database, creates/caches MCP
+// clients, and exposes their tools and resources — the latter needed so an
+// MCP Apps view (a tool linked to a ui:// resource on one of these servers)
+// can actually be fetched and rendered, not just discovered and called.
 type remoteServerProvider struct {
 	user *model.User
 }
 
-func NewRemoteServerProvider(user *model.User) mcp.ToolProvider {
+func NewRemoteServerProvider(user *model.User) *remoteServerProvider {
 	return &remoteServerProvider{user: user}
 }
 
-func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, error) {
+// enabledServers returns the user's non-deleted, enabled remote server
+// configs — the common first step of GetTools, GetResources and ReadResource.
+func (p *remoteServerProvider) enabledServers() ([]*model.MCPServer, error) {
 	db := database.GetInstance()
 	servers, err := db.GetMCPServersByUser(p.user.Id)
+	if err != nil {
+		return nil, err
+	}
+	enabled := make([]*model.MCPServer, 0, len(servers))
+	for _, server := range servers {
+		if !server.IsDeleted && server.Enabled {
+			enabled = append(enabled, server)
+		}
+	}
+	return enabled, nil
+}
+
+// clientFor initializes (creating/caching as needed) the MCP client for one
+// server, logging and returning ok=false on any failure rather than an error
+// — one unreachable server must not stop the others from being tried.
+func (p *remoteServerProvider) clientFor(ctx context.Context, server *model.MCPServer) (client *mcp.Client, ok bool) {
+	client, err := remoteManager.getOrCreateClient(server)
+	if err != nil {
+		log.WithGroup("mcp").Warn("Failed to create MCP client for user server",
+			"namespace", server.Namespace, "user", p.user.Username, "error", err)
+		return nil, false
+	}
+	if err := client.Initialize(ctx); err != nil {
+		log.WithGroup("mcp").Warn("Failed to initialize MCP client for user server",
+			"namespace", server.Namespace, "user", p.user.Username, "error", err)
+		return nil, false
+	}
+	return client, true
+}
+
+// remoteResourcesCache caches remoteServerProvider.GetResources per user
+// for a minute. The web chat asks for resources on every request (resource
+// menus, the virtual skill tool's existence check), and none of them should
+// re-list every remote server's resources each time.
+var remoteResourcesCache sync.Map // user id -> remoteResourcesCacheEntry
+
+type remoteResourcesCacheEntry struct {
+	resources *mcp.ProvidedResources
+	expires   time.Time
+}
+
+// FlushRemoteResourcesCache drops every cached remote listing (tests;
+// wanting immediate effect after changing a user's remote servers).
+func FlushRemoteResourcesCache() {
+	remoteResourcesCache.Range(func(key, _ any) bool {
+		remoteResourcesCache.Delete(key)
+		return true
+	})
+}
+
+// GetResources implements mcp.ResourceProvider, aggregating the resources
+// (static and templates) exposed by each of the user's remote servers,
+// cached per user for a minute.
+func (p *remoteServerProvider) GetResources(ctx context.Context) (*mcp.ProvidedResources, error) {
+	if cached, ok := remoteResourcesCache.Load(p.user.Id); ok {
+		if entry := cached.(remoteResourcesCacheEntry); time.Now().Before(entry.expires) {
+			return entry.resources, nil
+		}
+	}
+
+	servers, err := p.enabledServers()
+	if err != nil {
+		return nil, err
+	}
+
+	out := &mcp.ProvidedResources{}
+	for _, server := range servers {
+		client, ok := p.clientFor(ctx, server)
+		if !ok {
+			continue
+		}
+		if resources, err := client.ListResources(ctx); err == nil {
+			out.Resources = append(out.Resources, resources...)
+		}
+		if templates, err := client.ListResourceTemplates(ctx); err == nil {
+			out.Templates = append(out.Templates, templates...)
+		}
+	}
+	remoteResourcesCache.Store(p.user.Id, remoteResourcesCacheEntry{
+		resources: out,
+		expires:   time.Now().Add(time.Minute),
+	})
+	return out, nil
+}
+
+// ReadResource implements mcp.ResourceProvider, trying each of the user's
+// remote servers in turn since nothing about a bare uri says which server
+// registered it. Best-effort per server (matching GetTools' own convention
+// in this file): a server that errors or doesn't have the uri is skipped
+// rather than aborting the whole lookup, so one unreachable server can't
+// hide a resource that a different one actually serves.
+func (p *remoteServerProvider) ReadResource(ctx context.Context, uri string) (*mcp.ResourceResponse, error) {
+	servers, err := p.enabledServers()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, server := range servers {
+		client, ok := p.clientFor(ctx, server)
+		if !ok {
+			continue
+		}
+		resp, err := client.ReadResource(ctx, uri)
+		if err != nil || resp == nil {
+			continue
+		}
+		return resp, nil
+	}
+	return nil, mcp.ErrUnknownResource
+}
+
+func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, error) {
+	servers, err := p.enabledServers()
 	if err != nil {
 		return nil, err
 	}
@@ -55,20 +180,8 @@ func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, err
 	var tools []mcp.MCPTool
 
 	for _, server := range servers {
-		if server.IsDeleted || !server.Enabled {
-			continue
-		}
-
-		client, err := remoteManager.getOrCreateClient(server)
-		if err != nil {
-			log.WithGroup("mcp").Warn("Failed to create MCP client for user server",
-				"namespace", server.Namespace, "user", p.user.Username, "error", err)
-			continue
-		}
-
-		if err := client.Initialize(ctx); err != nil {
-			log.WithGroup("mcp").Warn("Failed to initialize MCP client for user server",
-				"namespace", server.Namespace, "user", p.user.Username, "error", err)
+		client, ok := p.clientFor(ctx, server)
+		if !ok {
 			continue
 		}
 
@@ -98,11 +211,13 @@ func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, err
 			}
 
 			tools = append(tools, mcp.MCPTool{
-				Name:        tool.Name,
-				Description: tool.Description,
-				InputSchema: tool.InputSchema,
-				Keywords:    tool.Keywords,
-				Visibility:  visibility,
+				Name:         tool.Name,
+				Description:  tool.Description,
+				InputSchema:  tool.InputSchema,
+				OutputSchema: tool.OutputSchema,
+				Meta:         tool.Meta,
+				Icons:        tool.Icons,
+				Visibility:   visibility,
 			})
 		}
 	}
@@ -110,16 +225,32 @@ func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, err
 	return tools, nil
 }
 
-func (p *remoteServerProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (*mcp.ToolResponse, error) {
-	// Try boot-loaded tools first
-	toolResult, toolErr := mcptools.ExecuteTool(name, params, p.user)
-	if toolErr == nil {
-		return mcp.NewToolResponseAuto(toolResult), nil
+// bareNameFor reports whether name could belong to server, given its
+// namespace, and the bare (un-namespaced) name to use when calling that
+// server directly. Shared by ExecuteTool and ToolSource so they resolve a
+// namespaced name to a server identically. Strict matching, no guessing: a
+// namespaced server answers only its own ns__name, and a server with no
+// namespace answers bare names only — a name carrying someone else's
+// namespace never routes here.
+func bareNameFor(server *model.MCPServer, name string) (bareName string, ok bool) {
+	if server.Namespace == "" {
+		if strings.Contains(name, mcp.DefaultNamespaceSeparator) {
+			return "", false
+		}
+		return name, true
 	}
-	if _, exists := mcptools.GetTool(name); exists {
-		return nil, toolErr
+	prefix := server.Namespace + mcp.DefaultNamespaceSeparator
+	if strings.HasPrefix(name, prefix) {
+		return strings.TrimPrefix(name, prefix), true
 	}
+	return "", false
+}
 
+func (p *remoteServerProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (*mcp.ToolResponse, error) {
+	// Dispatch routes by this provider's own listing (providerForTool in the
+	// library), so only namespaced remote-tool names ever arrive here — the
+	// old boot-loaded-mcptools first try was unreachable dead code under
+	// that routing.
 	// Try remote MCP servers
 	db := database.GetInstance()
 	servers, err := db.GetMCPServersByUser(p.user.Id)
@@ -132,19 +263,8 @@ func (p *remoteServerProvider) ExecuteTool(ctx context.Context, name string, par
 			continue
 		}
 
-		// Determine the namespaced tool name
-		nsPrefix := ""
-		if server.Namespace != "" {
-			nsPrefix = server.Namespace + mcp.DefaultNamespaceSeparator
-		}
-
-		var toolName string
-		if strings.HasPrefix(name, nsPrefix) {
-			toolName = strings.TrimPrefix(name, nsPrefix)
-		} else if name == server.Namespace || !strings.Contains(name, mcp.DefaultNamespaceSeparator) {
-			// No namespace prefix — try matching directly
-			toolName = name
-		} else {
+		toolName, ok := bareNameFor(server, name)
+		if !ok {
 			continue
 		}
 
@@ -172,6 +292,47 @@ func (p *remoteServerProvider) ExecuteTool(ctx context.Context, name string, par
 	}
 
 	return nil, fmt.Errorf("tool not found: %s", name)
+}
+
+// ToolSource and ReadResourceFromSource together implement
+// lmchatkit.SourcedToolProvider: since this provider is attached per-request
+// via mcp.WithToolProviders (not registered on the shared *mcp.Server),
+// mcp.Server's own ToolSource/ReadResourceFrom have no visibility into it at
+// all — without these, lmchatkit's /api/resources/read always 403'd for any
+// tool from a user's remote server, which chat.js's hydrateAppResource
+// silently treats as "no app renders" rather than an error. The server's DB
+// ID is used as the opaque source identifier: stable and unique, unlike
+// Namespace, which can be empty or shared across servers.
+
+func (p *remoteServerProvider) ToolSource(ctx context.Context, name string) (string, bool) {
+	servers, err := p.enabledServers()
+	if err != nil {
+		return "", false
+	}
+	for _, server := range servers {
+		if _, ok := bareNameFor(server, name); ok {
+			return server.Id, true
+		}
+	}
+	return "", false
+}
+
+func (p *remoteServerProvider) ReadResourceFromSource(ctx context.Context, source, uri string) (*mcp.ResourceResponse, error) {
+	servers, err := p.enabledServers()
+	if err != nil {
+		return nil, err
+	}
+	for _, server := range servers {
+		if server.Id != source {
+			continue
+		}
+		client, ok := p.clientFor(ctx, server)
+		if !ok {
+			return nil, mcp.ErrUnknownResource
+		}
+		return client.ReadResource(ctx, uri)
+	}
+	return nil, mcp.ErrUnknownResource
 }
 
 func (m *remoteServerManager) getOrCreateClient(server *model.MCPServer) (*mcp.Client, error) {
@@ -213,6 +374,7 @@ func createClient(server *model.MCPServer) (*mcp.Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create stdio client for %s: %w", server.Namespace, err)
 		}
+		declareUIAppsSupport(client)
 		return client, nil
 	}
 
@@ -229,8 +391,23 @@ func createClient(server *model.MCPServer) (*mcp.Client, error) {
 
 	// Notifications are always enabled — listChanged events keep tool caches fresh.
 	client.EnableNotifications()
+	declareUIAppsSupport(client)
 
 	return client, nil
+}
+
+// declareUIAppsSupport advertises this client's own support for the MCP
+// Apps extension (SEP-1865) to a remote server, mirroring llmrouter's own
+// declareUIAppsSupport. Without this, a spec-conformant remote server that
+// only attaches _meta.ui for clients that declared
+// capabilities.extensions[io.modelcontextprotocol/ui] has no way to know
+// knot can render one, and silently serves a plain-text-only tool instead —
+// MCP Apps then quietly never works for that server, with no error anywhere
+// to explain why.
+func declareUIAppsSupport(client *mcp.Client) {
+	client.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
+		"mimeTypes": []string{mcp.UIAppMimeType},
+	})
 }
 
 // ListRemoteServerTools connects to the remote MCP server and returns its tool list.
@@ -254,4 +431,24 @@ func ListRemoteServerTools(server *model.MCPServer) ([]mcp.MCPTool, error) {
 	}
 
 	return tools, nil
+}
+
+// GetRemoteServerProtocolVersion connects to the remote MCP server (if not
+// already connected) and returns the MCP protocol version it actually
+// negotiated — e.g. "2025-06-18" for a legacy server, or the modern era's
+// fixed revision. Used by the API endpoint for the server management UI.
+func GetRemoteServerProtocolVersion(server *model.MCPServer) (string, error) {
+	client, err := remoteManager.getOrCreateClient(server)
+	if err != nil {
+		return "", err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := client.Initialize(ctx); err != nil {
+		return "", err
+	}
+
+	return client.ProtocolVersion(), nil
 }

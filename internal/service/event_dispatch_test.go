@@ -55,6 +55,9 @@ func (f *fakeTransport) GossipPoolUndrain(spaceID string) {
 	f.mu.Unlock()
 }
 
+func (f *fakeTransport) GossipPoolLease(spaceID, userId string, expiresAtUnix int64) {}
+func (f *fakeTransport) GossipPoolLeaseClear(spaceID string)                         {}
+
 func (f *fakeTransport) doneCount(eventId string) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -91,7 +94,7 @@ func (f *fakeTransport) GossipMCPServer(*model.MCPServer)               {}
 func (f *fakeTransport) GossipPoolDefinition(*model.PoolDefinition)     {}
 func (f *fakeTransport) GetAgentEndpoints() []string                    { return nil }
 func (f *fakeTransport) GetTunnelServers() []string                     { return nil }
-func (f *fakeTransport) LockResource(string) string                     { return "" }
+func (f *fakeTransport) LockResource(string) string                     { return "lock-token" }
 func (f *fakeTransport) UnlockResource(string, string)                  {}
 func (f *fakeTransport) Nodes() []*gossip.Node                          { return nil }
 func (f *fakeTransport) GetNodeByIDString(string) *gossip.Node          { return nil }

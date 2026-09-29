@@ -231,6 +231,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		CreatedAt:          space.CreatedAt.UTC(),
 		CreatedAtFormatted: createdAtFormatted,
 		IconURL:            space.IconURL,
+		LeaseId:            space.LeaseId,
+		LeaseExpiresAt:     space.LeaseExpiresAt,
 		CustomFields:       make([]apiclient.CustomFieldValue, len(space.CustomFields)),
 		StartupScriptId:    space.StartupScriptId,
 		HasCodeServer:      hasCodeServer,

@@ -855,7 +855,7 @@ export const knotLibraries = [
   },
   {
     "module": "knot.pool",
-    "description": "Manage space pools — fixed-size, self-healing groups of identical spaces.",
+    "description": "Manage space pools — fixed-size, self-healing groups of identical spaces,",
     "functions": [
       {
         "name": "list",
@@ -904,6 +904,50 @@ export const knotLibraries = [
         "signature": "stop(name)",
         "description": "Stop a running pool: stops all member spaces without deleting them",
         "returns": "bool"
+      },
+      {
+        "name": "acquire",
+        "signature": "acquire(name, time, wait)",
+        "description": "Acquire a pool member exclusively until the lease ends (requires a\n    lease-enabled pool). time: None = the pool's maximum, \"none\" = never\n    expire (unlimited pools only), seconds or \"5m\"-style string. wait:\n    optionally wait this long for a free member before raising. Returns the\n    lease dict — the held member is space_name / space_id.",
+        "returns": "dict"
+      },
+      {
+        "name": "extend",
+        "signature": "extend(space, time)",
+        "description": "Extend the lease held on a pool member (space name or id): the new\n    deadline is now + time (or never, on unlimited pools). Bounded by the\n    pool's max extension count.",
+        "returns": "dict"
+      },
+      {
+        "name": "release",
+        "signature": "release(space, destroy)",
+        "description": "Release the lease held on a pool member (space name or id — the same\n    identifier acquire returned). The member returns to the pool after\n    in-flight work drains (normally within ~15s). With destroy=True the\n    member is deleted and a fresh replacement is created, so the next\n    acquire gets a clean space.",
+        "returns": "dict"
+      },
+      {
+        "name": "leases",
+        "signature": "leases(name)",
+        "description": "List the pool's held leases — active plus draining",
+        "returns": "list of dicts"
+      }
+    ],
+    "classes": [
+      {
+        "name": "leased",
+        "description": "Context manager for exclusive pool member use; releases on exit\n    (destroys the member instead when destroy=True, leaving a fresh\n    replacement behind).",
+        "methods": [
+          {
+            "name": "lease",
+            "signature": "lease",
+            "description": "Lease ",
+            "returns": "dict"
+          },
+          {
+            "name": "__init__",
+            "signature": "__init__(self, name: str, time: str | int | None = ..., wait: str | int | None = ..., destroy: bool = ...)",
+            "description": "  init  ",
+            "returns": "None"
+          }
+        ]
       }
     ]
   },
@@ -1340,7 +1384,7 @@ export const knotLibraries = [
       {
         "name": "port_forward",
         "signature": "port_forward(source_space, local_port, remote_space, remote_port, persistent, force)",
-        "description": "Forward a local port to a remote space port",
+        "description": "Forward a local port to a remote port. remote_space is a target reference: a space or pool name you own, another user's space or pool as user--space (only ports its template declares shared), or a space ID.",
         "returns": "bool"
       },
       {
@@ -1520,13 +1564,13 @@ export const knotLibraries = [
       {
         "name": "create",
         "signature": "create(name, job, description, platform, volumes, active, custom_fields, **kwargs: Any)",
-        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects; jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields.\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement.",
+        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects, protocol one of \"http\", \"https\", \"tcp\" or \"shared\" (a shared port is reachable by every user in the same zone through a port forward as user--space, not just the space's owner; http/https get dev URLs, tcp is published on the host); port_forwards is a list of {local_port, space, remote_port} dicts seeded into spaces created from the template and connected when they start (space: a space or pool name, or user--name for another user's shared port); jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields. max_uptime / max_uptime_unit and idle_timeout / idle_timeout_unit control the max-runtime and idle auto-stops (unit one of \"minute\", \"hour\", \"day\"; \"disabled\" or a 0 value turns the stop off).\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement.",
         "returns": "string"
       },
       {
         "name": "update",
         "signature": "update(template_id, name, job, description, platform, custom_fields, **kwargs: Any)",
-        "description": "Update template properties, including health_check_type, health_check_auto_restart, ports and jobs. custom_fields, when given, replaces the template's custom fields (same shape as create); omitted leaves them unchanged.",
+        "description": "Update template properties, including health_check_type, health_check_auto_restart, max_uptime, idle_timeout, ports, jobs and port_forwards. Omitted properties are left unchanged. max_uptime / idle_timeout units are one of \"minute\", \"hour\", \"day\"; \"disabled\" (or a 0 value for idle) turns the stop off. custom_fields, when given, replaces the template's custom fields (same shape as create); omitted leaves them unchanged.",
         "returns": "bool"
       },
       {

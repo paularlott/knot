@@ -248,8 +248,23 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            health_check_type="none", health_check_config="", health_check_skip_ssl_verify=False,
            health_check_timeout=10, health_check_interval=30, health_check_max_failures=3,
            health_check_auto_restart=False, ports=None, jobs=None,
+           max_uptime=0, max_uptime_unit="disabled",
+           idle_timeout=0, idle_timeout_unit="disabled",
+           port_forwards=None,
            custom_fields=None):
     """Create a new template.
+
+    ports is a list of dicts: name, port and protocol — one of "http",
+    "https", "tcp" or "shared". http/https ports get dev URLs, tcp ports
+    are published on the host, and a shared port is reachable by every
+    user in the same zone through a port forward (as user--space), not
+    just the space's owner.
+
+    port_forwards is a list of {"local_port", "space", "remote_port"} dicts
+    seeded into every space created from the template; the space connects
+    to each target automatically when it starts. space is a target
+    reference: a space or pool name you own, or user--name for another
+    user's shared port.
 
     custom_fields is a list of dicts declaring the template's custom
     fields: name, description, type ("text", "masked", "number", "bool",
@@ -290,6 +305,11 @@ def create(name, job="", description="", platform="", volumes="", active=True,
         "health_check_auto_restart": health_check_auto_restart,
         "ports": ports or [],
         "jobs": jobs or [],
+        "max_uptime": max_uptime,
+        "max_uptime_unit": max_uptime_unit,
+        "idle_timeout": idle_timeout,
+        "idle_timeout_unit": idle_timeout_unit,
+        "port_forwards": port_forwards or [],
     }
 
     response = api.post("/api/templates", body)
@@ -305,6 +325,9 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            health_check_type=None, health_check_config=None, health_check_skip_ssl_verify=None,
            health_check_timeout=None, health_check_interval=None, health_check_max_failures=None,
            health_check_auto_restart=None, ports=None, jobs=None,
+           max_uptime=None, max_uptime_unit=None,
+           idle_timeout=None, idle_timeout_unit=None,
+           port_forwards=None,
            custom_fields=None):
     """Update template properties.
 
@@ -339,8 +362,10 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "startup_script_id": current.get("startup_script_id", ""),
         "shutdown_script_id": current.get("shutdown_script_id", ""),
         "auto_start": current.get("auto_start", False),
-        "max_uptime": current.get("max_uptime", 0),
-        "max_uptime_unit": current.get("max_uptime_unit", "hours"),
+        "max_uptime": max_uptime if max_uptime is not None else current.get("max_uptime", 0),
+        "max_uptime_unit": max_uptime_unit if max_uptime_unit is not None else current.get("max_uptime_unit", "disabled"),
+        "idle_timeout": idle_timeout if idle_timeout is not None else current.get("idle_timeout", 0),
+        "idle_timeout_unit": idle_timeout_unit if idle_timeout_unit is not None else current.get("idle_timeout_unit", "disabled"),
         "disable_user_activity": disable_user_activity if disable_user_activity is not None else current.get("disable_user_activity", False),
         "health_check_type": health_check_type if health_check_type is not None else current.get("health_check_type", "none"),
         "health_check_config": health_check_config if health_check_config is not None else current.get("health_check_config", ""),
@@ -351,6 +376,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "health_check_auto_restart": health_check_auto_restart if health_check_auto_restart is not None else current.get("health_check_auto_restart", False),
         "ports": ports if ports is not None else current.get("ports", []),
         "jobs": jobs if jobs is not None else current.get("jobs", []),
+        "port_forwards": port_forwards if port_forwards is not None else current.get("port_forwards", []),
     }
     if body["health_check_type"] in ("none", "agent"):
         body["health_check_config"] = ""
@@ -464,7 +490,9 @@ def _parse_template(response, resolve_options=False):
         "schedule_enabled": response.get("schedule_enabled", False),
         "auto_start": response.get("auto_start", False),
         "max_uptime": response.get("max_uptime", 0),
-        "max_uptime_unit": response.get("max_uptime_unit", "hours"),
+        "max_uptime_unit": response.get("max_uptime_unit", "disabled"),
+        "idle_timeout": response.get("idle_timeout", 0),
+        "idle_timeout_unit": response.get("idle_timeout_unit", "disabled"),
         "icon_url": response.get("icon_url", ""),
         "groups": response.get("groups", []),
         "zones": response.get("zones", []),

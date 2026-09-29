@@ -72,6 +72,8 @@ type Template struct {
 	CustomFields             []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json"`
 	MaxUptime                uint32                 `json:"max_uptime" db:"max_uptime"`
 	MaxUptimeUnit            string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
+	IdleTimeout              uint32                 `json:"idle_timeout" db:"idle_timeout"`
+	IdleTimeoutUnit          string                 `json:"idle_timeout_unit" db:"idle_timeout_unit"`
 	HealthCheckType          string                 `json:"health_check_type" db:"health_check_type"`
 	HealthCheckConfig        string                 `json:"health_check_config" db:"health_check_config"`
 	HealthCheckSkipSSLVerify bool                   `json:"health_check_skip_ssl_verify" db:"health_check_skip_ssl_verify"`
@@ -81,6 +83,13 @@ type Template struct {
 	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
 	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
 	Ports                    []TemplatePort         `json:"ports" db:"ports,json"`
+	// Port forwards seeded into every space created from this template, so
+	// client spaces connect to their services automatically when they start
+	// (the same restore-on-start replay as manually persisted forwards).
+	// Entries use target references — bare name, user--name — resolved and
+	// authorized per connection. Pro ships the template editor for this;
+	// the API accepts it everywhere.
+	PortForwards             []PortForwardEntry     `json:"port_forwards" db:"port_forwards,json"`
 	Jobs                     []SpaceJob             `json:"jobs" db:"jobs,json"`
 	// KVM network configuration, derived from the job spec's network:
 	// block. Bridged mode attaches VMs to a host bridge (or libvirt
@@ -184,6 +193,19 @@ type TemplatePort struct {
 	Protocol string `json:"protocol"`
 }
 
+// IsPortShared reports whether the template declares the given port shared:
+// reachable by every user of the server through port forwards, not just the
+// space's owner. Only shared-protocol ports are cross-user forward targets;
+// every other port is owner-only, same as an undeclared one.
+func (t *Template) IsPortShared(port uint16) bool {
+	for _, p := range t.Ports {
+		if p.Port == port && p.Protocol == "shared" {
+			return true
+		}
+	}
+	return false
+}
+
 func NewTemplate(
 	name string,
 	description string,
@@ -273,6 +295,28 @@ func (template *Template) UpdateHash() {
 	}
 	hash := md5.Sum([]byte(hashInput))
 	template.Hash = hex.EncodeToString(hash[:])
+}
+
+// IdleTimeoutDuration returns the template's idle timeout — how long a
+// deployed space may go without user activity before the server stops it —
+// or 0 when idle shutdown is disabled. Unlike MaxUptime a value of 0 with a
+// unit set also means disabled: an accidentally blank value must never stop
+// a space the moment it starts.
+func (template *Template) IdleTimeoutDuration() time.Duration {
+	if template.IdleTimeoutUnit == "disabled" || template.IdleTimeout == 0 {
+		return 0
+	}
+
+	switch template.IdleTimeoutUnit {
+	case "minute":
+		return time.Duration(template.IdleTimeout) * time.Minute
+	case "hour":
+		return time.Duration(template.IdleTimeout) * time.Hour
+	case "day":
+		return time.Duration(template.IdleTimeout) * 24 * time.Hour
+	default:
+		return time.Duration(template.IdleTimeout) * time.Hour // fallback to hour
+	}
 }
 
 func (template *Template) AllowedBySchedule() bool {

@@ -70,19 +70,23 @@ type SpaceInfo struct {
 	IsDeleting    bool     `json:"is_deleting"`
 	// Manual-agent registration key, only present for manual spaces the
 	// caller owns or manages: its holder can run the space's agent.
-	RegistrationKey         string               `json:"registration_key,omitempty"`
-	TcpPorts                map[string]string    `json:"tcp_ports"`
-	HttpPorts               map[string]string    `json:"http_ports"`
-	UpdateAvailable         bool                 `json:"update_available"`
-	IsRemote                bool                 `json:"is_remote"`
-	HasVSCodeTunnel         bool                 `json:"has_vscode_tunnel"`
-	VSCodeTunnel            string               `json:"vscode_tunnel_name"`
-	StartedAt               time.Time            `json:"started_at"`
-	IconURL                 string               `json:"icon_url"`
-	Healthy                 bool                 `json:"healthy"`
-	HealthKnown             bool                 `json:"health_known"`
-	NodeHostname            string               `json:"node_hostname"`
-	IPAddress               string               `json:"ip_address,omitempty"`
+	RegistrationKey string            `json:"registration_key,omitempty"`
+	TcpPorts        map[string]string `json:"tcp_ports"`
+	HttpPorts       map[string]string `json:"http_ports"`
+	UpdateAvailable bool              `json:"update_available"`
+	IsRemote        bool              `json:"is_remote"`
+	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
+	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
+	StartedAt       time.Time         `json:"started_at"`
+	IconURL         string            `json:"icon_url"`
+	Healthy         bool              `json:"healthy"`
+	HealthKnown     bool              `json:"health_known"`
+	NodeHostname    string            `json:"node_hostname"`
+	IPAddress       string            `json:"ip_address,omitempty"`
+	// Exclusive pool-member lease, set while the member is held (or its
+	// lease has ended but in-flight work is still draining).
+	LeaseId                 string               `json:"lease_id,omitempty"`
+	LeaseExpiresAt          *time.Time           `json:"lease_expires_at,omitempty"`
 	Stack                   string               `json:"stack"`
 	StackPrefix             string               `json:"stack_prefix"`
 	ResourceUsage           *SpaceResourceUsage  `json:"resource_usage,omitempty"`
@@ -124,51 +128,55 @@ type SpaceDefinition struct {
 	// Agent registration credentials, only returned to the space owner or
 	// users with manage permission: the key lets its holder run the space's
 	// agent, the fingerprint verifies the zone's agent TLS certificate.
-	RegistrationKey    string                       `json:"registration_key,omitempty"`
-	CertFingerprint    string                       `json:"agent_cert_fingerprint,omitempty"`
-	Name               string                       `json:"name"`
-	Description        string                       `json:"description"`
-	Note               string                       `json:"note"`
-	TemplateName       string                       `json:"template_name"`
-	PoolId             string                       `json:"pool_id"`
-	PoolName           string                       `json:"pool_name"`
-	Username           string                       `json:"username"`
-	Platform           string                       `json:"platform"`
-	Shell              string                       `json:"shell"`
-	Zone               string                       `json:"zone"`
-	AltNames           []model.AltNameEntry         `json:"alt_names"`
-	IsDeployed         bool                         `json:"is_deployed"`
-	IsPending          bool                         `json:"is_pending"`
-	IsDeleting         bool                         `json:"is_deleting"`
-	HasEverStarted     bool                         `json:"has_ever_started"`
-	VolumeData         map[string]model.SpaceVolume `json:"volume_data"`
-	StartedAt          time.Time                    `json:"started_at"`
-	CreatedAt          time.Time                    `json:"created_at"`
-	CreatedAtFormatted string                       `json:"created_at_formatted"`
-	IconURL            string                       `json:"icon_url"`
-	CustomFields       []CustomFieldValue           `json:"custom_fields"`
-	StartupScriptId    string                       `json:"startup_script_id"`
-	HasCodeServer      bool                         `json:"has_code_server"`
-	HasSSH             bool                         `json:"has_ssh"`
-	HasTerminal        bool                         `json:"has_terminal"`
-	HasJobs            bool                         `json:"has_jobs"`
-	JobsEnabled        bool                         `json:"jobs_enabled"`
-	HasHttpVNC         bool                         `json:"has_http_vnc"`
-	HasState           bool                         `json:"has_state"`
-	TcpPorts           map[string]string            `json:"tcp_ports"`
-	HttpPorts          map[string]string            `json:"http_ports"`
-	UpdateAvailable    bool                         `json:"update_available"`
-	HasVSCodeTunnel    bool                         `json:"has_vscode_tunnel"`
-	VSCodeTunnel       string                       `json:"vscode_tunnel_name"`
-	Healthy            bool                         `json:"healthy"`
-	HealthKnown        bool                         `json:"health_known"`
-	IsRemote           bool                         `json:"is_remote"`
-	NodeId             string                       `json:"node_id"`
-	NodeHostname       string                       `json:"node_hostname"`
-	IPAddress          string                       `json:"ip_address,omitempty"` // KVM spaces: the VM's static IP
-	Stack              string                       `json:"stack"`
-	StackPrefix        string                       `json:"stack_prefix"`
-	ResourceUsage      *SpaceResourceUsage          `json:"resource_usage,omitempty"`
+	RegistrationKey string                       `json:"registration_key,omitempty"`
+	CertFingerprint string                       `json:"agent_cert_fingerprint,omitempty"`
+	Name            string                       `json:"name"`
+	Description     string                       `json:"description"`
+	Note            string                       `json:"note"`
+	TemplateName    string                       `json:"template_name"`
+	PoolId          string                       `json:"pool_id"`
+	PoolName        string                       `json:"pool_name"`
+	Username        string                       `json:"username"`
+	Platform        string                       `json:"platform"`
+	Shell           string                       `json:"shell"`
+	Zone            string                       `json:"zone"`
+	AltNames        []model.AltNameEntry         `json:"alt_names"`
+	IsDeployed      bool                         `json:"is_deployed"`
+	IsPending       bool                         `json:"is_pending"`
+	IsDeleting      bool                         `json:"is_deleting"`
+	HasEverStarted  bool                         `json:"has_ever_started"`
+	VolumeData      map[string]model.SpaceVolume `json:"volume_data"`
+	StartedAt       time.Time                    `json:"started_at"`
+	CreatedAt       time.Time                    `json:"created_at"`
+	CreatedAtFormatted string                    `json:"created_at_formatted"`
+	IconURL            string             `json:"icon_url"`
+	CustomFields       []CustomFieldValue `json:"custom_fields"`
+	StartupScriptId    string             `json:"startup_script_id"`
+	HasCodeServer      bool               `json:"has_code_server"`
+	HasSSH             bool               `json:"has_ssh"`
+	HasTerminal        bool               `json:"has_terminal"`
+	HasJobs            bool               `json:"has_jobs"`
+	JobsEnabled        bool               `json:"jobs_enabled"`
+	HasHttpVNC         bool               `json:"has_http_vnc"`
+	HasState           bool               `json:"has_state"`
+	TcpPorts           map[string]string  `json:"tcp_ports"`
+	HttpPorts          map[string]string  `json:"http_ports"`
+	UpdateAvailable    bool               `json:"update_available"`
+	HasVSCodeTunnel    bool               `json:"has_vscode_tunnel"`
+	VSCodeTunnel       string             `json:"vscode_tunnel_name"`
+	Healthy            bool               `json:"healthy"`
+	HealthKnown        bool               `json:"health_known"`
+	IsRemote           bool               `json:"is_remote"`
+	// Exclusive pool-member lease, set while the member is held (or its
+	// lease has ended but in-flight work is still draining).
+	LeaseId        string              `json:"lease_id,omitempty"`
+	LeaseExpiresAt *time.Time          `json:"lease_expires_at,omitempty"`
+	NodeId         string              `json:"node_id"`
+	NodeHostname   string              `json:"node_hostname"`
+	IPAddress      string              `json:"ip_address,omitempty"` // KVM spaces: the VM's static IP
+	Stack          string              `json:"stack"`
+	StackPrefix    string              `json:"stack_prefix"`
+	ResourceUsage  *SpaceResourceUsage `json:"resource_usage,omitempty"`
 }
 
 type SpaceResourceUsage struct {

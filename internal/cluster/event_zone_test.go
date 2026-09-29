@@ -51,6 +51,8 @@ func (nonLeaderTransport) GossipMCPServer(*model.MCPServer)               {}
 func (nonLeaderTransport) GossipPoolDefinition(*model.PoolDefinition)     {}
 func (nonLeaderTransport) GossipPoolDrain(string)                         {}
 func (nonLeaderTransport) GossipPoolUndrain(string)                       {}
+func (nonLeaderTransport) GossipPoolLease(string, string, int64)          {}
+func (nonLeaderTransport) GossipPoolLeaseClear(string)                    {}
 func (nonLeaderTransport) BroadcastEvent(*service.EventEnvelope)          {}
 func (nonLeaderTransport) GetAgentEndpoints() []string                    { return nil }
 func (nonLeaderTransport) GetTunnelServers() []string                     { return nil }

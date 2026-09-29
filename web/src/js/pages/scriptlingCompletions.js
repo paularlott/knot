@@ -31,6 +31,36 @@ const scriptlingLibraries = [
     ],
   },
   {
+    module: "json",
+    description: "Scriptling json Library - Type stubs for IntelliSense support.",
+    functions: [
+      {
+        name: "loads",
+        signature: "loads(json_string)",
+        description: "Parse a JSON string into Scriptling values.",
+        returns: "Any",
+      },
+      {
+        name: "parse",
+        signature: "parse(json_string)",
+        description: "Parse a JSON string (alias for loads).",
+        returns: "Any",
+      },
+      {
+        name: "dumps",
+        signature: "dumps(obj, indent=None)",
+        description: "Serialize a Scriptling value to a JSON string.",
+        returns: "str",
+      },
+      {
+        name: "stringify",
+        signature: "stringify(obj, indent=None)",
+        description: "Serialize a Scriptling value to a JSON string (alias for dumps).",
+        returns: "str",
+      },
+    ],
+  },
+  {
     module: "msgpack",
     description: "MessagePack binary serialisation library — type stubs for IntelliSense.",
     functions: [
@@ -492,7 +522,7 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "Client",
-        signature: "Client(base_url, provider=\"openai\", api_key=\"\", max_tokens=0, temperature=None, top_p=None, headers=None, remote_servers=None, max_retries=3, retry_backoff=1.0, retry_on_rate_limit=True, retry_on_server_error=True)",
+        signature: "Client(base_url, provider=\"openai\", api_key=\"\", max_tokens=0, temperature=None, top_p=None, headers=None, remote_servers=None, max_retries=3, retry_backoff=1.0, retry_on_rate_limit=True, retry_on_server_error=True, prompt_caching=True)",
         description: "Create a new AI client.",
         returns: "OpenAIClient - Client instance with methods for API calls",
       },
@@ -770,7 +800,7 @@ const scriptlingLibraries = [
         methods: [
           {
             name: "__init__",
-            signature: "__init__(client, tools=None, system_prompt=\"\", model=\"\", memory=None, max_tokens=32000, compaction_threshold=80, request_timeout=300, extra_body=None)",
+            signature: "__init__(client, tools=None, system_prompt=\"\", model=\"\", memory=None, mcp_servers=None, max_tokens=32000, compaction_threshold=80, request_timeout=300, extra_body=None)",
             description: "Initialize an Agent.",
             returns: "None",
           },
@@ -827,6 +857,10 @@ const scriptlingLibraries = [
         {
           name: "memory",
           description: "Optional[\"MemoryStore\"]",
+        },
+        {
+          name: "mcp_servers",
+          description: "list[\"MCPClient\"]",
         },
         {
           name: "max_tokens",
@@ -964,6 +998,12 @@ const scriptlingLibraries = [
             name: "add",
             signature: "add(name, description, params, handler)",
             description: "Add a tool to the registry.",
+            returns: "None",
+          },
+          {
+            name: "add_schema",
+            signature: "add_schema(name, description, schema, handler)",
+            description: "Add a tool with a full JSON Schema.",
             returns: "None",
           },
           {
@@ -2120,7 +2160,7 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "Client",
-        signature: "Client(target, namespace=\"\", bearer_token=\"\", args=None, env=None)",
+        signature: "Client(target, namespace=\"\", bearer_token=\"\", timeout=30, args=None, env=None)",
         description: "Create a new MCP client, over HTTP or stdio.",
         returns: "MCPClient - Client instance with methods for interacting with the server. For stdio clients, call close() when done to shut the subprocess down.",
       },
@@ -2140,13 +2180,25 @@ const scriptlingLibraries = [
             name: "tools",
             signature: "tools()",
             description: "List available tools.",
-            returns: "list[dict[str, Any]] - List of tool dicts with name, description, input_schema",
+            returns: "list[dict[str, Any]] - List of tool dicts with name, description, inputSchema, is_app. is_app is True when the tool is an MCP Apps view (linked to a ui:// resource): a host UI renders its view when it is called.",
           },
           {
             name: "call_tool",
             signature: "call_tool(name, arguments)",
             description: "Execute a tool by name with the provided arguments.",
             returns: "Any - Decoded tool response",
+          },
+          {
+            name: "skills",
+            signature: "skills()",
+            description: "List available skills (Skills extension, io.modelcontextprotocol/skills).",
+            returns: "list[dict[str, Any]] - List of skill entry dicts with uri (of SKILL.md), frontmatter (served verbatim from the SKILL.md: name, description, plus any other author fields) and resources (per-file uri, digest, size).",
+          },
+          {
+            name: "get_skill",
+            signature: "get_skill(uri)",
+            description: "Fetch one skill's entry (frontmatter and per-file digests) by URI.",
+            returns: "dict[str, Any] - The skill entry dict. Read file content with read_resource on any of the entry's resource URIs.",
           },
           {
             name: "refresh_tools",
@@ -2214,6 +2266,12 @@ const scriptlingLibraries = [
             description: "Close the client and release its transport.",
             returns: "None",
           },
+        ],
+        properties: [
+        {
+          name: "namespace",
+          description: "str",
+        },
         ],
       },
     ],
@@ -2298,6 +2356,12 @@ const scriptlingLibraries = [
         name: "return_object",
         signature: "return_object(obj)",
         description: "Return an object as JSON from the tool and stop execution.",
+        returns: "None",
+      },
+      {
+        name: "return_structured",
+        signature: "return_structured(obj)",
+        description: "Return obj as the tool's structuredContent and stop execution.",
         returns: "None",
       },
       {
@@ -4134,13 +4198,13 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "register_request_tool",
-        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False)",
+        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False, ui=None, icons=None)",
         description: "Register an MCP tool for this request.",
         returns: "None",
       },
       {
         name: "register_request_resource",
-        signature: "register_request_resource(uri, handler, name, description=\"\", mime_type=\"\", template=False)",
+        signature: "register_request_resource(uri, handler, name=\"\", description=\"\", mime_type=\"\", template=False)",
         description: "Register an MCP resource for this request.",
         returns: "None",
       },
@@ -4158,8 +4222,26 @@ const scriptlingLibraries = [
       },
       {
         name: "tool",
-        signature: "tool(description, params=None, keywords=None, discoverable=False)",
+        signature: "tool(description, params=None, keywords=None, discoverable=False, ui=None, icons=None)",
         description: "Decorator for MCP tools.",
+        returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
+      },
+      {
+        name: "resource",
+        signature: "resource(uri, name=\"\", description=\"\", mime_type=\"\", template=False)",
+        description: "Decorator for MCP resources.",
+        returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
+      },
+      {
+        name: "prompt",
+        signature: "prompt(description=\"\", arguments=None)",
+        description: "Decorator for MCP prompts.",
+        returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
+      },
+      {
+        name: "skill",
+        signature: "skill(files=None)",
+        description: "Decorator for MCP skills.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },
     ],

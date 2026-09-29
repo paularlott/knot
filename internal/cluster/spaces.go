@@ -175,6 +175,11 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 					continue
 				}
 
+				// Keep the in-memory lease routing view converged with the
+				// merged record — covers servers that missed a lease gossip
+				// push (e.g. joined after the grant).
+				service.GetPoolService().SyncSpaceLease(space)
+
 				if shouldQueueCleanup {
 					c.EnqueueSpaceCleanup(cleanupSpace)
 				}
@@ -200,7 +205,8 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 				stateChanged := space.IsDeleted != localSpace.IsDeleted ||
 					space.IsDeployed != localSpace.IsDeployed ||
 					space.IsPending != localSpace.IsPending ||
-					space.SharedWithUserId != localSpace.SharedWithUserId
+					space.SharedWithUserId != localSpace.SharedWithUserId ||
+					space.LeaseId != localSpace.LeaseId
 
 				if space.IsDeleted {
 					if stateChanged {
@@ -214,6 +220,8 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 			// If the space doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveSpace(space, []string{}); err != nil {
 				c.logger.Error("Failed to save space", "error", err, "name", space.Name, "is_deleted", space.IsDeleted)
+			} else {
+				service.GetPoolService().SyncSpaceLease(space)
 			}
 
 			if space.IsDeleted {

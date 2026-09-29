@@ -149,6 +149,8 @@ func buildTemplateExportDetails(template *model.Template, db database.DbDriver) 
 		StorageUnits:             template.StorageUnits,
 		MaxUptime:                template.MaxUptime,
 		MaxUptimeUnit:            template.MaxUptimeUnit,
+		IdleTimeout:              template.IdleTimeout,
+		IdleTimeoutUnit:          template.IdleTimeoutUnit,
 		ScheduleEnabled:          template.ScheduleEnabled,
 		AutoStart:                template.AutoStart,
 		WithTerminal:             template.WithTerminal,
@@ -167,6 +169,7 @@ func buildTemplateExportDetails(template *model.Template, db database.DbDriver) 
 		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
 		DisableUserActivity:      template.DisableUserActivity,
 		Ports:                    template.Ports,
+		PortForwards:             template.PortForwards,
 		Jobs:                     template.Jobs,
 	}
 	if len(template.CustomFields) > 0 {

@@ -30,6 +30,9 @@ type TemplateExport struct {
 	MaxUptime     uint32 `yaml:"max_uptime,omitempty"`
 	MaxUptimeUnit string `yaml:"max_uptime_unit,omitempty"`
 
+	IdleTimeout     uint32 `yaml:"idle_timeout,omitempty"`
+	IdleTimeoutUnit string `yaml:"idle_timeout_unit,omitempty"`
+
 	ScheduleEnabled bool                        `yaml:"schedule_enabled,omitempty"`
 	Schedule        []TemplateExportScheduleDay `yaml:"schedule,omitempty"`
 	AutoStart       bool                        `yaml:"auto_start,omitempty"`
@@ -47,9 +50,10 @@ type TemplateExport struct {
 	HealthCheckMaxFailures   uint32 `yaml:"health_check_max_failures,omitempty"`
 	HealthCheckAutoRestart   bool   `yaml:"health_check_auto_restart,omitempty"`
 
-	DisableUserActivity bool                 `yaml:"disable_user_activity,omitempty"`
-	Ports               []model.TemplatePort `yaml:"ports,omitempty"`
-	Jobs                []model.SpaceJob     `yaml:"jobs,omitempty"`
+	DisableUserActivity bool                     `yaml:"disable_user_activity,omitempty"`
+	Ports               []model.TemplatePort     `yaml:"ports,omitempty"`
+	PortForwards        []model.PortForwardEntry `yaml:"port_forwards,omitempty"`
+	Jobs                []model.SpaceJob         `yaml:"jobs,omitempty"`
 
 	Job     string `yaml:"job,omitempty"`
 	Volumes string `yaml:"volumes,omitempty"`
@@ -142,6 +146,8 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 		Zones:                    defaultSlice(e.Zones),
 		MaxUptime:                e.MaxUptime,
 		MaxUptimeUnit:            e.MaxUptimeUnit,
+		IdleTimeout:              e.IdleTimeout,
+		IdleTimeoutUnit:          e.IdleTimeoutUnit,
 		HealthCheckType:          e.HealthCheckType,
 		HealthCheckConfig:        e.HealthCheckConfig,
 		HealthCheckSkipSSLVerify: e.HealthCheckSkipSSLVerify,
@@ -151,6 +157,7 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 		HealthCheckAutoRestart:   e.HealthCheckAutoRestart,
 		DisableUserActivity:      e.DisableUserActivity,
 		Ports:                    defaultPorts(e.Ports),
+		PortForwards:             e.PortForwards,
 		Jobs:                     defaultJobs(e.Jobs),
 	}
 	req.CustomFields = defaultCustomFields(e.CustomFields)
@@ -179,6 +186,8 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 		Zones:                    d.Zones,
 		MaxUptime:                d.MaxUptime,
 		MaxUptimeUnit:            d.MaxUptimeUnit,
+		IdleTimeout:              d.IdleTimeout,
+		IdleTimeoutUnit:          d.IdleTimeoutUnit,
 		ScheduleEnabled:          d.ScheduleEnabled,
 		AutoStart:                d.AutoStart,
 		StartupScript:            d.StartupScriptId,
@@ -192,6 +201,7 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 		HealthCheckAutoRestart:   d.HealthCheckAutoRestart,
 		DisableUserActivity:      d.DisableUserActivity,
 		Ports:                    d.Ports,
+		PortForwards:             d.PortForwards,
 		Jobs:                     d.Jobs,
 		Job:                      d.Job,
 		Volumes:                  d.Volumes,

@@ -32,6 +32,8 @@ type Transport interface {
 	GossipPoolDefinition(pool *model.PoolDefinition)
 	GossipPoolDrain(spaceID string)
 	GossipPoolUndrain(spaceID string)
+	GossipPoolLease(spaceID, userId string, expiresAtUnix int64)
+	GossipPoolLeaseClear(spaceID string)
 	BroadcastEvent(envelope *EventEnvelope)
 	NotifyEventDone(eventId string)
 	GetAgentEndpoints() []string

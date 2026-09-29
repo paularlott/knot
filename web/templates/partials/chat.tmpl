@@ -256,6 +256,36 @@
                       </div>
                     </template>
 
+                    <!-- MCP Apps: linked ui:// views render here, in the main
+                         chat flow, not inside the collapsed "Tool calls"
+                         disclosure above (that's just the raw call/result data).
+                         The card appears as soon as call.ui is known; call.appResource
+                         is fetched asynchronously afterward, so a loading placeholder
+                         fills that gap. mountAppView's x-effect only starts once
+                         appResource resolves and that inner div actually exists. -->
+                    <template x-for="call in (m.tool_calls || []).filter(c => c.ui && c.ui.resourceUri && !c.isError)" :key="'app-' + call.id">
+                      <div class="mb-2 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 px-2 py-1">
+                          <code class="text-xs font-mono text-gray-500 dark:text-gray-400" x-text="call.name"></code>
+                        </div>
+                        <!-- appResource is undefined while the fetch is in flight,
+                             null if it failed, or the resource object once it
+                             succeeds — distinct falsy states so a failure shows
+                             an error instead of spinning forever. -->
+                        <div x-show="call.appResource === undefined" class="flex items-center justify-center gap-2 px-4 py-10 text-sm text-gray-500 dark:text-gray-400">
+                          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Loading app…</span>
+                        </div>
+                        <div x-show="call.appResource === null" class="px-4 py-6 text-sm text-red-600 dark:text-red-400 text-center">
+                          Couldn't load this app.
+                        </div>
+                        <div x-show="call.appResource" x-effect="mountAppView(call, $el)"></div>
+                      </div>
+                    </template>
+
                     <!-- Assistant response (markdown). -->
                     <div x-show="m.role === 'assistant'" class="prose-chat">
                       <div x-show="m.content" x-html="formatContent(m.content)"></div>

@@ -111,7 +111,7 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 	}
 
 	// Validate input
-	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
+	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, int(template.IdleTimeout), template.IdleTimeoutUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
 		return err
 	}
 
@@ -123,9 +123,15 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 		if port.Port < 1 || port.Port > 65535 {
 			return fmt.Errorf("port number must be between 1 and 65535")
 		}
-		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" {
-			return fmt.Errorf("port protocol must be one of tcp, http, https")
+		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" && port.Protocol != "shared" {
+			return fmt.Errorf("port protocol must be one of tcp, http, https, shared")
 		}
+	}
+
+	// Validate port forward wiring: references must be well formed so the
+	// seeded entries can resolve when the space starts.
+	if err := validateTemplatePortForwards(template.PortForwards); err != nil {
+		return err
 	}
 
 	// Validate groups exist
@@ -178,7 +184,7 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 	}
 
 	// Validate input
-	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
+	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, int(template.IdleTimeout), template.IdleTimeoutUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
 		return err
 	}
 
@@ -190,9 +196,15 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 		if port.Port < 1 || port.Port > 65535 {
 			return fmt.Errorf("port number must be between 1 and 65535")
 		}
-		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" {
-			return fmt.Errorf("port protocol must be one of tcp, http, https")
+		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" && port.Protocol != "shared" {
+			return fmt.Errorf("port protocol must be one of tcp, http, https, shared")
 		}
+	}
+
+	// Validate port forward wiring: references must be well formed so the
+	// seeded entries can resolve when the space starts.
+	if err := validateTemplatePortForwards(template.PortForwards); err != nil {
+		return err
 	}
 
 	// Validate groups exist
@@ -307,7 +319,7 @@ func (s *TemplateService) GetTemplateUsage(templateId string) (total int, deploy
 }
 
 // validateTemplateInput validates common template input fields
-func (s *TemplateService) validateTemplateInput(name, platform, job, volumes string, computeUnits, storageUnits, maxUptime int, maxUptimeUnit string, scheduleEnabled bool, schedule *[]model.TemplateScheduleDays, customFields []model.TemplateCustomField) error {
+func (s *TemplateService) validateTemplateInput(name, platform, job, volumes string, computeUnits, storageUnits, maxUptime int, maxUptimeUnit string, idleTimeout int, idleTimeoutUnit string, scheduleEnabled bool, schedule *[]model.TemplateScheduleDays, customFields []model.TemplateCustomField) error {
 	if !validate.Required(name) || !validate.MaxLength(name, 64) {
 		return fmt.Errorf("invalid template name given")
 	}
@@ -336,6 +348,11 @@ func (s *TemplateService) validateTemplateInput(name, platform, job, volumes str
 
 	if !validate.IsPositiveNumber(maxUptime) || !validate.OneOf(maxUptimeUnit, []string{"disabled", "minute", "hour", "day"}) {
 		return fmt.Errorf("max uptime must be a positive number and unit must be one of disabled, minute, hour, day")
+	}
+
+	// A zero idle timeout means disabled, so 0 is valid with any unit.
+	if !validate.IsPositiveNumber(idleTimeout) || !validate.OneOf(idleTimeoutUnit, []string{"disabled", "minute", "hour", "day"}) {
+		return fmt.Errorf("idle timeout must be a positive number and unit must be one of disabled, minute, hour, day")
 	}
 
 	if scheduleEnabled && schedule != nil {
@@ -368,6 +385,28 @@ func (s *TemplateService) validateGroups(groups []string) error {
 		if _, err := db.GetGroup(groupId); err != nil {
 			return fmt.Errorf("group %s does not exist", groupId)
 		}
+	}
+	return nil
+}
+
+// validateTemplatePortForwards checks template port forward wiring: valid
+// target references, port ranges, unique local ports and a sane entry cap.
+func validateTemplatePortForwards(forwards []model.PortForwardEntry) error {
+	if len(forwards) > 16 {
+		return fmt.Errorf("at most 16 port forwards can be wired into a template")
+	}
+	seenLocal := make(map[uint16]bool, len(forwards))
+	for _, pf := range forwards {
+		if pf.LocalPort < 1 || pf.LocalPort > 65535 || pf.RemotePort < 1 || pf.RemotePort > 65535 {
+			return fmt.Errorf("port forward local and remote ports must be between 1 and 65535")
+		}
+		if !ValidForwardRef(pf.Space) {
+			return fmt.Errorf("port forward target %q must be a space or pool name, user--name, or a space ID", pf.Space)
+		}
+		if seenLocal[pf.LocalPort] {
+			return fmt.Errorf("port forward local port %d is wired more than once", pf.LocalPort)
+		}
+		seenLocal[pf.LocalPort] = true
 	}
 	return nil
 }

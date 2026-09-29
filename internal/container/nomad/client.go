@@ -1,6 +1,8 @@
 package nomad
 
 import (
+	"time"
+
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -25,6 +27,11 @@ func NewClient() (*NomadClient, error) {
 	}
 
 	client.httpClient.SetTokenKey("X-Nomad-Token").SetTokenFormat("%s")
+
+	// CSI controller operations (create/delete) run synchronously through to
+	// the storage plugin and can take far longer than the REST client's 10s
+	// default; abandoning them leaves the operation running in Nomad.
+	client.httpClient.SetTimeout(2 * time.Minute)
 
 	return client, nil
 }

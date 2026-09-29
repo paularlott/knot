@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	command_mcp "github.com/paularlott/knot/agent/cmd/mcpserver"
 	command_scriptling "github.com/paularlott/knot/agent/cmd/scriptlingserver"
 	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
@@ -146,6 +147,7 @@ It offers both a user-friendly web interface and a command line interface to str
 		Commands: []*cli.Command{
 			agentcmd.AgentCmd,
 			command.ConnectCmd,
+			command_mcp.McpCmd,
 			command_method.MethodCmd,
 			commands_forward.ForwardCmd,
 			commands_port.PortCmd,
@@ -177,7 +179,9 @@ It offers both a user-friendly web interface and a command line interface to str
 
 	err := cmd.Execute(context.Background())
 	if err != nil {
-		fmt.Println("Error:", err)
+		// stderr, not stdout: commands that emit structured output (e.g.
+		// --json modes) must keep stdout parseable on failure paths too.
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 

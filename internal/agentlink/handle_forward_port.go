@@ -2,8 +2,12 @@ package agentlink
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
@@ -67,27 +71,28 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 			}
 		}
 
-		if targetSpace == nil {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space not found"})
-			return
-		}
+		if targetSpace != nil {
+			// Verify target space is deployed and has an active agent
+			if !targetSpace.IsDeployed || !targetSpace.HasState {
+				sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space is not running"})
+				return
+			}
 
-		// Verify target space is deployed and has an active agent
-		if !targetSpace.IsDeployed || !targetSpace.HasState {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space is not running"})
-			return
-		}
-
-		// Verify both spaces are in the same zone
-		if currentSpace.Zone != targetSpace.Zone {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be in the same zone"})
-			return
-		}
-
-		// Verify both spaces are owned by the same user
-		if currentSpace.UserId != targetSpace.UserId {
-			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be owned by the same user"})
-			return
+			// Verify both spaces are in the same zone
+			if currentSpace.Zone != targetSpace.Zone {
+				sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be in the same zone"})
+				return
+			}
+		} else {
+			// Not one of this user's spaces: it may be an own pool, another
+			// user's space or pool (user--space), or a stored space ID. Ask
+			// the server to authorize the target now — owners may reach any
+			// port, everyone else only shared ports — so a disallowed or
+			// mistyped target fails here instead of on every connection.
+			if message := checkForwardTarget(ctx, client, request.Space, request.RemotePort); message != "" {
+				sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: message})
+				return
+			}
 		}
 	}
 
@@ -150,4 +155,40 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 		// already taken the slot).
 		portforward.StopForwardIfMatch(request.LocalPort, info)
 	}()
+}
+
+// checkForwardTarget asks the server whether the requesting space's owner may
+// forward to the target reference and port, returning "" when allowed or the
+// server's error message. The server owns the rule (owners reach any port,
+// everyone else shared ports only) and re-checks on every connection; this
+// only makes bad targets fail at creation with a readable reason.
+func checkForwardTarget(ctx context.Context, client *apiclient.ApiClient, ref string, port uint16) string {
+	path := fmt.Sprintf("/api/forward-target?target=%s&port=%d", url.QueryEscape(ref), int(port))
+	code, err := client.Do(ctx, http.MethodGet, path, nil, nil)
+	if err == nil && code == http.StatusOK {
+		return ""
+	}
+
+	message := err.Error()
+	if prefix := "unexpected status code: "; strings.HasPrefix(message, prefix) {
+		message = message[len(prefix):]
+		if i := strings.Index(message, ": "); i >= 0 {
+			detail := message[i+2:]
+			var body struct {
+				Error string `json:"error"`
+			}
+			if json.Unmarshal([]byte(detail), &body) == nil && body.Error != "" {
+				return body.Error
+			}
+			if strings.TrimSpace(detail) != "" {
+				// The client already unwrapped the response body.
+				return detail
+			}
+			message = message[:i]
+		}
+	}
+	if code == 0 {
+		message = "failed to check forward target: " + message
+	}
+	return message
 }

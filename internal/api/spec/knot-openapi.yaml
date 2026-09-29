@@ -5618,7 +5618,7 @@ paths:
       tags:
         - Pools
       summary: Stop Pool
-      description: Set active=false and stop all member spaces without deleting them.
+      description: Set active=false and stop all member spaces without deleting them. Rejected with 400 while any member holds an active lease.
       operationId: stopPool
       parameters:
         - name: id_or_name
@@ -5635,6 +5635,159 @@ paths:
           $ref: "#/components/responses/forbidden"
         "404":
           $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/acquire:
+    post:
+      tags:
+        - Pools
+      summary: Acquire Pool Member Lease
+      description: Check out one healthy free member of the pool exclusively. While held, shared method routing and pool-name port proxying skip the member; the holder reaches it by its own space name or by pinning method calls with its space id.
+      operationId: acquirePoolLease
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolLeaseAcquireRequest"
+      responses:
+        "200":
+          description: Lease granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaseInfo"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: No free member available (pool exhausted)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/pools/{id_or_name}/leases:
+    get:
+      tags:
+        - Pools
+      summary: List Pool Leases
+      description: List the pool's exclusively held leases — active plus draining (ended, waiting for in-flight work to finish).
+      operationId: getPoolLeases
+      parameters:
+        - name: id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Leases held on the pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolLeaseList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id_or_name}/lease:
+    delete:
+      tags:
+        - Pools
+      summary: Release Space Lease
+      description: Release the lease held on a pool member space (by space id or the owner's space name). The member returns to the shared pool once in-flight method work has drained (normally within one sweep, ~15s). With destroy=true the member is deleted through the normal drain-and-delete flow and a fresh replacement is created immediately, so the next acquire gets a clean space.
+      operationId: releaseSpaceLease
+      parameters:
+        - name: space_id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The held member's space id or name — the same identifier acquire returned.
+        - name: destroy
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Destroy the member instead of returning it — a fresh replacement is created, so the next acquire gets a clean space.
+      responses:
+        "200":
+          description: Lease released (draining before the member rejoins; with destroy=true the member is deleted and a replacement is starting)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaseInfo"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id_or_name}/lease/extend:
+    post:
+      tags:
+        - Pools
+      summary: Extend Space Lease
+      description: Renew the lease held on a pool member space (by space id or the owner's space name) — the new deadline becomes now + duration (or never, on unlimited pools). Bounded by the pool's configured extension count. Allowed until the lease has been reclaimed, including while an expired lease is still draining.
+      operationId: extendSpaceLease
+      parameters:
+        - name: space_id_or_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The held member's space id or name — the same identifier acquire returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolLeaseExtendRequest"
+      responses:
+        "200":
+          description: Lease extended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaseInfo"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          $ref: "#/components/responses/conflict"
       security: [BearerAuth: []]
 
   /api/ping:
@@ -5655,6 +5808,49 @@ paths:
           $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
+  /api/forward-target:
+    get:
+      operationId: checkForwardTarget
+      summary: Check whether a port forward target is allowed
+      description: >
+        Reports whether the requesting user may forward to a target reference
+        and port right now: own spaces and pools allow any port, another
+        user's space or pool only ports its template declares shared. Agents
+        call this before creating a forward requested inside a space; the
+        proxy re-checks on every connection regardless.
+      tags: [Spaces]
+      parameters:
+        - name: target
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "The target reference: a space or pool name, user--space, or a space ID."
+        - name: port
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 65535
+          description: The remote port.
+      responses:
+        "200":
+          description: Allowed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+        "400":
+          description: Malformed target or port.
+        "403":
+          description: "Target exists but the port is not shared for this user."
+        "404":
+          description: Target not found.
+      security: [BearerAuth: []]
   /api/server-info:
     get:
       tags:
@@ -7467,6 +7663,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:
@@ -7481,6 +7689,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -7535,8 +7748,13 @@ components:
           description: The port number.
         protocol:
           type: string
-          enum: [tcp, http, https]
-          description: The protocol for this port.
+          enum: [tcp, http, https, shared]
+          description: >
+            The port type. http and https ports get dev URLs; tcp ports are
+            published on the host. A shared port is not published anywhere;
+            every user in the same zone can reach it through a port forward
+            as user--space, while all other ports are forwardable by the
+            owner only.
 
     CustomFieldDef:
       type: object
@@ -7661,6 +7879,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:
@@ -7712,6 +7942,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -7820,6 +8055,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:
@@ -7871,6 +8118,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -7982,6 +8234,18 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
+        idle_timeout:
+          type: integer
+          format: uint32
+          description: >-
+            How long a deployed space may go without user activity (terminal
+            input, proxied traffic, method calls, sustained CPU or file
+            writes) before the server stops it. 0 with a unit, or the
+            "disabled" unit, disables idle shutdown.
+        idle_timeout_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the idle timeout.
         zones:
           type: array
           items:
@@ -8033,6 +8297,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: "Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references: a space or pool name, or user--name for another user's shared port."
         jobs:
           type: array
           items:
@@ -9351,6 +9620,24 @@ components:
           example: false
           description: Create the forward even if the target space is not currently running. Does not persist unless persistent is also true.
 
+    PortForwardEntry:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 5432
+        space:
+          type: string
+          example: paul--shared-pg
+          description: "The target reference: a space or pool name you own, user--name for another user's space or pool (shared ports only), or a space ID."
+        remote_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 5432
+
     PortForwardInfo:
       type: object
       properties:
@@ -10383,6 +10670,14 @@ components:
           type: boolean
           default: false
           description: Whether to start the pool on creation. If false or omitted, pool is created stopped.
+        lease_max_time:
+          type: integer
+          default: 0
+          description: Exclusive member leases, in seconds. 0 = leases disabled (default), -1 = no timeout (leases run until released), >0 = max duration of one acquire/extend.
+        lease_max_extensions:
+          type: integer
+          default: 0
+          description: Max extensions per lease. 0 = extending forbidden (default), -1 = unlimited, >0 = max count.
 
     PoolSetSizeRequest:
       type: object
@@ -10394,6 +10689,28 @@ components:
           minimum: 1
           description: New desired member count.
 
+    PoolLeaseAcquireRequest:
+      type: object
+      properties:
+        duration_seconds:
+          type: integer
+          default: 0
+          description: "How long to hold the member. 0 = use the pool's configured maximum (never, on -1 pools), -1 = a never-expiring lease (unlimited pools only), >0 = a duration bounded by the pool maximum."
+        wait_seconds:
+          type: integer
+          minimum: 0
+          maximum: 300
+          default: 0
+          description: Optionally long-poll for a free member for up to this long before returning 409.
+
+    PoolLeaseExtendRequest:
+      type: object
+      properties:
+        duration_seconds:
+          type: integer
+          default: 0
+          description: New holding time from now. Same rules as acquire's duration_seconds; the new deadline replaces the old one.
+
     PoolUpdateRequest:
       type: object
       properties:
@@ -10404,6 +10721,12 @@ components:
         active:
           type: boolean
           description: Set true to start the pool, false to stop it. Omit to leave unchanged.
+        lease_max_time:
+          type: integer
+          description: Pool lease maximum in seconds (0 disabled, -1 no timeout). Omit to leave unchanged.
+        lease_max_extensions:
+          type: integer
+          description: Max extensions per lease (0 forbidden, -1 unlimited). Omit to leave unchanged.
 
     PoolUtilization:
       type: object
@@ -10468,6 +10791,18 @@ components:
           type: boolean
         is_deployed:
           type: boolean
+        lease_state:
+          type: string
+          enum: ["", active, draining]
+          description: Exclusive lease state. Empty = free, active = exclusively leased, draining = lease ended, waiting for in-flight work to finish.
+        lease_holder:
+          type: string
+          description: Username of the lease holder when leased.
+        lease_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Lease expiry; null = never expires.
 
     PoolInfo:
       type: object
@@ -10489,12 +10824,59 @@ components:
           type: integer
         active:
           type: boolean
+        lease_max_time:
+          type: integer
+          description: Lease maximum in seconds (0 disabled, -1 no timeout).
+        lease_max_extensions:
+          type: integer
+          description: Max extensions per lease (0 forbidden, -1 unlimited).
         utilization:
           $ref: "#/components/schemas/PoolUtilization"
         members:
           type: array
           items:
             $ref: "#/components/schemas/PoolMemberInfo"
+
+    LeaseInfo:
+      type: object
+      properties:
+        pool_name:
+          type: string
+          description: The pool the lease was granted from.
+        space_id:
+          type: string
+          format: uuid
+          description: The held member; pin method calls with this id.
+        space_name:
+          type: string
+          description: The held member's name; pool-name port routing excludes it while held, its own name does not.
+        username:
+          type: string
+          description: The lease holder.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the lease ends; null = never expires.
+        extensions_used:
+          type: integer
+        max_extensions:
+          type: integer
+          description: -1 = unlimited.
+        state:
+          type: string
+          enum: [active, draining, destroying]
+          description: draining = ended, waiting for in-flight work to finish before rejoining the pool; destroying = released with destroy, member deleted and a replacement starting.
+
+    PoolLeaseList:
+      type: object
+      properties:
+        count:
+          type: integer
+        leases:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaseInfo"
 
     PoolList:
       type: object

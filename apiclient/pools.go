@@ -1,6 +1,9 @@
 package apiclient
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type PoolRequest struct {
 	Name            string `json:"name"`
@@ -8,6 +11,12 @@ type PoolRequest struct {
 	StartupScriptId string `json:"startup_script_id"`
 	DesiredCount    int    `json:"desired_count"`
 	Active          bool   `json:"active"`
+	// LeaseMaxTime is in seconds: 0 = leases disabled (default), -1 = no
+	// timeout, >0 = max duration of one acquire/extend.
+	LeaseMaxTime int `json:"lease_max_time"`
+	// LeaseMaxExtensions: 0 = extending forbidden (default), -1 = unlimited,
+	// >0 = max extensions per lease.
+	LeaseMaxExtensions int `json:"lease_max_extensions"`
 }
 
 type PoolSetSizeRequest struct {
@@ -20,6 +29,25 @@ type PoolUpdateRequest struct {
 	StartupScriptId *string `json:"startup_script_id,omitempty"`
 	DesiredCount    *int    `json:"desired_count,omitempty"`
 	Active          *bool   `json:"active,omitempty"`
+	LeaseMaxTime    *int    `json:"lease_max_time,omitempty"`
+	// LeaseMaxExtensions: 0 = extending forbidden, -1 = unlimited, >0 = max
+	// extensions per lease. The pointer cannot distinguish "set to 0" from
+	// "absent" — patch semantics treat absent as unchanged and 0 as
+	// "disable extending".
+	LeaseMaxExtensions *int `json:"lease_max_extensions,omitempty"`
+}
+
+type PoolLeaseAcquireRequest struct {
+	// DurationSeconds: 0 = the pool's maximum (-1 pool: never expires),
+	// -1 = never-expiring lease (unlimited pools only), >0 = bounded by the
+	// pool maximum.
+	DurationSeconds int `json:"duration_seconds"`
+	// WaitSeconds optionally long-polls for a free member (max 300).
+	WaitSeconds int `json:"wait_seconds"`
+}
+
+type PoolLeaseExtendRequest struct {
+	DurationSeconds int `json:"duration_seconds"`
 }
 
 type PoolUtilization struct {
@@ -39,7 +67,7 @@ type PoolMemberInfo struct {
 	CombinedRPS    float64 `json:"combined_rps"`
 	MethodRPS      float64 `json:"method_rps"`
 	HTTPRPS        float64 `json:"http_rps"`
-	TCPRPS         float64 `json:"tcp_rps"`
+	TCPRPS         float64 `json:"tcprps"`
 	MethodInflight int     `json:"method_inflight"`
 	CPUPercent     float64 `json:"cpu_percent"`
 	MemoryPercent  float64 `json:"memory_percent"`
@@ -47,23 +75,49 @@ type PoolMemberInfo struct {
 	IsPending      bool    `json:"is_pending"`
 	IsDeleting     bool    `json:"is_deleting"`
 	IsDeployed     bool    `json:"is_deployed"`
+	// Lease state: "" = free, "active" = exclusively leased,
+	// "draining" = lease ended, waiting for in-flight work to finish.
+	LeaseState     string     `json:"lease_state,omitempty"`
+	LeaseHolder    string     `json:"lease_holder,omitempty"`
+	LeaseExpiresAt *time.Time `json:"lease_expires_at,omitempty"` // null = never expires
 }
 
 type PoolInfo struct {
-	Id              string           `json:"pool_id"`
-	Name            string           `json:"name"`
-	TemplateId      string           `json:"template_id"`
-	StartupScriptId string           `json:"startup_script_id"`
-	DesiredCount    int              `json:"desired_count"`
-	AliveMembers    int              `json:"alive_members"`
-	Active          bool             `json:"active"`
-	Utilization     PoolUtilization  `json:"utilization"`
-	Members         []PoolMemberInfo `json:"members"`
+	Id                 string           `json:"pool_id"`
+	Name               string           `json:"name"`
+	TemplateId         string           `json:"template_id"`
+	StartupScriptId    string           `json:"startup_script_id"`
+	DesiredCount       int              `json:"desired_count"`
+	AliveMembers       int              `json:"alive_members"`
+	Active             bool             `json:"active"`
+	LeaseMaxTime       int              `json:"lease_max_time"`
+	LeaseMaxExtensions int              `json:"lease_max_extensions"`
+	Utilization        PoolUtilization  `json:"utilization"`
+	Members            []PoolMemberInfo `json:"members"`
 }
 
 type PoolList struct {
 	Count int        `json:"count"`
 	Pools []PoolInfo `json:"pools"`
+}
+
+// LeaseInfo describes one exclusive member lease. ExpiresAt is null for a
+// never-expiring lease; MaxExtensions is -1 for unlimited. The space is the
+// lease's identity — the id and name the holder works with.
+type LeaseInfo struct {
+	PoolName       string     `json:"pool_name"`
+	SpaceId        string     `json:"space_id"`
+	SpaceName      string     `json:"space_name"`
+	Username       string     `json:"username"`
+	ExpiresAt      *time.Time `json:"expires_at"`
+	ExtensionsUsed int        `json:"extensions_used"`
+	MaxExtensions  int        `json:"max_extensions"`
+	State          string     `json:"state"` // active | draining | destroying
+}
+
+type PoolLeaseList struct {
+	Count  int         `json:"count"`
+	Leases []LeaseInfo `json:"leases"`
 }
 
 type PoolCreateResponse struct {
@@ -112,4 +166,45 @@ func (c *ApiClient) StartPool(ctx context.Context, idOrName string) (int, error)
 
 func (c *ApiClient) StopPool(ctx context.Context, idOrName string) (int, error) {
 	return c.httpClient.Post(ctx, "/api/pools/"+idOrName+"/stop", nil, nil, 200)
+}
+
+func (c *ApiClient) AcquirePoolLease(ctx context.Context, idOrName string, request *PoolLeaseAcquireRequest) (*LeaseInfo, int, error) {
+	response := &LeaseInfo{}
+	// The server long-polls up to wait_seconds before answering, so the
+	// default 10s client timeout would cut the wait short. Raise it for
+	// this call and restore the package default afterwards.
+	if request.WaitSeconds > 0 {
+		c.httpClient.SetTimeout(time.Duration(request.WaitSeconds+15) * time.Second)
+		defer c.httpClient.SetTimeout(10 * time.Second)
+	}
+	code, err := c.httpClient.Post(ctx, "/api/pools/"+idOrName+"/acquire", request, response, 200)
+	return response, code, err
+}
+
+// ExtendSpaceLease renews the lease held on a space (id or owner-scoped
+// name). The space is the lease's identity — a member holds at most one
+// lease.
+func (c *ApiClient) ExtendSpaceLease(ctx context.Context, spaceIdOrName string, request *PoolLeaseExtendRequest) (*LeaseInfo, int, error) {
+	response := &LeaseInfo{}
+	code, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceIdOrName+"/lease/extend", request, response, 200)
+	return response, code, err
+}
+
+// ReleaseSpaceLease ends the lease held on a space (id or owner-scoped
+// name). With destroy set, the member is deleted and a fresh replacement is
+// created in its place, so the next acquire gets a clean space.
+func (c *ApiClient) ReleaseSpaceLease(ctx context.Context, spaceIdOrName string, destroy bool) (*LeaseInfo, int, error) {
+	path := "/api/spaces/" + spaceIdOrName + "/lease"
+	if destroy {
+		path += "?destroy=true"
+	}
+	response := &LeaseInfo{}
+	code, err := c.httpClient.Delete(ctx, path, nil, response, 200)
+	return response, code, err
+}
+
+func (c *ApiClient) GetPoolLeases(ctx context.Context, idOrName string) (*PoolLeaseList, int, error) {
+	response := &PoolLeaseList{}
+	code, err := c.httpClient.Get(ctx, "/api/pools/"+idOrName+"/leases", response)
+	return response, code, err
 }

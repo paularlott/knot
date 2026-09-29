@@ -13,6 +13,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// Core
 	router.HandleFunc("GET /api/ping", middleware.ApiAuth(HandlePing))
 	router.HandleFunc("GET /api/server-info", middleware.ApiAuth(HandleGetServerInfo))
+	router.HandleFunc("GET /api/forward-target", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleForwardTargetCheck)))
 	router.HandleFunc("GET /api/search", middleware.ApiAuth(HandleSearch))
 	router.HandleFunc("POST /api/auth/logout", middleware.ApiAuth(HandleLogout))
 
@@ -120,6 +121,10 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/pools/{id_or_name}/size", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleSetPoolSize)))
 	router.HandleFunc("POST /api/pools/{id_or_name}/start", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolStart)))
 	router.HandleFunc("POST /api/pools/{id_or_name}/stop", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolStop)))
+	router.HandleFunc("POST /api/pools/{id_or_name}/acquire", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandlePoolAcquire)))
+	router.HandleFunc("GET /api/pools/{id_or_name}/leases", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleGetPoolLeases)))
+	router.HandleFunc("POST /api/spaces/{space_id_or_name}/lease/extend", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleSpaceLeaseExtend)))
+	router.HandleFunc("DELETE /api/spaces/{space_id_or_name}/lease", middleware.ApiAuth(middleware.ApiPermissionUsePools(HandleSpaceLeaseRelease)))
 
 	// Templates
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))
@@ -202,6 +207,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleDeleteMCPServer)))
 	router.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/toggle-tool", middleware.ApiAuth(middleware.ApiPermissionManageMCPServers(HandleToggleMCPServerTool)))
 	router.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/tools", middleware.ApiAuth(HandleListMCPServerTools))
+	router.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/protocol", middleware.ApiAuth(HandleGetMCPServerProtocol))
 
 	// Stack Definitions
 	router.HandleFunc("GET /api/stack-definitions", middleware.ApiAuth(HandleGetStackDefinitions))

@@ -93,8 +93,11 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Active = template.Active
 		templateData.MaxUptime = template.MaxUptime
 		templateData.MaxUptimeUnit = template.MaxUptimeUnit
+		templateData.IdleTimeout = template.IdleTimeout
+		templateData.IdleTimeoutUnit = template.IdleTimeoutUnit
 		templateData.IconURL = template.IconURL
 		templateData.Ports = template.Ports
+		templateData.PortForwards = template.PortForwards
 		templateData.Jobs = template.Jobs
 		templateData.KvmNetworkMode = template.KvmNetworkMode
 		templateData.RuntimeAvailable = service.TemplateRuntimeAvailableIn(template, availableRuntimes)
@@ -170,6 +173,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes = ""
 		request.ScheduleEnabled = false
 		request.MaxUptimeUnit = "disabled"
+		request.IdleTimeoutUnit = "disabled"
 		request.AllowNodeMigration = false
 	}
 	if request.Platform == model.PlatformNomad {
@@ -226,6 +230,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.Active = request.Active
 	template.MaxUptime = request.MaxUptime
 	template.MaxUptimeUnit = request.MaxUptimeUnit
+	template.IdleTimeout = request.IdleTimeout
+	template.IdleTimeoutUnit = request.IdleTimeoutUnit
 	template.IconURL = request.IconURL
 	template.Zones = request.Zones
 	template.HealthCheckType = request.HealthCheckType
@@ -237,6 +243,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.PortForwards = request.PortForwards
 	template.Jobs = request.Jobs
 	if errStr := deriveKvmTemplateNetwork(template); errStr != "" {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: errStr})
@@ -302,6 +309,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes = ""
 		request.ScheduleEnabled = false
 		request.MaxUptimeUnit = "disabled"
+		request.IdleTimeoutUnit = "disabled"
 		request.AllowNodeMigration = false
 	}
 	if request.Platform == model.PlatformNomad {
@@ -376,8 +384,11 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckInterval = request.HealthCheckInterval
 	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
+	template.IdleTimeout = request.IdleTimeout
+	template.IdleTimeoutUnit = request.IdleTimeoutUnit
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.PortForwards = request.PortForwards
 	template.Jobs = request.Jobs
 	if errStr := deriveKvmTemplateNetwork(template); errStr != "" {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: errStr})

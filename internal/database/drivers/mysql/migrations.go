@@ -150,6 +150,19 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS with_vnc TINYINT(1) NOT NULL DEFAULT 0`,
 	// 74: add encrypted OAuth refresh token to user_providers (was only in CREATE TABLE)
 	`ALTER TABLE user_providers ADD COLUMN IF NOT EXISTS refresh_token TEXT`,
+	// 75-78: add exclusive member lease storage to spaces (pool leases)
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS lease_id CHAR(36) DEFAULT ''`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS lease_user_id CHAR(36) DEFAULT ''`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS lease_expires_at DATETIME(6) NULL`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS lease_extensions INT NOT NULL DEFAULT 0`,
+	// 79-80: add lease options to pools (INT, not UNSIGNED: -1 means no limit)
+	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS lease_max_time INT NOT NULL DEFAULT 0`,
+	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS lease_max_extensions INT NOT NULL DEFAULT 0`,
+	// 81: add idle shutdown timeout to templates
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout INT UNSIGNED NOT NULL DEFAULT 0`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout_unit VARCHAR(16) DEFAULT 'disabled'`,
+	// 82: template port forward wiring, seeded into new spaces
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS port_forwards JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

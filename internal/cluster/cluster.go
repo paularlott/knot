@@ -90,7 +90,13 @@ func NewCluster(
 
 		db := database.GetInstance()
 		nodeId, err := db.GetCfgValue("node_id")
-		if err != nil || nodeId.Value == "" {
+		if err != nil {
+			// Distinguish an unreachable/erroring database from a genuinely
+			// unset node_id — a DB outage used to fatal here as "node_id
+			// not set", sending the operator hunting the wrong problem.
+			cluster.logger.Fatal("failed to read node_id from database", "error", err)
+		}
+		if nodeId.Value == "" {
 			cluster.logger.Fatal("node_id not set")
 		}
 
@@ -180,6 +186,7 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(PoolDefinitionFullSyncMsg, cluster.handlePoolDefinitionFullSync)
 		cluster.gossipCluster.HandleFunc(PoolDefinitionGossipMsg, cluster.handlePoolDefinitionGossip)
 		cluster.gossipCluster.HandleFunc(PoolDrainMsg, cluster.handlePoolDrain)
+		cluster.gossipCluster.HandleFunc(PoolLeaseMsg, cluster.handlePoolLease)
 		cluster.gossipCluster.HandleFuncWithReply(EventSinkFullSyncMsg, cluster.handleEventSinkFullSync)
 		cluster.gossipCluster.HandleFunc(EventSinkGossipMsg, cluster.handleEventSinkGossip)
 		cluster.gossipCluster.HandleFunc(EventBroadcastMsg, cluster.handleEventBroadcast)

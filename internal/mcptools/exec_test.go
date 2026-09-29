@@ -910,65 +910,6 @@ func TestExecute_RunScript(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// Skills
-// =============================================================================
-
-func TestExecute_GetSkill_ByName(t *testing.T) {
-	mustLoadTools(t)
-
-	server := mockAPIServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
-		"GET /api/skill/python-best-practices": func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"content": "# Python Best Practices\n\nFollow PEP 8",
-			})
-		},
-	})
-	defer server.Close()
-
-	response, err := runTool(t, "get_skill", server.URL, map[string]interface{}{
-		"name": "python-best-practices",
-	})
-	if err != nil {
-		t.Fatalf("RunToolScript failed: %v", err)
-	}
-	result := decodeJSON(t, response)
-	if result["score"] != 1.0 {
-		t.Errorf("score = %v, want 1.0", result["score"])
-	}
-	if !strings.Contains(result["skill"].(string), "PEP 8") {
-		t.Errorf("skill content missing expected text")
-	}
-}
-
-func TestExecute_GetSkill_List(t *testing.T) {
-	mustLoadTools(t)
-
-	server := mockAPIServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
-		"GET /api/skill": func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"skills": []map[string]interface{}{
-					{"name": "active-skill", "description": "An active skill", "active": true},
-					{"name": "inactive-skill", "description": "Retired", "active": false},
-				},
-			})
-		},
-	})
-	defer server.Close()
-
-	response, err := runTool(t, "get_skill", server.URL, nil)
-	if err != nil {
-		t.Fatalf("RunToolScript failed: %v", err)
-	}
-	result := decodeJSON(t, response)
-	if result["action"] != "list" {
-		t.Errorf("action = %v, want list", result["action"])
-	}
-	if result["count"].(float64) != 1 {
-		t.Errorf("count = %v, want 1 (inactive excluded)", result["count"])
-	}
-}
-
 // TestExecute_GetTemplate proves the single-template discovery tool:
 // handler-backed fields resolve their options as the requesting user and
 // the handler id drops out of the result.

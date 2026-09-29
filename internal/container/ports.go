@@ -72,6 +72,11 @@ func BuildPortEnvVars(template *model.Template) []string {
 			httpsPorts = append(httpsPorts, entry)
 		case "tcp":
 			tcpPorts = append(tcpPorts, entry)
+		case "shared":
+			// Shared ports are deliberately absent: no env var, so the
+			// agent never reports them and they stay out of the space
+			// list port menus. They exist purely as cross-user forward
+			// targets (template.IsPortShared).
 		}
 	}
 

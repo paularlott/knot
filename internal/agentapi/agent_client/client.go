@@ -75,9 +75,20 @@ type AgentClient struct {
 	activityRenameCount   uint32
 	activityDistinctPaths uint32
 	lastActivityAtUnix    int64
-	methodCallsTotal      atomic.Uint64
-	httpRequestsTotal     atomic.Uint64
-	tcpConnectionsTotal   atomic.Uint64
+	// lastInteractionUnix is when the user last did something observable:
+	// terminal input, a proxied connection or byte, a method call, a
+	// run-command, or enough sustained CPU to look like work in progress.
+	// Merged into the reported lastActivityAtUnix so the server's idle
+	// detection (template idle timeout) sees it; on pro the filesystem
+	// watcher feeds the same reported field.
+	lastInteractionUnix atomic.Int64
+	methodCallsTotal    atomic.Uint64
+	httpRequestsTotal   atomic.Uint64
+	tcpConnectionsTotal atomic.Uint64
+	// activeMethodCalls is the number of method calls currently executing
+	// (queued on the serial slot count as active). Reported to the servers
+	// so an expiring pool lease can wait for in-flight work to finish.
+	activeMethodCalls atomic.Int64
 
 	methodMu     sync.RWMutex
 	methodServer *methodServerProcess
@@ -123,6 +134,9 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		healthy:              true,
 		logSinkFormat:        defaultLogSinkFormat(),
 	}
+	// A freshly started space is not idle: seed the interaction clock so the
+	// first report carries a non-zero activity timestamp.
+	client.lastInteractionUnix.Store(time.Now().UTC().Unix())
 	if port, err := strconv.Atoi(os.Getenv("KNOT_LOG_SINK_PORT")); err == nil && port > 0 && port < 65536 {
 		client.logSinkPort = port
 	}
@@ -319,14 +333,31 @@ func (c *AgentClient) GetServerURL() string {
 	return c.serverURL
 }
 
+// MarkActivity records user-visible activity for idle detection. Safe on a
+// nil client and cheap enough for per-chunk call sites (an atomic store of a
+// unix second).
+func (c *AgentClient) MarkActivity() {
+	if c == nil {
+		return
+	}
+	c.lastInteractionUnix.Store(time.Now().UTC().Unix())
+}
+
 func (c *AgentClient) snapshotActivityState() (uint32, uint32, uint32, uint32, uint32, int64) {
 	c.activityMu.RLock()
-	defer c.activityMu.RUnlock()
+	lastActivityAtUnix := c.lastActivityAtUnix
+	c.activityMu.RUnlock()
+
+	// Interactions and (on pro) filesystem writes both count as activity;
+	// report whichever is more recent.
+	if interaction := c.lastInteractionUnix.Load(); interaction > lastActivityAtUnix {
+		lastActivityAtUnix = interaction
+	}
 
 	return c.activityWriteCount,
 		c.activityCreateCount,
 		c.activityDeleteCount,
 		c.activityRenameCount,
 		c.activityDistinctPaths,
-		c.lastActivityAtUnix
+		lastActivityAtUnix
 }

@@ -261,6 +261,24 @@ func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space,
 	return spaces, nil
 }
 
+func (db *MySQLDriver) GetSpacesByPoolId(poolId string) ([]*model.Space, error) {
+	var spaces []*model.Space
+	err := db.read("spaces", &spaces, nil, "pool_id = ? AND parent_space_id = '' ORDER BY name ASC", poolId)
+	if err != nil {
+		return nil, err
+	}
+	for _, space := range spaces {
+		space.NormalizeShares()
+		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return spaces, nil
+}
+
 func (db *MySQLDriver) GetSpaces() ([]*model.Space, error) {
 	var spaces []*model.Space
 	err := db.read("spaces", &spaces, nil, "parent_space_id = '' ORDER BY name ASC")

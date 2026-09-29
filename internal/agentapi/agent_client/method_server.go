@@ -282,6 +282,9 @@ func (c *AgentClient) CallMethod(req msg.CallMethodRequest) methods.JSONRPCRespo
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 
+	c.activeMethodCalls.Add(1)
+	defer c.activeMethodCalls.Add(-1)
+
 	release, acquireErr := server.acquire(ctx)
 	if acquireErr != nil {
 		return methodError(req.ID, -32000, acquireErr.Error())
@@ -292,6 +295,7 @@ func (c *AgentClient) CallMethod(req msg.CallMethodRequest) methods.JSONRPCRespo
 	err := server.client.Call(ctx, req.Method, req.Params, &rawResult)
 	if err == nil {
 		c.methodCallsTotal.Add(1)
+		c.MarkActivity()
 		return methods.JSONRPCResponse{
 			JSONRPC: "2.0",
 			Result:  toJSONResult(rawResult),
@@ -304,6 +308,7 @@ func (c *AgentClient) CallMethod(req msg.CallMethodRequest) methods.JSONRPCRespo
 	var rpcErr *jsonrpc.Error
 	if errors.As(err, &rpcErr) {
 		c.methodCallsTotal.Add(1)
+		c.MarkActivity()
 		return methods.JSONRPCResponse{
 			JSONRPC: "2.0",
 			Error:   &methods.JSONRPCError{Code: rpcErr.Code, Message: rpcErr.Message},

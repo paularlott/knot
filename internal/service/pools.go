@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -8,12 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/health"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -22,23 +26,47 @@ import (
 const (
 	PoolSweepInterval = 15 * time.Second
 	PoolReapInterval  = 1 * time.Hour
+	// PoolLeaseMaxWait bounds the server-side long-poll of Acquire.
+	PoolLeaseMaxWait = 300 * time.Second
 )
+
+// Lease lifecycle errors. The API layer maps these onto status codes.
+var (
+	ErrPoolLeasesDisabled = errors.New("pool leases are not enabled — set lease_max_time on the pool first (edit the pool, or PUT /api/pools/{pool})")
+	ErrPoolNotActive      = errors.New("pool is not active")
+	ErrPoolExhausted      = errors.New("no free pool member available")
+	ErrLeaseNotFound      = errors.New("lease not found")
+	ErrLeaseNotHolder     = errors.New("lease is held by another user")
+	ErrLeaseExtendLimit   = errors.New("lease extension limit reached")
+	ErrLeaseDuration      = errors.New("lease duration exceeds the pool maximum")
+)
+
+// leaseView is the in-memory routing view of an exclusive member lease. It
+// lets method routing and the port proxy exclude leased members without a
+// database read on the hot path; the space record is the durable truth and
+// both are reconciled by the sweep and gossip.
+type leaseView struct {
+	userId    string
+	expiresAt int64 // unix seconds, 0 = never expires
+}
 
 type PoolService struct {
 	mu               sync.Mutex
-	pendingDeletions map[string]time.Time // space ID -> first seen as excess stopped
-	drained          map[string]bool      // space ID -> currently drained by pool sweep
-	rrCounters       map[string]int       // pool ID -> round-robin cursor
-	createMu         sync.Mutex           // serializes member ordinal allocation
+	pendingDeletions map[string]time.Time  // space ID -> first seen as excess stopped
+	drained          map[string]bool       // space ID -> currently drained by pool sweep
+	leases           map[string]*leaseView // space ID -> held (or draining) lease
+	rrCounters       map[string]int        // pool ID -> round-robin cursor
+	createMu         sync.Mutex            // serializes member ordinal allocation
 }
 
 type PoolSessionState struct {
-	CPUPercent       float64
-	MemoryUsedBytes  uint64
-	MemoryLimitBytes uint64
-	MethodRPS        float64
-	HTTPRPS          float64
-	TCPRPS           float64
+	CPUPercent        float64
+	MemoryUsedBytes   uint64
+	MemoryLimitBytes  uint64
+	MethodRPS         float64
+	HTTPRPS           float64
+	TCPRPS            float64
+	ActiveMethodCalls int64
 }
 
 var (
@@ -62,6 +90,7 @@ func GetPoolService() *PoolService {
 		poolService = &PoolService{
 			pendingDeletions: make(map[string]time.Time),
 			drained:          make(map[string]bool),
+			leases:           make(map[string]*leaseView),
 			rrCounters:       make(map[string]int),
 		}
 	}
@@ -133,13 +162,15 @@ func (s *PoolService) Info(pool *model.PoolDefinition, user *model.User) (apicli
 	}
 
 	info := apiclient.PoolInfo{
-		Id:              pool.Id,
-		Name:            pool.Name,
-		TemplateId:      pool.TemplateId,
-		StartupScriptId: pool.StartupScriptId,
-		DesiredCount:    pool.DesiredCount,
-		Active:          pool.Active,
-		Members:         []apiclient.PoolMemberInfo{},
+		Id:                 pool.Id,
+		Name:               pool.Name,
+		TemplateId:         pool.TemplateId,
+		StartupScriptId:    pool.StartupScriptId,
+		DesiredCount:       pool.DesiredCount,
+		Active:             pool.Active,
+		LeaseMaxTime:       pool.LeaseMaxTime,
+		LeaseMaxExtensions: pool.LeaseMaxExtensions,
+		Members:            []apiclient.PoolMemberInfo{},
 	}
 
 	var cpuTotal, memTotal float64
@@ -178,6 +209,16 @@ func (s *PoolService) memberInfo(space *model.Space) apiclient.PoolMemberInfo {
 		IsPending:  space.IsPending,
 		IsDeleting: space.IsDeleting,
 		IsDeployed: space.IsDeployed,
+	}
+	if space.LeaseId != "" {
+		member.LeaseState = "draining"
+		if space.LeaseActive() {
+			member.LeaseState = "active"
+		}
+		member.LeaseExpiresAt = space.LeaseExpiresAt
+		if holder, err := database.GetInstance().GetUser(space.LeaseUserId); err == nil && holder != nil {
+			member.LeaseHolder = holder.Username
+		}
 	}
 	session := getPoolSession(space.Id)
 	if session != nil {
@@ -232,6 +273,15 @@ func (s *PoolService) validate(pool *model.PoolDefinition) error {
 		if _, err := db.GetScript(pool.StartupScriptId); err != nil {
 			return fmt.Errorf("startup script not found")
 		}
+	}
+	if pool.LeaseMaxTime < -1 {
+		return fmt.Errorf("lease_max_time must be -1 (no timeout), 0 (disabled) or a positive number of seconds")
+	}
+	if pool.LeaseMaxExtensions < -1 {
+		return fmt.Errorf("lease_max_extensions must be -1 (unlimited), 0 (forbidden) or a positive count")
+	}
+	if pool.LeaseMaxExtensions != 0 && pool.LeaseMaxTime == 0 {
+		return fmt.Errorf("lease_max_extensions requires leases to be enabled (lease_max_time)")
 	}
 	return nil
 }
@@ -309,6 +359,609 @@ func (s *PoolService) savePool(pool *model.PoolDefinition) error {
 }
 
 // ---------------------------------------------------------------------------
+// Exclusive member leases
+// ---------------------------------------------------------------------------
+
+// SaveLeaseConfig validates and persists a change to the pool's lease
+// options without touching membership.
+func (s *PoolService) SaveLeaseConfig(pool *model.PoolDefinition) error {
+	if err := s.validate(pool); err != nil {
+		return err
+	}
+	return s.savePool(pool)
+}
+
+// InitLeases populates the in-memory lease view from the database. Called
+// once at server start so routing exclusion survives restarts; afterwards
+// the view is maintained by lease operations, their gossip, and space
+// merges (SyncSpaceLease).
+func (s *PoolService) InitLeases() {
+	spaces, err := database.GetInstance().GetSpaces()
+	if err != nil {
+		return
+	}
+	for _, space := range spaces {
+		if space.LeaseId != "" {
+			s.SyncSpaceLease(space)
+		}
+	}
+}
+
+// SyncSpaceLease updates the in-memory lease view from a space record.
+// Called at startup, on lease operations, and when a gossiped space merge
+// changes a member's lease fields — that keeps servers that joined late or
+// missed a lease gossip push converged with the durable truth.
+func (s *PoolService) SyncSpaceLease(space *model.Space) {
+	if space == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if space.LeaseId == "" {
+		delete(s.leases, space.Id)
+		return
+	}
+	var expiresAt int64
+	if space.LeaseExpiresAt != nil {
+		expiresAt = space.LeaseExpiresAt.Unix()
+	}
+	s.leases[space.Id] = &leaseView{userId: space.LeaseUserId, expiresAt: expiresAt}
+}
+
+// IsLeased reports whether the space is currently held by an exclusive
+// lease — including one past its expiry that is still draining in-flight
+// work: the member only returns to shared routing once the sweep reclaims
+// the lease. Wired into the methods registry (SetLeaseChecker) so leased
+// pool members are excluded from shared method routing.
+func (s *PoolService) IsLeased(spaceID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.leases[spaceID] != nil
+}
+
+// MarkLeased sets the local lease view without gossiping. Called by the
+// cluster handler on peer nodes receiving a lease gossip push.
+func (s *PoolService) MarkLeased(spaceID, userId string, expiresAtUnix int64) {
+	s.mu.Lock()
+	s.leases[spaceID] = &leaseView{userId: userId, expiresAt: expiresAtUnix}
+	s.mu.Unlock()
+}
+
+// MarkLeaseCleared removes the local lease view without gossiping. Called
+// by the cluster handler when the leader reclaims an ended lease.
+func (s *PoolService) MarkLeaseCleared(spaceID string) {
+	s.mu.Lock()
+	delete(s.leases, spaceID)
+	s.mu.Unlock()
+}
+
+// resolveLeaseDuration turns a requested duration into the effective one,
+// honouring the pool's configured maximum. requested: 0 = use the pool
+// default, -1 = never-expiring (unlimited pools only), >0 = a concrete
+// duration bounded by the pool maximum. Returns never=true for an
+// unexpiring lease.
+func resolveLeaseDuration(poolMax, requested int) (seconds int, never bool, err error) {
+	if requested < -1 {
+		return 0, false, ErrLeaseDuration
+	}
+	if requested == -1 {
+		if poolMax != -1 {
+			return 0, false, ErrLeaseDuration
+		}
+		return 0, true, nil
+	}
+	if requested == 0 {
+		if poolMax == -1 {
+			return 0, true, nil
+		}
+		return poolMax, false, nil
+	}
+	if poolMax > 0 && requested > poolMax {
+		return 0, false, ErrLeaseDuration
+	}
+	return requested, false, nil
+}
+
+// Acquire grants the caller an exclusive lease on one free member of the
+// pool. durationSeconds follows resolveLeaseDuration; waitSeconds
+// optionally long-polls (bounded by PoolLeaseMaxWait) for a member to free
+// up before returning ErrPoolExhausted.
+func (s *PoolService) Acquire(ctx context.Context, pool *model.PoolDefinition, user *model.User, durationSeconds, waitSeconds int) (*apiclient.LeaseInfo, error) {
+	if pool.LeaseMaxTime == 0 {
+		return nil, ErrPoolLeasesDisabled
+	}
+	if !pool.Active {
+		return nil, ErrPoolNotActive
+	}
+	if _, _, err := resolveLeaseDuration(pool.LeaseMaxTime, durationSeconds); err != nil {
+		return nil, err
+	}
+	if waitSeconds < 0 {
+		waitSeconds = 0
+	}
+	if waitSeconds > int(PoolLeaseMaxWait.Seconds()) {
+		waitSeconds = int(PoolLeaseMaxWait.Seconds())
+	}
+
+	deadline := time.Now().Add(time.Duration(waitSeconds) * time.Second)
+	for {
+		info, err := s.tryAcquire(pool, user, durationSeconds)
+		if err == nil {
+			return info, nil
+		}
+		if !errors.Is(err, ErrPoolExhausted) {
+			return nil, err
+		}
+		if time.Now().After(deadline) {
+			return nil, ErrPoolExhausted
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// tryAcquire is one Acquire attempt: pick a free healthy member
+// (round-robin, sharing the routing cursor), take the space's mutation
+// lock, re-validate under the lock, then persist and gossip the lease.
+func (s *PoolService) tryAcquire(pool *model.PoolDefinition, user *model.User, durationSeconds int) (*apiclient.LeaseInfo, error) {
+	db := database.GetInstance()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		return nil, err
+	}
+
+	var candidates []*model.Space
+	for _, sp := range poolMembers(pool, spaces) {
+		if sp.IsDeleting || sp.IsDeleted || sp.LeaseId != "" {
+			continue
+		}
+		if !sp.IsDeployed || sp.IsPending {
+			continue
+		}
+		if h := health.Get(sp.Id); h != nil && !h.Healthy {
+			continue
+		}
+		candidates = append(candidates, sp)
+	}
+	if len(candidates) == 0 {
+		return nil, ErrPoolExhausted
+	}
+
+	// Rotate the candidate order round-robin so repeated acquires spread
+	// over the free members like routing does.
+	s.mu.Lock()
+	idx := s.rrCounters[pool.Id] % len(candidates)
+	s.rrCounters[pool.Id] = (idx + 1) % len(candidates)
+	s.mu.Unlock()
+	ordered := append(candidates[idx:], candidates[:idx]...)
+
+	for _, sp := range ordered {
+		transport := GetTransport()
+		token := ""
+		if transport != nil {
+			if token = transport.LockResource(sp.Id); token == "" {
+				continue // contended; try the next member
+			}
+		}
+
+		// Re-fetch under the lock and re-validate: a concurrent acquire or
+		// a sweep decision may have claimed the member meanwhile.
+		fresh, err := db.GetSpace(sp.Id)
+		if err != nil || fresh == nil || fresh.IsDeleted || fresh.IsDeleting || fresh.LeaseId != "" {
+			if transport != nil {
+				transport.UnlockResource(sp.Id, token)
+			}
+			continue
+		}
+
+		seconds, never, err := resolveLeaseDuration(pool.LeaseMaxTime, durationSeconds)
+		if err != nil {
+			if transport != nil {
+				transport.UnlockResource(sp.Id, token)
+			}
+			return nil, err
+		}
+
+		now := time.Now().UTC()
+		leaseId, err := uuid.NewV7()
+		if err != nil {
+			if transport != nil {
+				transport.UnlockResource(sp.Id, token)
+			}
+			return nil, err
+		}
+		fresh.LeaseId = leaseId.String()
+		fresh.LeaseUserId = user.Id
+		fresh.LeaseExtensions = 0
+		if never {
+			fresh.LeaseExpiresAt = nil
+		} else {
+			expiresAt := now.Add(time.Duration(seconds) * time.Second)
+			fresh.LeaseExpiresAt = &expiresAt
+		}
+		fresh.UpdatedAt = hlc.Now()
+		fields := []string{"LeaseId", "LeaseUserId", "LeaseExpiresAt", "LeaseExtensions", "UpdatedAt"}
+		if err := db.SaveSpace(fresh, fields); err != nil {
+			if transport != nil {
+				transport.UnlockResource(sp.Id, token)
+			}
+			return nil, err
+		}
+
+		s.SyncSpaceLease(fresh)
+		if transport != nil {
+			transport.GossipSpace(fresh)
+			transport.GossipPoolLease(fresh.Id, fresh.LeaseUserId, leaseExpiryUnix(fresh))
+		}
+		sse.PublishSpaceChanged(fresh.Id, fresh.UserId)
+
+		if transport != nil {
+			transport.UnlockResource(sp.Id, token)
+		}
+		return s.leaseInfo(pool, fresh)
+	}
+	return nil, ErrPoolExhausted
+}
+
+// leaseTarget resolves a held lease by its member space — id or
+// owner-scoped name — and returns the space plus its pool. The space is the
+// lease's identity: a member holds at most one lease, and callers work with
+// the space they acquired (its name is what they ssh to), never a lease id.
+func (s *PoolService) leaseTarget(user *model.User, spaceIdOrName string) (*model.Space, *model.PoolDefinition, error) {
+	db := database.GetInstance()
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceIdOrName) {
+		space, err = db.GetSpace(spaceIdOrName)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceIdOrName)
+	}
+	if err != nil || space == nil || space.IsDeleted {
+		return nil, nil, ErrLeaseNotFound
+	}
+	if space.PoolId == "" {
+		return nil, nil, fmt.Errorf("space %q is not a pool member", spaceIdOrName)
+	}
+	if space.LeaseId == "" {
+		return nil, nil, fmt.Errorf("no lease held on %q", spaceIdOrName)
+	}
+	pool, err := db.GetPoolDefinition(space.PoolId)
+	if err != nil || pool == nil || pool.IsDeleted {
+		return nil, nil, fmt.Errorf("pool not found")
+	}
+	return space, pool, nil
+}
+
+// Extend renews the lease held on a member space: the new deadline is
+// now + duration (or never, on unlimited pools), bounded by the pool's
+// extension-count cap. Allowed until the lease has been reclaimed —
+// including while an expired lease is still draining in-flight work, which
+// rescues a lease that ran out by accident.
+func (s *PoolService) Extend(user *model.User, spaceIdOrName string, durationSeconds int) (*apiclient.LeaseInfo, error) {
+	space, pool, err := s.leaseTarget(user, spaceIdOrName)
+	if err != nil {
+		return nil, err
+	}
+	if pool.LeaseMaxTime == 0 {
+		// Leasing was disabled after this lease was granted: the lease
+		// ends naturally (expiry or release), but it can't be renewed.
+		return nil, ErrPoolLeasesDisabled
+	}
+	if pool.LeaseMaxExtensions == 0 {
+		return nil, ErrLeaseExtendLimit
+	}
+	if pool.LeaseMaxExtensions > 0 && space.LeaseExtensions >= pool.LeaseMaxExtensions {
+		return nil, ErrLeaseExtendLimit
+	}
+	seconds, never, err := resolveLeaseDuration(pool.LeaseMaxTime, durationSeconds)
+	if err != nil {
+		return nil, err
+	}
+
+	db := database.GetInstance()
+	transport := GetTransport()
+	token := ""
+	if transport != nil {
+		if token = transport.LockResource(space.Id); token == "" {
+			return nil, fmt.Errorf("member is busy with another operation, retry shortly") // lock unavailable
+		}
+		defer transport.UnlockResource(space.Id, token)
+	}
+
+	// Re-fetch under the lock and re-validate: the lease may have been
+	// reclaimed, extended past its cap, or (in a cluster) moved on since
+	// the pre-lock lookup loaded its copy.
+	fresh, err := db.GetSpace(space.Id)
+	if err != nil || fresh == nil || fresh.LeaseId == "" {
+		return nil, ErrLeaseNotFound
+	}
+	if fresh.LeaseUserId != user.Id {
+		return nil, ErrLeaseNotHolder
+	}
+	if pool.LeaseMaxExtensions > 0 && fresh.LeaseExtensions >= pool.LeaseMaxExtensions {
+		return nil, ErrLeaseExtendLimit
+	}
+
+	now := time.Now().UTC()
+	if never {
+		fresh.LeaseExpiresAt = nil
+	} else {
+		expiresAt := now.Add(time.Duration(seconds) * time.Second)
+		fresh.LeaseExpiresAt = &expiresAt
+	}
+	fresh.LeaseExtensions++
+	fresh.UpdatedAt = hlc.Now()
+	fields := []string{"LeaseExpiresAt", "LeaseExtensions", "UpdatedAt"}
+	if err := db.SaveSpace(fresh, fields); err != nil {
+		return nil, err
+	}
+
+	s.SyncSpaceLease(fresh)
+	if transport != nil {
+		transport.GossipSpace(fresh)
+		transport.GossipPoolLease(fresh.Id, fresh.LeaseUserId, leaseExpiryUnix(fresh))
+	}
+	sse.PublishSpaceChanged(fresh.Id, fresh.UserId)
+	return s.leaseInfo(pool, fresh)
+}
+
+// Release ends the lease held on a member space early. The member does not
+// re-enter shared routing immediately: it stays excluded until in-flight
+// method work has drained, then the sweep reclaims it (normally one sweep).
+func (s *PoolService) Release(user *model.User, spaceIdOrName string) (*apiclient.LeaseInfo, error) {
+	space, pool, err := s.leaseTarget(user, spaceIdOrName)
+	if err != nil {
+		return nil, err
+	}
+	if space.LeaseUserId != user.Id {
+		return nil, ErrLeaseNotHolder
+	}
+
+	db := database.GetInstance()
+	transport := GetTransport()
+	token := ""
+	if transport != nil {
+		if token = transport.LockResource(space.Id); token == "" {
+			return nil, fmt.Errorf("member is busy with another operation, retry shortly") // lock unavailable
+		}
+		defer transport.UnlockResource(space.Id, token)
+	}
+
+	fresh, err := db.GetSpace(space.Id)
+	if err != nil || fresh == nil || fresh.LeaseId == "" {
+		return nil, ErrLeaseNotFound
+	}
+	if fresh.LeaseUserId != user.Id {
+		return nil, ErrLeaseNotHolder
+	}
+
+	now := time.Now().UTC()
+	fresh.LeaseExpiresAt = &now
+	fresh.UpdatedAt = hlc.Now()
+	if err := db.SaveSpace(fresh, []string{"LeaseExpiresAt", "UpdatedAt"}); err != nil {
+		return nil, err
+	}
+
+	s.SyncSpaceLease(fresh)
+	if transport != nil {
+		transport.GossipSpace(fresh)
+		transport.GossipPoolLease(fresh.Id, fresh.LeaseUserId, leaseExpiryUnix(fresh))
+	}
+	sse.PublishSpaceChanged(fresh.Id, fresh.UserId)
+	return s.leaseInfo(pool, fresh)
+}
+
+// ReleaseAndDestroy ends the lease held on a member space by destroying it:
+// the space goes through the normal drain → two-phase delete, and a fresh
+// replacement member is created (and started) immediately so the next
+// acquire gets a clean space without waiting for the sweep. The returned
+// LeaseInfo carries state "destroying" describing the ended lease.
+func (s *PoolService) ReleaseAndDestroy(user *model.User, spaceIdOrName string) (*apiclient.LeaseInfo, error) {
+	space, pool, err := s.leaseTarget(user, spaceIdOrName)
+	if err != nil {
+		return nil, err
+	}
+	if pool.LeaseMaxTime == 0 {
+		return nil, ErrPoolLeasesDisabled
+	}
+	if space.LeaseUserId != user.Id {
+		return nil, ErrLeaseNotHolder
+	}
+
+	db := database.GetInstance()
+	transport := GetTransport()
+	token := ""
+	if transport != nil {
+		if token = transport.LockResource(space.Id); token == "" {
+			return nil, fmt.Errorf("member is busy with another operation, retry shortly") // lock unavailable
+		}
+		defer transport.UnlockResource(space.Id, token)
+	}
+
+	fresh, err := db.GetSpace(space.Id)
+	if err != nil || fresh == nil || fresh.LeaseId == "" {
+		return nil, ErrLeaseNotFound
+	}
+	if fresh.LeaseUserId != user.Id {
+		return nil, ErrLeaseNotHolder
+	}
+
+	// Snapshot the lease description before the fields are cleared.
+	info, err := s.leaseInfo(pool, fresh)
+	if err != nil {
+		return nil, err
+	}
+	info.State = "destroying"
+
+	// End the lease and mark the member for deletion in one write; the
+	// drain inside stops new routing while the container teardown runs.
+	fresh.LeaseClear()
+	fresh.IsDeleting = true
+	fresh.UpdatedAt = hlc.Now()
+	fields := []string{"LeaseId", "LeaseUserId", "LeaseExpiresAt", "LeaseExtensions", "IsDeleting", "UpdatedAt"}
+	if err := db.SaveSpace(fresh, fields); err != nil {
+		return nil, err
+	}
+
+	s.MarkLeaseCleared(fresh.Id)
+	if transport != nil {
+		transport.GossipSpace(fresh)
+		transport.GossipPoolLeaseClear(fresh.Id)
+	}
+	sse.PublishSpaceChanged(fresh.Id, fresh.UserId)
+
+	s.drain(fresh.Id)
+	GetContainerService().DeleteSpace(fresh)
+
+	// Replace the member now rather than leaving it to the next sweep, so a
+	// follow-up acquire with a short wait finds a fresh space quickly.
+	owner, err := db.GetUser(pool.CreatedUserId)
+	if pool.Active && err == nil && owner != nil {
+		if createErr := s.createPoolSpace(pool, owner); createErr != nil {
+			// The sweep retries creation; report it but don't fail the
+			// release, which already succeeded.
+			log.Warn("lease destroy: replacement member creation deferred to sweep", "pool", pool.Name, "error", createErr.Error())
+		}
+	}
+
+	return info, nil
+}
+
+// ListLeases returns the pool's held leases — active plus draining.
+func (s *PoolService) ListLeases(pool *model.PoolDefinition, user *model.User) ([]apiclient.LeaseInfo, error) {
+	db := database.GetInstance()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		return nil, err
+	}
+	leases := []apiclient.LeaseInfo{}
+	for _, sp := range poolMembers(pool, spaces) {
+		if sp.LeaseId == "" {
+			continue
+		}
+		holder, err := db.GetUser(sp.LeaseUserId)
+		if err != nil {
+			holder = nil
+		}
+		leases = append(leases, s.leaseInfoFor(pool, sp, holder))
+	}
+	return leases, nil
+}
+
+func leaseExpiryUnix(space *model.Space) int64 {
+	if space.LeaseExpiresAt == nil {
+		return 0 // never expires
+	}
+	return space.LeaseExpiresAt.Unix()
+}
+
+func (s *PoolService) leaseInfo(pool *model.PoolDefinition, space *model.Space) (*apiclient.LeaseInfo, error) {
+	holder, err := database.GetInstance().GetUser(space.LeaseUserId)
+	if err != nil {
+		holder = nil
+	}
+	info := s.leaseInfoFor(pool, space, holder)
+	return &info, nil
+}
+
+func (s *PoolService) leaseInfoFor(pool *model.PoolDefinition, space *model.Space, holder *model.User) apiclient.LeaseInfo {
+	state := "active"
+	if space.LeasePastExpiry() {
+		state = "draining"
+	}
+	username := ""
+	if holder != nil {
+		username = holder.Username
+	}
+	return apiclient.LeaseInfo{
+		PoolName:       pool.Name,
+		SpaceId:        space.Id,
+		SpaceName:      space.Name,
+		Username:       username,
+		ExpiresAt:      space.LeaseExpiresAt,
+		ExtensionsUsed: space.LeaseExtensions,
+		MaxExtensions:  pool.LeaseMaxExtensions,
+		State:          state,
+	}
+}
+
+// spaceBusy reports whether the space still has method work in flight —
+// either calls forwarded through this server's registry or, authoritatively,
+// calls executing in the space's agent regardless of which server forwarded
+// them. Agents that predate this reporting show zero.
+func (s *PoolService) spaceBusy(spaceID string) bool {
+	if methods.DefaultRegistry().InFlightForSpace(spaceID) > 0 {
+		return true
+	}
+	if session := getPoolSession(spaceID); session != nil && session.ActiveMethodCalls > 0 {
+		return true
+	}
+	return false
+}
+
+// reclaimLease clears a lease from the space record and the routing view,
+// returning the member to the shared pool. Leader-sweep only. Takes the same
+// distributed mutation lock as acquire/extend/release and re-validates on a
+// fresh read under it — otherwise a concurrent extend on another server (or
+// an API goroutine here) could land between the sweep's load and its write,
+// and the reclaim would clobber the renewed lease with stale cleared fields.
+func (s *PoolService) reclaimLease(space *model.Space) {
+	transport := GetTransport()
+	token := ""
+	if transport != nil {
+		if token = transport.LockResource(space.Id); token == "" {
+			return // contended (an acquire/extend/release holds it); retry next sweep
+		}
+		defer transport.UnlockResource(space.Id, token)
+	}
+
+	fresh, err := database.GetInstance().GetSpace(space.Id)
+	if err != nil || fresh == nil {
+		return // retry next sweep
+	}
+	if fresh.LeaseId == "" {
+		// Already reclaimed elsewhere — just converge the local routing view.
+		s.MarkLeaseCleared(space.Id)
+		return
+	}
+	if !fresh.LeasePastExpiry() || s.spaceBusy(fresh.Id) {
+		return // extended since the sweep loaded its copy, or still draining
+	}
+
+	fresh.LeaseClear()
+	fresh.UpdatedAt = hlc.Now()
+	fields := []string{"LeaseId", "LeaseUserId", "LeaseExpiresAt", "LeaseExtensions", "UpdatedAt"}
+	if err := database.GetInstance().SaveSpace(fresh, fields); err != nil {
+		return
+	}
+	s.MarkLeaseCleared(fresh.Id)
+	if transport != nil {
+		transport.GossipSpace(fresh)
+		transport.GossipPoolLeaseClear(fresh.Id)
+	}
+	sse.PublishSpaceChanged(fresh.Id, fresh.UserId)
+}
+
+// reconcileLeases reclaims ended leases: past expiry (or released early),
+// a member returns to the shared pool as soon as in-flight method work has
+// drained. Never-expiring leases are only ended by Release, which sets an
+// expiry and funnels into this same path.
+func (s *PoolService) reconcileLeases(members []*model.Space) {
+	for _, space := range members {
+		if !space.LeasePastExpiry() {
+			continue
+		}
+		if s.spaceBusy(space.Id) {
+			continue
+		}
+		s.reclaimLease(space)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Lifecycle operations
 // ---------------------------------------------------------------------------
 
@@ -356,15 +1009,23 @@ func (s *PoolService) Start(pool *model.PoolDefinition, user *model.User) error 
 }
 
 func (s *PoolService) Stop(pool *model.PoolDefinition, user *model.User) error {
+	// A stop drains and stops every member, which would yank it from under
+	// the lease holder; require leases to be ended first.
+	db := database.GetInstance()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		return err
+	}
+	for _, space := range poolMembers(pool, spaces) {
+		if space.LeaseActive() {
+			return fmt.Errorf("pool has active leases — release them before stopping the pool")
+		}
+	}
+
 	pool.Active = false
 	pool.UpdatedUserId = user.Id
 	pool.UpdatedAt = hlc.Now()
 	if err := s.savePool(pool); err != nil {
-		return err
-	}
-	db := database.GetInstance()
-	spaces, err := db.GetSpaces()
-	if err != nil {
 		return err
 	}
 	for _, space := range poolMembers(pool, spaces) {
@@ -532,6 +1193,10 @@ func (s *PoolService) SweepOnce() error {
 			continue
 		}
 		members := poolMembers(pool, spaces)
+		// Reclaim ended leases first (works for stopped pools too): once a
+		// member is back its routing exclusion lifts and it counts as a
+		// normal keeper/shrink candidate again.
+		s.reconcileLeases(members)
 		if pool.IsDeleted {
 			s.reconcileDeletedPool(members)
 			continue
@@ -576,9 +1241,12 @@ func (s *PoolService) reconcileStoppedPool(pool *model.PoolDefinition, members [
 		}
 	}
 
-	// Stop any still-deployed members (drain first to stop new traffic)
+	// Stop any still-deployed members (drain first to stop new traffic).
+	// Leased members are left alone until their lease drains — normally
+	// impossible (Stop refuses with active leases) but kept as a guard
+	// against races.
 	for _, sp := range members {
-		if sp.IsDeployed {
+		if sp.IsDeployed && sp.LeaseId == "" {
 			s.drain(sp.Id)
 			_ = GetContainerService().StopSpace(sp)
 			return
@@ -589,6 +1257,9 @@ func (s *PoolService) reconcileStoppedPool(pool *model.PoolDefinition, members [
 	if len(members) > pool.DesiredCount {
 		excess := members[pool.DesiredCount:]
 		for _, sp := range excess {
+			if sp.LeaseId != "" {
+				continue // still leased or draining; the sweep retries later
+			}
 			_ = s.deletePoolSpace(sp)
 		}
 	}
@@ -626,7 +1297,7 @@ func (s *PoolService) reconcile(pool *model.PoolDefinition, members []*model.Spa
 	}
 
 	if len(members) > pool.DesiredCount {
-		s.handleExcess(members, pool.DesiredCount)
+		s.handleExcess(pool, members)
 		return
 	}
 
@@ -662,9 +1333,19 @@ func (s *PoolService) reconcile(pool *model.PoolDefinition, members []*model.Spa
 //
 // This allows a space to be reused (undrained + restarted) if DesiredCount
 // goes back up before the grace period expires.
-func (s *PoolService) handleExcess(members []*model.Space, desiredCount int) {
-	keepers := members[:desiredCount]
-	excess := members[desiredCount:]
+func (s *PoolService) handleExcess(pool *model.PoolDefinition, members []*model.Space) {
+	// Leased members are never shrink candidates — the lease outranks the
+	// shrink until it ends. Fill the keeper set with leased members first,
+	// then free members up to DesiredCount; the rest is the excess.
+	keepers := make([]*model.Space, 0, len(members))
+	var excess []*model.Space
+	for _, sp := range members {
+		if sp.LeaseId != "" || len(keepers) < pool.DesiredCount {
+			keepers = append(keepers, sp)
+		} else {
+			excess = append(excess, sp)
+		}
+	}
 
 	// Clear state for keepers — they're staying
 	for _, sp := range keepers {
@@ -915,21 +1596,23 @@ func (s *PoolService) MarkUndrained(spaceID string) {
 	s.mu.Unlock()
 }
 
-// PickMemberForRouting selects a healthy, deployed, non-drained member of the
-// pool using round-robin. Returns nil if no suitable member exists.
+// PickMemberForRouting selects a healthy, deployed, non-drained, non-leased
+// member of the pool using round-robin. Returns nil if no suitable member
+// exists. Exclusively leased members are skipped — the holder reaches its
+// member by the member's own name instead.
 func (s *PoolService) PickMemberForRouting(poolName, userId string) *model.Space {
 	db := database.GetInstance()
 	pool, err := db.GetPoolDefinitionByName(userId, poolName)
 	if err != nil || pool == nil || pool.IsDeleted {
 		return nil
 	}
-	spaces, err := db.GetSpaces()
+	spaces, err := db.GetSpacesByPoolId(pool.Id)
 	if err != nil {
 		return nil
 	}
 	var candidates []*model.Space
 	for _, sp := range spaces {
-		if sp.PoolId != pool.Id || sp.IsDeleted || sp.IsDeleting {
+		if sp.IsDeleted || sp.IsDeleting {
 			continue
 		}
 		if !sp.IsDeployed || sp.IsPending {
@@ -937,6 +1620,9 @@ func (s *PoolService) PickMemberForRouting(poolName, userId string) *model.Space
 		}
 		if s.isDrained(sp.Id) {
 			continue
+		}
+		if sp.LeaseId != "" {
+			continue // exclusively leased (or draining after the lease ended)
 		}
 		if h := health.Get(sp.Id); h != nil && !h.Healthy {
 			continue

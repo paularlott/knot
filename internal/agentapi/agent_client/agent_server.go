@@ -617,17 +617,17 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 
 		if s.agentClient.withTerminal {
-			startTerminal(stream, terminal.Shell)
+			startTerminal(stream, terminal.Shell, s.agentClient)
 		}
 
 	case byte(msg.CmdVSCodeTunnelTerminal):
 		if s.agentClient.withVSCodeTunnel {
-			startVSCodeTunnelTerminal(stream)
+			startVSCodeTunnelTerminal(stream, s.agentClient)
 		}
 
 	case byte(msg.CmdCodeServer):
 		if s.agentClient.withCodeServer {
-			agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", cfg.Port.CodeServer))
+			agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", cfg.Port.CodeServer), s.agentClient.MarkActivity)
 		}
 
 	case byte(msg.CmdProxyTCPPort):
@@ -646,11 +646,11 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		   		} */
 
 		s.agentClient.tcpConnectionsTotal.Add(1)
-		agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
+		agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port), s.agentClient.MarkActivity)
 
 	case byte(msg.CmdProxyVNC):
 		if cfg.Port.VNCHttp > 0 {
-			agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", cfg.Port.VNCHttp), "127.0.0.1", true)
+			agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", cfg.Port.VNCHttp), "127.0.0.1", true, s.agentClient.MarkActivity)
 		}
 
 	case byte(msg.CmdProxyHTTP):
@@ -663,10 +663,10 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		// Check if the port is allowed in the http map
 		if _, ok := s.agentClient.httpPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
 			s.agentClient.httpRequestsTotal.Add(1)
-			agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", httpPort.Port))
+			agentproxy.ProxyTcp(stream, fmt.Sprintf("%d", httpPort.Port), s.agentClient.MarkActivity)
 		} else if _, ok := s.agentClient.httpsPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
 			s.agentClient.httpRequestsTotal.Add(1)
-			agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName, true)
+			agentproxy.ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName, true, s.agentClient.MarkActivity)
 		} else {
 			log.Error("http port  is not allowed", "port", httpPort.Port)
 		}
@@ -688,6 +688,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 
 		if s.agentClient.withRunCommand {
+			s.agentClient.MarkActivity()
 			handleRunCommandExecution(stream, runCmd)
 		}
 

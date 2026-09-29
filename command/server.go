@@ -233,6 +233,12 @@ var ServerCmd = &cli.Command{
 			ConfigPath: []string{"server.script_fs_allowed_paths"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SCRIPT_FS_ALLOWED_PATHS"},
 		},
+		&cli.StringFlag{
+			Name:       "script-net-policy",
+			Usage:      "Path to a scriptling network policy TOML file (same schema as the scriptling CLI's --network-policy) restricting outbound access for server-side scripts (MCP tools, event sinks) via requests, wait_for, scriptling.ai and scriptling.mcp — https_only, allow_ip_literals, allow_loopback, allow_private_ips, allow_hosts, deny_hosts, allow_cidrs, deny_cidrs, dns_servers, client_timeout. Unset leaves outbound network access unrestricted.",
+			ConfigPath: []string{"server.script_net_policy"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SCRIPT_NET_POLICY"},
+		},
 		&cli.BoolFlag{
 			Name:         "disable-space-create",
 			Usage:        "Disable the ability to create spaces.",
@@ -909,6 +915,12 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		logger.Fatal("agent endpoint not given")
 	}
 
+	// Fail fast on a broken script-net-policy file rather than only on the
+	// first MCP tool call or event sink run.
+	if err := service.ValidateServerNetPolicy(); err != nil {
+		logger.Fatal("invalid script-net-policy", "error", err)
+	}
+
 	logger.Info("starting knot version", "version", build.Version)
 	logger.Info("starting on", "listen", listen)
 
@@ -1040,6 +1052,49 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		}
 	}
 
+	// Per-user tool providers for every consumer of the internal (chat) MCP
+	// server: the OpenAI endpoints, the web chat, and scriptling's knot.mcp
+	// transport below. Returned as a slice, not merged via
+	// mcp.NewMultiProvider: StandardHost's SourceScopedHost support needs to
+	// type-assert the remote server provider individually
+	// (mcp.GetToolProviders(ctx)), which a MultiProvider wrapper would hide
+	// behind its own GetTools/ExecuteTool.
+	scriptToolsProvider := func(ctx context.Context, user *model.User) []mcp.ToolProvider {
+		if user == nil {
+			return nil
+		}
+		providers := make([]mcp.ToolProvider, 0, 3)
+		if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
+			providers = append(providers, internal_mcp.NewScriptToolsProvider(user))
+		}
+		providers = append(providers, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user))
+		return providers
+	}
+
+	// Per-user skills for the same consumers: knot's database-backed skills
+	// served over the skills extension (skills/list, skills/get) with their
+	// SKILL.md files readable as skill:// resources. One provider fills both
+	// roles, so the entries and the reads stay ACL-identical.
+	skillProviders := func(ctx context.Context, user *model.User) (mcp.SkillProvider, mcp.ResourceProvider) {
+		if user == nil {
+			return nil, nil
+		}
+		provider := internal_mcp.NewSkillsProvider(user)
+		return provider, provider
+	}
+
+	// Scriptling's knot.mcp library calls these (api/chat/tools,
+	// api/chat/tools/call) through the in-process mux client. They resolve
+	// tools through the same internal server + per-user providers as the web
+	// chat, so scripts see the same MCP servers the chat can access —
+	// including the user's remote servers. Registered whenever the MCP
+	// server exists, not just when chat is enabled, because MCP tool scripts
+	// can call knot.mcp regardless.
+	if mcpServer != nil {
+		routes.Handle("GET /api/chat/tools", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(api.HandleListTools))))))
+		routes.Handle("POST /api/chat/tools/call", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(api.HandleCallTool))))))
+	}
+
 	// If AI chat enabled then initialize chat service
 	// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
 	var openAIClient ai.Client
@@ -1082,29 +1137,14 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 			logger.Info("OpenAI endpoints enabled for web chat")
 		}
 
-		// Create script tools provider for OpenAI endpoints
-		scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
-			if user == nil {
-				return nil
-			}
-			var scriptProvider mcp.ToolProvider
-			if user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts) {
-				scriptProvider = internal_mcp.NewScriptToolsProvider(user)
-			}
-			if mp := mcp.NewMultiProvider(scriptProvider, internal_mcp.NewMethodToolsProvider(user), internal_mcp.NewRemoteServerProvider(user)); mp != nil {
-				return mp
-			}
-			return nil
-		}
-
 		openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
 		// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
-		routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
-		routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
-		routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
-		routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
-		routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
-		routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
+		routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleGetModels))))))
+		routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
+		routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
+		routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleGetResponse))))))
+		routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
+		routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider, skillProviders)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
 
 		// Mount lmchatkit UI — uses lmchatkit.StandardHost (same as
 		// llmrouter) with the LLM endpoint configured in [server.chat].
@@ -1386,8 +1426,12 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 
 	service.GetPoolService().StartSweep()
 	service.GetPoolService().StartReaper()
+	service.GetPoolService().InitLeases()
 	methods.DefaultRegistry().SetDrainChecker(func(spaceID string) bool {
 		return service.GetPoolService().IsDrained(spaceID)
+	})
+	methods.DefaultRegistry().SetLeaseChecker(func(spaceID string) bool {
+		return service.GetPoolService().IsLeased(spaceID)
 	})
 
 	// Start the agent server
@@ -1532,6 +1576,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		Nameservers:          cmd.GetStringSlice("nameservers"),
 		MCPToolTimeout:       cmd.GetInt("mcp-tool-timeout"),
 		ScriptFSAllowedPaths: cmd.GetStringSlice("script-fs-allowed-paths"),
+		ScriptNetPolicyFile:  cmd.GetString("script-net-policy"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),

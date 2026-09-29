@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
@@ -14,7 +15,7 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
-func startTerminal(conn net.Conn, shell string) {
+func startTerminal(conn net.Conn, shell string, client *AgentClient) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.WithError(err).Error("failed to get home directory:")
@@ -59,10 +60,10 @@ func startTerminal(conn net.Conn, shell string) {
 		}
 	}()
 
-	runTerminal(conn, tty)
+	runTerminal(conn, tty, client)
 }
 
-func startVSCodeTunnelTerminal(conn net.Conn) {
+func startVSCodeTunnelTerminal(conn net.Conn, client *AgentClient) {
 
 	// Check requested shell exists, if not find one
 	var tty *os.File
@@ -99,10 +100,29 @@ func startVSCodeTunnelTerminal(conn net.Conn) {
 		}
 	}()
 
-	runTerminal(conn, tty)
+	runTerminal(conn, tty, client)
 }
 
-func runTerminal(conn net.Conn, tty *os.File) {
+func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
+	client.MarkActivity()
+
+	// An open-but-idle terminal sends no input to mark, but still counts as
+	// the space being in use: mark activity periodically until the session
+	// ends (the read loop below returns when the connection closes).
+	stopHeartbeat := make(chan struct{})
+	defer close(stopHeartbeat)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopHeartbeat:
+				return
+			case <-ticker.C:
+				client.MarkActivity()
+			}
+		}
+	}()
 
 	// tty to net
 	go func() {
@@ -161,8 +181,10 @@ func runTerminal(conn net.Conn, tty *os.File) {
 				log.Error("failed to write bytes to tty", "payloadSize", payloadSize)
 				return
 			}
+			client.MarkActivity()
 
 		} else if cmdTypeBuf[0] == msg.MSG_TERMINAL_RESIZE {
+			client.MarkActivity()
 			var terminalResize msg.TerminalWindowSize
 			if err := msg.ReadMessage(conn, &terminalResize); err != nil {
 				log.WithError(err).Error("reading terminal resize message:")

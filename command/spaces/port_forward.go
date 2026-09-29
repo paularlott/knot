@@ -3,6 +3,7 @@ package command_spaces
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
@@ -92,7 +93,11 @@ var PortForwardCmd = &cli.Command{
 			}
 		}
 
-		if !cmd.GetBool("force") {
+		// The target may be an own space (bare name), an own pool, or
+		// another user's space or pool as user--name (ports the target
+		// template marks public). Only own spaces can be running-checked
+		// here; the server resolves and authorizes the rest.
+		if !cmd.GetBool("force") && !strings.Contains(toSpace, "--") {
 			var toSpaceInfo *apiclient.SpaceInfo
 			for i := range spaces.Spaces {
 				if spaces.Spaces[i].Name == toSpace {
@@ -100,34 +105,20 @@ var PortForwardCmd = &cli.Command{
 					break
 				}
 			}
-			if toSpaceInfo == nil {
-				return fmt.Errorf("space '%s' not found", toSpace)
-			}
-			if !toSpaceInfo.IsDeployed || !toSpaceInfo.HasState {
+			if toSpaceInfo != nil && !toSpaceInfo.IsDeployed && !toSpaceInfo.HasState {
 				return fmt.Errorf("space '%s' is not running", toSpace)
 			}
 		}
 
 		spaceId := fromSpaceInfo.Id
 
-		// Resolve target space name to ID
-		var toSpaceId string
-		for i := range spaces.Spaces {
-			if spaces.Spaces[i].Name == toSpace {
-				toSpaceId = spaces.Spaces[i].Id
-				break
-			}
-		}
-		if toSpaceId == "" {
-			return fmt.Errorf("space '%s' not found", toSpace)
-		}
-
 		force := cmd.GetBool("force")
 
-		// Create the request (send target space ID)
+		// Send the target reference; the server resolves it (space, pool,
+		// user--name) and checks access.
 		request := &apiclient.PortForwardRequest{
 			LocalPort:  uint16(fromPort),
-			Space:      toSpaceId,
+			Space:      toSpace,
 			RemotePort: uint16(toPort),
 			Persistent: cmd.GetBool("persistent"),
 			Force:      force,
@@ -138,12 +129,11 @@ var PortForwardCmd = &cli.Command{
 		if err != nil {
 			if code == 401 {
 				return fmt.Errorf("failed to authenticate with server, check token")
-			} else if code == 403 {
-				return fmt.Errorf("no permission to forward ports")
-			} else if code == 404 {
-				return fmt.Errorf("space not found")
-			} else if code == 409 {
-				return fmt.Errorf("space is not running, only persistent forwards can be created for stopped spaces")
+			}
+			// Surface the server's reason (target not found, port not
+			// public, pool empty, target not running) when there is one.
+			if message := cmdutil.CleanAPIError(err); message != "" {
+				return fmt.Errorf("port forward failed: %s", message)
 			}
 			return fmt.Errorf("port forward failed: %w", err)
 		}

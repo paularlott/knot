@@ -19,6 +19,12 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
+// interactionCPUThresholdPercent is the CPU level above which the space is
+// considered busy rather than idle. Well above an idle daemon's load (the
+// agent itself plus sshd idle around 0-1%), well below a compile or test
+// run.
+const interactionCPUThresholdPercent = 5.0
+
 func (c *AgentClient) reportState() {
 	cfg := config.GetAgentConfig()
 
@@ -46,6 +52,11 @@ func (c *AgentClient) reportState() {
 		var hasVSCodeTunnel bool = false
 		var vscodeTunnelName string = ""
 		cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes := c.collectResourceUsage()
+		// Busy CPU looks like work in progress (a build, a test run) rather
+		// than an idle space, so it feeds idle detection.
+		if cpuPercent >= interactionCPUThresholdPercent {
+			c.MarkActivity()
+		}
 		activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, lastActivityAtUnix := c.snapshotActivityState()
 		activityBucketStartUnix := time.Now().UTC().Truncate(time.Minute).Unix()
 		activityBucketFinalized := false
@@ -167,7 +178,7 @@ func (c *AgentClient) reportState() {
 				healthy := c.healthy
 				c.healthMu.RUnlock()
 
-				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy, cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes, activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, activityBucketStartUnix, activityBucketFinalized, lastActivityAtUnix, c.methodCallsTotal.Load(), c.httpRequestsTotal.Load(), c.tcpConnectionsTotal.Load())
+				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy, cpuPercent, memoryUsedBytes, memoryLimitBytes, diskUsedBytes, diskLimitBytes, activityWriteCount, activityCreateCount, activityDeleteCount, activityRenameCount, activityDistinctPaths, activityBucketStartUnix, activityBucketFinalized, lastActivityAtUnix, c.methodCallsTotal.Load(), c.httpRequestsTotal.Load(), c.tcpConnectionsTotal.Load(), c.activeMethodCalls.Load())
 				if err != nil {
 					log.Error("failed to send state to server", "server", server.address)
 					server.reportingConn.Close()
