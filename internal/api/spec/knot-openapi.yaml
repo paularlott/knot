@@ -7646,6 +7646,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
         jobs:
           type: array
           items:
@@ -7896,6 +7901,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
         jobs:
           type: array
           items:
@@ -8067,6 +8077,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
         jobs:
           type: array
           items:
@@ -8241,6 +8256,11 @@ components:
           items:
             $ref: "#/components/schemas/TemplatePort"
           description: The ports defined by this template.
+        port_forwards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortForwardEntry"
+          description: Port forwards seeded into every space created from this template, connected automatically when the space starts. Targets are references — a space or pool name, or user--name for another user's public port.
         jobs:
           type: array
           items:
@@ -9558,6 +9578,24 @@ components:
           type: boolean
           example: false
           description: Create the forward even if the target space is not currently running. Does not persist unless persistent is also true.
+
+    PortForwardEntry:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 5432
+        space:
+          type: string
+          example: paul--shared-pg
+          description: The target reference — a space or pool name you own, user--name for another user's space or pool (public ports only), or a space ID.
+        remote_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 5432
 
     PortForwardInfo:
       type: object

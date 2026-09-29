@@ -38,9 +38,9 @@ func (a *AltNameEntry) Scan(value interface{}) error {
 }
 
 type PortForwardEntry struct {
-	LocalPort  uint16 `json:"local_port"`
-	Space      string `json:"space"`
-	RemotePort uint16 `json:"remote_port"`
+	LocalPort  uint16 `json:"local_port" yaml:"local_port"`
+	Space      string `json:"space" yaml:"space"`
+	RemotePort uint16 `json:"remote_port" yaml:"remote_port"`
 }
 
 // Value implements the driver.Valuer interface.

@@ -128,6 +128,12 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 		}
 	}
 
+	// Validate port forward wiring: references must be well formed so the
+	// seeded entries can resolve when the space starts.
+	if err := validateTemplatePortForwards(template.PortForwards); err != nil {
+		return err
+	}
+
 	// Validate groups exist
 	if err := s.validateGroups(template.Groups); err != nil {
 		return err
@@ -193,6 +199,12 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 		if port.Protocol != "tcp" && port.Protocol != "http" && port.Protocol != "https" {
 			return fmt.Errorf("port protocol must be one of tcp, http, https")
 		}
+	}
+
+	// Validate port forward wiring: references must be well formed so the
+	// seeded entries can resolve when the space starts.
+	if err := validateTemplatePortForwards(template.PortForwards); err != nil {
+		return err
 	}
 
 	// Validate groups exist
@@ -373,6 +385,28 @@ func (s *TemplateService) validateGroups(groups []string) error {
 		if _, err := db.GetGroup(groupId); err != nil {
 			return fmt.Errorf("group %s does not exist", groupId)
 		}
+	}
+	return nil
+}
+
+// validateTemplatePortForwards checks template port forward wiring: valid
+// target references, port ranges, unique local ports and a sane entry cap.
+func validateTemplatePortForwards(forwards []model.PortForwardEntry) error {
+	if len(forwards) > 16 {
+		return fmt.Errorf("at most 16 port forwards can be wired into a template")
+	}
+	seenLocal := make(map[uint16]bool, len(forwards))
+	for _, pf := range forwards {
+		if pf.LocalPort < 1 || pf.LocalPort > 65535 || pf.RemotePort < 1 || pf.RemotePort > 65535 {
+			return fmt.Errorf("port forward local and remote ports must be between 1 and 65535")
+		}
+		if !ValidForwardRef(pf.Space) {
+			return fmt.Errorf("port forward target %q must be a space or pool name, user--name, or a space ID", pf.Space)
+		}
+		if seenLocal[pf.LocalPort] {
+			return fmt.Errorf("port forward local port %d is wired more than once", pf.LocalPort)
+		}
+		seenLocal[pf.LocalPort] = true
 	}
 	return nil
 }

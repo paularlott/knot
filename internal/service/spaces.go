@@ -150,6 +150,13 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 		space.Jobs = append([]model.SpaceJob{}, template.Jobs...)
 	}
 
+	// Seed the template's port forward wiring the same way: the space owns
+	// its copy from creation, and the agent's restore-on-start replay
+	// connects each entry when the space boots.
+	if len(template.PortForwards) > 0 {
+		space.PortForwards = append([]model.PortForwardEntry{}, template.PortForwards...)
+	}
+
 	if err := s.ValidateDependencies(space); err != nil {
 		return err
 	}

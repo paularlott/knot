@@ -50,9 +50,10 @@ type TemplateExport struct {
 	HealthCheckMaxFailures   uint32 `yaml:"health_check_max_failures,omitempty"`
 	HealthCheckAutoRestart   bool   `yaml:"health_check_auto_restart,omitempty"`
 
-	DisableUserActivity bool                 `yaml:"disable_user_activity,omitempty"`
-	Ports               []model.TemplatePort `yaml:"ports,omitempty"`
-	Jobs                []model.SpaceJob     `yaml:"jobs,omitempty"`
+	DisableUserActivity bool                     `yaml:"disable_user_activity,omitempty"`
+	Ports               []model.TemplatePort     `yaml:"ports,omitempty"`
+	PortForwards        []model.PortForwardEntry `yaml:"port_forwards,omitempty"`
+	Jobs                []model.SpaceJob         `yaml:"jobs,omitempty"`
 
 	Job     string `yaml:"job,omitempty"`
 	Volumes string `yaml:"volumes,omitempty"`
@@ -156,6 +157,7 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 		HealthCheckAutoRestart:   e.HealthCheckAutoRestart,
 		DisableUserActivity:      e.DisableUserActivity,
 		Ports:                    defaultPorts(e.Ports),
+		PortForwards:             e.PortForwards,
 		Jobs:                     defaultJobs(e.Jobs),
 	}
 	req.CustomFields = defaultCustomFields(e.CustomFields)
@@ -199,6 +201,7 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 		HealthCheckAutoRestart:   d.HealthCheckAutoRestart,
 		DisableUserActivity:      d.DisableUserActivity,
 		Ports:                    d.Ports,
+		PortForwards:             d.PortForwards,
 		Jobs:                     d.Jobs,
 		Job:                      d.Job,
 		Volumes:                  d.Volumes,

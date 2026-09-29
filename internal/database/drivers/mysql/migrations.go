@@ -161,6 +161,8 @@ var migrations = []string{
 	// 81: add idle shutdown timeout to templates
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout INT UNSIGNED NOT NULL DEFAULT 0`,
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout_unit VARCHAR(16) DEFAULT 'disabled'`,
+	// 82: template port forward wiring, seeded into new spaces
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS port_forwards JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

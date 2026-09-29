@@ -250,12 +250,19 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            health_check_auto_restart=False, ports=None, jobs=None,
            max_uptime=0, max_uptime_unit="disabled",
            idle_timeout=0, idle_timeout_unit="disabled",
+           port_forwards=None,
            custom_fields=None):
     """Create a new template.
 
     ports is a list of dicts: name, port, protocol ("tcp", "http" or
     "https") and public (bool — a public port is reachable by every user
     of the server as user--space, not just the space's owner).
+
+    port_forwards is a list of {"local_port", "space", "remote_port"} dicts
+    seeded into every space created from the template — the space connects
+    to each target automatically when it starts. space is a target
+    reference: a space or pool name you own, or user--name for another
+    user's public port.
 
     custom_fields is a list of dicts declaring the template's custom
     fields: name, description, type ("text", "masked", "number", "bool",
@@ -300,6 +307,7 @@ def create(name, job="", description="", platform="", volumes="", active=True,
         "max_uptime_unit": max_uptime_unit,
         "idle_timeout": idle_timeout,
         "idle_timeout_unit": idle_timeout_unit,
+        "port_forwards": port_forwards or [],
     }
 
     response = api.post("/api/templates", body)
@@ -317,6 +325,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            health_check_auto_restart=None, ports=None, jobs=None,
            max_uptime=None, max_uptime_unit=None,
            idle_timeout=None, idle_timeout_unit=None,
+           port_forwards=None,
            custom_fields=None):
     """Update template properties.
 
@@ -365,6 +374,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
         "health_check_auto_restart": health_check_auto_restart if health_check_auto_restart is not None else current.get("health_check_auto_restart", False),
         "ports": ports if ports is not None else current.get("ports", []),
         "jobs": jobs if jobs is not None else current.get("jobs", []),
+        "port_forwards": port_forwards if port_forwards is not None else current.get("port_forwards", []),
     }
     if body["health_check_type"] in ("none", "agent"):
         body["health_check_config"] = ""

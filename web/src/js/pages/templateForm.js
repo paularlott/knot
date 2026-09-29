@@ -81,6 +81,10 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       zones: [],
       custom_fields: [],
       ports: [],
+      // Port forward wiring rides along untouched: the OSS form has no
+      // editor for it, but it must survive a round-trip so editing another
+      // field here never drops wiring set through the Pro editor or API.
+      port_forwards: [],
       jobs: [],
       jobsTouched: [],
       platform: "",
@@ -281,6 +285,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
             (f) => (f.type === "password" ? { ...f, type: "masked" } : f),
           );
           this.formData.ports = template.ports || [];
+          this.formData.port_forwards = template.port_forwards || [];
           this.formData.jobs = (template.jobs || []).map((job) => ({ ...job }));
           this.formData.jobsTouched = this.formData.jobs.map(() => ({}));
           this.formData.startup_script_id = template.startup_script_id || "";
@@ -724,6 +729,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         icon_url: this.formData.icon_url,
         custom_fields: this.formData.custom_fields,
         ports: this.formData.ports,
+        port_forwards: this.formData.port_forwards,
         jobs: this.formData.jobs,
         health_check_type: this.formData.platform === "manual" ? "none" : this.formData.health_check_type,
         health_check_config: ["none", "agent"].includes(this.formData.health_check_type) ? "" : this.formData.health_check_config,

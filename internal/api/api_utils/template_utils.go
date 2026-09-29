@@ -102,6 +102,7 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
 		DisableUserActivity:      template.DisableUserActivity,
 		Ports:                    template.Ports,
+		PortForwards:             template.PortForwards,
 		Jobs:                     template.Jobs,
 		KvmNetworkMode:           template.KvmNetworkMode,
 		KvmNetworkCidr:           template.KvmNetworkCidr,

@@ -97,6 +97,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.IdleTimeoutUnit = template.IdleTimeoutUnit
 		templateData.IconURL = template.IconURL
 		templateData.Ports = template.Ports
+		templateData.PortForwards = template.PortForwards
 		templateData.Jobs = template.Jobs
 		templateData.KvmNetworkMode = template.KvmNetworkMode
 		templateData.RuntimeAvailable = service.TemplateRuntimeAvailableIn(template, availableRuntimes)
@@ -242,6 +243,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.PortForwards = request.PortForwards
 	template.Jobs = request.Jobs
 	if errStr := deriveKvmTemplateNetwork(template); errStr != "" {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: errStr})
@@ -386,6 +388,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.IdleTimeoutUnit = request.IdleTimeoutUnit
 	template.DisableUserActivity = request.DisableUserActivity
 	template.Ports = request.Ports
+	template.PortForwards = request.PortForwards
 	template.Jobs = request.Jobs
 	if errStr := deriveKvmTemplateNetwork(template); errStr != "" {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: errStr})

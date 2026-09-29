@@ -83,6 +83,13 @@ type Template struct {
 	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
 	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
 	Ports                    []TemplatePort         `json:"ports" db:"ports,json"`
+	// Port forwards seeded into every space created from this template, so
+	// client spaces connect to their services automatically when they start
+	// (the same restore-on-start replay as manually persisted forwards).
+	// Entries use target references — bare name, user--name — resolved and
+	// authorized per connection. Pro ships the template editor for this;
+	// the API accepts it everywhere.
+	PortForwards             []PortForwardEntry     `json:"port_forwards" db:"port_forwards,json"`
 	Jobs                     []SpaceJob             `json:"jobs" db:"jobs,json"`
 	// KVM network configuration, derived from the job spec's network:
 	// block. Bridged mode attaches VMs to a host bridge (or libvirt
