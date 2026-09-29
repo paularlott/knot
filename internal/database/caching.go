@@ -16,6 +16,21 @@ import (
 // changes (direct database edits, a missed gossip message).
 const cacheTTL = 5 * time.Minute
 
+// User cache lifetimes: a sliding idle window (refreshed on every read, so
+// actively requested users stay cached and quiet ones drop out) with an
+// absolute cap that bounds how long an out-of-band edit — one that bypasses
+// the driver seam — can go unnoticed on a permanently-busy user.
+const (
+	userIdleTTL     = 5 * time.Minute
+	userMaxLifetime = time.Hour
+)
+
+type userCacheEntry struct {
+	user        *model.User
+	expires     time.Time // sliding: refreshed on read, drops quiet users
+	hardExpires time.Time // absolute: set once at fill
+}
+
 type templateCacheEntry struct {
 	template *model.Template
 	expires  time.Time
@@ -62,6 +77,11 @@ type cachingDriver struct {
 	// pool definitions by "userId/name" — routing resolves the pool before
 	// picking a member, so this read is on the per-connection path too.
 	poolDefs map[string]*poolDefCacheEntry
+	// users by id, plus the username index (cleared wholesale on any user
+	// write — a save may rename). Users sit on the hottest path in the
+	// system: request authentication and cross-user forward resolution.
+	users      map[string]*userCacheEntry
+	userByName map[string]string
 
 	now func() time.Time // overridable in tests
 }
@@ -79,6 +99,8 @@ func newCachingDriver(inner DbDriver) *cachingDriver {
 		poolMembers: make(map[string]*poolCacheEntry),
 		poolBySpace: make(map[string]string),
 		poolDefs:    make(map[string]*poolDefCacheEntry),
+		users:       make(map[string]*userCacheEntry),
+		userByName:  make(map[string]string),
 		now:         time.Now,
 	}
 	if sessions, ok := inner.(SessionStorage); ok {
@@ -361,6 +383,128 @@ func (d *cachingDriver) DeletePoolDefinition(pool *model.PoolDefinition) error {
 	d.mu.Lock()
 	d.poolDefs = make(map[string]*poolDefCacheEntry)
 	delete(d.poolMembers, pool.Id)
+	d.mu.Unlock()
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+// copyUser deep-copies via JSON — cheap next to a database round trip, and
+// necessary in both directions: handlers mutate the users they read (profile
+// and role updates), and a driver handing out shared pointers must not
+// poison the cache.
+func copyUser(u *model.User) *model.User {
+	data, err := json.Marshal(u)
+	if err != nil {
+		return u
+	}
+	var copy model.User
+	if json.Unmarshal(data, &copy) != nil {
+		return u
+	}
+	return &copy
+}
+
+// getUserEntry returns a live cache entry for the id, refreshing the sliding
+// idle window. nil when absent, idle-expired, or past the absolute cap.
+func (d *cachingDriver) getUserEntry(id string) *userCacheEntry {
+	entry, ok := d.users[id]
+	if !ok {
+		return nil
+	}
+	now := d.now()
+	if !now.Before(entry.hardExpires) || !now.Before(entry.expires) {
+		delete(d.users, id)
+		return nil
+	}
+	entry.expires = now.Add(userIdleTTL)
+	return entry
+}
+
+func (d *cachingDriver) GetUser(id string) (*model.User, error) {
+	d.mu.Lock()
+	entry := d.getUserEntry(id)
+	d.mu.Unlock()
+
+	if entry != nil {
+		return copyUser(entry.user), nil
+	}
+
+	user, err := d.DbDriver.GetUser(id)
+	if err != nil || user == nil {
+		return user, err
+	}
+
+	stored := copyUser(user)
+	now := d.now()
+
+	d.mu.Lock()
+	d.users[id] = &userCacheEntry{user: stored, expires: now.Add(userIdleTTL), hardExpires: now.Add(userMaxLifetime)}
+	if user.Username != "" {
+		d.userByName[user.Username] = id
+	}
+	d.mu.Unlock()
+
+	return copyUser(user), nil
+}
+
+func (d *cachingDriver) GetUserByUsername(username string) (*model.User, error) {
+	d.mu.Lock()
+	id, ok := d.userByName[username]
+	var entry *userCacheEntry
+	if ok {
+		entry = d.getUserEntry(id)
+		if entry == nil {
+			delete(d.userByName, username)
+		}
+	}
+	d.mu.Unlock()
+
+	if entry != nil {
+		return copyUser(entry.user), nil
+	}
+
+	user, err := d.DbDriver.GetUserByUsername(username)
+	if err != nil || user == nil {
+		return user, err
+	}
+
+	stored := copyUser(user)
+	now := d.now()
+
+	d.mu.Lock()
+	d.users[user.Id] = &userCacheEntry{user: stored, expires: now.Add(userIdleTTL), hardExpires: now.Add(userMaxLifetime)}
+	if user.Username != "" {
+		d.userByName[user.Username] = user.Id
+	}
+	d.mu.Unlock()
+
+	return copyUser(user), nil
+}
+
+func (d *cachingDriver) invalidateUser(userId string) {
+	delete(d.users, userId)
+	d.userByName = make(map[string]string)
+}
+
+func (d *cachingDriver) SaveUser(user *model.User, updateFields []string) error {
+	err := d.DbDriver.SaveUser(user, updateFields)
+	d.mu.Lock()
+	if user != nil {
+		d.invalidateUser(user.Id)
+	}
+	d.mu.Unlock()
+	return err
+}
+
+func (d *cachingDriver) DeleteUser(user *model.User) error {
+	err := d.DbDriver.DeleteUser(user)
+	d.mu.Lock()
+	if user != nil {
+		d.invalidateUser(user.Id)
+	}
 	d.mu.Unlock()
 	return err
 }
