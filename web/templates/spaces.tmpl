@@ -412,7 +412,7 @@
                   <template x-for="(option, index) in filteredOptions" :key="index">
                     <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
                       {{ if .useGravatar }}
-                      <img :src="`https://www.gravatar.com/avatar/${MD5(option.email)}?s=64&d=mp`" alt="User Avatar" class="size-5 rounded-full mr-2">
+                      <img :src="showList ? `https://www.gravatar.com/avatar/${MD5(option.email)}?s=64&d=mp` : 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2020%2020%22%3E%3Ccircle%20cx=%2210%22%20cy=%2210%22%20r=%2210%22%20fill=%22%23d1d5db%22/%3E%3C/svg%3E'" alt="User Avatar" class="size-5 rounded-full mr-2">
                       {{ end }}
                       <div x-text="option.username"></div>
                     </li>

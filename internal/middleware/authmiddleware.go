@@ -354,7 +354,9 @@ func ApiPermissionManageUsersOrSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
-			if HasUsers && !user.HasPermission(model.PermissionManageUsers) && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionTransferSpaces) {
+			// The user list backs the spaces page share/transfer pickers, so
+			// share permission also grants read access to it.
+			if HasUsers && !user.HasPermission(model.PermissionManageUsers) && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionTransferSpaces) && !user.HasPermission(model.PermissionShareSpaces) {
 				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 				return
 			}
