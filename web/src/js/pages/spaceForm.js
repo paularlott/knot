@@ -131,15 +131,10 @@ window.spaceForm = function (
     },
 
     async loadDependencyOptions(ownerId) {
-      if (!this.canSetSpaceDependencies) {
-        this.dependencyCatalog = [];
-        this.dependencyOptions = [];
-        return;
-      }
-
       if (!ownerId) {
         this.dependencyCatalog = [];
         this.dependencyOptions = [];
+        this.stackSuggestions = [];
         return;
       }
 
@@ -155,10 +150,29 @@ window.spaceForm = function (
       if (response.status !== 200) {
         this.dependencyCatalog = [];
         this.dependencyOptions = [];
+        this.stackSuggestions = [];
         return;
       }
 
       const data = await response.json();
+
+      // Stack suggestions are the owner's existing stack names and are for
+      // everyone; only the dependency picker is permission-gated.
+      const stackSet = new Set();
+      for (const space of data.spaces || []) {
+        if (space.stack && space.stack.trim()) {
+          stackSet.add(space.stack.trim());
+        }
+      }
+      this.stackSuggestions = [...stackSet].sort();
+      this.$dispatch("refresh-stack-autocompleter");
+
+      if (!this.canSetSpaceDependencies) {
+        this.dependencyCatalog = [];
+        this.dependencyOptions = [];
+        return;
+      }
+
       this.dependencyCatalog = (data.spaces || [])
         .filter((space) => space.user_id === ownerId && space.space_id !== spaceId)
         .map((space) => ({
@@ -170,16 +184,6 @@ window.spaceForm = function (
           is_remote: space.is_remote,
         }));
       this.refreshDependencyOptions();
-
-      // Derive stack name suggestions from the user's spaces
-      const stackSet = new Set();
-      for (const space of data.spaces || []) {
-        if (space.stack && space.stack.trim()) {
-          stackSet.add(space.stack.trim());
-        }
-      }
-      this.stackSuggestions = [...stackSet].sort();
-      this.$dispatch("refresh-stack-autocompleter");
     },
 
     dependencyDescription(option) {
