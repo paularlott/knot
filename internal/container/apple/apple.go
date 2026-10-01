@@ -570,6 +570,12 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 
 		if _, ok := volInfo.Volumes[volName]; !ok {
+			if !c.appleVolumeExists(volName) {
+				c.logger.Debug("volume already deleted", "volname", volName)
+				delete(space.VolumeData, volName)
+				continue
+			}
+
 			c.logger.Debug("deleting volume", "volname", volName)
 
 			cmd := exec.Command("container", "volume", "rm", volName)
@@ -625,6 +631,12 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 			continue
 		}
 
+		if !c.appleVolumeExists(volName) {
+			c.logger.Debug("volume already deleted", "volname", volName)
+			delete(space.VolumeData, volName)
+			continue
+		}
+
 		c.logger.Debug("deleting volume", "volname", volName)
 
 		cmd := exec.Command("container", "volume", "rm", volName)
@@ -643,6 +655,21 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	c.logger.Debug("volumes deleted")
 
 	return firstErr
+}
+
+// appleVolumeExists reports whether the named volume exists. The volume rm
+// subcommand reports a missing volume only as a generic failure ("failed to
+// delete one or more volumes"), so volume deletes check existence instead:
+// a missing volume is already deleted and must not fail the surrounding
+// space delete. An inconclusive check reports true so genuine delete
+// failures still surface.
+func (c *AppleClient) appleVolumeExists(volName string) bool {
+	cmd := exec.Command("container", "volume", "inspect", volName)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		return true
+	}
+	return !strings.Contains(strings.ToLower(string(output)), "volume not found")
 }
 
 func isIgnorableAppleCleanupOutput(output string) bool {
@@ -872,6 +899,11 @@ func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]inter
 	}
 
 	for volName := range volInfo.Volumes {
+		if !c.appleVolumeExists(volName) {
+			c.logger.Debug("volume already deleted:", "volname", volName)
+			continue
+		}
+
 		c.logger.Debug("deleting volume:", "volname", volName)
 
 		cmd := exec.Command("container", "volume", "rm", volName)

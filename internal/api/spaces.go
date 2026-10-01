@@ -114,6 +114,14 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.TemplateHasCodeServer = template.WithCodeServer
 			s.TemplateHasVSCodeTunnel = template.WithVSCodeTunnel
 			s.TemplateHasVNC = template.WithVNC
+			for _, port := range template.Ports {
+				if port.Protocol == "shared" {
+					if s.SharedPorts == nil {
+						s.SharedPorts = make(map[string]string)
+					}
+					s.SharedPorts[fmt.Sprintf("%d", port.Port)] = port.Name
+				}
+			}
 		}
 		if space.AltNames != nil {
 			s.AltNames = space.AltNames

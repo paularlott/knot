@@ -73,6 +73,10 @@ type SpaceInfo struct {
 	RegistrationKey string            `json:"registration_key,omitempty"`
 	TcpPorts        map[string]string `json:"tcp_ports"`
 	HttpPorts       map[string]string `json:"http_ports"`
+	// Template-declared shared ports ("public ports"), the only ports users
+	// other than the space's owner may forward to. Keyed by port number as
+	// a string, like TcpPorts. Nil when the template declares none.
+	SharedPorts     map[string]string `json:"shared_ports,omitempty"`
 	UpdateAvailable bool              `json:"update_available"`
 	IsRemote        bool              `json:"is_remote"`
 	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`

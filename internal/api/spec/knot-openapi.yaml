@@ -7169,6 +7169,11 @@ components:
           additionalProperties:
             type: string
           description: A list of the available HTTP ports exposed by the space.
+        shared_ports:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'Template-declared shared ports ("public ports"), keyed by port number. These are the only ports users other than the space''s owner may forward to; omitted when the template declares none.'
         update_available:
           type: boolean
           description: If an update is available for the space.
