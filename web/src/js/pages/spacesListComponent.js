@@ -120,9 +120,12 @@ window.spacesListComponent = function (
     },
 
     showingSpecificUser: userId !== forUserId,
+    // Persisted filter state is keyed by the logged-in account: fast user
+    // switching reuses the tab's sessionStorage, and a shared key would
+    // load one account's filters (and user scope) into another's session.
     forUserId:
       userId === forUserId && canManageSpaces
-        ? Alpine.$persist(forUserId).as("forUserId").using(sessionStorage)
+        ? Alpine.$persist(forUserId).as(`forUserId:${userId}`).using(sessionStorage)
         : forUserId,
     forUsername: "",
     canManageSpaces,
@@ -137,7 +140,7 @@ window.spacesListComponent = function (
     forUsersList: [],
     shareUsers: [],
     searchTerm: Alpine.$persist("")
-      .as("spaces-search-term")
+      .as(`spaces-search-term:${userId}`)
       .using(sessionStorage),
     quotaComputeLimit: {
       show: false,
@@ -149,16 +152,16 @@ window.spacesListComponent = function (
     },
     badScheduleShow: false,
     showRunningOnly: Alpine.$persist(false)
-      .as("spaceFilterRunningOnly")
+      .as(`spaceFilterRunningOnly:${userId}`)
       .using(sessionStorage),
     showLocalOnly: Alpine.$persist(true)
-      .as("spaceFilterLocalOnly")
+      .as(`spaceFilterLocalOnly:${userId}`)
       .using(sessionStorage),
     showSharedOnly: Alpine.$persist(false)
-      .as("spaceFilterSharedOnly")
+      .as(`spaceFilterSharedOnly:${userId}`)
       .using(sessionStorage),
     showSharedWithMeOnly: Alpine.$persist(false)
-      .as("spaceFilterSharedWithMeOnly")
+      .as(`spaceFilterSharedWithMeOnly:${userId}`)
       .using(sessionStorage),
     action: "stop", // 'stop' or 'restart'
     collapsedStacks: {}, // tracks which stacks are collapsed
