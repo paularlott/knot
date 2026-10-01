@@ -7,7 +7,7 @@ import (
 
 var (
 	// Current version of knot
-	Version string = "0.36.1"
+	Version string = "0.36.2"
 
 	// The date the binary was built
 	Date string
