@@ -10,6 +10,7 @@
 !/web/packages/.gitkeep
 /node_modules
 /files-test
+/buckets
 /test-skills
 /icons.toml
 /.knot*.toml

@@ -488,6 +488,7 @@ var tokenScopeAllowedPaths = map[string][]string{
 	model.ScopeMethods: {"/api/methods"},
 	model.ScopeMCP:     {"/mcp"},
 	model.ScopeTunnels: {"/tunnel/", "/api/tunnels"},
+	model.ScopeFiles:   {"/api/files"},
 }
 
 // tokenScopeBaselinePaths are the endpoints every scoped token can reach

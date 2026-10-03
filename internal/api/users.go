@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/paularlott/knot/internal/filestore"
 	"net/http"
 	"strings"
 
@@ -70,7 +71,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate
-	if !validate.Username(request.Username) ||
+	if !validate.NewUsername(request.Username) ||
 		!validate.Password(request.Password) ||
 		!validate.Email(request.Email) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
@@ -136,6 +137,8 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create the user
 	userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
+	userNew.FileStorageMB = request.FileStorageMB
+	userNew.MaxBuckets = request.MaxBuckets
 	err = db.SaveUser(userNew, nil)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -222,6 +225,8 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		ComputeUnits:               user.ComputeUnits,
 		StorageUnits:               user.StorageUnits,
 		MaxTunnels:                 user.MaxTunnels,
+		FileStorageMB:              user.FileStorageMB,
+		MaxBuckets:                 user.MaxBuckets,
 		SSHPublicKey:               user.SSHPublicKey,
 		GitHubUsername:             user.GitHubUsername,
 		PreferredShell:             user.PreferredShell,
@@ -374,6 +379,8 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		ComputeUnits:    user.ComputeUnits,
 		StorageUnits:    user.StorageUnits,
 		MaxTunnels:      user.MaxTunnels,
+		FileStorageMB:   user.FileStorageMB,
+		MaxBuckets:      user.MaxBuckets,
 		SSHPublicKey:    user.SSHPublicKey,
 		SSHPrivateKey:   decryptSSHPrivateKey(user.SSHPrivateKey),
 		GitHubUsername:  user.GitHubUsername,
@@ -576,6 +583,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			data.ComputeUnits = user.ComputeUnits
 			data.StorageUnits = user.StorageUnits
 			data.MaxTunnels = user.MaxTunnels
+			data.FileStorageMB = user.FileStorageMB
+			data.MaxBuckets = user.MaxBuckets
 			data.Current = user.Id == activeUser.Id
 			// Marks accounts with linked subaccounts on the users list.
 			data.HasLinkedUsers = len(user.LinkedUsers) > 0
@@ -591,6 +600,13 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			data.ComputeUnits = quota.ComputeUnits
 			data.StorageUnits = quota.StorageUnits
 			data.MaxTunnels = quota.MaxTunnels
+			data.FileStorageMB = quota.FileStorageMB
+			data.MaxBuckets = quota.MaxBuckets
+			// File storage use, with the effective limits including the
+			// server defaults.
+			if store := filestore.Get(); store != nil {
+				data.UsedFileStorageMB, data.UsedBuckets, data.FileStorageMB, data.MaxBuckets = fileUsage(store, user.Id, quota)
+			}
 
 			if user.LastLoginAt != nil {
 				t := user.LastLoginAt.UTC()
@@ -688,7 +704,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	user.Timezone = request.Timezone
 	user.TOTPSecret = request.TOTPSecret
 
-	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
+	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "FileStorageMB", "MaxBuckets", "UpdatedAt"}
 
 	if activeUser.Id == user.Id {
 		if request.SSHPrivateKey != "" {
@@ -762,6 +778,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.ComputeUnits = request.ComputeUnits
 		user.StorageUnits = request.StorageUnits
 		user.MaxTunnels = request.MaxTunnels
+		user.FileStorageMB = request.FileStorageMB
+		user.MaxBuckets = request.MaxBuckets
 	}
 
 	user.UpdatedAt = hlc.Now()
@@ -891,16 +909,21 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 	}
 
 	quota := apiclient.UserQuota{
-		MaxSpaces:    userQuota.MaxSpaces,
-		ComputeUnits: userQuota.ComputeUnits,
-		StorageUnits: userQuota.StorageUnits,
-		MaxTunnels:   userQuota.MaxTunnels,
+		MaxSpaces:     userQuota.MaxSpaces,
+		ComputeUnits:  userQuota.ComputeUnits,
+		StorageUnits:  userQuota.StorageUnits,
+		MaxTunnels:    userQuota.MaxTunnels,
+		FileStorageMB: userQuota.FileStorageMB,
+		MaxBuckets:    userQuota.MaxBuckets,
 
 		NumberSpaces:         usage.NumberSpaces,
 		NumberSpacesDeployed: usage.NumberSpacesDeployed,
 		UsedComputeUnits:     usage.ComputeUnits,
 		UsedStorageUnits:     usage.StorageUnits,
 		UsedTunnels:          tunnel_server.CountUserTunnels(userId),
+	}
+	if store := filestore.Get(); store != nil {
+		quota.UsedFileStorageMB, quota.UsedBuckets, quota.FileStorageMB, quota.MaxBuckets = fileUsage(store, user.Id, userQuota)
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, quota)

@@ -23,6 +23,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       compute_units: 0,
       storage_units: 0,
       max_tunnels: 0,
+      file_storage_mb: 0,
+      max_buckets: 0,
       roles: [],
       groups: [],
       totp_secret: "",
@@ -46,6 +48,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     computeUnitsValid: true,
     storageUnitsValid: true,
     maxTunnelsValid: true,
+    fileStorageValid: true,
+    maxBucketsValid: true,
     showTOTP: false,
     resetConfirmShow: false,
     unlinkConfirm: { show: false, providerID: '', providerName: '' },
@@ -104,6 +108,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           this.formData.compute_units = user.compute_units;
           this.formData.storage_units = user.storage_units;
           this.formData.max_tunnels = user.max_tunnels;
+          this.formData.file_storage_mb = user.file_storage_mb || 0;
+          this.formData.max_buckets = user.max_buckets || 0;
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
@@ -151,7 +157,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       }
     },
     checkUsername() {
-      this.usernameValid = validate.username(this.formData.username);
+      // Existing usernames keep the original rule; new ones the stricter.
+      this.usernameValid = isEdit ? validate.username(this.formData.username) : validate.newUsername(this.formData.username);
       return this.usernameValid;
     },
     checkEmail() {
@@ -212,6 +219,22 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       );
       return this.maxTunnelsValid;
     },
+    checkFileStorage() {
+      this.fileStorageValid = validate.isNumber(
+        this.formData.file_storage_mb,
+        0,
+        4294967295,
+      );
+      return this.fileStorageValid;
+    },
+    checkMaxBuckets() {
+      this.maxBucketsValid = validate.isNumber(
+        this.formData.max_buckets,
+        0,
+        4294967295,
+      );
+      return this.maxBucketsValid;
+    },
     checkServicePassword() {
       this.servicePasswordValid = this.formData.service_password.length <= 255;
       return this.servicePasswordValid;
@@ -244,6 +267,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         err = !this.checkComputeUnits() || err;
         err = !this.checkStorageUnits() || err;
         err = !this.checkMaxTunnels() || err;
+        err = !this.checkFileStorage() || err;
+        err = !this.checkMaxBuckets() || err;
       }
       if (isProfile) {
         err = !this.checkServicePassword() || err;
@@ -270,6 +295,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         storage_units: parseInt(this.formData.storage_units),
         compute_units: parseInt(this.formData.compute_units),
         max_tunnels: parseInt(this.formData.max_tunnels),
+        file_storage_mb: parseInt(this.formData.file_storage_mb),
+        max_buckets: parseInt(this.formData.max_buckets),
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,

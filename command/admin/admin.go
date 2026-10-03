@@ -115,12 +115,12 @@ var AdminCmd = &cli.Command{
 			DefaultValue: false,
 			Global:       true,
 		},
-		&cli.StringFlag{
-			Name:         "redis-host",
-			Usage:        "The redis server.",
-			ConfigPath:   []string{"server.redis.host"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_HOST"},
-			DefaultValue: "localhost:6379",
+		&cli.StringSliceFlag{
+			Name:         "redis-hosts",
+			Usage:        "The redis server(s), can be specified multiple times.",
+			ConfigPath:   []string{"server.redis.hosts"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_HOSTS"},
+			DefaultValue: []string{"localhost:6379"},
 			Global:       true,
 		},
 		&cli.StringFlag{
@@ -156,6 +156,14 @@ var AdminCmd = &cli.Command{
 			Global:       true,
 		},
 		&cli.StringFlag{
+			Name:         "files-path",
+			Usage:        "The server's file storage directory, for backing up and restoring file storage.",
+			ConfigPath:   []string{"server.files.path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_PATH"},
+			DefaultValue: "",
+			Global:       true,
+		},
+		&cli.StringFlag{
 			Name:         "encrypt",
 			Usage:        "The encryption key to use for encrypting stored variables.",
 			ConfigPath:   []string{"server.encrypt"},
@@ -181,6 +189,7 @@ var AdminCmd = &cli.Command{
 
 		serverCfg := &config.ServerConfig{
 			EncryptionKey: cmd.GetString("encrypt"),
+			FilesPath:     cmd.GetString("files-path"),
 			MySQL: config.MySQLConfig{
 				Enabled:               cmd.GetBool("mysql-enabled"),
 				Host:                  cmd.GetString("mysql-host"),

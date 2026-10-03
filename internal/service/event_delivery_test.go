@@ -350,7 +350,10 @@ func TestDeliverJSONRPCRetriesThenGivesUp(t *testing.T) {
 	d.deliverToSubscriptions(env)
 	waitFor(t, func() bool { return rc.count() == RetryAttempts })
 
-	// The subscription delivery decrements the pending counter exactly once.
+	// The subscription delivery decrements the pending counter exactly once,
+	// after the last attempt has been given up on.
+	waitFor(t, func() bool { return ft.doneCount("evt-sub-giveup") >= 1 })
+	time.Sleep(20 * time.Millisecond)
 	if c := ft.doneCount("evt-sub-giveup"); c != 1 {
 		t.Fatalf("NotifyEventDone count = %d, want 1", c)
 	}

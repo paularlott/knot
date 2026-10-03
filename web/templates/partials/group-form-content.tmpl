@@ -36,6 +36,18 @@
             <p class="description">The maximum number of storage units users of this group can use, 0 for unlimited.</p>
             <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
           </div>
+          <div>
+            <label for="file_storage_mb" class="form-label">File Storage (MB)</label>
+            <input type="number" class="form-field" name="file_storage_mb" id="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:keyup.debounce.500ms="checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" >
+            <p class="description">The file storage, in MB, each user of this group adds to their quota, 0 for none.</p>
+            <div x-show="!fileStorageValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+          </div>
+          <div>
+            <label for="max_buckets" class="form-label">Maximum Buckets</label>
+            <input type="number" class="form-field" name="max_buckets" id="max_buckets" x-model="formData.max_buckets" min="0" x-on:keyup.debounce.500ms="checkMaxBuckets()" :class="{'form-field-error': !maxBucketsValid}" >
+            <p class="description">The file storage buckets each user of this group adds to their limit, 0 for none.</p>
+            <div x-show="!maxBucketsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+          </div>
         </div>
       </div>
     </fieldset>

@@ -26,10 +26,14 @@ const (
 	// own identity at /api/users/whoami (credential fields withheld),
 	// which every scoped token may do.
 	ScopeTunnels = "tunnels"
+	// ScopeFiles allows a token to reach file storage: the files API
+	// (/api/files*) and, on Knot Pro, the S3 endpoint with the token as the
+	// secret key.
+	ScopeFiles = "files"
 )
 
 // KnownTokenScopes is the authoritative list of valid scope strings.
-var KnownTokenScopes = []string{ScopeMethods, ScopeMCP, ScopeTunnels}
+var KnownTokenScopes = []string{ScopeMethods, ScopeMCP, ScopeTunnels, ScopeFiles}
 
 // IsKnownTokenScope reports whether s is a valid scope string.
 func IsKnownTokenScope(s string) bool {
@@ -58,11 +62,16 @@ type Token struct {
 	RefreshToken bool `json:"refresh_token,omitempty" db:"refresh_token"`
 }
 
+// TokenPrefix starts every API token, so a token is recognisable and never
+// begins with "-", which a command line would read as another flag.
+const TokenPrefix = "tk_"
+
 func NewToken(name string, userId string) *Token {
-	id, err := crypt.GenerateAPIKey()
+	key, err := crypt.GenerateAPIKey()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	id := TokenPrefix + key
 
 	now := time.Now().UTC()
 	expiresAfter := now.Add(MaxTokenAge)

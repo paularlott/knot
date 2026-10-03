@@ -33,6 +33,7 @@ import './pages/templateVarListComponent.js';
 import './pages/variableForm.js';
 import './pages/volumeListComponent.js';
 import './pages/volumeForm.js';
+import './pages/filesComponent.js';
 import './pages/spaceForm.js';
 import './pages/spacesListComponent.js';
 import './pages/spaceUsageComponent.js';

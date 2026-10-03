@@ -16,6 +16,7 @@ import (
 	command_scriptling "github.com/paularlott/knot/agent/cmd/scriptlingserver"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
+	command_files "github.com/paularlott/knot/command/files"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 
@@ -79,6 +80,7 @@ The agent connects environments to the knot server.`,
 			agentcmd.AgentCmd,
 			command_event.EventCmd,
 			command_jobs.JobsCmd,
+			command_files.FilesCmd,
 			command_mcp.McpCmd,
 			command_methods.MethodsCmd,
 			command_tunnel.TunnelCmd,

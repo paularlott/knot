@@ -2,6 +2,7 @@ package tunnel_server
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -226,18 +227,7 @@ func DeleteTunnel(userId, tunnelName string) error {
 
 	for key, t := range tunnels {
 		if t.user.Id == userId && t.tunnelName == tunnelName {
-			// Open a new stream to the tunnel client
-			stream, err := t.muxSession.Open()
-			if err == nil {
-				defer stream.Close()
-
-				// Write a byte with a value of 0 so the client knows to close the stream
-				stream.Write([]byte{0})
-
-				// Wait for the client to close the stream
-				time.Sleep(1 * time.Second)
-			}
-
+			sendCloseRequest(t.muxSession)
 			t.muxSession.Close()
 			t.ws.Close()
 			delete(tunnels, key)
@@ -249,4 +239,25 @@ func DeleteTunnel(userId, tunnelName string) error {
 	}
 
 	return fmt.Errorf("tunnel not found")
+}
+
+// closeRequestTimeout bounds how long the server waits for a client to
+// acknowledge a close request.
+const closeRequestTimeout = 5 * time.Second
+
+// sendCloseRequest tells a tunnel client to stop, by a stream carrying a
+// single 0 byte, and waits for the client to close that stream. The client
+// stops before closing it, so once it has, closing the session cannot be
+// mistaken for a dropped connection, which the client would reconnect after.
+func sendCloseRequest(session *yamux.Session) {
+	stream, err := session.Open()
+	if err != nil {
+		return
+	}
+	defer stream.Close()
+	if _, err := stream.Write([]byte{0}); err != nil {
+		return
+	}
+	stream.SetReadDeadline(time.Now().Add(closeRequestTimeout))
+	io.Copy(io.Discard, stream)
 }

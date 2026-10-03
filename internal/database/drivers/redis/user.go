@@ -189,7 +189,8 @@ func (db *RedisDbDriver) GetUserByEmail(email string) (*model.User, error) {
 func (db *RedisDbDriver) GetUserByUsername(name string) (*model.User, error) {
 	var user *model.User = nil
 
-	v, err := db.get(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, name))
+	// The index is keyed by the lowercased username, as usernames are unique regardless of case.
+	v, err := db.get(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(name)))
 	if err != nil {
 		if errors.Is(err, valkey.Nil) {
 			return nil, fmt.Errorf("user not found")

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/paularlott/knot/internal/filestore"
 	"hash/fnv"
 	"html/template"
 	"io"
@@ -367,6 +368,12 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	}
 
 	router.HandleFunc("GET /volumes", middleware.WebAuth(checkPermissionManageVolumes(HandleSimplePage)))
+
+	// File storage browser, for users who can own buckets or have one
+	// shared with them.
+	if filestore.Get() != nil {
+		router.HandleFunc("GET /files", middleware.WebAuth(checkFilesPage(HandleSimplePage)))
+	}
 
 	router.HandleFunc("GET /logs/{space_id}", middleware.WebAuth(HandleLogsPage))
 
@@ -744,6 +751,19 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		}
 	}
 	data["permissionLinkUsers"] = user.HasPermission(model.PermissionLinkUsers)
+
+	// File storage: every user may reach buckets shared with them; owning
+	// buckets takes a permission.
+	data["filesEnabled"] = filestore.Get() != nil
+	// File storage rights as the files API applies them (leaf nodes included).
+	fp, _ := filestore.PrincipalFor(user)
+	if fp == nil {
+		fp = &filestore.Principal{}
+	}
+	data["permissionManageFiles"] = fp.IsAdmin
+	data["permissionUseFiles"] = fp.CanOwn
+	data["permissionShareBuckets"] = fp.CanShare
+	data["permissionTransferBuckets"] = fp.CanTransfer
 
 	return user, data
 }

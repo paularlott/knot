@@ -3,12 +3,14 @@ package apiclient
 import "context"
 
 type GroupInfo struct {
-	Id           string `json:"group_id"`
-	Name         string `json:"name"`
-	MaxSpaces    uint32 `json:"max_spaces"`
-	ComputeUnits uint32 `json:"compute_units"`
-	StorageUnits uint32 `json:"storage_units"`
-	MaxTunnels   uint32 `json:"max_tunnels"`
+	Id            string `json:"group_id"`
+	Name          string `json:"name"`
+	MaxSpaces     uint32 `json:"max_spaces"`
+	ComputeUnits  uint32 `json:"compute_units"`
+	StorageUnits  uint32 `json:"storage_units"`
+	MaxTunnels    uint32 `json:"max_tunnels"`
+	FileStorageMB uint32 `json:"file_storage_mb"`
+	MaxBuckets    uint32 `json:"max_buckets"`
 }
 
 type GroupInfoList struct {
@@ -17,11 +19,13 @@ type GroupInfoList struct {
 }
 
 type GroupRequest struct {
-	Name         string `json:"name"`
-	MaxSpaces    uint32 `json:"max_spaces"`
-	ComputeUnits uint32 `json:"compute_units"`
-	StorageUnits uint32 `json:"storage_units"`
-	MaxTunnels   uint32 `json:"max_tunnels"`
+	Name          string `json:"name"`
+	MaxSpaces     uint32 `json:"max_spaces"`
+	ComputeUnits  uint32 `json:"compute_units"`
+	StorageUnits  uint32 `json:"storage_units"`
+	MaxTunnels    uint32 `json:"max_tunnels"`
+	FileStorageMB uint32 `json:"file_storage_mb"`
+	MaxBuckets    uint32 `json:"max_buckets"`
 }
 
 type GroupResponse struct {

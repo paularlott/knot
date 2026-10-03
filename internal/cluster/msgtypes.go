@@ -49,4 +49,10 @@ const (
 	MCPServerGossipMsg
 	AuthFailureGossipMsg
 	PoolLeaseMsg
+	FilesUpdateMsg
+	FilesDigestMsg
+	FilesPageMsg
+	FilesPushMsg
+	FilesContentMsg
+	FilesSlotsMsg
 )

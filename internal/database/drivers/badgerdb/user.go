@@ -224,7 +224,8 @@ func (db *BadgerDbDriver) GetUserByUsername(name string) (*model.User, error) {
 	var user *model.User = nil
 
 	err := db.connection.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(fmt.Sprintf("UsersByUsername:%s", name)))
+		// The index is keyed by the lowercased username, as usernames are unique regardless of case.
+		item, err := txn.Get([]byte(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(name))))
 		if err != nil {
 			return err
 		}

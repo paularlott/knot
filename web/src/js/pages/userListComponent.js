@@ -143,7 +143,7 @@ window.userListComponent = function() {
 
               // Convert role IDs to names
               user.role_names = [];
-              user.roles.forEach(roleId => {
+              (user.roles || []).forEach(roleId => {
                 this.roles.forEach(role => {
                   if (role.role_id === roleId) {
                     user.role_names.push(role.name);
@@ -153,7 +153,7 @@ window.userListComponent = function() {
 
               // Convert group IDs to names
               user.group_names = [];
-              user.groups.forEach(groupId => {
+              (user.groups || []).forEach(groupId => {
                 this.groups.forEach(group => {
                   if (group.group_id === groupId) {
                     user.group_names.push(group.name);

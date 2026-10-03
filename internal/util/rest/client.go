@@ -671,3 +671,50 @@ func StreamData[P Pointer[T], T any](
 			return new(T)
 		})
 }
+
+// DoRaw sends a request with a streamed body and returns the raw response,
+// leaving the body for the caller to read and close. size is the body length,
+// -1 if unknown. Unlike the JSON helpers it applies no overall timeout, so
+// large transfers are bounded only by ctx.
+func (c *HTTPClient) DoRaw(ctx context.Context, method string, path string, body io.Reader, size int64, headers map[string]string) (*http.Response, error) {
+	rel, err := url.Parse(path)
+	if err != nil {
+		return nil, fmt.Errorf("invalid path: %s, error: %v", path, err)
+	}
+	u := c.baseURL.ResolveReference(rel)
+
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.ContentLength = size
+	}
+
+	c.setHeaders(req)
+	if body == nil {
+		req.Header.Del("Content-Type")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	client := &http.Client{Transport: c.HTTPClient.Transport}
+	return client.Do(req)
+}
+
+// DecodeResponse turns a non-2xx response into an error carrying the server's
+// message, otherwise decodes the body into response when it is not nil.
+func DecodeResponse(resp *http.Response, response interface{}) error {
+	if resp.StatusCode >= http.StatusMultipleChoices {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+	}
+	if response == nil {
+		return nil
+	}
+	if strings.Contains(resp.Header.Get("Content-Type"), ContentTypeMsgPack) {
+		return DecodeMsgPack(resp.Body, response)
+	}
+	return json.NewDecoder(resp.Body).Decode(response)
+}

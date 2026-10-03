@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Usage{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="usageComponent('{{ .user_id }}')">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="usageComponent('{{ .user_id }}', {{ .filesEnabled }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="col-span-full">
@@ -13,19 +13,8 @@
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 
       {{ template "loading" . }}
-      <div x-show="!loading" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 xlg:grid-cols-4">
-        <div class="h-72">
-          <canvas id="spaceUsage" x-ref="spacesChart"></canvas>
-        </div>
-        <div class="h-72">
-          <canvas id="tunnelUsage" x-ref="tunnelsChart"></canvas>
-        </div>
-        <div class="h-72">
-          <canvas id="computeUsage" x-ref="computeChart"></canvas>
-        </div>
-        <div class="h-72">
-          <canvas id="storageUsage" x-ref="storageChart"></canvas>
-        </div>
+      <div x-show="!loading" x-cloak>
+        {{ template "usage-meters" . }}
       </div>
 
     </div>

@@ -3,12 +3,14 @@ package commands_admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/filestore"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/paularlott/cli"
@@ -32,6 +34,11 @@ var RestoreCmd = &cli.Command{
 			Aliases: []string{"e"},
 			Usage:   "Encrypt the backup file with the given key. The key must be 32 bytes long.",
 			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_RESTORE_ENCRYPT_KEY"},
+		},
+		&cli.StringFlag{
+			Name:    "files-dir",
+			Usage:   "Copy file content into file storage from this directory, written by backup --files-dir.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_RESTORE_FILES_DIR"},
 		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
@@ -59,6 +66,32 @@ var RestoreCmd = &cli.Command{
 		err = json.Unmarshal(data, &backupData)
 		if err != nil {
 			return fmt.Errorf("Error unmarshalling backup file: %w", err)
+		}
+
+		// Open file storage before changing anything, so a server still using
+		// it stops the restore before it starts.
+		filesDir := cmd.GetString("files-dir")
+		filesPath := config.GetServerConfig().FilesPath
+		var store *filestore.Store
+		if filesDir != "" && backupData.Files == nil {
+			return fmt.Errorf("Error: the backup holds no file storage to copy content for.")
+		}
+		if backupData.Files != nil {
+			if filesPath == "" {
+				if filesDir != "" {
+					return fmt.Errorf("Error: restoring file storage needs --files-path, the server's file storage directory.")
+				}
+				fmt.Println("Warning: the backup holds file storage, which is skipped as --files-path is not set.")
+			} else {
+				store, err = filestore.Open(filestore.Config{Dir: filesPath})
+				if errors.Is(err, filestore.ErrStoreInUse) {
+					return fmt.Errorf("Error: file storage in %s is in use; stop the server before restoring.", filesPath)
+				}
+				if err != nil {
+					return fmt.Errorf("Error opening file storage: %w", err)
+				}
+				defer store.Close()
+			}
 		}
 
 		fmt.Println("Restoring audit logs...")
@@ -190,6 +223,16 @@ var RestoreCmd = &cli.Command{
 					return fmt.Errorf("Error restoring space: %w", err)
 				}
 				fmt.Println("Restored space: ", space.Name)
+			}
+		}
+
+		if store != nil {
+			fmt.Println("Restoring file storage...")
+			buckets, files := store.Restore(backupData.Files)
+			fmt.Printf("Restored %d buckets and %d files; newer versions already held were kept\n", buckets, files)
+			if filesDir != "" {
+				fmt.Println("Copying file content from: ", filesDir)
+				importFiles(store, filesDir, backupData.Files)
 			}
 		}
 

@@ -29,6 +29,11 @@ window.apiTokensComponent = function () {
       label: "Tunnels",
       description: "Create and manage web tunnels only",
     },
+    {
+      value: "files",
+      label: "Files",
+      description: "File storage: the knot file commands and the Files page (and S3 on Knot Pro)",
+    },
   ];
 
   // Helper: build a scope-checkbox state object from the available scopes,

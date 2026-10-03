@@ -25,6 +25,13 @@ func TestTokenScopeAllows(t *testing.T) {
 		{"tunnels denies near-miss tunnel path", []string{model.ScopeTunnels}, "/api/tunnels-extra", false},
 		{"tunnels denies users list", []string{model.ScopeTunnels}, "/api/users", false},
 
+		// Files scope: the files API only.
+		{"files buckets", []string{model.ScopeFiles}, "/api/files/buckets", true},
+		{"files objects", []string{model.ScopeFiles}, "/api/files/objects/cfg/a/b.toml", true},
+		{"files denies spaces", []string{model.ScopeFiles}, "/api/spaces", false},
+		{"files denies near-miss path", []string{model.ScopeFiles}, "/api/filesystem", false},
+		{"tunnels denies files", []string{model.ScopeTunnels}, "/api/files/buckets", false},
+
 		// Every scoped token can read its own identity: the tunnel client
 		// needs the username to build tunnel URLs.
 		{"tunnels allows whoami", []string{model.ScopeTunnels}, "/api/users/whoami", true},

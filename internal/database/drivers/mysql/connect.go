@@ -133,7 +133,7 @@ func (db *MySQLDriver) Connect() error {
 			beforeHLC := hlc.FromTime(before).Uint64()
 
 			// Remove old groups
-			_, err := db.connection.Exec("DELETE FROM groups WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
+			_, err := db.connection.Exec("DELETE FROM `groups` WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old groups")
 			}

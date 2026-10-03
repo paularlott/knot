@@ -358,10 +358,16 @@ func GetUserQuota(user *model.User) (*model.Quota, error) {
 	db := GetInstance()
 
 	quota := &model.Quota{
-		ComputeUnits: user.ComputeUnits,
-		StorageUnits: user.StorageUnits,
-		MaxSpaces:    user.MaxSpaces,
-		MaxTunnels:   user.MaxTunnels,
+		ComputeUnits:  user.ComputeUnits,
+		StorageUnits:  user.StorageUnits,
+		MaxSpaces:     user.MaxSpaces,
+		MaxTunnels:    user.MaxTunnels,
+		FileStorageMB: user.FileStorageMB,
+		MaxBuckets:    user.MaxBuckets,
+	}
+
+	if len(user.Groups) == 0 {
+		return quota, nil
 	}
 
 	// Get the groups and build a map
@@ -382,6 +388,8 @@ func GetUserQuota(user *model.User) (*model.Quota, error) {
 			quota.ComputeUnits += group.ComputeUnits
 			quota.StorageUnits += group.StorageUnits
 			quota.MaxTunnels += group.MaxTunnels
+			quota.FileStorageMB += group.FileStorageMB
+			quota.MaxBuckets += group.MaxBuckets
 		}
 	}
 

@@ -15,7 +15,7 @@ window.createInitialUserForm = function() {
     passwordValid: true,
     confirmPasswordValid: true,
     checkUsername() {
-      this.usernameValid = validate.username(this.formData.username);
+      this.usernameValid = validate.newUsername(this.formData.username);
       return this.usernameValid;
     },
     checkEmail() {

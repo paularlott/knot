@@ -9,6 +9,8 @@ window.userGroupForm = function (isEdit, groupId) {
       compute_units: 0,
       storage_units: 0,
       max_tunnels: 0,
+      file_storage_mb: 0,
+      max_buckets: 0,
     },
     loading: true,
     nameValid: true,
@@ -16,6 +18,8 @@ window.userGroupForm = function (isEdit, groupId) {
     computeUnitsValid: true,
     storageUnitsValid: true,
     maxTunnelsValid: true,
+    fileStorageValid: true,
+    maxBucketsValid: true,
     isEdit,
     stayOnPage: true,
 
@@ -39,6 +43,8 @@ window.userGroupForm = function (isEdit, groupId) {
           this.formData.compute_units = group.compute_units;
           this.formData.storage_units = group.storage_units;
           this.formData.max_tunnels = group.max_tunnels;
+          this.formData.file_storage_mb = group.file_storage_mb || 0;
+          this.formData.max_buckets = group.max_buckets || 0;
         }
       }
 
@@ -82,6 +88,22 @@ window.userGroupForm = function (isEdit, groupId) {
       );
       return this.maxTunnelsValid;
     },
+    checkFileStorage() {
+      this.fileStorageValid = validate.isNumber(
+        this.formData.file_storage_mb,
+        0,
+        4294967295,
+      );
+      return this.fileStorageValid;
+    },
+    checkMaxBuckets() {
+      this.maxBucketsValid = validate.isNumber(
+        this.formData.max_buckets,
+        0,
+        4294967295,
+      );
+      return this.maxBucketsValid;
+    },
 
     async submitData() {
       let err = false;
@@ -91,6 +113,8 @@ window.userGroupForm = function (isEdit, groupId) {
       err = !this.checkComputeUnits() || err;
       err = !this.checkStorageUnits() || err;
       err = !this.checkMaxTunnels() || err;
+      err = !this.checkFileStorage() || err;
+      err = !this.checkMaxBuckets() || err;
       if (err) {
         return;
       }
@@ -103,6 +127,8 @@ window.userGroupForm = function (isEdit, groupId) {
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
         max_tunnels: parseInt(this.formData.max_tunnels),
+        file_storage_mb: parseInt(this.formData.file_storage_mb),
+        max_buckets: parseInt(this.formData.max_buckets),
       };
 
       await fetch(isEdit ? `/api/groups/${groupId}` : "/api/groups", {

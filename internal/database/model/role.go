@@ -67,6 +67,15 @@ const (
 	// impersonation-grade: whoever holds it can link to any account —
 	// administrators included — and act as it fully.
 	PermissionLinkUsers // Can link user accounts for fast user switching
+	PermissionUseFiles  // Can use file storage: own buckets and buckets shared with them
+	// PermissionManageFiles grants full access to every bucket, including
+	// transferring a bucket to another owner.
+	PermissionManageFiles // Can manage all file storage buckets
+	// PermissionShareBuckets lets an owner share their buckets with users,
+	// groups or everyone; PermissionTransferBuckets lets an owner give
+	// their buckets to another user.
+	PermissionShareBuckets    // Can share own buckets
+	PermissionTransferBuckets // Can transfer own buckets to another user
 )
 
 type PermissionName struct {
@@ -113,6 +122,10 @@ var permissionKeys = map[uint16]string{
 	PermissionManageVariables:           "manage_variables",
 	PermissionManageVolumes:             "manage_volumes",
 	PermissionLinkUsers:                 "link_users",
+	PermissionUseFiles:                  "use_files",
+	PermissionManageFiles:               "manage_files",
+	PermissionShareBuckets:              "share_buckets",
+	PermissionTransferBuckets:           "transfer_buckets",
 	PermissionRunCommands:               "run_commands",
 	PermissionSetSpaceDependencies:      "set_space_dependencies",
 	PermissionShareSpaces:               "share_spaces",
@@ -152,6 +165,11 @@ var PermissionNames = []PermissionName{
 	{PermissionManageTemplates, "Resource Management", "Manage Templates", "Create, edit, and delete space templates."},
 	{PermissionManageVariables, "Resource Management", "Manage Variables", "Create, edit, and delete system variables."},
 	{PermissionManageVolumes, "Resource Management", "Manage Volumes", "Create, edit, and delete volumes."},
+
+	{PermissionUseFiles, "File Storage", "Use File Storage", "Create and delete own buckets and manage their files."},
+	{PermissionShareBuckets, "File Storage", "Share Buckets", "Share own buckets with users, groups or everyone."},
+	{PermissionTransferBuckets, "File Storage", "Transfer Buckets", "Transfer own buckets to another user."},
+	{PermissionManageFiles, "File Storage", "Manage File Storage", "Full access to every bucket, including sharing and transferring any bucket."},
 
 	{PermissionUseMCPServer, "AI Tools", "Use MCP Server", "Connect to the knot MCP server."},
 	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant", "Use the built-in web AI assistant."},
@@ -275,6 +293,10 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageEvents,
 			PermissionManageGlobalEvents,
 			PermissionLinkUsers,
+			PermissionUseFiles,
+			PermissionManageFiles,
+			PermissionShareBuckets,
+			PermissionTransferBuckets,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var (
@@ -187,4 +188,12 @@ func (sw *StreamWriter) WriteEvent(eventType string, data any) error {
 	}
 
 	return nil
+}
+
+// NoDeadlines lifts the server's read and write timeouts on a request, for
+// transfers of unbounded size.
+func NoDeadlines(w http.ResponseWriter) {
+	rc := http.NewResponseController(w)
+	rc.SetReadDeadline(time.Time{})
+	rc.SetWriteDeadline(time.Time{})
 }

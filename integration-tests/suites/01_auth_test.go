@@ -88,8 +88,15 @@ func TestTokenAuthAndScopes(t *testing.T) {
 		t.Fatalf("create scoped token: %v (status %d)", err, code)
 	}
 	sc := harness.NewClient(server, scoped)
-	if _, err := sc.WhoAmI(ctx); err == nil {
+	if _, err := sc.GetUsers(ctx, "all", ""); err == nil {
 		t.Fatal("scoped token reached /api/users — scope not enforced")
+	}
+	if _, err := sc.GetFileBuckets(ctx, false); err == nil {
+		t.Fatal("methods-scoped token reached /api/files — scope not enforced")
+	}
+	// Every scoped token may read its own identity.
+	if _, err := sc.WhoAmI(ctx); err != nil {
+		t.Fatalf("scoped token should reach whoami: %v", err)
 	}
 	if _, err := sc.GetMethods(ctx); err != nil {
 		t.Fatalf("scoped token should reach methods: %v", err)

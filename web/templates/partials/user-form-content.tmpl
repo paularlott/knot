@@ -11,7 +11,7 @@
             <div>
               <label for="username" class="form-label">Username</label>
               <input type="text" id="username" class="form-field" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9, - and .)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
-              <div x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., max 64 characters.</div>
+              <div x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 30 characters.</div>
             </div>
             <div>
               <label for="email" class="form-label">Email</label>
@@ -127,6 +127,18 @@
                 <input type="number" id="max_tunnels" class="form-field" name="max_tunnels" x-model="formData.max_tunnels" min="0" x-on:keyup.debounce.500ms="checkMaxTunnels()" :class="{'form-field-error': !maxTunnelsValid}" >
                 <p class="description">The maximum number of tunnels this user can create, 0 for unlimited.</p>
                 <div x-show="!maxTunnelsValid" class="error-message" x-cloak>Enter a valid number between 0 and 100.</div>
+              </div>
+              <div>
+                <label for="file_storage_mb" class="form-label">File Storage (MB)</label>
+                <input type="number" id="file_storage_mb" class="form-field" name="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:keyup.debounce.500ms="checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" >
+                <p class="description">The maximum size of the files in buckets this user owns, in MB, 0 to use the server default.</p>
+                <div x-show="!fileStorageValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+              </div>
+              <div>
+                <label for="max_buckets" class="form-label">Maximum Buckets</label>
+                <input type="number" id="max_buckets" class="form-field" name="max_buckets" x-model="formData.max_buckets" min="0" x-on:keyup.debounce.500ms="checkMaxBuckets()" :class="{'form-field-error': !maxBucketsValid}" >
+                <p class="description">The maximum number of file storage buckets this user can own, 0 to use the server default.</p>
+                <div x-show="!maxBucketsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">

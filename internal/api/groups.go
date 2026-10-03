@@ -34,12 +34,14 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		g := apiclient.GroupInfo{
-			Id:           group.Id,
-			Name:         group.Name,
-			MaxSpaces:    group.MaxSpaces,
-			ComputeUnits: group.ComputeUnits,
-			StorageUnits: group.StorageUnits,
-			MaxTunnels:   group.MaxTunnels,
+			Id:            group.Id,
+			Name:          group.Name,
+			MaxSpaces:     group.MaxSpaces,
+			ComputeUnits:  group.ComputeUnits,
+			StorageUnits:  group.StorageUnits,
+			MaxTunnels:    group.MaxTunnels,
+			FileStorageMB: group.FileStorageMB,
+			MaxBuckets:    group.MaxBuckets,
 		}
 		data.Groups = append(data.Groups, g)
 		data.Count++
@@ -99,6 +101,8 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	group.ComputeUnits = request.ComputeUnits
 	group.StorageUnits = request.StorageUnits
 	group.MaxTunnels = request.MaxTunnels
+	group.FileStorageMB = request.FileStorageMB
+	group.MaxBuckets = request.MaxBuckets
 	group.UpdatedAt = hlc.Now()
 	group.UpdatedUserId = user.Id
 
@@ -157,6 +161,8 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	group := model.NewGroup(request.Name, user.Id, request.MaxSpaces, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
+	group.FileStorageMB = request.FileStorageMB
+	group.MaxBuckets = request.MaxBuckets
 
 	err = database.GetInstance().SaveGroup(group)
 	if err != nil {
@@ -249,12 +255,14 @@ func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := apiclient.GroupInfo{
-		Id:           group.Id,
-		Name:         group.Name,
-		MaxSpaces:    group.MaxSpaces,
-		ComputeUnits: group.ComputeUnits,
-		StorageUnits: group.StorageUnits,
-		MaxTunnels:   group.MaxTunnels,
+		Id:            group.Id,
+		Name:          group.Name,
+		MaxSpaces:     group.MaxSpaces,
+		ComputeUnits:  group.ComputeUnits,
+		StorageUnits:  group.StorageUnits,
+		MaxTunnels:    group.MaxTunnels,
+		FileStorageMB: group.FileStorageMB,
+		MaxBuckets:    group.MaxBuckets,
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, data)

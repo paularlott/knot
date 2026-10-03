@@ -1,6 +1,10 @@
 package driver_mysql
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 // migrations is an ordered list of SQL statements to apply to existing databases.
 // Each entry is applied exactly once, tracked by its index (1-based) in the configs table.
@@ -11,7 +15,7 @@ var migrations = []string{
 	// 2: add external_auth_providers to users
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_auth_providers JSON DEFAULT NULL`,
 	// 3: add multi-share storage to spaces
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS shares JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS shares JSON NOT NULL DEFAULT ('[]')`,
 	// 4: migrate legacy single-share values into shares json
 	`UPDATE spaces SET shares = JSON_ARRAY(shared_with_user_id) WHERE shared_with_user_id <> '' AND JSON_LENGTH(shares) = 0`,
 	// 5: drop legacy single-share index
@@ -19,11 +23,11 @@ var migrations = []string{
 	// 6: drop legacy single-share column
 	`ALTER TABLE spaces DROP COLUMN IF EXISTS shared_with_user_id`,
 	// 7: add space dependency storage
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS depends_on JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS depends_on JSON NOT NULL DEFAULT ('[]')`,
 	// 8: add health check fields to templates
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_type VARCHAR(16) NOT NULL DEFAULT 'none'`,
 	// 9
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_config TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_config TEXT NOT NULL DEFAULT ('')`,
 	// 10
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_skip_ssl_verify TINYINT(1) NOT NULL DEFAULT 0`,
 	// 11
@@ -37,7 +41,7 @@ var migrations = []string{
 	// 15: add stack field to spaces
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS stack VARCHAR(255) DEFAULT ''`,
 	// 16: add port_forwards to spaces
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS port_forwards JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS port_forwards JSON NOT NULL DEFAULT ('[]')`,
 	// 17: add disable_user_activity to templates
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_user_activity TINYINT(1) NOT NULL DEFAULT 0`,
 	// 18: remove disable_user_activity from spaces (was added in pro pre-release)
@@ -59,29 +63,29 @@ var migrations = []string{
 	// 26
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS icon_url VARCHAR(255) NOT NULL DEFAULT ''`,
 	// 27
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS volume_data TEXT DEFAULT '{}'`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS volume_data TEXT DEFAULT ('{}')`,
 	// 28
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS ssh_host_signer TEXT DEFAULT ''`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS ssh_host_signer TEXT DEFAULT ('')`,
 	// 29
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS note TEXT DEFAULT ''`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS note TEXT DEFAULT ('')`,
 	// 30
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS custom_fields JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS custom_fields JSON NOT NULL DEFAULT ('[]')`,
 	// 31: reconcile legacy templates schema with current model
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS icon_url VARCHAR(255) NOT NULL DEFAULT ''`,
 	// 32
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ('')`,
 	// 33
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS job MEDIUMTEXT`,
 	// 34
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS volumes MEDIUMTEXT`,
 	// 35
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS groups JSON NOT NULL DEFAULT '[]'`,
+	"ALTER TABLE templates ADD COLUMN IF NOT EXISTS `groups` JSON NOT NULL DEFAULT ('[]')",
 	// 36
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS schedule JSON DEFAULT NULL`,
 	// 37
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS zones JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS zones JSON NOT NULL DEFAULT ('[]')`,
 	// 38
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS custom_fields JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS custom_fields JSON NOT NULL DEFAULT ('[]')`,
 	// 39
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS with_vscode_tunnel TINYINT(1) NOT NULL DEFAULT 0`,
 	// 40
@@ -107,9 +111,9 @@ var migrations = []string{
 	// 50
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS allow_node_migration TINYINT(1) NOT NULL DEFAULT 0`,
 	// 51: add SSH private key storage to users
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS ssh_private_key TEXT DEFAULT ''`,
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS ssh_private_key TEXT DEFAULT ('')`,
 	// 52: add ports to templates
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS ports JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS ports JSON NOT NULL DEFAULT ('[]')`,
 	// 53: add stack_prefix to spaces
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS stack_prefix VARCHAR(255) DEFAULT ''`,
 	// 54: add scopes to tokens (NULL = unrestricted / pre-scopes behaviour)
@@ -121,21 +125,21 @@ var migrations = []string{
 	// 57: add icon_url to stack definitions
 	`ALTER TABLE stack_definitions ADD COLUMN IF NOT EXISTS icon_url VARCHAR(255) NOT NULL DEFAULT ''`,
 	// 58: add env to mcp_servers (stdio server environment variables)
-	`ALTER TABLE mcp_servers ADD COLUMN IF NOT EXISTS env JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE mcp_servers ADD COLUMN IF NOT EXISTS env JSON NOT NULL DEFAULT ('[]')`,
 	// 59: add generic preferences JSON column to users (UI prefs, e.g. pinned nav items)
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSON DEFAULT NULL`,
 	// 60: mark tokens issued via the OAuth2 flow (refreshable via /token)
 	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS refresh_token TINYINT(1) NOT NULL DEFAULT 0`,
 	// 61: add space jobs (definitions stored on the space, pushed to the agent)
-	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT ('[]')`,
 	// 62: add space jobs runner state
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS jobs_enabled TINYINT(1) NOT NULL DEFAULT 1`,
 	// 63: add template jobs (copied into new spaces)
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS jobs JSON NOT NULL DEFAULT ('[]')`,
 	// 64: add plugin permissions (text grants, plugin.<name>.<id>) to roles
 	`ALTER TABLE roles ADD COLUMN IF NOT EXISTS plugin_permissions JSON DEFAULT NULL`,
 	// 65: add linked users (the accounts a user may become) to users
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS linked_users JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS linked_users JSON NOT NULL DEFAULT ('[]')`,
 	// 66-70: add KVM network configuration to templates
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_network_cidr VARCHAR(64) NOT NULL DEFAULT ''`,
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS kvm_ip_range_start VARCHAR(64) NOT NULL DEFAULT ''`,
@@ -162,7 +166,13 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout INT UNSIGNED NOT NULL DEFAULT 0`,
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS idle_timeout_unit VARCHAR(16) DEFAULT 'disabled'`,
 	// 82: template port forward wiring, seeded into new spaces
-	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS port_forwards JSON NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS port_forwards JSON NOT NULL DEFAULT ('[]')`,
+	// 84-85: file storage quota (MB) on users and groups
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS file_storage_mb INT UNSIGNED NOT NULL DEFAULT 0`,
+	"ALTER TABLE `groups` ADD COLUMN IF NOT EXISTS file_storage_mb INT UNSIGNED NOT NULL DEFAULT 0",
+	// 86-87: maximum number of file storage buckets on users and groups
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_buckets INT UNSIGNED NOT NULL DEFAULT 0`,
+	"ALTER TABLE `groups` ADD COLUMN IF NOT EXISTS max_buckets INT UNSIGNED NOT NULL DEFAULT 0",
 }
 
 func (db *MySQLDriver) runMigrations() error {
@@ -197,7 +207,7 @@ version INT UNSIGNED NOT NULL PRIMARY KEY
 		}
 
 		db.logger.Debug("applying migration", "version", version)
-		if _, err := db.connection.Exec(sql); err != nil {
+		if err := db.execMigration(sql); err != nil {
 			return err
 		}
 		if _, err := db.connection.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
@@ -219,6 +229,73 @@ func (db *MySQLDriver) columnExists(tableName, columnName string) (bool, error) 
 	).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("check column %s.%s: %w", tableName, columnName, err)
+	}
+
+	return count > 0, nil
+}
+
+// MySQL, unlike MariaDB, has no IF [NOT] EXISTS for adding or dropping
+// columns and indexes, so execMigration checks the condition itself and runs
+// the statement without it, giving the same result on both.
+var (
+	addColumnRe  = regexp.MustCompile("(?is)^ALTER TABLE (`?\\w+`?) ADD COLUMN IF NOT EXISTS (`?\\w+`?)(.*)$")
+	dropColumnRe = regexp.MustCompile("(?is)^ALTER TABLE (`?\\w+`?) DROP COLUMN IF EXISTS (`?\\w+`?)$")
+	addIndexRe   = regexp.MustCompile("(?is)^ALTER TABLE (`?\\w+`?) ADD INDEX IF NOT EXISTS (`?\\w+`?)(.*)$")
+	dropIndexRe  = regexp.MustCompile("(?is)^ALTER TABLE (`?\\w+`?) DROP INDEX IF EXISTS (`?\\w+`?)$")
+)
+
+func (db *MySQLDriver) execMigration(sql string) error {
+	sql = strings.TrimSpace(sql)
+	unquote := func(s string) string { return strings.Trim(s, "`") }
+
+	var run string
+	switch {
+	case addColumnRe.MatchString(sql):
+		m := addColumnRe.FindStringSubmatch(sql)
+		exists, err := db.columnExists(unquote(m[1]), unquote(m[2]))
+		if err != nil || exists {
+			return err
+		}
+		run = "ALTER TABLE " + m[1] + " ADD COLUMN " + m[2] + m[3]
+	case dropColumnRe.MatchString(sql):
+		m := dropColumnRe.FindStringSubmatch(sql)
+		exists, err := db.columnExists(unquote(m[1]), unquote(m[2]))
+		if err != nil || !exists {
+			return err
+		}
+		run = "ALTER TABLE " + m[1] + " DROP COLUMN " + m[2]
+	case addIndexRe.MatchString(sql):
+		m := addIndexRe.FindStringSubmatch(sql)
+		exists, err := db.indexExists(unquote(m[1]), unquote(m[2]))
+		if err != nil || exists {
+			return err
+		}
+		run = "ALTER TABLE " + m[1] + " ADD INDEX " + m[2] + m[3]
+	case dropIndexRe.MatchString(sql):
+		m := dropIndexRe.FindStringSubmatch(sql)
+		exists, err := db.indexExists(unquote(m[1]), unquote(m[2]))
+		if err != nil || !exists {
+			return err
+		}
+		run = "ALTER TABLE " + m[1] + " DROP INDEX " + m[2]
+	default:
+		run = sql
+	}
+	_, err := db.connection.Exec(run)
+	return err
+}
+
+func (db *MySQLDriver) indexExists(tableName, indexName string) (bool, error) {
+	var count int
+	err := db.connection.QueryRow(
+		`SELECT COUNT(*)
+		FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+		tableName,
+		indexName,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("check index %s.%s: %w", tableName, indexName, err)
 	}
 
 	return count > 0, nil

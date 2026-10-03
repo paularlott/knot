@@ -110,6 +110,11 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 		return err
 	}
 
+	// Clients predating idle timeouts don't send a unit; that means disabled.
+	if template.IdleTimeoutUnit == "" {
+		template.IdleTimeoutUnit = "disabled"
+	}
+
 	// Validate input
 	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, int(template.IdleTimeout), template.IdleTimeoutUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
 		return err
@@ -181,6 +186,11 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 		if err := requireEnabledBackend(template.Platform); err != nil {
 			return err
 		}
+	}
+
+	// Clients predating idle timeouts don't send a unit; that means disabled.
+	if template.IdleTimeoutUnit == "" {
+		template.IdleTimeoutUnit = "disabled"
 	}
 
 	// Validate input

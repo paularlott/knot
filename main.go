@@ -15,6 +15,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/command"
 	commands_admin "github.com/paularlott/knot/command/admin"
+	command_files "github.com/paularlott/knot/command/files"
 	commands_forward "github.com/paularlott/knot/command/forward"
 	command_method "github.com/paularlott/knot/command/method"
 	command_pool "github.com/paularlott/knot/command/pool"
@@ -153,6 +154,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			commands_port.PortCmd,
 			command_pool.PoolCmd,
 			command_scripts.ScriptsCmd,
+			command_files.FilesCmd,
 			command_skills.SkillsCmd,
 			command_spaces.SpacesCmd,
 			command_stack.StackCmd,

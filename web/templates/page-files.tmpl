@@ -1,0 +1,593 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}Files{{ end }}
+
+{{ define "mainContent" }}
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="filesComponent({{ .permissionUseFiles }}, {{ .permissionManageFiles }}, {{ .permissionShareBuckets }}, {{ .permissionTransferBuckets }})">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
+
+    <!-- Screen reader announcements for navigation and progress -->
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" x-text="announce"></div>
+
+    <div class="col-span-full">
+      <h1 id="files-heading" tabindex="-1" class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white focus:outline-none" x-text="view === 'browse' && bucket ? label(bucket) : 'Files'">Files</h1>
+      <!-- Breadcrumb -->
+      <nav x-show="view === 'browse'" x-cloak aria-label="Breadcrumb" class="mt-2">
+        <ol class="flex flex-wrap items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+          <li><a href="/files" @click.prevent="showBuckets()" class="hover:underline text-blue-700 dark:text-blue-400">Buckets</a></li>
+          <li aria-hidden="true">/</li>
+          <li>
+            <a href="#" @click.prevent="openPrefix('')" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="prefix === '' ? 'page' : null" x-text="label(bucket)"></a>
+          </li>
+          <template x-for="(crumb, i) in breadcrumbs" :key="crumb.prefix">
+            <li class="flex items-center gap-1">
+              <span aria-hidden="true">/</span>
+              <a href="#" @click.prevent="openPrefix(crumb.prefix)" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="i === breadcrumbs.length - 1 ? 'page' : null" x-text="crumb.name"></a>
+            </li>
+          </template>
+        </ol>
+      </nav>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- Buckets -->
+    <!-- ============================================================ -->
+    <template x-if="view === 'buckets'">
+      <div class="col-span-full grid grid-cols-1 gap-2 xl:gap-4">
+        <form class="app-toolbar" @submit.prevent>
+          <div class="flex">
+            <div class="w-full sm:w-auto">
+              <label for="bucket-search" class="sr-only">Search buckets</label>
+              <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
+                <input type="search" id="bucket-search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-ref="searchInput">
+                <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+              </div>
+            </div>
+            <template x-if="isAdmin">
+              <div class="flex">
+                <button type="button" @click.prevent="$refs.filterPanel.toggle" aria-label="Filter" aria-haspopup="true" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+                  </svg>
+                  <span x-show="showAll" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
+                </button>
+                <div x-ref="filterPanel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.filterPanel.close" @keydown.window.escape="$refs.filterPanel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap">
+                  <div class="mb-2 mt-2">
+                    <label class="flex items-center cursor-pointer mb-2">
+                      <input type="checkbox" class="sr-only peer" value="1" x-model="showAll" @change="loadBuckets()">
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Buckets</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div>
+            <button x-show="canOwn" type="button" @click="openCreate()" class="btn-primary flex items-center" aria-label="Create bucket">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" /></svg>
+              Bucket
+            </button>
+          </div>
+        </form>
+
+        <div x-show="usage && canOwn" x-cloak class="text-sm text-gray-700 dark:text-gray-300">
+          <span x-text="usageText"></span>
+          <div x-show="usage && usage.quota_bytes" class="mt-1 w-full max-w-md h-2 bg-gray-200 rounded-full dark:bg-gray-700" role="progressbar" aria-label="File storage used" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="usagePercent">
+            <div class="h-2 rounded-full bg-blue-600" :style="`width: ${usagePercent}%`"></div>
+          </div>
+        </div>
+
+        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+          {{ template "loading" . }}
+          <div x-show="!loading && filteredBuckets.length === 0" x-cloak>
+            <div class="text-center text-gray-500 dark:text-gray-400 py-8" role="status">
+              <p x-show="buckets.length === 0 && canOwn">No buckets yet. Create one to start storing files.</p>
+              <p x-show="buckets.length === 0 && !canOwn">No buckets have been shared with you.</p>
+              <p x-show="buckets.length > 0">No buckets match your search.</p>
+            </div>
+          </div>
+          <div x-show="!loading && filteredBuckets.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+              <caption class="sr-only">Buckets you own or that are shared with you</caption>
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+                <tr>
+                  <th scope="col" class="px-4 py-3">Bucket</th>
+                  <th scope="col" class="px-4 py-3 hidden sm:table-cell">Owner</th>
+                  <th scope="col" class="px-4 py-3 hidden md:table-cell">Your access</th>
+                  <th scope="col" class="px-4 py-3 hidden md:table-cell">Files</th>
+                  <th scope="col" class="px-4 py-3 hidden sm:table-cell">Size</th>
+                  <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="b in filteredBuckets" :key="b.name">
+                  <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                    <td class="px-4 py-3">
+                      <a href="#" @click.prevent="openBucket(b.name)" class="text-base font-semibold text-gray-900 dark:text-white hover:underline" :aria-label="'Open bucket ' + label(b)" x-text="label(b)"></a>
+                      <div class="sm:hidden mt-1 flex flex-wrap gap-1 text-xs">
+                        <span class="app-badge-neutral" x-text="b.owner_name"></span>
+                        <span :class="yourAccessClass(b)" x-text="yourAccess(b)"></span>
+                        <span class="app-badge-neutral" x-text="formatBytes(b.size)"></span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 hidden sm:table-cell" x-text="b.owner_name"></td>
+                    <td class="px-4 py-3 hidden md:table-cell">
+                      <span :class="yourAccessClass(b)" x-text="yourAccess(b)"></span>
+                      <span x-show="b.grants && b.grants.length" class="ml-1 app-badge-neutral" x-text="'Shared (' + b.grants.length + ')'"></span>
+                    </td>
+                    <td class="px-4 py-3 hidden md:table-cell" x-text="b.count"></td>
+                    <td class="px-4 py-3 hidden sm:table-cell" x-text="formatBytes(b.size)"></td>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center justify-end gap-2">
+                        <button x-show="canShareBucket(b)" type="button" @click="openShare(b)" class="row-action-button" :aria-label="'Share bucket ' + label(b)" title="Share">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>
+                        </button>
+                        <button x-show="canTransferBucket(b)" type="button" @click="openTransfer(b)" class="row-action-button" :aria-label="'Transfer bucket ' + label(b)" title="Transfer">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
+                        </button>
+                        <button x-show="b.access === 'owner'" type="button" @click="confirmDeleteBucket(b)" class="row-action-button row-action-danger" :aria-label="'Delete bucket ' + label(b)" title="Delete">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- Browser -->
+    <!-- ============================================================ -->
+    <template x-if="view === 'browse' && bucket">
+      <div class="col-span-full grid grid-cols-1 gap-2 xl:gap-4">
+        <div class="app-toolbar">
+          <div class="flex flex-wrap items-center gap-2 text-sm">
+            <span :class="yourAccessClass(bucket)" x-text="yourAccess(bucket)"></span>
+            <span class="text-gray-600 dark:text-gray-400" x-text="'Owner: ' + bucket.owner_name"></span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" @click="listFiles(false)" class="ui-button-secondary flex items-center" aria-label="Refresh file list">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 sm:mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+              <span class="hidden sm:inline">Refresh</span>
+            </button>
+            <button x-show="canShareBucket(bucket)" type="button" @click="openShare(bucket)" class="ui-button-secondary flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>
+              Share
+            </button>
+            <button x-show="canWrite" type="button" @click="openNewFile()" class="ui-button-secondary flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+              New file
+            </button>
+            <button x-show="canWrite" type="button" @click="chooseFolder()" class="ui-button-secondary flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+              Upload folder
+            </button>
+            <button x-show="canWrite" type="button" @click="chooseFiles()" class="btn-primary flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+              Upload files
+            </button>
+            <input type="file" multiple class="hidden" x-ref="fileInput" @change="filesPicked($event)" aria-hidden="true" tabindex="-1">
+            <input type="file" multiple webkitdirectory class="hidden" x-ref="folderInput" @change="filesPicked($event)" aria-hidden="true" tabindex="-1">
+          </div>
+        </div>
+
+        <!-- Upload progress -->
+        <div x-show="uploads.length" x-cloak class="p-4 bg-white border border-gray-200 rounded-lg dark:border-gray-700 dark:bg-gray-800">
+          <h2 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Uploads</h2>
+          <ul class="space-y-2">
+            <template x-for="u in uploads" :key="u.id">
+              <li class="text-sm">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="truncate text-gray-800 dark:text-gray-200" x-text="u.name"></span>
+                  <span class="shrink-0" :class="u.status === 'error' ? 'text-red-700 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'"
+                        x-text="u.status === 'error' ? 'Failed: ' + u.error : (u.status === 'done' ? 'Done' : (u.status === 'queued' ? 'Waiting' : u.progress + '%'))"></span>
+                </div>
+                <progress x-show="u.status === 'uploading' || u.status === 'queued'" class="w-full h-1.5" max="100" :value="u.progress" :aria-label="'Uploading ' + u.name"></progress>
+              </li>
+            </template>
+          </ul>
+        </div>
+
+        <div class="p-4 mb-4 bg-white border rounded-lg shadow-xs sm:p-6 dark:bg-gray-800 transition-colors"
+             :class="dragOver ? 'border-blue-500 border-dashed bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'"
+             @dragover.prevent="if (canWrite) dragOver = true" @dragleave.prevent="dragOver = false" @drop.prevent="dropped($event)">
+          <p x-show="canWrite" class="text-xs text-gray-500 dark:text-gray-400 mb-3">Drop files or folders here to upload them to this folder.</p>
+
+          <div x-show="listing && folders.length === 0 && files.length === 0" class="flex items-center p-2 text-base text-gray-900 dark:text-white" role="status">Loading &hellip;</div>
+          <div x-show="!listing && folders.length === 0 && files.length === 0" x-cloak class="text-center text-gray-500 dark:text-gray-400 py-8" role="status">
+            This folder is empty.
+          </div>
+
+          <div x-show="folders.length > 0 || files.length > 0" class="relative overflow-x-auto sm:rounded-lg">
+            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+              <caption class="sr-only" x-text="'Contents of ' + label(bucket) + (prefix ? '/' + prefix : '')"></caption>
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+                <tr>
+                  <th scope="col" class="px-4 py-3">Name</th>
+                  <th scope="col" class="px-4 py-3 hidden sm:table-cell">Size</th>
+                  <th scope="col" class="px-4 py-3 hidden md:table-cell">Modified</th>
+                  <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="folder in folders" :key="'d:' + folder.prefix">
+                  <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                    <td class="px-4 py-3">
+                      <a href="#" @click.prevent="openPrefix(folder.prefix)" class="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:underline" :aria-label="'Open folder ' + folder.name">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+                        <span x-text="folder.name"></span>
+                      </a>
+                    </td>
+                    <td class="px-4 py-3 hidden sm:table-cell">Folder</td>
+                    <td class="px-4 py-3 hidden md:table-cell"></td>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center justify-end gap-2">
+                        <button x-show="canWrite" type="button" @click="confirmDeleteFile(folder, true)" class="row-action-button row-action-danger" :aria-label="'Delete folder ' + folder.name" title="Delete folder">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+                <template x-for="f in files" :key="'f:' + f.key">
+                  <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                    <td class="px-4 py-3">
+                      <div class="inline-flex items-center gap-2 text-gray-900 dark:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-gray-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                        <span class="break-all" x-text="f.name"></span>
+                      </div>
+                      <div class="sm:hidden mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="formatBytes(f.size) + ' · ' + formatDate(f.modified_at)"></div>
+                    </td>
+                    <td class="px-4 py-3 hidden sm:table-cell whitespace-nowrap" x-text="formatBytes(f.size)"></td>
+                    <td class="px-4 py-3 hidden md:table-cell whitespace-nowrap" x-text="formatDate(f.modified_at)"></td>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center justify-end gap-2">
+                        <button x-show="isEditable(f)" type="button" @click="openEditor(f)" class="row-action-button" :aria-label="(canWrite ? 'Edit ' : 'View ') + f.name" :title="canWrite ? 'Edit' : 'View'">
+                          <svg x-show="canWrite" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                          <svg x-show="!canWrite" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                        </button>
+                        <a :href="downloadUrl(f)" :download="f.name" class="row-action-button" :aria-label="'Download ' + f.name" title="Download">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        </a>
+                        <button x-show="canWrite" type="button" @click="confirmDeleteFile(f, false)" class="row-action-button row-action-danger" :aria-label="'Delete ' + f.name" title="Delete">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <div x-show="truncated" class="mt-3 text-center">
+              <button type="button" @click="listFiles(true)" class="ui-button-secondary">Load more</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- Dialogs -->
+    <!-- ============================================================ -->
+
+    <!-- Create bucket -->
+    <div x-cloak x-show="createModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="createModal.show" @keydown.esc.window="createModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="createBucketTitle">
+      <form x-show="createModal.show" class="ui-modal-panel" @submit.prevent="createBucket()">
+        <div class="ui-modal-header">
+          <h2 id="createBucketTitle" class="ui-modal-title">Create Bucket</h2>
+          <button type="button" @click="createModal.show = false" aria-label="Close" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="ui-modal-body">
+          <label for="bucket-name" class="form-label">Name</label>
+          <input id="bucket-name" type="text" class="form-field" x-model="createModal.name" autocomplete="off" spellcheck="false" aria-describedby="bucket-name-help bucket-name-error" :aria-invalid="createModal.error !== ''" :class="{'form-field-error': createModal.error}">
+          <p id="bucket-name-help" class="description">3-30 lowercase letters, digits and hyphens, without --. The bucket is created under your username as <span class="font-mono">&lt;username&gt;--&lt;name&gt;</span>; you refer to it by the short name, others by the full name.</p>
+          <p id="bucket-name-error" x-show="createModal.error" class="error-message" role="alert" x-text="createModal.error"></p>
+        </div>
+        <div class="ui-modal-footer">
+          <button type="button" @click="createModal.show = false" class="ui-button-secondary">Cancel</button>
+          <button type="submit" class="ui-button-primary" :disabled="createModal.saving">Create Bucket</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Bucket quota reached -->
+    <div x-cloak x-show="bucketQuotaModal" x-transition.opacity.duration.200ms x-trap.inert.noscroll="bucketQuotaModal" @keydown.esc.window="bucketQuotaModal = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="bucketQuotaTitle" aria-describedby="bucketQuotaDesc">
+      <div x-show="bucketQuotaModal" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+        <div class="ui-modal-header">
+          <div class="ui-modal-icon-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <h3 id="bucketQuotaTitle" class="ui-modal-title">Bucket Quota Reached</h3>
+          <button type="button" @click="bucketQuotaModal = false" aria-label="close modal" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="ui-modal-body text-center" id="bucketQuotaDesc">
+          <p>You have reached the limit on the number of buckets you can own (<span x-text="usage ? usage.buckets + ' of ' + usage.max_buckets : ''"></span>).</p>
+          <p>Deleting an unused bucket will allow you to create a new one, or contact your administrator to have your quota increased.</p>
+        </div>
+        <div class="ui-modal-footer">
+          <button type="button" @click="bucketQuotaModal = false" class="ui-button-danger">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete bucket -->
+    <div x-cloak x-show="deleteBucketModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteBucketModal.show" @keydown.esc.window="deleteBucketModal.show = false" class="ui-modal-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="deleteBucketTitle" aria-describedby="deleteBucketDesc">
+      <div x-show="deleteBucketModal.show" class="ui-modal-panel">
+        <div class="ui-modal-header">
+          <div class="ui-modal-icon-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+          </div>
+          <h2 id="deleteBucketTitle" class="ui-modal-title">Delete Bucket</h2>
+          <button type="button" @click="deleteBucketModal.show = false" aria-label="Close" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="ui-modal-body text-center" id="deleteBucketDesc">
+          <p>Delete the bucket <strong x-text="label(deleteBucketModal.bucket)"></strong>?</p>
+          <p x-show="deleteBucketModal.bucket?.count > 0">Its <span x-text="deleteBucketModal.bucket?.count"></span> files (<span x-text="formatBytes(deleteBucketModal.bucket?.size)"></span>) will be deleted from every server. This cannot be undone.</p>
+          <p x-show="deleteBucketModal.error" class="error-message" role="alert" x-text="deleteBucketModal.error"></p>
+        </div>
+        <div class="ui-modal-footer">
+          <button type="button" @click="deleteBucketModal.show = false" class="ui-button-secondary">Keep Bucket</button>
+          <button type="button" @click="deleteBucket()" class="ui-button-danger" :disabled="deleteBucketModal.saving">Delete Bucket</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share list (owner) -->
+    <div x-cloak x-show="shareModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="shareModal.show && !shareModal.showAddForm && !shareModal.removeGrant" @keydown.esc.window="if (!shareModal.showAddForm && !shareModal.removeGrant) shareModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+      <div x-show="shareModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide overflow-hidden">
+        <div class="ui-modal-header rounded-t-2xl">
+          <div class="ui-modal-icon-info"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg></div>
+          <h2 id="shareModalTitle" class="ui-modal-title">Sharing - <span x-text="label(shareModal.bucket)"></span></h2>
+          <button type="button" @click="shareModal.show = false" aria-label="Close" class="ui-modal-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        </div>
+        <div class="ui-modal-body">
+          <p x-show="shareModal.error" x-text="shareModal.error" role="alert" class="text-red-600 dark:text-red-400 text-sm mb-3 p-2 bg-red-50 dark:bg-red-900/20 rounded" x-cloak></p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Owner: <strong class="text-gray-900 dark:text-white" x-text="shareModal.bucket?.owner_name"></strong></p>
+
+          <p x-show="!(shareModal.bucket?.grants || []).length" class="text-gray-500 dark:text-gray-400 text-sm py-4 text-center">Not shared with anyone.</p>
+
+          <div x-show="(shareModal.bucket?.grants || []).length > 0" class="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 mb-4">
+            <div class="overflow-x-auto">
+              <table aria-label="Shares" class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                  <tr>
+                    <th scope="col" class="px-3 py-2">Shared With</th>
+                    <th scope="col" class="px-3 py-2">Type</th>
+                    <th scope="col" class="px-3 py-2">Access</th>
+                    <th scope="col" class="px-3 py-2"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="g in (shareModal.bucket?.grants || [])" :key="g.type + ':' + g.id">
+                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                      <td class="px-3 py-2 text-gray-900 dark:text-white" x-text="grantLabel(g)"></td>
+                      <td class="px-3 py-2" x-text="grantTypeLabel(g)"></td>
+                      <td class="px-3 py-2">
+                        <label class="inline-flex items-center cursor-pointer">
+                          <input type="checkbox" class="sr-only peer" :checked="g.access === 'write'" @change="toggleGrantWrite(g)" :disabled="shareModal.saving" :aria-label="'Read and write access for ' + grantLabel(g)">
+                          <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="g.access === 'write' ? 'Read & Write' : 'Read Only'"></span>
+                        </label>
+                      </td>
+                      <td class="px-3 py-2 text-right whitespace-nowrap">
+                        <button type="button" @click="shareModal.removeGrant = g; $el.blur()" :aria-label="'Stop sharing with ' + grantLabel(g)" :disabled="shareModal.saving" title="Remove" class="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1 flex-shrink-0 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd"/></svg></button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="ui-modal-footer rounded-b-2xl">
+          <button type="button" @click="openAddShare()" class="ui-button-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" /></svg>
+            Add Share
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add share (stacks over the list) -->
+    <div x-cloak x-show="shareModal.showAddForm" x-transition.opacity.duration.200ms x-trap.inert.noscroll="shareModal.showAddForm" @keydown.esc.window="if (shareModal.showAddForm && !shareModal.form.open) shareModal.showAddForm = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="shareAddTitle">
+      <form x-show="shareModal.showAddForm" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel overflow-visible" @submit.prevent="addShare()">
+        <div class="ui-modal-header rounded-t-2xl">
+          <div class="ui-modal-icon-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+          </div>
+          <h2 id="shareAddTitle" class="ui-modal-title">Add Share</h2>
+          <button type="button" @click="shareModal.showAddForm = false" aria-label="Close" class="ui-modal-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        </div>
+        <div class="ui-modal-body">
+          <p x-show="shareModal.form.error" x-text="shareModal.form.error" role="alert" class="text-red-600 dark:text-red-400 text-sm mb-3 p-2 bg-red-50 dark:bg-red-900/20 rounded" x-cloak></p>
+
+          <fieldset class="mb-4">
+            <legend class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Share With</legend>
+            <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+              <template x-for="opt in [{v:'user', l:'User'}, {v:'group', l:'Group'}, {v:'all', l:'All Users'}]" :key="opt.v">
+                <label class="relative">
+                  <input type="radio" name="share-type" :value="opt.v" :checked="shareModal.form.type === opt.v" @change="setShareType(opt.v)" class="sr-only peer">
+                  <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                      peer-checked:bg-blue-600 peer-checked:text-white
+                      peer-focus:ring-2 peer-focus:ring-blue-300
+                      transition-colors duration-200 ease-in-out
+                      text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                      hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                    <span x-text="opt.l"></span>
+                  </div>
+                </label>
+              </template>
+            </div>
+          </fieldset>
+
+          <div x-show="shareModal.form.type !== 'all'" class="mb-4 relative">
+            <label for="share-target" class="form-label" x-text="shareModal.form.type === 'group' ? 'Group' : 'User'"></label>
+            <input id="share-target" type="text" role="combobox" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+                   class="form-field" :placeholder="shareModal.form.type === 'group' ? 'Search groups...' : 'Search users...'"
+                   :aria-expanded="shareModal.form.open && shareOptions().length > 0" aria-controls="share-target-listbox"
+                   :aria-activedescendant="shareModal.form.open && shareModal.form.active >= 0 ? 'share-target-opt-' + shareModal.form.active : null"
+                   x-model="shareModal.form.query" @input="comboInput(shareModal.form)"
+                   @keydown="comboKeydown($event, shareModal.form, shareOptions(), o => selectShareOption(o))"
+                   @focus="shareModal.form.open = true" @blur="setTimeout(() => shareModal.form.open = false, 150)">
+            <ul id="share-target-listbox" role="listbox" :aria-label="shareModal.form.type === 'group' ? 'Groups' : 'Users'" x-show="shareModal.form.open && shareOptions().length > 0" x-cloak class="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+              <template x-for="(o, index) in shareOptions()" :key="o.id">
+                <li :id="'share-target-opt-' + index" role="option" :aria-selected="shareModal.form.id === o.id" @mousedown.prevent.stop="selectShareOption(o)" class="px-3 py-2 cursor-pointer text-sm text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" :class="{'bg-blue-50 dark:bg-blue-900/20': shareModal.form.active === index}" x-text="o.name"></li>
+              </template>
+            </ul>
+            <p x-show="shareModal.form.open && shareModal.form.query && shareOptions().length === 0" x-cloak class="description">No matches.</p>
+          </div>
+
+          <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" x-model="shareModal.form.write" class="sr-only peer" aria-describedby="share-access-desc">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Read &amp; Write</span>
+          </label>
+          <p id="share-access-desc" class="description mt-1" x-text="shareModal.form.write ? 'Can list, download, upload, edit and delete files.' : 'Read only: can list and download files.'"></p>
+        </div>
+        <div class="ui-modal-footer rounded-b-2xl">
+          <button type="button" @click="shareModal.showAddForm = false" class="ui-button-secondary">Cancel</button>
+          <button type="submit" :disabled="shareModal.saving" class="ui-button-primary disabled:opacity-50">Add Share</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Remove share confirmation (stacks over the list) -->
+    <template x-if="shareModal.removeGrant">
+      <div x-transition.opacity.duration.200ms x-trap.inert.noscroll="shareModal.removeGrant" @keydown.esc.window="shareModal.removeGrant = null" @click.self="shareModal.removeGrant = null" class="ui-modal-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="shareRemoveTitle" aria-describedby="shareRemoveDesc">
+        <div class="ui-modal-panel">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd"/></svg></div>
+            <h2 id="shareRemoveTitle" class="ui-modal-title">Stop Sharing</h2>
+            <button type="button" @click="shareModal.removeGrant = null" aria-label="Close" class="ui-modal-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          </div>
+          <div class="ui-modal-body text-center" id="shareRemoveDesc">
+            <p>Stop sharing <strong x-text="label(shareModal.bucket)"></strong> with <strong x-text="grantLabel(shareModal.removeGrant)"></strong>?</p>
+          </div>
+          <div class="ui-modal-footer">
+            <button type="button" @click="shareModal.removeGrant = null" class="ui-button-secondary">Keep Share</button>
+            <button type="button" @click="removeGrant()" :disabled="shareModal.saving" class="ui-button-danger disabled:opacity-50">Stop Sharing</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Transfer bucket -->
+    <div x-cloak x-show="transferModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="transferModal.show" @keydown.esc.window="if (transferModal.show && !transferModal.open) transferModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="transferBucketTitle">
+      <form x-show="transferModal.show" class="ui-modal-panel overflow-visible" @submit.prevent="transferBucket()">
+        <div class="ui-modal-header rounded-t-2xl">
+          <h2 id="transferBucketTitle" class="ui-modal-title">Transfer - <span x-text="label(transferModal.bucket)"></span></h2>
+          <button type="button" @click="transferModal.show = false" aria-label="Close" class="ui-modal-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        </div>
+        <div class="ui-modal-body">
+          <p x-show="transferModal.error" x-text="transferModal.error" role="alert" class="text-red-600 dark:text-red-400 text-sm mb-3 p-2 bg-red-50 dark:bg-red-900/20 rounded" x-cloak></p>
+          <p class="text-sm mb-3">The bucket moves into the new owner's namespace and is renamed <strong class="font-mono whitespace-nowrap" x-text="transferNewName"></strong>. Update any scripts, sync jobs or clients that use the current name. Shares are kept, and the content counts against the new owner's file storage quota. Only users with permission to use file storage can receive a bucket.</p>
+          <div class="mb-4 relative">
+            <label for="transfer-user" class="form-label">New Owner</label>
+            <input id="transfer-user" type="text" role="combobox" aria-autocomplete="list" autocomplete="off" spellcheck="false" class="form-field" placeholder="Search users..."
+                   :aria-expanded="transferModal.open && transferOptions().length > 0" aria-controls="transfer-user-listbox"
+                   :aria-activedescendant="transferModal.open && transferModal.active >= 0 ? 'transfer-user-opt-' + transferModal.active : null"
+                   x-model="transferModal.query" @input="comboInput(transferModal)"
+                   @keydown="comboKeydown($event, transferModal, transferOptions(), o => selectTransferOption(o))"
+                   @focus="transferModal.open = true" @blur="setTimeout(() => transferModal.open = false, 150)">
+            <ul id="transfer-user-listbox" role="listbox" aria-label="Users" x-show="transferModal.open && transferOptions().length > 0" x-cloak class="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+              <template x-for="(o, index) in transferOptions()" :key="o.id">
+                <li :id="'transfer-user-opt-' + index" role="option" :aria-selected="transferModal.id === o.id" @mousedown.prevent.stop="selectTransferOption(o)" class="px-3 py-2 cursor-pointer text-sm text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" :class="{'bg-blue-50 dark:bg-blue-900/20': transferModal.active === index}" x-text="o.name"></li>
+              </template>
+            </ul>
+          </div>
+          <label x-show="isAdmin" class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" x-model="transferModal.force" class="sr-only peer">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Transfer even if over quota</span>
+          </label>
+        </div>
+        <div class="ui-modal-footer rounded-b-2xl">
+          <button type="button" @click="transferModal.show = false" class="ui-button-secondary">Cancel</button>
+          <button type="submit" class="ui-button-danger disabled:opacity-50" :disabled="transferModal.saving">Transfer Bucket</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Delete file or folder -->
+    <div x-cloak x-show="deleteFileModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteFileModal.show" @keydown.esc.window="deleteFileModal.show = false" class="ui-modal-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="deleteFileTitle" aria-describedby="deleteFileDesc">
+      <div x-show="deleteFileModal.show" class="ui-modal-panel">
+        <div class="ui-modal-header">
+          <h2 id="deleteFileTitle" class="ui-modal-title" x-text="deleteFileModal.isFolder ? 'Delete Folder' : 'Delete File'"></h2>
+          <button type="button" @click="deleteFileModal.show = false" aria-label="Close" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="ui-modal-body text-center" id="deleteFileDesc">
+          <p x-show="!deleteFileModal.isFolder">Delete <strong x-text="deleteFileModal.entry?.name"></strong>?</p>
+          <p x-show="deleteFileModal.isFolder">Delete the folder <strong x-text="deleteFileModal.entry?.name"></strong> and every file in it?</p>
+          <p x-show="deleteFileModal.error" class="error-message" role="alert" x-text="deleteFileModal.error"></p>
+        </div>
+        <div class="ui-modal-footer">
+          <button type="button" @click="deleteFileModal.show = false" class="ui-button-secondary">Cancel</button>
+          <button type="button" @click="deleteFile()" class="ui-button-danger" :disabled="deleteFileModal.saving">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- New file name -->
+    <div x-cloak x-show="newFileModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="newFileModal.show" @keydown.esc.window="newFileModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="newFileTitle">
+      <form x-show="newFileModal.show" class="ui-modal-panel" @submit.prevent="startNewFile()">
+        <div class="ui-modal-header">
+          <h2 id="newFileTitle" class="ui-modal-title">New File</h2>
+          <button type="button" @click="newFileModal.show = false" aria-label="Close" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="ui-modal-body">
+          <label for="new-file-name" class="form-label">File name</label>
+          <input id="new-file-name" type="text" class="form-field" x-model="newFileModal.name" autocomplete="off" spellcheck="false" placeholder="settings.toml" aria-describedby="new-file-help new-file-error" :aria-invalid="newFileModal.error !== ''">
+          <p id="new-file-help" class="description" x-text="'Created in ' + label(bucket) + '/' + prefix + '. Use / to create folders.'"></p>
+          <p id="new-file-error" x-show="newFileModal.error" class="error-message" role="alert" x-text="newFileModal.error"></p>
+        </div>
+        <div class="ui-modal-footer">
+          <button type="button" @click="newFileModal.show = false" class="ui-button-secondary">Cancel</button>
+          <button type="submit" class="ui-button-primary">Continue</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Editor -->
+    <div x-cloak x-show="editor.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="editor.show" @keydown.esc.window="if (editor.show) closeEditor()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+      <form x-show="editor.show" class="ui-modal-panel-wide max-h-[90vh] flex flex-col" @submit.prevent="saveEditor()" @keydown.ctrl.s.prevent="canWrite && saveEditor()" @keydown.meta.s.prevent="canWrite && saveEditor()">
+        <div class="ui-modal-header">
+          <h2 id="editorTitle" class="ui-modal-title break-all" x-text="(canWrite ? (editor.isNew ? 'New: ' : 'Edit: ') : 'View: ') + editor.key"></h2>
+          <button type="button" @click="closeEditor()" aria-label="Close" class="ui-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="ui-modal-body flex-1 min-h-0 flex flex-col">
+          <div x-show="editor.loading" role="status">Loading &hellip;</div>
+          <label for="editor-content" class="sr-only" x-text="'Contents of ' + editor.key"></label>
+          <textarea id="editor-content" x-show="!editor.loading" x-model="editor.content" :readonly="!canWrite" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"
+                    class="form-field font-mono text-sm w-full flex-1 min-h-[50vh] resize-y"></textarea>
+          <p class="description mt-1" x-show="canWrite">Ctrl+S or ⌘S saves.</p>
+          <p x-show="editor.error" class="error-message mt-2" role="alert" x-text="editor.error"></p>
+        </div>
+        <div class="ui-modal-footer">
+          <button type="button" @click="closeEditor()" class="ui-button-secondary" x-text="canWrite ? 'Cancel' : 'Close'"></button>
+          <button x-show="canWrite" type="submit" class="ui-button-primary" :disabled="editor.saving || editor.loading || (!editor.isNew && !editorDirty)">Save</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</main>
+{{ end }}

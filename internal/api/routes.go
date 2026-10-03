@@ -73,6 +73,21 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/sessions", middleware.ApiAuth(HandleGetSessions))
 	router.HandleFunc("DELETE /api/sessions/{session_id}", middleware.ApiAuth(HandleDeleteSessions))
 
+	// File storage — every handler answers 503 when storage is disabled
+	router.HandleFunc("GET /api/files/buckets", middleware.ApiAuth(HandleGetFileBuckets))
+	router.HandleFunc("POST /api/files/buckets", middleware.ApiAuth(HandleCreateFileBucket))
+	router.HandleFunc("GET /api/files/buckets/{bucket}", middleware.ApiAuth(HandleGetFileBucket))
+	router.HandleFunc("DELETE /api/files/buckets/{bucket}", middleware.ApiAuth(HandleDeleteFileBucket))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/share", middleware.ApiAuth(HandleShareFileBucket))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/unshare", middleware.ApiAuth(HandleUnshareFileBucket))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/transfer", middleware.ApiAuth(HandleTransferFileBucket))
+	router.HandleFunc("GET /api/files/usage", middleware.ApiAuth(HandleGetFileUsage))
+	router.HandleFunc("GET /api/files/share-targets", middleware.ApiAuth(HandleGetFileShareTargets))
+	router.HandleFunc("GET /api/files/list/{bucket}", middleware.ApiAuth(HandleListFileObjects))
+	router.HandleFunc("GET /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleGetFileObject))
+	router.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandlePutFileObject))
+	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleDeleteFileObject))
+
 	// Tokens
 	router.HandleFunc("GET /api/tokens", middleware.ApiAuth(HandleGetTokens))
 	router.HandleFunc("POST /api/tokens", middleware.ApiAuth(HandleCreateToken))

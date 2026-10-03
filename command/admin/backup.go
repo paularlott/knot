@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/filestore"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/paularlott/cli"
@@ -34,6 +35,7 @@ type backupData struct {
 	Responses    []*model.Response
 	CfgValues    []*model.CfgValue
 	AuditLogs    []*model.AuditLogEntry
+	Files        *filestore.BackupData `json:",omitempty"`
 }
 
 var BackupCmd = &cli.Command{
@@ -146,6 +148,18 @@ var BackupCmd = &cli.Command{
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_AUDIT_LOGS"},
 		},
 		&cli.BoolFlag{
+			Name:       "files",
+			Usage:      "Backup file storage buckets and file details (needs --files-path); add --files-dir to also copy their content",
+			ConfigPath: []string{"backup.files"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_FILES"},
+		},
+		&cli.StringFlag{
+			Name:       "files-dir",
+			Usage:      "Copy the content of every backed up file into this empty directory, as <bucket>/<key>.",
+			ConfigPath: []string{"backup.files_dir"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_FILES_DIR"},
+		},
+		&cli.BoolFlag{
 			Name:         "all",
 			Aliases:      []string{"a"},
 			Usage:        "Backup everything",
@@ -191,10 +205,13 @@ var BackupCmd = &cli.Command{
 		backupResponses := cmd.GetBool("responses")
 		backupCfgValues := cmd.GetBool("cfg-values")
 		backupAuditLogs := cmd.GetBool("audit-logs")
+		backupFiles := cmd.GetBool("files")
 		backupAll := cmd.GetBool("all")
+		filesDir := cmd.GetString("files-dir")
+		filesPath := config.GetServerConfig().FilesPath
 
 		// If any specific backup flags are set, do not use the "all" flag
-		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupScripts || backupSkills || backupCommands || backupResponses || backupCfgValues || backupAuditLogs {
+		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupScripts || backupSkills || backupCommands || backupResponses || backupCfgValues || backupAuditLogs || backupFiles {
 			backupAll = false
 		}
 
@@ -213,6 +230,15 @@ var BackupCmd = &cli.Command{
 			backupResponses = true
 			backupCfgValues = true
 			backupAuditLogs = true
+			// File storage is only part of everything where the server has it.
+			backupFiles = filesPath != ""
+		}
+
+		if filesDir != "" {
+			backupFiles = true
+		}
+		if backupFiles && filesPath == "" {
+			return fmt.Errorf("Error: backing up file storage needs --files-path, the server's file storage directory.")
 		}
 
 		limitUser := cmd.GetString("limit-user")
@@ -384,6 +410,23 @@ var BackupCmd = &cli.Command{
 			backupData.Users = slices.Clip(backupData.Users)
 		}
 
+		if backupFiles {
+			fmt.Println("Backing up file storage...")
+			files, err := filestore.ReadBackup(filesPath)
+			if err != nil {
+				return fmt.Errorf("Error reading file storage: %w", err)
+			}
+			if limitUser != "" {
+				user, err := db.GetUserByUsername(limitUser)
+				if err != nil {
+					return fmt.Errorf("Error getting user %s: %w", limitUser, err)
+				}
+				files = filesOwnedBy(files, user.Id)
+			}
+			backupData.Files = files
+			fmt.Printf("Backed up %d buckets holding %d files\n", len(files.Buckets), len(files.Objects))
+		}
+
 		data, err := json.Marshal(backupData)
 		if err != nil {
 			return fmt.Errorf("Error marshalling backup data: %w", err)
@@ -396,6 +439,13 @@ var BackupCmd = &cli.Command{
 		err = os.WriteFile(outputFile, data, 0644)
 		if err != nil {
 			return fmt.Errorf("Error writing backup file: %w", err)
+		}
+
+		if filesDir != "" {
+			fmt.Println("Copying file content to: ", filesDir)
+			if err := exportFiles(filesPath, filesDir, backupData.Files); err != nil {
+				return fmt.Errorf("Error copying file content: %w", err)
+			}
 		}
 
 		fmt.Println("Database backup completed successfully.")

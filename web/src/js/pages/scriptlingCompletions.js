@@ -309,6 +309,18 @@ const scriptlingLibraries = [
             returns: "\"Path\"",
           },
           {
+            name: "__truediv__",
+            signature: "__truediv__(other)",
+            description: "Path(\"/etc\") / \"hosts\": join a segment, like joinpath().",
+            returns: "\"Path\"",
+          },
+          {
+            name: "__str__",
+            signature: "__str__()",
+            description: "The path as a string.",
+            returns: "str",
+          },
+          {
             name: "exists",
             signature: "exists()",
             description: "Return True if the path exists.",
@@ -2853,6 +2865,42 @@ const scriptlingLibraries = [
         ],
       },
       {
+        name: "Stream",
+        description: "A streamed reply returned by Cluster.open_stream(). Use it in a with statement to close it automatically.",
+        methods: [
+          {
+            name: "read",
+            signature: "read(size=-1)",
+            description: "Read up to size bytes, or the rest of the reply when size is omitted. Returns b'' at the end; a handler error is raised by the read that reaches it.",
+            returns: "bytes",
+          },
+          {
+            name: "readline",
+            signature: "readline()",
+            description: "Read one line including its newline. Returns b'' at the end.",
+            returns: "bytes",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the stream, abandoning any unread reply.",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "StreamWriter",
+        description: "The reply writer passed to a handle_stream() handler. Only valid while the handler runs.",
+        methods: [
+          {
+            name: "write",
+            signature: "write(data)",
+            description: "Send str (as UTF-8) or bytes to the caller. Returns the number of bytes written.",
+            returns: "int",
+          },
+        ],
+      },
+      {
         name: "Cluster",
         description: "Gossip cluster object returned by create().",
         methods: [
@@ -2914,6 +2962,18 @@ const scriptlingLibraries = [
             name: "handle_with_reply",
             signature: "handle_with_reply(message_type, handler)",
             description: "Register a request/reply message handler.",
+            returns: "None",
+          },
+          {
+            name: "open_stream",
+            signature: "open_stream(node_id, message_type, data)",
+            description: "Request a reply of any size from a node's handle_stream() handler.",
+            returns: "Stream - A Stream to read the reply from",
+          },
+          {
+            name: "handle_stream",
+            signature: "handle_stream(message_type, handler)",
+            description: "Serve open_stream() requests for a message type.",
             returns: "None",
           },
           {
@@ -3802,7 +3862,7 @@ const scriptlingLibraries = [
       },
       {
         name: "choices",
-        signature: "choices(population, weights=None, k=1)",
+        signature: "choices(population, weights=None, cum_weights=None, k=1)",
         description: "Weighted random sampling with replacement.",
         returns: "List - List of k selected items",
       },
@@ -4565,6 +4625,18 @@ const scriptlingLibraries = [
         signature: "vectorize(text, dims=256)",
         description: "Generate a vector from text using the feature-hashing trick (CPU-only).",
         returns: "list[float] - Normalised vector of length dims.",
+      },
+      {
+        name: "sentences",
+        signature: "sentences(text)",
+        description: "Split text into sentences.",
+        returns: "list[str] - List of sentences in order.",
+      },
+      {
+        name: "extract",
+        signature: "extract(text, max_chars=None, max_sentences=None, ratio=None)",
+        description: "Keep the most informative sentences of a text, in their original order, within the given bounds (CPU-only, no model).",
+        returns: "str - The selected sentences joined with spaces (newlines for line-oriented text).",
       },
     ],
   },

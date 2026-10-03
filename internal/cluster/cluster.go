@@ -237,6 +237,9 @@ func NewCluster(
 			}
 		})
 
+		// File storage replication, when this server stores files
+		cluster.initFiles()
+
 		cfg := config.GetServerConfig()
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("zone", cfg.Zone)
@@ -500,6 +503,9 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 			}()
 		}
 
+		// Reconcile file storage with the other servers
+		c.startFilesSync()
+
 		// Start the leader election process
 		c.election.Start()
 	} else if originServer != "" && originToken != "" {
@@ -510,6 +516,8 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 }
 
 func (c *Cluster) Stop() {
+	c.stopFilesSync()
+
 	if c.gossipCluster != nil {
 		c.logger.Info("stopping gossip cluster")
 

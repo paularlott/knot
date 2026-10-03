@@ -10,28 +10,32 @@ import (
 )
 
 type ServerConfig struct {
-	Listen             string
-	ListenAgent        string
-	URL                string
-	AgentEndpoint      string
-	WildcardDomain     string
-	HTMLPath           string
-	TemplatePath       string
-	AgentPath          string
-	PackagePath        string
-	PrivateFilesPath   string
-	PublicFilesPath    string
-	DownloadPath       string
-	DisableSpaceCreate bool
-	ListenTunnel       string
-	TunnelDomain       string
-	TunnelServer       string
-	TerminalWebGL      bool
-	EncryptionKey      string
-	Zone               string
-	Hostname           string
-	Timezone           string
-	LeafNode           bool
+	Listen                 string
+	ListenAgent            string
+	URL                    string
+	AgentEndpoint          string
+	WildcardDomain         string
+	HTMLPath               string
+	TemplatePath           string
+	AgentPath              string
+	PackagePath            string
+	PrivateFilesPath       string
+	FilesPath              string // file storage directory; empty disables file storage
+	FilesEnabled           bool   // file storage on/off; off even with a path set
+	FilesDefaultQuotaMB    int    // quota for users whose own and group limits are all 0; 0 = unlimited
+	FilesDefaultMaxBuckets int    // bucket limit for users whose own and group limits are all 0; 0 = unlimited
+	PublicFilesPath        string
+	DownloadPath           string
+	DisableSpaceCreate     bool
+	ListenTunnel           string
+	TunnelDomain           string
+	TunnelServer           string
+	TerminalWebGL          bool
+	EncryptionKey          string
+	Zone                   string
+	Hostname               string
+	Timezone               string
+	LeafNode               bool
 	// DesktopMode is set when the server was started by bare `knot`
 	// (desktop / leaf mode) rather than `knot server`.
 	DesktopMode bool

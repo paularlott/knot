@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/paularlott/knot/internal/filestore"
 	"net"
 	"net/http"
 	"net/url"
@@ -287,6 +288,34 @@ var ServerCmd = &cli.Command{
 			ConfigPath:   []string{"server.private_files_path"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PRIVATE_FILES_PATH"},
 			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "files-path",
+			Usage:        "The directory for replicated file storage (buckets and the knot file commands; Knot Pro adds an S3 endpoint). File storage is disabled when not set.",
+			ConfigPath:   []string{"server.files.path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_PATH"},
+			DefaultValue: "",
+		},
+		&cli.BoolFlag{
+			Name:         "files-enabled",
+			Usage:        "Enable file storage. Storage also needs --files-path; set false to turn it off while keeping the path configured.",
+			ConfigPath:   []string{"server.files.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_ENABLED"},
+			DefaultValue: true,
+		},
+		&cli.IntFlag{
+			Name:         "files-default-quota-mb",
+			Usage:        "File storage quota in MB for users whose own and group limits are all 0 (0 = unlimited).",
+			ConfigPath:   []string{"server.files.default_quota_mb"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_DEFAULT_QUOTA_MB"},
+			DefaultValue: 0,
+		},
+		&cli.IntFlag{
+			Name:         "files-default-max-buckets",
+			Usage:        "Maximum number of file storage buckets a user can own when their own and group limits are all 0 (0 = unlimited).",
+			ConfigPath:   []string{"server.files.default_max_buckets"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_DEFAULT_MAX_BUCKETS"},
+			DefaultValue: 3,
 		},
 		&cli.StringFlag{
 			Name:         "mcp-tools-path",
@@ -934,6 +963,21 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// Start the SSE hub for real-time updates
 	sse.GetHub().Start()
 
+	// Open file storage when a storage directory is configured
+	if cfg.FilesEnabled && cfg.FilesPath != "" {
+		store, err := filestore.Open(filestore.Config{
+			Dir:         cfg.FilesPath,
+			Quota:       filestore.DatabaseQuota,
+			BucketLimit: filestore.DatabaseBucketLimit,
+		})
+		if err != nil {
+			logger.WithError(err).Fatal("failed to open file storage", "path", cfg.FilesPath)
+		}
+		filestore.SetInstance(store)
+		defer store.Close()
+		logger.Info("file storage enabled", "path", cfg.FilesPath)
+	}
+
 	// Sweep stale chat conversations (retention). Only on full cluster
 	// members — leaf nodes keep chat history in the browser.
 	if !cfg.LeafNode {
@@ -1031,6 +1075,11 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	rest.SetAPIMux(routes)
 
 	api.ApiRoutes(routes)
+
+	// Extra file storage endpoints registered by other packages
+	if store := filestore.Get(); store != nil {
+		filestore.MountRoutes(routes, store)
+	}
 	proxy.Routes(routes, cfg)
 	web.Routes(routes, cfg)
 
@@ -1544,39 +1593,43 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	serverCfg := &config.ServerConfig{
-		DesktopMode:          cmd.Name == "knot",
-		Listen:               cmd.GetString("listen"),
-		ListenAgent:          cmd.GetString("listen-agent"),
-		URL:                  cmd.GetString("url"),
-		AgentEndpoint:        cmd.GetString("agent-endpoint"),
-		WildcardDomain:       cmd.GetString("wildcard-domain"),
-		HTMLPath:             cmd.GetString("html-path"),
-		TemplatePath:         cmd.GetString("template-path"),
-		AgentPath:            cmd.GetString("agent-path"),
-		PackagePath:          cmd.GetString("package-path"),
-		PrivateFilesPath:     cmd.GetString("private-files-path"),
-		PublicFilesPath:      cmd.GetString("public-files-path"),
-		MCPToolsPath:         cmd.GetString("mcp-tools-path"),
-		MCPToolsDisabled:     cmd.GetStringSlice("mcp-disable-builtin-tools"),
-		PluginsPath:          cmd.GetString("plugins-path"),
-		DownloadPath:         cmd.GetString("download-path"),
-		DisableSpaceCreate:   cmd.GetBool("disable-space-create"),
-		ListenTunnel:         cmd.GetString("listen-tunnel"),
-		TunnelDomain:         cmd.GetString("tunnel-domain"),
-		TunnelServer:         cmd.GetString("tunnel-server"),
-		TerminalWebGL:        cmd.GetBool("terminal-webgl"),
-		EncryptionKey:        cmd.GetString("encrypt"),
-		Zone:                 zone,
-		Hostname:             hostname,
-		Timezone:             cmd.GetString("timezone"),
-		LeafNode:             cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
-		AuthIPRateLimiting:   cmd.GetBool("auth-ip-rate-limiting"),
-		DNSEnabled:           cmd.GetBool("dns-enabled"),
-		DNSListen:            cmd.GetString("dns-listen"),
-		Nameservers:          cmd.GetStringSlice("nameservers"),
-		MCPToolTimeout:       cmd.GetInt("mcp-tool-timeout"),
-		ScriptFSAllowedPaths: cmd.GetStringSlice("script-fs-allowed-paths"),
-		ScriptNetPolicyFile:  cmd.GetString("script-net-policy"),
+		DesktopMode:            cmd.Name == "knot",
+		Listen:                 cmd.GetString("listen"),
+		ListenAgent:            cmd.GetString("listen-agent"),
+		URL:                    cmd.GetString("url"),
+		AgentEndpoint:          cmd.GetString("agent-endpoint"),
+		WildcardDomain:         cmd.GetString("wildcard-domain"),
+		HTMLPath:               cmd.GetString("html-path"),
+		TemplatePath:           cmd.GetString("template-path"),
+		AgentPath:              cmd.GetString("agent-path"),
+		PackagePath:            cmd.GetString("package-path"),
+		PrivateFilesPath:       cmd.GetString("private-files-path"),
+		FilesPath:              absPath(cmd.GetString("files-path")),
+		FilesEnabled:           cmd.GetBool("files-enabled"),
+		FilesDefaultQuotaMB:    cmd.GetInt("files-default-quota-mb"),
+		FilesDefaultMaxBuckets: cmd.GetInt("files-default-max-buckets"),
+		PublicFilesPath:        cmd.GetString("public-files-path"),
+		MCPToolsPath:           cmd.GetString("mcp-tools-path"),
+		MCPToolsDisabled:       cmd.GetStringSlice("mcp-disable-builtin-tools"),
+		PluginsPath:            cmd.GetString("plugins-path"),
+		DownloadPath:           cmd.GetString("download-path"),
+		DisableSpaceCreate:     cmd.GetBool("disable-space-create"),
+		ListenTunnel:           cmd.GetString("listen-tunnel"),
+		TunnelDomain:           cmd.GetString("tunnel-domain"),
+		TunnelServer:           cmd.GetString("tunnel-server"),
+		TerminalWebGL:          cmd.GetBool("terminal-webgl"),
+		EncryptionKey:          cmd.GetString("encrypt"),
+		Zone:                   zone,
+		Hostname:               hostname,
+		Timezone:               cmd.GetString("timezone"),
+		LeafNode:               cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
+		AuthIPRateLimiting:     cmd.GetBool("auth-ip-rate-limiting"),
+		DNSEnabled:             cmd.GetBool("dns-enabled"),
+		DNSListen:              cmd.GetString("dns-listen"),
+		Nameservers:            cmd.GetStringSlice("nameservers"),
+		MCPToolTimeout:         cmd.GetInt("mcp-tool-timeout"),
+		ScriptFSAllowedPaths:   cmd.GetStringSlice("script-fs-allowed-paths"),
+		ScriptNetPolicyFile:    cmd.GetString("script-net-policy"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),
