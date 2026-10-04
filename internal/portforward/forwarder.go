@@ -360,49 +360,13 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 			header = nil
 		}
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			tcpConn, err := tcpConnection.Accept()
-			if err != nil {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					logger.Debug("listener closed", "error", err)
-					return
-				}
-			}
-
-			// Try direct peer connection first — but only if this forward
-			// hasn't already been switched to relay mode after a failure.
-			if dialer := getDirectDialer(); dialer != nil {
-				if fwd, ok := GetForward(localPort); ok && fwd.GetMode() != "relay" {
-					if err := dialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
-						if fwd.GetMode() != "direct" {
-							logger.Info("using direct", "space", fwd.Space, "local_port", localPort)
-						}
-						fwd.SetMode("direct")
-						tcpConn.Close()
-						continue
-					}
-					// Direct failed — switch to relay mode for subsequent connections
-					if fwd.GetMode() != "relay" {
-						logger.Warn("direct failed, using relay", "space", fwd.Space, "local_port", localPort)
-					}
-					fwd.SetMode("relay")
-				}
-			}
-
-			// Relay via server WebSocket
-			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
-			dialer.HandshakeTimeout = 5 * time.Second
-			wsConn, response, err := dialer.Dial(dialURL, header)
+		// relay dials the server WebSocket and pumps the connection through
+		// it in its own goroutine, returning immediately.
+		relay := func(tcpConn net.Conn) {
+			wsDialer := websocket.DefaultDialer
+			wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
+			wsDialer.HandshakeTimeout = 5 * time.Second
+			wsConn, response, err := wsDialer.Dial(dialURL, header)
 			if err != nil {
 				if response != nil {
 					body, _ := io.ReadAll(response.Body)
@@ -413,7 +377,7 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 				}
 
 				tcpConn.Close()
-				continue
+				return
 			}
 
 			conn := wsconn.New(wsConn)
@@ -444,6 +408,56 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 				_, _ = io.Copy(toClient, conn)
 				once.Do(closeBoth)
 			}()
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			tcpConn, err := tcpConnection.Accept()
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					logger.Debug("listener closed", "error", err)
+					return
+				}
+			}
+
+			// Try direct peer connection first — but only if this forward
+			// hasn't already been switched to relay mode after a failure.
+			// The attempt runs in its own goroutine and owns the connection:
+			// it pipes for the connection's lifetime on success, or falls
+			// back to relay itself on failure, so the accept loop never
+			// blocks on a (possibly slow) direct dial.
+			if directDialer := getDirectDialer(); directDialer != nil {
+				if fwd, ok := GetForward(localPort); ok && fwd.GetMode() != "relay" {
+					go func(fwd *ForwardInfo, tcpConn net.Conn) {
+						if err := directDialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
+							if fwd.GetMode() != "direct" {
+								logger.Info("using direct", "space", fwd.Space, "local_port", localPort)
+							}
+							fwd.SetMode("direct")
+							tcpConn.Close()
+							return
+						}
+						// Direct failed — switch to relay mode for subsequent connections
+						if fwd.GetMode() != "relay" {
+							logger.Warn("direct failed, using relay", "space", fwd.Space, "local_port", localPort)
+						}
+						fwd.SetMode("relay")
+						relay(tcpConn)
+					}(fwd, tcpConn)
+					continue
+				}
+			}
+
+			// Relay via server WebSocket
+			relay(tcpConn)
 		}
 	}()
 
