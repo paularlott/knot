@@ -56,7 +56,7 @@ type ForwardInfo struct {
 	LocalPort  uint16
 	Space      string
 	RemotePort uint16
-	mode       string // "relay" or "direct" — use GetMode/SetMode (thread-safe)
+	mode       string // "", "relay" or "direct"; "" means direct will be (re)tried — use GetMode/SetMode (thread-safe)
 	Cancel     context.CancelFunc
 	Listener   net.Listener
 
@@ -302,15 +302,18 @@ func (w *throttledWriter) Write(p []byte) (int, error) {
 	return w.dest.Write(p)
 }
 
-// ResetModeForSpace sets the mode to "direct" on all forwards targeting the
+// ResetModeForSpace clears the relay latch on all forwards targeting the
 // given space, called when a fresh PeerIntroduce arrives with an updated peer
-// address. The forwarder will use direct; if it fails it switches to "relay".
+// address. The mode only reports "direct" after a connection has actually
+// gone through, so clearing — not stamping "direct" — keeps it truthful: the
+// forward keeps showing relay until a direct dial succeeds, while the cleared
+// latch makes the next connection retry direct.
 func ResetModeForSpace(space string) {
 	forwardsMux.Lock()
 	defer forwardsMux.Unlock()
 	for _, fwd := range forwards {
 		if fwd.Space == space {
-			fwd.mode = "direct"
+			fwd.mode = ""
 		}
 	}
 }
@@ -327,7 +330,7 @@ func RunTCPForwarderViaAgentWithContext(ctx context.Context, proxyServerURL, lis
 		wsURL = "ws://" + proxyServerURL[7:]
 	}
 
-	logger.Info("port forward listening", "local", listen, "space", space, "port", port)
+	logger.Debug("port forward listening", "local", listen, "space", space, "port", port)
 	return forwardTCPWithContext(ctx, fmt.Sprintf("%s/proxy/spaces/%s/port/%d", wsURL, space, port), token, listen, skipTLSVerify)
 }
 
@@ -439,7 +442,7 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 					go func(fwd *ForwardInfo, tcpConn net.Conn) {
 						if err := directDialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
 							if fwd.GetMode() != "direct" {
-								logger.Info("using direct", "space", fwd.Space, "local_port", localPort)
+								logger.Debug("using direct", "space", fwd.Space, "local_port", localPort)
 							}
 							fwd.SetMode("direct")
 							tcpConn.Close()
@@ -447,7 +450,7 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 						}
 						// Direct failed — switch to relay mode for subsequent connections
 						if fwd.GetMode() != "relay" {
-							logger.Warn("direct failed, using relay", "space", fwd.Space, "local_port", localPort)
+							logger.Debug("direct failed, using relay", "space", fwd.Space, "local_port", localPort)
 						}
 						fwd.SetMode("relay")
 						relay(tcpConn)
