@@ -296,13 +296,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_PATH"},
 			DefaultValue: "",
 		},
-		&cli.BoolFlag{
-			Name:         "files-enabled",
-			Usage:        "Enable file storage. Storage also needs --files-path; set false to turn it off while keeping the path configured.",
-			ConfigPath:   []string{"server.files.enabled"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_ENABLED"},
-			DefaultValue: true,
-		},
 		&cli.IntFlag{
 			Name:         "files-default-quota-mb",
 			Usage:        "File storage quota in MB for users whose own and group limits are all 0 (0 = unlimited).",
@@ -964,7 +957,7 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	sse.GetHub().Start()
 
 	// Open file storage when a storage directory is configured
-	if cfg.FilesEnabled && cfg.FilesPath != "" {
+	if cfg.FilesPath != "" {
 		store, err := filestore.Open(filestore.Config{
 			Dir:         cfg.FilesPath,
 			Quota:       filestore.DatabaseQuota,
@@ -1605,7 +1598,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		PackagePath:            cmd.GetString("package-path"),
 		PrivateFilesPath:       cmd.GetString("private-files-path"),
 		FilesPath:              absPath(cmd.GetString("files-path")),
-		FilesEnabled:           cmd.GetBool("files-enabled"),
 		FilesDefaultQuotaMB:    cmd.GetInt("files-default-quota-mb"),
 		FilesDefaultMaxBuckets: cmd.GetInt("files-default-max-buckets"),
 		PublicFilesPath:        cmd.GetString("public-files-path"),
