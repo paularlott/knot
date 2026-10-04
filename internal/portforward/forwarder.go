@@ -441,10 +441,9 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 				if fwd, ok := GetForward(localPort); ok && fwd.GetMode() != "relay" {
 					go func(fwd *ForwardInfo, tcpConn net.Conn) {
 						if err := directDialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
-							if fwd.GetMode() != "direct" {
-								logger.Debug("using direct", "space", fwd.Space, "local_port", localPort)
-							}
-							fwd.SetMode("direct")
+							// The dialer marked the forward direct when it
+							// established the session and has owned the
+							// connection for its lifetime — clean up.
 							tcpConn.Close()
 							return
 						}

@@ -164,7 +164,9 @@ func handlePortListExecution(stream net.Conn, agentClient *AgentClient) {
 	for i, fwd := range forwards {
 		mode := fwd.GetMode()
 		if mode == "" {
-			mode = "relay"
+			// No connection accepted yet — the mode is genuinely unknown,
+			// not relay.
+			mode = "—"
 		}
 		latencyMs, jitterMs, bandwidthKB, timeoutMs, down := fwd.GetThrottle()
 		response.Forwards[i] = msg.PortForwardInfo{

@@ -80,7 +80,7 @@ var PortListCmd = &cli.Command{
 			}
 			mode := fwd.Mode
 			if mode == "" {
-				mode = "relay"
+				mode = "—"
 			}
 			// The server returns space names for display, but fall back to UUID lookup
 			target := fwd.Space

@@ -37,7 +37,7 @@ var ListPortForwardsCmd = &cli.Command{
 			}
 			mode := fwd.Mode
 			if mode == "" {
-				mode = "relay"
+				mode = "—"
 			}
 			line += ", " + mode
 

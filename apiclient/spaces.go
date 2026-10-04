@@ -247,7 +247,7 @@ type PortForwardInfo struct {
 	Space       string `json:"space"`
 	RemotePort  uint16 `json:"remote_port"`
 	Persistent  bool   `json:"persistent"`
-	Mode        string `json:"mode"` // "direct" or "relay"
+	Mode        string `json:"mode"` // "—", "direct" or "relay"; "—" = no connection yet, mode unknown
 	LatencyMs   int    `json:"latency_ms"`
 	JitterMs    int    `json:"jitter_ms"`
 	BandwidthKB int    `json:"bandwidth_kb"`
