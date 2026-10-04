@@ -21,6 +21,7 @@ type ServerConfig struct {
 	PackagePath            string
 	PrivateFilesPath       string
 	FilesPath              string // file storage directory; empty disables file storage
+	FilesSync              string // "always" fsyncs every write, "off" never does
 	FilesDefaultQuotaMB    int    // quota for users whose own and group limits are all 0; 0 = unlimited
 	FilesDefaultMaxBuckets int    // bucket limit for users whose own and group limits are all 0; 0 = unlimited
 	PublicFilesPath        string

@@ -3,14 +3,7 @@ package command_files
 import (
 	"context"
 	"fmt"
-	"io"
-	"io/fs"
-	"mime"
-	"os"
-	"path"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -18,15 +11,24 @@ import (
 	"github.com/paularlott/knot/internal/util"
 )
 
+// listing is what ls shows for a bucket path.
+type listing struct {
+	Bucket   string                     `json:"bucket"`
+	Prefix   string                     `json:"prefix"`
+	Prefixes []string                   `json:"prefixes"`
+	Objects  []apiclient.FileObjectInfo `json:"objects"`
+}
+
 var lsCmd = &cli.Command{
 	Name:        "ls",
+	Aliases:     []string{"list"},
 	Usage:       "List buckets or the files in a bucket",
-	Description: "With no argument lists your buckets; with bucket[/prefix] lists the files below it.",
+	Description: `With no argument lists your buckets. With bucket:path lists the files below it, one level unless -r is given; bucket: is the whole bucket, and a path may hold wildcards, quoted: 'bucket:logs/*.log'.`,
 	Arguments: []cli.Argument{
-		&cli.StringArg{Name: "path", Usage: "bucket or bucket/prefix", Required: false},
+		&cli.StringArg{Name: "path", Usage: "bucket:path", Required: false},
 	},
 	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "recursive", Aliases: []string{"r"}, Usage: "List every file below the prefix instead of one level."},
+		&cli.BoolFlag{Name: "recursive", Aliases: []string{"r"}, Usage: "List every file below the path instead of one level."},
 		&cli.BoolFlag{Name: "all", Usage: "With no path, list every bucket (file administrators only)."},
 		jsonFlag,
 	},
@@ -37,46 +39,29 @@ var lsCmd = &cli.Command{
 			return err
 		}
 
-		remote := cmd.GetStringArg("path")
-		if remote == "" {
+		arg := cmd.GetStringArg("path")
+		if arg == "" {
 			return listBuckets(ctx, client, cmd.GetBool("all"), cmd.GetBool("json"))
 		}
-
-		bucket, prefix, err := parseRemote(remote)
+		loc, err := requireRemote(arg)
 		if err != nil {
 			return err
 		}
-		delimiter := "/"
-		if cmd.GetBool("recursive") {
-			delimiter = ""
-		}
-
-		objects, prefixes, err := listAll(ctx, client, bucket, prefix, delimiter)
+		l, err := listRemote(ctx, client, loc, cmd.GetBool("recursive"))
 		if err != nil {
 			return err
 		}
+
 		if cmd.GetBool("json") {
-			if objects == nil {
-				objects = []apiclient.FileObjectInfo{}
-			}
-			if prefixes == nil {
-				prefixes = []string{}
-			}
-			return printJSON(struct {
-				Bucket   string                     `json:"bucket"`
-				Prefix   string                     `json:"prefix"`
-				Prefixes []string                   `json:"prefixes"`
-				Objects  []apiclient.FileObjectInfo `json:"objects"`
-			}{bucket, prefix, prefixes, objects})
+			return printJSON(l)
 		}
 		table := [][]string{{"SIZE", "MODIFIED", "NAME"}}
-		for _, p := range prefixes {
+		for _, p := range l.Prefixes {
 			table = append(table, []string{"DIR", "", p})
 		}
-		for _, o := range objects {
+		for _, o := range l.Objects {
 			table = append(table, []string{formatBytes(o.Size), o.ModifiedAt.Local().Format("2006-01-02 15:04:05"), o.Key})
 		}
-
 		if len(table) == 1 {
 			fmt.Println("No files found")
 			return nil
@@ -86,158 +71,65 @@ var lsCmd = &cli.Command{
 	},
 }
 
-func contentType(name string) string {
-	if t := mime.TypeByExtension(filepath.Ext(name)); t != "" {
-		return t
+// listRemote lists what a bucket path names: the contents of a folder, the
+// files a wildcard matches, or a single file.
+func listRemote(ctx context.Context, client *apiclient.ApiClient, loc location, recursive bool) (*listing, error) {
+	l := &listing{Bucket: loc.bucket, Prefix: loc.key, Prefixes: []string{}, Objects: []apiclient.FileObjectInfo{}}
+	delimiter := "/"
+	if recursive {
+		delimiter = ""
 	}
-	return "application/octet-stream"
-}
 
-func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket, key string) error {
-	f, err := os.Open(local)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	if _, err := client.PutFileObject(ctx, bucket, key, f, info.Size(), contentType(local), info.ModTime()); err != nil {
-		return fmt.Errorf("%s: %s", local, cmdutil.CleanAPIError(err))
-	}
-	fmt.Printf("%s -> %s/%s (%s)\n", local, bucket, key, formatBytes(info.Size()))
-	return nil
-}
-
-var putCmd = &cli.Command{
-	Name:  "put",
-	Usage: "Upload files",
-	Description: `Upload a file or, with -r, a directory to bucket/key.
-
-If the destination is a bucket or ends with / the file keeps its name. Use - as
-the source to upload stdin.`,
-	Arguments: []cli.Argument{
-		&cli.StringArg{Name: "source", Usage: "Local file, directory or - for stdin", Required: true},
-		&cli.StringArg{Name: "destination", Usage: "bucket or bucket/key", Required: true},
-	},
-	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "recursive", Aliases: []string{"r"}, Usage: "Upload a directory and everything below it."},
-	},
-	MaxArgs: cli.NoArgs,
-	Run: func(ctx context.Context, cmd *cli.Command) error {
-		client, err := getClient(cmd)
+	if hasGlob(loc.key) {
+		root, _ := globRoot(loc.key)
+		objects, _, err := listAll(ctx, client, loc.bucket, root, "")
 		if err != nil {
-			return err
+			return nil, err
 		}
+		seen := make(map[string]bool)
+		for _, o := range objects {
+			if _, ok := matchGlob(loc.key, o.Key, recursive); ok {
+				l.Objects = append(l.Objects, o)
+			} else if f, ok := globFolder(loc.key, o.Key); ok && !seen[f] {
+				seen[f] = true
+				l.Prefixes = append(l.Prefixes, f)
+			}
+		}
+		if len(l.Objects) == 0 && len(l.Prefixes) == 0 {
+			return nil, fmt.Errorf("no files match %s", loc)
+		}
+		return l, nil
+	}
 
-		source := cmd.GetStringArg("source")
-		bucket, key, err := parseRemote(cmd.GetStringArg("destination"))
+	prefix := loc.key
+	if !isFolderKey(loc.key) {
+		info, err := statRemote(ctx, client, loc.bucket, loc.key)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		switch {
+		case info.folder:
+			prefix = dirPrefix(loc.key)
+			l.Prefix = prefix
+		case info.file != nil:
+			l.Objects = append(l.Objects, *info.file)
+			return l, nil
+		default:
+			return nil, fmt.Errorf("%s: no such file or folder", loc)
+		}
+	}
 
-		if source == "-" {
-			if cmd.GetBool("recursive") {
-				return fmt.Errorf("-r cannot be used with stdin (-)")
-			}
-			if key == "" || strings.HasSuffix(key, "/") {
-				return fmt.Errorf("a key is required when uploading stdin")
-			}
-			if _, err := client.PutFileObject(ctx, bucket, key, os.Stdin, -1, contentType(key), time.Now()); err != nil {
-				return apiError(err)
-			}
-			fmt.Printf("stdin -> %s/%s\n", bucket, key)
-			return nil
-		}
-
-		info, err := os.Stat(source)
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() {
-			if key == "" || strings.HasSuffix(key, "/") {
-				key += filepath.Base(source)
-			}
-			return uploadFile(ctx, client, source, bucket, key)
-		}
-
-		if !cmd.GetBool("recursive") {
-			return fmt.Errorf("%s is a directory, use -r to upload it", source)
-		}
-		key = dirPrefix(key)
-		count := 0
-		// Walk the real directory; a symlinked root would look empty.
-		if source, err = filepath.EvalSymlinks(source); err != nil {
-			return err
-		}
-		err = filepath.WalkDir(source, func(p string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() || !d.Type().IsRegular() {
-				return err
-			}
-			rel, err := filepath.Rel(source, p)
-			if err != nil {
-				return err
-			}
-			count++
-			return uploadFile(ctx, client, p, bucket, key+filepath.ToSlash(rel))
-		})
-		if err != nil {
-			return err
-		}
-		fmt.Printf("%d files uploaded\n", count)
-		return nil
-	},
-}
-
-// downloadFile writes an object to local via a temporary file.
-func downloadFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, local string) error {
-	resp, err := client.GetFileObject(ctx, bucket, key)
+	objects, prefixes, err := listAll(ctx, client, loc.bucket, prefix, delimiter)
 	if err != nil {
-		return fmt.Errorf("%s/%s: %s", bucket, key, cmdutil.CleanAPIError(err))
+		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if local == "-" {
-		_, err := io.Copy(os.Stdout, resp.Body)
-		return err
-	}
-
-	if dir := filepath.Dir(local); dir != "" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
+	for _, o := range objects {
+		if o.Key != prefix { // not the folder's own marker
+			l.Objects = append(l.Objects, o)
 		}
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(local), ".knot-download-*")
-	if err != nil {
-		return err
-	}
-	n, err := io.Copy(tmp, resp.Body)
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	// The temporary file is private (0600); give the download the mode of
-	// the file it replaces, or the usual 0644.
-	mode := os.FileMode(0644)
-	if info, err := os.Stat(local); err == nil {
-		mode = info.Mode().Perm()
-	}
-	os.Chmod(tmp.Name(), mode)
-	if err := os.Rename(tmp.Name(), local); err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	if mtime, ok := apiclient.ParseMtime(resp.Header.Get(apiclient.FileMtimeHeader)); ok {
-		os.Chtimes(local, mtime, mtime)
-	}
-	fmt.Printf("%s/%s -> %s (%s)\n", bucket, key, local, formatBytes(n))
-	return nil
+	l.Prefixes = append(l.Prefixes, prefixes...)
+	return l, nil
 }
 
 // listAll lists everything below prefix, every page of it; with a
@@ -262,135 +154,85 @@ func listAll(ctx context.Context, client *apiclient.ApiClient, bucket, prefix, d
 	}
 }
 
-var getCmd = &cli.Command{
-	Name:  "get",
-	Usage: "Download files",
-	Description: `Download bucket/key to a local file or, with -r, everything below a prefix
-into a local directory. The destination defaults to the current directory; use
-- to write a single file to stdout.`,
-	Arguments: []cli.Argument{
-		&cli.StringArg{Name: "source", Usage: "bucket/key, or bucket[/prefix] with -r", Required: true},
-		&cli.StringArg{Name: "destination", Usage: "Local file or directory", Required: false},
-	},
-	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "recursive", Aliases: []string{"r"}, Usage: "Download everything below the prefix."},
-	},
-	MaxArgs: cli.NoArgs,
+var catCmd = &cli.Command{
+	Name:        "cat",
+	Usage:       "Write files to stdout",
+	Description: "Write bucket files to stdout, one after another: knot file cat bucket:path/file.txt",
+	MinArgs:     1,
+	MaxArgs:     cli.UnlimitedArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := getClient(cmd)
 		if err != nil {
 			return err
 		}
-
-		bucket, key, err := parseRemote(cmd.GetStringArg("source"))
-		if err != nil {
-			return err
-		}
-		dest := cmd.GetStringArg("destination")
-
-		if cmd.GetBool("recursive") {
-			if dest == "-" {
-				return fmt.Errorf("-r cannot be used with stdout (-); give a directory")
-			}
-			if dest == "" {
-				dest = "."
-			}
-			prefix := dirPrefix(key)
-			objects, _, err := listAll(ctx, client, bucket, prefix, "")
+		var files []source
+		for _, arg := range cmd.GetArgs() {
+			loc, err := requireRemote(arg)
 			if err != nil {
 				return err
 			}
-			for _, o := range objects {
-				local, err := within(dest, strings.TrimPrefix(o.Key, prefix))
-				if err != nil {
-					return err
-				}
-				if err := downloadFile(ctx, client, bucket, o.Key, local); err != nil {
-					return err
-				}
+			list, _, err := remoteSources(ctx, client, loc, false, false)
+			if err != nil {
+				return err
 			}
-			fmt.Printf("%d files downloaded\n", len(objects))
-			return nil
+			files = append(files, list...)
 		}
-
-		if key == "" || strings.HasSuffix(key, "/") {
-			return fmt.Errorf("a key is required, use -r to download a prefix")
+		for _, f := range files {
+			if f.marker {
+				continue
+			}
+			if err := downloadFile(ctx, client, f.bucket, f.key, "-"); err != nil {
+				return err
+			}
 		}
-		if dest == "" {
-			dest = path.Base(key)
-		} else if info, err := os.Stat(dest); err == nil && info.IsDir() {
-			dest = filepath.Join(dest, path.Base(key))
-		}
-		return downloadFile(ctx, client, bucket, key, dest)
-	},
-}
-
-var catCmd = &cli.Command{
-	Name:  "cat",
-	Usage: "Write a file to stdout",
-	Arguments: []cli.Argument{
-		&cli.StringArg{Name: "path", Usage: "bucket/key", Required: true},
-	},
-	MaxArgs: cli.NoArgs,
-	Run: func(ctx context.Context, cmd *cli.Command) error {
-		client, err := getClient(cmd)
-		if err != nil {
-			return err
-		}
-		bucket, key, err := parseRemote(cmd.GetStringArg("path"))
-		if err != nil {
-			return err
-		}
-		if key == "" || strings.HasSuffix(key, "/") {
-			return fmt.Errorf("a key is required, not a folder")
-		}
-		return downloadFile(ctx, client, bucket, key, "-")
+		return nil
 	},
 }
 
 var rmCmd = &cli.Command{
-	Name:  "rm",
-	Usage: "Delete files",
-	Arguments: []cli.Argument{
-		&cli.StringArg{Name: "path", Usage: "bucket/key, or bucket[/prefix] with -r", Required: true},
-	},
+	Name:        "rm",
+	Aliases:     []string{"delete"},
+	Usage:       "Delete files",
+	Description: `Delete bucket files: knot file rm bucket:path/file.txt. A path may hold wildcards, quoted: 'bucket:logs/*.tmp'. -r deletes a folder and everything below it; bucket: with -r empties the bucket (it stays: see knot file bucket delete).`,
 	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "recursive", Aliases: []string{"r"}, Usage: "Delete everything below the prefix."},
+		&cli.BoolFlag{Name: "recursive", Aliases: []string{"r"}, Usage: "Delete folders, with everything below them."},
 	},
-	MaxArgs: cli.NoArgs,
+	MinArgs: 1,
+	MaxArgs: cli.UnlimitedArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := getClient(cmd)
 		if err != nil {
 			return err
 		}
-		bucket, key, err := parseRemote(cmd.GetStringArg("path"))
-		if err != nil {
-			return err
+		recursive := cmd.GetBool("recursive")
+
+		// Find everything first, so a path that matches nothing deletes nothing.
+		var files []source
+		for _, arg := range cmd.GetArgs() {
+			loc, err := requireRemote(arg)
+			if err != nil {
+				return err
+			}
+			list, _, err := remoteSources(ctx, client, loc, recursive, true)
+			if err != nil {
+				return err
+			}
+			files = append(files, list...)
 		}
 
-		if !cmd.GetBool("recursive") {
-			if key == "" || strings.HasSuffix(key, "/") {
-				return fmt.Errorf("a key is required, use -r to delete a prefix")
+		count := 0
+		for _, f := range files {
+			if err := client.DeleteFileObject(ctx, f.bucket, f.key); err != nil {
+				return fmt.Errorf("%s: %s", f, cmdutil.CleanAPIError(err))
 			}
-			if err := client.DeleteFileObject(ctx, bucket, key); err != nil {
-				return apiError(err)
+			fmt.Printf("deleted %s\n", f)
+			if !strings.HasSuffix(f.key, "/") {
+				count++
 			}
-			fmt.Printf("deleted %s/%s\n", bucket, key)
-			return nil
 		}
-
-		prefix := dirPrefix(key)
-		objects, _, err := listAll(ctx, client, bucket, prefix, "")
-		if err != nil {
-			return err
+		if len(files) > 1 {
+			fmt.Printf("%d files deleted\n", count)
 		}
-		for _, o := range objects {
-			if err := client.DeleteFileObject(ctx, bucket, o.Key); err != nil {
-				return fmt.Errorf("%s/%s: %s", bucket, o.Key, cmdutil.CleanAPIError(err))
-			}
-			fmt.Printf("deleted %s/%s\n", bucket, o.Key)
-		}
-		fmt.Printf("%d files deleted\n", len(objects))
 		return nil
 	},
 }

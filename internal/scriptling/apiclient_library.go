@@ -1,9 +1,11 @@
 package scriptling
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -12,6 +14,9 @@ import (
 	"github.com/paularlott/scriptling/errors"
 	"github.com/paularlott/scriptling/object"
 )
+
+// maxRawBytes caps one raw transfer: a script holds file content in memory.
+const maxRawBytes = 64 << 20
 
 // GetApiClientLibrary returns the knot.apiclient Go transport library.
 // In embedded contexts this replaces the Python apiclient.py transport stub.
@@ -160,6 +165,92 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 		return conversion.FromGo(result)
 	}, "delete(path) - Make a DELETE request, returns Dict or List")
+
+	// Raw transfers carry file content, which is bytes rather than JSON.
+	rawClient := func() (*rest.HTTPClient, object.Object) {
+		hc, ok := client.(*rest.HTTPClient)
+		if !ok {
+			return nil, &object.Error{Message: "API error: raw transfers need an HTTP client"}
+		}
+		return hc, nil
+	}
+
+	builder.FunctionWithHelp("get_bytes", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		if err := errors.MinArgs(args, 1); err != nil {
+			return err
+		}
+		path, err := args[0].AsString()
+		if err != nil {
+			return errors.ParameterError("path", err)
+		}
+		hc, errObj := rawClient()
+		if errObj != nil {
+			return errObj
+		}
+
+		resp, rerr := hc.DoRaw(ctx, http.MethodGet, path, nil, 0, nil)
+		if rerr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 300 {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rest.DecodeResponse(resp, nil))}
+		}
+		body, rerr := io.ReadAll(io.LimitReader(resp.Body, maxRawBytes+1))
+		if rerr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		if len(body) > maxRawBytes {
+			return &object.Error{Message: fmt.Sprintf("API error: the response is larger than the %d MB a script may read", maxRawBytes>>20)}
+		}
+		return object.NewBytes(body)
+	}, "get_bytes(path) - Make a GET request, returns the response body as Bytes")
+
+	builder.FunctionWithHelp("put_bytes", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		if err := errors.MinArgs(args, 2); err != nil {
+			return err
+		}
+		path, err := args[0].AsString()
+		if err != nil {
+			return errors.ParameterError("path", err)
+		}
+		data, errObj := conversion.ToBytes(args[1])
+		if errObj != nil {
+			return errObj
+		}
+		if len(data) > maxRawBytes {
+			return &object.Error{Message: fmt.Sprintf("API error: a script may write at most %d MB at a time", maxRawBytes>>20)}
+		}
+		contentType := "application/octet-stream"
+		if ct := kwargs.Get("content_type"); ct != nil {
+			if s, err := ct.AsString(); err == nil && s != "" {
+				contentType = s
+			}
+		} else if len(args) > 2 {
+			if s, err := args[2].AsString(); err == nil && s != "" {
+				contentType = s
+			}
+		}
+		hc, errObj := rawClient()
+		if errObj != nil {
+			return errObj
+		}
+
+		resp, rerr := hc.DoRaw(ctx, http.MethodPut, path, bytes.NewReader(data), int64(len(data)), map[string]string{"Content-Type": contentType})
+		if rerr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		defer resp.Body.Close()
+
+		var result interface{}
+		if rerr := rest.DecodeResponse(resp, &result); rerr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		if result == nil {
+			return &object.Null{}
+		}
+		return conversion.FromGo(result)
+	}, "put_bytes(path, data, content_type=\"\") - Make a PUT request with a str or Bytes body, returns Dict or List")
 
 	return builder.Build()
 }

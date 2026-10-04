@@ -81,6 +81,16 @@ type FileObjectList struct {
 	Next        string           `json:"next"`
 }
 
+// FileCopyRequest copies one file to another place, in the same bucket or
+// another, on the server: the content is never transferred. The source and
+// destination buckets may be named in short form, like the other endpoints.
+type FileCopyRequest struct {
+	SourceBucket string `json:"source_bucket"`
+	SourceKey    string `json:"source_key"`
+	DestBucket   string `json:"dest_bucket"`
+	DestKey      string `json:"dest_key"`
+}
+
 // FileShareTargets lists who a bucket can be shared with.
 type FileShareTargets struct {
 	Users  []FileShareUser  `json:"users"`
@@ -202,6 +212,14 @@ func (c *ApiClient) ListFileObjects(ctx context.Context, bucket, prefix, delimit
 func (c *ApiClient) DeleteFileObject(ctx context.Context, bucket, key string) error {
 	_, err := c.httpClient.Delete(ctx, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, nil, 200)
 	return err
+}
+
+// CopyFileObject copies a file on the server, keeping its content type,
+// metadata and modification time, and replacing any file at the destination.
+func (c *ApiClient) CopyFileObject(ctx context.Context, req FileCopyRequest) (*FileObjectInfo, error) {
+	response := &FileObjectInfo{}
+	_, err := c.httpClient.Post(ctx, "/api/files/copy", &req, response, 200)
+	return response, err
 }
 
 func (c *ApiClient) rawClient() (*rest.HTTPClient, error) {

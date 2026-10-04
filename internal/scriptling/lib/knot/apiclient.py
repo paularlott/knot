@@ -230,3 +230,50 @@ def delete(path):
     if resp.text:
         return resp.json()
     return None
+
+
+def get_bytes(path):
+    """Make a GET request to the Knot API and return the response body as bytes."""
+    import requests as req
+
+    client = _get_client()
+    if not client:
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
+
+    resp = req.get(
+        client["url"] + path,
+        headers={"Authorization": "Bearer " + client["token"]},
+        verify=not client["insecure"]
+    )
+
+    if resp.status_code >= 400:
+        raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
+
+    return resp.content
+
+
+def put_bytes(path, data, content_type=""):
+    """Make a PUT request to the Knot API with a str or bytes body (file content)."""
+    import requests as req
+
+    client = _get_client()
+    if not client:
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
+
+    resp = req.put(
+        client["url"] + path,
+        headers={
+            "Authorization": "Bearer " + client["token"],
+            "Content-Type": content_type or "application/octet-stream",
+            "Accept": "application/json",
+        },
+        data=data,
+        verify=not client["insecure"]
+    )
+
+    if resp.status_code >= 400:
+        raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
+
+    if resp.text:
+        return resp.json()
+    return None

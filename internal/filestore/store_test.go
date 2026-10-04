@@ -1521,3 +1521,46 @@ func TestUnicodeSurvivesRestart(t *testing.T) {
 		t.Error("digests changed across restart")
 	}
 }
+
+// NoSync only skips the forced flush to disk: writes still reach the files,
+// survive a clean restart and replay from the journal.
+func TestNoSync(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(Config{Dir: dir, NoSync: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.noSync || !s.blobs.noSync {
+		t.Fatal("NoSync did not reach the store and its content")
+	}
+	if tw, err := s.blobs.newTemp(); err != nil || !tw.noSync {
+		t.Fatalf("temporary files do not follow NoSync: %v", err)
+	} else {
+		tw.discard()
+	}
+	mustCreate(t, s, alice, "nosync")
+	put(t, s, alice, "nosync", "a.txt", "alpha")
+	put(t, s, alice, "nosync", "b.txt", "beta")
+	if err := s.DeleteObject(alice, "nosync", "b.txt"); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+
+	s, err = Open(Config{Dir: dir, NoSync: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if got := read(t, s, alice, "nosync", "a.txt"); got != "alpha" {
+		t.Errorf("after restart %q", got)
+	}
+	if _, _, err := s.OpenObject(context.Background(), alice, "nosync", "b.txt"); err == nil {
+		t.Error("a deleted file came back")
+	}
+
+	// The default syncs.
+	d := newStore(t)
+	if d.noSync || d.blobs.noSync {
+		t.Error("the default does not sync")
+	}
+}

@@ -16,13 +16,14 @@ import (
 type blobStore struct {
 	dir    string
 	tmpDir string
+	noSync bool // do not fsync uploaded content, see Config.NoSync
 }
 
-func newBlobStore(dir, tmpDir string) (*blobStore, error) {
+func newBlobStore(dir, tmpDir string, noSync bool) (*blobStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	return &blobStore{dir: dir, tmpDir: tmpDir}, nil
+	return &blobStore{dir: dir, tmpDir: tmpDir, noSync: noSync}, nil
 }
 
 func validSHA(sha string) bool {
@@ -123,6 +124,7 @@ type tempWriter struct {
 	md5    hash.Hash
 	size   int64
 	closed bool
+	noSync bool
 }
 
 func (bs *blobStore) newTemp() (*tempWriter, error) {
@@ -130,7 +132,7 @@ func (bs *blobStore) newTemp() (*tempWriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &tempWriter{f: f, sha: sha256.New(), md5: md5.New()}, nil
+	return &tempWriter{f: f, sha: sha256.New(), md5: md5.New(), noSync: bs.noSync}, nil
 }
 
 func (t *tempWriter) Write(p []byte) (int, error) {
@@ -157,6 +159,9 @@ func (t *tempWriter) finish() error {
 		return nil
 	}
 	t.closed = true
+	if t.noSync {
+		return t.f.Close()
+	}
 	if err := t.f.Sync(); err != nil {
 		t.f.Close()
 		return err

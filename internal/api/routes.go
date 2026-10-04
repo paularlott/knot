@@ -86,6 +86,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/files/list/{bucket}", middleware.ApiAuth(HandleListFileObjects))
 	router.HandleFunc("GET /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleGetFileObject))
 	router.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandlePutFileObject))
+	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(HandleCopyFileObject))
 	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleDeleteFileObject))
 
 	// Tokens

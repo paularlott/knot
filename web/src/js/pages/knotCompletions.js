@@ -60,6 +60,18 @@ export const knotLibraries = [
         "signature": "delete(path, expect)",
         "description": "DELETE request to the Knot API",
         "returns": "dict"
+      },
+      {
+        "name": "get_bytes",
+        "signature": "get_bytes(path)",
+        "description": "GET request to the Knot API returning the response body as bytes (file content)",
+        "returns": "bytes"
+      },
+      {
+        "name": "put_bytes",
+        "signature": "put_bytes(path, data, content_type)",
+        "description": "PUT request to the Knot API with a string or bytes body (file content)",
+        "returns": "dict"
       }
     ]
   },
@@ -162,6 +174,102 @@ export const knotLibraries = [
         "signature": "custom()",
         "description": "Get custom fields dict (sink scripts only)",
         "returns": "dict<str, str>"
+      }
+    ]
+  },
+  {
+    "module": "knot.files",
+    "description": "Store, read and copy files in buckets replicated across the cluster, and manage the buckets.",
+    "functions": [
+      {
+        "name": "list_buckets",
+        "signature": "list_buckets(all)",
+        "description": "List the buckets you own or that are shared with you; all=True lists every bucket (file storage managers). Each has name (<owner>--<name>), display_name, owner, owner_id, access (owner, write or read), size, count, shared (type, name and access of each share) and created_at",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "get_bucket",
+        "signature": "get_bucket(name)",
+        "description": "Get one bucket by its short name (your own) or full name; same fields as list_buckets",
+        "returns": "dict"
+      },
+      {
+        "name": "create_bucket",
+        "signature": "create_bucket(name)",
+        "description": "Create a bucket named <your username>--<name>; name is 3 to 30 lowercase letters, digits and hyphens with no --",
+        "returns": "dict"
+      },
+      {
+        "name": "delete_bucket",
+        "signature": "delete_bucket(name, force)",
+        "description": "Delete a bucket; a bucket that holds files is refused unless force=True, which deletes them with it",
+        "returns": "bool"
+      },
+      {
+        "name": "share_bucket",
+        "signature": "share_bucket(name, user, group, everyone, access)",
+        "description": "Share a bucket with exactly one of a user (username or email), a group or everyone; access is \"read\" (default) or \"write\". Sharing again changes the access",
+        "returns": "dict"
+      },
+      {
+        "name": "unshare_bucket",
+        "signature": "unshare_bucket(name, user, group, everyone)",
+        "description": "Stop sharing a bucket with exactly one of a user, a group or everyone",
+        "returns": "dict"
+      },
+      {
+        "name": "transfer_bucket",
+        "signature": "transfer_bucket(name, user, force)",
+        "description": "Give a bucket to another user, who must be allowed to own buckets; it is renamed into their namespace and their quota is charged. force allows going over their quota (file storage managers only)",
+        "returns": "dict"
+      },
+      {
+        "name": "usage",
+        "signature": "usage()",
+        "description": "Your file storage usage and limits: used_bytes, files, buckets, quota_bytes and max_buckets (0 for no limit)",
+        "returns": "dict"
+      },
+      {
+        "name": "list_files",
+        "signature": "list_files(bucket, prefix, recursive)",
+        "description": "List the files in a bucket. Returns files (key, size, etag, sha256, content_type, modified_at) and folders (prefixes ending in /). prefix restricts to keys starting with it, so end it with / for a folder; recursive=True lists every file below the prefix and returns no folders",
+        "returns": "dict"
+      },
+      {
+        "name": "read_file",
+        "signature": "read_file(bucket, key)",
+        "description": "Read a file's content as bytes (at most 64 MB in a script)",
+        "returns": "bytes"
+      },
+      {
+        "name": "read_text",
+        "signature": "read_text(bucket, key)",
+        "description": "Read a file's content as UTF-8 text",
+        "returns": "string"
+      },
+      {
+        "name": "write_file",
+        "signature": "write_file(bucket, key, data, content_type)",
+        "description": "Write a file, replacing any file with that key; folders need no creating. data is a string (written as UTF-8) or bytes, at most 64 MB at a time. content_type defaults to text/plain for a string, else application/octet-stream. Returns the file's key, size, etag, sha256, content_type and modified_at",
+        "returns": "dict"
+      },
+      {
+        "name": "delete_file",
+        "signature": "delete_file(bucket, key)",
+        "description": "Delete a file",
+        "returns": "bool"
+      },
+      {
+        "name": "copy_file",
+        "signature": "copy_file(source_bucket, source_key, dest_bucket, dest_key)",
+        "description": "Copy a file within a bucket or to another, on the server without transferring its content; keeps its content type, metadata and modification time and replaces any file at the destination",
+        "returns": "dict"
+      },
+      {
+        "name": "file_exists",
+        "signature": "file_exists(bucket, key)",
+        "description": "Check whether there is a file with exactly this key",
+        "returns": "bool"
       }
     ]
   },

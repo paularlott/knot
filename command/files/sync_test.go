@@ -17,12 +17,30 @@ import (
 	"github.com/paularlott/knot/internal/filestore"
 )
 
+// testDBDir holds the database the handlers look owners up in, shared by
+// every test as the database driver is opened once per process.
+var testDBDir string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "knot-files-cli-db")
+	if err != nil {
+		panic(err)
+	}
+	testDBDir = dir
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
+}
+
+// adminUser is who the in-process server authenticates every request as.
+var adminUser = &model.User{Id: "u1", Username: "tester", Active: true, Roles: []string{model.RoleAdminUUID}}
+
 // newFilesServer runs the files API in-process against a temporary store,
 // authenticated as an administrator.
 func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 	t.Helper()
 	prev := config.GetServerConfig()
-	config.SetServerConfig(&config.ServerConfig{})
+	config.SetServerConfig(&config.ServerConfig{BadgerDB: config.BadgerDBConfig{Enabled: true, Path: testDBDir}})
 	t.Cleanup(func() { config.SetServerConfig(prev) })
 	model.SetRoleCache(nil)
 
@@ -36,8 +54,10 @@ func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 		store.Close()
 	})
 
-	user := &model.User{Id: "u1", Username: "tester", Active: true, Roles: []string{model.RoleAdminUUID}}
+	user := adminUser
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/files/buckets/{bucket}", api.HandleGetFileBucket)
+	mux.HandleFunc("POST /api/files/copy", api.HandleCopyFileObject)
 	mux.HandleFunc("GET /api/files/list/{bucket}", api.HandleListFileObjects)
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", api.HandleGetFileObject)
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", api.HandlePutFileObject)
@@ -166,19 +186,6 @@ func TestSyncUpAndDown(t *testing.T) {
 	}
 	if again, _ := os.Stat(filepath.Join(dst, "sub", "b.txt")); !again.ModTime().Equal(stat.ModTime()) || again.Size() != stat.Size() {
 		t.Error("matching file rewritten")
-	}
-}
-
-func TestParseRemoteRefusesRewrittenPaths(t *testing.T) {
-	for _, bad := range []string{"b/a/../victim", "b/./x", "b/..", "b/a//c", "b//a"} {
-		if _, _, err := parseRemote(bad); err == nil {
-			t.Errorf("parseRemote(%q) accepted", bad)
-		}
-	}
-	for _, good := range []string{"b", "b/", "b/key", "b/dir/", "b/a.b/c..d/.hidden"} {
-		if _, _, err := parseRemote(good); err != nil {
-			t.Errorf("parseRemote(%q): %v", good, err)
-		}
 	}
 }
 

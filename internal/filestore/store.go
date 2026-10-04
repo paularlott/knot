@@ -69,6 +69,12 @@ type Config struct {
 	NodeId      string
 	Quota       QuotaFunc
 	BucketLimit BucketLimitFunc
+
+	// NoSync skips the fsync of uploaded content and of each journal write,
+	// so a crash or power loss can lose the last moments of writes, and in
+	// the worst case leave a file whose content is incomplete. The default,
+	// false, makes a write durable before it is reported done.
+	NoSync bool
 }
 
 // bucketStats is what the store keeps alongside each bucket's records.
@@ -126,6 +132,7 @@ func keySlot(key string) int {
 // Store is the file storage engine of one server.
 type Store struct {
 	dir         string
+	noSync      bool
 	lock        *os.File
 	nodeId      string
 	quota       QuotaFunc
@@ -190,6 +197,7 @@ func Open(cfg Config) (*Store, error) {
 
 	s := &Store{
 		dir:         cfg.Dir,
+		noSync:      cfg.NoSync,
 		nodeId:      cfg.NodeId,
 		quota:       cfg.Quota,
 		bucketLimit: cfg.BucketLimit,
@@ -220,7 +228,7 @@ func Open(cfg Config) (*Store, error) {
 			s.lock.Close()
 		}
 	}()
-	if s.blobs, err = newBlobStore(filepath.Join(cfg.Dir, "blobs"), filepath.Join(cfg.Dir, "tmp")); err != nil {
+	if s.blobs, err = newBlobStore(filepath.Join(cfg.Dir, "blobs"), filepath.Join(cfg.Dir, "tmp"), cfg.NoSync); err != nil {
 		return nil, err
 	}
 
@@ -813,7 +821,7 @@ func (s *Store) journalAppend(buckets []*Bucket, objects []*Object, sync bool) {
 		s.logger.Error("failed to write journal", "error", err)
 		return
 	}
-	if sync {
+	if sync && !s.noSync {
 		s.journal.Sync()
 	}
 	s.journalEntries += len(buckets) + len(objects)

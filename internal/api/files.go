@@ -563,6 +563,40 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, objectResponse(o))
 }
 
+// HandleCopyFileObject copies a file within or between buckets without
+// moving its content: the caller needs read access to the source and write
+// access to the destination, and the destination bucket's owner is charged
+// for the new file.
+func HandleCopyFileObject(w http.ResponseWriter, r *http.Request) {
+	store, _, p, ok := filesContext(w, r)
+	if !ok {
+		return
+	}
+
+	var req apiclient.FileCopyRequest
+	if err := rest.DecodeRequestBody(w, r, &req); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if req.SourceBucket == "" || req.SourceKey == "" || req.DestBucket == "" || req.DestKey == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "source_bucket, source_key, dest_bucket and dest_key are required"})
+		return
+	}
+
+	src, dst := filestore.ResolveName(p, req.SourceBucket), filestore.ResolveName(p, req.DestBucket)
+	if src == dst && req.SourceKey == req.DestKey {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "source and destination are the same file"})
+		return
+	}
+
+	o, err := store.CopyObject(p, src, req.SourceKey, dst, req.DestKey, nil)
+	if err != nil {
+		filesError(w, r, err)
+		return
+	}
+	rest.WriteResponse(http.StatusOK, w, r, objectResponse(o))
+}
+
 func HandleDeleteFileObject(w http.ResponseWriter, r *http.Request) {
 	store, _, p, ok := filesContext(w, r)
 	if !ok {

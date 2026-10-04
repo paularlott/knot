@@ -303,3 +303,186 @@ func TestFileTransferForceAdminOnly(t *testing.T) {
 		t.Errorf("admin forced transfer: %d %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestFileCopyHandler(t *testing.T) {
+	prev := config.GetServerConfig()
+	config.SetServerConfig(&config.ServerConfig{
+		BadgerDB: config.BadgerDBConfig{Enabled: true, Path: t.TempDir()},
+		Zone:     "z-files-copy",
+	})
+	t.Cleanup(func() { config.SetServerConfig(prev) })
+	model.SetRoleCache(nil)
+
+	store, err := filestore.Open(filestore.Config{Dir: t.TempDir(), Quota: func(id string) (int64, error) {
+		if id == "fc-small" {
+			return 10, nil
+		}
+		return 0, nil
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	filestore.SetInstance(store)
+	t.Cleanup(func() {
+		filestore.SetInstance(nil)
+		store.Close()
+	})
+
+	role := model.NewRole("files-copy-"+t.Name(), []uint16{model.PermissionUseFiles, model.PermissionShareBuckets}, "")
+	model.SaveRoleToCache(role)
+	db := database.GetInstance()
+	mk := func(id string) *model.User {
+		u := &model.User{Id: id, Username: id[3:], Email: id[3:] + "@test.local", Active: true, Roles: []string{role.Id}}
+		if err := db.SaveUser(u, nil); err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	alice, bob, small := mk("fc-alice"), mk("fc-bob"), mk("fc-small")
+	ap, _ := filestore.PrincipalFor(alice)
+	bp, _ := filestore.PrincipalFor(bob)
+	sp, _ := filestore.PrincipalFor(small)
+
+	for _, c := range []struct {
+		p    *filestore.Principal
+		name string
+	}{{ap, "alice--src"}, {ap, "alice--dst"}, {bp, "bob--private"}, {sp, "small--tiny"}} {
+		if _, err := store.CreateBucket(c.p, c.name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put := func(p *filestore.Principal, bucket, key, content string, opts filestore.PutOptions) *filestore.Object {
+		opts.Size = int64(len(content))
+		o, err := store.PutObject(p, bucket, key, strings.NewReader(content), opts)
+		if err != nil {
+			t.Fatalf("put %s/%s: %v", bucket, key, err)
+		}
+		return o
+	}
+	put(ap, "alice--src", "a.txt", "hello copy", filestore.PutOptions{ContentType: "text/x-test", Meta: map[string]string{"mtime": "1600000000.5", "note": "kept"}})
+	put(ap, "alice--src", "big.bin", strings.Repeat("x", 50), filestore.PutOptions{})
+	put(bp, "bob--private", "secret.txt", "bob's", filestore.PutOptions{})
+
+	copyReq := func(user *model.User, body string) *httptest.ResponseRecorder {
+		rr := httptest.NewRecorder()
+		HandleCopyFileObject(rr, filesRequest("POST", "/api/files/copy", body, user))
+		return rr
+	}
+	body := func(sb, sk, db, dk string) string {
+		b, _ := json.Marshal(apiclient.FileCopyRequest{SourceBucket: sb, SourceKey: sk, DestBucket: db, DestKey: dk})
+		return string(b)
+	}
+	read := func(p *filestore.Principal, bucket, key string) (*filestore.Object, string) {
+		o, f, err := store.OpenObject(context.Background(), p, bucket, key)
+		if err != nil {
+			t.Fatalf("open %s/%s: %v", bucket, key, err)
+		}
+		defer f.Close()
+		data := make([]byte, o.Size)
+		f.Read(data)
+		return o, string(data)
+	}
+
+	// Between buckets, by short names: content, type, metadata and the
+	// modification time all come across, and the response describes the copy.
+	rr := copyReq(alice, body("src", "a.txt", "dst", "dir/copy.txt"))
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"key":"dir/copy.txt"`) {
+		t.Fatalf("copy between buckets: %d %s", rr.Code, rr.Body.String())
+	}
+	o, content := read(ap, "alice--dst", "dir/copy.txt")
+	if content != "hello copy" || o.ContentType != "text/x-test" || o.Meta["note"] != "kept" || o.Meta["mtime"] != "1600000000.5" {
+		t.Errorf("copy lost data: %q %+v", content, o)
+	}
+	if !strings.Contains(rr.Body.String(), "2020-09-13T") {
+		t.Errorf("response does not carry the original modification time: %s", rr.Body.String())
+	}
+
+	// Full names refer to the same buckets; within one bucket; overwriting.
+	if rr := copyReq(alice, body("alice--src", "a.txt", "alice--src", "b.txt")); rr.Code != http.StatusOK {
+		t.Errorf("copy within a bucket: %d %s", rr.Code, rr.Body.String())
+	}
+	put(ap, "alice--dst", "over.txt", "old", filestore.PutOptions{})
+	if rr := copyReq(alice, body("src", "a.txt", "dst", "over.txt")); rr.Code != http.StatusOK {
+		t.Errorf("copy over an existing file: %d %s", rr.Code, rr.Body.String())
+	}
+	if _, c := read(ap, "alice--dst", "over.txt"); c != "hello copy" {
+		t.Errorf("destination not replaced: %q", c)
+	}
+
+	// Content is shared, not duplicated: deleting the source leaves the copy.
+	if err := store.DeleteObject(ap, "alice--src", "a.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, c := read(ap, "alice--dst", "dir/copy.txt"); c != "hello copy" {
+		t.Errorf("copy lost when the source went: %q", c)
+	}
+
+	// The same file is refused, in short or full names.
+	for _, b := range []string{body("src", "b.txt", "src", "b.txt"), body("src", "b.txt", "alice--src", "b.txt")} {
+		if rr := copyReq(alice, b); rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "same file") {
+			t.Errorf("copy onto itself: %d %s", rr.Code, rr.Body.String())
+		}
+	}
+
+	// Missing source, missing fields, bad destination key and bad JSON.
+	if rr := copyReq(alice, body("src", "nope.txt", "dst", "x")); rr.Code != http.StatusNotFound {
+		t.Errorf("missing source file: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := copyReq(alice, body("nobucket", "x", "dst", "x")); rr.Code != http.StatusNotFound {
+		t.Errorf("missing source bucket: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := copyReq(alice, body("src", "b.txt", "nobucket", "x")); rr.Code != http.StatusNotFound {
+		t.Errorf("missing destination bucket: %d %s", rr.Code, rr.Body.String())
+	}
+	for _, b := range []string{body("", "a", "dst", "x"), body("src", "", "dst", "x"), body("src", "a", "", "x"), body("src", "a", "dst", ""), `{}`} {
+		if rr := copyReq(alice, b); rr.Code != http.StatusBadRequest {
+			t.Errorf("missing field %s: %d %s", b, rr.Code, rr.Body.String())
+		}
+	}
+	if rr := copyReq(alice, body("src", "b.txt", "dst", "a/../b")); rr.Code != http.StatusBadRequest {
+		t.Errorf("invalid destination key: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := copyReq(alice, `not json`); rr.Code != http.StatusBadRequest {
+		t.Errorf("bad JSON: %d %s", rr.Code, rr.Body.String())
+	}
+
+	// Another user's private bucket can be neither read from nor written to.
+	if rr := copyReq(alice, body("bob--private", "secret.txt", "dst", "stolen.txt")); rr.Code != http.StatusNotFound && rr.Code != http.StatusForbidden {
+		t.Errorf("copy from a private bucket: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := copyReq(alice, body("src", "b.txt", "bob--private", "planted.txt")); rr.Code != http.StatusNotFound && rr.Code != http.StatusForbidden {
+		t.Errorf("copy into a private bucket: %d %s", rr.Code, rr.Body.String())
+	}
+	if _, _, err := store.OpenObject(context.Background(), bp, "bob--private", "planted.txt"); err == nil {
+		t.Error("a file was planted in a private bucket")
+	}
+
+	// Read access is enough for a source, write for a destination.
+	if _, err := store.SetGrant(bp, "bob--private", filestore.Grant{Type: filestore.GrantUser, Id: alice.Id, Access: filestore.GrantRead}); err != nil {
+		t.Fatal(err)
+	}
+	if rr := copyReq(alice, body("bob--private", "secret.txt", "dst", "from-bob.txt")); rr.Code != http.StatusOK {
+		t.Errorf("copy from a bucket shared read-only: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := copyReq(alice, body("src", "b.txt", "bob--private", "planted.txt")); rr.Code != http.StatusForbidden {
+		t.Errorf("copy into a bucket shared read-only: %d %s", rr.Code, rr.Body.String())
+	}
+	if _, err := store.SetGrant(bp, "bob--private", filestore.Grant{Type: filestore.GrantUser, Id: alice.Id, Access: filestore.GrantWrite}); err != nil {
+		t.Fatal(err)
+	}
+	if rr := copyReq(alice, body("src", "b.txt", "bob--private", "planted.txt")); rr.Code != http.StatusOK {
+		t.Errorf("copy into a bucket shared read-write: %d %s", rr.Code, rr.Body.String())
+	}
+
+	// A copy is charged to the destination bucket's owner, so a full owner
+	// refuses it, and nothing is stored.
+	if _, err := store.SetGrant(sp, "small--tiny", filestore.Grant{Type: filestore.GrantUser, Id: alice.Id, Access: filestore.GrantWrite}); err != nil {
+		t.Fatal(err)
+	}
+	if rr := copyReq(alice, body("src", "big.bin", "small--tiny", "big.bin")); rr.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("copy over the owner's quota: %d %s", rr.Code, rr.Body.String())
+	}
+	if _, _, err := store.OpenObject(context.Background(), sp, "small--tiny", "big.bin"); err == nil {
+		t.Error("an over-quota copy was stored")
+	}
+}

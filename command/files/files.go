@@ -23,10 +23,9 @@ var FilesCmd = &cli.Command{
 	Usage: "Manage file storage",
 	Description: `Store files in buckets replicated across the knot cluster.
 
-Remote paths are written bucket/key, e.g. configs/app/settings.toml. Buckets
-are private to their owner unless shared; manage them with knot file bucket.
-Knot Pro also serves the same buckets over S3 at <server>/s3, using your
-username as the access key and an API key as the secret key.`,
+A bucket's files are written bucket:path, e.g. configs:app/settings.toml, and any other path is local. Buckets are private to their owner unless shared; manage them with knot file bucket.
+
+Knot Pro also serves the same buckets over S3 at <server>/s3, using your username as the access key and an API key as the secret key.`,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "server",
@@ -60,8 +59,7 @@ username as the access key and an API key as the secret key.`,
 	},
 	Commands: []*cli.Command{
 		lsCmd,
-		putCmd,
-		getCmd,
+		copyCmd,
 		catCmd,
 		rmCmd,
 		syncCmd,
@@ -82,24 +80,6 @@ func getClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 	}
 	skipVerify := cmd.GetBool("tls-skip-verify") || agentlink.IsAgentRunning()
 	return apiclient.NewClient(addr.HttpServer, addr.ApiToken, skipVerify)
-}
-
-// parseRemote splits bucket/key.
-func parseRemote(path string) (string, string, error) {
-	path = strings.TrimPrefix(path, "/")
-	bucket, key, _ := strings.Cut(path, "/")
-	if bucket == "" {
-		return "", "", fmt.Errorf("remote path must start with a bucket name, e.g. mybucket/path/file")
-	}
-	// Refuse what a URL would silently rewrite to another key: "." and ".."
-	// segments and empty ones. A trailing "/" naming a folder is fine.
-	for i, part := range strings.Split(key, "/") {
-		last := i == strings.Count(key, "/")
-		if part == "." || part == ".." || (part == "" && !last && key != "") {
-			return "", "", fmt.Errorf("invalid remote path %q: no empty, . or .. segments", path)
-		}
-	}
-	return bucket, key, nil
 }
 
 // apiError makes an API error readable.
