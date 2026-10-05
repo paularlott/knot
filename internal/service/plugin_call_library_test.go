@@ -207,7 +207,7 @@ print(json.dumps({
   "list_arg": user.has_permission(["manage_spaces"]),
   "float_arg": user.has_permission(1.5),
   "bool_arg": user.has_permission(True),
-}))
+}, separators=(",", ":")))
 `, model.PermissionUseMCPServer, model.PermissionManageSpaces)}
 	out, err := ExecuteScriptWithMCP(script, map[string]object.Object{}, user)
 	if err != nil {
