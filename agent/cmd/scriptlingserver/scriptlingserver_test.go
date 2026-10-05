@@ -2,12 +2,15 @@ package scriptlingserver
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,6 +21,7 @@ import (
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/cli"
 	"github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/object"
 	"github.com/paularlott/scriptling/plugin"
 	"github.com/paularlott/scriptling/scriptling-cli/pack"
 	"github.com/paularlott/scriptling/scriptling-cli/pluginpack"
@@ -530,4 +534,271 @@ func jsonBody(t *testing.T, v interface{}) []byte {
 		t.Fatal(err)
 	}
 	return data
+}
+
+// filesStore holds the file content the mock knot API received, so tests can
+// assert on the exact bytes that crossed the transports.
+type filesStore struct {
+	mu    sync.Mutex
+	files map[string][]byte
+	types map[string]string
+}
+
+func (s *filesStore) put(key string, body []byte, contentType string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.files[key] = body
+	s.types[key] = contentType
+}
+
+func (s *filesStore) get(key string) ([]byte, string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, ok := s.files[key]
+	return b, s.types[key], ok
+}
+
+// mockFilesAPI serves the object endpoints knot.files needs.
+func mockFilesAPI(t *testing.T) (*httptest.Server, *filesStore) {
+	t.Helper()
+	store := &filesStore{files: map[string][]byte{}, types: map[string]string{}}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {
+		body, contentType, ok := store.get(r.PathValue("key"))
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if contentType != "" {
+			w.Header().Set("Content-Type", contentType)
+		}
+		w.Write(body)
+	})
+	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		store.put(r.PathValue("key"), body, r.Header.Get("Content-Type"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"key": r.PathValue("key"), "size": len(body), "etag": "etag", "sha256": "sha",
+			"content_type": r.Header.Get("Content-Type"), "modified_at": "2026-10-05T00:00:00Z",
+		})
+	})
+	return httptest.NewServer(mux), store
+}
+
+// TestPluginRawTransfers covers the raw byte transfers knot.files needs on
+// the plugin transport: the plugin functions over the wire, and the
+// plugin-variant knot.apiclient plus knot.files running as scripts, the path
+// the scriptling CLI takes inside a space.
+func TestPluginRawTransfers(t *testing.T) {
+	api, store := mockFilesAPI(t)
+	defer api.Close()
+
+	client, err := apiclient.NewClient(api.URL, "test-token", true)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	client.SetContentType("application/json")
+
+	fetcher := pluginfetch.NewFetcher(client)
+	server := plugin.NewServer("knot", "test", "raw transfer test")
+	server.RegisterFetcher("knot", fetcherAdapter{fetcher})
+	registerAPIFunctions(server, client.GetRESTClient())
+
+	clientToPluginR, clientToPluginW := io.Pipe()
+	pluginToClientR, pluginToClientW := io.Pipe()
+	go func() { _ = server.RunIO(clientToPluginR, pluginToClientW) }()
+
+	ctx := context.Background()
+	pc, err := plugin.LoadClientFromIO(ctx, pluginToClientR, clientToPluginW)
+	if err != nil {
+		t.Fatalf("LoadClientFromIO: %v", err)
+	}
+	defer func() {
+		_ = pc.Close()
+		_ = clientToPluginW.Close()
+		_ = pluginToClientR.Close()
+	}()
+
+	t.Run("wire put and get", func(t *testing.T) {
+		content := "héllo ü" // non-ASCII must survive the Base64 bridge
+		result, err := pc.CallFunction(ctx, "api_put_bytes", []plugin.Value{
+			{Type: "string", Value: "/api/files/objects/scripts/wire.txt"},
+			{Type: "string", Value: base64.StdEncoding.EncodeToString([]byte(content))},
+		}, map[string]plugin.Value{"content_type": {Type: "string", Value: "text/plain; charset=utf-8"}})
+		if err != nil {
+			t.Fatalf("api_put_bytes: %v", err)
+		}
+		if result.Type != "dict" {
+			t.Fatalf("expected dict, got %s", result.Type)
+		}
+		if body, ct, _ := store.get("wire.txt"); string(body) != content || ct != "text/plain; charset=utf-8" {
+			t.Fatalf("stored %q (%s), want %q", body, ct, content)
+		}
+
+		result, err = pc.CallFunction(ctx, "api_get_bytes", []plugin.Value{
+			{Type: "string", Value: "/api/files/objects/scripts/wire.txt"},
+		}, nil)
+		if err != nil {
+			t.Fatalf("api_get_bytes: %v", err)
+		}
+		if result.Type != "string" {
+			t.Fatalf("expected the body as a Base64 string, got %s", result.Type)
+		}
+		got, derr := base64.StdEncoding.DecodeString(result.Value.(string))
+		if derr != nil || string(got) != content {
+			t.Fatalf("api_get_bytes returned %q (%v), want %q", got, derr, content)
+		}
+	})
+
+	t.Run("knot.files through the plugin transport", func(t *testing.T) {
+		env := scriptling.New()
+		env.EnableOutputCapture()
+		stdlib.RegisterAll(env)
+		env.RegisterLibrary(testPluginControlLibrary(pc))
+
+		apiSource, err := pc.FetchFile(ctx, "knot://libs", "lib/knot/apiclient.py")
+		if err != nil {
+			t.Fatalf("fetch plugin-variant apiclient: %v", err)
+		}
+		env.RegisterScriptLibrary("knot.apiclient", string(apiSource))
+		filesSource, err := pc.FetchFile(ctx, "knot://libs", "lib/knot/files.py")
+		if err != nil {
+			t.Fatalf("fetch files.py: %v", err)
+		}
+		env.RegisterScriptLibrary("knot.files", string(filesSource))
+
+		script := `
+import knot.files
+info = knot.files.write_file("scripts", "app/héllo.txt", "héllo ü")
+result = {
+    "size": info["size"],
+    "type": info["content_type"],
+    "text": knot.files.read_text("scripts", "app/héllo.txt"),
+    "roundtrip": knot.files.read_file("scripts", "app/héllo.txt").decode() == "héllo ü",
+}
+`
+		if _, err := env.Eval(script); err != nil {
+			t.Fatalf("script failed: %v", err)
+		}
+		v, errObj := env.GetVar("result")
+		if errObj != nil {
+			t.Fatalf("script set no result: %v", errObj)
+		}
+		m, ok := v.(map[string]interface{})
+		if !ok {
+			t.Fatalf("result is %T, want a dict", v)
+		}
+		// The server sent an integer and it must stay one over the wire:
+		// UseNumber at the decode keeps it, FromGo makes it an Integer and
+		// the plugin protocol tags it int.
+		if s, ok := m["size"].(int64); !ok || s != int64(len("héllo ü")) {
+			t.Errorf("size = %v (%T)", m["size"], m["size"])
+		}
+		if m["type"] != "text/plain; charset=utf-8" {
+			t.Errorf("content type = %v", m["type"])
+		}
+		if m["text"] != "héllo ü" || m["roundtrip"] != true {
+			t.Errorf("round trip failed: %v", m)
+		}
+		if body, ct, _ := store.get("app/héllo.txt"); string(body) != "héllo ü" || ct != "text/plain; charset=utf-8" {
+			t.Fatalf("server stored %q (%s)", body, ct)
+		}
+	})
+}
+
+// testPluginControlLibrary is a minimal stand-in for the scriptling.plugin
+// library the scriptling CLI provides: call_function routes to the knot
+// plugin over the same wire, converting the plain values these tests pass.
+func testPluginControlLibrary(pc *plugin.Client) *object.Library {
+	return object.NewLibrary("scriptling.plugin", map[string]*object.Builtin{
+		"call_function": {Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			if len(args) < 2 {
+				return &object.Error{Message: "call_function: library and function name required"}
+			}
+			library, errObj := args[0].AsString()
+			if errObj != nil {
+				return errObj
+			}
+			name, errObj := args[1].AsString()
+			if errObj != nil {
+				return errObj
+			}
+			if library != "plugin.knot" {
+				return &object.Error{Message: "plugin not found: " + library}
+			}
+			values := make([]plugin.Value, 0, len(args)-2)
+			for _, a := range args[2:] {
+				v, err := testPluginValue(a)
+				if err != nil {
+					return &object.Error{Message: err.Error()}
+				}
+				values = append(values, v)
+			}
+			kw := make(map[string]plugin.Value, len(kwargs.Kwargs))
+			for k, v := range kwargs.Kwargs {
+				pv, err := testPluginValue(v)
+				if err != nil {
+					return &object.Error{Message: err.Error()}
+				}
+				kw[k] = pv
+			}
+			var result plugin.Value
+			var callErr error
+			object.RunBlocking(ctx, func() {
+				result, callErr = pc.CallFunction(ctx, name, values, kw)
+			})
+			if callErr != nil {
+				return &object.Error{Message: callErr.Error()}
+			}
+			return testPluginObject(result)
+		}},
+	}, nil, "test stand-in for scriptling.plugin")
+}
+
+// testPluginValue converts the plain values these tests pass to the wire.
+func testPluginValue(o object.Object) (plugin.Value, error) {
+	switch v := o.(type) {
+	case *object.String:
+		return plugin.Value{Type: "string", Value: v.StringValue()}, nil
+	case *object.Integer:
+		return plugin.Value{Type: "int", Value: v.IntValue()}, nil
+	case *object.Float:
+		return plugin.Value{Type: "float", Value: v.FloatValue()}, nil
+	case *object.Boolean:
+		return plugin.Value{Type: "bool", Value: v.BoolValue()}, nil
+	case *object.Null:
+		return plugin.Value{Type: "null"}, nil
+	}
+	return plugin.Value{}, fmt.Errorf("cannot pass %s to a plugin in tests", o.Type())
+}
+
+// testPluginObject converts a wire value back, numbers arriving as float64
+// as JSON decodes them.
+func testPluginObject(v plugin.Value) object.Object {
+	switch v.Type {
+	case "string":
+		return object.NewString(v.Value.(string))
+	case "int":
+		return object.NewInteger(int64(v.Value.(float64)))
+	case "float":
+		return object.NewFloat(v.Value.(float64))
+	case "bool":
+		return object.NewBoolean(v.Value.(bool))
+	case "null":
+		return &object.Null{}
+	case "dict":
+		entries := make(map[string]object.Object, len(v.Entries))
+		for k, e := range v.Entries {
+			entries[k] = testPluginObject(e)
+		}
+		return object.NewStringDict(entries)
+	case "list":
+		elements := make([]object.Object, 0, len(v.Items))
+		for _, i := range v.Items {
+			elements = append(elements, testPluginObject(i))
+		}
+		return &object.List{Elements: elements}
+	}
+	return &object.Error{Message: "test cannot convert plugin value " + v.Type}
 }

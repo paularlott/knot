@@ -29,6 +29,19 @@ def _enc_key(key):
     return urllib.parse.quote(str(key), safe='/')
 
 
+def _check_key(key):
+    """Refuse keys a URL would rewrite to another key: empty, . or ..
+    segments. The server refuses them too; checking here keeps the error
+    the same whatever transport carries the request, and stops a path
+    with .. being resolved away before it reaches the server."""
+    if key == "":
+        return
+    parts = key.split("/")
+    for i, part in enumerate(parts):
+        if part == "." or part == ".." or (part == "" and i != len(parts) - 1):
+            raise Exception("invalid key " + key + ": no empty, . or .. segments")
+
+
 def _bucket(info):
     grants = []
     for g in info.get("grants") or []:
@@ -350,6 +363,7 @@ def write_file(bucket, key, data, content_type=""):
     Raises:
         Exception if you may not write there, the quota is exceeded, or on API error
     """
+    _check_key(key)
     if not content_type:
         if isinstance(data, str):
             content_type = "text/plain; charset=utf-8"
@@ -393,6 +407,7 @@ def copy_file(source_bucket, source_key, dest_bucket, dest_key):
         Exception if the file does not exist, access is lacking, the owner's
         quota would be exceeded, or source and destination are the same file
     """
+    _check_key(dest_key)
     return _file(api.post("/api/files/copy", {
         "source_bucket": source_bucket,
         "source_key": source_key,

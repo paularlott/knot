@@ -25,6 +25,16 @@ const (
 	ContentTypeMsgPack = "application/msgpack"
 )
 
+// decodeJSON decodes a JSON response body. Numbers landing in an interface{}
+// arrive as json.Number rather than float64, so an integer the server sent
+// stays an integer for callers that convert the result dynamically (the
+// scriptling transports); decoding into concrete types is unaffected.
+func decodeJSON(body io.Reader, response interface{}) error {
+	dec := json.NewDecoder(body)
+	dec.UseNumber()
+	return dec.Decode(response)
+}
+
 // RESTClient interface for both HTTP and Mux clients
 type RESTClient interface {
 	Get(ctx context.Context, path string, response interface{}) (int, error)
@@ -294,7 +304,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 		if strings.Contains(contentType, ContentTypeMsgPack) {
 			err = DecodeMsgPack(resp.Body, response)
 		} else {
-			err = json.NewDecoder(resp.Body).Decode(response)
+			err = decodeJSON(resp.Body, response)
 		}
 	}
 	return resp.StatusCode, err
@@ -342,7 +352,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 		if strings.Contains(contentType, ContentTypeMsgPack) {
 			err = DecodeMsgPack(resp.Body, response)
 		} else {
-			err = json.NewDecoder(resp.Body).Decode(response)
+			err = decodeJSON(resp.Body, response)
 		}
 		if err != nil {
 			return resp.StatusCode, err
@@ -437,7 +447,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 		if strings.Contains(respContentType, ContentTypeMsgPack) {
 			err = DecodeMsgPack(resp.Body, response)
 		} else {
-			err = json.NewDecoder(resp.Body).Decode(response)
+			err = decodeJSON(resp.Body, response)
 		}
 		if err != nil {
 			return resp.StatusCode, err
@@ -502,7 +512,7 @@ func (c *HTTPClient) GetJSON(ctx context.Context, path string, response interfac
 	}
 
 	if response != nil {
-		err = json.NewDecoder(resp.Body).Decode(response)
+		err = decodeJSON(resp.Body, response)
 	}
 	return resp.StatusCode, err
 }
@@ -716,5 +726,5 @@ func DecodeResponse(resp *http.Response, response interface{}) error {
 	if strings.Contains(resp.Header.Get("Content-Type"), ContentTypeMsgPack) {
 		return DecodeMsgPack(resp.Body, response)
 	}
-	return json.NewDecoder(resp.Body).Decode(response)
+	return decodeJSON(resp.Body, response)
 }

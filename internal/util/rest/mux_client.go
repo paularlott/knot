@@ -132,7 +132,7 @@ func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) 
 			err := DecodeMsgPack(rec.Body, response)
 			return rec.Code, err
 		} else {
-			err := json.NewDecoder(rec.Body).Decode(response)
+			err := decodeJSON(rec.Body, response)
 			return rec.Code, err
 		}
 	}
@@ -179,7 +179,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 		if strings.Contains(contentType, ContentTypeMsgPack) {
 			err = DecodeMsgPack(rec.Body, response)
 		} else {
-			err = json.NewDecoder(rec.Body).Decode(response)
+			err = decodeJSON(rec.Body, response)
 		}
 		if err != nil {
 			return rec.Code, err

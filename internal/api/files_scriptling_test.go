@@ -177,8 +177,10 @@ result["copy_survives"] = files.read_text("other", "copied/a.txt")
 		t.Errorf("bucket %v %v", r["bucket"], r["display"])
 	}
 	w, _ := r["write"].(map[string]interface{})
-	if w["key"] != "app/a.txt" || w["size"] != int64(8) && w["size"] != float64(8) || len(fmt.Sprint(w["sha256"])) != 64 {
-		t.Errorf("write result %v", w)
+	// The size must arrive as an integer, not the float64 a bare interface{}
+	// JSON decode would give.
+	if w["key"] != "app/a.txt" || w["size"] != int64(8) || len(fmt.Sprint(w["sha256"])) != 64 {
+		t.Errorf("write result %v (%T)", w, w["size"])
 	}
 	if r["text"] != "hello ü" || r["type"] != "text/plain; charset=utf-8" {
 		t.Errorf("text round trip %q %v", r["text"], r["type"])

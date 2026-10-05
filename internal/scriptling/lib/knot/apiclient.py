@@ -260,6 +260,11 @@ def put_bytes(path, data, content_type=""):
     if not client:
         raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
 
+    # A str body must become UTF-8 bytes here: CPython's http.client would
+    # otherwise send it as latin-1, corrupting everything outside ASCII.
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+
     resp = req.put(
         client["url"] + path,
         headers={
