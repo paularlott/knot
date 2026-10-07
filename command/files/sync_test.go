@@ -58,6 +58,7 @@ func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/files/buckets/{bucket}", api.HandleGetFileBucket)
 	mux.HandleFunc("POST /api/files/copy", api.HandleCopyFileObject)
+	mux.HandleFunc("POST /api/files/move", api.HandleMoveFileObjects)
 	mux.HandleFunc("GET /api/files/list/{bucket}", api.HandleListFileObjects)
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", api.HandleGetFileObject)
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", api.HandlePutFileObject)
