@@ -28,6 +28,10 @@ type BackupInfo struct {
 	Files   bool      `json:"files"` // the server has file storage
 }
 
+// BackupEndKey names the last line of a backup stream, which holds the number
+// of records the stream carried.
+const BackupEndKey = "_end"
+
 // BackupSummary is what a backup or restore reports at its end, for the
 // audit log.
 type BackupSummary struct {

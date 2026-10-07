@@ -15,7 +15,6 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/filestore"
-	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 )
@@ -125,7 +124,15 @@ func (lw *lineWriter) emit(v any) error {
 	return nil
 }
 
-func (lw *lineWriter) close() error { return lw.bw.Flush() }
+// close ends the stream with a line giving how many records it held, which
+// a client that reads it knows it has them all: a stream cut short, even at
+// a record boundary, lacks it.
+func (lw *lineWriter) close() error {
+	if err := lw.enc.Encode(map[string]int{apiclient.BackupEndKey: lw.n}); err != nil {
+		return err
+	}
+	return lw.bw.Flush()
+}
 
 // GET /api/backup/{kind}: every record of a kind, one JSON line each.
 // limit_user and limit_template narrow the backup to one user or template.
@@ -161,7 +168,7 @@ func HandleBackupKind(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		// The status is sent; the client sees a stream without its end
-		// marker and fails the backup.
+		// line and fails the backup.
 		panic(http.ErrAbortHandler)
 	}
 }
@@ -319,6 +326,10 @@ func HandleBackupContent(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: filestore.ErrDisabled.Error()})
 		return
 	}
+	if !filestore.ValidSHA(r.PathValue("sha")) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid checksum"})
+		return
+	}
 	rest.NoDeadlines(w)
 	c, err := store.ReadContent(r.Context(), r.PathValue("sha"))
 	if err != nil {
@@ -374,11 +385,6 @@ func HandleRestoreKind(w http.ResponseWriter, r *http.Request) {
 	}
 	flush()
 
-	// Users come last in a restore: from here the server has users, and
-	// is no longer open to restoring without a key.
-	if kind == "users" && result.Restored > 0 {
-		middleware.HasUsers = true
-	}
 	rest.WriteResponse(http.StatusOK, w, r, result)
 }
 
@@ -463,14 +469,20 @@ func restoreSaver(kind string, result *apiclient.RestoreResult, fail func(error,
 	case "file-buckets":
 		store := filestore.Get()
 		var batch []*filestore.Bucket
+		last := 0
 		flush := func() {
 			if len(batch) == 0 {
 				return
 			}
 			if _, err := store.RestoreBuckets(batch); err != nil {
-				fail(err, 0)
+				// None of the batch counts as restored.
+				result.Skipped += len(batch)
+				if len(result.Errors) < maxRestoreErrors {
+					result.Errors = append(result.Errors, fmt.Sprintf("buckets before record %d: %v", last+1, err))
+				}
+			} else {
+				result.Restored += len(batch)
 			}
-			result.Restored += len(batch)
 			batch = batch[:0]
 		}
 		return func(raw json.RawMessage, n int) {
@@ -480,6 +492,7 @@ func restoreSaver(kind string, result *apiclient.RestoreResult, fail func(error,
 				return
 			}
 			batch = append(batch, b)
+			last = n
 			if len(batch) >= restoreBatch {
 				flush()
 			}
@@ -487,14 +500,20 @@ func restoreSaver(kind string, result *apiclient.RestoreResult, fail func(error,
 	case "file-objects":
 		store := filestore.Get()
 		var batch []*filestore.Object
+		last := 0
 		flush := func() {
 			if len(batch) == 0 {
 				return
 			}
 			if _, err := store.RestoreObjects(batch); err != nil {
-				fail(err, 0)
+				// None of the batch counts as restored.
+				result.Skipped += len(batch)
+				if len(result.Errors) < maxRestoreErrors {
+					result.Errors = append(result.Errors, fmt.Sprintf("files before record %d: %v", last+1, err))
+				}
+			} else {
+				result.Restored += len(batch)
 			}
-			result.Restored += len(batch)
 			batch = batch[:0]
 		}
 		return func(raw json.RawMessage, n int) {
@@ -504,6 +523,7 @@ func restoreSaver(kind string, result *apiclient.RestoreResult, fail func(error,
 				return
 			}
 			batch = append(batch, o)
+			last = n
 			if len(batch) >= restoreBatch {
 				flush()
 			}

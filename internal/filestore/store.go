@@ -23,8 +23,10 @@ import (
 
 const (
 	// TombstoneTTL is how long deleted buckets and objects are remembered so
-	// a server returning from an outage cannot resurrect them.
-	TombstoneTTL = 30 * 24 * time.Hour
+	// a server returning from an outage cannot resurrect them. It matches how
+	// long the databases keep deleted records (garbageMaxAge in the drivers),
+	// so a server offline longer than this is out of step with the whole system.
+	TombstoneTTL = 3 * 24 * time.Hour
 
 	// DigestSlots is how many parts each bucket's digest is split into, so
 	// anti-entropy repairs only the parts of a bucket that differ.
@@ -1086,9 +1088,9 @@ type BucketDigest struct {
 	Count  int     `msgpack:"count"`
 }
 
-// Digests returns up to limit bucket digests, deleted buckets included, in
-// name order after the given name, and the name to continue after ("" at
-// the end). A limit of 0 returns them all.
+// Digests returns up to limit bucket digests, deleted buckets included, keyed
+// by bucket id and taken in id order after the given id, and the id to
+// continue after ("" at the end). A limit of 0 returns them all.
 func (s *Store) Digests(after string, limit int) (map[string]BucketDigest, string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

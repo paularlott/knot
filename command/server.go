@@ -308,7 +308,7 @@ var ServerCmd = &cli.Command{
 			Usage:        "Maximum number of file storage buckets a user can own when their own and group limits are all 0 (0 = unlimited).",
 			ConfigPath:   []string{"server.files.default_max_buckets"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_DEFAULT_MAX_BUCKETS"},
-			DefaultValue: 3,
+			DefaultValue: 0,
 		},
 		&cli.StringFlag{
 			Name:         "mcp-tools-path",

@@ -2,6 +2,7 @@ package commands_admin
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -90,7 +91,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 			return errors.New("Error: Encrypt key must be 32 bytes long.")
 		}
 
-		client, err := adminClient(cmd, false)
+		client, err := adminClient(cmd)
 		if err != nil {
 			return err
 		}
@@ -173,7 +174,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 			err := retry(ctx, func() error {
 				bucketIdsReset(kind, &bucketIds)
 				var err error
-				n, err = backupKind(ctx, client, dir, kind, key, params, keep)
+				n, err = backupKind(ctx, client, stagingDir(dir), kind, key, params, keep)
 				return err
 			})
 			if err != nil {
@@ -199,6 +200,23 @@ Restore the folder into a new server with knot admin restore, and list or restor
 				}
 				fmt.Println("   ", p)
 			}
+		}
+
+		// The new records replace the old only now, with the content they refer
+		// to in the folder, and pruning waits until they have.
+		var done []string
+		for _, kind := range apiclient.BackupKinds {
+			if selected[kind] {
+				done = append(done, kind)
+			}
+		}
+		// Until the new manifest is written, a crash mid-swap leaves a folder
+		// that says it is unfinished, not one whose manifest describes a mix.
+		if err := backupfile.MarkUnfinished(dir); err != nil {
+			return err
+		}
+		if err := commitRecords(dir, done); err != nil {
+			return fmt.Errorf("Error saving the records: %w", err)
 		}
 
 		if cmd.GetBool("prune") && withContent && warnings == 0 && cmd.GetString("limit-user") == "" {
@@ -235,15 +253,18 @@ func bucketIdsReset(kind string, ids *map[string]bool) {
 	}
 }
 
-// prepareBackupDir makes the folder ready: new, empty, or holding an earlier
-// backup, which is marked unfinished until this one completes.
+// stagingDir is where the records of a backup are written while it runs, so a
+// backup that stops part way leaves the previous one in the folder as it was.
+func stagingDir(dir string) string { return filepath.Join(dir, "staging") }
+
+// prepareBackupDir makes the folder ready: new, empty, holding an earlier
+// backup to refresh, or holding one that was stopped part way, which carries
+// on. A folder that isn't a finished backup is marked until this one is.
 func prepareBackupDir(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(dir, 0700); err != nil {
-			return err
-		}
-		return backupfile.MarkUnfinished(dir)
+		err = os.MkdirAll(dir, 0700)
+		entries = nil
 	}
 	if err != nil {
 		return err
@@ -251,16 +272,27 @@ func prepareBackupDir(dir string) error {
 	if len(entries) > 0 && !backupfile.IsBackupDir(dir) {
 		return fmt.Errorf("Error: %s is not empty and holds no backup; give a new or empty folder", dir)
 	}
-	// A backup stopped part way must not pass for a complete one: it is marked
-	// until this run finishes, and running again carries on from what is there.
-	if err := backupfile.MarkUnfinished(dir); err != nil {
+	if _, err := backupfile.ReadManifest(dir); err != nil {
+		if err := backupfile.MarkUnfinished(dir); err != nil {
+			return err
+		}
+	}
+	// Records are streamed afresh each run.
+	if err := os.RemoveAll(stagingDir(dir)); err != nil {
 		return err
 	}
-	err = os.Remove(filepath.Join(dir, "manifest.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
+	return os.MkdirAll(stagingDir(dir), 0700)
+}
+
+// commitRecords moves the records of the kinds just backed up from staging
+// into the folder, replacing the earlier ones.
+func commitRecords(dir string, kinds []string) error {
+	for _, kind := range kinds {
+		if err := os.Rename(backupfile.RecordPath(stagingDir(dir), kind), backupfile.RecordPath(dir, kind)); err != nil {
+			return err
+		}
 	}
-	return err
+	return os.RemoveAll(stagingDir(dir))
 }
 
 // backupKind streams the records of a kind into its file, keeping those keep
@@ -276,12 +308,29 @@ func backupKind(ctx context.Context, client *apiclient.ApiClient, dir, kind, key
 	if err != nil {
 		return 0, err
 	}
+	received, end := 0, -1
+	endPrefix := []byte(`{"` + apiclient.BackupEndKey + `":`)
 	err = eachLine(rc, func(line []byte) error {
+		if bytes.HasPrefix(line, endPrefix) {
+			var e map[string]int
+			if json.Unmarshal(line, &e) != nil {
+				return errors.New("the end of the stream is damaged")
+			}
+			end = e[apiclient.BackupEndKey]
+			return nil
+		}
+		received++
 		if keep != nil && !keep(line) {
 			return nil
 		}
 		return w.Add(line)
 	})
+	if err == nil && end != received {
+		err = fmt.Errorf("the stream ended early: it held %d records, %d were received", end, received)
+		if end < 0 {
+			err = errors.New("the stream ended early, without its end line")
+		}
+	}
 	if err != nil {
 		w.Close()
 		os.Remove(backupfile.RecordPath(dir, kind))
@@ -320,7 +369,7 @@ const contentWorkers = 16
 // folder does not hold yet, from the server. It returns how many it copied,
 // how many it already held, the bytes copied and what could not be read.
 func backupContent(ctx context.Context, client *apiclient.ApiClient, dir, key string) (copied, held int, total int64, problems []string) {
-	r, err := backupfile.Open(dir, "file-objects", key)
+	r, err := backupfile.Open(stagingDir(dir), "file-objects", key)
 	if err != nil {
 		return 0, 0, 0, []string{err.Error()}
 	}
@@ -347,16 +396,20 @@ func backupContent(ctx context.Context, client *apiclient.ApiClient, dir, key st
 		}()
 	}
 
-	var last string
+	// The same content under several files is copied once.
+	queued := map[string]struct{}{}
 	_ = r.Each(func(line []byte) error {
 		var o struct {
 			SHA256 string `json:"sha256"`
 			Size   int64  `json:"size"`
 		}
-		if json.Unmarshal(line, &o) != nil || len(o.SHA256) != 64 || o.SHA256 == last {
+		if json.Unmarshal(line, &o) != nil || len(o.SHA256) != 64 {
 			return nil
 		}
-		last = o.SHA256
+		if _, ok := queued[o.SHA256]; ok {
+			return nil
+		}
+		queued[o.SHA256] = struct{}{}
 		if backupfile.HasContentOfSize(dir, o.SHA256, o.Size) {
 			mu.Lock()
 			held++
@@ -478,12 +531,11 @@ func humanBytes(n int64) string {
 }
 
 // adminClient connects to the server the user chose, as other client
-// commands do. With tokenOptional, a --server given without a token connects
-// without one, which is how a server with no users yet is restored into.
-func adminClient(cmd *cli.Command, tokenOptional bool) (*apiclient.ApiClient, error) {
-	if server := cmd.GetString("server"); tokenOptional && server != "" && cmd.GetString("token") == "" {
-		addr := config.NewServerAddr(server, "")
-		return apiclient.NewClient(addr.HttpServer, "", cmd.GetBool("tls-skip-verify"))
+// commands do.
+func adminClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
+	// A server alone would fall back to the config file's, and fail oddly.
+	if cmd.GetString("server") != "" && cmd.GetString("token") == "" {
+		return nil, errors.New("Error: --server needs --token: a token from a user holding the Backup Server permission. For a new server, create its first user and use its token.")
 	}
 	return cmdutil.GetClient(cmd)
 }

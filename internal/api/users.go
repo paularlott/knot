@@ -755,6 +755,11 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if activeUser.HasPermission(model.PermissionManageUsers) {
+		// A changed name is held to the rules of a new one: buckets are named from it.
+		if request.Username != user.Username && !validate.NewUsername(request.Username) {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid username"})
+			return
+		}
 		user.Username = request.Username
 		saveFields = append(saveFields, "Username")
 
@@ -1024,11 +1029,13 @@ func HandleGetUserHasPermission(w http.ResponseWriter, r *http.Request) {
 // in the database if there isn't one: a role with the Backup Server
 // permission, which administrators don't otherwise have.
 func ensureBackupRole(db database.DbDriver) (*model.Role, error) {
-	if roles, err := db.GetRoles(); err == nil {
-		for _, role := range roles {
-			if !role.IsDeleted && role.Name == model.BackupRoleName {
-				return role, nil
-			}
+	roles, err := db.GetRoles()
+	if err != nil {
+		return nil, err
+	}
+	for _, role := range roles {
+		if !role.IsDeleted && role.Name == model.BackupRoleName {
+			return role, nil
 		}
 	}
 

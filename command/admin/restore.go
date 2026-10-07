@@ -21,7 +21,7 @@ var RestoreCmd = &cli.Command{
 	Usage: "Restore a backup into a server",
 	Description: `Restore a backup folder made by knot admin backup into a running server, which is how a lost server is rebuilt: install knot, start a new server, and restore into it.
 
-A new server with no users accepts a restore without a token, as it does the creation of its first user: give just --server. The users come last, so until they are restored the server stays open to restoring and a failed restore can simply be run again. Once it has users, restoring needs a token from a user holding the Backup Server permission.
+Restoring needs a token from a user holding the Backup Server permission. To rebuild a lost server, start a new one, create its first user (it takes the Admin and Backup User roles), and restore with that user's token. Use a username and email the backup doesn't contain, as the backup's own users are restored over it, and delete that user afterwards. The users come last, so a failed restore can simply be run again.
 
 Records are saved over any the server already holds; file records keep their timestamps, so a newer version of a bucket or file already on the server is kept. File content is uploaded for files whose content the server doesn't hold. Use --no-content to restore the records only.
 
@@ -45,7 +45,7 @@ To get back a single file or folder, rather than the whole backup, use knot admi
 		if manifest.Encrypted && key == "" {
 			return errors.New("Error: the backup is encrypted: give the key with --encrypt-key.")
 		}
-		client, err := adminClient(cmd, true)
+		client, err := adminClient(cmd)
 		if err != nil {
 			return err
 		}
@@ -102,8 +102,7 @@ To get back a single file or folder, rather than the whole backup, use knot admi
 		}
 
 		summary.Warnings = problems
-		// Once the users are back the server wants a token, which a restore into
-		// a new server doesn't have; recording the end is best effort.
+		// Recording the end is best effort; the restore itself is done.
 		client.PostRestoreComplete(ctx, summary)
 
 		if problems > 0 {

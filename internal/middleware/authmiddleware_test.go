@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"context"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -146,6 +148,38 @@ func TestTokenNotFound(t *testing.T) {
 	} {
 		if got := tokenNotFound(errors.New(msg)); got != want {
 			t.Errorf("%q: %v, want %v", msg, got, want)
+		}
+	}
+}
+
+// Backing up and restoring both need the Backup Server permission, and a
+// server with no users has no open window: there is no one to hold it.
+func TestBackupPermissions(t *testing.T) {
+	prev := HasUsers
+	defer func() { HasUsers = prev }()
+
+	call := func(wrap func(http.HandlerFunc) http.HandlerFunc, user *model.User) int {
+		h := wrap(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+		r := httptest.NewRequest("POST", "/", nil)
+		if user != nil {
+			r = r.WithContext(context.WithValue(r.Context(), "user", user))
+		}
+		w := httptest.NewRecorder()
+		h(w, r)
+		return w.Code
+	}
+
+	for name, wrap := range map[string]func(http.HandlerFunc) http.HandlerFunc{"backup": ApiPermissionBackup, "restore": ApiPermissionRestore} {
+		HasUsers = false
+		if code := call(wrap, nil); code != http.StatusForbidden {
+			t.Errorf("%s on a server with no users: %d, want 403", name, code)
+		}
+		HasUsers = true
+		if code := call(wrap, nil); code != http.StatusForbidden {
+			t.Errorf("%s without a user: %d, want 403", name, code)
+		}
+		if code := call(wrap, &model.User{}); code != http.StatusForbidden {
+			t.Errorf("%s by a user without the permission: %d, want 403", name, code)
 		}
 	}
 }

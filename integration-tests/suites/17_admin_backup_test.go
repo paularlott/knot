@@ -181,18 +181,29 @@ func TestAdminBackupRestore(t *testing.T) {
 		t.Errorf("file restore with --overwrite: %v\n%s", err, out)
 	}
 
-	// A new server with no users takes the whole backup without a token.
+	// A new server has no one to hold the Backup Server permission: a restore
+	// is refused until its first user exists, and is then done with that
+	// user's token.
 	s2, err := harness.StartServer(cfg, bins, "adminbak2", "--files-path", filesB)
 	if err != nil {
 		t.Fatalf("boot the new server: %v", err)
 	}
 	t.Cleanup(s2.Stop)
-	if out, err := run("admin", "restore", backupDir, "--server", s2.BaseURL, "--encrypt-key", key); err != nil {
+	if out, err := run("admin", "restore", backupDir, "--server", s2.BaseURL, "--encrypt-key", key); err == nil {
+		t.Fatalf("a restore into a server with no users, and no token, worked:\n%s", out)
+	}
+	if out, err := run("admin", "restore", backupDir, "--server", s2.BaseURL, "--token", "tk_notatoken", "--encrypt-key", key); err == nil {
+		t.Fatalf("a restore into a server with no users, with a bad token, worked:\n%s", out)
+	}
+	boot, err := harness.ProvisionAdmin(s2, "bootstrap", "BootPassw0rd!")
+	if err != nil {
+		t.Fatalf("create the first user: %v", err)
+	}
+	if out, err := run("admin", "restore", backupDir, "--server", s2.BaseURL, "--token", boot.Token, "--encrypt-key", key); err != nil {
 		t.Fatalf("knot admin restore: %v\n%s", err, out)
 	}
-	// Now it has users, and wants a token.
 	if out, err := run("admin", "restore", backupDir, "--server", s2.BaseURL, "--encrypt-key", key); err == nil {
-		t.Errorf("a second restore without a token worked:\n%s", out)
+		t.Errorf("a restore without a token worked:\n%s", out)
 	}
 
 	restored, err := harness.LoginUser(s2, "admin", "AdminPassw0rd!")

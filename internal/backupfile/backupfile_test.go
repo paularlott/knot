@@ -291,13 +291,42 @@ func TestUnfinishedMark(t *testing.T) {
 	if err := WriteManifest(dir, &Manifest{Counts: map[string]int{}}); err != nil {
 		t.Fatal(err)
 	}
+	// A manifest left from before doesn't vouch for a folder marked mid-swap.
+	if _, err := ReadManifest(dir); err == nil {
+		t.Fatal("a marked folder's manifest was read")
+	}
 	if err := ClearUnfinished(dir); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := ReadManifest(dir); err != nil {
+		t.Fatalf("a finished backup's manifest: %v", err)
 	}
 	if err := ClearUnfinished(dir); err != nil {
 		t.Fatalf("clearing twice: %v", err)
 	}
 	if !IsBackupDir(dir) {
 		t.Fatal("a finished backup is a backup folder")
+	}
+}
+
+// A partial copy that died only before its rename is whole: it is kept, and
+// the server isn't asked for bytes past its end.
+func TestDownloadContentWholePartial(t *testing.T) {
+	dir := t.TempDir()
+	data := strings.Repeat("abcdefghij", 3000)
+	sum := sha256.Sum256([]byte(data))
+	sha := hex.EncodeToString(sum[:])
+	if err := os.MkdirAll(filepath.Dir(ContentPath(dir, sha)), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(PartialPath(dir, sha), []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := DownloadContent(dir, sha, func(offset int64) (io.ReadCloser, bool, error) {
+		t.Errorf("asked the server for offset %d of a whole copy", offset)
+		return nil, false, errors.New("refused")
+	})
+	if err != nil || !HasContent(dir, sha) {
+		t.Fatalf("whole partial: %v", err)
 	}
 }

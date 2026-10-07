@@ -96,6 +96,11 @@ func IsBackupDir(dir string) bool {
 
 // ReadManifest reads the manifest of the backup in dir.
 func ReadManifest(dir string) (*Manifest, error) {
+	// The mark is also set while a refreshed backup swaps in its records, when
+	// the manifest it still holds describes the old ones.
+	if _, err := os.Stat(filepath.Join(dir, unfinishedFile)); err == nil {
+		return nil, fmt.Errorf("%s holds an unfinished backup; run the backup again to finish it", dir)
+	}
 	data, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("%s holds no complete backup: it has no manifest.json; run the backup again to finish it", dir)
@@ -420,6 +425,18 @@ func DownloadContent(dir, sha string, fetch Fetch) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// A partial copy that died only before its rename is whole already, and
+	// asking for bytes past its end would be refused.
+	if offset > 0 {
+		if sum, err := sumFile(f); err == nil && sum == sha {
+			f.Close()
+			closed = true
+			return 0, os.Rename(part, dst)
+		}
+		if _, err := f.Seek(0, io.SeekEnd); err != nil {
+			return 0, err
+		}
+	}
 	rc, resumed, err := fetch(offset)
 	if err != nil {
 		return 0, err
@@ -455,6 +472,18 @@ func DownloadContent(dir, sha string, fetch Fetch) (int64, error) {
 		return n, fmt.Errorf("content does not match its checksum %s", sha)
 	}
 	return n, os.Rename(part, dst)
+}
+
+// sumFile returns the SHA-256 of f from its start.
+func sumFile(f *os.File) (string, error) {
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // Prune removes content that no file refers to: keep reports whether a

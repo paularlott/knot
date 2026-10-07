@@ -58,7 +58,7 @@ The check needs the Manage File Storage permission; --from-backup also needs the
 			}
 		}
 
-		client, err := adminClient(cmd, false)
+		client, err := adminClient(cmd)
 		if err != nil {
 			return err
 		}

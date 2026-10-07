@@ -303,7 +303,7 @@ The files are written as the user the command connects as, who needs the Manage 
 		}
 
 		// Where they go.
-		client, err := adminClient(cmd, false)
+		client, err := adminClient(cmd)
 		if err != nil {
 			return err
 		}
