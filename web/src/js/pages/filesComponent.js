@@ -155,6 +155,7 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
     aceEditor: null,
     languages: EDITOR_LANGUAGES,
     renameModal: { show: false, entry: null, isFolder: false, name: '', error: '', saving: false },
+    dropTarget: null, // the folder an entry being dragged is over, '' for the bucket's top level
     newFileModal: { show: false, name: '', error: '' },
     shareUsers: [],
     shareGroups: [],
@@ -715,32 +716,98 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       return TEXT_EXTENSIONS.has(ext) || name.startsWith('.');
     },
 
-    // Renaming stays in the folder: the new name is one path segment, and the
-    // server moves the file, or the folder with everything in it.
+    // ---- moving by dragging a row onto a folder, or onto the path above the list ----
+
+    ENTRY_MIME: 'application/x-knot-file-entry',
+
+    isEntryDrag(event) {
+      return Array.from(event.dataTransfer?.types || []).includes(this.ENTRY_MIME);
+    },
+
+    dragEntry(event, entry, isFolder) {
+      if (!this.canWrite) return;
+      event.dataTransfer.setData(this.ENTRY_MIME, JSON.stringify({ isFolder, key: isFolder ? '' : entry.key, prefix: isFolder ? entry.prefix : '' }));
+      event.dataTransfer.effectAllowed = 'move';
+
+      // Drag a small label with the name, not a picture of the whole row (or, for
+      // a folder, of the link inside it).
+      const chip = document.createElement('div');
+      chip.textContent = entry.name + (isFolder ? '/' : '');
+      chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:6px 12px;border-radius:8px;font:500 13px system-ui,sans-serif;'
+        + 'background:#1d4ed8;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.35);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+      document.body.appendChild(chip);
+      event.dataTransfer.setDragImage(chip, 12, 14);
+      setTimeout(() => chip.remove(), 0);
+    },
+
+    // overFolder marks a folder as the drop target while a row is dragged over it.
+    overFolder(event, prefix) {
+      if (!this.canWrite || !this.isEntryDrag(event)) return;
+      event.dataTransfer.dropEffect = 'move';
+      this.dropTarget = prefix;
+    },
+
+    async dropOnFolder(event, prefix) {
+      this.dropTarget = null;
+      if (!this.canWrite || !this.isEntryDrag(event)) return;
+      let moved;
+      try { moved = JSON.parse(event.dataTransfer.getData(this.ENTRY_MIME)); } catch (e) { return; }
+      const entry = moved.isFolder
+        ? { prefix: moved.prefix, name: moved.prefix.replace(/\/+$/, '').split('/').pop() }
+        : { key: moved.key, name: moved.key.split('/').pop() };
+      const err = await this.moveTo(entry, moved.isFolder, prefix);
+      if (err) this.alert(err, 'error');
+    },
+
+    // moveTo moves a file, or a folder with everything in it, into the folder
+    // dest ('' for the bucket's top level), keeping its name. It returns an
+    // error message, or '' when it worked.
+    async moveTo(entry, isFolder, dest) {
+      const from = isFolder ? entry.prefix.replace(/\/+$/, '') : entry.key;
+      const to = dest + entry.name;
+      if (to === from) return '';
+      if (isFolder && (dest === entry.prefix || dest.startsWith(entry.prefix))) return 'A folder cannot be moved into itself.';
+      const body = { bucket: this.bucket.name, from, to, overwrite: false };
+      const response = await request('/api/files/move', { method: 'POST', headers: jsonHeaders(), body: JSON.stringify(body) });
+      if (response.status === 409) return `${dest || 'The top level'} already has a file or folder named ${entry.name}.`;
+      if (!response.ok) return await apiError(response);
+      this.alert(`${entry.name} moved to ${dest ? dest.replace(/\/$/, '') : 'the top level'}`);
+      await this.listFiles(false);
+      return '';
+    },
+
+    // Rename also moves: the new name is a path in the bucket, so a bare name
+    // stays in this folder and one with slashes goes to another. The server moves
+    // the file, or the folder with everything in it, and creates folders as needed.
     openRename(entry, isFolder) {
-      this.renameModal = { show: true, entry, isFolder, name: entry.name, error: '', saving: false };
+      const key = isFolder ? entry.prefix.replace(/\/+$/, '') : entry.key;
+      this.renameModal = { show: true, entry, isFolder, name: key, error: '', saving: false };
       this.focusSoon('rename-name');
     },
 
     async renameEntry() {
       const m = this.renameModal;
-      const name = m.name.trim();
-      if (!name || name.includes('/') || name === '.' || name === '..') {
-        m.error = 'Enter a name without slashes.';
+      const to = m.name.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+      const from = m.isFolder ? m.entry.prefix.replace(/\/+$/, '') : m.entry.key;
+      if (!to || to.split('/').some(p => p === '' || p === '.' || p === '..')) {
+        m.error = 'Enter a name or a path in this bucket, such as archive/report.txt.';
         return;
       }
-      if (name === m.entry.name) {
+      if (to === from) {
         m.show = false;
+        return;
+      }
+      if (m.isFolder && to.startsWith(from + '/')) {
+        m.error = 'A folder cannot be moved into itself.';
         return;
       }
       m.saving = true;
       m.error = '';
-      const from = m.isFolder ? m.entry.prefix.replace(/\/+$/, '') : m.entry.key;
-      const body = { bucket: this.bucket.name, from, to: this.prefix + name, overwrite: false };
+      const body = { bucket: this.bucket.name, from, to, overwrite: false };
       const response = await request('/api/files/move', { method: 'POST', headers: jsonHeaders(), body: JSON.stringify(body) });
       m.saving = false;
       if (response.status === 409) {
-        m.error = `A file or folder named ${name} already exists here.`;
+        m.error = `${to} already exists.`;
         return;
       }
       if (!response.ok) {
@@ -748,7 +815,8 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
         return;
       }
       m.show = false;
-      this.alert(`${m.entry.name} renamed to ${name}`);
+      const moved = to.includes('/') && to.slice(0, to.lastIndexOf('/') + 1) !== from.slice(0, from.lastIndexOf('/') + 1);
+      this.alert(`${from} ${moved ? 'moved' : 'renamed'} to ${to}`);
       await this.listFiles(false);
     },
 
@@ -818,7 +886,7 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
 
     async dropped(event) {
       this.dragOver = false;
-      if (!this.canWrite) return;
+      if (!this.canWrite || this.isEntryDrag(event)) return;
       const items = Array.from(event.dataTransfer.items || []);
       const collected = [];
       const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);

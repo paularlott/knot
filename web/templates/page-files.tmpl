@@ -161,12 +161,12 @@
             <li><a href="/files" @click.prevent="showBuckets()" class="hover:underline text-blue-700 dark:text-blue-400">Buckets</a></li>
             <li aria-hidden="true">/</li>
             <li>
-              <a href="#" @click.prevent="openPrefix('')" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="prefix === '' ? 'page' : null" x-text="label(bucket)"></a>
+              <a href="#" @click.prevent="openPrefix('')" @dragover.prevent="overFolder($event, '')" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, '')" :class="dropTarget === '' ? 'ring-2 ring-blue-500 rounded px-1' : ''" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="prefix === '' ? 'page' : null" x-text="label(bucket)"></a>
             </li>
             <template x-for="(crumb, i) in breadcrumbs" :key="crumb.prefix">
               <li class="flex items-center gap-1">
                 <span aria-hidden="true">/</span>
-                <a href="#" @click.prevent="openPrefix(crumb.prefix)" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="i === breadcrumbs.length - 1 ? 'page' : null" x-text="crumb.name"></a>
+                <a href="#" @click.prevent="openPrefix(crumb.prefix)" @dragover.prevent="overFolder($event, crumb.prefix)" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, crumb.prefix)" :class="dropTarget === crumb.prefix ? 'ring-2 ring-blue-500 rounded px-1' : ''" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="i === breadcrumbs.length - 1 ? 'page' : null" x-text="crumb.name"></a>
               </li>
             </template>
           </ol>
@@ -191,8 +191,8 @@
 
         <div class="p-4 mb-4 bg-white border rounded-lg shadow-xs sm:p-6 dark:bg-gray-800 transition-colors"
              :class="dragOver ? 'border-blue-500 border-dashed bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'"
-             @dragover.prevent="if (canWrite) dragOver = true" @dragleave.prevent="dragOver = false" @drop.prevent="dropped($event)">
-          <p x-show="canWrite" class="text-xs text-gray-500 dark:text-gray-400 mb-3">Drop files or folders here to upload them to this folder.</p>
+             @dragover.prevent="if (canWrite && !isEntryDrag($event)) dragOver = true" @dragleave.prevent="dragOver = false" @drop.prevent="dropped($event)">
+          <p x-show="canWrite" class="text-xs text-gray-500 dark:text-gray-400 mb-3">Drop files or folders here to upload them to this folder. Drag a row onto a folder, or onto the path above, to move it.</p>
 
           <div x-show="listing && folders.length === 0 && files.length === 0" class="flex items-center p-2 text-base text-gray-900 dark:text-white" role="status">Loading &hellip;</div>
           <div x-show="!listing && folders.length === 0 && files.length === 0" x-cloak class="text-center text-gray-500 dark:text-gray-400 py-8" role="status">
@@ -212,9 +212,12 @@
               </thead>
               <tbody>
                 <template x-for="folder in folders" :key="'d:' + folder.prefix">
-                  <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                  <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10"
+                      :class="dropTarget === folder.prefix ? 'ring-2 ring-inset ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''"
+                      :draggable="canWrite" @dragstart="dragEntry($event, folder, true)" @dragend="dropTarget = null"
+                      @dragover.prevent="overFolder($event, folder.prefix)" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, folder.prefix)">
                     <td class="px-4 py-3">
-                      <a href="#" @click.prevent="openPrefix(folder.prefix)" class="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:underline" :aria-label="'Open folder ' + folder.name">
+                      <a href="#" draggable="false" @click.prevent="openPrefix(folder.prefix)" class="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:underline" :aria-label="'Open folder ' + folder.name">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
                         <span x-text="folder.name"></span>
                       </a>
@@ -223,7 +226,7 @@
                     <td class="px-4 py-3 hidden md:table-cell"></td>
                     <td class="px-4 py-3">
                       <div class="flex items-center justify-end gap-2">
-                        <button x-show="canWrite" type="button" @click="openRename(folder, true)" class="row-action-button" :aria-label="'Rename folder ' + folder.name" title="Rename folder">
+                        <button x-show="canWrite" type="button" @click="openRename(folder, true)" class="row-action-button" :aria-label="'Rename or move folder ' + folder.name" title="Rename or move folder">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
                         </button>
                         <button x-show="canWrite" type="button" @click="confirmDeleteFile(folder, true)" class="row-action-button row-action-danger" :aria-label="'Delete folder ' + folder.name" title="Delete folder">
@@ -234,7 +237,8 @@
                   </tr>
                 </template>
                 <template x-for="f in files" :key="'f:' + f.key">
-                  <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                  <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10"
+                      :draggable="canWrite" @dragstart="dragEntry($event, f, false)" @dragend="dropTarget = null">
                     <td class="px-4 py-3">
                       <div class="inline-flex items-center gap-2 text-gray-900 dark:text-white">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-gray-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
@@ -253,7 +257,7 @@
                         <a :href="downloadUrl(f)" :download="f.name" class="row-action-button" :aria-label="'Download ' + f.name" title="Download">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                         </a>
-                        <button x-show="canWrite" type="button" @click="openRename(f, false)" class="row-action-button" :aria-label="'Rename ' + f.name" title="Rename">
+                        <button x-show="canWrite" type="button" @click="openRename(f, false)" class="row-action-button" :aria-label="'Rename or move ' + f.name" title="Rename or move">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
                         </button>
                         <button x-show="canWrite" type="button" @click="confirmDeleteFile(f, false)" class="row-action-button row-action-danger" :aria-label="'Delete ' + f.name" title="Delete">
@@ -570,15 +574,15 @@
     <div x-cloak x-show="renameModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="renameModal.show" @keydown.esc.window="renameModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="renameTitle">
       <form x-show="renameModal.show" class="ui-modal-panel" @submit.prevent="renameEntry()">
         <div class="ui-modal-header">
-          <h2 id="renameTitle" class="ui-modal-title" x-text="'Rename ' + (renameModal.isFolder ? 'folder' : 'file')"></h2>
+          <h2 id="renameTitle" class="ui-modal-title" x-text="'Rename or move ' + (renameModal.isFolder ? 'folder' : 'file')"></h2>
           <button type="button" @click="renameModal.show = false" aria-label="Close" class="ui-modal-close">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="ui-modal-body">
-          <label for="rename-name" class="form-label">New name</label>
-          <input id="rename-name" type="text" class="form-field" x-model="renameModal.name" autocomplete="off" spellcheck="false" aria-describedby="rename-help rename-error" :aria-invalid="renameModal.error !== ''">
-          <p id="rename-help" class="description mt-1">The name stays in this folder. A folder is renamed with everything in it.</p>
+          <label for="rename-name" class="form-label">New name or path</label>
+          <input id="rename-name" type="text" class="form-field font-mono" x-model="renameModal.name" autocomplete="off" spellcheck="false" aria-describedby="rename-help rename-error" :aria-invalid="renameModal.error !== ''">
+          <p id="rename-help" class="description mt-1">The path of the new name in this bucket. Change just the name to rename it, or add folders to move it, such as <span class="font-mono">archive/2026/report.txt</span>; folders that don't exist are created. A folder moves with everything in it. You can also drag a row onto a folder, or onto the path above.</p>
           <p id="rename-error" x-show="renameModal.error" class="error-message" role="alert" x-text="renameModal.error"></p>
         </div>
         <div class="ui-modal-footer">
