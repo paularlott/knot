@@ -98,3 +98,45 @@ func CleanAPIError(err error) string {
 	}
 	return msg
 }
+
+// ClientFlags returns the flags that choose the server a command talks to: an
+// explicit --server and --token, else the alias (default "default") from the
+// config file's client.connection section. Commands that already use -s, -t
+// or -a for something else take them without short names.
+func ClientFlags(short bool) []cli.Flag {
+	var serverAliases, tokenAliases, aliasAliases []string
+	if short {
+		serverAliases, tokenAliases, aliasAliases = []string{"s"}, []string{"t"}, []string{"a"}
+	}
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "server",
+			Aliases: serverAliases,
+			Usage:   "The address of the remote server.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
+			Global:  true,
+		},
+		&cli.StringFlag{
+			Name:    "token",
+			Aliases: tokenAliases,
+			Usage:   "The token to use for authentication.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
+			Global:  true,
+		},
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification.",
+			ConfigPath:   []string{"tls.skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+			Global:       true,
+		},
+		&cli.StringFlag{
+			Name:         "alias",
+			Aliases:      aliasAliases,
+			Usage:        "The server alias to use from the config file.",
+			DefaultValue: "default",
+			Global:       true,
+		},
+	}
+}

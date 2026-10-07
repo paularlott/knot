@@ -22,11 +22,6 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 	existingUser, _ := db.GetUser(user.Id)
 	if existingUser != nil {
 		newUser = false
-
-		// Don't allow username to be changed unless deleting the user
-		if !user.IsDeleted || (len(updateFields) > 0 && !util.InArray(updateFields, "IsDeleted")) {
-			user.Username = existingUser.Username
-		}
 	}
 
 	var oldProviders map[string]model.ExternalProvider
@@ -52,8 +47,9 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 		}
 	}
 
-	// Check if the new username is unique
-	if newUser {
+	// A changed username must be unique; the old one is released below
+	renamed := !newUser && !strings.EqualFold(existingUser.Username, user.Username) && (len(updateFields) == 0 || util.InArray(updateFields, "Username"))
+	if newUser || renamed {
 		exists, err := db.keyExists(fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username)))
 		if err != nil {
 			return err

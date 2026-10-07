@@ -28,7 +28,7 @@ var (
 // that received them until the upload completes.
 type MultipartUpload struct {
 	Id          string            `json:"id"`
-	Bucket      string            `json:"bucket"`
+	BucketId    string            `json:"bucket_id"`
 	Key         string            `json:"key"`
 	ContentType string            `json:"content_type"`
 	Meta        map[string]string `json:"meta"`
@@ -69,7 +69,8 @@ func (s *Store) CreateMultipart(p *Principal, bucket, key string, opts PutOption
 	if err := checkMeta(opts.ContentType, opts.Meta); err != nil {
 		return "", err
 	}
-	if _, err := s.checkBucket(p, bucket, AccessWrite); err != nil {
+	bucketId, err := s.checkBucketId(p, bucket, AccessWrite)
+	if err != nil {
 		return "", err
 	}
 
@@ -84,7 +85,7 @@ func (s *Store) CreateMultipart(p *Principal, bucket, key string, opts PutOption
 	}
 	up := MultipartUpload{
 		Id:          id,
-		Bucket:      bucket,
+		BucketId:    bucketId,
 		Key:         key,
 		ContentType: opts.ContentType,
 		Meta:        normalizeMeta(opts.Meta),
@@ -117,11 +118,15 @@ func (s *Store) loadUpload(p *Principal, bucket, key, id string) (*MultipartUplo
 		return nil, ErrNoSuchUpload
 	}
 	up, err := readUpload(s.uploadDir(id))
-	if err != nil || up.Bucket != bucket || up.Key != key {
+	if err != nil {
 		return nil, ErrNoSuchUpload
 	}
-	if _, err := s.checkBucket(p, bucket, AccessWrite); err != nil {
+	bucketId, err := s.checkBucketId(p, bucket, AccessWrite)
+	if err != nil {
 		return nil, err
+	}
+	if up.BucketId != bucketId || up.Key != key {
+		return nil, ErrNoSuchUpload
 	}
 	return up, nil
 }
@@ -286,7 +291,7 @@ func (s *Store) CompleteMultipart(p *Principal, bucket, key, id string, parts []
 		tw.discard()
 		return nil, err
 	}
-	o, err := s.commitContent(p, bucket, key, tw, etag, limit, PutOptions{
+	o, err := s.commitContent(p, bucket, key, stagedFile(tw), etag, limit, PutOptions{
 		ContentType: up.ContentType,
 		Meta:        up.Meta,
 		ModifiedBy:  modifiedBy,
@@ -308,14 +313,15 @@ func (s *Store) AbortMultipart(p *Principal, bucket, key, id string) error {
 
 // ListMultipartUploads lists the uploads in progress on this server for a bucket.
 func (s *Store) ListMultipartUploads(p *Principal, bucket string) ([]*MultipartUpload, error) {
-	if _, err := s.checkBucket(p, bucket, AccessWrite); err != nil {
+	bucketId, err := s.checkBucketId(p, bucket, AccessWrite)
+	if err != nil {
 		return nil, err
 	}
 
 	entries, _ := os.ReadDir(filepath.Join(s.dir, "multipart"))
 	var out []*MultipartUpload
 	for _, e := range entries {
-		if up, err := readUpload(filepath.Join(s.dir, "multipart", e.Name())); err == nil && up.Bucket == bucket {
+		if up, err := readUpload(filepath.Join(s.dir, "multipart", e.Name())); err == nil && up.BucketId == bucketId {
 			out = append(out, up)
 		}
 	}
@@ -345,7 +351,7 @@ func (s *Store) cleanMultipart() int {
 		if !stale {
 			if up, err := readUpload(dir); err == nil {
 				s.mu.RLock()
-				stale = !live(s.buckets[up.Bucket])
+				stale = !live(s.buckets[up.BucketId])
 				s.mu.RUnlock()
 			}
 		}

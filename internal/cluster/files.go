@@ -79,6 +79,10 @@ type filesContentRequest struct {
 	Offset int64  `msgpack:"offset"`
 }
 
+type filesContentBatchRequest struct {
+	SHA256s []string `msgpack:"sha256s"`
+}
+
 type filesAck struct{}
 
 // initFiles connects the file store to the cluster.
@@ -97,6 +101,7 @@ func (c *Cluster) initFiles() {
 	c.gossipCluster.HandleFuncWithReply(FilesPageMsg, c.handleFilesPage)
 	c.gossipCluster.HandleFuncWithReply(FilesPushMsg, c.handleFilesPush)
 	c.gossipCluster.HandleStreamFunc(FilesContentMsg, c.handleFilesContent)
+	c.gossipCluster.HandleStreamFunc(FilesContentBatchMsg, c.handleFilesContentBatch)
 
 	// A server that comes back reconciles straight away.
 	c.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prev gossip.NodeState) {
@@ -207,6 +212,16 @@ func (c *Cluster) OpenContent(ctx context.Context, nodeId, sha string, offset in
 	return c.gossipCluster.OpenStream(ctx, node, FilesContentMsg, &filesContentRequest{SHA256: sha, Offset: offset})
 }
 
+// OpenContentBatch implements filestore.Replicator: several small blobs are
+// streamed over one connection.
+func (c *Cluster) OpenContentBatch(ctx context.Context, nodeId string, shas []string) (io.ReadCloser, error) {
+	node := c.gossipCluster.GetNodeByIDString(nodeId)
+	if node == nil || !node.Alive() {
+		return nil, errors.New("node not available")
+	}
+	return c.gossipCluster.OpenStream(ctx, node, FilesContentBatchMsg, &filesContentBatchRequest{SHA256s: shas})
+}
+
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
@@ -282,6 +297,24 @@ func (c *Cluster) handleFilesContent(sender *gossip.Node, packet *gossip.Packet,
 		return filestore.ErrUnavailable
 	}
 	return store.WriteContent(w, req.SHA256, req.Offset)
+}
+
+// maxContentBatch bounds how many blobs one batch request may ask for.
+const maxContentBatch = 256
+
+func (c *Cluster) handleFilesContentBatch(sender *gossip.Node, packet *gossip.Packet, w io.Writer) error {
+	var req filesContentBatchRequest
+	store, err := filesRequest(c, sender, packet, &req)
+	if err != nil {
+		return err
+	}
+	if store == nil {
+		return filestore.ErrUnavailable
+	}
+	if len(req.SHA256s) > maxContentBatch {
+		return filestore.ErrContentMismatch
+	}
+	return store.WriteContentBatch(w, req.SHA256s)
 }
 
 // slotsOrAll maps an empty slot list, which means every slot, to nil.

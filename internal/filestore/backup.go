@@ -1,132 +1,169 @@
 package filestore
 
 import (
-	"errors"
+	"context"
 	"io"
-	"os"
-	"path/filepath"
+	"sort"
 
-	"github.com/paularlott/knot/internal/log"
+	badger "github.com/dgraph-io/badger/v4"
 )
 
-// BackupData is the file storage part of a backup: every live bucket and
-// the live objects in them, with their content addressed by sha256.
-type BackupData struct {
-	Buckets []*Bucket `json:"buckets"`
-	Objects []*Object `json:"objects"`
+// A backup of file storage is a stream of bucket records and a stream of
+// object records, plus the content they refer to, read through the running
+// server. Restoring merges records back in: they keep their timestamps, so
+// where the store, or another server, holds a newer version of a bucket or
+// file, that version wins.
+
+// liveBuckets returns the live buckets that pass keep, by id.
+func (s *Store) liveBuckets(keep func(*Bucket) bool) map[string]*Bucket {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]*Bucket, len(s.buckets))
+	for id, b := range s.buckets {
+		if live(b) && (keep == nil || keep(b)) {
+			out[id] = b.clone()
+		}
+	}
+	return out
 }
 
-// ReadBackup reads the metadata held in a storage directory. It reads the
-// snapshot and journal without opening the directory as a store, so it is
-// safe while a server is using it: should the server compact its journal
-// during the read, the read starts again.
-func ReadBackup(dir string) (*BackupData, error) {
-	metaDir := filepath.Join(dir, "meta")
-	if _, err := os.Stat(metaDir); err != nil {
-		return nil, errors.New("no file storage found in " + dir)
+// StreamBuckets calls emit with every live bucket that passes keep (nil for
+// all), in id order.
+func (s *Store) StreamBuckets(keep func(*Bucket) bool, emit func(*Bucket) error) error {
+	buckets := s.liveBuckets(keep)
+	ids := make([]string, 0, len(buckets))
+	for id := range buckets {
+		ids = append(ids, id)
 	}
-	snapshot := filepath.Join(metaDir, "snapshot.jsonl")
-	for attempt := 0; ; attempt++ {
-		before, _ := os.Stat(snapshot)
-		d, err := readBackup(dir)
-		if err != nil {
-			return nil, err
-		}
-		after, _ := os.Stat(snapshot)
-		if before == nil || after == nil || os.SameFile(before, after) || attempt == 9 {
-			return d, nil
+	sortStrings(ids)
+	for _, id := range ids {
+		if err := emit(buckets[id]); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
-func readBackup(dir string) (*BackupData, error) {
-	s := &Store{
-		dir:      dir,
-		logger:   log.WithGroup("files"),
-		buckets:  make(map[string]*Bucket),
-		objects:  make(map[string]map[string]*Object),
-		stats:    make(map[string]*bucketStats),
-		owned:    make(map[string]map[string]struct{}),
-		blobRefs: make(map[string]int),
-		missing:  make(map[string]*Object),
-		blobs:    &blobStore{dir: filepath.Join(dir, "blobs"), tmpDir: filepath.Join(dir, "tmp")},
-	}
-	for _, name := range []string{"snapshot.jsonl", "journal.jsonl"} {
-		if err := s.loadFile(filepath.Join(dir, "meta", name)); err != nil {
-			return nil, err
-		}
-	}
-
-	d := &BackupData{}
-	for _, b := range s.buckets {
-		if !live(b) {
-			continue
-		}
-		d.Buckets = append(d.Buckets, b)
-		for _, o := range s.objects[b.Name] {
-			if s.liveLocked(o) {
-				d.Objects = append(d.Objects, o)
+// StreamObjects calls emit with every live file in the live buckets that pass
+// keep (nil for all), bucket by bucket in key order, from one consistent
+// snapshot, so a large store streams without being held in memory.
+func (s *Store) StreamObjects(keep func(*Bucket) bool, emit func(*Object) error) error {
+	buckets := s.liveBuckets(keep)
+	return s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.IteratorOptions{PrefetchValues: true, PrefetchSize: 1000, Prefix: []byte{'o'}})
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			var o *Object
+			if err := it.Item().Value(func(v []byte) (err error) { o, err = decodeObject(v); return }); err != nil {
+				return err
+			}
+			if o.IsDeleted || buckets[o.BucketId] == nil {
+				continue
+			}
+			if err := emit(o); err != nil {
+				return err
 			}
 		}
-	}
-	return d, nil
+		return nil
+	})
 }
 
-// OpenContent opens the content of sha held in a storage directory, for
-// reading while a server may be using it.
-func OpenContent(dir, sha string) (*os.File, error) {
-	bs := &blobStore{dir: filepath.Join(dir, "blobs")}
-	return bs.open(sha)
-}
-
-// Restore merges backed up records into the store. They keep their
-// timestamps, so where the store, or another server, holds a newer version
-// of a bucket or file, that version wins. It returns the number of buckets
-// and files that changed.
-func (s *Store) Restore(d *BackupData) (int, int) {
-	var changedB []*Bucket
-	var changedO []*Object
+// RestoreBuckets merges backed up bucket records into the store, returning
+// how many changed it.
+func (s *Store) RestoreBuckets(buckets []*Bucket) (int, error) {
+	var changed []*Bucket
+	var firstErr error
 	s.mu.Lock()
-	for _, b := range d.Buckets {
-		if b != nil && ValidBucketName(b.Name) && s.applyBucketLocked(b) {
-			changedB = append(changedB, b)
-		}
-	}
-	for _, o := range d.Objects {
-		if o == nil || !ValidBucketName(o.Bucket) || !ValidKey(o.Key) || (!o.IsDeleted && !validSHA(o.SHA256)) {
+	for _, b := range buckets {
+		if b == nil || !ValidBucketId(b.Id) || !ValidBucketName(b.Name) {
 			continue
 		}
-		if s.applyObjectLocked(o) {
-			changedO = append(changedO, o)
+		stored, renamed, err := s.applyBucketLocked(b)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if stored != nil {
+			changed = append(changed, stored)
+			changed = append(changed, renamed...)
 		}
 	}
 	s.mu.Unlock()
-	s.journalAppend(changedB, changedO, true)
+	s.broadcast(changed, nil)
+	return len(changed), firstErr
+}
+
+// RestoreObjects merges backed up file records into the store, returning how
+// many changed it. Content is restored separately.
+func (s *Store) RestoreObjects(objects []*Object) (int, error) {
+	var ops []objectOp
+	for _, o := range objects {
+		if o == nil || !ValidBucketId(o.BucketId) || !ValidKey(o.Key) || (!o.IsDeleted && !validSHA(o.SHA256)) {
+			continue
+		}
+		ops = append(ops, objectOp{obj: o})
+	}
+	s.mu.RLock()
+	changed, err := s.applyObjects(ops)
+	s.mu.RUnlock()
 	s.flushUnlinks()
-	return len(changedB), len(changedO)
+	return len(changed), err
 }
 
 // ImportContent stores the content of sha read from r, refusing content
-// that does not match it.
+// that does not match it. Content no record references is not kept.
 func (s *Store) ImportContent(r io.Reader, sha string) error {
 	if !validSHA(sha) {
 		return ErrContentMismatch
 	}
-	tw, err := s.blobs.writeTemp(r, -1, -1, sha, nil)
+	st, err := s.blobs.stage(r, -1, -1, sha, nil)
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.blobs.install(tw.Path(), sha); err != nil {
-		tw.discard()
+	if st.inline() {
+		return s.storeContent(sha, st.size, st.data, "", false)
+	}
+	if err := s.storeContent(sha, st.size, nil, st.tw.Path(), true); err != nil {
+		st.discard()
 		return err
 	}
-	s.contentHeldLocked(sha)
 	return nil
 }
 
 // HasContent reports whether the content of sha is stored here.
 func (s *Store) HasContent(sha string) bool {
-	return s.blobs.has(sha)
+	return s.holds(sha)
 }
+
+// MissingContent returns which of shas this server does not hold.
+func (s *Store) MissingContent(shas []string) []string {
+	var out []string
+	for _, sha := range shas {
+		if validSHA(sha) && !s.holds(sha) {
+			out = append(out, sha)
+		}
+	}
+	return out
+}
+
+// ReadContent opens the content of sha for a backup, fetching it from
+// another server first if this one does not hold it.
+func (s *Store) ReadContent(ctx context.Context, sha string) (Content, error) {
+	if c, err := s.openContent(sha); err == nil {
+		return c, nil
+	}
+	// The size is not known here; anything over the inline limit goes through
+	// a temporary file, which is right for content of any size.
+	if err := s.fetcher.wait(ctx, sha, inlineMax+1, ""); err != nil {
+		return nil, err
+	}
+	c, err := s.openContent(sha)
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	return c, nil
+}
+
+func sortStrings(s []string) { sort.Strings(s) }

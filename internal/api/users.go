@@ -2,8 +2,8 @@ package api
 
 import (
 	"fmt"
-	"github.com/paularlott/knot/internal/filestore"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/paularlott/gossip/hlc"
@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/filestore"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
@@ -123,6 +124,22 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	for _, role := range request.Roles {
 		if model.RoleExists(role) {
 			userRoles = append(userRoles, role)
+		}
+	}
+
+	// The first user of a new server runs it, and is the one to take
+	// backups: they are given the Admin role and a Backup User role made
+	// for the purpose, an ordinary role that can be edited or removed.
+	if !middleware.HasUsers {
+		backupRole, err := ensureBackupRole(db)
+		if err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to create the backup role: " + err.Error()})
+			return
+		}
+		for _, role := range []string{model.RoleAdminUUID, backupRole.Id} {
+			if !slices.Contains(userRoles, role) {
+				userRoles = append(userRoles, role)
+			}
 		}
 	}
 
@@ -704,6 +721,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	user.Timezone = request.Timezone
 	user.TOTPSecret = request.TOTPSecret
 
+	oldUsername := user.Username
+
 	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "FileStorageMB", "MaxBuckets", "UpdatedAt"}
 
 	if activeUser.Id == user.Id {
@@ -823,6 +842,11 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipUser(user)
 	sse.PublishUsersChanged(user.Id)
+
+	// Their file storage buckets are named after them.
+	if user.Username != oldUsername {
+		RenameUserBuckets(r, activeUser, user, oldUsername)
+	}
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go service.GetUserService().UpdateUserSpaces(user)
@@ -994,4 +1018,25 @@ func HandleGetUserHasPermission(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{
 		"has_permission": hasPermission,
 	})
+}
+
+// ensureBackupRole returns the Backup User role of a new server, creating it
+// in the database if there isn't one: a role with the Backup Server
+// permission, which administrators don't otherwise have.
+func ensureBackupRole(db database.DbDriver) (*model.Role, error) {
+	if roles, err := db.GetRoles(); err == nil {
+		for _, role := range roles {
+			if !role.IsDeleted && role.Name == model.BackupRoleName {
+				return role, nil
+			}
+		}
+	}
+
+	role := model.NewRole(model.BackupRoleName, []uint16{model.PermissionBackup}, "")
+	if err := db.SaveRole(role); err != nil {
+		return nil, err
+	}
+	model.SaveRoleToCache(role)
+	service.GetTransport().GossipRole(role)
+	return role, nil
 }

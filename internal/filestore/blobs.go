@@ -12,7 +12,18 @@ import (
 	"strings"
 )
 
-// blobStore keeps content addressed by sha256 under dir/ab/cd/<sha>.
+// Content is an open object's content, a file or held in memory.
+type Content interface {
+	io.ReadSeekCloser
+}
+
+// memContent is content read from the database.
+type memContent struct{ *bytes.Reader }
+
+func (memContent) Close() error { return nil }
+
+// blobStore keeps content too large to store in the database addressed by
+// sha256 under dir/ab/cd/<sha>.
 type blobStore struct {
 	dir    string
 	tmpDir string
@@ -25,6 +36,9 @@ func newBlobStore(dir, tmpDir string, noSync bool) (*blobStore, error) {
 	}
 	return &blobStore{dir: dir, tmpDir: tmpDir, noSync: noSync}, nil
 }
+
+// ValidSHA reports whether sha is a content checksum: 64 lowercase hex digits.
+func ValidSHA(sha string) bool { return validSHA(sha) }
 
 func validSHA(sha string) bool {
 	if len(sha) != 64 {
@@ -152,6 +166,7 @@ func (t *tempWriter) ReadFrom(r io.Reader) (int64, error) {
 func (t *tempWriter) SHA256() string { return hex.EncodeToString(t.sha.Sum(nil)) }
 func (t *tempWriter) MD5() []byte    { return t.md5.Sum(nil) }
 func (t *tempWriter) Path() string   { return t.f.Name() }
+func (t *tempWriter) Size() int64    { return t.size }
 
 // finish flushes and closes the file, leaving it in place.
 func (t *tempWriter) finish() error {
@@ -212,4 +227,69 @@ func (t *tempWriter) discard() {
 		t.f.Close()
 	}
 	os.Remove(t.f.Name())
+}
+
+// staged is content written by a client, held in memory when it is small
+// enough to store in the database, else in a temporary file.
+type staged struct {
+	data []byte
+	tw   *tempWriter
+	size int64
+	sha  string
+	md5  []byte
+}
+
+func (st *staged) inline() bool { return st.tw == nil }
+
+// discard releases the staged content.
+func (st *staged) discard() {
+	if st.tw != nil {
+		st.tw.discard()
+	}
+}
+
+// stage reads r like writeTemp, but keeps content of at most inlineMax bytes
+// in memory, saving a file that is written, synced and removed again.
+func (bs *blobStore) stage(r io.Reader, size, max int64, sha string, md5sum []byte) (*staged, error) {
+	buf, err := io.ReadAll(io.LimitReader(r, inlineMax+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(buf) > inlineMax {
+		tw, err := bs.writeTemp(io.MultiReader(bytes.NewReader(buf), r), size, max, sha, md5sum)
+		if err != nil {
+			return nil, err
+		}
+		return &staged{tw: tw, size: tw.size, sha: tw.SHA256(), md5: tw.MD5()}, nil
+	}
+
+	if max >= 0 && int64(len(buf)) > max {
+		return nil, ErrQuotaExceeded
+	}
+	if size >= 0 && size != int64(len(buf)) {
+		return nil, io.ErrUnexpectedEOF
+	}
+	sum := sha256.Sum256(buf)
+	mdsum := md5.Sum(buf)
+	hexSum := hex.EncodeToString(sum[:])
+	if (sha != "" && !strings.EqualFold(sha, hexSum)) || (len(md5sum) > 0 && !bytes.Equal(md5sum, mdsum[:])) {
+		return nil, ErrContentMismatch
+	}
+	return &staged{data: buf, size: int64(len(buf)), sha: hexSum, md5: mdsum[:]}, nil
+}
+
+// stagedFile wraps a finished temporary file as staged content.
+func stagedFile(tw *tempWriter) *staged {
+	return &staged{tw: tw, size: tw.size, sha: tw.SHA256(), md5: tw.MD5()}
+}
+
+// bytes returns the content of a small staged file, removing the file.
+func (st *staged) bytes() ([]byte, error) {
+	if st.tw == nil {
+		return st.data, nil
+	}
+	data, err := os.ReadFile(st.tw.Path())
+	st.tw.discard()
+	st.tw = nil
+	return data, err
 }

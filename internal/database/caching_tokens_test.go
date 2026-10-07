@@ -27,6 +27,19 @@ func (d *tokenDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
 	return out, nil
 }
 
+func (d *tokenDriver) GetToken(id string) (*model.Token, error) {
+	d.tokenReads++
+	for _, list := range d.tokens {
+		for _, x := range list {
+			if x.Id == id {
+				c := *x
+				return &c, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (d *tokenDriver) SaveToken(t *model.Token) error {
 	list := d.tokens[t.UserId]
 	for i, x := range list {
@@ -244,3 +257,61 @@ func TestCachingGroups(t *testing.T) {
 		t.Error("a caller's change leaked into the group cache")
 	}
 }
+
+// Authenticating a request reads its token by id: a busy client makes one
+// database read, not one per request, and sees a change at once.
+func TestCachingTokenByID(t *testing.T) {
+	d, inner, now := newTokenCache(t)
+	inner.tokens["u1"] = []*model.Token{{Id: "tk_a", UserId: "u1", Name: "a", Scopes: []string{"files"}}}
+
+	for range 100 {
+		tk, err := d.GetToken("tk_a")
+		if err != nil || tk == nil || tk.Id != "tk_a" {
+			t.Fatalf("token %v %v", tk, err)
+		}
+		// A caller that changes what it read does not change the cache.
+		tk.Name, tk.Scopes[0] = "changed", "changed"
+	}
+	if inner.tokenReads != 1 {
+		t.Errorf("100 reads made %d database reads, want 1", inner.tokenReads)
+	}
+	if tk, _ := d.GetToken("tk_a"); tk.Name != "a" || tk.Scopes[0] != "files" {
+		t.Errorf("a caller's change leaked into the cache: %+v", tk)
+	}
+
+	// A token that does not exist is looked for each time, and not remembered.
+	for range 3 {
+		if tk, _ := d.GetToken("nope"); tk != nil {
+			t.Fatal("found a token that does not exist")
+		}
+	}
+
+	// Revoking it, as the API and gossip do, is seen at once.
+	d.SaveToken(&model.Token{Id: "tk_a", UserId: "u1", IsDeleted: true})
+	if tk, _ := d.GetToken("tk_a"); tk == nil || !tk.IsDeleted {
+		t.Errorf("a revoked token is still live: %+v", tk)
+	}
+
+	// A change gossiped from another server is seen at once, too.
+	inner.tokens["u1"][0].Name = "renamed"
+	TokensChangedOn(d, "u1")
+	if tk, _ := d.GetToken("tk_a"); tk.Name != "renamed" {
+		t.Errorf("gossiped change not seen: %+v", tk)
+	}
+
+	// And one that bypassed this server within the time limit.
+	inner.tokens["u1"][0].Name = "later"
+	*now = now.Add(tokenTTL + time.Second)
+	if tk, _ := d.GetToken("tk_a"); tk.Name != "later" {
+		t.Errorf("an expired entry was served: %+v", tk)
+	}
+
+	// Deleting drops it.
+	d.DeleteToken(&model.Token{Id: "tk_a", UserId: "u1"})
+	if tk, _ := d.GetToken("tk_a"); tk != nil {
+		t.Errorf("a deleted token is still served: %+v", tk)
+	}
+}
+
+// TokensChangedOn is TokensChanged for one driver.
+func TokensChangedOn(d *cachingDriver, userId string) { d.InvalidateTokens(userId) }

@@ -149,20 +149,30 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					ctx = context.WithValue(ctx, "space_id", spaceId)
 				} else {
 					// Regular API token
-					token, _ := db.GetToken(bearer)
+					token, err := db.GetToken(bearer)
 					if token == nil || token.IsDeleted {
+						// A database that cannot answer is not a bad token: say so,
+						// so clients retry rather than give up their credentials.
+						if err != nil && !tokenNotFound(err) {
+							logger.Error("failed to look up token", "error", err)
+							rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "Authentication is temporarily unavailable"})
+							return
+						}
 						returnUnauthorized(w, r)
 						return
 					}
 
 					userId = token.UserId
 
-					// Save the token to extend its life
-					expiresAfter := time.Now().Add(model.MaxTokenAge)
-					token.ExpiresAfter = expiresAfter.UTC()
-					token.UpdatedAt = hlc.Now()
-					db.SaveToken(token)
-					service.GetTransport().GossipToken(token)
+					// Extend the token's life. A busy client makes thousands of
+					// requests a second, so it is saved, and gossiped, only when
+					// the expiry is an hour behind where it would be.
+					if tokenNeedsExtending(token, time.Now()) {
+						token.ExpiresAfter = time.Now().Add(model.MaxTokenAge).UTC()
+						token.UpdatedAt = hlc.Now()
+						db.SaveToken(token)
+						service.GetTransport().GossipToken(token)
+					}
 
 					// Add the token to the context
 					ctx = context.WithValue(r.Context(), "access_token", token)
@@ -451,6 +461,53 @@ func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// ApiPermissionBackup requires the Backup Server permission.
+// tokenNotFound reports whether an error from looking a token up means there
+// is no such token, as opposed to the database failing.
+func tokenNotFound(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not found") || strings.Contains(msg, "no rows") || strings.Contains(msg, "nil")
+}
+
+// tokenExtendInterval is how far a token's expiry may fall behind before a
+// request extends it again.
+const tokenExtendInterval = time.Hour
+
+// tokenNeedsExtending reports whether a request using token should push its
+// expiry out again: not on every request, which would write to the database and
+// gossip to the cluster for each one.
+func tokenNeedsExtending(token *model.Token, now time.Time) bool {
+	return token.ExpiresAfter.Before(now.Add(model.MaxTokenAge - tokenExtendInterval))
+}
+
+func ApiPermissionBackup(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, _ := r.Context().Value("user").(*model.User)
+		if !HasUsers || user == nil || !user.HasPermission(model.PermissionBackup) {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to back up the server"})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ApiPermissionRestore requires the Backup Server permission, except on a
+// server with no users yet, which anyone who can reach it may restore into,
+// as they may create its first user: a restore is how a lost server is
+// rebuilt, and it brings its users with it.
+func ApiPermissionRestore(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if HasUsers {
+			user, _ := r.Context().Value("user").(*model.User)
+			if user == nil || !user.HasPermission(model.PermissionBackup) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to restore the server"})
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func ApiPermissionManageMCPServers(next http.HandlerFunc) http.HandlerFunc {
 	cfg := config.GetServerConfig()
 	if cfg.LeafNode {
@@ -489,6 +546,7 @@ var tokenScopeAllowedPaths = map[string][]string{
 	model.ScopeMCP:     {"/mcp"},
 	model.ScopeTunnels: {"/tunnel/", "/api/tunnels"},
 	model.ScopeFiles:   {"/api/files"},
+	model.ScopeBackup:  {"/api/backup", "/api/restore"},
 }
 
 // tokenScopeBaselinePaths are the endpoints every scoped token can reach

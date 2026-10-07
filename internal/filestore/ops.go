@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"io"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
+	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/gossip/hlc"
 )
 
@@ -43,7 +43,7 @@ func (s *Store) CreateBucket(p *Principal, name string) (*Bucket, error) {
 	}
 
 	s.mu.Lock()
-	if live(s.buckets[name]) {
+	if s.byName[name] != "" {
 		s.mu.Unlock()
 		return nil, ErrBucketExists
 	}
@@ -51,16 +51,18 @@ func (s *Store) CreateBucket(p *Principal, name string) (*Bucket, error) {
 		s.mu.Unlock()
 		return nil, ErrBucketLimit
 	}
-	now := hlc.Now()
 	b := &Bucket{
-		Name:       name,
-		OwnerId:    p.UserId,
-		Grants:     []Grant{},
-		Generation: now,
-		CreatedAt:  time.Now().UTC(),
-		UpdatedAt:  now,
+		Id:        NewBucketId(),
+		Name:      name,
+		OwnerId:   p.UserId,
+		Grants:    []Grant{},
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: hlc.Now(),
 	}
-	s.applyBucketLocked(b)
+	if _, _, err := s.applyBucketLocked(b); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	s.mu.Unlock()
 
 	s.commit([]*Bucket{b}, nil)
@@ -77,15 +79,20 @@ func (s *Store) DeleteBucket(p *Principal, name string, force bool) error {
 		return err
 	}
 	if !force {
-		if st := s.stats[name]; st != nil && st.count > 0 {
-			s.mu.Unlock()
-			return ErrBucketNotEmpty
+		if st := s.statsIfAny(b.Id); st != nil {
+			if _, count := st.usage(); count > 0 {
+				s.mu.Unlock()
+				return ErrBucketNotEmpty
+			}
 		}
 	}
 	nb := b.clone()
 	nb.IsDeleted = true
 	nb.UpdatedAt = hlc.Now()
-	s.applyBucketLocked(nb)
+	if _, _, err := s.applyBucketLocked(nb); err != nil {
+		s.mu.Unlock()
+		return err
+	}
 	s.mu.Unlock()
 
 	s.commit([]*Bucket{nb}, nil)
@@ -107,9 +114,8 @@ func (s *Store) GetBucket(p *Principal, name string) (*BucketInfo, error) {
 func (s *Store) infoLocked(b *Bucket, p *Principal) *BucketInfo {
 	info := &BucketInfo{Bucket: *b.clone(), Access: b.AccessFor(p)}
 	info.Granted, info.Via, _ = b.AccessVia(p)
-	if st := s.stats[b.Name]; st != nil {
-		info.Size = st.size
-		info.Count = st.count
+	if st := s.statsIfAny(b.Id); st != nil {
+		info.Size, info.Count = st.usage()
 	}
 	return info
 }
@@ -121,7 +127,7 @@ func (s *Store) Describe(p *Principal, name string) (*BucketInfo, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	b := s.buckets[name]
+	b := s.bucketByNameLocked(name)
 	if !live(b) {
 		return nil, ErrNoSuchBucket
 	}
@@ -162,7 +168,10 @@ func (s *Store) updateBucket(p *Principal, name string, need int, fn func(b *Buc
 		return nil, err
 	}
 	nb.UpdatedAt = hlc.Now()
-	s.applyBucketLocked(nb)
+	if _, _, err := s.applyBucketLocked(nb); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	s.mu.Unlock()
 
 	s.commit([]*Bucket{nb}, nil)
@@ -215,8 +224,8 @@ func (s *Store) RemoveGrant(p *Principal, name, grantType, id string) (*Bucket, 
 // TransferBucket gives a bucket to a new owner. The owner may transfer their
 // own bucket with the transfer permission; a file administrator may transfer
 // any. The bucket moves into the new owner's namespace, so its name changes
-// from "<old>--<short>" to "<new>--<short>"; content is shared, so only the
-// records move. With checkLimits set the new owner must be under their
+// from "<old>--<short>" to "<new>--<short>"; its id, and so its files, stay
+// where they are. With checkLimits set the new owner must be under their
 // bucket limit and have room for the content.
 func (s *Store) TransferBucket(p *Principal, name, newOwnerId, newOwnerUsername string, checkLimits bool) (*Bucket, error) {
 	newName, err := FullName(newOwnerUsername, ShortName(name))
@@ -243,7 +252,7 @@ func (s *Store) TransferBucket(p *Principal, name, newOwnerId, newOwnerUsername 
 		s.mu.Unlock()
 		return b.clone(), nil
 	}
-	if err == nil && live(s.buckets[newName]) {
+	if err == nil && s.byName[newName] != "" {
 		err = ErrTransferNameTaken
 	}
 	if err == nil && maxBuckets > 0 && len(s.owned[newOwnerId]) >= maxBuckets {
@@ -251,8 +260,8 @@ func (s *Store) TransferBucket(p *Principal, name, newOwnerId, newOwnerUsername 
 	}
 	if err == nil {
 		var size int64
-		if st := s.stats[name]; st != nil {
-			size = st.size
+		if st := s.statsIfAny(b.Id); st != nil {
+			size, _ = st.usage()
 		}
 		err = s.roomLocked(newOwnerId, quota, size)
 	}
@@ -261,38 +270,77 @@ func (s *Store) TransferBucket(p *Principal, name, newOwnerId, newOwnerUsername 
 		return nil, err
 	}
 
-	// Create the new bucket and its records before deleting the old one, so
-	// shared content always holds a reference. The new owner holds full
-	// access, so a grant to them is redundant.
-	now := hlc.Now()
+	// The new owner holds full access, so a grant to them is redundant.
 	nb := b.clone()
 	nb.Name = newName
 	nb.OwnerId = newOwnerId
-	nb.UpdatedAt = now
-	nb.Generation = now
+	nb.UpdatedAt = hlc.Now()
 	nb.Grants = withoutGrant(nb.Grants, GrantUser, newOwnerId)
-	s.applyBucketLocked(nb)
-
-	var moved []*Object
-	for _, o := range s.objects[name] {
-		if !s.liveLocked(o) {
-			continue
-		}
-		no := o.clone()
-		no.Bucket = newName
-		no.Generation = nb.Generation
-		no.UpdatedAt = hlc.Now()
-		s.applyObjectLocked(no)
-		moved = append(moved, no)
+	if _, _, err := s.applyBucketLocked(nb); err != nil {
+		s.mu.Unlock()
+		return nil, err
 	}
-	old := b.clone()
-	old.IsDeleted = true
-	old.UpdatedAt = hlc.Now()
-	s.applyBucketLocked(old)
 	s.mu.Unlock()
 
-	s.commit([]*Bucket{nb, old}, moved)
+	s.commit([]*Bucket{nb}, nil)
 	return nb.clone(), nil
+}
+
+// BucketRename is a bucket whose name changed with its owner's username.
+type BucketRename struct {
+	Id      string
+	OldName string
+	NewName string
+}
+
+// RenameOwnerBuckets renames the buckets a user owns to follow a change of
+// their username, "<new username>--<name>". A name already taken gets a
+// suffix. It returns what it renamed, for the caller to log.
+func (s *Store) RenameOwnerBuckets(userId, username string) ([]BucketRename, error) {
+	s.mu.Lock()
+	ids := make([]string, 0, len(s.owned[userId]))
+	for id := range s.owned[userId] {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	var out []BucketRename
+	var changed []*Bucket
+	var firstErr error
+	for _, id := range ids {
+		b := s.buckets[id]
+		want, err := FullName(username, ShortName(b.Name))
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if want == b.Name {
+			continue
+		}
+		if holder := s.byName[want]; holder != "" && holder != id {
+			want = s.freeNameLocked(want)
+		}
+		nb := b.clone()
+		nb.Name = want
+		nb.UpdatedAt = hlc.Now()
+		stored, _, err := s.applyBucketLocked(nb)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if stored != nil {
+			out = append(out, BucketRename{Id: id, OldName: b.Name, NewName: stored.Name})
+			changed = append(changed, stored)
+		}
+	}
+	s.mu.Unlock()
+
+	s.commit(changed, nil)
+	return out, firstErr
 }
 
 // DeleteUser removes a deleted user from file storage: the buckets they own
@@ -318,7 +366,10 @@ func (s *Store) DeleteUser(userId string) int {
 			}
 		}
 		nb.UpdatedAt = hlc.Now()
-		s.applyBucketLocked(nb)
+		if _, _, err := s.applyBucketLocked(nb); err != nil {
+			s.fail("failed to update bucket", err)
+			continue
+		}
 		changed = append(changed, nb)
 	}
 	s.mu.Unlock()
@@ -355,8 +406,8 @@ func (s *Store) AccessibleBuckets(p *Principal) []BucketAccess {
 			continue
 		}
 		ba := BucketAccess{Name: b.Name, OwnerId: b.OwnerId, Access: level, Via: via, GroupId: gid}
-		if st := s.stats[b.Name]; st != nil {
-			ba.Size, ba.Count = st.size, st.count
+		if st := s.statsIfAny(b.Id); st != nil {
+			ba.Size, ba.Count = st.usage()
 		}
 		out = append(out, ba)
 	}
@@ -382,10 +433,9 @@ func (s *Store) HasAccessibleBucket(p *Principal) bool {
 	return false
 }
 
-// commit journals and gossips local changes, then removes content they
+// commit gossips local changes, then removes content they
 // left unreferenced.
 func (s *Store) commit(buckets []*Bucket, objects []*Object) {
-	s.journalAppend(buckets, objects, true)
 	s.broadcast(buckets, objects)
 	s.flushUnlinks()
 }
@@ -412,10 +462,11 @@ func (s *Store) HeadObject(p *Principal, bucket, key string) (*Object, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if _, err := s.bucketForLocked(p, bucket, AccessRead); err != nil {
+	b, err := s.bucketForLocked(p, bucket, AccessRead)
+	if err != nil {
 		return nil, err
 	}
-	o := s.liveObjectLocked(bucket, key)
+	o := s.liveObjectLocked(b.Id, key)
 	if o == nil {
 		return nil, ErrNoSuchKey
 	}
@@ -424,7 +475,7 @@ func (s *Store) HeadObject(p *Principal, bucket, key string) (*Object, error) {
 
 // OpenObject returns an object's record and its content, fetching the
 // content from another server first if this one does not hold it yet.
-func (s *Store) OpenObject(ctx context.Context, p *Principal, bucket, key string) (*Object, *os.File, error) {
+func (s *Store) OpenObject(ctx context.Context, p *Principal, bucket, key string) (*Object, Content, error) {
 	o, err := s.HeadObject(p, bucket, key)
 	if err != nil {
 		return nil, nil, err
@@ -436,14 +487,14 @@ func (s *Store) OpenObject(ctx context.Context, p *Principal, bucket, key string
 	return o, f, nil
 }
 
-func (s *Store) openBlob(ctx context.Context, o *Object) (*os.File, error) {
-	if f, err := s.blobs.open(o.SHA256); err == nil {
+func (s *Store) openBlob(ctx context.Context, o *Object) (Content, error) {
+	if f, err := s.openContent(o.SHA256); err == nil {
 		return f, nil
 	}
 	if err := s.fetcher.wait(ctx, o.SHA256, o.Size, o.SourceNode); err != nil {
 		return nil, err
 	}
-	f, err := s.blobs.open(o.SHA256)
+	f, err := s.openContent(o.SHA256)
 	if err != nil {
 		return nil, ErrUnavailable
 	}
@@ -466,53 +517,90 @@ func (s *Store) PutObject(p *Principal, bucket, key string, r io.Reader, opts Pu
 	// Fail early when the declared size cannot fit, and stop a body of
 	// unknown size once it passes what the owner has left.
 	s.mu.RLock()
-	remaining := s.remainingLocked(owner, limit, s.existingSizeLocked(bucket, key))
+	var existing int64
+	if b := s.bucketByNameLocked(bucket); b != nil {
+		existing = s.existingSizeLocked(b.Id, key)
+	}
+	remaining := s.remainingLocked(owner, limit, existing)
 	s.mu.RUnlock()
 	if remaining >= 0 && opts.Size > remaining {
 		return nil, ErrQuotaExceeded
 	}
 
-	tw, err := s.blobs.writeTemp(r, opts.Size, remaining, opts.SHA256, opts.MD5)
+	st, err := s.blobs.stage(r, opts.Size, remaining, opts.SHA256, opts.MD5)
 	if err != nil {
 		return nil, err
 	}
-	return s.commitContent(p, bucket, key, tw, hex.EncodeToString(tw.MD5()), limit, opts)
+	return s.commitContent(p, bucket, key, st, hex.EncodeToString(st.md5), limit, opts)
 }
 
-func (s *Store) existingSizeLocked(bucket, key string) int64 {
-	if o := s.liveObjectLocked(bucket, key); o != nil {
+func (s *Store) existingSizeLocked(bucketId, key string) int64 {
+	if o := s.liveObjectLocked(bucketId, key); o != nil {
 		return o.Size
 	}
 	return 0
 }
 
-// commitContent installs a written temporary file and records the object.
-// limit is the bucket owner's storage limit, looked up by the caller.
-func (s *Store) commitContent(p *Principal, bucket, key string, tw *tempWriter, etag string, limit int64, opts PutOptions) (*Object, error) {
-	sha := tw.SHA256()
-	s.mu.Lock()
+// commitContent stores staged content and records the object. limit is the
+// bucket owner's storage limit, looked up by the caller.
+func (s *Store) commitContent(p *Principal, bucket, key string, st *staged, etag string, limit int64, opts PutOptions) (*Object, error) {
+	sha := st.sha
+	kind := contentInline
+	var data []byte
+	if st.size <= inlineMax {
+		var err error
+		if data, err = st.bytes(); err != nil {
+			return nil, err
+		}
+	} else {
+		kind = contentFile
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	b, err := s.bucketForLocked(p, bucket, AccessWrite)
+	var release func()
 	if err == nil {
-		err = checkPreconditions(s.liveObjectLocked(bucket, key), opts)
-	}
-	if err == nil {
-		err = s.roomLocked(b.OwnerId, limit, tw.size-s.existingSizeLocked(bucket, key))
-	}
-	// Installing under the lock keeps the reference count and the file in
-	// step with any concurrent delete of the same content.
-	if err == nil {
-		err = s.blobs.install(tw.Path(), sha)
+		release, err = s.reserveLocked(b.OwnerId, limit, st.size-s.existingSizeLocked(b.Id, key))
 	}
 	if err != nil {
-		s.mu.Unlock()
-		tw.discard()
+		st.discard()
 		return nil, err
 	}
-	s.contentHeldLocked(sha)
+	defer release()
 
-	o := s.newObjectLocked(b, key, sha, etag, tw.size, opts)
-	s.applyObjectLocked(o)
-	s.mu.Unlock()
+	// A content file is installed and referenced under the lock that stops
+	// content whose last reference went from being removed in between.
+	if kind == contentFile {
+		s.blobMu.RLock()
+		defer s.blobMu.RUnlock()
+		if err := s.blobs.install(st.tw.Path(), sha); err != nil {
+			st.discard()
+			return nil, err
+		}
+	}
+
+	o := s.newObjectLocked(b, key, sha, etag, st.size, opts)
+	changed, err := s.applyObjects([]objectOp{{
+		obj: o,
+		pre: func(txn *badger.Txn, cur *Object) error {
+			if !s.liveLocked(cur) {
+				cur = nil
+			}
+			return checkPreconditions(cur, opts)
+		},
+		content: kind,
+		data:    data,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	if len(changed) == 0 {
+		// A newer record, from a write on another server at the same moment,
+		// is already held: this write happened and was replaced at once, which
+		// is what last writer wins means. Nothing is stored or gossiped.
+		return o.clone(), nil
+	}
 
 	s.commit(nil, []*Object{o})
 	return o.clone(), nil
@@ -540,9 +628,8 @@ func (s *Store) newObjectLocked(b *Bucket, key, sha, etag string, size int64, op
 		contentType = "application/octet-stream"
 	}
 	return &Object{
-		Bucket:      b.Name,
+		BucketId:    b.Id,
 		Key:         key,
-		Generation:  b.Generation,
 		Size:        size,
 		SHA256:      sha,
 		ETag:        etag,
@@ -571,31 +658,31 @@ func (s *Store) CopyObject(p *Principal, srcBucket, srcKey, dstBucket, dstKey st
 		return nil, err
 	}
 
-	s.mu.Lock()
-	if _, err := s.bucketForLocked(p, srcBucket, AccessRead); err != nil {
-		s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	sb, err := s.bucketForLocked(p, srcBucket, AccessRead)
+	if err != nil {
 		return nil, err
 	}
-	src := s.liveObjectLocked(srcBucket, srcKey)
+	src := s.liveObjectLocked(sb.Id, srcKey)
 	if src == nil {
-		s.mu.Unlock()
 		return nil, ErrNoSuchKey
 	}
 	b, err := s.bucketForLocked(p, dstBucket, AccessWrite)
+	var release func()
 	if err == nil {
-		err = s.roomLocked(b.OwnerId, limit, src.Size-s.existingSizeLocked(dstBucket, dstKey))
+		release, err = s.reserveLocked(b.OwnerId, limit, src.Size-s.existingSizeLocked(b.Id, dstKey))
 	}
 	if err != nil {
-		s.mu.Unlock()
 		return nil, err
 	}
+	defer release()
 
 	o := src.clone()
-	o.Bucket = b.Name
+	o.BucketId = b.Id
 	o.Key = dstKey
-	o.Generation = b.Generation
 	o.UpdatedAt = hlc.Now()
-	if _, missing := s.missing[src.SHA256]; !missing {
+	if !s.isMissing(src.SHA256) {
 		o.SourceNode = s.nodeId
 	}
 	if opts != nil {
@@ -606,8 +693,28 @@ func (s *Store) CopyObject(p *Principal, srcBucket, srcKey, dstBucket, dstKey st
 		o.ModifiedBy = opts.ModifiedBy
 		o.ModifiedAt = time.Now().UTC()
 	}
-	s.applyObjectLocked(o)
-	s.mu.Unlock()
+	changed, err := s.applyObjects([]objectOp{{
+		obj: o,
+		// The source must still be the file that was read, or its content
+		// may have been removed with it.
+		pre: func(txn *badger.Txn, cur *Object) error {
+			now, err := getObject(txn, sb.Id, srcKey)
+			if err != nil {
+				return err
+			}
+			if now == nil || now.IsDeleted || now.SHA256 != src.SHA256 {
+				return ErrNoSuchKey
+			}
+			return nil
+		},
+	}})
+	if err != nil {
+		return nil, err
+	}
+	if len(changed) == 0 {
+		// Replaced at once by a newer write elsewhere: last writer wins.
+		return o.clone(), nil
+	}
 
 	s.commit(nil, []*Object{o})
 	return o.clone(), nil
@@ -615,27 +722,36 @@ func (s *Store) CopyObject(p *Principal, srcBucket, srcKey, dstBucket, dstKey st
 
 // DeleteObject deletes an object.
 func (s *Store) DeleteObject(p *Principal, bucket, key string) error {
-	s.mu.Lock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	b, err := s.bucketForLocked(p, bucket, AccessWrite)
 	if err != nil {
-		s.mu.Unlock()
 		return err
 	}
-	if s.liveObjectLocked(bucket, key) == nil {
-		s.mu.Unlock()
-		return ErrNoSuchKey
-	}
 	o := &Object{
-		Bucket:     bucket,
+		BucketId:   b.Id,
 		Key:        key,
-		Generation: b.Generation,
 		ModifiedAt: time.Now().UTC(),
 		SourceNode: s.nodeId,
 		UpdatedAt:  hlc.Now(),
 		IsDeleted:  true,
 	}
-	s.applyObjectLocked(o)
-	s.mu.Unlock()
+	changed, err := s.applyObjects([]objectOp{{
+		obj: o,
+		pre: func(txn *badger.Txn, cur *Object) error {
+			if !s.liveLocked(cur) {
+				return ErrNoSuchKey
+			}
+			return nil
+		},
+	}})
+	if err != nil {
+		return err
+	}
+	if len(changed) == 0 {
+		// A newer write elsewhere wins over this delete.
+		return nil
+	}
 
 	s.commit(nil, []*Object{o})
 	return nil
@@ -661,8 +777,9 @@ func prefixEnd(prefix string) string {
 }
 
 // ListObjects lists a bucket in key order. With a delimiter, keys sharing a
-// prefix up to the delimiter are rolled up into Prefixes. It seeks through
-// the bucket's sorted keys, skipping each rolled-up prefix in one step.
+// prefix up to the delimiter are rolled up into Prefixes. Keys are stored in
+// order, so a folder is a scan of the keys with its prefix, and each
+// rolled-up prefix is skipped in one seek.
 func (s *Store) ListObjects(p *Principal, bucket, prefix, delimiter, after string, max int) (*ListResult, error) {
 	if max <= 0 || max > 1000 {
 		max = 1000
@@ -671,16 +788,11 @@ func (s *Store) ListObjects(p *Principal, bucket, prefix, delimiter, after strin
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if _, err := s.bucketForLocked(p, bucket, AccessRead); err != nil {
+	b, err := s.bucketForLocked(p, bucket, AccessRead)
+	if err != nil {
 		return nil, err
 	}
 	res := &ListResult{}
-	st := s.stats[bucket]
-	if st == nil {
-		return res, nil
-	}
-	objs := s.objects[bucket]
-	keys := st.keys
 
 	// Start after the continuation point; a rolled-up prefix is skipped whole.
 	start := prefix
@@ -692,47 +804,59 @@ func (s *Store) ListObjects(p *Principal, bucket, prefix, delimiter, after strin
 			}
 		}
 	}
-	i := sort.SearchStrings(keys, start)
-	if i < len(keys) && keys[i] == after {
-		i++
-	}
 
-	for i < len(keys) {
-		k := keys[i]
-		if !strings.HasPrefix(k, prefix) {
-			break
-		}
-		o := objs[k]
-		if !s.liveLocked(o) {
-			i++
-			continue
-		}
-
-		if delimiter != "" {
-			if d := strings.Index(k[len(prefix):], delimiter); d >= 0 {
-				entry := k[:len(prefix)+d+len(delimiter)]
-				if len(res.Objects)+len(res.Prefixes) == max {
-					res.IsTruncated = true
-					break
-				}
-				res.Prefixes = append(res.Prefixes, entry)
-				res.Next = entry
-				end := prefixEnd(entry)
-				if end == "" {
-					break
-				}
-				i = sort.SearchStrings(keys, end)
+	base := objectPrefix(b.Id)
+	at := func(k string) []byte { return append(append([]byte(nil), base...), k...) }
+	err = s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.IteratorOptions{PrefetchValues: true, PrefetchSize: 100, Prefix: at(prefix)})
+		defer it.Close()
+		it.Seek(at(start))
+		for it.Valid() {
+			item := it.Item()
+			k := string(item.Key()[len(base):])
+			if k == after {
+				it.Next()
 				continue
 			}
-		}
+			var o *Object
+			if err := item.Value(func(v []byte) (err error) { o, err = decodeObject(v); return }); err != nil {
+				return err
+			}
+			if !s.liveLocked(o) {
+				it.Next()
+				continue
+			}
 
-		if len(res.Objects)+len(res.Prefixes) == max {
-			res.IsTruncated = true
-			break
+			if delimiter != "" {
+				if d := strings.Index(k[len(prefix):], delimiter); d >= 0 {
+					entry := k[:len(prefix)+d+len(delimiter)]
+					if len(res.Objects)+len(res.Prefixes) == max {
+						res.IsTruncated = true
+						return nil
+					}
+					res.Prefixes = append(res.Prefixes, entry)
+					res.Next = entry
+					end := prefixEnd(entry)
+					if end == "" {
+						return nil
+					}
+					it.Seek(at(end))
+					continue
+				}
+			}
+
+			if len(res.Objects)+len(res.Prefixes) == max {
+				res.IsTruncated = true
+				return nil
+			}
+			res.Objects = append(res.Objects, o)
+			res.Next = k
+			it.Next()
 		}
-		res.Objects = append(res.Objects, o.clone())
-		res.Next = k
-		i++
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	if !res.IsTruncated {
 		res.Next = ""

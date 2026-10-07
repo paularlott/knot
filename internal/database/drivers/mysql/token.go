@@ -47,12 +47,12 @@ func (db *MySQLDriver) DeleteToken(token *model.Token) error {
 func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
 	var tokens []*model.Token
 
-	err := db.read("tokens", &tokens, nil, "token_id = ?", id)
-	if err != nil || len(tokens) == 0 {
-		return nil, fmt.Errorf("token not found")
-	}
-	if err != nil {
+	// A database that cannot answer is not a token that does not exist.
+	if err := db.read("tokens", &tokens, nil, "token_id = ?", id); err != nil {
 		return nil, err
+	}
+	if len(tokens) == 0 {
+		return nil, fmt.Errorf("token not found")
 	}
 
 	return tokens[0], nil

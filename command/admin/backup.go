@@ -1,454 +1,489 @@
 package commands_admin
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/url"
 	"os"
-	"slices"
-
-	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/database"
-	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/filestore"
-	"github.com/paularlott/knot/internal/util/crypt"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/command/cmdutil"
+	"github.com/paularlott/knot/internal/backupfile"
+	"github.com/paularlott/knot/internal/config"
 )
 
-type backupUser struct {
-	User   *model.User
-	Tokens []*model.Token
-	Spaces []*model.Space
-}
-
-type backupData struct {
-	Templates    []*model.Template
-	TemplateVars []*model.TemplateVar
-	Volumes      []*model.Volume
-	Groups       []*model.Group
-	Roles        []*model.Role
-	Users        []backupUser
-	Scripts      []*model.Script
-	Skills       []*model.Skill
-	Commands     []*model.Command
-	Responses    []*model.Response
-	CfgValues    []*model.CfgValue
-	AuditLogs    []*model.AuditLogEntry
-	Files        *filestore.BackupData `json:",omitempty"`
+// backupFlags maps the flags that choose what to back up to the kinds of
+// record they select.
+var backupFlags = []struct {
+	flag  string
+	kinds []string
+}{
+	{"templates", []string{"templates"}},
+	{"template-vars", []string{"template-vars"}},
+	{"volumes", []string{"volumes"}},
+	{"groups", []string{"groups"}},
+	{"roles", []string{"roles"}},
+	{"users", []string{"users"}},
+	{"tokens", []string{"tokens"}},
+	{"spaces", []string{"spaces"}},
+	{"scripts", []string{"scripts"}},
+	{"skills", []string{"skills"}},
+	{"commands", []string{"commands"}},
+	{"responses", []string{"responses"}},
+	{"cfg-values", []string{"cfg-values"}},
+	{"audit-logs", []string{"audit-logs"}},
+	{"files", []string{"file-buckets", "file-objects"}},
 }
 
 var BackupCmd = &cli.Command{
-	Name:        "backup",
-	Usage:       "Backup to File",
-	Description: "Backup the database to a backup file.",
+	Name:  "backup",
+	Usage: "Back up the server to a folder",
+	Description: `Back up everything the server holds, while it runs, into a folder: users with their tokens and spaces, templates, groups, roles, scripts, configuration, the audit log, and file storage with every file's content.
+
+The backup is taken through the server's API, by a user holding the Backup Server permission (the Backup User role), so it can run from anywhere. Choose the server with --server and --token, or --alias for one in the configuration file's client.connection section; with neither, the default alias is used.
+
+The folder holds one file of records for each kind, a manifest written when the backup is complete, and file content stored by checksum under content/. Run it again into the same folder to refresh the backup: only content not already there is copied. Records are kept as they were when the backup started; content is copied afterwards, so a file replaced meanwhile may have lost its old content, which is reported.
+
+Selecting kinds backs up only those; with none selected everything is. --encrypt-key encrypts the records, which include password hashes and API tokens; file content is stored as it is, so protect the folder.
+
+Restore the folder into a new server with knot admin restore, and list or restore files from it with knot admin file ls and knot admin file restore.`,
 	Arguments: []cli.Argument{
-		&cli.StringArg{
-			Name:     "backupfile",
-			Usage:    "The name of the backup file",
-			Required: true,
-		},
+		&cli.StringArg{Name: "backupdir", Usage: "The folder to back up into", Required: true},
 	},
 	MaxArgs: cli.NoArgs,
 	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:       "templates",
-			Aliases:    []string{"t"},
-			Usage:      "Backup templates",
-			ConfigPath: []string{"backup.templates"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TEMPLATES"},
-		},
-		&cli.BoolFlag{
-			Name:       "template-vars",
-			Aliases:    []string{"v"},
-			Usage:      "Backup template variables",
-			ConfigPath: []string{"backup.template_vars"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TEMPLATE_VARS"},
-		},
-		&cli.BoolFlag{
-			Name:       "volumes",
-			Aliases:    []string{"l"},
-			Usage:      "Backup volumes",
-			ConfigPath: []string{"backup.volumes"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_VOLUMES"},
-		},
-		&cli.BoolFlag{
-			Name:       "groups",
-			Aliases:    []string{"g"},
-			Usage:      "Backup groups",
-			ConfigPath: []string{"backup.groups"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_GROUPS"},
-		},
-		&cli.BoolFlag{
-			Name:       "roles",
-			Aliases:    []string{"r"},
-			Usage:      "Backup roles",
-			ConfigPath: []string{"backup.roles"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ROLES"},
-		},
-		&cli.BoolFlag{
-			Name:       "spaces",
-			Aliases:    []string{"s"},
-			Usage:      "Backup user spaces",
-			ConfigPath: []string{"backup.spaces"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SPACES"},
-		},
-		&cli.BoolFlag{
-			Name:       "users",
-			Aliases:    []string{"u"},
-			Usage:      "Backup users",
-			ConfigPath: []string{"backup.users"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_USERS"},
-		},
-		&cli.BoolFlag{
-			Name:       "tokens",
-			Aliases:    []string{"k"},
-			Usage:      "Backup user tokens",
-			ConfigPath: []string{"backup.tokens"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TOKENS"},
-		},
-		&cli.BoolFlag{
-			Name:       "cfg-values",
-			Aliases:    []string{"o"},
-			Usage:      "Backup configuration values",
-			ConfigPath: []string{"backup.cfg_values"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_CFG_VALUES"},
-		},
-		&cli.BoolFlag{
-			Name:       "scripts",
-			Aliases:    []string{"c"},
-			Usage:      "Backup scripts",
-			ConfigPath: []string{"backup.scripts"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SCRIPTS"},
-		},
-		&cli.BoolFlag{
-			Name:       "skills",
-			Aliases:    []string{"i"},
-			Usage:      "Backup skills",
-			ConfigPath: []string{"backup.skills"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SKILLS"},
-		},
-		&cli.BoolFlag{
-			Name:       "commands",
-			Usage:      "Backup slash commands",
-			ConfigPath: []string{"backup.commands"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_COMMANDS"},
-		},
-		&cli.BoolFlag{
-			Name:       "responses",
-			Aliases:    []string{"p"},
-			Usage:      "Backup responses",
-			ConfigPath: []string{"backup.responses"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_RESPONSES"},
-		},
-		&cli.BoolFlag{
-			Name:       "audit-logs",
-			Usage:      "Backup audit logs",
-			ConfigPath: []string{"backup.audit_logs"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_AUDIT_LOGS"},
-		},
-		&cli.BoolFlag{
-			Name:       "files",
-			Usage:      "Backup file storage buckets and file details (needs --files-path); add --files-dir to also copy their content",
-			ConfigPath: []string{"backup.files"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_FILES"},
-		},
-		&cli.StringFlag{
-			Name:       "files-dir",
-			Usage:      "Copy the content of every backed up file into this empty directory, as <bucket>/<key>.",
-			ConfigPath: []string{"backup.files_dir"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_FILES_DIR"},
-		},
-		&cli.BoolFlag{
-			Name:         "all",
-			Aliases:      []string{"a"},
-			Usage:        "Backup everything",
-			ConfigPath:   []string{"backup.all"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ALL"},
-			DefaultValue: true,
-		},
-		&cli.StringFlag{
-			Name:       "limit-user",
-			Usage:      "Limit the backup to a specific user by username.",
-			ConfigPath: []string{"backup.limit_user"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_USER"},
-		},
-		&cli.StringFlag{
-			Name:       "limit-template",
-			Usage:      "Limit the backup to a specific template by name.",
-			ConfigPath: []string{"backup.limit_template"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_TEMPLATE"},
-		},
-		&cli.StringFlag{
-			Name:       "encrypt-key",
-			Aliases:    []string{"e"},
-			Usage:      "Encrypt the backup file with the given key. The key must be 32 bytes long.",
-			ConfigPath: []string{"backup.encrypt_key"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ENCRYPT_KEY"},
-		},
+		&cli.BoolFlag{Name: "templates", Aliases: []string{"t"}, Usage: "Backup templates", ConfigPath: []string{"backup.templates"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TEMPLATES"}},
+		&cli.BoolFlag{Name: "template-vars", Aliases: []string{"v"}, Usage: "Backup template variables", ConfigPath: []string{"backup.template_vars"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TEMPLATE_VARS"}},
+		&cli.BoolFlag{Name: "volumes", Aliases: []string{"l"}, Usage: "Backup volumes", ConfigPath: []string{"backup.volumes"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_VOLUMES"}},
+		&cli.BoolFlag{Name: "groups", Aliases: []string{"g"}, Usage: "Backup groups", ConfigPath: []string{"backup.groups"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_GROUPS"}},
+		&cli.BoolFlag{Name: "roles", Aliases: []string{"r"}, Usage: "Backup roles", ConfigPath: []string{"backup.roles"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ROLES"}},
+		&cli.BoolFlag{Name: "spaces", Aliases: []string{"s"}, Usage: "Backup user spaces", ConfigPath: []string{"backup.spaces"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SPACES"}},
+		&cli.BoolFlag{Name: "users", Aliases: []string{"u"}, Usage: "Backup users", ConfigPath: []string{"backup.users"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_USERS"}},
+		&cli.BoolFlag{Name: "tokens", Aliases: []string{"k"}, Usage: "Backup user tokens", ConfigPath: []string{"backup.tokens"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TOKENS"}},
+		&cli.BoolFlag{Name: "cfg-values", Aliases: []string{"o"}, Usage: "Backup configuration values", ConfigPath: []string{"backup.cfg_values"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_CFG_VALUES"}},
+		&cli.BoolFlag{Name: "scripts", Aliases: []string{"c"}, Usage: "Backup scripts", ConfigPath: []string{"backup.scripts"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SCRIPTS"}},
+		&cli.BoolFlag{Name: "skills", Aliases: []string{"i"}, Usage: "Backup skills", ConfigPath: []string{"backup.skills"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SKILLS"}},
+		&cli.BoolFlag{Name: "commands", Usage: "Backup slash commands", ConfigPath: []string{"backup.commands"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_COMMANDS"}},
+		&cli.BoolFlag{Name: "responses", Aliases: []string{"p"}, Usage: "Backup responses", ConfigPath: []string{"backup.responses"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_RESPONSES"}},
+		&cli.BoolFlag{Name: "audit-logs", Usage: "Backup audit logs", ConfigPath: []string{"backup.audit_logs"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_AUDIT_LOGS"}},
+		&cli.BoolFlag{Name: "files", Usage: "Backup file storage: buckets, files and their content", ConfigPath: []string{"backup.files"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_FILES"}},
+		&cli.BoolFlag{Name: "no-content", Usage: "With file storage, back up the records of buckets and files but not their content.", EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_NO_CONTENT"}},
+		&cli.BoolFlag{Name: "prune", Usage: "With file storage and content, remove content from the folder that no file refers to any more, so the folder mirrors the server.", EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_PRUNE"}},
+		&cli.BoolFlag{Name: "all", Aliases: []string{"a"}, Usage: "Backup everything", ConfigPath: []string{"backup.all"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ALL"}, DefaultValue: true},
+		&cli.StringFlag{Name: "limit-user", Usage: "Limit the backup to a specific user by username.", ConfigPath: []string{"backup.limit_user"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_USER"}},
+		&cli.StringFlag{Name: "limit-template", Usage: "Limit the backup to a specific template by name.", ConfigPath: []string{"backup.limit_template"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_TEMPLATE"}},
+		&cli.StringFlag{Name: "encrypt-key", Aliases: []string{"e"}, Usage: "Encrypt the records with this key, which must be 32 bytes long.", ConfigPath: []string{"backup.encrypt_key"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ENCRYPT_KEY"}},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		outputFile := cmd.GetStringArg("backupfile")
-		fmt.Println("Backing up database to file: ", outputFile)
-
-		backupTemplates := cmd.GetBool("templates")
-		backupVars := cmd.GetBool("template-vars")
-		backupVolumes := cmd.GetBool("volumes")
-		backupGroups := cmd.GetBool("groups")
-		backupRoles := cmd.GetBool("roles")
-		backupUsers := cmd.GetBool("users")
-		backupSpaces := cmd.GetBool("spaces")
-		backupTokens := cmd.GetBool("tokens")
-		backupScripts := cmd.GetBool("scripts")
-		backupSkills := cmd.GetBool("skills")
-		backupCommands := cmd.GetBool("commands")
-		backupResponses := cmd.GetBool("responses")
-		backupCfgValues := cmd.GetBool("cfg-values")
-		backupAuditLogs := cmd.GetBool("audit-logs")
-		backupFiles := cmd.GetBool("files")
-		backupAll := cmd.GetBool("all")
-		filesDir := cmd.GetString("files-dir")
-		filesPath := config.GetServerConfig().FilesPath
-
-		// If any specific backup flags are set, do not use the "all" flag
-		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupScripts || backupSkills || backupCommands || backupResponses || backupCfgValues || backupAuditLogs || backupFiles {
-			backupAll = false
-		}
-
-		if backupAll {
-			backupTemplates = true
-			backupVars = true
-			backupVolumes = true
-			backupGroups = true
-			backupRoles = true
-			backupUsers = true
-			backupSpaces = true
-			backupTokens = true
-			backupScripts = true
-			backupSkills = true
-			backupCommands = true
-			backupResponses = true
-			backupCfgValues = true
-			backupAuditLogs = true
-			// File storage is only part of everything where the server has it.
-			backupFiles = filesPath != ""
-		}
-
-		if filesDir != "" {
-			backupFiles = true
-		}
-		if backupFiles && filesPath == "" {
-			return fmt.Errorf("Error: backing up file storage needs --files-path, the server's file storage directory.")
-		}
-
-		limitUser := cmd.GetString("limit-user")
-		limitTemplate := cmd.GetString("limit-template")
-
+		dir := cmd.GetStringArg("backupdir")
 		key := cmd.GetString("encrypt-key")
 		if key != "" && len(key) != 32 {
-			return fmt.Errorf("Error: Encrypt key must be 32 bytes long.")
+			return errors.New("Error: Encrypt key must be 32 bytes long.")
 		}
 
-		db := database.GetInstance()
-		backupData := backupData{}
-
-		if backupAuditLogs {
-			fmt.Println("Backing up audit logs...")
-			auditLogs, _, err := db.GetAuditLogs(nil, 0, 0)
-			if err != nil {
-				return fmt.Errorf("Error getting audit logs: %w", err)
-			}
-			backupData.AuditLogs = make([]*model.AuditLogEntry, len(auditLogs))
-			copy(backupData.AuditLogs, auditLogs)
-		}
-
-		if backupCfgValues {
-			fmt.Println("Backing up configuration values...")
-			cfgValues, err := db.GetCfgValues()
-			if err != nil {
-				return fmt.Errorf("Error getting configuration values: %w", err)
-			}
-			backupData.CfgValues = make([]*model.CfgValue, len(cfgValues))
-			copy(backupData.CfgValues, cfgValues)
-		}
-
-		if backupTemplates {
-			fmt.Println("Backing up templates...")
-			templates, err := db.GetTemplates()
-			if err != nil {
-				return fmt.Errorf("Error getting templates: %w", err)
-			}
-			backupData.Templates = make([]*model.Template, 0, len(templates))
-			for _, t := range templates {
-				if limitTemplate == "" || t.Name == limitTemplate {
-					backupData.Templates = append(backupData.Templates, t)
-				}
-			}
-			backupData.Templates = slices.Clip(backupData.Templates)
-		}
-
-		if backupVars {
-			fmt.Println("Backing up template variables...")
-			variables, err := db.GetTemplateVars()
-			if err != nil {
-				return fmt.Errorf("Error getting template variables: %w", err)
-			}
-			backupData.TemplateVars = make([]*model.TemplateVar, len(variables))
-			for i, v := range variables {
-				backupData.TemplateVars[i] = v
-			}
-		}
-
-		if backupVolumes {
-			fmt.Println("Backing up volumes...")
-			volumes, err := db.GetVolumes()
-			if err != nil {
-				return fmt.Errorf("Error getting volumes: %w", err)
-			}
-			backupData.Volumes = make([]*model.Volume, len(volumes))
-			copy(backupData.Volumes, volumes)
-		}
-
-		if backupGroups {
-			fmt.Println("Backing up groups...")
-			groups, err := db.GetGroups()
-			if err != nil {
-				return fmt.Errorf("Error getting groups: %w", err)
-			}
-			backupData.Groups = make([]*model.Group, len(groups))
-			copy(backupData.Groups, groups)
-		}
-
-		if backupRoles {
-			fmt.Println("Backing up roles...")
-			roles, err := db.GetRoles()
-			if err != nil {
-				return fmt.Errorf("Error getting roles: %w", err)
-			}
-			backupData.Roles = make([]*model.Role, len(roles))
-			copy(backupData.Roles, roles)
-		}
-
-		if backupScripts {
-			fmt.Println("Backing up scripts...")
-			scripts, err := db.GetScripts()
-			if err != nil {
-				return fmt.Errorf("Error getting scripts: %w", err)
-			}
-			backupData.Scripts = make([]*model.Script, len(scripts))
-			copy(backupData.Scripts, scripts)
-		}
-
-		if backupSkills {
-			fmt.Println("Backing up skills...")
-			skills, err := db.GetSkills()
-			if err != nil {
-				return fmt.Errorf("Error getting skills: %w", err)
-			}
-			backupData.Skills = make([]*model.Skill, len(skills))
-			copy(backupData.Skills, skills)
-		}
-
-		if backupCommands {
-			fmt.Println("Backing up slash commands...")
-			commands, err := db.GetCommands()
-			if err != nil {
-				return fmt.Errorf("Error getting commands: %w", err)
-			}
-			backupData.Commands = make([]*model.Command, len(commands))
-			copy(backupData.Commands, commands)
-		}
-
-		if backupResponses {
-			fmt.Println("Backing up responses...")
-			responses, err := db.GetResponses()
-			if err != nil {
-				return fmt.Errorf("Error getting responses: %w", err)
-			}
-			backupData.Responses = make([]*model.Response, len(responses))
-			copy(backupData.Responses, responses)
-		}
-
-		if backupUsers {
-			fmt.Println("Backing up users...")
-			users, err := db.GetUsers()
-			if err != nil {
-				return fmt.Errorf("Error getting users: %w", err)
-			}
-			backupData.Users = make([]backupUser, 0, len(users))
-			for _, u := range users {
-				if limitUser != "" && u.Username != limitUser {
-					continue
-				}
-				bu := backupUser{
-					User: u,
-				}
-				if backupTokens {
-					tokens, err := db.GetTokensForUser(u.Id)
-					if err != nil {
-						return fmt.Errorf("Error getting tokens for user: %w", err)
-					}
-					bu.Tokens = make([]*model.Token, len(tokens))
-					copy(bu.Tokens, tokens)
-				}
-				if backupSpaces {
-					spaces, err := db.GetSpacesForUser(u.Id)
-					if err != nil {
-						return fmt.Errorf("Error getting spaces: %w", err)
-					}
-					bu.Spaces = make([]*model.Space, len(spaces))
-					for j, s := range spaces {
-						space, err := db.GetSpace(s.Id)
-						if err != nil {
-							return fmt.Errorf("Error getting space: %w", err)
-						}
-						bu.Spaces[j] = space
-					}
-				}
-				backupData.Users = append(backupData.Users, bu)
-			}
-			backupData.Users = slices.Clip(backupData.Users)
-		}
-
-		if backupFiles {
-			fmt.Println("Backing up file storage...")
-			files, err := filestore.ReadBackup(filesPath)
-			if err != nil {
-				return fmt.Errorf("Error reading file storage: %w", err)
-			}
-			if limitUser != "" {
-				user, err := db.GetUserByUsername(limitUser)
-				if err != nil {
-					return fmt.Errorf("Error getting user %s: %w", limitUser, err)
-				}
-				files = filesOwnedBy(files, user.Id)
-			}
-			backupData.Files = files
-			fmt.Printf("Backed up %d buckets holding %d files\n", len(files.Buckets), len(files.Objects))
-		}
-
-		data, err := json.Marshal(backupData)
+		client, err := adminClient(cmd, false)
 		if err != nil {
-			return fmt.Errorf("Error marshalling backup data: %w", err)
+			return err
 		}
-
-		if key != "" {
-			data = []byte(crypt.Encrypt(key, string(data)))
-		}
-
-		err = os.WriteFile(outputFile, data, 0644)
+		info, err := client.GetBackupInfo(ctx)
 		if err != nil {
-			return fmt.Errorf("Error writing backup file: %w", err)
+			return fmt.Errorf("Error starting the backup: %s", cmdutil.CleanAPIError(err))
 		}
 
-		if filesDir != "" {
-			fmt.Println("Copying file content to: ", filesDir)
-			if err := exportFiles(filesPath, filesDir, backupData.Files); err != nil {
-				return fmt.Errorf("Error copying file content: %w", err)
+		// What to back up.
+		selected := map[string]bool{}
+		explicit := false
+		for _, f := range backupFlags {
+			if cmd.GetBool(f.flag) {
+				explicit = true
+				for _, k := range f.kinds {
+					selected[k] = true
+				}
+			}
+		}
+		if !explicit {
+			for _, k := range info.Kinds {
+				selected[k] = true
+			}
+		}
+		if !info.Files {
+			if selected["file-buckets"] && explicit {
+				return errors.New("Error: this server has no file storage to back up.")
+			}
+			delete(selected, "file-buckets")
+			delete(selected, "file-objects")
+		}
+		if len(selected) == 0 {
+			return errors.New("Error: nothing to back up.")
+		}
+		withContent := selected["file-objects"] && !cmd.GetBool("no-content")
+
+		if err := prepareBackupDir(dir); err != nil {
+			return err
+		}
+		fmt.Printf("Backing up the server (knot %s) to %s\n", info.Version, dir)
+
+		params := url.Values{}
+		if v := cmd.GetString("limit-user"); v != "" {
+			params.Set("limit_user", v)
+		}
+		if v := cmd.GetString("limit-template"); v != "" {
+			params.Set("limit_template", v)
+		}
+
+		counts := map[string]int{}
+		var bucketIds map[string]bool
+		for _, kind := range apiclient.BackupKinds {
+			if !selected[kind] {
+				continue
+			}
+			var keep func(line []byte) bool
+			switch kind {
+			case "file-buckets":
+				keep = func(line []byte) bool {
+					var b struct {
+						Id string `json:"id"`
+					}
+					if json.Unmarshal(line, &b) != nil {
+						return false
+					}
+					bucketIds[b.Id] = true
+					return true
+				}
+			case "file-objects":
+				// Only the files of the buckets backed up, which were taken
+				// at their own moment.
+				keep = func(line []byte) bool {
+					var o struct {
+						BucketId string `json:"bucket_id"`
+					}
+					return json.Unmarshal(line, &o) == nil && bucketIds[o.BucketId]
+				}
+			}
+			var n int
+			err := retry(ctx, func() error {
+				bucketIdsReset(kind, &bucketIds)
+				var err error
+				n, err = backupKind(ctx, client, dir, kind, key, params, keep)
+				return err
+			})
+			if err != nil {
+				return fmt.Errorf("Error backing up %s: %w", kind, err)
+			}
+			counts[kind] = n
+			fmt.Printf("  %-14s %d\n", kind, n)
+		}
+
+		warnings := 0
+		if withContent {
+			copied, held, bytes, problems := backupContent(ctx, client, dir, key)
+			warnings = len(problems)
+			fmt.Printf("  %-14s %d copied (%s), %d already in the backup", "file content", copied, humanBytes(bytes), held)
+			if warnings > 0 {
+				fmt.Printf(", %d could not be read", warnings)
+			}
+			fmt.Println()
+			for i, p := range problems {
+				if i == 10 {
+					fmt.Printf("    and %d more\n", len(problems)-10)
+					break
+				}
+				fmt.Println("   ", p)
 			}
 		}
 
-		fmt.Println("Database backup completed successfully.")
+		if cmd.GetBool("prune") && withContent && warnings == 0 && cmd.GetString("limit-user") == "" {
+			removed, freed, err := pruneContent(dir, key)
+			if err != nil {
+				return fmt.Errorf("Error pruning content: %w", err)
+			}
+			fmt.Printf("  %-14s %d removed (%s) that no file refers to\n", "pruned", removed, humanBytes(freed))
+		}
+
+		if err := backupfile.WriteManifest(dir, &backupfile.Manifest{
+			Created: time.Now().UTC(), Server: info.Version, Encrypted: key != "", Counts: counts, Content: withContent,
+		}); err != nil {
+			return err
+		}
+		if err := backupfile.ClearUnfinished(dir); err != nil {
+			return err
+		}
+		client.PostBackupComplete(ctx, &apiclient.BackupSummary{Counts: counts, Warnings: warnings})
+
+		if warnings > 0 {
+			return fmt.Errorf("the backup is complete except for the content of %d files; they may have been replaced during the backup, or no server holds them", warnings)
+		}
+		fmt.Println("Backup completed successfully.")
 		return nil
 	},
+}
+
+// bucketIdsReset clears the buckets seen when a retry starts the buckets
+// again.
+func bucketIdsReset(kind string, ids *map[string]bool) {
+	if kind == "file-buckets" {
+		*ids = map[string]bool{}
+	}
+}
+
+// prepareBackupDir makes the folder ready: new, empty, or holding an earlier
+// backup, which is marked unfinished until this one completes.
+func prepareBackupDir(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return err
+		}
+		return backupfile.MarkUnfinished(dir)
+	}
+	if err != nil {
+		return err
+	}
+	if len(entries) > 0 && !backupfile.IsBackupDir(dir) {
+		return fmt.Errorf("Error: %s is not empty and holds no backup; give a new or empty folder", dir)
+	}
+	// A backup stopped part way must not pass for a complete one: it is marked
+	// until this run finishes, and running again carries on from what is there.
+	if err := backupfile.MarkUnfinished(dir); err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(dir, "manifest.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+// backupKind streams the records of a kind into its file, keeping those keep
+// accepts (all if nil), and returns how many it kept.
+func backupKind(ctx context.Context, client *apiclient.ApiClient, dir, kind, key string, params url.Values, keep func([]byte) bool) (int, error) {
+	rc, err := client.BackupStream(ctx, kind, params)
+	if err != nil {
+		return 0, errors.New(cmdutil.CleanAPIError(err))
+	}
+	defer rc.Close()
+
+	w, err := backupfile.Create(dir, kind, key)
+	if err != nil {
+		return 0, err
+	}
+	err = eachLine(rc, func(line []byte) error {
+		if keep != nil && !keep(line) {
+			return nil
+		}
+		return w.Add(line)
+	})
+	if err != nil {
+		w.Close()
+		os.Remove(backupfile.RecordPath(dir, kind))
+		return 0, err
+	}
+	n := w.Count()
+	return n, w.Close()
+}
+
+// eachLine calls fn with each line of r, without its newline.
+func eachLine(r io.Reader, fn func(line []byte) error) error {
+	br := bufio.NewReaderSize(r, 256*1024)
+	for {
+		line, err := br.ReadBytes('\n')
+		for len(line) > 0 && (line[len(line)-1] == '\n' || line[len(line)-1] == '\r') {
+			line = line[:len(line)-1]
+		}
+		if len(line) > 0 {
+			if ferr := fn(line); ferr != nil {
+				return ferr
+			}
+		}
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+// contentWorkers is how many files are copied at once.
+const contentWorkers = 16
+
+// backupContent copies the content of every file in the backup that the
+// folder does not hold yet, from the server. It returns how many it copied,
+// how many it already held, the bytes copied and what could not be read.
+func backupContent(ctx context.Context, client *apiclient.ApiClient, dir, key string) (copied, held int, total int64, problems []string) {
+	r, err := backupfile.Open(dir, "file-objects", key)
+	if err != nil {
+		return 0, 0, 0, []string{err.Error()}
+	}
+	defer r.Close()
+
+	var mu sync.Mutex
+	jobs := make(chan string, contentWorkers*4)
+	var wg sync.WaitGroup
+	for i := 0; i < contentWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for sha := range jobs {
+				n, err := copyContent(ctx, client, dir, sha)
+				mu.Lock()
+				if err != nil {
+					problems = append(problems, fmt.Sprintf("%s: %v", sha[:12], err))
+				} else {
+					copied++
+					total += n
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+
+	var last string
+	_ = r.Each(func(line []byte) error {
+		var o struct {
+			SHA256 string `json:"sha256"`
+			Size   int64  `json:"size"`
+		}
+		if json.Unmarshal(line, &o) != nil || len(o.SHA256) != 64 || o.SHA256 == last {
+			return nil
+		}
+		last = o.SHA256
+		if backupfile.HasContentOfSize(dir, o.SHA256, o.Size) {
+			mu.Lock()
+			held++
+			mu.Unlock()
+			return nil
+		}
+		select {
+		case jobs <- o.SHA256:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return nil
+	})
+	close(jobs)
+	wg.Wait()
+	return
+}
+
+// copyContent copies one file's content into the backup, retrying a transfer
+// that breaks and carrying on from where it stopped.
+// pruneContent removes the content in the folder that no file in the backup
+// refers to.
+func pruneContent(dir, key string) (int, int64, error) {
+	wanted := map[string]struct{}{}
+	r, err := backupfile.Open(dir, "file-objects", key)
+	if err != nil {
+		return 0, 0, err
+	}
+	err = r.Each(func(line []byte) error {
+		var o struct {
+			SHA256 string `json:"sha256"`
+		}
+		if json.Unmarshal(line, &o) == nil && len(o.SHA256) == 64 {
+			wanted[o.SHA256] = struct{}{}
+		}
+		return nil
+	})
+	r.Close()
+	if err != nil {
+		return 0, 0, err
+	}
+	return backupfile.Prune(dir, func(sha string) bool { _, ok := wanted[sha]; return ok })
+}
+
+func copyContent(ctx context.Context, client *apiclient.ApiClient, dir, sha string) (int64, error) {
+	var total int64
+	err := retry(ctx, func() error {
+		n, err := backupfile.DownloadContent(dir, sha, func(offset int64) (io.ReadCloser, bool, error) {
+			resp, resumed, err := client.BackupContent(ctx, sha, offset)
+			if err != nil {
+				return nil, false, err
+			}
+			return resp.Body, resumed, nil
+		})
+		total += n
+		return err
+	})
+	if err != nil {
+		return 0, errors.New(cmdutil.CleanAPIError(err))
+	}
+	return total, nil
+}
+
+// attempts is how many times a transfer is tried, with a growing pause
+// between, before it is given up.
+const attempts = 5
+
+// retry calls fn until it succeeds, tries are exhausted, the context ends or
+// the error is one trying again cannot cure: the server refusing the
+// request, or content that does not match its checksum.
+func retry(ctx context.Context, fn func() error) error {
+	var err error
+	for try := 0; try < attempts; try++ {
+		if try > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Duration(1<<(try-1)) * time.Second):
+			}
+		}
+		if err = fn(); err == nil || !retryable(err) {
+			return err
+		}
+	}
+	return err
+}
+
+// retryable reports whether an error may pass: a broken connection or a busy
+// server, but not a refusal or damaged content.
+func retryable(err error) bool {
+	msg := err.Error()
+	if strings.Contains(msg, "does not match its checksum") {
+		return false
+	}
+	if strings.HasPrefix(msg, "unexpected status code: ") {
+		code := strings.TrimPrefix(msg, "unexpected status code: ")
+		if len(code) >= 3 {
+			switch code[:3] {
+			case "408", "429", "500", "502", "503", "504":
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
+func humanBytes(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for m := n / unit; m >= unit; m /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
+// adminClient connects to the server the user chose, as other client
+// commands do. With tokenOptional, a --server given without a token connects
+// without one, which is how a server with no users yet is restored into.
+func adminClient(cmd *cli.Command, tokenOptional bool) (*apiclient.ApiClient, error) {
+	if server := cmd.GetString("server"); tokenOptional && server != "" && cmd.GetString("token") == "" {
+		addr := config.NewServerAddr(server, "")
+		return apiclient.NewClient(addr.HttpServer, "", cmd.GetBool("tls-skip-verify"))
+	}
+	return cmdutil.GetClient(cmd)
 }

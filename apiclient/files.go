@@ -1,7 +1,9 @@
 package apiclient
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +23,7 @@ type FileGrant struct {
 }
 
 type FileBucketInfo struct {
+	Id        string      `json:"id"`           // fixed for the life of the bucket, whatever its name
 	Name      string      `json:"name"`         // full name, "<owner>--<name>"
 	Display   string      `json:"display_name"` // the short name for the caller's own buckets, else the full name
 	OwnerId   string      `json:"owner_id"`
@@ -222,6 +225,27 @@ func (c *ApiClient) CopyFileObject(ctx context.Context, req FileCopyRequest) (*F
 	return response, err
 }
 
+// FilesFsck asks the server to check file storage, with no time limit as a
+// deep check of a large store takes a while. req and out are a
+// filestore.FsckOptions and filestore.FsckReport; it needs the permission to
+// manage file storage.
+func (c *ApiClient) FilesFsck(ctx context.Context, req, out any) error {
+	hc, err := c.rawClient()
+	if err != nil {
+		return err
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	resp, err := hc.DoRaw(ctx, http.MethodPost, "/api/files/fsck", bytes.NewReader(body), int64(len(body)), map[string]string{"Content-Type": "application/json"})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return rest.DecodeResponse(resp, out)
+}
+
 func (c *ApiClient) rawClient() (*rest.HTTPClient, error) {
 	hc, ok := c.httpClient.(*rest.HTTPClient)
 	if !ok {
@@ -232,6 +256,22 @@ func (c *ApiClient) rawClient() (*rest.HTTPClient, error) {
 
 // PutFileObject uploads content of the given size (-1 if unknown).
 func (c *ApiClient) PutFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time) (*FileObjectInfo, error) {
+	return c.putFileObject(ctx, bucket, key, body, size, contentType, mtime, false)
+}
+
+// PutFileObjectIfAbsent is PutFileObject that leaves an existing file alone:
+// it fails with an error IsPreconditionFailed recognises.
+func (c *ApiClient) PutFileObjectIfAbsent(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time) (*FileObjectInfo, error) {
+	return c.putFileObject(ctx, bucket, key, body, size, contentType, mtime, true)
+}
+
+// IsPreconditionFailed reports whether err is the server refusing a
+// conditional write because the condition did not hold.
+func IsPreconditionFailed(err error) bool {
+	return err != nil && strings.HasPrefix(err.Error(), "unexpected status code: 412")
+}
+
+func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool) (*FileObjectInfo, error) {
 	hc, err := c.rawClient()
 	if err != nil {
 		return nil, err
@@ -243,6 +283,9 @@ func (c *ApiClient) PutFileObject(ctx context.Context, bucket, key string, body 
 	}
 	if !mtime.IsZero() {
 		headers[FileMtimeHeader] = FormatMtime(mtime)
+	}
+	if ifAbsent {
+		headers["If-None-Match"] = "*"
 	}
 
 	resp, err := hc.DoRaw(ctx, http.MethodPut, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), body, size, headers)

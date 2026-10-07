@@ -59,6 +59,12 @@ const scriptlingLibraries = [
         returns: "str",
       },
     ],
+    classes: [
+      {
+        name: "JSONDecodeError",
+        description: "Raised by loads() on malformed JSON; subclasses ValueError, as in Python.",
+      },
+    ],
   },
   {
     module: "msgpack",
@@ -105,6 +111,12 @@ const scriptlingLibraries = [
         signature: "getcwd()",
         description: "Return the current working directory.",
         returns: "str",
+      },
+      {
+        name: "getpid",
+        signature: "getpid()",
+        description: "Return the current process id.",
+        returns: "int",
       },
       {
         name: "listdir",
@@ -285,6 +297,12 @@ const scriptlingLibraries = [
         signature: "getmtime(path)",
         description: "Return the modification time as a timestamp.",
         returns: "float",
+      },
+      {
+        name: "commonprefix",
+        signature: "commonprefix(paths)",
+        description: "Return the longest common leading component of the paths.",
+        returns: "str",
       },
     ],
   },

@@ -34,6 +34,11 @@ window.apiTokensComponent = function () {
       label: "Files",
       description: "File storage: the knot file commands and the Files page (and S3 on Knot Pro)",
     },
+    {
+      value: "backup",
+      label: "Backup",
+      description: "Back up and restore the server (needs the Backup Server permission)",
+    },
   ];
 
   // Helper: build a scope-checkbox state object from the available scopes,

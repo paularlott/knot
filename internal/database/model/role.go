@@ -76,6 +76,11 @@ const (
 	// their buckets to another user.
 	PermissionShareBuckets    // Can share own buckets
 	PermissionTransferBuckets // Can transfer own buckets to another user
+	// PermissionBackup lets a user back up everything the server holds, every
+	// user's files and credentials included, and restore it. It is root
+	// equivalent and is not part of the Admin role: a new server gets a
+	// Backup User role carrying it, which its first user is given.
+	PermissionBackup // Can back up and restore the server
 )
 
 type PermissionName struct {
@@ -126,6 +131,7 @@ var permissionKeys = map[uint16]string{
 	PermissionManageFiles:               "manage_files",
 	PermissionShareBuckets:              "share_buckets",
 	PermissionTransferBuckets:           "transfer_buckets",
+	PermissionBackup:                    "backup_server",
 	PermissionRunCommands:               "run_commands",
 	PermissionSetSpaceDependencies:      "set_space_dependencies",
 	PermissionShareSpaces:               "share_spaces",
@@ -155,6 +161,7 @@ var PermissionNames = []PermissionName{
 
 	{PermissionClusterInfo, "System", "View Cluster Info", "View cluster node and topology information."},
 	{PermissionViewPlugins, "System", "View Plugins", "View the loaded plugins inventory."},
+	{PermissionBackup, "System", "Backup Server", "Back up all of the server's data, including every user's files and credentials, and restore it. Equivalent to full access: not part of the Admin role."},
 
 	{PermissionManageGroups, "User Management", "Manage Groups", "Create, edit, and delete user groups."},
 	{PermissionManageRoles, "User Management", "Manage Roles", "Create, edit, and delete roles and their permissions."},
@@ -231,7 +238,16 @@ type Role struct {
 // Roles
 const (
 	RoleAdminUUID = "00000000-0000-0000-0000-000000000000"
+
+	// BackupRoleName is the name of the role a new server creates for backups.
+	BackupRoleName = "Backup User"
 )
+
+// IsBuiltinRole reports whether a role is built in: it can't be edited or
+// deleted.
+func IsBuiltinRole(id string) bool {
+	return id == RoleAdminUUID
+}
 
 var (
 	roleCacheMutex = sync.RWMutex{}

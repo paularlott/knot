@@ -296,13 +296,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_PATH"},
 			DefaultValue: "",
 		},
-		&cli.StringFlag{
-			Name:         "files-sync",
-			Usage:        "Whether file storage forces writes to disk: always (a write is durable before it is reported done) or off (faster, but a crash or power loss can lose recent writes).",
-			ConfigPath:   []string{"server.files.sync"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_SYNC"},
-			DefaultValue: "always",
-		},
 		&cli.IntFlag{
 			Name:         "files-default-quota-mb",
 			Usage:        "File storage quota in MB for users whose own and group limits are all 0 (0 = unlimited).",
@@ -965,14 +958,11 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 
 	// Open file storage when a storage directory is configured
 	if cfg.FilesPath != "" {
-		if cfg.FilesSync != "always" && cfg.FilesSync != "off" {
-			logger.Fatal("invalid files-sync, it must be always or off", "files-sync", cfg.FilesSync)
-		}
 		store, err := filestore.Open(filestore.Config{
 			Dir:         cfg.FilesPath,
 			Quota:       filestore.DatabaseQuota,
 			BucketLimit: filestore.DatabaseBucketLimit,
-			NoSync:      cfg.FilesSync == "off",
+			OwnerState:  filestore.DatabaseOwnerState,
 		})
 		if err != nil {
 			logger.WithError(err).Fatal("failed to open file storage", "path", cfg.FilesPath)
@@ -1609,7 +1599,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		PackagePath:            cmd.GetString("package-path"),
 		PrivateFilesPath:       cmd.GetString("private-files-path"),
 		FilesPath:              absPath(cmd.GetString("files-path")),
-		FilesSync:              cmd.GetString("files-sync"),
 		FilesDefaultQuotaMB:    cmd.GetInt("files-default-quota-mb"),
 		FilesDefaultMaxBuckets: cmd.GetInt("files-default-max-buckets"),
 		PublicFilesPath:        cmd.GetString("public-files-path"),

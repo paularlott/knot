@@ -271,11 +271,16 @@ except Exception as e:
 	// The many records are merged in as a peer would send them, as 1,200
 	// durable writes would take seconds.
 	digests, _ := store.Digests("", 0)
-	bucket := digests["scriptalice--scripts"].Bucket
+	var bucket *filestore.Bucket
+	for _, d := range digests {
+		if d.Bucket.Name == "scriptalice--scripts" {
+			bucket = d.Bucket
+		}
+	}
 	var records []*filestore.Object
 	for i := 0; i < 1200; i++ {
 		records = append(records, &filestore.Object{
-			Bucket: bucket.Name, Key: fmt.Sprintf("many/%05d.txt", i), Generation: bucket.Generation, Size: 1,
+			BucketId: bucket.Id, Key: fmt.Sprintf("many/%05d.txt", i), Size: 1,
 			SHA256: strings.Repeat("a", 64), ETag: "x", UpdatedAt: hlc.Now(),
 		})
 	}

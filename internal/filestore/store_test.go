@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/gossip/hlc"
 	"io"
 	"math/rand"
@@ -111,7 +112,7 @@ func TestPutGetDelete(t *testing.T) {
 	if got := read(t, s, alice, "configs", "app/settings.toml"); got != "v2" {
 		t.Errorf("read after overwrite %q", got)
 	}
-	if s.blobs.has(o.SHA256) {
+	if s.holds(o.SHA256) {
 		t.Error("old content still stored after overwrite")
 	}
 
@@ -259,9 +260,8 @@ func TestBucketLifecycle(t *testing.T) {
 	if err := s.DeleteBucket(alice, "life", true); err != nil {
 		t.Fatal(err)
 	}
-	if s.blobs.has(o.SHA256) {
-		t.Error("content kept after force delete")
-	}
+	// The bucket's records are swept shortly after it is deleted.
+	waitFor(t, "content removed after force delete", func() bool { return !s.holds(o.SHA256) })
 	if _, err := s.GetBucket(alice, "life"); !errors.Is(err, ErrNoSuchBucket) {
 		t.Errorf("get deleted bucket: %v", err)
 	}
@@ -277,14 +277,11 @@ func TestBucketLifecycle(t *testing.T) {
 	}
 }
 
-func TestStaleGenerationObjectIgnored(t *testing.T) {
-	s := newStore(t)
-	b := mustBucket(t, s, alice, "gen")
-	stale := &Object{Bucket: "gen", Key: "old", Generation: b.Generation - 1, SHA256: strings.Repeat("a", 64), UpdatedAt: b.UpdatedAt + 10}
-	s.Merge(nil, []*Object{stale})
-	if _, err := s.HeadObject(alice, "gen", "old"); !errors.Is(err, ErrNoSuchKey) {
-		t.Errorf("stale generation object visible: %v", err)
-	}
+// bid is the id of the live bucket with a name.
+func bid(s *Store, name string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.byName[name]
 }
 
 func mustBucket(t *testing.T, s *Store, p *Principal, name string) *Bucket {
@@ -428,6 +425,7 @@ func TestPersistence(t *testing.T) {
 	s.SetGrant(alice, "keep", Grant{Type: GrantUser, Id: "bob", Access: GrantRead})
 	s.DeleteObject(alice, "keep", "b")
 	mustCreate(t, s, alice, "gone")
+	goneId, keepId := bid(s, "gone"), bid(s, "keep")
 	s.DeleteBucket(alice, "gone", false)
 	s.Close()
 
@@ -443,7 +441,7 @@ func TestPersistence(t *testing.T) {
 		t.Errorf("deleted bucket back after reopen: %v", err)
 	}
 	// Tombstones survive compaction so peers cannot resurrect them.
-	if d, _ := s.Digests("", 0); !d["gone"].Bucket.IsDeleted || d["keep"].Count != 2 {
+	if d, _ := s.Digests("", 0); !d[goneId].Bucket.IsDeleted || d[keepId].Count != 2 {
 		t.Errorf("digests after reopen %+v", d)
 	}
 }
@@ -519,6 +517,7 @@ type memCluster struct {
 	// bytes, as a dropped connection would.
 	breakAfter int64
 	opens      int
+	batches    int
 }
 
 type memReplicator struct {
@@ -584,6 +583,21 @@ func (r *memReplicator) OpenContent(ctx context.Context, nodeId, sha string, off
 	}
 	if limit > 0 && int64(buf.Len()) > limit {
 		return io.NopCloser(io.MultiReader(io.LimitReader(&buf, limit), errReader{io.ErrUnexpectedEOF})), nil
+	}
+	return io.NopCloser(&buf), nil
+}
+
+func (r *memReplicator) OpenContentBatch(ctx context.Context, nodeId string, shas []string) (io.ReadCloser, error) {
+	r.c.mu.Lock()
+	s := r.c.stores[nodeId]
+	r.c.batches++
+	r.c.mu.Unlock()
+	if s == nil {
+		return nil, ErrUnavailable
+	}
+	var buf bytes.Buffer
+	if err := s.WriteContentBatch(&buf, shas); err != nil {
+		return nil, err
 	}
 	return io.NopCloser(&buf), nil
 }
@@ -680,7 +694,7 @@ func TestReplication(t *testing.T) {
 	o := put(t, a, alice, "rep", "big.bin", big)
 
 	for i, s := range []*Store{b, c} {
-		waitFor(t, fmt.Sprintf("content on store %d", i+1), func() bool { return s.blobs.has(o.SHA256) })
+		waitFor(t, fmt.Sprintf("content on store %d", i+1), func() bool { return s.holds(o.SHA256) })
 		if got := read(t, s, alice, "rep", "big.bin"); got != big {
 			t.Errorf("store %d content differs", i+1)
 		}
@@ -699,7 +713,7 @@ func TestReplication(t *testing.T) {
 	}
 	b.DeleteObject(alice, "rep", "big.bin")
 	for i, s := range stores {
-		if s.blobs.has(o.SHA256) {
+		if s.holds(o.SHA256) {
 			t.Errorf("store %d still holds deleted content", i)
 		}
 	}
@@ -716,8 +730,8 @@ func TestReadFetchesMissingContent(t *testing.T) {
 	cl.setDown("node1", false)
 	da, _ := a.Digests("", 0)
 	b.Merge(digestBuckets(da), nil)
-	page, _ := a.ObjectPage("lazy", "", 10, nil)
-	b.blobs.remove(o.SHA256)
+	page, _ := a.ObjectPage(bid(a, "lazy"), "", 10, nil)
+	b.forgetContent(o.SHA256)
 	b.Merge(nil, page)
 
 	if got := read(t, b, alice, "lazy", "f"); got != "pulled on read" {
@@ -763,7 +777,7 @@ func TestAntiEntropy(t *testing.T) {
 	}
 	waitFor(t, "content on b", func() bool {
 		o, err := b.HeadObject(alice, "aes", "k4")
-		return err == nil && b.blobs.has(o.SHA256)
+		return err == nil && b.holds(o.SHA256)
 	})
 	if got := read(t, b, alice, "aes", "k3"); got != "v3" {
 		t.Errorf("b read %q", got)
@@ -805,7 +819,7 @@ func TestDeleteUser(t *testing.T) {
 	o := put(t, a, alice, "alice-one", "f", "alice's file")
 	a.SetGrant(bob, "bobs-bucket", Grant{Type: GrantUser, Id: "alice", Access: GrantWrite})
 	a.SetGrant(bob, "bobs-bucket", Grant{Type: GrantUser, Id: "carol", Access: GrantRead})
-	waitFor(t, "content on b", func() bool { return b.blobs.has(o.SHA256) })
+	waitFor(t, "content on b", func() bool { return b.holds(o.SHA256) })
 
 	if n := a.DeleteUser("alice"); n != 2 {
 		t.Errorf("deleted %d buckets", n)
@@ -814,9 +828,7 @@ func TestDeleteUser(t *testing.T) {
 		if _, err := s.GetBucket(admin, "alice-one"); !errors.Is(err, ErrNoSuchBucket) {
 			t.Errorf("store %d: alice's bucket remains: %v", i, err)
 		}
-		if s.blobs.has(o.SHA256) {
-			t.Errorf("store %d: alice's content remains", i)
-		}
+		waitFor(t, fmt.Sprintf("store %d to drop alice's content", i), func() bool { return !s.holds(o.SHA256) })
 		info, err := s.GetBucket(bob, "bobs-bucket")
 		if err != nil || len(info.Grants) != 1 || info.Grants[0].Id != "carol" {
 			t.Errorf("store %d: bob's bucket grants %+v %v", i, info, err)
@@ -880,12 +892,13 @@ func TestDeletedBucketDropsRecords(t *testing.T) {
 	put(t, s, alice, "gone", "b", "2")
 	s.DeleteBucket(alice, "gone", true)
 
-	if page, _ := s.ObjectPage("gone", "", 10, nil); len(page) != 0 {
-		t.Errorf("deleted bucket keeps %d object records", len(page))
-	}
+	waitFor(t, "records of the deleted bucket swept", func() bool {
+		page, _ := s.ObjectPage(b.Id, "", 10, nil)
+		return len(page) == 0
+	})
 	// A late update for the deleted generation is ignored.
-	s.Merge(nil, []*Object{{Bucket: "gone", Key: "late", Generation: b.Generation, SHA256: strings.Repeat("b", 64), UpdatedAt: b.UpdatedAt + 100}})
-	if page, _ := s.ObjectPage("gone", "", 10, nil); len(page) != 0 {
+	s.Merge(nil, []*Object{{BucketId: b.Id, Key: "late", SHA256: strings.Repeat("b", 64), UpdatedAt: b.UpdatedAt + 100}})
+	if page, _ := s.ObjectPage(b.Id, "", 10, nil); len(page) != 0 {
 		t.Errorf("late object for deleted bucket stored")
 	}
 }
@@ -931,7 +944,7 @@ func TestCleanup(t *testing.T) {
 	if _, err := os.Stat(fresh); err != nil {
 		t.Error("in-progress temp file removed")
 	}
-	if !s.blobs.has(kept.SHA256) {
+	if !s.holds(kept.SHA256) {
 		t.Error("referenced content removed")
 	}
 	for _, sha := range []string{orphan, gone.SHA256} {
@@ -1332,7 +1345,7 @@ func TestFetchResumesBrokenStreams(t *testing.T) {
 
 	da, _ := a.Digests("", 0)
 	b.Merge(digestBuckets(da), nil)
-	page, _ := a.ObjectPage("resume", "", 10, nil)
+	page, _ := a.ObjectPage(bid(a, "resume"), "", 10, nil)
 	b.Merge(nil, page)
 
 	if got := read(t, b, alice, "resume", "f"); got != content {
@@ -1345,7 +1358,7 @@ func TestFetchResumesBrokenStreams(t *testing.T) {
 	if opens < 4 || opens > 6 {
 		t.Errorf("opened %d streams for a 360KB blob broken every 100KB", opens)
 	}
-	if !b.blobs.has(o.SHA256) {
+	if !b.holds(o.SHA256) {
 		t.Error("content not stored")
 	}
 }
@@ -1436,7 +1449,7 @@ func TestUploadPartCopy(t *testing.T) {
 	}
 }
 
-// Records are journalled as JSON, which replaces invalid UTF-8, so a key or
+// Records travel as JSON, which replaces invalid UTF-8, so a key or
 // metadata that isn't valid UTF-8 would change on restart and part this
 // server from the others. They are refused instead.
 func TestInvalidUTF8Refused(t *testing.T) {
@@ -1473,19 +1486,13 @@ func TestInvalidUTF8Refused(t *testing.T) {
 
 	// A record with an invalid key from another server is not applied.
 	s.mu.RLock()
-	var b *Bucket
-	for name, x := range s.buckets {
-		if strings.HasSuffix(name, "utf") {
-			b = x
-		}
-	}
+	b := s.bucketByNameLocked("utf")
 	s.mu.RUnlock()
-	rec := &Object{Bucket: b.Name, Key: bad, Generation: b.Generation, SHA256: strings.Repeat("a", 64), UpdatedAt: hlc.Now()}
+	rec := &Object{BucketId: b.Id, Key: bad, SHA256: strings.Repeat("a", 64), UpdatedAt: hlc.Now()}
 	s.Merge(nil, []*Object{rec})
-	s.mu.RLock()
-	_, held := s.objects[b.Name][bad]
-	s.mu.RUnlock()
-	if held {
+	var held *Object
+	s.db.View(func(txn *badger.Txn) (err error) { held, err = getObject(txn, b.Id, bad); return })
+	if held != nil {
 		t.Error("merged a record with an invalid UTF-8 key")
 	}
 }
@@ -1499,12 +1506,12 @@ func TestUnicodeSurvivesRestart(t *testing.T) {
 		Meta: map[string]string{"note": "größe"}}); err != nil {
 		t.Fatal(err)
 	}
-	o0, f0, err := s.OpenObject(context.Background(), alice, "utf", key)
+	_, f0, err := s.OpenObject(context.Background(), alice, "utf", key)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f0.Close()
-	before, _ := s.SlotDigests(o0.Bucket)
+	before, _ := s.SlotDigests(bid(s, "utf"))
 	s.Close()
 
 	s = openStore(t, dir, nil)
@@ -1517,13 +1524,13 @@ func TestUnicodeSurvivesRestart(t *testing.T) {
 	if o.Meta["note"] != "größe" || o.ContentType != "text/plain; charset=ü" {
 		t.Errorf("metadata changed across restart: %+v", o)
 	}
-	if after, _ := s.SlotDigests(o0.Bucket); fmt.Sprint(after) != fmt.Sprint(before) {
+	if after, _ := s.SlotDigests(bid(s, "utf")); fmt.Sprint(after) != fmt.Sprint(before) {
 		t.Error("digests changed across restart")
 	}
 }
 
 // NoSync only skips the forced flush to disk: writes still reach the files,
-// survive a clean restart and replay from the journal.
+// survive a clean restart.
 func TestNoSync(t *testing.T) {
 	dir := t.TempDir()
 	s, err := Open(Config{Dir: dir, NoSync: true})
@@ -1563,4 +1570,10 @@ func TestNoSync(t *testing.T) {
 	if d.noSync || d.blobs.noSync {
 		t.Error("the default does not sync")
 	}
+}
+
+// forgetContent removes stored content, as if this server had never held it.
+func (s *Store) forgetContent(sha string) {
+	s.db.Update(func(txn *badger.Txn) error { return txn.Delete(shaKey('c', sha)) })
+	s.blobs.remove(sha)
 }

@@ -2,16 +2,19 @@ package filestore
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
+	"hash"
 	"io"
 	"math/rand"
-	"os"
 	"sync"
 	"time"
 )
 
 const (
-	fetchWorkers = 4
+	fetchWorkers = 16
 	fetchQueue   = 4096
 
 	// fetchAttempts is how many times in a row a fetch may fail against a
@@ -101,6 +104,32 @@ func (f *fetcher) enqueue(sha string, size int64, source string) {
 	f.job(sha, size, source, false)
 }
 
+// busy reports whether the queue is more than half full, so there is no need
+// to feed it.
+func (f *fetcher) busy() bool { return len(f.queue) > cap(f.queue)/2 }
+
+// enqueueWait schedules a background fetch, waiting for room in the queue
+// rather than dropping it; the caller is a background task that can wait.
+func (f *fetcher) enqueueWait(sha string, size int64, source string) {
+	if f.s.replicator() == nil {
+		return
+	}
+	f.mu.Lock()
+	if _, busy := f.inflight[sha]; busy {
+		f.mu.Unlock()
+		return
+	}
+	j := &fetchJob{sha: sha, size: size, source: source, done: make(chan struct{})}
+	f.inflight[sha] = j
+	f.mu.Unlock()
+
+	select {
+	case f.queue <- j:
+	case <-f.ctx.Done():
+		f.finish(j, f.ctx.Err())
+	}
+}
+
 // wait fetches sha, returning once it is stored locally.
 func (f *fetcher) wait(ctx context.Context, sha string, size int64, source string) error {
 	if f.s.replicator() == nil {
@@ -122,9 +151,169 @@ func (f *fetcher) worker() {
 		case <-f.ctx.Done():
 			return
 		case j := <-f.queue:
-			f.run(j)
+			if j.size > inlineMax {
+				f.run(j)
+				continue
+			}
+
+			// Small content is fetched many files to a connection: a
+			// connection for each would be far slower, and a server catching
+			// up on a large backlog would run out of ports.
+			batch := []*fetchJob{j}
+			var large []*fetchJob
+		collect:
+			for len(batch) < fetchBatch {
+				select {
+				case k := <-f.queue:
+					if k.size <= inlineMax {
+						batch = append(batch, k)
+					} else {
+						large = append(large, k)
+					}
+				default:
+					break collect
+				}
+			}
+			f.runBatch(batch)
+			for _, k := range large {
+				f.run(k)
+			}
 		}
 	}
+}
+
+// runBatch fetches small content, a server at a time. What a server did not
+// send is fetched one at a time, which also tries the other servers.
+func (f *fetcher) runBatch(jobs []*fetchJob) {
+	repl := f.s.replicator()
+	var fallback []*fetchJob
+	bySource := make(map[string][]*fetchJob)
+	for _, j := range jobs {
+		switch {
+		case f.s.holds(j.sha):
+			f.finish(j, nil)
+		case repl == nil:
+			f.finish(j, ErrUnavailable)
+		default:
+			bySource[j.source] = append(bySource[j.source], j)
+		}
+	}
+
+	nodes := map[string]bool{}
+	if repl != nil {
+		for _, n := range repl.FileNodes() {
+			nodes[n] = true
+		}
+	}
+	for source, group := range bySource {
+		node := source
+		if !nodes[node] {
+			// The writer is not reachable, or is this server: ask any other.
+			node = ""
+			for n := range nodes {
+				node = n
+				break
+			}
+		}
+		if node == "" {
+			fallback = append(fallback, group...)
+			continue
+		}
+		fallback = append(fallback, f.fetchBatch(repl, node, group)...)
+	}
+	for _, j := range fallback {
+		f.run(j)
+	}
+}
+
+// fetchBatch fetches the content of jobs from one server, finishing those it
+// stores and returning the rest.
+func (f *fetcher) fetchBatch(repl Replicator, node string, jobs []*fetchJob) []*fetchJob {
+	shas := make([]string, len(jobs))
+	for i, j := range jobs {
+		shas[i] = j.sha
+	}
+	r, err := repl.OpenContentBatch(f.ctx, node, shas)
+	if err != nil {
+		return jobs
+	}
+	defer r.Close()
+
+	var rest []*fetchJob
+	for i, j := range jobs {
+		data, err := readBatchFrame(r, j.sha)
+		if err != nil {
+			return append(rest, jobs[i:]...) // the rest is fetched another way
+		}
+		if data == nil { // not held there
+			rest = append(rest, j)
+			continue
+		}
+		f.finish(j, f.s.storeContent(j.sha, int64(len(data)), data, "", false))
+	}
+	return rest
+}
+
+// fetchBatch is how many small blobs are fetched over one connection.
+const fetchBatch = 64
+
+// readBatchFrame reads one blob of a batch, nil if the sender did not have
+// it, checked against the checksum it was asked for.
+func readBatchFrame(r io.Reader, sha string) ([]byte, error) {
+	var head [72]byte
+	if _, err := io.ReadFull(r, head[:]); err != nil {
+		return nil, err
+	}
+	if string(head[:64]) != sha {
+		return nil, errors.New("content out of order")
+	}
+	size := int64(binary.BigEndian.Uint64(head[64:]))
+	if size < 0 {
+		return nil, nil
+	}
+	if size > inlineMax {
+		return nil, errors.New("content larger than a batch carries")
+	}
+	data := make([]byte, size)
+	if _, err := io.ReadFull(r, data); err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(data)
+	if hex.EncodeToString(sum[:]) != sha {
+		return nil, ErrContentMismatch
+	}
+	return data, nil
+}
+
+// WriteContentBatch writes the content of each of shas that this server
+// holds, in order, each as its checksum, its size as 8 bytes (negative when
+// not held) and its bytes. It is how a server catching up fetches small files.
+func (s *Store) WriteContentBatch(w io.Writer, shas []string) error {
+	for _, sha := range shas {
+		if !validSHA(sha) {
+			return ErrContentMismatch
+		}
+		var head [72]byte
+		copy(head[:64], sha)
+		c, err := s.openContent(sha)
+		var data []byte
+		if err == nil {
+			data, err = io.ReadAll(io.LimitReader(c, inlineMax+1))
+			c.Close()
+		}
+		if err != nil || len(data) > inlineMax {
+			binary.BigEndian.PutUint64(head[64:], ^uint64(0)) // -1
+			if _, werr := w.Write(head[:]); werr != nil {
+				return werr
+			}
+			continue
+		}
+		binary.BigEndian.PutUint64(head[64:], uint64(len(data)))
+		if _, err := w.Write(append(head[:], data...)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (f *fetcher) finish(j *fetchJob, err error) {
@@ -136,7 +325,7 @@ func (f *fetcher) finish(j *fetchJob, err error) {
 }
 
 func (f *fetcher) run(j *fetchJob) {
-	if f.s.blobs.has(j.sha) {
+	if f.s.holds(j.sha) {
 		f.finish(j, nil)
 		return
 	}
@@ -159,22 +348,29 @@ func (f *fetcher) run(j *fetchJob) {
 		}
 	}
 
-	tw, err := f.s.blobs.newTemp()
-	if err != nil {
-		f.finish(j, err)
-		return
+	// Small content is fetched into memory, as it is stored in the database.
+	var sink fetchSink
+	if j.size <= inlineMax {
+		sink = &memSink{sha: sha256.New()}
+	} else {
+		tw, err := f.s.blobs.newTemp()
+		if err != nil {
+			f.finish(j, err)
+			return
+		}
+		sink = tw
 	}
-	err = ErrUnavailable
+	err := ErrUnavailable
 	for _, node := range nodes {
-		if err = f.fetchFrom(repl, node, j, tw); err == nil || f.ctx.Err() != nil {
+		if err = f.fetchFrom(repl, node, j, sink); err == nil || f.ctx.Err() != nil {
 			break
 		}
 		f.s.logger.Debug("fetch from peer failed", "sha", j.sha, "node", node, "error", err)
 	}
 	if err == nil {
-		err = f.install(j, tw)
+		err = f.install(j, sink)
 	} else {
-		tw.discard()
+		sink.discard()
 	}
 	if err != nil && f.ctx.Err() == nil {
 		f.s.logger.Warn("unable to fetch object content", "sha", j.sha, "error", err)
@@ -185,7 +381,7 @@ func (f *fetcher) run(j *fetchJob) {
 // fetchFrom streams the rest of a blob from node into tw: content is
 // identical on every server, so an attempt resumes from what any earlier
 // attempt, on this server or another, already wrote.
-func (f *fetcher) fetchFrom(repl Replicator, node string, j *fetchJob, tw *tempWriter) error {
+func (f *fetcher) fetchFrom(repl Replicator, node string, j *fetchJob, tw fetchSink) error {
 	var err error
 	for failures, opens := 0, 0; failures < fetchAttempts; opens++ {
 		if opens == fetchMaxResumes {
@@ -199,7 +395,7 @@ func (f *fetcher) fetchFrom(repl Replicator, node string, j *fetchJob, tw *tempW
 			}
 		}
 		var r io.ReadCloser
-		if r, err = repl.OpenContent(f.ctx, node, j.sha, tw.size); err != nil {
+		if r, err = repl.OpenContent(f.ctx, node, j.sha, tw.Size()); err != nil {
 			failures++
 			continue
 		}
@@ -218,34 +414,55 @@ func (f *fetcher) fetchFrom(repl Replicator, node string, j *fetchJob, tw *tempW
 	return err
 }
 
-// install verifies and stores a fetched blob.
-func (f *fetcher) install(j *fetchJob, tw *tempWriter) error {
-	if tw.SHA256() != j.sha {
-		tw.discard()
+// fetchSink receives fetched content: in memory when it is small, else a
+// temporary file.
+type fetchSink interface {
+	io.Writer
+	Size() int64
+	SHA256() string
+	discard()
+}
+
+// memSink holds small content in memory while it is fetched.
+type memSink struct {
+	buf []byte
+	sha hash.Hash
+}
+
+func (m *memSink) Write(p []byte) (int, error) {
+	if len(m.buf)+len(p) > inlineMax {
+		return 0, errors.New("content is larger than its record says")
+	}
+	m.buf = append(m.buf, p...)
+	m.sha.Write(p)
+	return len(p), nil
+}
+
+func (m *memSink) Size() int64    { return int64(len(m.buf)) }
+func (m *memSink) SHA256() string { return hex.EncodeToString(m.sha.Sum(nil)) }
+func (m *memSink) discard()       {}
+
+// install verifies and stores fetched content.
+func (f *fetcher) install(j *fetchJob, sink fetchSink) error {
+	if sink.SHA256() != j.sha {
+		sink.discard()
 		return ErrContentMismatch
 	}
+	if m, ok := sink.(*memSink); ok {
+		return f.s.storeContent(j.sha, m.Size(), m.buf, "", false)
+	}
+	tw := sink.(*tempWriter)
 	if err := tw.finish(); err != nil {
 		tw.discard()
 		return err
 	}
-
-	f.s.mu.Lock()
-	defer f.s.mu.Unlock()
-	if f.s.blobRefs[j.sha] == 0 {
-		// Deleted while we were fetching.
-		os.Remove(tw.Path())
-		return nil
-	}
-	if err := f.s.blobs.install(tw.Path(), j.sha); err != nil {
-		return err
-	}
-	f.s.contentHeldLocked(j.sha)
-	return nil
+	// Small content goes into the database, larger content into a file.
+	return f.s.storeContent(j.sha, tw.size, nil, tw.Path(), false)
 }
 
 // WriteContent streams a blob to another server, from offset to its end.
 func (s *Store) WriteContent(w io.Writer, sha string, offset int64) error {
-	f, err := s.blobs.open(sha)
+	f, err := s.openContent(sha)
 	if err != nil {
 		return ErrUnavailable
 	}

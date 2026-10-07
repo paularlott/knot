@@ -55,4 +55,5 @@ const (
 	FilesPushMsg
 	FilesContentMsg
 	FilesSlotsMsg
+	FilesContentBatchMsg
 )

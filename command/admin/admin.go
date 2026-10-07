@@ -3,6 +3,7 @@ package commands_admin
 import (
 	"context"
 
+	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/paularlott/cli"
@@ -13,7 +14,7 @@ var AdminCmd = &cli.Command{
 	Usage:       "Admin Operations",
 	Description: "Run administration operations for the server.",
 	MaxArgs:     cli.NoArgs,
-	Flags: []cli.Flag{
+	Flags: append(cmdutil.ClientFlags(false), []cli.Flag{
 		// MySQL flags
 		&cli.BoolFlag{
 			Name:         "mysql-enabled",
@@ -156,14 +157,6 @@ var AdminCmd = &cli.Command{
 			Global:       true,
 		},
 		&cli.StringFlag{
-			Name:         "files-path",
-			Usage:        "The server's file storage directory, for backing up and restoring file storage.",
-			ConfigPath:   []string{"server.files.path"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_PATH"},
-			DefaultValue: "",
-			Global:       true,
-		},
-		&cli.StringFlag{
 			Name:         "encrypt",
 			Usage:        "The encryption key to use for encrypting stored variables.",
 			ConfigPath:   []string{"server.encrypt"},
@@ -171,13 +164,14 @@ var AdminCmd = &cli.Command{
 			DefaultValue: "",
 			Global:       true,
 		},
-	},
+	}...),
 	Commands: []*cli.Command{
 		RenameZoneCmd,
 		SetPasswordCmd,
 		ResetTOTPCmd,
 		BackupCmd,
 		RestoreCmd,
+		FileCmd,
 		RefreshBaseImagesCmd,
 	},
 	PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
@@ -189,7 +183,6 @@ var AdminCmd = &cli.Command{
 
 		serverCfg := &config.ServerConfig{
 			EncryptionKey: cmd.GetString("encrypt"),
-			FilesPath:     cmd.GetString("files-path"),
 			MySQL: config.MySQLConfig{
 				Enabled:               cmd.GetBool("mysql-enabled"),
 				Host:                  cmd.GetString("mysql-host"),

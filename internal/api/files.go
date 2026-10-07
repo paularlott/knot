@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/filestore"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 )
@@ -25,7 +26,12 @@ func filesContext(w http.ResponseWriter, r *http.Request) (*filestore.Store, *mo
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: filestore.ErrDisabled.Error()})
 		return nil, nil, nil, false
 	}
-	user := r.Context().Value("user").(*model.User)
+	// A server with no users yet does not authenticate, so there may be no one.
+	user, _ := r.Context().Value("user").(*model.User)
+	if user == nil {
+		rest.WriteResponse(http.StatusUnauthorized, w, r, ErrorResponse{Error: "Authentication required"})
+		return nil, nil, nil, false
+	}
 	p, ok := filestore.PrincipalFor(user)
 	if !ok {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Account is not active"})
@@ -112,6 +118,7 @@ func accessName(level int) string {
 // for those who manage it, the owner and file storage managers.
 func bucketResponse(b *filestore.BucketInfo, p *filestore.Principal, names *nameResolver) apiclient.FileBucketInfo {
 	info := apiclient.FileBucketInfo{
+		Id:        b.Id,
 		Name:      b.Name,
 		Display:   filestore.DisplayName(p, b.Name),
 		OwnerId:   b.OwnerId,
@@ -155,6 +162,24 @@ func auditBucket(r *http.Request, user *model.User, event, details, bucket strin
 		props[k] = v
 	}
 	audit.LogWithRequest(r, user.Username, model.AuditActorTypeUser, event, details, &props)
+}
+
+// RenameUserBuckets renames the buckets a user owns to follow a change of
+// username, logging each change.
+func RenameUserBuckets(r *http.Request, actor, user *model.User, oldUsername string) {
+	store := filestore.Get()
+	if store == nil {
+		return
+	}
+	renames, err := store.RenameOwnerBuckets(user.Id, user.Username)
+	for _, rn := range renames {
+		auditBucket(r, actor, model.AuditEventBucketRename,
+			fmt.Sprintf("Renamed bucket %s to %s as %s changed username from %s to %s", rn.OldName, rn.NewName, user.Username, oldUsername, user.Username),
+			rn.NewName, map[string]interface{}{"old_name": rn.OldName, "owner_id": user.Id, "owner": user.Username})
+	}
+	if err != nil {
+		log.WithGroup("files").Warn("some buckets could not be renamed with their owner", "user", user.Username, "error", err)
+	}
 }
 
 // lookupUser finds a user by username, email or id.
@@ -513,6 +538,32 @@ func setObjectHeaders(w http.ResponseWriter, o *filestore.Object) {
 	} else {
 		h.Set(apiclient.FileMtimeHeader, apiclient.FormatMtime(o.ModifiedAt))
 	}
+}
+
+// HandleFilesFsck checks file storage, and with repair set fixes what it
+// can. Only file storage administrators may run it.
+func HandleFilesFsck(w http.ResponseWriter, r *http.Request) {
+	store, _, p, ok := filesContext(w, r)
+	if !ok {
+		return
+	}
+	if !p.IsAdmin {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: filestore.ErrAccessDenied.Error()})
+		return
+	}
+	rest.NoDeadlines(w)
+
+	var opts filestore.FsckOptions
+	if err := rest.DecodeRequestBody(w, r, &opts); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	report, err := store.Fsck(r.Context(), opts)
+	if err != nil {
+		filesError(w, r, err)
+		return
+	}
+	rest.WriteResponse(http.StatusOK, w, r, report)
 }
 
 func HandleGetFileObject(w http.ResponseWriter, r *http.Request) {

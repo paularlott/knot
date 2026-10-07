@@ -2,8 +2,8 @@
 // by a user, shareable with users and groups, holding objects whose content
 // is replicated to every server in the cluster.
 //
-// Metadata (bucket and object records) lives in memory, backed by a journal
-// in the storage directory, and is replicated by gossip with last-writer-wins
+// Metadata (bucket and object records) lives in an embedded database in the
+// storage directory, with small content beside it, and is replicated by gossip with last-writer-wins
 // on HLC timestamps. Object content is stored content-addressed (sha256) and
 // pulled directly from a peer by any server that does not yet hold it.
 package filestore
@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
 )
 
@@ -80,24 +81,25 @@ type Grant struct {
 	Access string `json:"access" msgpack:"access"`
 }
 
-// Bucket is the replicated bucket record. Name is the cluster-wide identity.
-// Generation changes each time a bucket of the same name is created, so the
-// objects of a deleted bucket can never reappear in its successor.
+// Bucket is the replicated bucket record. Id is its identity, fixed for life
+// and the prefix of its objects' keys; Name, "<owner's username>--<name>",
+// follows the owner's username and changes with it. A deleted bucket's
+// objects can never reappear in a new bucket of the same name, as the new
+// bucket has a new id.
 type Bucket struct {
-	Name       string        `json:"name" msgpack:"name"`
-	OwnerId    string        `json:"owner_id" msgpack:"owner_id"`
-	Grants     []Grant       `json:"grants" msgpack:"grants"`
-	Generation hlc.Timestamp `json:"generation" msgpack:"generation"`
-	CreatedAt  time.Time     `json:"created_at" msgpack:"created_at"`
-	UpdatedAt  hlc.Timestamp `json:"updated_at" msgpack:"updated_at"`
-	IsDeleted  bool          `json:"is_deleted" msgpack:"is_deleted"`
+	Id        string        `json:"id" msgpack:"id"`
+	Name      string        `json:"name" msgpack:"name"`
+	OwnerId   string        `json:"owner_id" msgpack:"owner_id"`
+	Grants    []Grant       `json:"grants" msgpack:"grants"`
+	CreatedAt time.Time     `json:"created_at" msgpack:"created_at"`
+	UpdatedAt hlc.Timestamp `json:"updated_at" msgpack:"updated_at"`
+	IsDeleted bool          `json:"is_deleted" msgpack:"is_deleted"`
 }
 
 // Object is the replicated object record.
 type Object struct {
-	Bucket      string            `json:"bucket" msgpack:"bucket"`
+	BucketId    string            `json:"bucket_id" msgpack:"bucket_id"`
 	Key         string            `json:"key" msgpack:"key"`
-	Generation  hlc.Timestamp     `json:"generation" msgpack:"generation"`
 	Size        int64             `json:"size" msgpack:"size"`
 	SHA256      string            `json:"sha256" msgpack:"sha256"`
 	ETag        string            `json:"etag" msgpack:"etag"`
@@ -131,6 +133,24 @@ func (p *Principal) mayTransfer() bool { return p.CanTransfer || p.IsAdmin }
 
 var bucketNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
 
+// NewBucketId returns the id for a new bucket.
+func NewBucketId() string {
+	id, err := uuid.NewV7()
+	if err != nil {
+		id = uuid.New()
+	}
+	return id.String()
+}
+
+// ValidBucketId reports whether id is a bucket id: a lowercase UUID.
+func ValidBucketId(id string) bool {
+	if len(id) != 36 {
+		return false
+	}
+	u, err := uuid.Parse(id)
+	return err == nil && u.String() == id
+}
+
 // ValidBucketName reports whether name is a valid full bucket name: an S3
 // compatible name that holds at most one "--", the separator between the
 // owner's username and the short name (see names.go).
@@ -147,7 +167,7 @@ func ValidBucketName(name string) bool {
 }
 
 // checkMeta checks an object's content type and user metadata are within
-// the record limits and valid UTF-8, which the JSON journal needs.
+// the record limits and valid UTF-8, as the API and the other servers need.
 func checkMeta(contentType string, meta map[string]string) error {
 	if len(contentType) > MaxContentTypeSize {
 		return ErrMetadataTooLarge
@@ -181,8 +201,8 @@ func withoutGrant(grants []Grant, grantType, id string) []Grant {
 
 // ValidKey reports whether key is a usable object key.
 func ValidKey(key string) bool {
-	// Records are journalled as JSON, which would replace invalid UTF-8,
-	// changing the key on restart and parting this server from the others.
+	// JSON, which the API and clients use, would replace invalid UTF-8,
+	// changing the key and parting this server from the others.
 	if key == "" || len(key) > 1024 || strings.ContainsRune(key, 0) || !utf8.ValidString(key) {
 		return false
 	}

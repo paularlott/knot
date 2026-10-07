@@ -30,10 +30,13 @@ const (
 	// (/api/files*) and, on Knot Pro, the S3 endpoint with the token as the
 	// secret key.
 	ScopeFiles = "files"
+	// ScopeBackup allows a token to reach the backup and restore endpoints
+	// only, so a token left in a backup job can do nothing else.
+	ScopeBackup = "backup"
 )
 
 // KnownTokenScopes is the authoritative list of valid scope strings.
-var KnownTokenScopes = []string{ScopeMethods, ScopeMCP, ScopeTunnels, ScopeFiles}
+var KnownTokenScopes = []string{ScopeMethods, ScopeMCP, ScopeTunnels, ScopeFiles, ScopeBackup}
 
 // IsKnownTokenScope reports whether s is a valid scope string.
 func IsKnownTokenScope(s string) bool {

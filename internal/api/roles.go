@@ -64,7 +64,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if roleId == model.RoleAdminUUID {
+	if model.IsBuiltinRole(roleId) {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update the admin role"})
 		return
 	}
@@ -161,7 +161,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if roleId == model.RoleAdminUUID {
+	if model.IsBuiltinRole(roleId) {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot delete the admin role"})
 		return
 	}
