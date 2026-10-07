@@ -1,3 +1,27 @@
+import ace from "ace-builds/src-noconflict/ace";
+import "ace-builds/src-noconflict/mode-text";
+import "ace-builds/src-noconflict/mode-markdown";
+import "ace-builds/src-noconflict/mode-yaml";
+import "ace-builds/src-noconflict/mode-toml";
+import "ace-builds/src-noconflict/mode-php";
+import "ace-builds/src-noconflict/mode-python";
+import "ace-builds/src-noconflict/mode-sh";
+import "ace-builds/src-noconflict/mode-json";
+import "ace-builds/src-noconflict/mode-javascript";
+import "ace-builds/src-noconflict/mode-html";
+import "ace-builds/src-noconflict/mode-css";
+import "ace-builds/src-noconflict/mode-xml";
+import "ace-builds/src-noconflict/mode-ini";
+import "ace-builds/src-noconflict/mode-properties";
+import "ace-builds/src-noconflict/mode-sql";
+import "ace-builds/src-noconflict/mode-golang";
+import "ace-builds/src-noconflict/mode-dockerfile";
+import "ace-builds/src-noconflict/mode-makefile";
+import "ace-builds/src-noconflict/mode-terraform";
+import "ace-builds/src-noconflict/theme-github";
+import "ace-builds/src-noconflict/theme-github_dark";
+import "ace-builds/src-noconflict/ext-searchbox";
+
 // Files page: buckets, a browser for the files in a bucket, uploads,
 // a small-text-file editor, sharing and (for file storage managers)
 // transfers. Everything goes through the /api/files API.
@@ -8,8 +32,40 @@ const TEXT_EXTENSIONS = new Set([
   'txt', 'md', 'markdown', 'toml', 'yaml', 'yml', 'json', 'jsonc', 'ini', 'cfg', 'conf', 'env',
   'properties', 'xml', 'csv', 'tsv', 'log', 'sh', 'bash', 'zsh', 'fish', 'py', 'js', 'mjs', 'ts',
   'go', 'rs', 'rb', 'php', 'java', 'kt', 'c', 'h', 'cpp', 'hpp', 'cs', 'sql', 'html', 'htm', 'css',
-  'scss', 'less', 'tf', 'hcl', 'nomad', 'dockerfile', 'gitignore', 'editorconfig', 'service',
+  'scss', 'less', 'tf', 'hcl', 'nomad', 'dockerfile', 'gitignore', 'editorconfig', 'service', 'php', 'rst', 'lua', 'pl', 'makefile', 'mk', 'tpl', 'tmpl',
 ]);
+
+// The editor's languages, by Ace mode. The mode is chosen from the file's
+// name; anything not listed is plain text, and the dialog lets the user pick.
+const EDITOR_LANGUAGES = [
+  ['text', 'Plain text'], ['markdown', 'Markdown'], ['yaml', 'YAML'], ['toml', 'TOML'], ['json', 'JSON'],
+  ['php', 'PHP'], ['python', 'Python'], ['sh', 'Shell'], ['javascript', 'JavaScript'], ['html', 'HTML'],
+  ['css', 'CSS'], ['xml', 'XML'], ['ini', 'INI'], ['properties', 'Properties'], ['sql', 'SQL'],
+  ['golang', 'Go'], ['dockerfile', 'Dockerfile'], ['makefile', 'Makefile'], ['terraform', 'HCL / Terraform'],
+];
+
+const EDITOR_MODE_BY_EXTENSION = {
+  md: 'markdown', markdown: 'markdown', yaml: 'yaml', yml: 'yaml', toml: 'toml', json: 'json', jsonc: 'json',
+  php: 'php', py: 'python', sh: 'sh', bash: 'sh', zsh: 'sh', fish: 'sh', js: 'javascript', mjs: 'javascript',
+  html: 'html', htm: 'html', css: 'css', xml: 'xml', ini: 'ini', cfg: 'ini', conf: 'ini', properties: 'properties',
+  env: 'properties', sql: 'sql', go: 'golang', dockerfile: 'dockerfile', mk: 'makefile', makefile: 'makefile',
+  tf: 'terraform', hcl: 'terraform', nomad: 'terraform', service: 'ini', editorconfig: 'ini',
+};
+
+// editorModeFor picks the language for a file from its name.
+function editorModeFor(key) {
+  const name = (key.split('/').pop() || '').toLowerCase();
+  if (name === 'dockerfile' || name.startsWith('dockerfile.')) return 'dockerfile';
+  if (name === 'makefile') return 'makefile';
+  const ext = name.includes('.') ? name.split('.').pop() : name.replace(/^\./, '');
+  return EDITOR_MODE_BY_EXTENSION[ext] || 'text';
+}
+
+function darkTheme() {
+  let dark = null;
+  try { dark = JSON.parse(localStorage.getItem('_x_darkMode')); } catch (e) { /* unreadable: use the default */ }
+  return dark == null ? true : dark;
+}
 
 function encodeKey(key) {
   return key.split('/').map(encodeURIComponent).join('/');
@@ -59,7 +115,7 @@ function shortName(name) {
 // Fresh dialog state.
 const emptyShareForm = () => ({ type: 'user', query: '', id: '', write: false, open: false, active: -1, error: '' });
 const emptyTransfer = (show = false, bucket = null) => ({ show, bucket, id: '', username: '', query: '', open: false, active: -1, force: false, error: '', saving: false });
-const emptyEditor = (fields = {}) => ({ show: false, key: '', content: '', original: '', etag: '', isNew: false, loading: false, saving: false, error: '', ...fields });
+const emptyEditor = (fields = {}) => ({ show: false, key: '', content: '', original: '', etag: '', isNew: false, loading: false, saving: false, error: '', mode: 'text', ...fields });
 
 window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
   return {
@@ -96,6 +152,9 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
     transferModal: emptyTransfer(),
     deleteFileModal: { show: false, entry: null, isFolder: false, error: '', saving: false },
     editor: emptyEditor(),
+    aceEditor: null,
+    languages: EDITOR_LANGUAGES,
+    renameModal: { show: false, entry: null, isFolder: false, name: '', error: '', saving: false },
     newFileModal: { show: false, name: '', error: '' },
     shareUsers: [],
     shareGroups: [],
@@ -110,6 +169,10 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
         }
       });
       await this.loadFromLocation();
+
+      window.addEventListener('theme-change', (e) => {
+        if (this.aceEditor) this.aceEditor.setTheme(e.detail.dark_theme ? 'ace/theme/github_dark' : 'ace/theme/github');
+      });
 
       // Other people's changes, and other servers', arrive as they happen.
       if (window.sseClient) {
@@ -652,6 +715,43 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       return TEXT_EXTENSIONS.has(ext) || name.startsWith('.');
     },
 
+    // Renaming stays in the folder: the new name is one path segment, and the
+    // server moves the file, or the folder with everything in it.
+    openRename(entry, isFolder) {
+      this.renameModal = { show: true, entry, isFolder, name: entry.name, error: '', saving: false };
+      this.focusSoon('rename-name');
+    },
+
+    async renameEntry() {
+      const m = this.renameModal;
+      const name = m.name.trim();
+      if (!name || name.includes('/') || name === '.' || name === '..') {
+        m.error = 'Enter a name without slashes.';
+        return;
+      }
+      if (name === m.entry.name) {
+        m.show = false;
+        return;
+      }
+      m.saving = true;
+      m.error = '';
+      const from = m.isFolder ? m.entry.prefix.replace(/\/+$/, '') : m.entry.key;
+      const body = { bucket: this.bucket.name, from, to: this.prefix + name, overwrite: false };
+      const response = await request('/api/files/move', { method: 'POST', headers: jsonHeaders(), body: JSON.stringify(body) });
+      m.saving = false;
+      if (response.status === 409) {
+        m.error = `A file or folder named ${name} already exists here.`;
+        return;
+      }
+      if (!response.ok) {
+        m.error = await apiError(response);
+        return;
+      }
+      m.show = false;
+      this.alert(`${m.entry.name} renamed to ${name}`);
+      await this.listFiles(false);
+    },
+
     confirmDeleteFile(entry, isFolder) {
       this.deleteFileModal = { show: true, entry, isFolder, error: '', saving: false };
     },
@@ -831,7 +931,52 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       this.editor.content = text;
       this.editor.original = text;
       this.editor.etag = response.headers.get('ETag') || '';
-      this.focusSoon('editor-content');
+      this.editor.mode = editorModeFor(f.key);
+      this.mountEditor();
+    },
+
+    // mountEditor shows the file in Ace, once its dialog is on screen.
+    mountEditor() {
+      this.$nextTick(() => {
+        this.destroyEditor();
+        const host = document.getElementById('editor-ace');
+        if (!host) return;
+        const editor = ace.edit(host);
+        editor.setTheme(darkTheme() ? 'ace/theme/github_dark' : 'ace/theme/github');
+        editor.session.setMode('ace/mode/' + this.editor.mode);
+        editor.session.setValue(this.editor.content, -1);
+        editor.session.on('change', () => { this.editor.content = editor.getValue(); });
+        editor.setReadOnly(!this.canWrite);
+        editor.setOptions({
+          printMargin: false,
+          newLineMode: 'unix',
+          tabSize: 2,
+          useSoftTabs: true,
+          wrap: false,
+          fontSize: 13,
+          showFoldWidgets: true,
+        });
+        editor.commands.addCommand({
+          name: 'saveFile',
+          bindKey: { win: 'Ctrl-S', mac: 'Command-S' },
+          exec: () => { if (this.canWrite) this.saveEditor(); },
+        });
+        editor.textInput.getElement().setAttribute('aria-label', 'Contents of ' + this.editor.key);
+        this.aceEditor = editor;
+        // The dialog may still be transitioning in, so measure again once it has.
+        setTimeout(() => { editor.resize(); editor.focus(); }, 250);
+      });
+    },
+
+    destroyEditor() {
+      if (this.aceEditor) {
+        this.aceEditor.destroy();
+        this.aceEditor = null;
+      }
+    },
+
+    setEditorMode() {
+      if (this.aceEditor) this.aceEditor.session.setMode('ace/mode/' + this.editor.mode);
     },
 
     openNewFile() {
@@ -846,8 +991,8 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
         return;
       }
       this.newFileModal.show = false;
-      this.editor = emptyEditor({ show: true, key: this.prefix + name, isNew: true });
-      this.focusSoon('editor-content');
+      this.editor = emptyEditor({ show: true, key: this.prefix + name, isNew: true, mode: editorModeFor(name) });
+      this.mountEditor();
     },
 
     get editorDirty() {
@@ -857,6 +1002,7 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
     closeEditor() {
       if (this.editorDirty && !this.editor.saving && !confirm('Discard your changes?')) return;
       this.editor.show = false;
+      this.destroyEditor();
     },
 
     async saveEditor() {
@@ -883,6 +1029,7 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       e.original = e.content;
       e.isNew = false;
       e.show = false;
+      this.destroyEditor();
       this.alert(`${e.key.slice(this.prefix.length) || e.key} saved`);
       await this.listFiles(false);
     },
