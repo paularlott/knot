@@ -963,6 +963,7 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 			Quota:       filestore.DatabaseQuota,
 			BucketLimit: filestore.DatabaseBucketLimit,
 			OwnerState:  filestore.DatabaseOwnerState,
+			Changed:     sse.PublishFilesChanged,
 		})
 		if err != nil {
 			logger.WithError(err).Fatal("failed to open file storage", "path", cfg.FilesPath)

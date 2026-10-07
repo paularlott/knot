@@ -313,3 +313,12 @@ func PublishPortForwardChanged(spaceId, userId string) {
 		Payload: ResourcePayload{Id: spaceId, UserId: userId},
 	})
 }
+
+// PublishFilesChanged notifies clients that files or buckets changed in file
+// storage. Clients refetch what they show; an empty list means any bucket.
+func PublishFilesChanged(bucketIds []string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventFilesChanged,
+		Payload: FilesPayload{BucketIds: bucketIds},
+	})
+}

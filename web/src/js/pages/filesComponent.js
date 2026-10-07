@@ -110,6 +110,54 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
         }
       });
       await this.loadFromLocation();
+
+      // Other people's changes, and other servers', arrive as they happen.
+      if (window.sseClient) {
+        window.sseClient.subscribe('files:changed', (payload) => this.filesChanged(payload));
+        window.sseClient.subscribe('reconnected', () => this.filesChanged(null));
+      }
+    },
+
+    // filesChanged gathers the buckets that changed and, once they have
+    // settled, refreshes what is on screen: the bucket list, or the open
+    // bucket and the folder being browsed.
+    changedIds: new Set(),
+    changedAll: false,
+    changedTimer: null,
+
+    filesChanged(payload) {
+      const ids = payload && payload.bucket_ids;
+      if (ids && ids.length) ids.forEach(id => this.changedIds.add(id));
+      else this.changedAll = true;
+      clearTimeout(this.changedTimer);
+      this.changedTimer = setTimeout(() => this.applyFilesChanged(), 500);
+    },
+
+    async applyFilesChanged() {
+      if (this.listing || this.loading) {
+        // Something is already being loaded; look again once it has.
+        this.changedTimer = setTimeout(() => this.applyFilesChanged(), 500);
+        return;
+      }
+      const all = this.changedAll;
+      const ids = this.changedIds;
+      this.changedAll = false;
+      this.changedIds = new Set();
+
+      if (this.view === 'buckets') {
+        await this.loadBuckets();
+        return;
+      }
+      if (this.view === 'browse' && this.bucket && (all || ids.has(this.bucket.id))) {
+        const b = await this.refreshBucket(this.bucket.name);
+        if (!b) {
+          // Deleted, or no longer shared with this user.
+          this.alert('This bucket is no longer available.', 'error');
+          await this.showBuckets();
+          return;
+        }
+        await this.listFiles(false);
+      }
     },
 
     say(message) {

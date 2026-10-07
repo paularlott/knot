@@ -48,7 +48,8 @@ func filesError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, filestore.ErrAccessDenied), errors.Is(err, filestore.ErrCannotOwn), errors.Is(err, filestore.ErrBucketLimit),
 		errors.Is(err, filestore.ErrCannotShare), errors.Is(err, filestore.ErrCannotTransfer):
 		status = http.StatusForbidden
-	case errors.Is(err, filestore.ErrBucketExists), errors.Is(err, filestore.ErrBucketNotEmpty), errors.Is(err, filestore.ErrTransferNameTaken):
+	case errors.Is(err, filestore.ErrBucketExists), errors.Is(err, filestore.ErrBucketNotEmpty), errors.Is(err, filestore.ErrTransferNameTaken),
+		errors.Is(err, filestore.ErrDestinationExists):
 		status = http.StatusConflict
 	case errors.Is(err, filestore.ErrQuotaExceeded):
 		status = http.StatusRequestEntityTooLarge
@@ -646,6 +647,32 @@ func HandleCopyFileObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, objectResponse(o))
+}
+
+// POST /api/files/move: rename a file, or a folder and its contents, within a
+// bucket, on the server.
+func HandleMoveFileObjects(w http.ResponseWriter, r *http.Request) {
+	store, _, p, ok := filesContext(w, r)
+	if !ok {
+		return
+	}
+
+	var req apiclient.FileMoveRequest
+	if err := rest.DecodeRequestBody(w, r, &req); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if req.Bucket == "" || req.From == "" || req.To == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "bucket, from and to are required"})
+		return
+	}
+
+	n, err := store.MoveObjects(p, filestore.ResolveName(p, req.Bucket), req.From, req.To, req.Overwrite)
+	if err != nil {
+		filesError(w, r, err)
+		return
+	}
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.FileMoveResponse{Moved: n})
 }
 
 func HandleDeleteFileObject(w http.ResponseWriter, r *http.Request) {

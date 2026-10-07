@@ -3,6 +3,7 @@ package filestore
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"io"
 	"sort"
 	"strings"
@@ -718,6 +719,81 @@ func (s *Store) CopyObject(p *Principal, srcBucket, srcKey, dstBucket, dstKey st
 
 	s.commit(nil, []*Object{o})
 	return o.clone(), nil
+}
+
+// MoveObjects renames a file, or a folder and everything under it, within a
+// bucket, on the server and without moving any content: it returns how many
+// files were moved. Every file is copied before any is deleted, so a failure
+// part way leaves the files in both places, never in neither. Without
+// overwrite, a destination that already holds a file refuses the move.
+func (s *Store) MoveObjects(p *Principal, bucket, from, to string, overwrite bool) (int, error) {
+	from, to = strings.TrimRight(from, "/"), strings.TrimRight(to, "/")
+	if from == "" || !ValidKey(to) {
+		return 0, ErrInvalidKey
+	}
+	if to == from || strings.HasPrefix(to, from+"/") {
+		// A folder cannot be moved into itself.
+		return 0, ErrInvalidKey
+	}
+
+	// The files to move: the file of that name and, for a folder, those below it.
+	var keys []string
+	if _, err := s.HeadObject(p, bucket, from); err == nil {
+		keys = append(keys, from)
+	} else if !errors.Is(err, ErrNoSuchKey) {
+		return 0, err
+	}
+	after := ""
+	for {
+		res, err := s.ListObjects(p, bucket, from+"/", "", after, 1000)
+		if err != nil {
+			return 0, err
+		}
+		for _, o := range res.Objects {
+			keys = append(keys, o.Key)
+		}
+		if !res.IsTruncated {
+			break
+		}
+		after = res.Next
+	}
+	if len(keys) == 0 {
+		return 0, ErrNoSuchKey
+	}
+
+	dest := make([]string, len(keys))
+	for i, k := range keys {
+		dest[i] = to + k[len(from):]
+		if !ValidKey(dest[i]) {
+			return 0, ErrInvalidKey
+		}
+		if !overwrite {
+			if _, err := s.HeadObject(p, bucket, dest[i]); err == nil {
+				return 0, ErrDestinationExists
+			} else if !errors.Is(err, ErrNoSuchKey) {
+				return 0, err
+			}
+		}
+	}
+
+	for i, k := range keys {
+		if _, err := s.CopyObject(p, bucket, k, bucket, dest[i], nil); err != nil {
+			// Take back what was copied, so a failed move changes nothing
+			// (when overwriting, files it replaced can't be brought back).
+			for _, d := range dest[:i] {
+				if !overwrite {
+					s.DeleteObject(p, bucket, d)
+				}
+			}
+			return 0, err
+		}
+	}
+	for _, k := range keys {
+		if err := s.DeleteObject(p, bucket, k); err != nil && !errors.Is(err, ErrNoSuchKey) {
+			return 0, err
+		}
+	}
+	return len(keys), nil
 }
 
 // DeleteObject deletes an object.

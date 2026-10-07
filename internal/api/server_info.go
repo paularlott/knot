@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/filestore"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -16,6 +17,7 @@ func HandleGetServerInfo(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
 	rest.WriteResponse(http.StatusOK, w, r, &apiclient.ServerInfoResponse{
 		Version:        build.Version,
+		FilesEnabled:   filestore.Get() != nil,
 		WildcardDomain: cfg.WildcardDomain,
 		TunnelDomain:   cfg.TunnelDomain,
 		// A gossip cluster only forms when an advertise address is configured.

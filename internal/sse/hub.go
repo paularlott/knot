@@ -53,6 +53,9 @@ const (
 	EventPoolChanged EventType = "pool:changed"
 	EventPoolDeleted EventType = "pool:deleted"
 
+	// File storage: files or buckets changed, here or on another server
+	EventFilesChanged EventType = "files:changed"
+
 	// Authentication events
 	EventAuthRequired EventType = "auth:required"
 )
@@ -69,6 +72,12 @@ type ResourcePayload struct {
 	UserId            string   `json:"user_id,omitempty"`
 	SharedWithUserIds []string `json:"shared_with_user_ids,omitempty"`
 	PreviousUserIds   []string `json:"previous_user_ids,omitempty"`
+}
+
+// FilesPayload names the buckets whose files or settings changed. It is
+// empty when too many changed to name, meaning any of them might have.
+type FilesPayload struct {
+	BucketIds []string `json:"bucket_ids,omitempty"`
 }
 
 // Client represents a connected SSE client

@@ -5,6 +5,8 @@ import "context"
 // ServerInfoResponse exposes server-wide configuration that clients (such as
 // the VS Code extension) need but that is not user-specific.
 type ServerInfoResponse struct {
+	// FilesEnabled is whether this server has file storage turned on.
+	FilesEnabled bool `json:"files_enabled"`
 	// Version is the knot server version string.
 	Version string `json:"version"`
 	// WildcardDomain is the server's wildcard domain used to build space

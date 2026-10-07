@@ -486,3 +486,83 @@ func TestFileCopyHandler(t *testing.T) {
 		t.Error("an over-quota copy was stored")
 	}
 }
+
+func TestFileMoveHandler(t *testing.T) {
+	prev := config.GetServerConfig()
+	config.SetServerConfig(&config.ServerConfig{
+		BadgerDB: config.BadgerDBConfig{Enabled: true, Path: t.TempDir()},
+		Zone:     "z-files-move",
+	})
+	t.Cleanup(func() { config.SetServerConfig(prev) })
+	model.SetRoleCache(nil)
+
+	store, err := filestore.Open(filestore.Config{Dir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	filestore.SetInstance(store)
+	t.Cleanup(func() {
+		filestore.SetInstance(nil)
+		store.Close()
+	})
+
+	role := model.NewRole("files-move-"+t.Name(), []uint16{model.PermissionUseFiles, model.PermissionShareBuckets}, "")
+	model.SaveRoleToCache(role)
+	db := database.GetInstance()
+	mk := func(id string) *model.User {
+		u := &model.User{Id: id, Username: strings.ReplaceAll(id, "-", ""), Email: id + "@test.local", Active: true, Roles: []string{role.Id}}
+		if err := db.SaveUser(u, nil); err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	alice, bob := mk("fm-alice"), mk("fm-bob")
+	ap, _ := filestore.PrincipalFor(alice)
+	if _, err := store.CreateBucket(ap, "fmalice--docs"); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"old/a.txt", "old/sub/b.txt", "keep.txt"} {
+		if _, err := store.PutObject(ap, "fmalice--docs", k, strings.NewReader("x"), filestore.PutOptions{Size: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	move := func(user *model.User, req apiclient.FileMoveRequest) *httptest.ResponseRecorder {
+		b, _ := json.Marshal(req)
+		rr := httptest.NewRecorder()
+		HandleMoveFileObjects(rr, filesRequest("POST", "/api/files/move", string(b), user))
+		return rr
+	}
+
+	// A folder, by the short name of the bucket.
+	rr := move(alice, apiclient.FileMoveRequest{Bucket: "docs", From: "old", To: "new"})
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"moved":2`) {
+		t.Fatalf("move folder: %d %s", rr.Code, rr.Body.String())
+	}
+	if _, err := store.HeadObject(ap, "fmalice--docs", "new/sub/b.txt"); err != nil {
+		t.Errorf("moved file: %v", err)
+	}
+	if _, err := store.HeadObject(ap, "fmalice--docs", "old/a.txt"); err == nil {
+		t.Error("source remains")
+	}
+
+	// Refusals and their statuses.
+	if rr := move(alice, apiclient.FileMoveRequest{Bucket: "docs", From: "new/a.txt", To: "keep.txt"}); rr.Code != http.StatusConflict {
+		t.Errorf("move onto a file: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := move(alice, apiclient.FileMoveRequest{Bucket: "docs", From: "gone", To: "else"}); rr.Code != http.StatusNotFound {
+		t.Errorf("move of nothing: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := move(alice, apiclient.FileMoveRequest{Bucket: "docs", From: "new", To: "new/in"}); rr.Code != http.StatusBadRequest {
+		t.Errorf("move into itself: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := move(alice, apiclient.FileMoveRequest{Bucket: "docs", From: "keep.txt"}); rr.Code != http.StatusBadRequest {
+		t.Errorf("move without a destination: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := move(bob, apiclient.FileMoveRequest{Bucket: "fmalice--docs", From: "keep.txt", To: "bobs"}); rr.Code != http.StatusNotFound {
+		t.Errorf("move by a stranger: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := move(alice, apiclient.FileMoveRequest{Bucket: "docs", From: "new/a.txt", To: "keep.txt", Overwrite: true}); rr.Code != http.StatusOK {
+		t.Errorf("overwrite: %d %s", rr.Code, rr.Body.String())
+	}
+}

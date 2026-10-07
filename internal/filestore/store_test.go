@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -413,6 +414,78 @@ func TestCopyObject(t *testing.T) {
 	}
 	if _, err := s.CopyObject(bob, "dst", "copy", "dst", "x", nil); !errors.Is(err, ErrNoSuchBucket) {
 		t.Errorf("unauthorised copy: %v", err)
+	}
+}
+
+func TestMoveObjects(t *testing.T) {
+	s := newStore(t)
+	mustCreate(t, s, alice, "moves")
+	put(t, s, alice, "moves", "a.txt", "alpha")
+	put(t, s, alice, "moves", "dir/one", "1")
+	put(t, s, alice, "moves", "dir/sub/two", "2")
+	put(t, s, alice, "moves", "dirx", "not in the folder")
+
+	// A file.
+	if n, err := s.MoveObjects(alice, "moves", "a.txt", "b.txt", false); err != nil || n != 1 {
+		t.Fatalf("move file: %d, %v", n, err)
+	}
+	if got := read(t, s, alice, "moves", "b.txt"); got != "alpha" {
+		t.Errorf("moved file reads %q", got)
+	}
+	if _, err := s.HeadObject(alice, "moves", "a.txt"); !errors.Is(err, ErrNoSuchKey) {
+		t.Errorf("source remains: %v", err)
+	}
+
+	// A folder takes everything under it, and nothing that only shares its name.
+	if n, err := s.MoveObjects(alice, "moves", "dir/", "moved/here", false); err != nil || n != 2 {
+		t.Fatalf("move folder: %d, %v", n, err)
+	}
+	if got := read(t, s, alice, "moves", "moved/here/sub/two"); got != "2" {
+		t.Errorf("moved nested file reads %q", got)
+	}
+	if _, err := s.HeadObject(alice, "moves", "dir/one"); !errors.Is(err, ErrNoSuchKey) {
+		t.Errorf("folder source remains: %v", err)
+	}
+	if got := read(t, s, alice, "moves", "dirx"); got != "not in the folder" {
+		t.Errorf("a file beside the folder was touched: %q", got)
+	}
+
+	// Refusals change nothing.
+	put(t, s, alice, "moves", "taken", "mine")
+	if _, err := s.MoveObjects(alice, "moves", "b.txt", "taken", false); !errors.Is(err, ErrDestinationExists) {
+		t.Errorf("move onto a file: %v", err)
+	}
+	if got := read(t, s, alice, "moves", "taken"); got != "mine" {
+		t.Errorf("the destination was changed: %q", got)
+	}
+	if _, err := s.MoveObjects(alice, "moves", "moved", "moved/inside", false); !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("move into itself: %v", err)
+	}
+	if _, err := s.MoveObjects(alice, "moves", "nothing", "else", false); !errors.Is(err, ErrNoSuchKey) {
+		t.Errorf("move of nothing: %v", err)
+	}
+	if _, err := s.MoveObjects(alice, "moves", "b.txt", "../x", false); !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("move to an invalid key: %v", err)
+	}
+	if _, err := s.MoveObjects(bob, "moves", "b.txt", "c", false); !errors.Is(err, ErrNoSuchBucket) {
+		t.Errorf("move by a stranger: %v", err)
+	}
+
+	// Overwrite replaces.
+	if n, err := s.MoveObjects(alice, "moves", "b.txt", "taken", true); err != nil || n != 1 {
+		t.Fatalf("overwrite: %d, %v", n, err)
+	}
+	if got := read(t, s, alice, "moves", "taken"); got != "alpha" {
+		t.Errorf("overwritten file reads %q", got)
+	}
+
+	// A reader cannot move files.
+	s.SetGrant(alice, "moves", Grant{Type: GrantUser, Id: "bob", Access: GrantRead})
+	if _, err := s.MoveObjects(bob, "moves", "taken", "bobs", false); !errors.Is(err, ErrAccessDenied) {
+		t.Errorf("move by a reader: %v", err)
+	}
+	if got := read(t, s, bob, "moves", "taken"); got != "alpha" {
+		t.Errorf("reader's failed move changed the file: %q", got)
 	}
 }
 
@@ -1576,4 +1649,68 @@ func TestNoSync(t *testing.T) {
 func (s *Store) forgetContent(sha string) {
 	s.db.Update(func(txn *badger.Txn) error { return txn.Delete(shaKey('c', sha)) })
 	s.blobs.remove(sha)
+}
+
+// Changes are reported once they settle, as one list of the buckets that
+// changed, whether they were made here or arrived from another server.
+func TestChangedReports(t *testing.T) {
+	type report struct{ ids []string }
+	reports := make(chan report, 16)
+	s, err := Open(Config{Dir: t.TempDir(), NodeId: "node-chg", Changed: func(ids []string) {
+		sort.Strings(ids)
+		reports <- report{ids}
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var once sync.Once
+	closeStore := func() { once.Do(s.Close) }
+	defer closeStore()
+	next := func(wait time.Duration) (report, bool) {
+		select {
+		case r := <-reports:
+			return r, true
+		case <-time.After(wait):
+			return report{}, false
+		}
+	}
+
+	mustCreate(t, s, alice, "first")
+	mustCreate(t, s, alice, "second")
+	for i := 0; i < 20; i++ {
+		put(t, s, alice, "first", fmt.Sprintf("f%d", i), "x")
+	}
+	put(t, s, alice, "second", "s", "y")
+	r, ok := next(2 * time.Second)
+	if !ok {
+		t.Fatal("no report of local changes")
+	}
+	want := []string{bid(s, "first"), bid(s, "second")}
+	sort.Strings(want)
+	if !reflect.DeepEqual(r.ids, want) {
+		t.Errorf("reported %v, want both buckets %v", r.ids, want)
+	}
+	if extra, ok := next(700 * time.Millisecond); ok {
+		t.Errorf("a burst was reported more than once: %v", extra.ids)
+	}
+
+	// A change that arrived from another server.
+	s.Merge(nil, []*Object{{BucketId: bid(s, "first"), Key: "remote", SHA256: strings.Repeat("a", 64), Size: 1, UpdatedAt: hlc.Now()}})
+	r, ok = next(2 * time.Second)
+	if !ok || !reflect.DeepEqual(r.ids, []string{bid(s, "first")}) {
+		t.Errorf("remote change reported %v, %v", r.ids, ok)
+	}
+
+	// A read changes nothing.
+	read(t, s, alice, "first", "f1")
+	if extra, ok := next(700 * time.Millisecond); ok {
+		t.Errorf("a read was reported: %v", extra.ids)
+	}
+
+	// Nothing is reported after the store is closed.
+	put(t, s, alice, "first", "late", "z")
+	closeStore()
+	if extra, ok := next(700 * time.Millisecond); ok {
+		t.Errorf("reported after close: %v", extra.ids)
+	}
 }

@@ -94,6 +94,21 @@ type FileCopyRequest struct {
 	DestKey      string `json:"dest_key"`
 }
 
+// FileMoveRequest renames a file, or a folder and everything under it, within
+// a bucket, on the server. A folder is given with or without a trailing slash.
+// Without Overwrite the move is refused if the destination holds a file.
+type FileMoveRequest struct {
+	Bucket    string `json:"bucket"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Overwrite bool   `json:"overwrite,omitempty"`
+}
+
+// FileMoveResponse says how many files were moved.
+type FileMoveResponse struct {
+	Moved int `json:"moved"`
+}
+
 // FileShareTargets lists who a bucket can be shared with.
 type FileShareTargets struct {
 	Users  []FileShareUser  `json:"users"`
@@ -223,6 +238,15 @@ func (c *ApiClient) CopyFileObject(ctx context.Context, req FileCopyRequest) (*F
 	response := &FileObjectInfo{}
 	_, err := c.httpClient.Post(ctx, "/api/files/copy", &req, response, 200)
 	return response, err
+}
+
+// MoveFileObjects renames a file, or a folder and its contents, within a
+// bucket, on the server and without transferring any content. It returns how
+// many files moved.
+func (c *ApiClient) MoveFileObjects(ctx context.Context, req FileMoveRequest) (int, error) {
+	response := &FileMoveResponse{}
+	_, err := c.httpClient.Post(ctx, "/api/files/move", &req, response, 200)
+	return response.Moved, err
 }
 
 // FilesFsck asks the server to check file storage, with no time limit as a

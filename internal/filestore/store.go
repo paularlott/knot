@@ -78,6 +78,12 @@ type Config struct {
 	// been deleted, and remove them.
 	OwnerState OwnerFunc
 
+	// Changed, when set, is told which buckets had files or settings change,
+	// whether by this server or another, so a page showing them can update.
+	// Changes are gathered for a moment and reported together; a nil list
+	// means too many buckets changed to name.
+	Changed func(bucketIds []string)
+
 	// NoSync skips the fsync of writes, so a crash or power loss can lose the
 	// last moments of writes. It is for tests and tools; a server always
 	// makes a write durable before it is reported done.
@@ -172,6 +178,11 @@ type Store struct {
 	replMu sync.RWMutex
 	repl   Replicator
 
+	onChanged func(bucketIds []string)
+	chMu      sync.Mutex
+	chIds     map[string]struct{}
+	chTimer   *time.Timer
+
 	bcMu      sync.Mutex
 	bcBuckets []*Bucket
 	bcObjects []*Object
@@ -221,6 +232,7 @@ func Open(cfg Config) (*Store, error) {
 		quota:       cfg.Quota,
 		bucketLimit: cfg.BucketLimit,
 		ownerState:  cfg.OwnerState,
+		onChanged:   cfg.Changed,
 		logger:      log.WithGroup("files"),
 		buckets:     make(map[string]*Bucket),
 		owned:       make(map[string]map[string]struct{}),
@@ -294,6 +306,13 @@ func (s *Store) Close() {
 	s.closed = true
 	s.bgMu.Unlock()
 	close(s.stop)
+	s.chMu.Lock()
+	if s.chTimer != nil {
+		s.chTimer.Stop()
+		s.chTimer = nil
+	}
+	s.onChanged = nil
+	s.chMu.Unlock()
 	s.fetcher.close()
 	s.wg.Wait()
 
@@ -330,8 +349,59 @@ func (s *Store) replicator() Replicator {
 	return s.repl
 }
 
+const (
+	// changeDebounce is how long changes are gathered before they are reported.
+	changeDebounce = 300 * time.Millisecond
+	// changeMaxIds is how many buckets are named in one report.
+	changeMaxIds = 100
+)
+
+// noteChanged records that buckets or files changed, to be reported to
+// Config.Changed once the changes have settled. It costs nothing without one.
+func (s *Store) noteChanged(buckets []*Bucket, objects []*Object) {
+	if len(buckets) == 0 && len(objects) == 0 {
+		return
+	}
+	s.chMu.Lock()
+	defer s.chMu.Unlock()
+	if s.onChanged == nil {
+		return
+	}
+	if s.chIds == nil {
+		s.chIds = map[string]struct{}{}
+	}
+	for _, b := range buckets {
+		s.chIds[b.Id] = struct{}{}
+	}
+	for _, o := range objects {
+		s.chIds[o.BucketId] = struct{}{}
+	}
+	if s.chTimer == nil {
+		s.chTimer = time.AfterFunc(changeDebounce, s.reportChanged)
+	}
+}
+
+func (s *Store) reportChanged() {
+	s.chMu.Lock()
+	fn := s.onChanged
+	ids := make([]string, 0, len(s.chIds))
+	for id := range s.chIds {
+		ids = append(ids, id)
+	}
+	s.chIds, s.chTimer = nil, nil
+	s.chMu.Unlock()
+	if fn == nil {
+		return
+	}
+	if len(ids) > changeMaxIds {
+		ids = nil
+	}
+	fn(ids)
+}
+
 // broadcast queues changed records to be gossiped by the broadcaster.
 func (s *Store) broadcast(buckets []*Bucket, objects []*Object) {
+	s.noteChanged(buckets, objects)
 	if s.replicator() == nil {
 		return
 	}
@@ -1070,7 +1140,7 @@ func (s *Store) Merge(buckets []*Bucket, objects []*Object) {
 	if err != nil {
 		s.fail("failed to apply objects", err)
 	}
-	_ = changedO
+	s.noteChanged(nil, changedO)
 	s.flushUnlinks()
 }
 

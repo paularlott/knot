@@ -108,6 +108,7 @@ func (s *Store) RestoreObjects(objects []*Object) (int, error) {
 	s.mu.RLock()
 	changed, err := s.applyObjects(ops)
 	s.mu.RUnlock()
+	s.noteChanged(nil, changed)
 	s.flushUnlinks()
 	return len(changed), err
 }

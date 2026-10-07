@@ -64,6 +64,7 @@ var (
 	ErrStoreInUse         = errors.New("file storage directory is in use by another process")
 	ErrUnavailable        = errors.New("object content is not available on any reachable server")
 	ErrPrecondition       = errors.New("the file has changed since it was read")
+	ErrDestinationExists  = errors.New("a file already exists at the destination")
 )
 
 // Limits that keep every record small, so a page of records always fits in
