@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}API Tokens{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="apiTokensComponent()" x-init="getTokens">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="apiTokensComponent({{ .permissionBackup }})" x-init="getTokens">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="col-span-full">

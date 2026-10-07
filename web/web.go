@@ -662,6 +662,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"hideAPITokens":                       cfg.UI.HideAPITokens,
 		"useGravatar":                         cfg.UI.EnableGravatar,
 		"adminSectionActive":                  isAdminPath(r.URL.Path, cfg.LeafNode),
+		"permissionBackup":                    user.HasPermission(model.PermissionBackup),
 		"permissionManageUsers":               user.HasPermission(model.PermissionManageUsers),
 		"permissionManageGroups":              user.HasPermission(model.PermissionManageGroups),
 		"permissionManageRoles":               user.HasPermission(model.PermissionManageRoles),

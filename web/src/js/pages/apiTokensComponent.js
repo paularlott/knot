@@ -1,7 +1,9 @@
 import Alpine from "alpinejs";
 import { focus } from "../focus.js";
 
-window.apiTokensComponent = function () {
+// canBackup is whether the user holds the Backup Server permission: only then
+// is a backup-scoped token any use to them, so only then is the scope offered.
+window.apiTokensComponent = function (canBackup) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
@@ -13,7 +15,7 @@ window.apiTokensComponent = function () {
   //   value: the scope string stored in the DB
   //   label: human-readable label for the checkbox
   //   description: short help text
-  const availableScopes = [
+  const allScopes = [
     {
       value: "methods",
       label: "Methods",
@@ -41,13 +43,18 @@ window.apiTokensComponent = function () {
     },
   ];
 
+  // The scopes this user may choose. Existing tokens are still labelled from
+  // allScopes.
+  const availableScopes = allScopes.filter((s) => s.value !== "backup" || canBackup);
+
   // Helper: build a scope-checkbox state object from the available scopes,
   // defaulting to all checked (scoped mode assumes you want every scope
-  // unless you explicitly untick one). Called for form initialization.
+  // unless you explicitly untick one) except backup, which is never on by
+  // default as it reaches every user's data. Called for form initialization.
   function defaultScopeState() {
     const state = {};
     availableScopes.forEach((s) => {
-      state[s.value] = true;
+      state[s.value] = s.value !== "backup";
     });
     return state;
   }
@@ -65,6 +72,7 @@ window.apiTokensComponent = function () {
     loading: true,
     tokens: [],
     availableScopes,
+    allScopes,
 
     // Create modal state
     tokenFormModal: { show: false },
@@ -185,7 +193,7 @@ window.apiTokensComponent = function () {
       }
       return token.scopes
         .map((s) => {
-          const match = this.availableScopes.find((a) => a.value === s);
+          const match = this.allScopes.find((a) => a.value === s);
           return match ? match.label : s;
         })
         .join(", ");
@@ -197,7 +205,7 @@ window.apiTokensComponent = function () {
         return [];
       }
       return token.scopes.map((s) => {
-        const match = this.availableScopes.find((a) => a.value === s);
+        const match = this.allScopes.find((a) => a.value === s);
         return match ? match.label : s;
       });
     },
