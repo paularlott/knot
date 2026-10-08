@@ -15,14 +15,14 @@
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Cluster information" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
-          <thead class="bg-gray-100 dark:bg-gray-700">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Node</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">State</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden md:table-cell">Zone</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden lg:table-cell">Endpoint</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden sm:table-cell">Node Spaces</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden xl:table-cell">Local Runtimes</th>
+              <th scope="col" class="px-4 py-3 text-left">Node</th>
+              <th scope="col" class="px-4 py-3 text-left">State</th>
+              <th scope="col" class="px-4 py-3 text-left hidden md:table-cell">Zone</th>
+              <th scope="col" class="px-4 py-3 text-left hidden lg:table-cell">Endpoint</th>
+              <th scope="col" class="px-4 py-3 text-left hidden sm:table-cell">Node Spaces</th>
+              <th scope="col" class="px-4 py-3 text-left hidden xl:table-cell">Local Runtimes</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">

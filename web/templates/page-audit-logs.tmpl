@@ -26,14 +26,14 @@
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Audit logs" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
-          <thead class="bg-gray-100 dark:bg-gray-700">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Time</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Event</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Zone</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">User</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Details</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Properties</th>
+              <th scope="col" class="px-4 py-3 text-left">Time</th>
+              <th scope="col" class="px-4 py-3 text-left">Event</th>
+              <th scope="col" class="px-4 py-3 text-left">Zone</th>
+              <th scope="col" class="px-4 py-3 text-left">User</th>
+              <th scope="col" class="px-4 py-3 text-left">Details</th>
+              <th scope="col" class="px-4 py-3 text-left">Properties</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
