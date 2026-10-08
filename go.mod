@@ -26,10 +26,10 @@ require (
 	github.com/paularlott/cli v0.9.2
 	github.com/paularlott/gossip v0.23.0
 	github.com/paularlott/jsonrpc v0.2.0
-	github.com/paularlott/lmchatkit v0.11.0
+	github.com/paularlott/lmchatkit v0.12.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.31.0
-	github.com/paularlott/scriptling v0.29.0
+	github.com/paularlott/mcp v0.32.0
+	github.com/paularlott/scriptling v0.30.0
 	github.com/pkg/sftp v1.13.11
 	github.com/shamaton/msgpack/v3 v3.2.3
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -38,8 +38,8 @@ require (
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.6
 	golang.org/x/crypto v0.57.0
-	golang.org/x/exp v0.0.0-20261005173118-76772065c9b0
-	golang.org/x/net v0.59.0
+	golang.org/x/exp v0.0.0-20261007192929-f45ad48fbe92
+	golang.org/x/net v0.60.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/term v0.46.0
 	gopkg.in/yaml.v3 v3.0.1

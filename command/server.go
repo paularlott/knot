@@ -783,10 +783,10 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:         "chat-provider",
-			Usage:        "LLM provider for chat functionality (openai, claude, gemini, ollama, mistral, zai).",
+			Usage:        "LLM provider for chat (openai, claude, gemini, ollama, mistral, zai, grok); base_url defaults to the provider's API. Ignored when chat-type is set.",
 			ConfigPath:   []string{"server.chat.provider"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_PROVIDER"},
-			DefaultValue: "openai",
+			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-api-key",
@@ -804,10 +804,10 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:         "chat-type",
-			Usage:        "AI API type (openai, anthropic, google, ollama). Determines the protocol used to communicate with the LLM.",
+			Usage:        "AI API protocol (openai, anthropic, google, ollama, xai) for the endpoint at chat-base-url. Takes precedence over chat-provider.",
 			ConfigPath:   []string{"server.chat.type"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TYPE"},
-			DefaultValue: "openai",
+			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
@@ -1564,6 +1564,71 @@ func absPath(v string) string {
 	return v
 }
 
+// chatProviderForType maps the user-facing chat API type to the MCP
+// package's provider name; unknown types are OpenAI-compatible.
+func chatProviderForType(chatType string) string {
+	switch chatType {
+	case "anthropic":
+		return string(ai.ProviderClaude)
+	case "google":
+		return string(ai.ProviderGemini)
+	case "ollama":
+		return string(ai.ProviderOllama)
+	case "xai", "grok":
+		return string(ai.ProviderGrok)
+	default:
+		return string(ai.ProviderOpenAI)
+	}
+}
+
+// chatProviderBaseURLs are the default base URLs for chat providers, used
+// when only a provider is configured.
+var chatProviderBaseURLs = map[string]string{
+	string(ai.ProviderOpenAI):  "https://api.openai.com/v1",
+	string(ai.ProviderClaude):  "https://api.anthropic.com/v1",
+	string(ai.ProviderGemini):  "https://generativelanguage.googleapis.com/v1beta",
+	string(ai.ProviderOllama):  "http://127.0.0.1:11434/v1",
+	string(ai.ProviderMistral): "https://api.mistral.ai/v1",
+	string(ai.ProviderZAi):     "https://api.z.ai/api/paas/v4",
+	string(ai.ProviderGrok):    "https://api.x.ai/v1",
+}
+
+// localChatBaseURL is where an OpenAI-compatible chat endpoint is assumed to
+// be when neither a provider nor a base URL is configured.
+const localChatBaseURL = "http://127.0.0.1:11434/v1"
+
+// resolveChatEndpoint works out the chat provider and base URL from the
+// config:
+//   - type: the API protocol of the endpoint at base_url (precedence over
+//     provider). Without a base_url, the OpenAI and Ollama protocols assume a
+//     local server, as before; others use their provider's default.
+//   - provider alone: that provider, at its default base URL unless base_url
+//     overrides it.
+//   - neither: an OpenAI-compatible server on localhost.
+func resolveChatEndpoint(chatType, provider, baseURL string) (string, string) {
+	switch {
+	case chatType != "":
+		provider = chatProviderForType(chatType)
+		if baseURL == "" {
+			if provider == string(ai.ProviderOpenAI) || provider == string(ai.ProviderOllama) {
+				baseURL = localChatBaseURL
+			} else {
+				baseURL = chatProviderBaseURLs[provider]
+			}
+		}
+	case provider != "":
+		if baseURL == "" {
+			baseURL = chatProviderBaseURLs[provider]
+		}
+	default:
+		provider = string(ai.ProviderOpenAI)
+		if baseURL == "" {
+			baseURL = localChatBaseURL
+		}
+	}
+	return provider, baseURL
+}
+
 func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger := log.WithGroup("server")
 
@@ -1776,19 +1841,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 				UIStyle:          cmd.GetString("chat-ui-style"),
 			}
 
-			// Map the user-facing type to the MCP package's internal provider name.
-			// Type is the canonical field; Provider is set from it for backwards compat.
-			switch chatCfg.Type {
-			case "anthropic":
-				chatCfg.Provider = string(ai.ProviderClaude)
-			case "google":
-				chatCfg.Provider = string(ai.ProviderGemini)
-			case "ollama":
-				chatCfg.Provider = string(ai.ProviderOllama)
-			default:
-				chatCfg.Provider = string(ai.ProviderOpenAI)
-			}
-
 			// Fallback to deprecated openai_* keys if new keys are not set
 			if chatCfg.APIKey == "" && chatCfg.OpenAIAPIKey != "" {
 				chatCfg.APIKey = chatCfg.OpenAIAPIKey
@@ -1797,10 +1849,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 				chatCfg.BaseURL = chatCfg.OpenAIBaseURL
 			}
 
-			// Default base URL for openai/ollama if still empty
-			if chatCfg.BaseURL == "" && (chatCfg.Provider == string(ai.ProviderOpenAI) || chatCfg.Provider == string(ai.ProviderOllama)) {
-				chatCfg.BaseURL = "http://127.0.0.1:11434/v1"
-			}
+			chatCfg.Provider, chatCfg.BaseURL = resolveChatEndpoint(chatCfg.Type, chatCfg.Provider, chatCfg.BaseURL)
 
 			return chatCfg
 		}(),

@@ -89,7 +89,7 @@ def configure(url, token, insecure=False, ai_url="", ai_token="", ai_model="", a
         ai_url: AI endpoint URL (default: url + "/v1")
         ai_token: AI access token (default: same as token)
         ai_model: Default AI model name (default: "")
-        ai_provider: AI provider type - openai, claude, gemini, ollama, mistral (default: "openai")
+        ai_provider: AI provider type - openai, claude, gemini, ollama, mistral, zai, grok (default: "openai")
 
     Returns:
         True if configuration was successful

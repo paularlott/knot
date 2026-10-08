@@ -28,7 +28,7 @@ export const knotLibraries = [
       {
         "name": "configure",
         "signature": "configure(url, token, insecure, ai_url, ai_token, ai_model, ai_provider)",
-        "description": "Configure the API client for use outside the knot runtime (spaces and server scripts get it pre-configured). ai_url defaults to url + \"/v1\", ai_token to token; ai_provider is openai, claude, gemini, ollama or mistral",
+        "description": "Configure the API client for use outside the knot runtime (spaces and server scripts get it pre-configured). ai_url defaults to url + \"/v1\", ai_token to token; ai_provider is openai, claude, gemini, ollama, mistral, zai or grok",
         "returns": "bool"
       },
       {

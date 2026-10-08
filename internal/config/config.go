@@ -260,7 +260,7 @@ type MCPConfig struct {
 
 type ChatConfig struct {
 	Enabled          bool
-	Type             string // API type: openai, anthropic, google, ollama. Defaults to openai. Maps to Provider.
+	Type             string // API protocol of the endpoint at BaseURL: openai, anthropic, google, ollama, xai. Takes precedence over Provider.
 	Provider         string
 	APIKey           string
 	BaseURL          string

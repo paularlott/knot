@@ -577,7 +577,7 @@ const scriptlingLibraries = [
       {
         name: "tool_calls",
         signature: "tool_calls(response_or_message)",
-        description: "Extract normalized tool calls from a completion response, message dict, or tool call list.",
+        description: "Extract normalized tool calls from a completion response, Responses API response, message dict, or tool call list. For a Responses API response each id is the call_id.",
         returns: "list[dict[str, Any]] - List of normalized tool call dicts with id, type, and function fields",
       },
       {
@@ -585,6 +585,12 @@ const scriptlingLibraries = [
         signature: "execute_tool_calls(registry, tool_calls)",
         description: "Execute normalized tool calls using handlers from a ToolRegistry.",
         returns: "list[dict[str, Any]] - List of tool result message dicts with role, tool_call_id, and content",
+      },
+      {
+        name: "tool_outputs",
+        signature: "tool_outputs(tool_results)",
+        description: "Convert tool results from execute_tool_calls() into Responses API input items.",
+        returns: "list[dict[str, Any]] - List of function_call_output dicts with call_id and output",
       },
       {
         name: "collect_stream",
@@ -689,8 +695,14 @@ const scriptlingLibraries = [
             returns: "dict[str, Any] - Response dict with object and data fields. data contains the model list.",
           },
           {
+            name: "supports",
+            signature: "supports(capability)",
+            description: "Check a client capability.",
+            returns: "bool - True if supported",
+          },
+          {
             name: "response_create",
-            signature: "response_create(model, input, system_prompt=None, background=False, extra_body=None)",
+            signature: "response_create(model, input, system_prompt=None, instructions=None, previous_response_id=None, tools=None, store=True, background=False, extra_body=None)",
             description: "Create a response using the OpenAI Responses API.",
             returns: "dict[str, Any] - Response object with id, status, output, usage, etc.",
           },
@@ -714,15 +726,15 @@ const scriptlingLibraries = [
           },
           {
             name: "response_stream",
-            signature: "response_stream(model, input, system_prompt=None, extra_body=None)",
+            signature: "response_stream(model, input, system_prompt=None, instructions=None, previous_response_id=None, tools=None, store=True, extra_body=None)",
             description: "Stream a response using the Responses API.",
             returns: "ResponseStream - ResponseStream object with a next() method",
           },
           {
             name: "response_compact",
-            signature: "response_compact(id)",
-            description: "Compact a response by removing intermediate reasoning steps.",
-            returns: "dict[str, Any] - Compacted response object with reasoning removed",
+            signature: "response_compact(model, previous_response_id=None, input=None, instructions=None)",
+            description: "Compact a conversation into a short output to continue from.",
+            returns: "dict[str, Any] - Compaction dict with id, object (\"response.compaction\"), output and usage",
           },
           {
             name: "embedding",
@@ -798,6 +810,10 @@ const scriptlingLibraries = [
       },
       {
         name: "MISTRAL",
+        description: "str",
+      },
+      {
+        name: "GROK",
         description: "str",
       },
     ],
