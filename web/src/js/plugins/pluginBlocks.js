@@ -377,7 +377,7 @@ export function renderBlock(block, hooks) {
       (block.columns || []).forEach((col) => {
         const th = document.createElement('th');
         th.scope = 'col';
-        th.className = 'px-4 py-3 text-xs font-medium tracking-wider text-left uppercase';
+        th.className = 'px-4 py-3';
         th.textContent = col.label;
         head.appendChild(th);
       });
@@ -387,7 +387,7 @@ export function renderBlock(block, hooks) {
         tr.className = 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10';
         block.columns.forEach((col, index) => {
           const td = tr.insertCell();
-          td.className = 'px-4 py-3 align-top text-gray-700 dark:text-gray-200';
+          td.className = 'px-4 py-3';
           const value = row[col.key];
           if (col.badge) {
             td.classList.add('whitespace-nowrap');

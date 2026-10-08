@@ -8,7 +8,7 @@ import (
 )
 
 // TemplateExport is the portable YAML representation of a template. It can be
-// exported via `knot template export` and imported via `knot template import`.
+// exported via `knot admin template export` and imported via `knot admin template import`.
 // Scripts are referenced by name (not UUID) so exports are portable across
 // instances. Template variables (${{ .X }}) in job/volumes are preserved
 // verbatim — they resolve at deploy time.

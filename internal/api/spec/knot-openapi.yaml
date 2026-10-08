@@ -3770,7 +3770,7 @@ paths:
   /api/templates/{template_id}/export:
     get:
       summary: Export a Template as Portable YAML
-      description: Returns a portable YAML representation of a template suitable for version control and cross-instance import.
+      description: Returns a portable YAML representation of a template suitable for version control and cross-instance import. Requires the manage templates permission.
       operationId: exportTemplate
       tags: [Templates]
       parameters:
@@ -3789,6 +3789,8 @@ paths:
                 type: string
         "401":
           $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
         "404":
           $ref: "#/components/responses/not-found"
         "500":

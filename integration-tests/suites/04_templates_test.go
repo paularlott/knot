@@ -122,10 +122,11 @@ func TestTemplatesCRUD(t *testing.T) {
 	_ = strings.TrimSpace
 }
 
-// TestTemplateExportAuthorization proves the export endpoint enforces the
-// same visibility as the read path: a template restricted to a group the
-// caller is not in 404s on both, while templates the caller can see — and
-// everything for template managers — still export.
+// TestTemplateExportAuthorization proves the export and import endpoints
+// require the template-manage permission: users without it get 403 for any
+// template — visible or group-restricted, by id or by name; the check runs
+// before lookups, so template existence isn't leaked either. Template
+// managers can export any template.
 func TestTemplateExportAuthorization(t *testing.T) {
 	harness.Feature(t, "templates")
 	ctx, cancel := testCtx(30)
@@ -168,19 +169,27 @@ func TestTemplateExportAuthorization(t *testing.T) {
 		t.Fatal("user1 read a group-restricted template")
 	}
 
-	// The export must not bypass that visibility — job YAML can carry
-	// registry credentials and secret env entries.
-	if _, code, err := user1.Client.ExportTemplate(ctx, hiddenId); err == nil || code != 404 {
+	// user1 has no manage permission: every export is refused, whether the
+	// template is one they can see (the shared fixture) or group-restricted,
+	// by id or by name — job YAML can carry registry credentials and secret
+	// env entries.
+	if _, code, err := user1.Client.ExportTemplate(ctx, templateId); err == nil || code != 403 {
+		t.Fatalf("user1 exported a visible template (status %d, err %v)", code, err)
+	}
+	if _, code, err := user1.Client.ExportTemplate(ctx, hiddenId); err == nil || code != 403 {
 		t.Fatalf("user1 exported a group-restricted template (status %d, err %v)", code, err)
+	}
+	if _, code, err := user1.Client.ExportTemplate(ctx, hiddenName); err == nil || code != 403 {
+		t.Fatalf("user1 exported a template by name (status %d, err %v)", code, err)
+	}
+
+	// Import is equally closed to non-managers.
+	if _, code, err := user1.Client.ImportTemplate(ctx, "name: it-denied-import"); err == nil || code != 403 {
+		t.Fatalf("user1 imported a template (status %d, err %v)", code, err)
 	}
 
 	// Template managers can export any template.
 	if _, code, err := admin.Client.ExportTemplate(ctx, hiddenId); err != nil || code != 200 {
 		t.Fatalf("admin export of restricted template: status %d, err %v", code, err)
-	}
-
-	// Templates the user can see still export.
-	if _, code, err := user1.Client.ExportTemplate(ctx, templateId); err != nil || code != 200 {
-		t.Fatalf("user1 export of a visible template: status %d, err %v", code, err)
 	}
 }

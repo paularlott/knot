@@ -160,7 +160,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
-	router.HandleFunc("GET /api/templates/{template_id}/export", middleware.ApiAuth(HandleExportTemplate))
+	router.HandleFunc("GET /api/templates/{template_id}/export", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleExportTemplate)))
 	router.HandleFunc("POST /api/templates/import", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleImportTemplate)))
 
 	// Template spec wizard (base image catalog + spec parse/build)

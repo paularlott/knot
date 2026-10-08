@@ -173,6 +173,7 @@ var AdminCmd = &cli.Command{
 		RestoreCmd,
 		FileCmd,
 		RefreshBaseImagesCmd,
+		AdminTemplateCmd,
 	},
 	PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 		var err error
