@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.27.1
+go 1.27.2
 
 //replace github.com/paularlott/gossip => ../gossip/
 
@@ -28,8 +28,8 @@ require (
 	github.com/paularlott/jsonrpc v0.2.0
 	github.com/paularlott/lmchatkit v0.12.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.32.0
-	github.com/paularlott/scriptling v0.30.0
+	github.com/paularlott/mcp v0.32.2
+	github.com/paularlott/scriptling v0.30.1
 	github.com/pkg/sftp v1.13.11
 	github.com/shamaton/msgpack/v3 v3.2.3
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -40,7 +40,7 @@ require (
 	golang.org/x/crypto v0.57.0
 	golang.org/x/exp v0.0.0-20261007192929-f45ad48fbe92
 	golang.org/x/net v0.60.0
-	golang.org/x/sys v0.48.0
+	golang.org/x/sys v0.49.0
 	golang.org/x/term v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -65,7 +65,7 @@ require (
 	github.com/paularlott/snapshotkv v0.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
-	github.com/shoenig/go-m1cpu v0.2.3 // indirect
+	github.com/shoenig/go-m1cpu v0.2.4 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
