@@ -36,6 +36,9 @@ function labelEditor(editor, scope, hostId, attrs) {
   if (label) {
     if (!label.id) label.id = hostId + '-label';
     input.setAttribute('aria-labelledby', label.id);
+    // The editor replaced the host it pointed at: a dangling for= would
+    // label nothing (aria-labelledby above names the editor instead).
+    if (hostId && !document.getElementById(hostId)) label.removeAttribute('for');
     label.addEventListener('click', (e) => {
       e.preventDefault();
       editor.focus();
