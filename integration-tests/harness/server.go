@@ -333,9 +333,7 @@ func (s *Server) Kill() {
 		s.cmd.Process.Kill()
 		s.cmd.Wait()
 	}
-	if s.logFile != nil {
-		s.logFile.Close()
-	}
+	s.cleanup()
 }
 
 // LogTail returns the last n lines of the server log for diagnostics.
@@ -377,6 +375,12 @@ func (s *Server) Stop() {
 			<-done
 		}
 	}
+	s.cleanup()
+}
+
+// cleanup closes the log and, unless the run keeps them, removes the
+// server's data dir and database once its process has exited.
+func (s *Server) cleanup() {
 	if s.logFile != nil {
 		s.logFile.Close()
 	}

@@ -67,7 +67,7 @@ func TestLeafNode(t *testing.T) {
 
 	// Leaf nodes authenticate against the replicated user store: log in
 	// with the origin's admin credentials and mint a leaf API token.
-	leafAdmin, err := harness.LoginUser(leaf, "admin", "AdminPassw0rd!")
+	leafAdmin, err := harness.LoginLeafUser(leaf, "admin", "AdminPassw0rd!")
 	if err != nil {
 		t.Fatalf("login on leaf with origin credentials: %v", err)
 	}

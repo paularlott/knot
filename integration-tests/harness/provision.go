@@ -113,6 +113,20 @@ func NewAnonClient(s *Server) *apiclient.ApiClient {
 	return c
 }
 
+// LoginLeafUser is LoginUser for a user synced from a leaf's origin server.
+// A leaf reports healthy before its first sync from the origin has finished,
+// so the login is retried until the user has arrived.
+func LoginLeafUser(s *Server, username, password string) (*User, error) {
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		user, err := LoginUser(s, username, password)
+		if err == nil || time.Now().After(deadline) {
+			return user, err
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 // LoginUser logs in as an existing user and mints an API token, returning a
 // ready-to-use client bundle.
 func LoginUser(s *Server, username, password string) (*User, error) {
