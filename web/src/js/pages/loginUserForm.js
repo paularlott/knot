@@ -34,6 +34,7 @@ window.loginUserForm = function(redirect) {
       err = !this.checkEmail() || err;
       err = !this.checkPassword() || err;
       if(err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

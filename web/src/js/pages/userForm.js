@@ -51,8 +51,6 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     fileStorageValid: true,
     maxBucketsValid: true,
     showTOTP: false,
-    resetConfirmShow: false,
-    unlinkConfirm: { show: false, providerID: '', providerName: '' },
     originalSSHPrivateKey: "",
 
     // Switch-group management (user manager only; see the Linked Users
@@ -63,7 +61,6 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     linkableUsers: [],
     linkUserForm: { userId: "", username: "" },
     linkModal: { show: false },
-    linkedUnlinkConfirm: { show: false, userId: "", username: "" },
     linkBusy: false,
 
     async initUsers() {
@@ -278,6 +275,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       err = !this.checkTz() || err;
       err = !this.checkGithubUsername() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -379,17 +377,32 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           });
         });
     },
+    confirmResetTOTP() {
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Reset TOTP?',
+        message: 'The user will need to set up TOTP again on next login.',
+        confirmLabel: 'Reset',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.resetTOTP());
+    },
     resetTOTP() {
       this.formData.totp_secret = "";
-      this.resetConfirmShow = false;
       this.submitData();
     },
     confirmUnlinkProvider(providerID, providerName) {
-      this.unlinkConfirm = { show: true, providerID, providerName };
+      const label = String(providerName || '');
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: `Unlink ${label.charAt(0).toUpperCase() + label.slice(1)}?`,
+        message: 'You will no longer be able to sign in with this account.',
+        confirmLabel: 'Unlink',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.unlinkProvider(providerID));
     },
-    async unlinkProvider() {
-      const { providerID } = this.unlinkConfirm;
-      this.unlinkConfirm.show = false;
+    async unlinkProvider(providerID) {
       const resp = await fetch(`/api/users/${userId}/auth-provider/${providerID}`, { method: 'DELETE' });
       if (resp.ok) {
         delete this.formData.external_auth_providers[providerID];
@@ -479,15 +492,18 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       }
     },
     confirmUnlinkLinkedUser(linkedUserId, linkedUsername) {
-      this.linkedUnlinkConfirm = {
-        show: true,
-        userId: linkedUserId,
-        username: linkedUsername,
-      };
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Unlink User',
+        message: `Stop ${this.formData.username} becoming {name}?`,
+        name: linkedUsername,
+        detail: 'This user will no longer be able to switch into that account; the other account is unaffected.',
+        confirmLabel: 'Unlink User',
+        cancelLabel: 'Keep Linked',
+      }).then((ok) => ok && this.unlinkLinkedUser(linkedUserId));
     },
-    async unlinkLinkedUser() {
-      const { userId: linkedUserId } = this.linkedUnlinkConfirm;
-      this.linkedUnlinkConfirm.show = false;
+    async unlinkLinkedUser(linkedUserId) {
       const response = await fetch(
         `/api/users/${userId}/linked-users/${linkedUserId}`,
         { method: "DELETE", headers: { "Content-Type": "application/json" } },

@@ -8,8 +8,8 @@
       <div class="space-y-6">
         <div>
           <label for="name" class="form-label">Name</label>
-          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="event_sink_name" x-model="formData.name">
-          <div x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="event_sink_name" x-model="formData.name">
+          <div id="name-error" x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
         </div>
         <div>
           <label for="description" class="form-label">Description</label>
@@ -27,9 +27,9 @@
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Sink Type</legend>
       <div class="space-y-6">
         <div>
-          <div class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Type</div>
+          <div id="sink-type-label" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Type</div>
           <div class="flex items-center space-x-4">
-            <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg" role="radiogroup" aria-labelledby="sink-type-label">
               <template x-for="type in [{value: 'webhook', label: 'Webhook'}, {value: 'script', label: 'Script'}, {value: 'json-rpc', label: 'JSON-RPC'}]" :key="type.value">
                 <label class="relative">
                   <input
@@ -84,9 +84,9 @@
             </div>
             <div class="description">Used to sign the webhook payload (HMAC-SHA256). Auto-generated on creation. Clear and save to generate a new one.</div>
           </div>
-          <div>
+          <div role="group" aria-labelledby="sink-headers-label">
             <div class="flex items-center gap-2 mb-2">
-              <label class="form-label mb-0">Headers</label>
+              <span id="sink-headers-label" class="form-label mb-0">Headers</span>
               <button type="button" x-on:click="addHeader()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -110,7 +110,7 @@
             </template>
           </div>
           <div>
-            <label class="form-label">Body Template</label>
+            <label for="body_template" class="form-label">Body Template</label>
             <div class="mid-editor">
               <div class="editor-wrap" id="body_template"></div>
             </div>
@@ -151,7 +151,7 @@
         <div x-show="formData.sink_type === 'json-rpc'" x-cloak class="space-y-6">
           <div class="description">JSON-RPC sinks are named formatters referenced by script methods via <code>event_sinks</code> in their TOML. The body template formats event data before passing it to the method.</div>
           <div>
-            <label class="form-label">Body Template</label>
+            <label for="jsonrpc_body_template" class="form-label">Body Template</label>
             <div class="mid-editor">
               <div class="editor-wrap" id="jsonrpc_body_template"></div>
             </div>

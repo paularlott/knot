@@ -106,6 +106,7 @@ window.userRolesForm = function (isEdit, roleId) {
       const self = this;
       err = !this.checkName() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

@@ -11,13 +11,6 @@ window.rolesListComponent = function() {
 
   return {
     loading: true,
-    deleteConfirm: {
-      show: false,
-      role: {
-        role_id: '',
-        name: '',
-      }
-    },
     roleFormModal: {
       show: false,
       isEdit: false,
@@ -103,6 +96,15 @@ window.rolesListComponent = function() {
     },
     loadRoles() {
       this.getRoles();
+    },
+    confirmDelete(r) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the role {name}?',
+        name: r.name,
+        confirmLabel: 'Delete Role',
+        cancelLabel: 'Keep Role',
+      }).then((ok) => ok && this.deleteRole(r.role_id));
     },
     async deleteRole(roleId) {
       const self = this;

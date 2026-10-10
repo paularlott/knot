@@ -20,7 +20,7 @@
           </div>
         </div>
         {{ if .permissionManageTemplates }}
-        <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
+        <button @click.prevent="$refs.panel.toggle" :aria-label="(showAll || showInactive || showLocal) ? 'Filter (filters active)' : 'Filter'"class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
           </svg>
@@ -82,7 +82,7 @@
       </div>
       <div x-show="!loading && templates.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Templates" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
               <th scope="col" class="px-4 py-3">Name & Description</th>
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Type</th>
@@ -104,7 +104,7 @@
                       <img x-show="t.icon_url && t.icon_url_exists" :src="t.icon_url" alt="Icon" class="hidden lg:block size-8" />
 
                       <div>
-                        <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="t.name"></div>
+                        <div class="text-base font-semibold text-gray-900 dark:text-white">{{ if or .permissionManageTemplates .isLeafNode }}<template x-if="!t.is_managed"><a :href="'/templates?edit=' + encodeURIComponent(t.template_id)" class="table-name-link" @click="knotEditClick($event, () => editTemplate(t.template_id))"><span class="sr-only">Edit template </span><span x-text="t.name"></span></a></template><template x-if="!(!t.is_managed)"><span x-text="t.name"></span></template>{{ else }}<span x-text="t.name"></span>{{ end }}</div>
                         <div class="text-xs text-gray-500 dark:text-gray-400" x-text="t.description"></div>
 
                         <!-- Mobile-only resource info -->
@@ -139,7 +139,7 @@
                               <div class="flex flex-wrap gap-1 mt-1">
                                 <template x-for="index in 7" :key="index">
                                   <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
-                                    <span @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400" x-text="getDayOfWeek(index % 7).substring(0,3)"></span>
+                                    <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
                                     <div x-ref="panel" x-float.teleport.placement.bottom-start.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                                       <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
                                     </div>
@@ -250,7 +250,7 @@
                           <div class="flex flex-wrap gap-1 mt-1">
                             <template x-for="index in 7" :key="index">
                               <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
-                                <span @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400 cursor-pointer" x-text="getDayOfWeek(index % 7).substring(0,3)"></span>
+                                <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
                                 <div x-ref="panel" x-float.teleport.placement.bottom-center.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                                   <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
                                 </div>
@@ -338,41 +338,41 @@
                               </button>
                               {{ end }}
                             </div>
-                            <button @click="$refs.panel.toggle" class="row-action-menu-trigger" type="button" :aria-label="'More actions for template ' + t.name" aria-haspopup="menu">
+                            <button @click="$refs.panel.toggle" class="row-action-menu-trigger" type="button" :aria-label="'More actions for template ' + t.name">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true" >
                                 <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
                               </svg><span class="sr-only">More</span>
                             </button>
 
-                            <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" role="menu" x-cloak>
+                            <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                               {{ if not .disableSpaceCreate }}
-                              <button x-show="t.active" x-cloak @click="$refs.panel.close; createSpaceFromTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full xl:hidden" role="menuitem">
+                              <button x-show="t.active" x-cloak @click="$refs.panel.close; createSpaceFromTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full xl:hidden">
                                 <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
                                   <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
                                 </svg> Create Space
                               </button>
                               {{ end }}
                               {{ if or .permissionManageTemplates .isLeafNode}}
-                              <button @click="$refs.panel.close; editTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full xl:hidden" role="menuitem">
+                              <button @click="$refs.panel.close; editTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full xl:hidden">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                                   <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                 </svg> Edit
                               </button>
-                              <button @click="$refs.panel.close; duplicateTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                              <button @click="$refs.panel.close; duplicateTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                                   <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
                                 </svg> Duplicate
                               </button>
                               {{ end }}
                               <hr x-show="t.usage === 0" x-cloak class="my-2" />
-                              <button x-show="t.usage === 0" x-cloak @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.template = t" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300" role="menuitem">
+                              <button x-show="t.usage === 0" x-cloak @click="$refs.panel.close; confirmDelete(t)" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                                   <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                 </svg> Delete
                               </button>
                               {{ if and (not .disableSpaceCreate) (not .isLeafNode) }}
                               <hr x-show="canManageSpaces && t.active" x-cloak class="my-2" />
-                              <button x-show="t.active" x-show="canManageSpaces" x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                              <button x-show="t.active && canManageSpaces" x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="group nav-item text-sm px-4 w-full">
                                 <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" >
                                   <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
                                 </svg> Create For &hellip;
@@ -416,11 +416,11 @@
 
             <div x-show="canManageSpaces">
               <div x-data="autocompleterUser()" x-init="setDataSource('users')" data-parent-var-group="chooseUser" data-parent-variable="forUserId" @refresh-autocompleter.window="refresh()" class="relative mt-2">
-                <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+                <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" :aria-invalid="chooseUser.invalidUser || chooseUser.invalidTemplate ? 'true' : 'false'" :aria-describedby="chooseUser.invalidUser ? 'choose-user-error' : (chooseUser.invalidTemplate ? 'choose-user-template-error' : null)" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
                 <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
-                  <ul class="list-none">
+                  <ul class="list-none" role="listbox" aria-label="Users">
                     <template x-for="(option, index) in filteredOptions" :key="index">
-                      <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
+                      <li @click="selectOption(option)" role="option" :aria-selected="selectedIndex === index ? 'true' : 'false'" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
                         {{ if .useGravatar }}
                         <img :src="showList ? `https://www.gravatar.com/avatar/${MD5(option.email)}?s=64&d=mp` : 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2020%2020%22%3E%3Ccircle%20cx=%2210%22%20cy=%2210%22%20r=%2210%22%20fill=%22%23d1d5db%22/%3E%3C/svg%3E'" alt="User Avatar" class="size-5 rounded-full mr-2">
                         {{ end }}
@@ -431,48 +431,14 @@
                 </div>
               </div>
             </div>
-            <div x-show="chooseUser.invalidUser" class="error-message" x-cloak>Select a valid user.</div>
-            <div x-show="chooseUser.invalidTemplate" class="error-message" x-cloak>The selected user can't create a space from the chosen template.</div>
+            <div id="choose-user-error" x-show="chooseUser.invalidUser" class="error-message" x-cloak>Select a valid user.</div>
+            <div id="choose-user-template-error" x-show="chooseUser.invalidTemplate" class="error-message" x-cloak>The selected user can't create a space from the chosen template.</div>
 
           </div>
           <!-- Dialog Footer -->
           <div class="ui-modal-footer rounded-b-2xl">
               <button @click="chooseUser.show = false" type="button" class="ui-button-secondary">Cancel</button>
               <button @click="createSpaceAs" type="button" class="ui-button-primary">Create Space</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Modal delete -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
-        <!-- Modal Dialog -->
-        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-          <!-- Dialog Header -->
-          <div class="ui-modal-header">
-            <div class="ui-modal-icon-danger">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
-                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-            </div>
-            <h3 id="deleteConfirmTitle" class="ui-modal-title">Confirm Delete</h3>
-            <button @click="deleteConfirm.show = false;" aria-label="close modal" class="ui-modal-close">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <!-- Dialog Body -->
-          <div class="ui-modal-body text-center">
-            <p>Are you sure you want to delete the template <strong x-text="deleteConfirm.template.name"></strong>?</p>
-          </div>
-          <!-- Dialog Footer -->
-          <div class="ui-modal-footer">
-              <button @click="deleteConfirm.show = false" type="button" class="ui-button-secondary">Keep Template</button>
-              <button @click="deleteTemplate(deleteConfirm.template.template_id); deleteConfirm.show = false" type="button" class="ui-button-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                </svg> Delete Template
-              </button>
           </div>
         </div>
       </div>

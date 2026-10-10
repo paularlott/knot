@@ -13,8 +13,8 @@
         </div>
 
         <div>
-          <label class="form-label">Transport Type</label>
-          <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+          <span id="mcp-transport-label" class="form-label">Transport Type</span>
+          <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit" role="radiogroup" aria-labelledby="mcp-transport-label">
             <template x-for="transport in ['HTTP(S)', 'Stdio']" :key="transport">
               <label class="relative">
                 <input
@@ -113,7 +113,7 @@
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Options</legend>
       <div class="space-y-6">
         <div>
-          <label class="form-label">Tool Visibility</label>
+          <label for="tool_visibility" class="form-label">Tool Visibility</label>
           <select id="tool_visibility" x-model="formData.tool_visibility" class="form-field">
             <option value="native">Native (tools visible in tools/list)</option>
             <option value="discoverable">Discoverable (tools only via tool_search)</option>

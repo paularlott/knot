@@ -19,7 +19,7 @@
             <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
           </div>
         </div>
-        <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
+        <button @click.prevent="$refs.panel.toggle" :aria-label="((canAccessOwn && !showMyCommands) || (canAccessGlobal && !showGlobalCommands) || showAllZones || !showLocalCommands) ? 'Filter (filters active)' : 'Filter'"class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
           </svg>
@@ -99,7 +99,7 @@
       </div>
       <div x-show="!loading && commands.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Slash Commands" class="w-full text-sm text-left rtl:text-right">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
               <th scope="col" class="px-4 py-3">Name & Description</th>
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Owner</th>
@@ -114,7 +114,7 @@
               <template x-if="!c.searchHide">
                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <td class="px-4 py-3">
-                    <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="'/' + c.name"></div>
+                    <div class="text-base font-semibold text-gray-900 dark:text-white"><template x-if="canEditCommand(c)"><a :href="'/commands?edit=' + encodeURIComponent(c.command_id)" class="table-name-link" @click="knotEditClick($event, () => editCommand(c.command_id))"><span class="sr-only" x-text="canActuallyEditCommand(c) ? 'Edit command ' : 'View command '"></span><span x-text="'/' + c.name"></span></a></template><template x-if="!(canEditCommand(c))"><span x-text="'/' + c.name"></span></template></div>
                     <div class="text-xs text-gray-500 dark:text-gray-400" x-text="c.description"></div>
                   </td>
                   <td class="px-4 py-3 align-middle hidden md:table-cell">
@@ -164,7 +164,7 @@
                           <span class="sr-only" x-text="!canActuallyEditCommand(c) ? 'View read-only' : 'Edit'"></span>
                         </button>
                         <template x-if="canDeleteCommand(c)">
-                          <button @click="deleteConfirm.show = true; deleteConfirm.command = c" class="row-action-button row-action-danger" type="button" :aria-label="'Delete command ' + c.name" title="Delete">
+                          <button @click="confirmDelete(c)" class="row-action-button row-action-danger" type="button" :aria-label="'Delete command ' + c.name" title="Delete">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                             </svg>
@@ -172,14 +172,14 @@
                           </button>
                         </template>
                       </div>
-                      <button @click="$refs.panel.toggle" class="row-action-menu-trigger xl:hidden" type="button" :aria-label="'More actions for command ' + c.name" aria-haspopup="menu">
+                      <button @click="$refs.panel.toggle" class="row-action-menu-trigger xl:hidden" type="button" :aria-label="'More actions for command ' + c.name">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true">
                           <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
                         </svg><span class="sr-only">More</span>
                       </button>
 
-                      <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap xl:hidden" role="menu" x-cloak>
-                        <button @click="$refs.panel.close; editCommand(c.command_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap xl:hidden" x-cloak>
+                        <button @click="$refs.panel.close; editCommand(c.command_id)" class="group nav-item text-sm px-4 w-full">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                           </svg> <span x-text="!canActuallyEditCommand(c) ? 'View (Read-only)' : 'Edit'"></span>
@@ -188,7 +188,7 @@
                           <hr class="my-2" />
                         </template>
                         <template x-if="canDeleteCommand(c)">
-                          <button @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.command = c" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300" role="menuitem">
+                          <button @click="$refs.panel.close; confirmDelete(c)" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                             </svg> Delete
@@ -202,32 +202,6 @@
             </template>
           </tbody>
         </table>
-      </div>
-
-      <!-- Delete Modal -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitleCmd">
-        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-          <div class="ui-modal-header">
-            <div class="ui-modal-icon-danger">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-            </div>
-            <h3 id="deleteConfirmTitleCmd" class="ui-modal-title">Confirm Delete</h3>
-            <button @click="deleteConfirm.show = false" aria-label="close modal" class="ui-modal-close">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <div class="ui-modal-body text-center">
-            <p>Are you sure you want to delete the command <strong x-text="deleteConfirm.command.name"></strong>?</p>
-          </div>
-          <div class="ui-modal-footer">
-            <button @click="deleteConfirm.show = false" type="button" class="ui-button-secondary">Keep Command</button>
-            <button @click="deleteCommand(deleteConfirm.command.command_id); deleteConfirm.show = false" type="button" class="ui-button-danger">Delete Command</button>
-          </div>
-        </div>
       </div>
 
       <!-- Edit/Create Modal -->

@@ -16,12 +16,14 @@ window.templateListComponent = function(canManageSpaces, zone, isLeafNode = fals
     showInactive: Alpine.$persist(false).as('templates-show-inactive').using(sessionStorage),
     showLocal: Alpine.$persist(false).as('templates-show-local').using(sessionStorage),
     zone,
-    deleteConfirm: {
-      show: false,
-      template: {
-        template_id: '',
-        name: '',
-      }
+    confirmDelete(t) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the template {name}?',
+        name: t.name,
+        confirmLabel: 'Delete Template',
+        cancelLabel: 'Keep Template',
+      }).then((ok) => ok && this.deleteTemplate(t.template_id));
     },
     chooseUser: {
       forUserId: '',

@@ -11,12 +11,14 @@ window.templateVarListComponent = function() {
 
   return {
     loading: true,
-    deleteConfirm: {
-      show: false,
-      variable: {
-        templatevar_id: '',
-        name: '',
-      }
+    confirmDelete(v) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the variable {name}?',
+        name: v.name,
+        confirmLabel: 'Delete Variable',
+        cancelLabel: 'Keep Variable',
+      }).then((ok) => ok && this.deleteTemplateVar(v.templatevar_id));
     },
     variableFormModal: {
       show: false,

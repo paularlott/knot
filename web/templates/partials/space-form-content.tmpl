@@ -2,19 +2,26 @@
 <div x-data="spaceForm(spaceFormModal.isEdit, spaceFormModal.spaceId, '{{ .user_id }}', '{{ .preferredShell }}', spaceFormModal.forUserId, spaceFormModal.forUserUsername, spaceFormModal.templateId, {{ .permissionSetSpaceDependencies }}, {{ .permissionUseSpaceStartupScript }})" x-init="initData" class="contents">
   <div class="flex-1 min-h-0 overflow-y-auto p-5 relative">
   {{ template "loading" . }}
-  <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
+  <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData" :class="{ 'space-form-simple': !showAllOptions }">
     <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
       <div class="space-y-6">
         <div>
           <label for="name" class="form-label">Space Name</label>
-          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)" :disabled="!!formData.stack_prefix" :title="formData.stack_prefix ? 'Remove the space from its stack to rename it' : ''">
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Space name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)" :disabled="!!formData.stack_prefix" :title="formData.stack_prefix ? 'Remove the space from its stack to rename it' : ''">
           <div x-show="formData.stack_prefix" class="description" x-cloak>This space belongs to a stack, so its name can't be changed. Remove the stack to rename it.</div>
-          <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+          <div id="name-error" x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
-<div x-show="templatePorts.some(p => p.protocol === 'http' || p.protocol === 'https')" x-cloak>
+        <div x-show="!spaceFormModal.isEdit" x-cloak>
+          <button type="button" @click="showAllOptions = !showAllOptions" :aria-expanded="showAllOptions ? 'true' : 'false'" class="inline-flex items-center gap-1 rounded-md text-sm font-medium text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-200 cursor-pointer">
+            <svg class="size-4 transition-transform duration-200 motion-reduce:transition-none" :class="{ 'rotate-90': showAllOptions }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+            <span>More options</span>
+          </button>
+          <p x-show="!showAllOptions" class="description mt-1">Description, stack, icon, shell<span x-show="canSetSpaceDependencies">, dependencies</span><span x-show="template.custom_fields.some(f => !f.required)">, optional fields</span> and more. The defaults suit most spaces, and everything can be changed later.</p>
+        </div>
+        <div data-advanced x-show="templatePorts.some(p => p.protocol === 'http' || p.protocol === 'https')" x-cloak role="group" aria-labelledby="space-alt-names-label">
           <div class="flex items-center mb-1">
-            <label class="form-label mb-0 mr-2">Additional Space Names</label>
+            <span id="space-alt-names-label" class="form-label mb-0 mr-2">Additional Space Names</span>
             <button type="button" x-on:click="addAltName()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -25,7 +32,7 @@
           <template x-for="(altName, index) in formData.alt_names" :key="index">
             <div class="mb-2">
               <div class="flex items-center gap-2">
-                <input type="text" class="form-field grow" :value="formData.alt_names[index].name" @input="formData.alt_names[index].name = sanitizeName($event.target.value)" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" placeholder="Additional space name" aria-label="Additional space name">
+                <input type="text" class="form-field grow" :value="formData.alt_names[index].name" @input="formData.alt_names[index].name = sanitizeName($event.target.value)" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" :aria-invalid="!altNameValid[index] ? 'true' : 'false'" :aria-describedby="!altNameValid[index] ? 'space-alt-name-error-' + index : null" placeholder="Additional space name" aria-label="Additional space name">
                 <select class="form-field w-32" x-model.number="formData.alt_names[index].port" aria-label="Port">
                   <template x-for="tp in templatePorts" :key="tp.port">
                     <option :value="tp.port" :selected="formData.alt_names[index].port === tp.port" x-text="tp.name || tp.port"></option>
@@ -37,25 +44,25 @@
                   </svg> <span class="sr-only">Remove</span>
                 </button>
               </div>
-              <div x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+              <div :id="'space-alt-name-error-' + index" x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
             </div>
           </template>
         </div>
-        <div>
-          <label class="form-label">Description</label>
-          <div class="short-editor">
+        <div data-advanced>
+          <label for="description" class="form-label">Description</label>
+          <div class="short-editor" x-effect="aceSetInvalid($data.descriptionEditor, !descValid, 'description-error')">
             <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
               <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
             </div>
           </div>
-          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
+          <div id="description-error" x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
         </div>
-        <div x-data="autocompleterStack()" data-parent-var-group="formData" data-parent-variable="stack" @refresh-stack-autocompleter.window="refresh()" class="relative">
+        <div data-advanced x-data="autocompleterStack()" data-parent-var-group="formData" data-parent-variable="stack" @refresh-stack-autocompleter.window="refresh()" class="relative">
           <label for="stack" class="form-label">Stack</label>
           <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
           <div class="description">Group spaces together under a stack name. Leave empty for unstacked.</div>
           <div x-show="showList" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible, 'divide-y divide-gray-100 dark:divide-gray-600': filteredOptions.length > 0}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-            <p x-show="filteredOptions.length === 0" class="px-2 py-1 text-sm text-gray-400 dark:text-gray-500">No stacks found</p>
+            <p x-show="filteredOptions.length === 0" class="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">No stacks found</p>
             <ul x-show="filteredOptions.length > 0" class="list-none" role="listbox" :id="_listboxId">
               <template x-for="(option, index) in filteredOptions" :key="option">
                 <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1" x-text="option"></li>
@@ -65,7 +72,7 @@
         </div>
       </div>
     </fieldset>
-    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <fieldset data-advanced class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Appearance</legend>
       <div class="space-y-6">
         <div x-data="autocompleterIcon(iconList)" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
@@ -89,10 +96,10 @@
         </div>
       </div>
     </fieldset>
-    <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <fieldset :data-advanced="isKvmBridged ? false : ''" class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Configuration</legend>
       <div class="flex flex-col gap-6">
-        <div>
+        <div data-advanced>
           <label for="shell" class="form-label">Terminal Shell</label>
           <select class="form-field" name="shell" id="shell" x-model="formData.shell">
             <option value="bash">Bash</option>
@@ -109,7 +116,9 @@
             :disabled="isEdit && formData.ip_address && (formData.is_deployed || formData.is_pending)"
             @input="checkIPAddress()"
             placeholder="e.g. 192.168.50.42"
-            :class="{'form-field-error': !ipAddressValid}">
+            :class="{'form-field-error': !ipAddressValid}"
+            :aria-invalid="!ipAddressValid ? 'true' : 'false'"
+            :aria-describedby="!ipAddressValid ? 'ip_address-error' : null">
           <div class="description" x-show="!isEdit">
             The VM's static IP, chosen from the template's network
             <span x-text="template.kvm_network_cidr"></span><span x-show="template.kvm_ip_range_start">(range <span x-text="template.kvm_ip_range_start"></span> – <span x-text="template.kvm_ip_range_end"></span>)</span>.
@@ -121,9 +130,9 @@
             <span x-text="template.kvm_network_cidr"></span>
             (range <span x-text="template.kvm_ip_range_start"></span> – <span x-text="template.kvm_ip_range_end"></span>) — the space cannot start until it is set.
           </div>
-          <div x-show="!ipAddressValid" class="error-message" x-cloak>Enter a valid IPv4 address from the template's range.</div>
+          <div id="ip_address-error" x-show="!ipAddressValid" class="error-message" x-cloak>Enter a valid IPv4 address from the template's range.</div>
         </div>
-        <div x-show="showNodeSelection()" x-cloak>
+        <div data-advanced x-show="showNodeSelection()" x-cloak>
           <label for="node" class="form-label">Node</label>
           <select class="form-field" name="node" id="node"
             :value="formData.selected_node_id"
@@ -136,7 +145,7 @@
           <div class="description" x-show="!assignedNodeUnavailable()">The node where this space will run. Auto-select chooses the node with the least load.</div>
           <div class="description" x-show="assignedNodeUnavailable()" x-cloak>The assigned node is no longer available. Choose a live node or use Auto-select to reassign this space.</div>
         </div>
-        <div x-show="!isManual && canSetSpaceStartupScript" x-cloak x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
+        <div data-advanced x-show="!isManual && canSetSpaceStartupScript" x-cloak x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
           <label for="startup_script_id" class="form-label">User Startup Script</label>
           <div class="relative w-full">
             <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
@@ -154,7 +163,7 @@
         </div>
       </div>
     </fieldset>
-    <fieldset x-show="canSetSpaceDependencies && (dependencyOptions.length > 0 || formData.depends_on.length > 0)" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <fieldset data-advanced x-show="canSetSpaceDependencies && (dependencyOptions.length > 0 || formData.depends_on.length > 0)" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Space Dependencies</legend>
       <div class="flex items-center gap-2 mb-3">
         <span class="description mb-0">Selected spaces must already be running before this space can start.</span>
@@ -183,12 +192,12 @@
         </template>
       </div>
     </fieldset>
-    <fieldset x-show="!isManual && template.custom_fields.length" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <fieldset x-show="!isManual && template.custom_fields.length" :data-advanced="template.custom_fields.some(f => f.required) ? false : ''" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Custom Fields</legend>
       <div class="space-y-6">
         <template x-for="(field, index) in template.custom_fields" :key="index">
-          <div>
-            <template x-if="template.custom_fields[index].type !== 'bool'"><label class="form-label" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')' + (template.custom_fields[index].type === 'textarea' && template.custom_fields[index].language ? ' - ' + template.custom_fields[index].language : '')"></label></template>
+          <div :data-advanced="template.custom_fields[index].required ? false : ''">
+            <template x-if="template.custom_fields[index].type !== 'bool'"><label class="form-label" :for="template.custom_fields[index].type === 'textarea' ? 'cf-editor-' + index : 'space-cf-' + index" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')' + (template.custom_fields[index].type === 'textarea' && template.custom_fields[index].language ? ' - ' + template.custom_fields[index].language : '')"></label></template>
             <template x-if="template.custom_fields[index].type === 'autocomplete' && (template.custom_fields[index].handler || (template.custom_fields[index].options && template.custom_fields[index].options.length))">
               <div class="relative" x-data="fieldAutocompleter(template.custom_fields[index].handler, template.custom_fields[index].options)" :data-cf-index="index" x-id="['cfac']"
                    x-init="search = formData.custom_fields[index].value || ''">
@@ -196,34 +205,34 @@
                        x-on:keyup.debounce.500ms="checkCustomField(index)"
                        @input="snapValue(index); checkCustomField(index)"
                        @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)"
-                       :aria-label="template.custom_fields[index].description + ' value'">
+                       :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
                 <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
-                  <ul class="list-none">
+                  <ul class="list-none" role="listbox" :aria-label="template.custom_fields[index].description + ' options'">
                     <template x-for="(option, i) in filteredOptions" :key="i">
-                      <li @click="selectOption(option)" x-text="optText(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === i}" class="my-1 cursor-pointer nav-item text-sm"></li>
+                      <li @click="selectOption(option)" role="option" :aria-selected="selectedIndex === i ? 'true' : 'false'" x-text="optText(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === i}" class="my-1 cursor-pointer nav-item text-sm"></li>
                     </template>
                   </ul>
                 </div>
               </div>
             </template>
             <template x-if="template.custom_fields[index].type === 'textarea'">
-              <div :class="{'border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden h-48': true, 'error': customFieldValid[index] === false}" x-data="customFieldEditor(index, template.custom_fields[index].language || 'text')"></div>
+              <div :class="{'border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden h-48': true, 'error': customFieldValid[index] === false}" x-data="customFieldEditor(index, template.custom_fields[index].language || 'text')" x-effect="aceSetInvalid(editor, customFieldValid[index] === false, 'space-cf-error-' + index)"></div>
             </template>
             <template x-if="template.custom_fields[index].type === 'masked'">
-              <input type="password" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" autocomplete="new-password" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :aria-label="template.custom_fields[index].description + ' value'">
+              <input type="password" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" autocomplete="new-password" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
             </template>
             <template x-if="template.custom_fields[index].type === 'number'">
-              <input type="number" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :aria-label="template.custom_fields[index].description + ' value'">
+              <input type="number" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
             </template>
             <template x-if="template.custom_fields[index].type === 'bool'">
               <label class="flex items-center cursor-pointer">
-                <input type="checkbox" class="sr-only peer" :checked="formData.custom_fields[index].value === 'true'" @change="formData.custom_fields[index].value = $event.target.checked ? 'true' : 'false'" :aria-label="template.custom_fields[index].description + ' value'">
+                <input type="checkbox" class="sr-only peer" :checked="formData.custom_fields[index].value === 'true'" @change="formData.custom_fields[index].value = $event.target.checked ? 'true' : 'false'">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')'"></span>
               </label>
             </template>
             <template x-if="template.custom_fields[index].type === 'select' && (template.custom_fields[index].handler || (template.custom_fields[index].options && template.custom_fields[index].options.length))">
-              <select x-data="fieldSelect(template.custom_fields[index].handler, template.custom_fields[index].options)" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" x-model="formData.custom_fields[index].value" x-on:change="$nextTick(() => checkCustomField(index))" :aria-label="template.custom_fields[index].description + ' value'">
+              <select x-data="fieldSelect(template.custom_fields[index].handler, template.custom_fields[index].options)" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" x-model="formData.custom_fields[index].value" x-on:change="$nextTick(() => checkCustomField(index))" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
                 <option value="">Select an option…</option>
                 <template x-for="(option, oi) in options" :key="oi">
                   <option :value="optKey(option)" x-text="optText(option)"></option>
@@ -231,9 +240,9 @@
               </select>
             </template>
             <template x-if="!['autocomplete', 'masked', 'number', 'textarea', 'bool', 'select'].includes(template.custom_fields[index].type)">
-              <input type="text" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :aria-label="template.custom_fields[index].description + ' value'">
+              <input type="text" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
             </template>
-            <div x-show="customFieldValid[index] === false" class="error-message" x-cloak>This field cannot be left blank.</div>
+            <div :id="'space-cf-error-' + index" x-show="customFieldValid[index] === false" class="error-message" x-cloak>This field cannot be left blank.</div>
           </div>
         </template>
       </div>
@@ -249,7 +258,7 @@
         </label>
       </div>
     </fieldset>
-    <div x-show="spaceFormModal.isEdit && formData.created_at_formatted" x-cloak class="text-xs text-gray-400 dark:text-gray-500">
+    <div x-show="spaceFormModal.isEdit && formData.created_at_formatted" x-cloak class="text-xs text-gray-500 dark:text-gray-400">
       Created <span x-text="formatCreatedAt()"></span>
     </div>
   </form>
@@ -271,7 +280,7 @@
       <div class="ui-modal-body">
         <p>Select a space in the same zone to add as a dependency.</p>
         <div x-data="autocompleterSpace()" x-init="setDataSource('dependencyOptions')" data-parent-var-group="dependencyModal" data-parent-variable="selectedId" data-parent-variable-name="selectedName" @refresh-space-autocompleter.window="refresh()" @space-selected="dependencyModal.invalid = false" class="relative mt-4">
-          <input x-model="search" class="form-field" type="search" placeholder="Search spaces..." aria-label="Search spaces" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+          <input x-model="search" class="form-field" type="search" placeholder="Search spaces..." aria-label="Search spaces" :aria-invalid="dependencyModal.invalid ? 'true' : 'false'" :aria-describedby="dependencyModal.invalid ? 'dependency-error' : null" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
           <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-x-hidden overflow-y-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block">
             <ul class="list-none" role="listbox" :id="_listboxId">
               <template x-for="(option, index) in filteredOptions" :key="option.id">
@@ -285,7 +294,7 @@
             </ul>
           </div>
         </div>
-        <div x-show="dependencyModal.invalid" class="error-message mt-2" x-cloak>Select a valid space.</div>
+        <div id="dependency-error" x-show="dependencyModal.invalid" class="error-message mt-2" x-cloak>Select a valid space.</div>
         <div x-show="!dependencyOptions.length" class="text-sm text-gray-500 dark:text-gray-400 mt-3" x-cloak>No more spaces are available in this zone.</div>
       </div>
       <div class="ui-modal-footer">
@@ -293,31 +302,6 @@
         <button @click="addDependency()" type="button" class="ui-button-primary" :disabled="!dependencyOptions.length || dependencyModal.selectedId === ''">
           <span x-text="dependencyModal.selectedName ? 'Add ' + dependencyModal.selectedName : 'Add'"></span>
         </button>
-      </div>
-    </div>
-  </div>
-  <div x-cloak x-show="canSetSpaceDependencies && dependencyRemoveConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="dependencyRemoveConfirm.show" @keydown.esc.window="closeRemoveDependencyConfirm()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dependencyRemoveConfirmTitle">
-    <div x-show="dependencyRemoveConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-      <div class="ui-modal-header">
-        <div class="ui-modal-icon-danger">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
-            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <h3 id="dependencyRemoveConfirmTitle" class="ui-modal-title">Remove Dependency</h3>
-        <button @click="closeRemoveDependencyConfirm()" aria-label="close modal" class="ui-modal-close">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-      <div class="ui-modal-body text-center">
-        <p>Are you sure you want to remove the dependency <strong x-text="dependencyRemoveConfirm.name"></strong>?</p>
-        <p>This space will no longer require it to be running before start.</p>
-      </div>
-      <div class="ui-modal-footer">
-        <button @click="closeRemoveDependencyConfirm()" type="button" class="ui-button-secondary">Keep Dependency</button>
-        <button @click="confirmRemoveDependency()" type="button" class="ui-button-danger">Remove Dependency</button>
       </div>
     </div>
   </div>

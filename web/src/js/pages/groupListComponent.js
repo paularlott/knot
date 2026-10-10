@@ -11,13 +11,6 @@ window.groupListComponent = function() {
 
   return {
     loading: true,
-    deleteConfirm: {
-      show: false,
-      group: {
-        group_id: '',
-        name: '',
-      }
-    },
     groupFormModal: {
       show: false,
       isEdit: false,
@@ -103,6 +96,15 @@ window.groupListComponent = function() {
     },
     loadGroups() {
       this.getGroups();
+    },
+    confirmDelete(g) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the group {name}?',
+        name: g.name,
+        confirmLabel: 'Delete Group',
+        cancelLabel: 'Keep Group',
+      }).then((ok) => ok && this.deleteGroup(g.group_id));
     },
     async deleteGroup(groupId) {
       const self = this;

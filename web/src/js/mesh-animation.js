@@ -10,12 +10,45 @@ class MeshAnimation {
     this.animationId = null;
     this.pulseInterval = null; // Add this to track the interval
 
+    // With reduced motion asked for, the mesh is drawn once and stays
+    // still; it starts or stops moving if the setting changes.
+    this.reducedMotion = window.matchMedia
+      ? window.matchMedia("(prefers-reduced-motion: reduce)")
+      : null;
+
     this.init();
     this.createMesh();
-    this.animate();
+    this.start();
 
     // Handle resize
     window.addEventListener("resize", () => this.handleResize());
+    if (this.reducedMotion && this.reducedMotion.addEventListener) {
+      this.reducedMotion.addEventListener("change", () => this.start());
+    }
+  }
+
+  still() {
+    return !!(this.reducedMotion && this.reducedMotion.matches);
+  }
+
+  // start runs the animation, or draws one still frame under reduced motion.
+  start() {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
+    if (this.still()) {
+      if (this.pulseInterval) {
+        clearInterval(this.pulseInterval);
+        this.pulseInterval = null;
+      }
+      this.pulses = [];
+      this.nodes.forEach((node) => (node.pulsing = false));
+      this.draw();
+      return;
+    }
+    if (!this.pulseInterval) this.startRandomPulsing();
+    this.animate();
   }
 
   init() {
@@ -44,6 +77,7 @@ class MeshAnimation {
   handleResize() {
     this.resizeCanvas();
     this.createMesh();
+    if (this.still()) this.start();
   }
 
   createMesh() {

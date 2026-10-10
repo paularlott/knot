@@ -10,58 +10,58 @@
           <div class="space-y-6">
             <div>
               <label for="username" class="form-label">Username</label>
-              <input type="text" id="username" class="form-field" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9, - and .)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
-              <div x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 30 characters.</div>
+              <input type="text" id="username" class="form-field" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" :aria-invalid="!usernameValid ? 'true' : 'false'" :aria-describedby="!usernameValid ? 'username-error' : null" autocomplete="username" placeholder="Username (a - Z, 0 - 9, - and .)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
+              <div id="username-error" x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 30 characters.</div>
             </div>
             <div>
               <label for="email" class="form-label">Email</label>
-              <input type="email" id="email" class="form-field" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" placeholder="Email address" x-model="formData.email">
-              <div x-show="!emailValid" class="error-message" x-cloak>Enter a valid email address.</div>
+              <input type="email" id="email" class="form-field" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" :aria-describedby="!emailValid ? 'email-error' : null" autocomplete="email" placeholder="Email address" x-model="formData.email">
+              <div id="email-error" x-show="!emailValid" class="error-message" x-cloak>Enter a valid email address.</div>
             </div>
             <div>
               <label for="password" class="form-label">Password</label>
-              <input type="password" id="password" class="form-field" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">
+              <input type="password" id="password" class="form-field" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" {{ if .isProfile }}:aria-describedby="!passwordValid ? 'password-help password-error' : 'password-help'"{{ else }}:aria-describedby="!passwordValid ? 'password-error' : null"{{ end }} autocomplete="new-password" placeholder="Password" x-model="formData.password">
               {{ if .isProfile }}
-              <p class="description">Leave blank to keep the current password.</p>
+              <p id="password-help" class="description">Leave blank to keep the current password.</p>
               {{ end }}
-              <div x-show="!passwordValid" class="error-message" x-cloak>Password must be at least 8 characters.</div>
+              <div id="password-error" x-show="!passwordValid" class="error-message" x-cloak>Password must be at least 8 characters.</div>
             </div>
             <div>
               <label for="confirm_password" class="form-label">Confirm Password</label>
-              <input type="password" id="confirm_password" class="form-field" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
-              <div x-show="!confirmPasswordValid" class="error-message" x-cloak>Both passwords must match.</div>
+              <input type="password" id="confirm_password" class="form-field" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" :aria-invalid="!confirmPasswordValid ? 'true' : 'false'" :aria-describedby="!confirmPasswordValid ? 'confirm_password-error' : null" autocomplete="new-password" placeholder="Confirm password" x-model="formData.password_confirm">
+              <div id="confirm_password-error" x-show="!confirmPasswordValid" class="error-message" x-cloak>Both passwords must match.</div>
             </div>
             <div>
               <label for="shell" class="form-label">Preferred Shell</label>
-              <select id="shell" class="form-field" name="shell" x-model="formData.preferred_shell">
+              <select id="shell" class="form-field" name="shell" x-model="formData.preferred_shell" :aria-invalid="!shellValid ? 'true' : 'false'" :aria-describedby="!shellValid ? 'shell-help shell-error' : 'shell-help'">
                 <option value="bash">Bash</option>
                 <option value="zsh">Zsh</option>
                 <option value="fish">fish</option>
                 <option value="sh">Bourne</option>
               </select>
-              <p class="description">The shell that will be used when you open a web terminal in this space.</p>
-              <div x-show="!shellValid" class="error-message" x-cloak>Select a valid shell.</div>
+              <p id="shell-help" class="description">The shell that will be used when you open a web terminal in this space.</p>
+              <div id="shell-error" x-show="!shellValid" class="error-message" x-cloak>Select a valid shell.</div>
             </div>
             <div>
               <label for="tz" class="form-label">Timezone</label>
               <div x-data="autocompleter()" x-init="setData(window.Timezones)" data-parent-variable="timezone" @refresh-autocompleter.window="refresh()" class="relative">
-                <input id="tz" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)">
+                <input id="tz" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search..." :aria-invalid="!tzValid ? 'true' : 'false'" :aria-describedby="!tzValid ? 'tz-error' : null" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)">
                 <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
-                  <ul class="list-none">
+                  <ul class="list-none" role="listbox" aria-label="Timezones">
                     <template x-for="(option, index) in filteredOptions" :key="index">
-                      <li @click="selectOption(option)" x-text="option" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
+                      <li @click="selectOption(option)" role="option" :aria-selected="selectedIndex === index ? 'true' : 'false'" x-text="option" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
                     </template>
                   </ul>
                 </div>
               </div>
-              <div x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
+              <div id="tz-error" x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
             </div>
             {{ if .isProfile }}
             <div>
               <label for="service_password" class="form-label">Service Password</label>
-              <input type="text" id="service_password" class="form-field" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'form-field-error': !servicePasswordValid}" placeholder="Service Password" x-model="formData.service_password">
-              <p class="description">A password made available for initializing services such as databases.</p>
-              <div x-show="!servicePasswordValid" class="error-message" x-cloak>The service password is required.</div>
+              <input type="text" id="service_password" class="form-field" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'form-field-error': !servicePasswordValid}" :aria-invalid="!servicePasswordValid ? 'true' : 'false'" :aria-describedby="!servicePasswordValid ? 'service_password-help service_password-error' : 'service_password-help'" placeholder="Service Password" x-model="formData.service_password">
+              <p id="service_password-help" class="description">A password made available for initializing services such as databases.</p>
+              <div id="service_password-error" x-show="!servicePasswordValid" class="error-message" x-cloak>The service password is required.</div>
             </div>
             {{ end }}
           </div>
@@ -72,9 +72,9 @@
           <div class="space-y-6">
             <div>
               <label for="github_username" class="form-label">GitHub Username</label>
-              <input type="text" id="github_username" class="form-field" name="github_username" x-on:keyup.debounce.500ms="checkGithubUsername()" :class="{'form-field-error': !githubUsernameValid}" placeholder="GitHub Username" x-model="formData.github_username">
-              <p class="description">If the GitHub username is given then the public SSH keys are loaded from it by the agent.</p>
-              <div x-show="!githubUsernameValid" class="error-message" x-cloak>Enter a valid GitHub username.</div>
+              <input type="text" id="github_username" class="form-field" name="github_username" x-on:keyup.debounce.500ms="checkGithubUsername()" :class="{'form-field-error': !githubUsernameValid}" :aria-invalid="!githubUsernameValid ? 'true' : 'false'" :aria-describedby="!githubUsernameValid ? 'github_username-help github_username-error' : 'github_username-help'" placeholder="GitHub Username" x-model="formData.github_username">
+              <p id="github_username-help" class="description">If the GitHub username is given then the public SSH keys are loaded from it by the agent.</p>
+              <div id="github_username-error" x-show="!githubUsernameValid" class="error-message" x-cloak>Enter a valid GitHub username.</div>
             </div>
             <div>
               <label for="ssh_key" class="form-label">SSH Authorized Keys</label>
@@ -84,9 +84,9 @@
             {{ if .isProfile }}
               <div>
                 <label for="ssh_private_key" class="form-label">SSH Private Key</label>
-                <textarea id="ssh_private_key" class="form-field font-mono" name="ssh_private_key" rows="8" placeholder="SSH Private Key" x-on:keyup.debounce.500ms="checkPrivateKey()" :class="{'form-field-error': !privateKeyValid}" x-model="formData.ssh_private_key"></textarea>
-                <p class="description">If given, this key will be written to <code>~/.ssh/id_ed25519</code>, <code>~/.ssh/id_rsa</code>, or <code>~/.ssh/id_ecdsa</code> in your SSH-enabled spaces depending on key format.</p>
-                <div x-show="!privateKeyValid" class="error-message" x-cloak>Enter a valid SSH private key.</div>
+                <textarea id="ssh_private_key" class="form-field font-mono" name="ssh_private_key" rows="8" placeholder="SSH Private Key" x-on:keyup.debounce.500ms="checkPrivateKey()" :class="{'form-field-error': !privateKeyValid}" :aria-invalid="!privateKeyValid ? 'true' : 'false'" :aria-describedby="!privateKeyValid ? 'ssh_private_key-help ssh_private_key-error' : 'ssh_private_key-help'" x-model="formData.ssh_private_key"></textarea>
+                <p id="ssh_private_key-help" class="description">If given, this key will be written to <code>~/.ssh/id_ed25519</code>, <code>~/.ssh/id_rsa</code>, or <code>~/.ssh/id_ecdsa</code> in your SSH-enabled spaces depending on key format.</p>
+                <div id="ssh_private_key-error" x-show="!privateKeyValid" class="error-message" x-cloak>Enter a valid SSH private key.</div>
               </div>
             {{ end }}
           </div>
@@ -106,44 +106,44 @@
             <div class="grid gap-4 md:grid-cols-2">
               <div>
                 <label for="max_spaces" class="form-label">Maximum Spaces</label>
-                <input type="number" id="max_spaces" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="10000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" >
-                <p class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
-                <div x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 10,000.</div>
+                <input type="number" id="max_spaces" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="10000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" :aria-invalid="!maxSpacesValid ? 'true' : 'false'" :aria-describedby="!maxSpacesValid ? 'max_spaces-help max_spaces-error' : 'max_spaces-help'">
+                <p id="max_spaces-help" class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
+                <div id="max_spaces-error" x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 10,000.</div>
               </div>
               <div>
                 <label for="compute_units" class="form-label">Compute Units Limit</label>
-                <input type="number" id="compute_units" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
-                <p class="description">The maximum number of compute units (CPU, GPU, RAM, etc.) this user can use, 0 for unlimited.</p>
-                <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+                <input type="number" id="compute_units" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" :aria-invalid="!computeUnitsValid ? 'true' : 'false'" :aria-describedby="!computeUnitsValid ? 'compute_units-help compute_units-error' : 'compute_units-help'">
+                <p id="compute_units-help" class="description">The maximum number of compute units (CPU, GPU, RAM, etc.) this user can use, 0 for unlimited.</p>
+                <div id="compute_units-error" x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
               <div>
                 <label for="storage_units" class="form-label">Storage Units Limit</label>
-                <input type="number" id="storage_units" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
-                <p class="description">The maximum number of storage units this user can use, 0 for unlimited.</p>
-                <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+                <input type="number" id="storage_units" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" :aria-invalid="!storageUnitsValid ? 'true' : 'false'" :aria-describedby="!storageUnitsValid ? 'storage_units-help storage_units-error' : 'storage_units-help'">
+                <p id="storage_units-help" class="description">The maximum number of storage units this user can use, 0 for unlimited.</p>
+                <div id="storage_units-error" x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
               <div>
                 <label for="max_tunnels" class="form-label">Maximum Tunnels</label>
-                <input type="number" id="max_tunnels" class="form-field" name="max_tunnels" x-model="formData.max_tunnels" min="0" x-on:keyup.debounce.500ms="checkMaxTunnels()" :class="{'form-field-error': !maxTunnelsValid}" >
-                <p class="description">The maximum number of tunnels this user can create, 0 for unlimited.</p>
-                <div x-show="!maxTunnelsValid" class="error-message" x-cloak>Enter a valid number between 0 and 100.</div>
+                <input type="number" id="max_tunnels" class="form-field" name="max_tunnels" x-model="formData.max_tunnels" min="0" x-on:keyup.debounce.500ms="checkMaxTunnels()" :class="{'form-field-error': !maxTunnelsValid}" :aria-invalid="!maxTunnelsValid ? 'true' : 'false'" :aria-describedby="!maxTunnelsValid ? 'max_tunnels-help max_tunnels-error' : 'max_tunnels-help'">
+                <p id="max_tunnels-help" class="description">The maximum number of tunnels this user can create, 0 for unlimited.</p>
+                <div id="max_tunnels-error" x-show="!maxTunnelsValid" class="error-message" x-cloak>Enter a valid number between 0 and 100.</div>
               </div>
               <div>
                 <label for="file_storage_mb" class="form-label">File Storage (MB)</label>
-                <input type="number" id="file_storage_mb" class="form-field" name="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:keyup.debounce.500ms="checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" >
-                <p class="description">The maximum size of the files in buckets this user owns, in MB, 0 to use the server default.</p>
-                <div x-show="!fileStorageValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+                <input type="number" id="file_storage_mb" class="form-field" name="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:keyup.debounce.500ms="checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" :aria-invalid="!fileStorageValid ? 'true' : 'false'" :aria-describedby="!fileStorageValid ? 'file_storage_mb-help file_storage_mb-error' : 'file_storage_mb-help'">
+                <p id="file_storage_mb-help" class="description">The maximum size of the files in buckets this user owns, in MB, 0 to use the server default.</p>
+                <div id="file_storage_mb-error" x-show="!fileStorageValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
               <div>
                 <label for="max_buckets" class="form-label">Maximum Buckets</label>
-                <input type="number" id="max_buckets" class="form-field" name="max_buckets" x-model="formData.max_buckets" min="0" x-on:keyup.debounce.500ms="checkMaxBuckets()" :class="{'form-field-error': !maxBucketsValid}" >
-                <p class="description">The maximum number of file storage buckets this user can own, 0 to use the server default.</p>
-                <div x-show="!maxBucketsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+                <input type="number" id="max_buckets" class="form-field" name="max_buckets" x-model="formData.max_buckets" min="0" x-on:keyup.debounce.500ms="checkMaxBuckets()" :class="{'form-field-error': !maxBucketsValid}" :aria-invalid="!maxBucketsValid ? 'true' : 'false'" :aria-describedby="!maxBucketsValid ? 'max_buckets-help max_buckets-error' : 'max_buckets-help'">
+                <p id="max_buckets-help" class="description">The maximum number of file storage buckets this user can own, 0 to use the server default.</p>
+                <div id="max_buckets-error" x-show="!maxBucketsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
-              <div x-show="roles.length" x-cloak>
-                <label class="form-label">Roles</label>
+              <div x-show="roles.length" x-cloak role="group" aria-labelledby="user-roles-label">
+                <span id="user-roles-label" class="form-label">Roles</span>
                 <template x-for="(role, index) in roles" :key="index">
                   <label class="flex items-center cursor-pointer mb-2">
                     <input type="checkbox" class="sr-only peer" :id="'role-' + index" name="roles[]" :value="role.role_id" :checked="formData.roles.includes(role.role_id)" @change="toggleRole(role.role_id)">
@@ -152,8 +152,8 @@
                   </label>
                 </template>
               </div>
-              <div x-show="groups.length" x-cloak>
-                <label class="form-label">Groups</label>
+              <div x-show="groups.length" x-cloak role="group" aria-labelledby="user-groups-label">
+                <span id="user-groups-label" class="form-label">Groups</span>
                 <template x-for="(group, index) in groups" :key="index">
                   <label class="flex items-center cursor-pointer mb-2">
                     <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
@@ -202,7 +202,7 @@
                   <div class="flex items-center gap-2 min-w-0">
                     {{ template "partials/provider-icon.tmpl" . }}
                     <span class="font-medium capitalize" x-text="providerID"></span>
-                    <span class="text-gray-400">&middot;</span>
+                    <span class="text-gray-500">&middot;</span>
                     <span class="font-mono" x-text="ep.username"></span>
                   </div>
                   <template x-if="formData.has_password">
@@ -241,7 +241,7 @@
                   <div class="flex items-center gap-2 min-w-0">
                     {{ template "partials/provider-icon.tmpl" . }}
                     <span class="font-medium capitalize" x-text="providerID"></span>
-                    <span class="text-gray-400">&middot;</span>
+                    <span class="text-gray-500">&middot;</span>
                     <span class="font-mono" x-text="ep.username"></span>
                   </div>
                   <button type="button"
@@ -254,60 +254,8 @@
         </div>
         {{ end }}
 
-        <div x-show="isEdit" x-cloak class="text-xs text-gray-400 dark:text-gray-500">
+        <div x-show="isEdit" x-cloak class="text-xs text-gray-500 dark:text-gray-400">
           Last login <span x-text="last_login_at"></span>
-        </div>
-
-        <!-- Reset TOTP confirm modal -->
-        <div x-show="resetConfirmShow" x-cloak x-transition.opacity.duration.200ms
-          x-trap.inert.noscroll="resetConfirmShow"
-          @keydown.esc.window="resetConfirmShow = false"
-          class="ui-modal-backdrop"
-          role="dialog" aria-modal="true">
-          <div x-show="resetConfirmShow" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100"
-            class="ui-modal-panel">
-            <div class="ui-modal-header">
-              <div class="ui-modal-icon-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
-                </svg>
-              </div>
-              <h3 class="ui-modal-title">Reset TOTP?</h3>
-            </div>
-            <div class="ui-modal-body">
-              <p class="text-sm">The user will need to set up TOTP again on next login.</p>
-            </div>
-            <div class="ui-modal-footer">
-              <button @click="resetConfirmShow = false" type="button" class="ui-button-secondary">Cancel</button>
-              <button @click="resetTOTP()" type="button" class="ui-button-danger">Reset</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Unlink confirm modal -->
-        <div x-show="unlinkConfirm.show" x-cloak x-transition.opacity.duration.200ms
-          x-trap.inert.noscroll="unlinkConfirm.show"
-          @keydown.esc.window="unlinkConfirm.show = false"
-          class="ui-modal-backdrop"
-          role="dialog" aria-modal="true">
-          <div x-show="unlinkConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100"
-            class="ui-modal-panel">
-            <div class="ui-modal-header">
-              <div class="ui-modal-icon-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
-                </svg>
-              </div>
-              <h3 class="ui-modal-title">Unlink <span class="capitalize" x-text="unlinkConfirm.providerName"></span>?</h3>
-            </div>
-            <div class="ui-modal-body">
-              <p class="text-sm">You will no longer be able to sign in with this account.</p>
-            </div>
-            <div class="ui-modal-footer">
-              <button @click="unlinkConfirm.show = false" type="button" class="ui-button-secondary">Cancel</button>
-              <button @click="unlinkProvider()" type="button" class="ui-button-danger">Unlink</button>
-            </div>
-          </div>
         </div>
 
         {{ if and (not .isProfile) .permissionLinkUsers }}
@@ -348,33 +296,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Modal: confirm unlinking a linked user -->
-        <div x-cloak x-show="linkedUnlinkConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="linkedUnlinkConfirm.show" @keydown.esc.window="linkedUnlinkConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="unlinkUserTitle">
-          <div x-show="linkedUnlinkConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-            <div class="ui-modal-header">
-              <div class="ui-modal-icon-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
-                </svg>
-              </div>
-              <h3 id="unlinkUserTitle" class="ui-modal-title">Unlink User</h3>
-              <button @click="linkedUnlinkConfirm.show = false" aria-label="close modal" class="ui-modal-close">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div class="ui-modal-body text-center">
-              <p>Stop <span x-text="formData.username" class="font-medium"></span> becoming <strong x-text="linkedUnlinkConfirm.username"></strong>?</p>
-              <p>This user will no longer be able to switch into that account; the other account is unaffected.</p>
-            </div>
-            <div class="ui-modal-footer">
-              <button @click="linkedUnlinkConfirm.show = false" type="button" class="ui-button-secondary sm:mr-auto">Keep Linked</button>
-              <button @click="unlinkLinkedUser()" type="button" class="ui-button-danger">Unlink User</button>
-            </div>
-          </div>
-        </div>
         {{ end }}
 
       </form>
@@ -392,7 +313,7 @@
     {{ end }}
 
     {{ if and (not .isProfile) .totpEnabled }}
-    <button @click="resetConfirmShow = true;" type="button" x-show="isEdit && formData.totp_secret.length" class="ui-button-danger">Reset TOTP</button>
+    <button @click="confirmResetTOTP()" type="button" x-show="isEdit && formData.totp_secret.length" class="ui-button-danger">Reset TOTP</button>
     {{ end }}
 
     <button type="submit" @click="submitData" class="btn-primary" x-text="isEdit ? 'Save' : 'Create'"></button>

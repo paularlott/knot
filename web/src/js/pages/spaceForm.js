@@ -28,11 +28,6 @@ window.spaceForm = function (
       selectedName: "",
       invalid: false,
     },
-    dependencyRemoveConfirm: {
-      show: false,
-      id: "",
-      name: "",
-    },
     dependencyTargetZone: "",
     canSetSpaceDependencies,
     canSetSpaceStartupScript,
@@ -82,6 +77,8 @@ window.spaceForm = function (
     altNameValid: [],
     descValid: true,
     startOnCreate: true,
+    // Creating a space shows the essentials; the rest is a click away.
+    showAllOptions: isEdit,
     saving: false,
     quotaStorageLimitShow: false,
     availableNodes: [],
@@ -271,22 +268,16 @@ window.spaceForm = function (
       if (!this.canSetSpaceDependencies) {
         return;
       }
-      this.dependencyRemoveConfirm.show = true;
-      this.dependencyRemoveConfirm.id = dependency.id;
-      this.dependencyRemoveConfirm.name = dependency.name;
-    },
-
-    closeRemoveDependencyConfirm() {
-      this.dependencyRemoveConfirm.show = false;
-      this.dependencyRemoveConfirm.id = "";
-      this.dependencyRemoveConfirm.name = "";
-    },
-
-    confirmRemoveDependency() {
-      if (this.dependencyRemoveConfirm.id) {
-        this.removeDependency(this.dependencyRemoveConfirm.id);
-      }
-      this.closeRemoveDependencyConfirm();
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Remove Dependency',
+        message: 'Are you sure you want to remove the dependency {name}?',
+        name: dependency.name,
+        detail: 'This space will no longer require it to be running before start.',
+        confirmLabel: 'Remove Dependency',
+        cancelLabel: 'Keep Dependency',
+      }).then((ok) => ok && dependency.id && this.removeDependency(dependency.id));
     },
 
     formatCreatedAt() {
@@ -453,6 +444,9 @@ window.spaceForm = function (
 
       if (!isEdit) {
         this.formData.icon_url = this.template.icon_url;
+        if (!this.formData.name) {
+          this.formData.name = this.suggestName(this.template.name);
+        }
       }
 
       // Fetch available nodes for local container templates
@@ -498,6 +492,7 @@ window.spaceForm = function (
       if (darkMode == null) darkMode = true;
 
       const editorDesc = ace.edit("description");
+      this.descriptionEditor = editorDesc;
       editorDesc.session.setValue(this.formData.description);
       editorDesc.session.on("change", () => {
         this.formData.description = editorDesc.getValue();
@@ -515,8 +510,33 @@ window.spaceForm = function (
         customScrollbar: true,
         useWorker: false,
       });
+      // The editor starts hidden behind "More options" on create: lay it
+      // out again once it is shown.
+      this.$watch("showAllOptions", (shown) => {
+        if (shown) this.$nextTick(() => editorDesc.resize());
+      });
 
       this.loading = false;
+    },
+    // suggestName offers a valid space name from the template's, made unique
+    // among the owner's spaces (known on the spaces page) with -2, -3, ...
+    suggestName(templateName) {
+      let base = String(templateName || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (!/^[a-z]/.test(base)) base = "space" + (base ? "-" + base : "");
+      base = base.slice(0, 58).replace(/-+$/, "");
+      if (base.length < 2) base = "space";
+      const owner = this.formData.user_id || userId;
+      const taken = new Set(
+        (Array.isArray(this.spaces) ? this.spaces : [])
+          .filter((s) => !owner || !s.user_id || s.user_id === owner)
+          .map((s) => String(s.name).toLowerCase()),
+      );
+      let name = base;
+      for (let n = 2; taken.has(name); n++) name = base + "-" + n;
+      return name;
     },
     addAltName() {
       this.altNameValid.push(true);
@@ -639,6 +659,16 @@ window.spaceForm = function (
 
       if (err) {
         self.saving = false;
+        // A problem in a field behind "More options" must be seen to be fixed.
+        const fields = (this.template && this.template.custom_fields) || [];
+        if (
+          !this.descValid ||
+          this.altNameValid.includes(false) ||
+          this.customFieldValid.some((ok, i) => !ok && !(fields[i] && fields[i].required))
+        ) {
+          this.showAllOptions = true;
+        }
+        focus.firstInvalid(this.$root);
         self.$dispatch("show-alert", {
           msg: "Please fix the validation errors before saving",
           type: "error",

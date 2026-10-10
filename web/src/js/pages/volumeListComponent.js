@@ -16,20 +16,6 @@ window.volumeListComponent = function() {
       isEdit: false,
       volumeId: ''
     },
-    deleteConfirm: {
-      show: false,
-      volume: {
-        volume_id: '',
-        name: '',
-      }
-    },
-    stopConfirm: {
-      show: false,
-      volume: {
-        volume_id: '',
-        name: '',
-      }
-    },
     nodeSelect: {
       show: false,
       volumeId: '',
@@ -37,6 +23,27 @@ window.volumeListComponent = function() {
       selectedNodeId: '',
     },
     volumes: [],
+    confirmDelete(v) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the volume {name}?',
+        name: v.name,
+        confirmLabel: 'Delete Volume',
+        cancelLabel: 'Keep Volume',
+      }).then((ok) => ok && this.deleteVolume(v.volume_id));
+    },
+    confirmStop(v) {
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Confirm Stop Volume',
+        message: 'Are you sure you want to stop the volume {name}?',
+        name: v.name,
+        detail: 'Stopping the volume will delete any data that it contains.',
+        confirmLabel: 'Stop Volume',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.stopVolume(v.volume_id));
+    },
     searchTerm: Alpine.$persist('').as('vol-search-term').using(sessionStorage),
 
     async init() {

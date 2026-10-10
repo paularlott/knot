@@ -5,12 +5,12 @@
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div>
       <label for="name" class="form-label">Name</label>
-      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Volume name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)">
-      <div x-show="!nameValid" class="error-message" x-cloak>Volume names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Volume name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)">
+      <div id="name-error" x-show="!nameValid" class="error-message" x-cloak>Volume names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
     </div>
     <div class="mb-4">
-      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>
-      <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+      <span id="vol-platform-label" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</span>
+      <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit" role="group" aria-labelledby="vol-platform-label">
         <label class="relative">
           <input type="radio" name="platform" id="platform-nomad-edit" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="volumeFormModal.isEdit" @change="showPlatformWarning = true; onPlatformChange()">
           <input type="radio" name="platform" id="platform-nomad-new" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="!volumeFormModal.isEdit" @change="onPlatformChange()">
@@ -55,11 +55,12 @@
     </div>
     <div>
       <label for="vol" class="form-label">Volume Definition (YAML)</label>
-      <div class="mid-editor">
+      <div class="mid-editor" x-effect="aceSetInvalid(volumeEditor, !volValid || specErrors.length > 0, 'vol-errors')">
         <div :class="{'form-field-error': !volValid, 'editor-wrap': true}" id="vol">
-          <textarea name="vol" class="form-field"></textarea>
+          <textarea name="vol" class="form-field" aria-label="Volume Definition (YAML)"></textarea>
         </div>
       </div>
+      <div id="vol-errors">
       <template x-if="!volValid && !specErrors.length">
         <div class="error-message" x-cloak>Volume definition is required.</div>
       </template>
@@ -70,6 +71,7 @@
           </template>
         </div>
       </template>
+      </div>
     </div>
   </form>
   <div x-cloak x-show="showPlatformWarning" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showPlatformWarning" @keydown.esc.window="showPlatformWarning = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="platformWarningTitle">

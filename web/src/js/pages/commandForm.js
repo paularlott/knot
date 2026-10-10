@@ -162,7 +162,10 @@ Command body (markdown). Use \`$ARGUMENTS\` to insert the user's argument.
     async submitData(continueEditing = false) {
       if (this.formData.is_managed) return;
       this.contentValid = this.formData.content.length <= 1 * 1024 * 1024;
-      if (!this.contentValid || !this.checkZonesValid()) return;
+      if (!this.contentValid || !this.checkZonesValid()) {
+        focus.firstInvalid(this.$root);
+        return;
+      }
 
       const submitData = { ...this.formData };
       if (this.isUserCommand) {

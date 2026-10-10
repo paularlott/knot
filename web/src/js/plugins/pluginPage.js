@@ -63,6 +63,25 @@ async function fetchWithRetry(url, options, attempts = 3) {
   }
 }
 
+// A `confirm` on a table action or form definition: a string (the message)
+// or an object {title?, message, label?, danger?}. Returns null when absent.
+function normalizeConfirm(confirm) {
+  if (!confirm) return null;
+  if (typeof confirm === 'string') return { message: confirm };
+  if (typeof confirm !== 'object') return { message: String(confirm) };
+  const spec = { message: confirm.message == null ? '' : String(confirm.message) };
+  if (confirm.title) spec.title = String(confirm.title);
+  if (confirm.label) spec.label = String(confirm.label);
+  if (confirm.danger !== undefined) spec.danger = !!confirm.danger;
+  if (!spec.message && !spec.title) spec.message = 'Are you sure?';
+  return spec;
+}
+
+function readConfirm(json) {
+  if (!json) return null;
+  try { return JSON.parse(json); } catch (e) { return { message: json }; }
+}
+
 function actionChipClass(style) {
   const colors = {
     danger: 'text-red-700 dark:text-red-400',
@@ -140,7 +159,7 @@ window.pluginPage = function pluginPage(url) {
       // propagation first, so they never reach here.
       document.addEventListener('click', () => this.closeMenus());
       document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') this.closeMenus();
+        if (event.key === 'Escape') this.closeMenus({ restoreFocus: true });
       });
     },
 
@@ -382,7 +401,8 @@ window.pluginPage = function pluginPage(url) {
       btn.type = 'button';
       btn.dataset.action = action.action || '';
       btn.dataset.key = key;
-      if (action.confirm) btn.dataset.confirm = action.confirm;
+      const confirmSpec = normalizeConfirm(action.confirm);
+      if (confirmSpec) btn.dataset.confirm = JSON.stringify(confirmSpec);
       if (action.style) btn.dataset.actionStyle = action.style;
       if (action.handler) btn.dataset.popup = action.handler;
     },
@@ -391,19 +411,22 @@ window.pluginPage = function pluginPage(url) {
       const host = el('div', 'relative');
       const btn = el('button', 'row-action-menu-trigger');
       btn.type = 'button';
-      btn.setAttribute('aria-haspopup', 'menu');
+      // A disclosure (trigger + aria-expanded + panel of plain buttons), like
+      // knot's own row-action dropdowns — no menu roles / arrow-key contract.
       btn.setAttribute('aria-expanded', 'false');
       btn.setAttribute('aria-label', 'More actions');
       btn.appendChild(chromeIcon('kebab', 'size-5'));
       const panel = el('div', 'fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 whitespace-nowrap');
-      panel.setAttribute('role', 'menu');
       panel.style.display = 'none';
       panel.dataset.pluginMenu = '1';
+      // data-knot-disclosure + .trigger: a confirm opened from an item
+      // returns focus to the kebab (the item is hidden by then).
+      panel.setAttribute('data-knot-disclosure', '');
       panel._trigger = btn;
+      panel.trigger = btn;
       menuActions.forEach((action) => {
         const item = el('button', `nav-item text-sm px-4 w-full${action.style === 'danger' ? ' text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300' : ''}`);
         item.type = 'button';
-        item.setAttribute('role', 'menuitem');
         const icon = this.actionIcon(action.icon, 'size-4 mr-2');
         if (icon) item.appendChild(icon);
         item.appendChild(document.createTextNode(action.label));
@@ -441,10 +464,13 @@ window.pluginPage = function pluginPage(url) {
       panel.style.top = `${Math.round(top)}px`;
     },
 
-    closeMenus() {
+    closeMenus({ restoreFocus = false } = {}) {
       this.region()?.querySelectorAll('[data-plugin-menu]').forEach((panel) => {
+        const wasOpen = panel.style.display !== 'none';
         panel.style.display = 'none';
         if (panel._trigger) panel._trigger.setAttribute('aria-expanded', 'false');
+        // Escape returns focus to the trigger of the menu it closed.
+        if (wasOpen && restoreFocus && panel._trigger) panel._trigger.focus({ preventScroll: true });
       });
     },
 
@@ -600,6 +626,8 @@ window.pluginPage = function pluginPage(url) {
         // Dynamic options come from the popup's own handler.
         onDynamicOptions: (input) => this.fetchDynamicOptions({ id: handler, handler }, input),
       });
+      const confirmSpec = normalizeConfirm(data.confirm);
+      if (confirmSpec) form.dataset.pluginConfirm = JSON.stringify(confirmSpec);
       form.dataset.colId = handler;
       form.dataset.colHandler = handler;
       form.dataset.actionKey = key;
@@ -635,18 +663,19 @@ window.pluginPage = function pluginPage(url) {
       this.modalFooter(modal, [{ label: 'Close', onClick: () => this.closeModal() }]);
     },
 
-    // A row action's confirm dialog, mirroring knot's own delete dialogs
-    // (the group delete): the action supplies the copy, the style picks the
-    // treatment — a danger action gets the delete look (trash header icon,
-    // Keep, a trash-icon'd confirm button carrying the action label),
-    // anything else the neutral confirm (info header, Cancel / Confirm).
-    confirmModal({ message, confirmLabel, danger = false, run }) {
-      const modal = this.openModal({ title: danger ? 'Confirm Delete' : 'Confirm', danger });
-      modal.body.appendChild(el('p', 'text-center', message));
-      this.modalFooter(modal, [
-        { label: danger ? 'Keep' : 'Cancel', onClick: () => this.closeModal() },
-        { label: confirmLabel || 'Confirm', danger, icon: danger ? 'trash' : null, onClick: () => { this.closeModal(); run(); } },
-      ]);
+    // A row action's / form's confirm, through knot's shared confirm dialog
+    // (window.knotConfirm): the plugin supplies the copy, the style picks
+    // the treatment — a danger action gets the delete look (Confirm Delete,
+    // trash icon, Keep, a red confirm button carrying the action label),
+    // anything else the neutral confirm (info icon, Cancel / action label).
+    // `title` and `confirmLabel` (the object form's `label`) override.
+    confirmModal({ message, title, confirmLabel, danger = false, run }) {
+      return window.knotConfirm({
+        danger,
+        title: title || undefined,
+        message,
+        confirmLabel: confirmLabel || 'Confirm',
+      }).then((ok) => { if (ok) run(); return ok; });
     },
 
     // An action's effect settles over the next seconds (a start goes
@@ -694,6 +723,8 @@ window.pluginPage = function pluginPage(url) {
         // returns {"options": [...]} (key/text pairs or plain strings).
         onDynamicOptions: (input, field) => this.fetchDynamicOptions(column, input),
       });
+      const confirmSpec = normalizeConfirm(data.confirm);
+      if (confirmSpec) form.dataset.pluginConfirm = JSON.stringify(confirmSpec);
       form.dataset.colId = column.id;
       form.dataset.colHandler = column.handler || '';
       body.appendChild(form);
@@ -721,6 +752,15 @@ window.pluginPage = function pluginPage(url) {
       // Clear stale field errors before submitting.
       form.querySelectorAll('.form-field-error').forEach((node) => node.classList.remove('form-field-error'));
       form.querySelectorAll('.error-message').forEach((node) => node.remove());
+      form.querySelectorAll('[aria-invalid="true"]').forEach((node) => {
+        node.removeAttribute('aria-invalid');
+        const prior = node.dataset.pbDescribedby;
+        if (prior !== undefined) {
+          if (prior) node.setAttribute('aria-describedby', prior);
+          else node.removeAttribute('aria-describedby');
+          delete node.dataset.pbDescribedby;
+        }
+      });
       const submitBtn = form.querySelector('[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
       const wrap = form.closest('[data-col-id]') || form.closest('[data-plugin-modal]') || form.parentElement;
@@ -783,24 +823,34 @@ window.pluginPage = function pluginPage(url) {
       // error: message + per-field errors mapped back onto the form
       if (envelope.message) this.toast(envelope.message, 'error');
       if (form && envelope.field_errors) {
+        let firstInvalid = null;
         Object.entries(envelope.field_errors).forEach(([name, message]) => {
           const input = form.querySelector(`[name="${CSS.escape(name)}"]`);
           if (input) {
             input.classList.add('form-field-error');
             const err = el('div', 'error-message', message);
+            err.id = `${input.id || `plugin-field-${name}`}-error`;
             input.insertAdjacentElement('afterend', err);
+            // An Ace-backed textarea field submits through a hidden carrier;
+            // the editor's own input is what the user reaches, so the error
+            // state goes there (and focus moves there below).
+            const host = input.previousElementSibling;
+            const editor = host && host._aceEditor;
+            const target = editor && editor.textInput ? editor.textInput.getElement() : input;
+            if (!target.dataset.pbDescribedby) target.dataset.pbDescribedby = target.getAttribute('aria-describedby') || '';
+            target.setAttribute('aria-invalid', 'true');
+            target.setAttribute('aria-describedby', [target.dataset.pbDescribedby, err.id].filter(Boolean).join(' '));
+            if (!firstInvalid) firstInvalid = editor || target;
           }
         });
+        if (firstInvalid && typeof firstInvalid.focus === 'function') firstInvalid.focus();
       }
     },
 
+    // Notifications go through knot's global alert stack (window.knotToast,
+    // see confirm.js), which also announces them to screen readers.
     toast(message, kind) {
-      let host = document.querySelector('[data-plugin-status]');
-      if (!host) return window.alert ? console.log(`[plugin] ${kind}: ${message}`) : null;
-      host.textContent = message;
-      host.dataset.kind = kind;
-      clearTimeout(this._toastTimer);
-      this._toastTimer = setTimeout(() => { host.textContent = ''; }, 4000);
+      window.knotToast(message, kind === 'ok' ? 'success' : kind);
     },
 
     userReading() {
@@ -901,6 +951,21 @@ window.pluginPage = function pluginPage(url) {
         const form = event.target.closest('form[data-plugin-form]');
         if (!form) return;
         event.preventDefault();
+        // A form definition's `confirm` asks before POSTing (filter forms
+        // that submit themselves on change never ask).
+        const spec = form.dataset.pluginAuto ? null : readConfirm(form.dataset.pluginConfirm);
+        if (spec) {
+          const submitLabel = form.querySelector('[data-submit]')?.textContent.trim()
+            || (form.id && document.querySelector(`[form="${CSS.escape(form.id)}"][data-submit]`)?.textContent.trim());
+          this.confirmModal({
+            message: spec.message,
+            title: spec.title,
+            confirmLabel: spec.label || submitLabel || 'Confirm',
+            danger: !!spec.danger,
+            run: () => this.submitForm(form),
+          });
+          return;
+        }
         this.submitForm(form);
       });
       region.addEventListener('click', (event) => {
@@ -932,11 +997,13 @@ window.pluginPage = function pluginPage(url) {
         // text on an icon button, and one consistent pattern beats two. The
         // action's style drives the dialog's treatment (delete look vs
         // neutral), carried on the button at arm time.
-        if (btn.dataset.confirm) {
+        const spec = readConfirm(btn.dataset.confirm);
+        if (spec) {
           this.confirmModal({
-            message: btn.dataset.confirm,
-            confirmLabel: btn.textContent.trim() || 'Confirm',
-            danger: btn.dataset.actionStyle === 'danger',
+            message: spec.message,
+            title: spec.title,
+            confirmLabel: spec.label || btn.textContent.trim() || 'Confirm',
+            danger: spec.danger !== undefined ? spec.danger : btn.dataset.actionStyle === 'danger',
             run,
           });
           return;

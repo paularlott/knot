@@ -28,8 +28,7 @@ func TestEveryCoreNavItemIsPinnable(t *testing.T) {
 	cfg := &config.ServerConfig{ListenTunnel: ":3000"}
 	cfg.Cluster.AdvertiseAddr = "127.0.0.1:9000"
 
-	top, more := buildNav(u, cfg, true)
-	all := append(urls(top), urls(more)...)
+	all := urls(allItems(buildNav(u, cfg, true)))
 	found := false
 	for _, url := range all {
 		if url == "/plugins" {
@@ -67,8 +66,7 @@ func TestFilesNavVisibility(t *testing.T) {
 	admin.Active = true
 	plain := &model.User{Id: "u2", Username: "plain", Active: true}
 	hasFiles := func(u *model.User, cfg *config.ServerConfig) bool {
-		top, _ := buildNav(u, cfg, false)
-		for _, url := range urls(top) {
+		for _, url := range urls(section(buildNav(u, cfg, false), navWorkspace)) {
 			if url == "/files" {
 				return true
 			}

@@ -276,6 +276,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
       this.contentValid = this.formData.content.length <= 4 * 1024 * 1024;
 
       if (!this.nameValid || !this.contentValid || !this.checkZonesValid()) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

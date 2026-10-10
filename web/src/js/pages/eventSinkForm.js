@@ -280,6 +280,7 @@ window.eventSinkForm = function (isEdit, sinkId, isGlobal = false) {
       this.checkName();
 
       if (!this.nameValid) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

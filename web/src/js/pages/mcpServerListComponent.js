@@ -14,9 +14,14 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
     searchTerm: "",
     currentUserId: userId || "",
     isLeafNode: isLeafNode || false,
-    deleteConfirm: {
-      show: false,
-      server: { mcp_server_id: "", namespace: "" },
+    confirmDelete(s) {
+      window.knotConfirm({
+        danger: true,
+        message: "Are you sure you want to delete the MCP server {name}?",
+        name: s.namespace,
+        confirmLabel: "Delete Server",
+        cancelLabel: "Keep Server",
+      }).then((ok) => ok && this.deleteServer(s.mcp_server_id));
     },
     serverFormModal: {
       show: false,

@@ -116,6 +116,7 @@ window.userGroupForm = function (isEdit, groupId) {
       err = !this.checkFileStorage() || err;
       err = !this.checkMaxBuckets() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

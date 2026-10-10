@@ -2,7 +2,7 @@ import '../less/knot.css';
 
 import Alpine from 'alpinejs';
 import persist from '@alpinejs/persist';
-import AlpineFloatingUI from "@awcodes/alpine-floating-ui";
+import floatingDisclosure from "./disclosure.js";
 import collapse from '@alpinejs/collapse';
 import focus from '@alpinejs/focus';
 
@@ -60,13 +60,37 @@ import './terminal.js';
 import './movable-modal.js';
 import './nav-starred.js';
 import './search-palette.js';
+import './confirm.js'; // window.knotConfirm / window.knotToast
 import './form-dirty-guard.js';
+import './ace-a11y.js';
 
 window.Alpine = Alpine;
 // Expose the bundled chart.js for plugin pages (plugins are trusted; they
 // render inline with knot's own libraries and versions).
 import Chart from 'chart.js/auto';
 window.Chart = Chart;
+
+// A list row's name links to its editor: the page with ?edit=<id>, which every
+// list page honours (the search palette uses the same). A plain click opens
+// the editor in place; a modified or middle click follows the link, so the
+// editor opens in a new tab and the link can be copied or shared.
+window.knotEditClick = function knotEditClick(e, open) {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  open();
+};
+
+// The skip link moves focus to the page's <main>: its #main-content target
+// is a display:contents wrapper, which cannot take focus itself.
+window.knotSkipToMain = function knotSkipToMain(e) {
+  const main = document.querySelector('#main-content main') || document.querySelector('main');
+  if (!main) return true;
+  e.preventDefault();
+  if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+  main.focus();
+  main.scrollIntoView();
+  return false;
+};
 
 // Switch the session to another user the current one may become (the
 // profile menu's Switch User list) or back to the session's origin, then
@@ -329,7 +353,7 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
   };
 };
 Alpine.plugin(persist);
-Alpine.plugin(AlpineFloatingUI);
+Alpine.plugin(floatingDisclosure); // x-float + disclosure a11y fixes
 Alpine.plugin(focus);
 Alpine.plugin(collapse);
 Alpine.start();

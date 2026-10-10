@@ -16,20 +16,6 @@ window.userListComponent = function() {
       isEdit: false,
       userId: ''
     },
-    deleteConfirm: {
-      show: false,
-      user: {
-        user_id: '',
-        username: '',
-      }
-    },
-    stopConfirm: {
-      show: false,
-      user: {
-        user_id: '',
-        username: '',
-      }
-    },
     usageModal: {
       show: false,
       userId: '',
@@ -201,6 +187,27 @@ window.userListComponent = function() {
       this.usageModal.username = username;
       this.usageModal.show = true;
     },
+    confirmDelete(u) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the user {name}?',
+        name: u.username,
+        detail: 'All spaces will be stopped and deleted, any data in template volumes will be deleted.',
+        confirmLabel: 'Delete User',
+        cancelLabel: 'Keep User',
+      }).then((ok) => ok && this.deleteUser(u.user_id));
+    },
+    confirmStop(u) {
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Confirm Stop Spaces',
+        message: 'Are you sure you want to stop all spaces for the user {name}?',
+        name: u.username,
+        confirmLabel: 'Stop Spaces',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.stopSpaces(u.user_id));
+    },
     async deleteUser(userId) {
       const self = this;
       await fetch(`/api/users/${userId}`, {
@@ -221,7 +228,6 @@ window.userListComponent = function() {
       });
 
       this.getUsers();
-      this.deleteConfirm.show = false
     },
     async stopSpaces(userId) {
       const self = this;
@@ -243,7 +249,6 @@ window.userListComponent = function() {
       });
 
       this.getUsers();
-      this.stopConfirm.show = false
     },
     searchChanged() {
       const term = this.searchTerm.toLowerCase();

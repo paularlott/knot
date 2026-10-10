@@ -1,4 +1,5 @@
 import { validate } from '../validators.js';
+import { focus } from '../focus.js';
 
 window.createInitialUserForm = function() {
   return {
@@ -38,6 +39,7 @@ window.createInitialUserForm = function() {
       err = !this.checkPassword() || err;
       err = !this.checkConfirmPassword() || err;
       if(err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

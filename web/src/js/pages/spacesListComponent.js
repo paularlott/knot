@@ -46,30 +46,6 @@ window.spacesListComponent = function (
     debouncedGetSpaces: debounce(function (spaceId) {
       this.getSpaces(spaceId);
     }, 500),
-    deleteConfirm: {
-      show: false,
-      space: {
-        space_id: "",
-        name: "",
-      },
-    },
-    deleteStackConfirm: {
-      show: false,
-      stack: "",
-      count: 0,
-    },
-    deletePoolConfirm: {
-      show: false,
-      pool: null,
-    },
-    ceaseShareConfirm: {
-      show: false,
-      targetUserId: "",
-      space: {
-        space_id: "",
-        name: "",
-      },
-    },
     chooseUser: {
       toUserId: "",
       toUserUsername: "",
@@ -108,9 +84,6 @@ window.spacesListComponent = function (
       jobForm: { name: "", command: "", schedule: "", enabled: true },
       jobFormTouched: {},
       savingJob: false,
-      // Delete confirmation, stacked over the list.
-      deleteConfirmShow: false,
-      deleteConfirmJob: "",
       togglingJob: "",   // name of the job being toggled in the list
       togglingRunner: false,
       loading: false,
@@ -1166,15 +1139,61 @@ window.spacesListComponent = function (
           });
         });
     },
+    confirmDeleteSpace(space) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the space {name}?',
+        name: space.name,
+        detail: 'Deleting the space will also delete any template volumes and the data they contain.',
+        confirmLabel: 'Delete Space',
+        cancelLabel: 'Keep Space',
+      }).then((ok) => {
+        if (!ok) return;
+        this.deleteSpace(space.space_id);
+        space.is_deleting = true;
+      });
+    },
+    confirmDeleteStack(stack, count) {
+      window.knotConfirm({
+        danger: true,
+        message: `Are you sure you want to delete the stack {name} and its ${count} space${count !== 1 ? '(s)' : ''}?`,
+        name: stack,
+        detail: 'Deleting the stack will delete every space in it, along with any volumes and the data they contain.',
+        confirmLabel: 'Delete Stack',
+        cancelLabel: 'Keep Stack',
+      }).then((ok) => ok && this.deleteStack(stack));
+    },
+    confirmDeletePool(pool) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the pool {name}?',
+        name: pool?.name,
+        detail: 'All spaces in this pool will be permanently deleted.',
+        confirmLabel: 'Delete Pool',
+        cancelLabel: 'Keep Pool',
+      }).then((ok) => ok && this.deletePool(pool));
+    },
     openCeaseShareConfirm(space, targetUserId = "") {
       if (!targetUserId && space?.user_id !== userId) {
         targetUserId = userId;
       }
-      this.ceaseShareConfirm.show = true;
-      this.ceaseShareConfirm.space = space;
-      this.ceaseShareConfirm.targetUserId = targetUserId;
+      const isOwner = space?.user_id === userId;
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: isOwner ? 'Stop Sharing' : 'Leave Share',
+        message: isOwner
+          ? 'Are you sure you want to stop sharing the space {name}?'
+          : 'Are you sure you want to leave the shared space {name}?',
+        name: space?.name,
+        detail: isOwner
+          ? 'Stopping sharing the space will revoke access for everyone the space is currently shared with.'
+          : 'You will no longer be able to access the space without requesting access from the owner of the space.',
+        confirmLabel: isOwner ? 'Stop Sharing' : 'Leave Share',
+        cancelLabel: isOwner ? 'Keep Share' : 'Keep Access',
+      }).then((ok) => ok && this.ceaseSharing(space.space_id, targetUserId, space));
     },
-    async ceaseSharing(spaceId, shareUserId = "") {
+    async ceaseSharing(spaceId, shareUserId = "", space = null) {
       const self = this;
       const query = shareUserId
         ? `?user_id=${encodeURIComponent(shareUserId)}`
@@ -1189,7 +1208,7 @@ window.spacesListComponent = function (
         .then((response) => {
           if (response.status === 200) {
             const leavingOwnShare =
-              self.ceaseShareConfirm.space?.user_id !== userId &&
+              space?.user_id !== userId &&
               (!shareUserId || shareUserId === userId);
 
             if (leavingOwnShare) {
@@ -1312,7 +1331,6 @@ window.spacesListComponent = function (
       this.jobsModal.spaceName = space?.name || "";
       this.jobsModal.show = true;
       this.jobsModal.showJobForm = false;
-      this.jobsModal.deleteConfirmShow = false;
       this.jobsModal.jobForm = { name: "", command: "", schedule: "", enabled: true };
       this.jobsModal.jobFormTouched = {};
       this.loadJobs(spaceId);
@@ -1327,7 +1345,6 @@ window.spacesListComponent = function (
       this.jobsModal.definitions = [];
       this.jobsModal.enabled = true;
       this.jobsModal.showJobForm = false;
-      this.jobsModal.deleteConfirmShow = false;
       this.jobsModal.jobForm = { name: "", command: "", schedule: "", enabled: true };
       this.jobsModal.jobFormTouched = {};
       this.jobsModal.togglingJob = "";
@@ -1345,7 +1362,7 @@ window.spacesListComponent = function (
     startJobsPolling(spaceId) {
       this.stopJobsPolling();
       this.jobsPollTimer = setInterval(() => {
-        if (this.jobsModal.show && this.jobsModal.spaceId === spaceId && !this.jobsModal.loading && !this.jobsModal.showJobForm && !this.jobsModal.deleteConfirmShow) {
+        if (this.jobsModal.show && this.jobsModal.spaceId === spaceId && !this.jobsModal.loading && !this.jobsModal.showJobForm) {
           // Silent: a background refresh must not flash the loading state.
           this.loadJobs(spaceId, true);
         }
@@ -1577,8 +1594,13 @@ window.spacesListComponent = function (
       }
     },
     confirmDeleteJob(name) {
-      this.jobsModal.deleteConfirmJob = name;
-      this.jobsModal.deleteConfirmShow = true;
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete this job?',
+        detail: name,
+        confirmLabel: 'Delete Job',
+        cancelLabel: 'Keep Job',
+      }).then((ok) => ok && this.deleteJob(name));
     },
     async deleteJob(name) {
       const self = this;
@@ -2078,6 +2100,7 @@ window.spacesListComponent = function (
     },
     async openTemplateSelector() {
       this.templateSelector.intent = "space";
+      this.templateSelector.searchTerm = "";
       await this.getTemplatesForSelector();
       // Quota blocks every available template: show the out-of-quota popup
       // instead of a picker where every card is tinted out. (No templates
@@ -2088,6 +2111,13 @@ window.spacesListComponent = function (
       );
       if (anyVisible && !this.anyUsableTemplate()) {
         this.quotaLimitShow = true;
+        return;
+      }
+      // Only one template to choose from: there is no choice to make, so go
+      // straight to the form.
+      const offered = this.templateSelector.templates.filter((t) => !t.searchHide);
+      if (offered.length === 1 && !this.templateBlocked(offered[0])) {
+        this.createSpaceFromTemplate(offered[0].template_id);
         return;
       }
       this.templateSelector.show = true;

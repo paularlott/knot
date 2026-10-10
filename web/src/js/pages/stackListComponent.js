@@ -34,7 +34,15 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       .using(sessionStorage),
 
     // Modals (existing)
-    deleteDefConfirm: { show: false, def: {} },
+    confirmDeleteDef(d) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the stack definition {name}?',
+        name: d.name,
+        confirmLabel: 'Delete Definition',
+        cancelLabel: 'Keep Definition',
+      }).then((ok) => ok && this.deleteDefinition(d.stack_definition_id));
+    },
     createStackModal: { show: false, def: null, prefix: "", name: "", error: "", creating: false },
 
     // Context

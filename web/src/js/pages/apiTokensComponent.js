@@ -93,10 +93,6 @@ window.apiTokensComponent = function (canBackup) {
     },
     editNameValid: true,
 
-    deleteConfirm: {
-      show: false,
-      token: { token_id: "", name: "" },
-    },
     searchTerm: Alpine.$persist("")
       .as("apitoken-search-term")
       .using(sessionStorage),
@@ -239,7 +235,10 @@ window.apiTokensComponent = function (canBackup) {
         });
         return;
       }
-      if (err) return;
+      if (err) {
+        focus.firstInvalid(this.$root);
+        return;
+      }
 
       this.loading = true;
 
@@ -361,6 +360,17 @@ window.apiTokensComponent = function (canBackup) {
     },
 
     // ---- Delete ----
+
+    confirmDelete(t) {
+      window.knotConfirm({
+        danger: true,
+        message: "Are you sure you want to delete the API token {name}?",
+        name: t.name,
+        detail: "Deleting the token may prevent access.",
+        confirmLabel: "Delete Token",
+        cancelLabel: "Keep Token",
+      }).then((ok) => ok && this.deleteToken(t.token_id));
+    },
 
     async deleteToken(tokenId) {
       const self = this;

@@ -15,12 +15,14 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, pe
 
   return {
     loading: true,
-    deleteConfirm: {
-      show: false,
-      script: {
-        script_id: "",
-        name: "",
-      },
+    confirmDelete(s) {
+      window.knotConfirm({
+        danger: true,
+        message: "Are you sure you want to delete the script {name}?",
+        name: s.name,
+        confirmLabel: "Delete Script",
+        cancelLabel: "Keep Script",
+      }).then((ok) => ok && this.deleteScript(s.script_id));
     },
     scriptFormModal: {
       show: false,

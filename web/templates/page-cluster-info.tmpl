@@ -15,7 +15,7 @@
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Cluster information" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
               <th scope="col" class="px-4 py-3 text-left">Node</th>
               <th scope="col" class="px-4 py-3 text-left">State</th>
@@ -51,7 +51,7 @@
                       <div class="text-sm">
                         <span class="font-medium">Spaces:</span>
                         <span x-text="`${node.metadata.running_spaces || 0} / ${node.metadata.allocated_spaces || 0}`" class="text-gray-600 dark:text-gray-300"></span>
-                        <span class="text-xs text-gray-400">(running / allocated)</span>
+                        <span class="text-xs text-gray-500">(running / allocated)</span>
                       </div>
                     </div>
                     <div class="xl:hidden mt-2 space-y-1">
@@ -87,7 +87,7 @@
                       <span x-text="node.metadata.allocated_spaces || 0"></span>
                     </div>
                     <div class="text-xs text-gray-500 dark:text-gray-400">running / allocated</div>
-                    <div class="text-xs text-gray-400 dark:text-gray-500">(includes pending)</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">(includes pending)</div>
                   </td>
                   <td class="px-4 py-3 text-gray-700 dark:text-gray-200 hidden xl:table-cell">
                     <template x-if="node.metadata.runtimes">

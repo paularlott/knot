@@ -97,7 +97,7 @@
                 </div>
               </div>
             </div>
-            <div x-show="specWizard.baseImagesError" class="text-xs text-amber-600 dark:text-amber-400" x-text="specWizard.baseImagesError"></div>
+            <div x-show="specWizard.baseImagesError" class="text-xs text-amber-700 dark:text-amber-400" x-text="specWizard.baseImagesError"></div>
             <p x-show="formData.platform === 'kvm'" x-cloak class="description">A cloud-init capable qcow2 image matching the node's architecture. A bare name resolves in the node's cloud images directory (<code>.qcow2</code> appended when missing); URLs are downloaded and cached on the node.</p>
           </div>
         </fieldset>
@@ -108,8 +108,8 @@
           <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">VM Network</legend>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mode</label>
-              <select class="form-field" x-model="specWizard.spec.kvm_network.mode"
+              <label for="sw-kvm-net-mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mode</label>
+              <select id="sw-kvm-net-mode" class="form-field" x-model="specWizard.spec.kvm_network.mode"
                 @change="if (specWizard.spec.kvm_network.mode === 'nat') {
                   specWizard.spec.kvm_network.cidr = '';
                   specWizard.spec.kvm_network.gateway = '';
@@ -121,33 +121,33 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              <label for="sw-kvm-net-bridge" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 x-text="specWizard.spec.kvm_network.mode === 'nat' ? 'Libvirt Network' : 'Bridge'">Bridge</label>
-              <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.bridge"
+              <input id="sw-kvm-net-bridge" type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.bridge"
                 :placeholder="specWizard.spec.kvm_network.mode === 'nat' ? 'default' : 'br0 or default'">
             </div>
             <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Network CIDR</label>
-                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.cidr" placeholder="192.168.50.0/24">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-kvm-net-cidr">Network CIDR</label>
+                <input id="sw-kvm-net-cidr" type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.cidr" placeholder="192.168.50.0/24">
               </div>
             </template>
             <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gateway</label>
-                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.gateway" placeholder="192.168.50.1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-kvm-net-gateway">Gateway</label>
+                <input id="sw-kvm-net-gateway" type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.gateway" placeholder="192.168.50.1">
               </div>
             </template>
             <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IP Range Start</label>
-                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.ip_range_start" placeholder="192.168.50.10">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-kvm-net-ip-start">IP Range Start</label>
+                <input id="sw-kvm-net-ip-start" type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.ip_range_start" placeholder="192.168.50.10">
               </div>
             </template>
             <template x-if="specWizard.spec.kvm_network.mode !== 'nat'">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IP Range End</label>
-                <input type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.ip_range_end" placeholder="192.168.50.100">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-kvm-net-ip-end">IP Range End</label>
+                <input id="sw-kvm-net-ip-end" type="text" class="form-field font-mono" x-model="specWizard.spec.kvm_network.ip_range_end" placeholder="192.168.50.100">
               </div>
             </template>
           </div>
@@ -156,9 +156,9 @@
         </fieldset>
 
         <!-- Host Devices (KVM only) — PCI/USB passthrough entries -->
-        <fieldset x-show="formData.platform === 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset aria-labelledby="sw-legend-host-devices" x-show="formData.platform === 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
-            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Host Devices</legend>
+            <span id="sw-legend-host-devices" class="text-sm font-medium text-gray-900 dark:text-white px-2">Host Devices</span>
             <button type="button" @click="wizardAddHostDevice()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
               <span class="sr-only">Add device</span>
@@ -181,13 +181,13 @@
           <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Resources</legend>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hostname</label>
-              <input type="text" class="form-field" x-model="specWizard.spec.hostname" placeholder="container hostname">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-hostname">Hostname</label>
+              <input id="sw-hostname" type="text" class="form-field" x-model="specWizard.spec.hostname" placeholder="container hostname">
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              <label for="sw-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 x-text="formData.platform === 'nomad' ? 'Job Name' : formData.platform === 'kvm' ? 'Domain Name' : 'Container Name'">Name</label>
-              <input type="text" class="form-field" x-model="specWizard.spec.name"
+              <input id="sw-name" type="text" class="form-field" x-model="specWizard.spec.name"
                 :placeholder="formData.platform === 'nomad' ? 'job \u0022&lt;name&gt;\u0022 { ... }' : formData.platform === 'kvm' ? '${{ .user.username }}-${{ .space.name }}' : 'container_name'">
             </div>
           </div>
@@ -195,18 +195,18 @@
           <p class="description mb-3" x-show="formData.platform === 'kvm'" x-cloak>Name is the libvirt domain name; Hostname is the VM's hostname. Leave blank to default to <code>${{ .user.username }}-${{ .space.name }}</code> / <code>${{ .space.name }}</code>.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Memory</label>
-              <input type="text" class="form-field" x-model="specWizard.spec.memory" placeholder="e.g. 2G">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-memory">Memory</label>
+              <input id="sw-memory" type="text" class="form-field" x-model="specWizard.spec.memory" placeholder="e.g. 2G">
             </div>
             <div x-show="formData.platform === 'nomad'" x-cloak>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Memory Max</label>
-              <input type="text" class="form-field" x-model="specWizard.spec.memory_max" placeholder="e.g. 4G">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-memory-max">Memory Max</label>
+              <input id="sw-memory-max" type="text" class="form-field" x-model="specWizard.spec.memory_max" placeholder="e.g. 4G">
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              <label for="sw-cpus" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 x-text="formData.platform === 'nomad' ? (specWizard.spec.cpu_type === 'cores' ? 'Cores' : 'CPU (MHz)') : 'CPUs'">CPUs</label>
               <div class="flex">
-                <input type="text" class="form-field grow" x-model="specWizard.spec.cpus"
+                <input id="sw-cpus" type="text" class="form-field grow" x-model="specWizard.spec.cpus"
                   :placeholder="formData.platform === 'nomad' && specWizard.spec.cpu_type !== 'cores' ? 'e.g. 500' : 'e.g. 2'"
                   :class="formData.platform === 'nomad' ? 'rounded-r-none border-r-0' : ''">
                 <template x-if="formData.platform === 'nomad'">
@@ -218,17 +218,19 @@
               </div>
             </div>
             <div x-show="formData.platform === 'kvm'" x-cloak>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Disk Size</label>
-              <input type="text" class="form-field" x-model="specWizard.spec.disk" placeholder="e.g. 20G">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="sw-disk">Disk Size</label>
+              <input id="sw-disk" type="text" class="form-field" x-model="specWizard.spec.disk" placeholder="e.g. 20G">
             </div>
             <div x-show="formData.platform === 'nomad'" x-cloak>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task driver</label>
-              <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+              <span id="sw-driver-label" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task driver</span>
+              <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden" role="group" aria-labelledby="sw-driver-label">
                 <button type="button"
+                  :aria-pressed="(specWizard.spec.driver || 'docker') !== 'podman' ? 'true' : 'false'"
                   @click="specWizard.spec.driver = 'docker'"
                   :class="(specWizard.spec.driver || 'docker') !== 'podman' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
                   class="px-3 py-2 text-sm">Docker</button>
                 <button type="button"
+                  :aria-pressed="specWizard.spec.driver === 'podman' ? 'true' : 'false'"
                   @click="specWizard.spec.driver = 'podman'"
                   :class="specWizard.spec.driver === 'podman' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
                   class="px-3 py-2 text-sm border-l border-gray-300 dark:border-gray-600">Podman</button>
@@ -243,9 +245,9 @@
         </fieldset>
 
         <!-- Environment -->
-        <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset aria-labelledby="sw-legend-environment" class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
-            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Environment</legend>
+            <span id="sw-legend-environment" class="text-sm font-medium text-gray-900 dark:text-white px-2">Environment</span>
             <button type="button" @click="wizardAddEnv()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
               <span class="sr-only">Add env var</span>
@@ -255,7 +257,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
               <div class="flex items-center gap-2">
                 <input type="text" class="form-field w-56 shrink-0" x-model="specWizard.spec.environment[i].key" placeholder="KEY" aria-label="Variable name">
-                <span class="text-gray-400 hidden sm:inline">=</span>
+                <span class="text-gray-500 hidden sm:inline">=</span>
               </div>
               <div class="flex items-center gap-2 grow">
                 <input type="text" class="form-field grow min-w-40" x-model="specWizard.spec.environment[i].value" placeholder="value (literals or template vars)" aria-label="Variable value">
@@ -270,14 +272,14 @@
 
         <!-- Linux capabilities (cap_add only — cap_drop stays a hand-edit, and
              any existing cap_drop in the spec is preserved on Apply) -->
-        <fieldset x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset aria-labelledby="sw-legend-capabilities" x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <!-- click.outside wraps the toggle button AND the dropdown together.
                When the button lived outside this container, clicking it counted
                as an "outside" click on the same event, closing the dropdown
                the instant it opened. -->
           <div class="relative" data-cap-picker @click.outside="specWizard.capPicker.cap_add.open = false">
             <div class="flex items-center gap-2 mb-2">
-              <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Capabilities</legend>
+              <span id="sw-legend-capabilities" class="text-sm font-medium text-gray-900 dark:text-white px-2">Capabilities</span>
               <button type="button"
                 @click="toggleCapabilityPicker('cap_add'); $nextTick(() => { if (specWizard.capPicker.cap_add.open) { const el = $el.closest('[data-cap-picker]').querySelector('input[type=search]'); if (el) el.focus(); } })"
                 class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5"
@@ -330,14 +332,14 @@
             </div>
           </div>
 
-          <div x-show="specWizard.capabilitiesError" x-cloak class="mt-2 text-xs text-amber-600 dark:text-amber-400" x-text="specWizard.capabilitiesError"></div>
+          <div x-show="specWizard.capabilitiesError" x-cloak class="mt-2 text-xs text-amber-700 dark:text-amber-400" x-text="specWizard.capabilitiesError"></div>
           <p class="description">Capabilities granted to the container (<code>cap_add</code>). Search by name or by what the capability does.</p>
         </fieldset>
 
         <!-- Storage -->
-        <fieldset x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset aria-labelledby="sw-legend-storage" x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
-            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Storage</legend>
+            <span id="sw-legend-storage" class="text-sm font-medium text-gray-900 dark:text-white px-2">Storage</span>
             <div class="flex gap-1">
               <button type="button" @click="wizardAddStorage('bind')" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-xs px-2 py-1" title="Add bind mount">+ Bind</button>
               <button type="button" @click="wizardAddStorage('volume')" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-xs px-2 py-1" title="Add managed volume">+ Volume</button>
@@ -359,7 +361,7 @@
               <template x-if="entry.kind !== 'volume'">
                 <input type="text" class="form-field w-60" x-model="specWizard.spec.storage[i].host_path" :placeholder="entry.kind === 'path' ? '/managed/path' : 'host path'" aria-label="Host path">
               </template>
-              <span class="text-gray-400">→</span>
+              <span class="text-gray-500">→</span>
               <input type="text" class="form-field grow" x-model="specWizard.spec.storage[i].container_path" placeholder="/container/path" aria-label="Container path">
               <!-- Read-only toggle -->
               <label class="flex items-center cursor-pointer shrink-0">
@@ -404,9 +406,9 @@
         </fieldset>
 
         <!-- Ports -->
-        <fieldset x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset aria-labelledby="sw-legend-container-ports" x-show="formData.platform !== 'kvm'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
-            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Container Ports</legend>
+            <span id="sw-legend-container-ports" class="text-sm font-medium text-gray-900 dark:text-white px-2">Container Ports</span>
             <button type="button" @click="wizardAddPort()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
               <span class="sr-only">Add port</span>
@@ -416,9 +418,9 @@
             <div class="flex items-center gap-2 mb-2">
               <input type="text" class="form-field w-32" x-model="specWizard.spec.ports[i].label" placeholder="label (Nomad)" aria-label="Port label (Nomad)">
               <input type="number" min="1" max="65535" class="form-field w-24" x-model.number="specWizard.spec.ports[i].host_port" placeholder="Host" aria-label="Host port">
-              <span class="text-gray-400">:</span>
+              <span class="text-gray-500">:</span>
               <input type="number" min="1" max="65535" class="form-field w-24" x-model.number="specWizard.spec.ports[i].container_port" placeholder="Container" aria-label="Container port">
-              <select class="form-field w-28" x-model="specWizard.spec.ports[i].protocol">
+              <select class="form-field w-28" x-model="specWizard.spec.ports[i].protocol" aria-label="Protocol">
                 <option value="tcp">TCP</option>
                 <option value="udp">UDP</option>
                 <option value="tcp+udp">TCP+UDP</option>
@@ -432,9 +434,9 @@
         </fieldset>
 
         <!-- Templates (Nomad only) -->
-        <fieldset x-show="formData.platform === 'nomad'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <fieldset aria-labelledby="sw-legend-templates" x-show="formData.platform === 'nomad'" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2 mb-2">
-            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Templates</legend>
+            <span id="sw-legend-templates" class="text-sm font-medium text-gray-900 dark:text-white px-2">Templates</span>
             <button type="button" @click="wizardAddTemplate()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
               <span class="sr-only">Add template</span>
@@ -483,19 +485,19 @@
       </div>
       <div class="ui-modal-body-scroll flex-1 space-y-4">
         <div>
-          <label class="form-label">Parameters <span class="text-xs text-gray-400">(YAML)</span></label>
+          <label for="volDetailsParameters" class="form-label">Parameters <span class="text-xs text-gray-500">(YAML)</span></label>
           <div id="volDetailsParameters" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
         <div>
-          <label class="form-label">Secrets <span class="text-xs text-gray-400">(YAML)</span></label>
+          <label for="volDetailsSecrets" class="form-label">Secrets <span class="text-xs text-gray-500">(YAML)</span></label>
           <div id="volDetailsSecrets" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
         <div>
-          <label class="form-label">Capabilities <span class="text-xs text-gray-400">(YAML list)</span></label>
+          <label for="volDetailsCapabilities" class="form-label">Capabilities <span class="text-xs text-gray-500">(YAML list)</span></label>
           <div id="volDetailsCapabilities" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
         <div>
-          <label class="form-label">Mount Options <span class="text-xs text-gray-400">(YAML)</span></label>
+          <label for="volDetailsMountOptions" class="form-label">Mount Options <span class="text-xs text-gray-500">(YAML)</span></label>
           <div id="volDetailsMountOptions" class="h-24 w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"></div>
         </div>
       </div>
@@ -506,29 +508,7 @@
     </div>
   </div>
 
-  <!-- Volume details: discard unsaved changes confirmation -->
-  <div x-cloak x-show="specWizard.volumeDetails.discardShow" x-transition.opacity.duration.150ms x-trap.inert.noscroll="specWizard.volumeDetails.discardShow" @keydown.esc.stop="specWizard.volumeDetails.discardShow = false" class="fixed inset-0 z-[95] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="volDiscardTitle">
-    <div x-show="specWizard.volumeDetails.discardShow" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-      <div class="ui-modal-header">
-        <div class="ui-modal-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-          </svg>
-        </div>
-        <h3 id="volDiscardTitle" class="ui-modal-title">Unsaved Changes</h3>
-        <button @click="specWizard.volumeDetails.discardShow = false" aria-label="close" class="ui-modal-close">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="ui-modal-body">
-        <p>You have unsaved changes. Are you sure you want to discard them?</p>
-      </div>
-      <div class="ui-modal-footer">
-        <button @click="specWizard.volumeDetails.discardShow = false" type="button" class="ui-button-secondary sm:mr-auto">Keep Editing</button>
-        <button @click="discardVolumeDetails()" type="button" class="ui-button-danger">Discard Changes</button>
-      </div>
-    </div>
-  </div>
+  <!-- Volume details: the discard-unsaved-changes prompt is the shared confirm dialog (requestCloseVolumeDetails). -->
 
   <!-- Template editor modal -->
   <div x-cloak x-show="specWizard.templateEditor.show" x-transition.opacity.duration.150ms @keydown.esc.stop="closeTemplateEditor()" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="templateEditorTitle">
@@ -541,17 +521,17 @@
       </div>
       <div class="ui-modal-body-scroll flex-1 space-y-4">
         <div>
-          <label class="form-label">Destination</label>
-          <input type="text" class="form-field font-mono text-sm" x-model="specWizard.templateEditor.destination" placeholder="local/custom.ini" aria-label="Template destination path">
+          <label for="sw-tpl-destination" class="form-label">Destination</label>
+          <input id="sw-tpl-destination" type="text" class="form-field font-mono text-sm" x-model="specWizard.templateEditor.destination" placeholder="local/custom.ini">
         </div>
         <div>
-          <label class="form-label">Data</label>
+          <label for="templateAceEditor" class="form-label">Data</label>
           <div id="templateAceEditor" class="h-64 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" x-ref="templateAceEditor"></div>
         </div>
         <div class="flex flex-wrap items-center gap-4">
           <div>
-            <label class="form-label">Change Mode</label>
-            <select class="form-field w-36" x-model="specWizard.templateEditor.change_mode" aria-label="Change mode">
+            <label for="sw-tpl-change-mode" class="form-label">Change Mode</label>
+            <select id="sw-tpl-change-mode" class="form-field w-36" x-model="specWizard.templateEditor.change_mode">
               <option value="">(default)</option>
               <option value="noop">noop</option>
               <option value="signal">signal</option>
@@ -559,14 +539,14 @@
             </select>
           </div>
           <div x-show="specWizard.templateEditor.change_mode === 'signal'">
-            <label class="form-label">Change Signal</label>
-            <input type="text" class="form-field w-32" x-model="specWizard.templateEditor.change_signal" placeholder="SIGHUP" aria-label="Change signal">
+            <label for="sw-tpl-change-signal" class="form-label">Change Signal</label>
+            <input id="sw-tpl-change-signal" type="text" class="form-field w-32" x-model="specWizard.templateEditor.change_signal" placeholder="SIGHUP">
           </div>
         </div>
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-          <label class="form-label">Mount into container (optional)</label>
+          <label for="sw-tpl-mount-target" class="form-label">Mount into container (optional)</label>
           <div class="flex items-center gap-2">
-            <input type="text" class="form-field grow font-mono text-sm" x-model="specWizard.templateEditor.mount_target" placeholder="/etc/custom.ini" aria-label="Mount target path in container">
+            <input id="sw-tpl-mount-target" type="text" class="form-field grow font-mono text-sm" x-model="specWizard.templateEditor.mount_target" placeholder="/etc/custom.ini">
             <label class="flex items-center cursor-pointer shrink-0">
               <input type="checkbox" class="sr-only peer" x-model="specWizard.templateEditor.mount_readonly">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>

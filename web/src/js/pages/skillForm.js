@@ -184,6 +184,7 @@ Add your skill documentation here in markdown format.
       this.contentValid = this.formData.content.length <= 4 * 1024 * 1024;
 
       if (!this.contentValid || !this.checkZonesValid()) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

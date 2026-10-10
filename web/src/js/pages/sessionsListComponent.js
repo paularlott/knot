@@ -2,13 +2,6 @@ window.sessionsListComponent = function() {
   return {
     loading: true,
     sessions: [],
-    deleteConfirm: {
-      show: false,
-      session: {
-        session_id: ''
-      }
-    },
-
     async init() {
       await this.getSessions();
 
@@ -45,6 +38,15 @@ window.sessionsListComponent = function() {
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively
       });
+    },
+    confirmDelete(session) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the session?',
+        detail: 'Deleting the session will cause the the browser to be logged out.',
+        confirmLabel: 'Delete Session',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.deleteSession(session.session_id));
     },
     async deleteSession(sessionId) {
       const self = this;

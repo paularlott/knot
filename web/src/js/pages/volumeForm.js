@@ -225,6 +225,7 @@ window.volumeForm = function (isEdit, volumeId) {
       err = !this.checkVol() || err;
       err = !this.checkPlatform() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         this.$dispatch("show-alert", {
           msg: "Please fix the validation errors before saving",
           type: "error",

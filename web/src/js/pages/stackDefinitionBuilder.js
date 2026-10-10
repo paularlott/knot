@@ -44,17 +44,6 @@ window.stackDefinitionBuilder = function () {
       form: blankComponent(),
     },
 
-    // Delete component confirmation
-    deleteCompConfirm: {
-      show: false,
-      index: null,
-    },
-
-    // Discard unsaved changes confirmation
-    discardConfirm: {
-      show: false,
-    },
-
     // Editor state
     editor: {
       active: false,
@@ -215,14 +204,20 @@ window.stackDefinitionBuilder = function () {
 
     closeEditor() {
       if (this.editor.dirty) {
-        this.discardConfirm.show = true;
+        window.knotConfirm({
+          danger: true,
+          icon: 'warning',
+          title: 'Unsaved Changes',
+          message: 'You have unsaved changes. Are you sure you want to discard them?',
+          confirmLabel: 'Discard Changes',
+          cancelLabel: 'Keep Editing',
+        }).then((ok) => ok && this.discardChanges());
         return;
       }
       this.editor.active = false;
     },
 
     discardChanges() {
-      this.discardConfirm.show = false;
       this.editor.active = false;
     },
 
@@ -302,16 +297,17 @@ window.stackDefinitionBuilder = function () {
     },
 
     confirmDeleteComponent(ni) {
-      this.deleteCompConfirm.index = ni;
-      this.deleteCompConfirm.show = true;
-    },
-
-    executeDeleteComponent() {
-      const ni = this.deleteCompConfirm.index;
-      this.deleteCompConfirm.show = false;
-      if (ni !== null && ni !== undefined) {
-        this.deleteComponent(ni);
-      }
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the space {name}?',
+        name: this.editor.form.spaces[ni]?.name || '',
+        confirmLabel: 'Delete Space',
+        cancelLabel: 'Keep Space',
+      }).then((ok) => {
+        if (ok && ni !== null && ni !== undefined) {
+          this.deleteComponent(ni);
+        }
+      });
     },
 
     // ---- Component editor modal ----

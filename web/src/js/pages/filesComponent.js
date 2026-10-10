@@ -1067,8 +1067,18 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       return this.editor.content !== this.editor.original;
     },
 
-    closeEditor() {
-      if (this.editorDirty && !this.editor.saving && !confirm('Discard your changes?')) return;
+    async closeEditor() {
+      if (this.editorDirty && !this.editor.saving) {
+        const ok = await window.knotConfirm({
+          danger: true,
+          icon: 'warning',
+          title: 'Unsaved Changes',
+          message: 'Discard your changes?',
+          cancelLabel: 'Keep Editing',
+          confirmLabel: 'Discard Changes',
+        });
+        if (!ok || !this.editor.show) return;
+      }
       this.editor.show = false;
       this.destroyEditor();
     },

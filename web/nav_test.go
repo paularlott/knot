@@ -7,93 +7,105 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 )
 
-func TestBuildNav_ModeA_FullAdminNonLeaf(t *testing.T) {
+func TestBuildNav_FullAdminNonLeaf(t *testing.T) {
 	u := adminUser(t)
 	cfg := &config.ServerConfig{} // non-leaf, no tunnels, no cluster, hideAPITokens=false
 
-	top, more := buildNav(u, cfg, true)
+	sections := buildNav(u, cfg, true)
+	assertEqual(t, []string{navWorkspace, navBuild, navAdmin}, sectionKeys(sections), "sections for full admin")
 
-	topURLs := urls(top)
-	wantTop := []string{"/spaces", "/api-tokens", "/volumes"}
-	assertEqual(t, wantTop, topURLs, "Mode A top section for full admin (non-leaf)")
+	assertEqual(t, []string{"/spaces", "/api-tokens"}, urls(section(sections, navWorkspace)), "workspace section")
+	assertEqual(t, []string{
+		"/templates", "/variables", "/stacks", "/volumes", "/scripts", "/events",
+		"/skills", "/commands", "/mcp-servers",
+	}, urls(section(sections, navBuild)), "build section")
+	assertEqual(t, []string{"/users", "/groups", "/roles", "/audit-logs"}, urls(section(sections, navAdmin)), "admin section")
 
-	// More is gated by permissions; admin has all, so expect the full set in
-	// legacy order, including templates + variables (non-leaf).
-	wantMore := []string{
-		"/stacks", "/variables", "/templates", "/scripts", "/events",
-		"/skills", "/commands", "/mcp-servers", "/users", "/groups",
-		"/roles", "/audit-logs",
+	for _, s := range sections {
+		if s.DefaultOpen != (s.Key == navWorkspace) {
+			t.Errorf("section %s: default open %v", s.Key, s.DefaultOpen)
+		}
 	}
-	assertEqual(t, wantMore, urls(more), "Mode A more section for full admin (non-leaf)")
 }
 
-func TestBuildNav_LeafNode_PromotesTemplatesAndVariables(t *testing.T) {
+func TestBuildNav_LeafNode_TemplatesAndVariablesInWorkspace(t *testing.T) {
 	u := adminUser(t)
 	cfg := &config.ServerConfig{LeafNode: true}
 
-	top, more := buildNav(u, cfg, true)
+	sections := buildNav(u, cfg, true)
 
-	topURLs := urls(top)
-	// Leaf node: Tunnels hidden, Templates + Variables promoted to top.
-	wantTop := []string{"/spaces", "/api-tokens", "/volumes", "/templates", "/variables"}
-	assertEqual(t, wantTop, topURLs, "leaf-node top section")
-
-	// On a leaf, variables/templates/mcp-servers come from the leaf paths and
-	// users/groups/roles/cluster are hidden (non-leaf gated). Audit logs are
-	// not leaf-gated, so they still appear when audit storage is available.
-	wantMore := []string{"/stacks", "/scripts", "/events", "/skills", "/commands", "/mcp-servers", "/audit-logs"}
-	assertEqual(t, wantMore, urls(more), "leaf-node more section")
+	// Leaf node: Tunnels hidden, Templates + Variables with the everyday items.
+	assertEqual(t, []string{"/spaces", "/api-tokens", "/templates", "/variables"}, urls(section(sections, navWorkspace)), "leaf workspace")
+	assertEqual(t, []string{"/stacks", "/volumes", "/scripts", "/events", "/skills", "/commands", "/mcp-servers"}, urls(section(sections, navBuild)), "leaf build")
+	// Users/groups/roles/cluster are hidden on a leaf; audit logs are not
+	// leaf-gated, so they still appear when audit storage is available.
+	assertEqual(t, []string{"/audit-logs"}, urls(section(sections, navAdmin)), "leaf admin")
 }
 
-func TestResolveNav_ModeA_NoPins(t *testing.T) {
+func TestBuildNav_EmptySectionsHidden(t *testing.T) {
+	model.SetRoleCache(nil)
+	plain := &model.User{Id: "u2", Username: "plain", Active: true}
+	cfg := &config.ServerConfig{}
+
+	// No permissions: only API Tokens, so only Workspace.
+	sections := buildNav(plain, cfg, true)
+	assertEqual(t, []string{navWorkspace}, sectionKeys(sections), "sections for a user with no permissions")
+
+	cfg.UI.HideAPITokens = true
+	if sections := buildNav(plain, cfg, true); len(sections) != 0 {
+		t.Fatalf("expected no sections, got %v", sectionKeys(sections))
+	}
+}
+
+func TestResolveNav_NoStars(t *testing.T) {
 	u := adminUser(t)
 	u.SetNavStarred(nil)
 	cfg := &config.ServerConfig{}
 
-	modeB, starred, top, more, moreActive := resolveNav(u, cfg, true, "/spaces")
+	starred, sections := resolveNav(u, cfg, true, "/spaces")
 
-	if modeB {
-		t.Fatalf("expected Mode A with no pins")
-	}
 	if starred != nil {
-		t.Fatalf("expected nil starred in Mode A, got %v", starred)
+		t.Fatalf("expected nil starred, got %v", starred)
 	}
-	if len(top) == 0 || len(more) == 0 {
-		t.Fatalf("expected default top/more populated in Mode A")
+	assertEqual(t, []string{navWorkspace, navBuild, navAdmin}, sectionKeys(sections), "sections")
+	ws := sectionByKey(sections, navWorkspace)
+	if !ws.Active || !ws.Items[0].Active {
+		t.Fatal("/spaces should be the current item, in the Workspace section")
 	}
-	// /spaces is a top-level item in Mode A, so More must not auto-expand.
-	if moreActive {
-		t.Fatalf("/spaces is top-level in Mode A; More must not be active")
+	if sectionByKey(sections, navBuild).Active || sectionByKey(sections, navAdmin).Active {
+		t.Fatal("only the section holding the current page is active")
 	}
 }
 
-func TestResolveNav_ModeB_DemotesPrimaryItemsToTopOfMore(t *testing.T) {
+func TestResolveNav_StarredLeaveTheirSections(t *testing.T) {
 	u := adminUser(t)
-	u.SetNavStarred([]string{"/scripts", "/spaces"}) // pin Scripts + Spaces
+	u.SetNavStarred([]string{"/scripts", "/spaces"})
 	cfg := &config.ServerConfig{}
 
-	modeB, starred, top, more, _ := resolveNav(u, cfg, true, "/anything")
+	starred, sections := resolveNav(u, cfg, true, "/anything")
 
-	if !modeB {
-		t.Fatalf("expected Mode B with pins present")
+	// Starred items render in the stored order.
+	assertEqual(t, []string{"/scripts", "/spaces"}, urls(starred), "starred order preserved")
+	for _, it := range starred {
+		if !it.Starred {
+			t.Errorf("%s not marked starred", it.URL)
+		}
 	}
+	assertEqual(t, []string{"/api-tokens"}, urls(section(sections, navWorkspace)), "workspace without starred")
+	assertContainsNone(t, urls(section(sections, navBuild)), []string{"/scripts"})
+}
 
-	// Pinned items render in the stored order.
-	assertEqual(t, []string{"/scripts", "/spaces"}, urls(starred), "pinned order preserved")
+func TestResolveNav_SectionHiddenWhenAllStarred(t *testing.T) {
+	u := adminUser(t)
+	u.SetNavStarred([]string{"/spaces", "/api-tokens"})
+	cfg := &config.ServerConfig{}
 
-	if top != nil {
-		t.Fatalf("Mode B must not populate the default top list")
+	starred, sections := resolveNav(u, cfg, true, "/spaces")
+	assertEqual(t, []string{"/spaces", "/api-tokens"}, urls(starred), "starred")
+	assertEqual(t, []string{navBuild, navAdmin}, sectionKeys(sections), "workspace hidden once empty")
+	if !starred[0].Active {
+		t.Fatal("the starred copy of the current page should be marked current")
 	}
-
-	// More begins with the demoted primary items (those not pinned) in their
-	// primary order, then the rest of the More items. API Tokens + Volumes
-	// were demoted (Spaces is pinned so it's absent here).
-	moreURLs := urls(more)
-	if len(moreURLs) < 2 || (moreURLs[0] != "/api-tokens") || (moreURLs[1] != "/volumes") {
-		t.Fatalf("expected demoted primary items (/api-tokens, /volumes) at top of More, got %v", moreURLs)
-	}
-	// /scripts and /spaces must not appear in More (they're pinned).
-	assertContainsNone(t, moreURLs, []string{"/scripts", "/spaces"})
 }
 
 func TestResolveNav_StalePinsDropped(t *testing.T) {
@@ -103,43 +115,50 @@ func TestResolveNav_StalePinsDropped(t *testing.T) {
 	u.SetNavStarred([]string{"/scripts", "/tunnels", "/bogus", "/scripts", "/spaces"})
 	cfg := &config.ServerConfig{}
 
-	modeB, starred, _, _, _ := resolveNav(u, cfg, true, "/")
-	if !modeB {
-		t.Fatal("expected Mode B")
-	}
+	starred, _ := resolveNav(u, cfg, true, "/")
 	assertEqual(t, []string{"/scripts", "/spaces"}, urls(starred), "stale/hidden/duplicate pins removed")
 }
 
-func TestResolveNav_EmptyingPinsReturnsToModeA(t *testing.T) {
+func TestResolveNav_NestedPathOpensItsSection(t *testing.T) {
 	u := adminUser(t)
-	u.SetNavStarred([]string{"/scripts"})
+	u.SetNavStarred(nil)
 	cfg := &config.ServerConfig{}
 
-	if modeB, _, _, _, _ := resolveNav(u, cfg, true, "/"); !modeB {
-		t.Fatal("expected Mode B with one pin")
-	}
-
-	u.SetNavStarred([]string{}) // clear
-	modeB, starred, top, more, _ := resolveNav(u, cfg, true, "/")
-	if modeB {
-		t.Fatal("expected Mode A after clearing pins")
-	}
-	if starred != nil || top == nil || more == nil {
-		t.Fatal("Mode A should have nil starred and populated top/more")
+	_, sections := resolveNav(u, cfg, true, "/scripts/123")
+	if !sectionByKey(sections, navBuild).Active {
+		t.Fatal("expected Build to open for a page under /scripts")
 	}
 }
 
-func TestMoreActive_InModeB_DemotedPrimaryPage(t *testing.T) {
-	u := adminUser(t)
-	u.SetNavStarred([]string{"/scripts"})
-	cfg := &config.ServerConfig{}
+// --- helpers ---
 
-	// /spaces is normally top-level; in Mode B it lives inside More, so More
-	// should auto-expand when the user is on /spaces.
-	_, _, _, _, moreActive := resolveNav(u, cfg, true, "/spaces/123")
-	if !moreActive {
-		t.Fatal("expected More active for a demoted primary path in Mode B")
+func sectionKeys(sections []NavSection) []string {
+	out := make([]string, len(sections))
+	for i, s := range sections {
+		out[i] = s.Key
 	}
+	return out
+}
+
+func sectionByKey(sections []NavSection, key string) NavSection {
+	for _, s := range sections {
+		if s.Key == key {
+			return s
+		}
+	}
+	return NavSection{}
+}
+
+func section(sections []NavSection, key string) []NavItem {
+	return sectionByKey(sections, key).Items
+}
+
+func allItems(sections []NavSection) []NavItem {
+	var out []NavItem
+	for _, s := range sections {
+		out = append(out, s.Items...)
+	}
+	return out
 }
 
 // --- helpers ---

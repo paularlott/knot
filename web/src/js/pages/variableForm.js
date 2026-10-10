@@ -61,6 +61,7 @@ window.variableForm = function (isEdit, templateVarId, isLeafServer) {
 
       // Create the job editor
       const editor = ace.edit("value");
+      this.valueEditor = editor;
       editor.session.setValue(this.formData.value);
       editor.session.on("change", () => {
         this.formData.value = editor.getValue();
@@ -144,6 +145,7 @@ window.variableForm = function (isEdit, templateVarId, isLeafServer) {
       err = !this.checkValue() || err;
       err = !this.checkZonesValid() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 

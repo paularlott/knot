@@ -29,7 +29,7 @@
             </div>
             <template x-if="isAdmin">
               <div class="flex">
-                <button type="button" @click.prevent="$refs.filterPanel.toggle" aria-label="Filter" aria-haspopup="true" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
+                <button type="button" @click.prevent="$refs.filterPanel.toggle" :aria-label="showAll ? 'Filter (filters active)' : 'Filter'"class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
                   </svg>
@@ -74,7 +74,7 @@
           <div x-show="!loading && filteredBuckets.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
               <caption class="sr-only">Buckets you own or that are shared with you</caption>
-              <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
                 <tr>
                   <th scope="col" class="px-4 py-3">Bucket</th>
                   <th scope="col" class="px-4 py-3 hidden sm:table-cell">Owner</th>
@@ -202,7 +202,7 @@
           <div x-show="folders.length > 0 || files.length > 0" class="relative overflow-x-auto sm:rounded-lg">
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
               <caption class="sr-only" x-text="'Contents of ' + label(bucket) + (prefix ? '/' + prefix : '')"></caption>
-              <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
                 <tr>
                   <th scope="col" class="px-4 py-3">Name</th>
                   <th scope="col" class="px-4 py-3 hidden sm:table-cell">Size</th>
@@ -345,7 +345,7 @@
           <p x-show="deleteBucketModal.error" class="error-message" role="alert" x-text="deleteBucketModal.error"></p>
         </div>
         <div class="ui-modal-footer">
-          <button type="button" @click="deleteBucketModal.show = false" class="ui-button-secondary">Keep Bucket</button>
+          <button type="button" @click="deleteBucketModal.show = false" class="ui-button-secondary" autofocus>Keep Bucket</button>
           <button type="button" @click="deleteBucket()" class="ui-button-danger" :disabled="deleteBucketModal.saving">Delete Bucket</button>
         </div>
       </div>
@@ -368,7 +368,7 @@
           <div x-show="(shareModal.bucket?.grants || []).length > 0" class="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 mb-4">
             <div class="overflow-x-auto">
               <table aria-label="Shares" class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
                   <tr>
                     <th scope="col" class="px-3 py-2">Shared With</th>
                     <th scope="col" class="px-3 py-2">Type</th>
@@ -389,7 +389,7 @@
                         </label>
                       </td>
                       <td class="px-3 py-2 text-right whitespace-nowrap">
-                        <button type="button" @click="shareModal.removeGrant = g; $el.blur()" :aria-label="'Stop sharing with ' + grantLabel(g)" :disabled="shareModal.saving" title="Remove" class="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1 flex-shrink-0 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd"/></svg></button>
+                        <button type="button" @click="shareModal.removeGrant = g; $el.blur()" :aria-label="'Stop sharing with ' + grantLabel(g)" :disabled="shareModal.saving" title="Remove" class="text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1 flex-shrink-0 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd"/></svg></button>
                       </td>
                     </tr>
                   </template>
@@ -483,7 +483,7 @@
             <p>Stop sharing <strong x-text="label(shareModal.bucket)"></strong> with <strong x-text="grantLabel(shareModal.removeGrant)"></strong>?</p>
           </div>
           <div class="ui-modal-footer">
-            <button type="button" @click="shareModal.removeGrant = null" class="ui-button-secondary">Keep Share</button>
+            <button type="button" @click="shareModal.removeGrant = null" class="ui-button-secondary" autofocus>Keep Share</button>
             <button type="button" @click="removeGrant()" :disabled="shareModal.saving" class="ui-button-danger disabled:opacity-50">Stop Sharing</button>
           </div>
         </div>
@@ -531,6 +531,9 @@
     <div x-cloak x-show="deleteFileModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteFileModal.show" @keydown.esc.window="deleteFileModal.show = false" class="ui-modal-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="deleteFileTitle" aria-describedby="deleteFileDesc">
       <div x-show="deleteFileModal.show" class="ui-modal-panel">
         <div class="ui-modal-header">
+          <div class="ui-modal-icon-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+          </div>
           <h2 id="deleteFileTitle" class="ui-modal-title" x-text="deleteFileModal.isFolder ? 'Delete Folder' : 'Delete File'"></h2>
           <button type="button" @click="deleteFileModal.show = false" aria-label="Close" class="ui-modal-close">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -542,7 +545,7 @@
           <p x-show="deleteFileModal.error" class="error-message" role="alert" x-text="deleteFileModal.error"></p>
         </div>
         <div class="ui-modal-footer">
-          <button type="button" @click="deleteFileModal.show = false" class="ui-button-secondary">Cancel</button>
+          <button type="button" @click="deleteFileModal.show = false" class="ui-button-secondary" autofocus>Cancel</button>
           <button type="button" @click="deleteFile()" class="ui-button-danger" :disabled="deleteFileModal.saving">Delete</button>
         </div>
       </div>
@@ -609,7 +612,7 @@
               <template x-for="l in languages" :key="l[0]"><option :value="l[0]" x-text="l[1]" :selected="editor.mode === l[0]"></option></template>
             </select>
           </div>
-          <div id="editor-ace" x-show="!editor.loading" class="w-full flex-1 min-h-[50vh] rounded-lg border border-gray-300 dark:border-gray-600"></div>
+          <div id="editor-ace" data-labelledby="editorTitle" x-show="!editor.loading" class="w-full flex-1 min-h-[50vh] rounded-lg border border-gray-300 dark:border-gray-600"></div>
           <p class="description mt-1" x-show="canWrite">Ctrl+S or ⌘S saves.</p>
           <p x-show="editor.error" class="error-message mt-2" role="alert" x-text="editor.error"></p>
         </div>

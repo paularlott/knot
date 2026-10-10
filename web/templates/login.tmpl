@@ -4,16 +4,18 @@
 
 {{ define "mainContent" }}
 <div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
-  <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+  <h1 class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
     {{ if .logoURL }}
     <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">
+    <span class="sr-only">Sign in</span>
     {{ else if .pluginLogoLight }}
     <img src="{{ .pluginLogoLight }}" alt="Logo" class="h-11 dark:hidden">
     <img src="{{ .pluginLogoDark }}" alt="Logo" class="h-11 hidden dark:block">
+    <span class="sr-only">Sign in</span>
     {{ else }}
     <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Sign in to Knot
     {{ end }}
-  </div>
+  </h1>
 
   {{ if .passwordAuthEnabled }}
   <form class="mt-8 mb-0 space-y-6" action="#" action="" method="POST" @submit.prevent="submitData">
@@ -32,9 +34,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21.75 7.5v9A2.25 2.25 0 0 1 19.5 18.75h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.92l-7.5 4.615a2.25 2.25 0 0 1-2.36 0l-7.5-4.615a2.25 2.25 0 0 1-1.07-1.92V7.5" />
               </svg>
             </div>
-            <input type="email" name="email" id="email" class="auth-form-field" placeholder="name@company.com" required="" x-on:keyup.debounce.500ms="checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}">
+            <input type="email" name="email" id="email" class="auth-form-field" placeholder="name@company.com" required="" autocomplete="username" x-on:keyup.debounce.500ms="checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" :aria-describedby="!emailValid ? 'email-error' : null">
           </div>
-          <div class="error-message mt-2" x-show="!emailValid" x-cloak>Enter a valid email address.</div>
+          <div id="email-error" class="error-message mt-2" x-show="!emailValid" x-cloak>Enter a valid email address.</div>
         </div>
 
         <div>
@@ -45,9 +47,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21h-10.5A2.25 2.25 0 0 1 4.5 18.75v-6A2.25 2.25 0 0 1 6.75 10.5Z" />
               </svg>
             </div>
-            <input type="password" name="password" id="password" placeholder="your password" class="auth-form-field" required="" x-on:keyup.debounce.500ms="checkPassword()" x-model="formData.password" :class="{'form-field-error': !passwordValid}">
+            <input type="password" name="password" id="password" placeholder="your password" class="auth-form-field" required="" autocomplete="current-password" x-on:keyup.debounce.500ms="checkPassword()" x-model="formData.password" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" :aria-describedby="!passwordValid ? 'password-error' : null">
           </div>
-          <div class="error-message mt-2" x-show="!passwordValid" x-cloak>Enter your password.</div>
+          <div id="password-error" class="error-message mt-2" x-show="!passwordValid" x-cloak>Enter your password.</div>
         </div>
 
         {{ if .totpEnabled }}
@@ -59,7 +61,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15.75 5.25V3.75m-7.5 1.5V3.75m12 4.5v10.5A2.25 2.25 0 0 1 18 21H6a2.25 2.25 0 0 1-2.25-2.25V8.25m16.5 0A2.25 2.25 0 0 0 18 6H6a2.25 2.25 0 0 0-2.25 2.25m16.5 0v.75A2.25 2.25 0 0 1 18 11.25H6A2.25 2.25 0 0 1 3.75 9V8.25m5.25 5.25h6" />
               </svg>
             </div>
-            <input type="text" name="totp" id="totp" placeholder="123456" class="auth-form-field" x-model="formData.totp_code">
+            <input type="text" name="totp" id="totp" placeholder="123456" class="auth-form-field" autocomplete="one-time-code" inputmode="numeric" x-model="formData.totp_code">
           </div>
         </div>
         {{ end }}

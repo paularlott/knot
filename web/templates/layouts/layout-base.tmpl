@@ -4,15 +4,15 @@
     {{ template "head-meta" . }}
   </head>
   <body class="bg-gray-50 dark:bg-gray-900 font-nunito" x-data="{ sidebarOpen: false }">
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-blue-700 focus:text-white focus:rounded-br-lg">Skip to main content</a>
+    <a href="#main-content" onclick="return knotSkipToMain(event)" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-blue-700 focus:text-white focus:rounded-br-lg">Skip to main content</a>
     <div class="h-screen">
 
-      <!-- Top Nav -->
-      <nav class="fixed z-50 w-full bg-white border-b border-grey-200 dark:bg-gray-800 dark:border-gray-700">
+      <!-- Top Bar -->
+      <header class="fixed z-50 w-full bg-white border-b border-grey-200 dark:bg-gray-800 dark:border-gray-700">
         <div class="px-3 py-3 lg:px-5 lg:pl-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
-              <button @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 lg:hidden cursor-pointer">
+              <button @click="sidebarOpen = !sidebarOpen" :aria-expanded="sidebarOpen ? 'true' : 'false'" aria-controls="sidebar" aria-label="Toggle sidebar" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 lg:hidden cursor-pointer">
                 <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                   <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5 7h14M5 12h14M5 17h10"/>
                 </svg>
@@ -50,7 +50,7 @@
               </button>
 
               <div class="ml-2 relative" x-data>
-                <button @click="$refs.userMenu.toggle" type="button" class="group flex items-center border {{ if .switchBackUser }}border-amber-400/80 dark:border-amber-500/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10{{ else }}border-grey-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{{ end }} focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer" aria-haspopup="true" aria-label="{{ if .switchBackUser }}User menu — switched from {{ .switchBackUser.Username }}{{ else }}User menu{{ end }}">
+                <button @click="$refs.userMenu.toggle" type="button" class="group flex items-center border {{ if .switchBackUser }}border-amber-400/80 dark:border-amber-500/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10{{ else }}border-grey-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{{ end }} focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer" aria-expanded="false" aria-label="{{ if .switchBackUser }}User menu — switched from {{ .switchBackUser.Username }}{{ else }}User menu{{ end }}">
                   {{ if .useGravatar }}
                   <img src="https://www.gravatar.com/avatar/{{ .user_email_md5 }}?s=64&d=mp" alt="User Avatar" class="size-5 rounded-full mr-2">
                   {{ else }}
@@ -61,19 +61,19 @@
                   {{ .username }}
                 </button>
 
-                <div x-ref="userMenu" x-float.teleport.placement.bottom-end.flip @click.away="$refs.userMenu.toggle" x-cloak class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" role="menu">
+                <div x-ref="userMenu" x-float.teleport.placement.bottom-end.flip @click.away="$refs.userMenu.close" x-cloak class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                   {{ template "menu-user" . }}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </nav>
+      </header>
 
       <div class="flex pt-16 overflow-hidden">
 
         <!-- Side Menu -->
-        <aside :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}" class="fixed top-0 left-0 z-20 flex flex-col shrink-0 w-64 h-full pt-16 font-normal duration-75 lg:flex transition-width lg:translate-x-0" aria-label="Sidebar">
+        <aside :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}" id="sidebar" @keydown.escape="sidebarOpen = false" class="fixed top-0 left-0 z-20 flex flex-col shrink-0 w-64 h-full pt-16 font-normal duration-75 lg:flex transition-width lg:translate-x-0" aria-label="Sidebar">
           <div class="relative flex flex-col flex-1 min-h-0 pt-0 bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700">
             <div class="flex flex-col flex-1 pt-5 pb-4 overflow-y-auto">
               <div class="flex-1 px-3 space-y-1 bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -111,7 +111,7 @@
 
 {{ template "search-palette" . }}
 
-{{ template "discard-confirm" . }}
+{{ template "confirm-dialog" . }}
 
   </body>
 </html>

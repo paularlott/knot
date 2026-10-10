@@ -26,7 +26,7 @@
           </div>
         </div>
 
-        <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer mt-1 ml-2 hover:text-gray-700 dark:hover:text-gray-200">
+        <button @click.prevent="$refs.panel.toggle" :aria-label="(showRunningOnly || !showLocalOnly || showSharedOnly || showSharedWithMeOnly) ? 'Filter (filters active)' : 'Filter'"class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer mt-1 ml-2 hover:text-gray-700 dark:hover:text-gray-200">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
           </svg>
@@ -124,8 +124,8 @@
           <div x-show="poolFormModal.error" x-cloak class="text-sm text-red-600 dark:text-red-400" x-text="poolFormModal.error"></div>
           <div>
             <label for="pool-name" class="form-label">Pool Name</label>
-            <input id="pool-name" x-ref="poolNameInput" :value="poolFormModal.name" @input="poolFormModal.name = sanitizeName($event.target.value)" class="form-field" type="text" required :disabled="poolFormModal.isEdit" x-on:keyup.debounce.500ms="checkPoolName()">
-            <div x-show="poolFormModal.name && !poolNameValid" class="error-message" x-cloak>Pool name must start with a letter and can only contain letters, numbers, and hyphens (max 64 characters).</div>
+            <input id="pool-name" x-ref="poolNameInput" :value="poolFormModal.name" @input="poolFormModal.name = sanitizeName($event.target.value)" class="form-field" type="text" required :disabled="poolFormModal.isEdit" x-on:keyup.debounce.500ms="checkPoolName()" :aria-invalid="poolFormModal.name && !poolNameValid ? 'true' : 'false'" :aria-describedby="poolFormModal.name && !poolNameValid ? 'pool-name-error' : null">
+            <div id="pool-name-error" x-show="poolFormModal.name && !poolNameValid" class="error-message" x-cloak>Pool name must start with a letter and can only contain letters, numbers, and hyphens (max 64 characters).</div>
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span>Template:</span>
@@ -173,7 +173,7 @@
                   <label for="pool-lease-max-time" class="form-label">Max lease time</label>
                   <div class="flex gap-2">
                     <input id="pool-lease-max-time" x-model.number="poolFormModal.leaseMaxTimeValue" class="form-field" type="number" min="1" :required="poolFormModal.leaseEnabled && !poolFormModal.leaseNoLimit">
-                    <select x-model="poolFormModal.leaseMaxTimeUnit" class="form-field sm:w-32">
+                    <select x-model="poolFormModal.leaseMaxTimeUnit" class="form-field sm:w-32" aria-label="Max lease time unit">
                       <option value="minute">Minutes</option>
                       <option value="hour">Hours</option>
                     </select>
@@ -181,14 +181,14 @@
                   <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">A safety net for forgotten releases — an expired lease returns its member to the pool once in-flight work drains.</p>
                 </div>
                 <div x-show="!poolFormModal.leaseNoLimit" x-cloak>
-                  <label class="form-label">Max extensions</label>
+                  <label for="pool-lease-max-extensions" class="form-label">Max extensions</label>
                   <div class="flex items-center gap-3">
                     <label class="flex items-center cursor-pointer">
                       <input type="checkbox" class="sr-only peer" x-model="poolFormModal.leaseExtensionsUnlimited">
                       <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                       <span class="ms-3 text-sm text-gray-900 dark:text-gray-300">Unlimited</span>
                     </label>
-                    <input x-show="!poolFormModal.leaseExtensionsUnlimited" x-cloak x-model.number="poolFormModal.leaseMaxExtensions" class="form-field sm:w-28" type="number" min="0">
+                    <input id="pool-lease-max-extensions" x-show="!poolFormModal.leaseExtensionsUnlimited" x-cloak x-model.number="poolFormModal.leaseMaxExtensions" class="form-field sm:w-28" type="number" min="0">
                     <span x-show="!poolFormModal.leaseExtensionsUnlimited" x-cloak class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">0 forbids extending</span>
                   </div>
                 </div>
@@ -228,7 +228,7 @@
 
       <template x-if="!loading && (!visibleSpaces && !searchTerm.length && showLocalOnly)">
         <div class="w-full max-w-lg mx-auto p-4 bg-white border border-gray-200 rounded-lg shadow-lg dark:border-gray-700 dark:bg-gray-800">
-            <div class="text-center text-gray-500 dark:text-gray-400">No spaces found.<br />Get started by <button @click.prevent="openTemplateSelector" class="text-blue-500 hover:underline dark:text-blue-400">selecting a template</button>.</div>
+            <div class="text-center text-gray-500 dark:text-gray-400">No spaces found.<br />Get started by <button @click.prevent="openTemplateSelector" class="text-blue-600 hover:underline dark:text-blue-400">selecting a template</button>.</div>
         </div>
       </template>
 
@@ -242,7 +242,7 @@
             <col class="w-auto" /> <!-- Template -->
             <col class="w-1" />
           </colgroup>
-          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
               <th scope="col" class="px-4 py-3">Details</th>
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Services</th>
@@ -256,13 +256,13 @@
           <tbody>
             <!-- Show header only when stacks exist -->
             <template x-if="hasStacks() && unstackedVisibleSpaces().length > 0">
-              <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 cursor-pointer select-none" @click="toggleStack('')">
+              <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 select-none">
                 <td colspan="6" class="px-4 py-2">
-                  <div class="flex items-center gap-2">
+                  <button type="button" @click="toggleStack('')" :aria-expanded="!collapsedStacks[''] ? 'true' : 'false'" class="flex items-center gap-2 w-full text-left cursor-pointer rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500">
                     <svg :class="{'rotate-90': !collapsedStacks['']}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
                     <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Unstacked</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + unstackedVisibleSpaces().length + ' space' + (unstackedVisibleSpaces().length !== 1 ? 's' : '') + ')'"></span>
-                  </div>
+                  </button>
                 </td>
               </tr>
             </template>
@@ -280,11 +280,12 @@
               <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                 <td colspan="6" class="px-4 py-2">
                   <div class="flex items-center gap-2">
-                    <div class="flex items-center gap-2 cursor-pointer select-none flex-1" @click="toggleStack(group.name)">
+                    <button type="button" class="flex items-center gap-2 cursor-pointer select-none flex-1 text-left rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" @click="toggleStack(group.name)" :aria-expanded="!collapsedStacks[group.name] ? 'true' : 'false'">
                       <svg :class="{'rotate-90': !collapsedStacks[group.name]}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                      <span class="sr-only">Spaces in stack</span>
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="group.name"></span>
                       <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + group.count + ' space' + (group.count !== 1 ? 's' : '') + ')'"></span>
-                    </div>
+                    </button>
                     <div class="flex items-center gap-1 ml-auto">
                       <button x-show="group.spaces.some(s => s.is_local) && group.spaces.some(s => !s.is_deployed && !s.is_pending)" @click.stop="startStack(group.name)" :disabled="stackBusy[group.name] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-green-700 transition-colors hover:bg-slate-100 hover:text-green-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-green-400 dark:hover:bg-slate-700/70 dark:hover:text-green-300 dark:focus-visible:ring-offset-slate-900">
                         <svg x-show="stackBusy[group.name] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd"/></svg>
@@ -301,7 +302,7 @@
                         <svg x-show="stackBusy[group.name] === true" x-cloak class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                         Restart
                       </button>
-                      <button x-show="group.spaces.some(s => s.is_local) && group.spaces.every(s => !s.is_deployed && !s.is_pending && !s.is_deleting)" @click.stop="deleteStackConfirm.show = true; deleteStackConfirm.stack = group.name; deleteStackConfirm.count = group.count" :disabled="stackBusy[group.name] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-slate-100 hover:text-red-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-red-400 dark:hover:bg-slate-700/70 dark:hover:text-red-300 dark:focus-visible:ring-offset-slate-900">
+                      <button x-show="group.spaces.some(s => s.is_local) && group.spaces.every(s => !s.is_deployed && !s.is_pending && !s.is_deleting)" @click.stop="confirmDeleteStack(group.name, group.count)" :disabled="stackBusy[group.name] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-slate-100 hover:text-red-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-red-400 dark:hover:bg-slate-700/70 dark:hover:text-red-300 dark:focus-visible:ring-offset-slate-900">
                         <svg x-show="stackBusy[group.name] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 0 3.273 0C14.39 3.052 15 3.683 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.795.61-1.426 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd"/></svg>
                         <svg x-show="stackBusy[group.name] === true" x-cloak class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                         Delete
@@ -326,7 +327,7 @@
               <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                 <td colspan="6" class="px-4 py-2">
                   <div class="flex items-center gap-2">
-                    <div class="flex items-center gap-2 cursor-pointer select-none flex-1" @click="togglePool(pg.pool.pool_id)">
+                    <button type="button" class="flex items-center gap-2 cursor-pointer select-none flex-1 text-left rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" @click="togglePool(pg.pool.pool_id)" :aria-expanded="collapsedPools[pg.pool.pool_id] === false ? 'true' : 'false'">
                       <svg :class="{'rotate-90': collapsedPools[pg.pool.pool_id] === false}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Pool:</span>
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="pg.pool.name"></span>
@@ -341,7 +342,7 @@
                       <template x-if="pg.pool.utilization">
                         <span class="text-xs text-gray-500 dark:text-gray-400" x-text="Number(pg.pool.utilization?.combined_rps || 0).toFixed(1) + ' rps · ' + Number(pg.pool.utilization?.avg_cpu_percent || 0).toFixed(0) + '% cpu · ' + Number(pg.pool.utilization?.avg_memory_percent || 0).toFixed(0) + '% mem'"></span>
                       </template>
-                    </div>
+                    </button>
                     <div class="flex items-center gap-1 ml-auto">
                       <button x-show="canUsePools && !pg.pool.active" @click.stop="poolAction(pg.pool, 'start')" :disabled="poolBusy[pg.pool.pool_id] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-green-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-green-400 dark:hover:bg-slate-700/70">
                         <svg x-show="poolBusy[pg.pool.pool_id] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd"/></svg>
@@ -358,7 +359,7 @@
                         <svg x-show="poolBusy[pg.pool.pool_id] === true" x-cloak class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                         Edit
                       </button>
-                      <button x-show="canUsePools && !pg.pool.active && pg.pool.pool_id" @click.stop="deletePoolConfirm.show = true; deletePoolConfirm.pool = pg.pool" :disabled="poolBusy[pg.pool.pool_id] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-red-400 dark:hover:bg-slate-700/70">
+                      <button x-show="canUsePools && !pg.pool.active && pg.pool.pool_id" @click.stop="confirmDeletePool(pg.pool)" :disabled="poolBusy[pg.pool.pool_id] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-red-400 dark:hover:bg-slate-700/70">
                         <svg x-show="poolBusy[pg.pool.pool_id] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Z" clip-rule="evenodd"/></svg>
                         <svg x-show="poolBusy[pg.pool.pool_id] === true" x-cloak class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                         Delete
@@ -406,7 +407,7 @@
             <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
             <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('shareUsers')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" data-parent-variable-username="toUserUsername" @refresh-autocompleter.window="refresh()" class="relative mt-2">
-              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="Search users" :aria-invalid="chooseUser.invalidUser ? 'true' : 'false'" :aria-describedby="chooseUser.invalidUser ? 'choose-user-error' : null" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
               <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                 <ul class="list-none" role="listbox" :id="_listboxId">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -420,7 +421,7 @@
                 </ul>
               </div>
             </div>
-            <div x-show="chooseUser.invalidUser" class="error-message" x-cloak>Select a valid user.</div>
+            <div id="choose-user-error" x-show="chooseUser.invalidUser" class="error-message" x-cloak>Select a valid user.</div>
 
           </div>
           <!-- Dialog Footer -->
@@ -436,132 +437,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                 </svg> <span x-text="'Share Space with ' + chooseUser.toUserUsername"></span>
               </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Modal -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" @keydown.enter.prevent="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.space.is_deleting=true; deleteConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
-        <!-- Modal Dialog -->
-        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-          <!-- Dialog Header -->
-          <div class="ui-modal-header">
-            <div class="ui-modal-icon-danger">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
-                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-            </div>
-            <h3 id="deleteConfirmTitle" class="ui-modal-title">Confirm Delete</h3>
-            <button @click="deleteConfirm.show = false" aria-label="close modal" class="ui-modal-close">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <!-- Dialog Body -->
-          <div class="ui-modal-body text-center">
-            <p>Are you sure you want to delete the space <strong x-text="deleteConfirm.space.name"></strong>?</p>
-            <p>Deleting the space will also delete any template volumes and the data they contain.</p>
-          </div>
-          <!-- Dialog Footer -->
-          <div class="ui-modal-footer">
-              <button @click="deleteConfirm.show = false" type="button" class="ui-button-secondary">Keep Space</button>
-              <button @click="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.space.is_deleting=true; deleteConfirm.show = false" type="button" class="ui-button-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                </svg> Delete Space
-              </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Modal: Stack Delete -->
-      <div x-cloak x-show="deleteStackConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteStackConfirm.show" @keydown.esc.window="deleteStackConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteStackConfirmTitle">
-        <!-- Modal Dialog -->
-        <div x-show="deleteStackConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-          <!-- Dialog Header -->
-          <div class="ui-modal-header">
-            <div class="ui-modal-icon-danger">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
-                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-            </div>
-            <h3 id="deleteStackConfirmTitle" class="ui-modal-title">Confirm Delete</h3>
-            <button @click="deleteStackConfirm.show = false" aria-label="close modal" class="ui-modal-close">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <!-- Dialog Body -->
-          <div class="ui-modal-body text-center">
-            <p>Are you sure you want to delete the stack <strong x-text="deleteStackConfirm.stack"></strong> and its <span x-text="deleteStackConfirm.count"></span> space<span x-show="deleteStackConfirm.count !== 1">(s)</span>?</p>
-            <p>Deleting the stack will delete every space in it, along with any volumes and the data they contain.</p>
-          </div>
-          <!-- Dialog Footer -->
-          <div class="ui-modal-footer">
-              <button @click="deleteStackConfirm.show = false" type="button" class="ui-button-secondary">Keep Stack</button>
-              <button @click="deleteStack(deleteStackConfirm.stack); deleteStackConfirm.show = false" type="button" class="ui-button-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                </svg> Delete Stack
-              </button>
-          </div>
-        </div>
-      </div>
-
-      <div x-cloak x-show="deletePoolConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deletePoolConfirm.show" @keydown.esc.window="deletePoolConfirm.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deletePoolConfirmTitle">
-        <div x-show="deletePoolConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-          <div class="ui-modal-header">
-            <div class="ui-modal-icon-danger">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-            </div>
-            <h3 id="deletePoolConfirmTitle" class="ui-modal-title">Confirm Delete</h3>
-            <button @click="deletePoolConfirm.show = false" aria-label="close modal" class="ui-modal-close">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div class="ui-modal-body text-center">
-            <p>Are you sure you want to delete the pool <strong x-text="deletePoolConfirm.pool?.name"></strong>?</p>
-            <p>All spaces in this pool will be permanently deleted.</p>
-          </div>
-          <div class="ui-modal-footer">
-            <button @click="deletePoolConfirm.show = false" type="button" class="ui-button-secondary">Keep Pool</button>
-            <button @click="deletePool(deletePoolConfirm.pool); deletePoolConfirm.show = false" type="button" class="ui-button-danger">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg> Delete Pool
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="ceaseShareTitle" :aria-label="'Stop sharing ' + ceaseShareConfirm.space.name">
-        <!-- Modal Dialog -->
-        <div x-show="ceaseShareConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-          <!-- Dialog Header -->
-          <div class="ui-modal-header">
-            <div class="ui-modal-icon-danger">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
-                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
-              </svg>
-            </div>
-            <h3 id="ceaseShareTitle" class="ui-modal-title" x-text="ceaseShareConfirm.space.user_id == '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></h3>
-            <button @click="ceaseShareConfirm.show = false" aria-label="close modal" class="ui-modal-close">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <!-- Dialog Body -->
-          <div class="ui-modal-body text-center">
-            <p x-show="ceaseShareConfirm.space.user_id == '{{ .user_id }}'">Are you sure you want to stop sharing the space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
-            <p x-show="ceaseShareConfirm.space.user_id != '{{ .user_id }}'">Are you sure you want to leave the shared space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
-            <p x-cloak x-show="ceaseShareConfirm.space.user_id != '{{ .user_id }}'">You will no longer be able to access the space without requesting access from the owner of the space.</p>
-            <p x-cloak x-show="ceaseShareConfirm.space.user_id == '{{ .user_id }}'">Stopping sharing the space will revoke access for everyone the space is currently shared with.</p>
-          </div>
-          <!-- Dialog Footer -->
-          <div class="ui-modal-footer">
-              <button @click="ceaseShareConfirm.show = false" type="button" class="ui-button-secondary" x-text="ceaseShareConfirm.space.user_id == '{{ .user_id }}' ? 'Keep Share' : 'Keep Access'"></button>
-              <button @click="ceaseSharing(ceaseShareConfirm.space.space_id, ceaseShareConfirm.targetUserId); ceaseShareConfirm.show = false" type="button" class="ui-button-danger" x-text="ceaseShareConfirm.space.user_id == '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></button>
           </div>
         </div>
       </div>
@@ -777,7 +652,7 @@
       </div>
 
       <!-- Modal: Space Jobs -->
-      <div x-cloak x-show="jobsModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="jobsModal.show && !jobsModal.showJobForm && !jobsModal.deleteConfirmShow" @keydown.esc.window="if (!jobsModal.showJobForm && !jobsModal.deleteConfirmShow) closeJobs()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceJobsTitle">
+      <div x-cloak x-show="jobsModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="jobsModal.show && !jobsModal.showJobForm" @keydown.esc.window="if (!jobsModal.showJobForm) closeJobs()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceJobsTitle">
         <div x-show="jobsModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide overflow-hidden">
           <div class="ui-modal-header">
             <div class="ui-modal-icon-info">
@@ -785,7 +660,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             </div>
-            <h3 id="spaceJobsTitle" class="ui-modal-title">Jobs - <span x-text="jobsModal.spaceName"></span><span x-show="jobsModal.liveUnavailable" class="text-gray-400 dark:text-gray-500 font-normal"> (Space Not Running)</span></h3>
+            <h3 id="spaceJobsTitle" class="ui-modal-title">Jobs - <span x-text="jobsModal.spaceName"></span><span x-show="jobsModal.liveUnavailable" class="text-gray-500 dark:text-gray-400 font-normal"> (Space Not Running)</span></h3>
             <button @click="closeJobs()" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -809,7 +684,7 @@
             <div x-show="jobViewList().length > 0" class="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
               <div class="overflow-x-auto">
                 <table aria-label="Space jobs" class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                  <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+                  <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
                     <tr>
                       <th scope="col" class="px-3 py-2">Job</th>
                       <th scope="col" class="px-3 py-2">Schedule</th>
@@ -851,13 +726,13 @@
                           <div x-show="job.last_run" :class="job.last_run && job.last_run.status === 'success' ? 'text-emerald-600 dark:text-emerald-400' : (job.last_run && job.last_run.status === 'failed' ? 'text-red-600 dark:text-red-400' : '')" x-text="job.last_run ? '(' + job.last_run.status + (job.last_run.duration_ms > 0 ? ', ' + formatJobDuration(job.last_run.duration_ms) : '') + ')' : ''"></div>
                         </td>
                         <td class="px-3 py-2 text-right whitespace-nowrap">
-                          <button x-show="!jobsModal.liveUnavailable" @click="runJobNow(job.name); $el.blur()" :aria-label="'Run job ' + job.name + ' now'" :disabled="job.running || jobsModal.runningJob === job.name" title="Run now" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 flex-shrink-0 disabled:opacity-50">
+                          <button x-show="!jobsModal.liveUnavailable" @click="runJobNow(job.name); $el.blur()" :aria-label="'Run job ' + job.name + ' now'" :disabled="job.running || jobsModal.runningJob === job.name" title="Run now" class="text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 flex-shrink-0 disabled:opacity-50">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.985V5.653Z"/></svg>
                           </button>
-                          <button x-show="canEditJobs()" @click="editJob(job.name); $el.blur()" :aria-label="'Edit job ' + job.name" title="Edit" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 flex-shrink-0">
+                          <button x-show="canEditJobs()" @click="editJob(job.name); $el.blur()" :aria-label="'Edit job ' + job.name" title="Edit" class="text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg>
                           </button>
-                          <button x-show="canEditJobs()" @click="confirmDeleteJob(job.name); $el.blur()" :aria-label="'Delete job ' + job.name" title="Delete" class="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1 flex-shrink-0">
+                          <button x-show="canEditJobs()" @click="confirmDeleteJob(job.name); $el.blur()" :aria-label="'Delete job ' + job.name" title="Delete" class="text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1 flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l.3 7.5a.75.75 0 101.5.06l-.3-7.5z" clip-rule="evenodd"/></svg>
                           </button>
                         </td>
@@ -902,18 +777,18 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
                 <label class="form-label" for="job-name">Name</label>
-                <input type="text" id="job-name" x-model="jobsModal.jobForm.name" @blur="touchJobFormField('name')" class="form-field" :class="{'form-field-error': jobFormFieldShowError('name')}" placeholder="backup">
-                <div x-show="jobFormFieldShowError('name')" class="error-message" x-cloak x-text="jobFormNameValid() ? '' : (jobsModal.jobForm.name.trim() ? 'Job name is already used.' : 'Job name is required.')"></div>
+                <input type="text" id="job-name" x-model="jobsModal.jobForm.name" @blur="touchJobFormField('name')" class="form-field" :class="{'form-field-error': jobFormFieldShowError('name')}" :aria-invalid="jobFormFieldShowError('name') ? 'true' : 'false'" :aria-describedby="jobFormFieldShowError('name') ? 'job-name-error' : null" placeholder="backup">
+                <div id="job-name-error" x-show="jobFormFieldShowError('name')" class="error-message" x-cloak x-text="jobFormNameValid() ? '' : (jobsModal.jobForm.name.trim() ? 'Job name is already used.' : 'Job name is required.')"></div>
               </div>
               <div>
                 <label class="form-label" for="job-schedule">Schedule</label>
-                <input type="text" id="job-schedule" x-model="jobsModal.jobForm.schedule" @blur="touchJobFormField('schedule')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('schedule')}" placeholder="*/5 * * * *">
-                <div x-show="jobFormFieldShowError('schedule')" class="error-message" x-cloak>Schedule must be a 5-field cron expression (minute hour day month weekday), e.g. <code>0 2 * * *</code>. Leave empty for a manual-only job.</div>
+                <input type="text" id="job-schedule" x-model="jobsModal.jobForm.schedule" @blur="touchJobFormField('schedule')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('schedule')}" :aria-invalid="jobFormFieldShowError('schedule') ? 'true' : 'false'" :aria-describedby="jobFormFieldShowError('schedule') ? 'job-schedule-error' : null" placeholder="*/5 * * * *">
+                <div id="job-schedule-error" x-show="jobFormFieldShowError('schedule')" class="error-message" x-cloak>Schedule must be a 5-field cron expression (minute hour day month weekday), e.g. <code>0 2 * * *</code>. Leave empty for a manual-only job.</div>
               </div>
               <div class="sm:col-span-2">
                 <label class="form-label" for="job-command">Command</label>
-                <input type="text" id="job-command" x-model="jobsModal.jobForm.command" @blur="touchJobFormField('command')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('command')}" placeholder="./scripts/backup.sh">
-                <div x-show="jobFormFieldShowError('command')" class="error-message" x-cloak>Command is required.</div>
+                <input type="text" id="job-command" x-model="jobsModal.jobForm.command" @blur="touchJobFormField('command')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('command')}" :aria-invalid="jobFormFieldShowError('command') ? 'true' : 'false'" :aria-describedby="jobFormFieldShowError('command') ? 'job-command-error' : null" placeholder="./scripts/backup.sh">
+                <div id="job-command-error" x-show="jobFormFieldShowError('command')" class="error-message" x-cloak>Command is required.</div>
               </div>
             </div>
 
@@ -931,41 +806,6 @@
         </div>
       </div>
 
-      <!-- Modal: Space Job Delete Confirm (stacks over the jobs list) -->
-      <template x-if="jobsModal.deleteConfirmShow">
-        <div x-show="jobsModal.deleteConfirmShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="jobsModal.deleteConfirmShow" @keydown.esc.window="jobsModal.deleteConfirmShow = false" @click.self="jobsModal.deleteConfirmShow = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceJobDeleteTitle">
-          <div x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
-            <div class="ui-modal-header">
-              <div class="ui-modal-icon-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                </svg>
-              </div>
-              <h3 id="spaceJobDeleteTitle" class="ui-modal-title">Confirm Delete</h3>
-              <button @click="jobsModal.deleteConfirmShow = false" aria-label="close modal" class="ui-modal-close">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div class="ui-modal-body text-center">
-              <p>Are you sure you want to delete this job?</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                <strong class="text-gray-900 dark:text-white" x-text="jobsModal.deleteConfirmJob"></strong>
-              </p>
-            </div>
-            <div class="ui-modal-footer">
-              <button @click="jobsModal.deleteConfirmShow = false" type="button" class="ui-button-secondary">Keep Job</button>
-              <button @click="deleteJob(jobsModal.deleteConfirmJob); jobsModal.deleteConfirmShow = false" type="button" class="ui-button-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                </svg>
-                Delete Job
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
 
       <!-- Modal: Space Form -->
       <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @keydown.esc.window="spaceFormModal.show = false" @close-space-form.window="spaceFormModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceFormTitle">
@@ -1018,17 +858,20 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <template x-for="t in templateSelector.templates" :key="t.template_id">
                 <template x-if="!t.searchHide">
-                  <div :class="{'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer': !templateBlocked(t), 'border-gray-200 dark:border-gray-700 cursor-not-allowed': templateBlocked(t)}" class="border rounded-lg p-4 transition-colors" @click="templateBlocked(t) || selectTemplate(t.template_id)">
+                  <div :class="{'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer': !templateBlocked(t), 'border-gray-200 dark:border-gray-700 cursor-not-allowed': templateBlocked(t)}" class="relative border rounded-lg p-4 transition-colors focus-within:ring-2 focus-within:ring-blue-600 dark:focus-within:ring-blue-400">
                     <!-- Fade and greyscale the card content only: the badges sit outside both so their colour and opacity survive. -->
                     <div :class="{'grayscale opacity-50': templateBlocked(t)}">
                     <div class="flex items-start gap-4">
-                      <img x-show="t.icon_url && t.icon_url_exists" :src="t.icon_url" alt="Icon" class="size-12 flex-shrink-0" />
+                      <img x-show="t.icon_url && t.icon_url_exists" :src="t.icon_url" alt="" class="size-12 flex-shrink-0" />
 
                       <div class="flex-grow min-w-0">
                         <div class="flex items-start justify-between gap-2">
                           <div class="flex-grow min-w-0">
-                            <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="t.name"></h4>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="t.description"></p>
+                            <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate">
+                              <!-- The whole card is the button's target (after:inset-0); the schedule days sit above it. -->
+                              <button type="button" class="text-left truncate max-w-full cursor-pointer disabled:cursor-not-allowed focus:outline-none after:absolute after:inset-0 after:content-['']" :disabled="templateBlocked(t)" :aria-describedby="'tpl-desc-' + t.template_id + ' tpl-why-' + t.template_id" @click="selectTemplate(t.template_id)" x-text="t.name"></button>
+                            </h4>
+                            <p :id="'tpl-desc-' + t.template_id" class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="t.description"></p>
                           </div>
                         </div>
 
@@ -1051,12 +894,12 @@
 
                         <!-- Schedule indicators -->
                         <template x-if="t.schedule_enabled">
-                          <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          <div class="relative z-10 text-xs text-gray-500 dark:text-gray-400 mt-2">
                             <span class="font-medium">Schedule:</span>
                             <div class="flex flex-wrap gap-1 mt-1">
                               <template x-for="index in 7" :key="index">
                                 <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
-                                  <span @click="$refs.panel.toggle" class="inline-block bg-blue-50 text-blue-700 px-1 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 cursor-pointer" x-text="getDayOfWeek(index % 7).substring(0,3)"></span>
+                                  <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-50 text-blue-700 px-1 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
                                   <div x-ref="panel" x-float.teleport.placement.bottom-center.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                                     <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
                                   </div>
@@ -1069,11 +912,13 @@
                     </div>
                     </div>
 
-                    <div x-show="t.quotaBlocked" x-cloak class="mt-2">
-                      <span class="app-badge-purple" title="Creating a space from this template would exceed the owner's quota">Insufficient Quota</span>
-                    </div>
-                    <div x-show="t.runtimeBlocked" x-cloak class="mt-2">
-                      <span class="app-badge-warning" title="No node in this zone currently offers the runtime this template needs">No Runtime Available</span>
+                    <div :id="'tpl-why-' + t.template_id">
+                      <div x-show="t.quotaBlocked" x-cloak class="mt-2">
+                        <span class="app-badge-purple" title="Creating a space from this template would exceed the owner's quota">Insufficient Quota<span class="sr-only">: creating a space from this template would exceed the owner's quota</span></span>
+                      </div>
+                      <div x-show="t.runtimeBlocked" x-cloak class="mt-2">
+                        <span class="app-badge-warning" title="No node in this zone currently offers the runtime this template needs">No Runtime Available<span class="sr-only">: no node in this zone currently offers the runtime this template needs</span></span>
+                      </div>
                     </div>
                   </div>
                 </template>
@@ -1136,12 +981,14 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <template x-for="d in stackDefSelector.definitions" :key="d.stack_definition_id">
                 <template x-if="!d.searchHide">
-                  <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors" @click="openCreateStackFromDef(d)">
+                  <div class="relative border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-blue-600 dark:focus-within:ring-blue-400">
                     <div class="flex items-start gap-4">
-                      <img x-show="d.icon_url && d.icon_url_exists" :src="d.icon_url" :alt="d.name + ' icon'" class="size-12 flex-shrink-0" />
+                      <img x-show="d.icon_url && d.icon_url_exists" :src="d.icon_url" alt="" class="size-12 flex-shrink-0" />
                       <div class="flex-grow min-w-0">
-                        <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="d.name"></h4>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
+                        <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate">
+                          <button type="button" class="text-left truncate max-w-full cursor-pointer focus:outline-none after:absolute after:inset-0 after:content-['']" :aria-describedby="'sdef-desc-' + d.stack_definition_id" @click="openCreateStackFromDef(d)" x-text="d.name"></button>
+                        </h4>
+                        <p :id="'sdef-desc-' + d.stack_definition_id" class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
                         <div class="flex flex-wrap gap-2 mt-2 items-center text-xs text-gray-500 dark:text-gray-400">
                           <span x-text="(d.spaces || []).length + ' space' + ((d.spaces || []).length === 1 ? '' : 's')"></span>
                           <span x-show="!d.user_id">· Global</span>

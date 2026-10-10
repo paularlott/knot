@@ -15,12 +15,14 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, perm
 
   return {
     loading: true,
-    deleteConfirm: {
-      show: false,
-      skill: {
-        skill_id: "",
-        name: "",
-      },
+    confirmDelete(s) {
+      window.knotConfirm({
+        danger: true,
+        message: "Are you sure you want to delete the skill {name}?",
+        name: s.name,
+        confirmLabel: "Delete Skill",
+        cancelLabel: "Keep Skill",
+      }).then((ok) => ok && this.deleteSkill(s.skill_id));
     },
     skillFormModal: {
       show: false,

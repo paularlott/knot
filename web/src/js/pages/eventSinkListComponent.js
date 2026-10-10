@@ -15,12 +15,14 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
 
   return {
     loading: true,
-    deleteConfirm: {
-      show: false,
-      sink: {
-        event_sink_id: "",
-        name: "",
-      },
+    confirmDelete(s) {
+      window.knotConfirm({
+        danger: true,
+        message: "Are you sure you want to delete the event sink {name}?",
+        name: s.name,
+        confirmLabel: "Delete Sink",
+        cancelLabel: "Keep Sink",
+      }).then((ok) => ok && this.deleteSink(s.event_sink_id));
     },
     sinkFormModal: {
       show: false,

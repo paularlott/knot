@@ -15,12 +15,14 @@ window.commandListComponent = function (userId, zone, permissionManageCommands, 
 
   return {
     loading: true,
-    deleteConfirm: {
-      show: false,
-      command: {
-        command_id: "",
-        name: "",
-      },
+    confirmDelete(c) {
+      window.knotConfirm({
+        danger: true,
+        message: "Are you sure you want to delete the command {name}?",
+        name: c.name,
+        confirmLabel: "Delete Command",
+        cancelLabel: "Keep Command",
+      }).then((ok) => ok && this.deleteCommand(c.command_id));
     },
     commandFormModal: {
       show: false,

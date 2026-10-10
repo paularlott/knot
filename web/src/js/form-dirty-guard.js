@@ -71,23 +71,35 @@ function askDiscard(panel) {
   });
 }
 
-// Shared discard-confirmation dialog state.
+// Shared discard-confirmation dialog. Rendered through the common confirm
+// dialog (window.knotConfirm, see confirm.js); this store keeps the original
+// ask/confirm/cancel/show API for callers.
 Alpine.store('discardDialog', {
   show: false,
   _onConfirm: null,
   ask(onConfirm) {
     this._onConfirm = onConfirm;
     this.show = true;
+    window.knotConfirm({
+      danger: true,
+      icon: 'warning',
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes. Are you sure you want to discard them?',
+      cancelLabel: 'Keep Editing',
+      confirmLabel: 'Discard Changes',
+    }).then((ok) => {
+      // Ignore the result of a request superseded by a newer ask().
+      if (this._onConfirm !== onConfirm) return;
+      this._onConfirm = null;
+      this.show = false;
+      if (ok && onConfirm) onConfirm();
+    });
   },
   confirm() {
-    const fn = this._onConfirm;
-    this._onConfirm = null;
-    this.show = false;
-    if (fn) fn();
+    if (this.show) Alpine.store('confirmDialog').confirm();
   },
   cancel() {
-    this._onConfirm = null;
-    this.show = false;
+    if (this.show) Alpine.store('confirmDialog').cancel();
   },
 });
 

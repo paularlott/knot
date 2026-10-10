@@ -156,7 +156,6 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     loading: true,
     isEdit: isEdit,
     _formDirty: false,
-    discardConfirm: { show: false },
     nameValid: true,
     jobValid: true,
     jobRequired: false,
@@ -655,6 +654,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       err = !this.checkCustomFieldsValid() || err;
       err = !this.checkJobsValid() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         this.$dispatch("show-alert", {
           msg: "Please fix the validation errors before saving",
           type: "error",
@@ -1693,15 +1693,25 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     // discard before closing.
     requestCloseVolumeDetails() {
       if (this._volumeDetailsDirty()) {
-        this.specWizard.volumeDetails.discardShow = true;
+        const d = this.specWizard.volumeDetails;
+        if (d.discardShow) return;
+        // discardShow stays set while the shared confirm is open so the
+        // wizard's Esc handling treats it as the innermost level.
+        d.discardShow = true;
+        window.knotConfirm({
+          danger: true,
+          icon: 'warning',
+          title: 'Unsaved Changes',
+          message: 'You have unsaved changes. Are you sure you want to discard them?',
+          cancelLabel: 'Keep Editing',
+          confirmLabel: 'Discard Changes',
+        }).then((ok) => {
+          d.discardShow = false;
+          if (ok) this.closeVolumeDetails();
+        });
       } else {
         this.closeVolumeDetails();
       }
-    },
-
-    discardVolumeDetails() {
-      this.specWizard.volumeDetails.discardShow = false;
-      this.closeVolumeDetails();
     },
 
     closeVolumeDetails() {
@@ -2011,7 +2021,8 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     wizardEscape() {
       const sw = this.specWizard;
       if (sw.volumeDetails.discardShow) {
-        sw.volumeDetails.discardShow = false;
+        // The shared confirm dialog is open and handles its own Esc.
+        return;
       } else if (sw.volumeDetails.show) {
         this.requestCloseVolumeDetails();
       } else if (sw.templateEditor.show) {
@@ -2026,7 +2037,14 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         return;
       }
       if (this._formDirty) {
-        this.discardConfirm.show = true;
+        window.knotConfirm({
+          danger: true,
+          icon: 'warning',
+          title: 'Unsaved Changes',
+          message: 'You have unsaved changes. Are you sure you want to discard them?',
+          confirmLabel: 'Discard Changes',
+          cancelLabel: 'Keep Editing',
+        }).then((ok) => ok && this.discardChanges());
       } else {
         this.$dispatch("close-template-form");
       }
@@ -2034,7 +2052,6 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
 
     discardChanges() {
       this._formDirty = false;
-      this.discardConfirm.show = false;
       this.$dispatch("close-template-form");
     },
 
