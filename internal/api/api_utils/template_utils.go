@@ -134,14 +134,15 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 	// Handle custom fields
 	for i, field := range template.CustomFields {
 		data.CustomFields[i] = apiclient.CustomFieldDef{
-			Name:        field.Name,
-			Description: field.Description,
-			Type:        field.Type,
-			Handler:     field.Handler,
-			Language:    field.Language,
-			Default:     field.Default,
-			Required:    field.Required,
-			Options:     field.Options,
+			Name:         field.Name,
+			Description:  field.Description,
+			Type:         field.Type,
+			Handler:      field.Handler,
+			Language:     field.Language,
+			Default:      field.Default,
+			Required:     field.Required,
+			Options:      field.Options,
+			ShowOnCreate: field.ShowOnCreate,
 		}
 	}
 

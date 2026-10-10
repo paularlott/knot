@@ -79,6 +79,9 @@ window.spaceForm = function (
     startOnCreate: true,
     // Creating a space shows the essentials; the rest is a click away.
     showAllOptions: isEdit,
+    // Optional custom fields the template doesn't mark to show wait behind
+    // their own toggle on create.
+    showOptionalFields: isEdit,
     saving: false,
     quotaStorageLimitShow: false,
     availableNodes: [],
@@ -518,6 +521,50 @@ window.spaceForm = function (
 
       this.loading = false;
     },
+    // Custom fields shown without opening the optional fields toggle:
+    // required ones and the optional ones the template marks to show.
+    customFieldPinned(field) {
+      return !!(field && (field.required || field.show_on_create));
+    },
+    customFieldShown(index) {
+      const field = this.template && this.template.custom_fields[index];
+      return this.showOptionalFields || this.customFieldPinned(field);
+    },
+    hiddenOptionalFields() {
+      const fields = (this.template && this.template.custom_fields) || [];
+      return fields.filter((f) => !this.customFieldPinned(f));
+    },
+    // The order the fields are shown in. Editing keeps the template's order;
+    // creating puts the always-shown fields first (each group in template
+    // order), so the optional fields open below their toggle.
+    customFieldOrder() {
+      const fields = (this.template && this.template.custom_fields) || [];
+      const all = fields.map((_, i) => i);
+      if (isEdit || !this.hiddenOptionalFields().length) return all;
+      return all.filter((i) => this.customFieldPinned(fields[i]))
+        .concat(all.filter((i) => !this.customFieldPinned(fields[i])));
+    },
+    // Index of the field the toggle follows: the last always-shown field,
+    // -1 to put it first, or null when there is no toggle.
+    customFieldToggleAfter() {
+      if (isEdit || !this.hiddenOptionalFields().length) return null;
+      const fields = this.template.custom_fields;
+      const pinned = fields.map((_, i) => i).filter((i) => this.customFieldPinned(fields[i]));
+      return pinned.length ? pinned[pinned.length - 1] : -1;
+    },
+    optionalFieldsLabel() {
+      const n = this.hiddenOptionalFields().length;
+      return this.showOptionalFields ? "Show fewer fields" : "Show " + n + " more field" + (n === 1 ? "" : "s");
+    },
+    toggleOptionalFields() {
+      this.showOptionalFields = !this.showOptionalFields;
+      // Code editors created while hidden need laying out once shown.
+      if (this.showOptionalFields) {
+        this.$nextTick(() => {
+          this.$root.querySelectorAll(".ace_editor").forEach((el) => el.env && el.env.editor && el.env.editor.resize());
+        });
+      }
+    },
     // suggestName offers a valid space name from the template's, made unique
     // among the owner's spaces (known on the spaces page) with -2, -3, ...
     suggestName(templateName) {
@@ -659,16 +706,15 @@ window.spaceForm = function (
 
       if (err) {
         self.saving = false;
-        // A problem in a field behind "More options" must be seen to be fixed.
-        const fields = (this.template && this.template.custom_fields) || [];
-        if (
-          !this.descValid ||
-          this.altNameValid.includes(false) ||
-          this.customFieldValid.some((ok, i) => !ok && !(fields[i] && fields[i].required))
-        ) {
+        // A problem in a field behind a toggle must be seen to be fixed.
+        if (!this.descValid || this.altNameValid.includes(false)) {
           this.showAllOptions = true;
         }
-        focus.firstInvalid(this.$root);
+        if (this.customFieldValid.some((ok, i) => !ok && !this.customFieldShown(i))) {
+          this.showOptionalFields = true;
+        }
+        // Focus once a toggle that just opened has rendered its fields.
+        this.$nextTick(() => focus.firstInvalid(this.$root));
         window.knotToast("Some fields need attention.", "error");
         return;
       }

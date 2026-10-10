@@ -89,8 +89,8 @@ type Template struct {
 	// Entries use target references — bare name, user--name — resolved and
 	// authorized per connection. Pro ships the template editor for this;
 	// the API accepts it everywhere.
-	PortForwards             []PortForwardEntry     `json:"port_forwards" db:"port_forwards,json"`
-	Jobs                     []SpaceJob             `json:"jobs" db:"jobs,json"`
+	PortForwards []PortForwardEntry `json:"port_forwards" db:"port_forwards,json"`
+	Jobs         []SpaceJob         `json:"jobs" db:"jobs,json"`
 	// KVM network configuration, derived from the job spec's network:
 	// block. Bridged mode attaches VMs to a host bridge (or libvirt
 	// network) and gives each space a static IP chosen from the
@@ -138,6 +138,37 @@ type TemplateCustomField struct {
 	// Options is a select field's manual option list — the alternative to
 	// Handler. Values are stored verbatim.
 	Options []string `json:"options,omitempty"`
+	// ShowOnCreate shows an optional field on the create-space form with the
+	// required ones, instead of behind its "optional fields" toggle. It only
+	// changes how the form is laid out, so it is left out of the template
+	// hash. Absent (older templates) means false.
+	ShowOnCreate bool `json:"show_on_create,omitempty"`
+}
+
+// hashCustomField is the part of a custom field that feeds the template
+// hash: everything but form layout. Its fields and order match the fields
+// TemplateCustomField had before layout flags existed, so hashes of existing
+// templates are unchanged.
+type hashCustomField struct {
+	Name        string
+	Description string
+	Type        string
+	Handler     string
+	Language    string
+	Default     string
+	Required    bool
+	Options     []string
+}
+
+func hashCustomFields(fields []TemplateCustomField) []hashCustomField {
+	if fields == nil {
+		return nil
+	}
+	out := make([]hashCustomField, len(fields))
+	for i, f := range fields {
+		out[i] = hashCustomField{f.Name, f.Description, f.Type, f.Handler, f.Language, f.Default, f.Required, f.Options}
+	}
+	return out
 }
 
 // ApplyCustomFieldDefaults returns provided with the template's default
@@ -287,7 +318,7 @@ func (template *Template) GetVolumes(space *Space, user *User, variables map[str
 }
 
 func (template *Template) UpdateHash() {
-	hashInput := template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.WithRunCommand, template.AllowNodeMigration, template.CustomFields)
+	hashInput := template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.WithRunCommand, template.AllowNodeMigration, hashCustomFields(template.CustomFields))
 	// KVM network fields only feed the hash for KVM templates, so existing
 	// templates' hashes are unchanged by the fields existing at all.
 	if template.Platform == PlatformKvm {

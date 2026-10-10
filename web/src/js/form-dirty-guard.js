@@ -162,6 +162,9 @@ document.addEventListener(
   'keydown',
   (e) => {
     if (bypass || e.key !== 'Escape') return;
+    // A dialog inside a form that closes itself on Escape (e.g. the custom
+    // field settings in the template form) handles it: the form stays.
+    if (e.target && e.target.closest && e.target.closest('[data-escape-local]')) return;
     // Inside a code editor the first Escape is the editor's own (it arms Tab
     // to leave the editor, see ace-a11y.js); a second one closes as usual.
     if (e.target && e.target.closest && e.target.closest('.ace_editor') && !e.target.closest('[data-ace-esc-armed]')) return;

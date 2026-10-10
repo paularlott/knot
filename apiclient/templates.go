@@ -16,6 +16,9 @@ type CustomFieldDef struct {
 	Default     string   `json:"default,omitempty"`
 	Required    bool     `json:"required,omitempty"`
 	Options     []string `json:"options,omitempty"`
+	// ShowOnCreate shows an optional field on the create-space form without
+	// opening its optional fields toggle.
+	ShowOnCreate bool `json:"show_on_create,omitempty"`
 }
 
 type TemplateCreateRequest struct {

@@ -29,7 +29,8 @@ const WIZARD_PLATFORMS = ["docker", "podman", "apple", "container", "nomad", "kv
 
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
-    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, options: '', handlers: [] },
+    cfDrag: { armed: null, from: null, over: null },
+    fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, showOnCreate: false, options: '', handlers: [] },
     // Server's enabled-backends allowlist ([] = all offered).
     enabledBackends: (() => {
       const v = window.knotEnabledBackends;
@@ -896,6 +897,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       this.fieldConfig.language = this.formData.custom_fields[index].language || '';
       this.fieldConfig.default = this.formData.custom_fields[index].default || '';
       this.fieldConfig.required = !!this.formData.custom_fields[index].required;
+      this.fieldConfig.showOnCreate = !!this.formData.custom_fields[index].show_on_create;
       // Refetch on every open: the installed plugin set can change between
       // opens. A failed fetch (no permission to list, store hiccup) is not
       // "no handlers" — remember it so the dialog doesn't label a live
@@ -965,7 +967,59 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       field.language = field.type === 'textarea' ? this.fieldConfig.language : '';
       field.default = this.fieldConfig.default;
       field.required = !!this.fieldConfig.required;
+      // Required fields always show; the flag only applies to optional ones.
+      field.show_on_create = !field.required && !!this.fieldConfig.showOnCreate;
       this.fieldConfig.show = false;
+    },
+
+    // Reorder a field (the space form shows them in this order). Focus stays
+    // on the pressed button's counterpart in the moved row.
+    moveField(index, delta) {
+      const to = index + delta;
+      const fields = this.formData.custom_fields;
+      if (to < 0 || to >= fields.length) return;
+      [fields[index], fields[to]] = [fields[to], fields[index]];
+      [this.customFieldValid[index], this.customFieldValid[to]] = [this.customFieldValid[to], this.customFieldValid[index]];
+      this.$root.dispatchEvent(new CustomEvent('mark-dirty', { bubbles: true }));
+      const name = fields[to].name || 'Field';
+      if (window.knotAnnounce) window.knotAnnounce(name + ' moved to position ' + (to + 1) + ' of ' + fields.length + '.');
+      this.$nextTick(() => {
+        const rows = this.$root.querySelectorAll('[data-cf-row]');
+        const btn = rows[to] && rows[to].querySelector(delta < 0 ? '[data-cf-up]' : '[data-cf-down]');
+        if (btn && !btn.disabled) btn.focus();
+        else if (rows[to]) rows[to].querySelector('[data-cf-up], [data-cf-down]')?.focus();
+      });
+    },
+
+    // Drag and drop reordering: a row becomes draggable while its handle is
+    // held, so dragging never fights text selection in the inputs.
+    cfDragStart(e, index) {
+      if (this.cfDrag.armed !== index) { e.preventDefault(); return; }
+      this.cfDrag.from = index;
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(index)); } catch (_) { /* ignore */ }
+    },
+    cfDragOver(e, index) {
+      if (this.cfDrag.from === null) return;
+      e.dataTransfer.dropEffect = 'move';
+      this.cfDrag.over = index;
+    },
+    cfDrop() {
+      const from = this.cfDrag.from, to = this.cfDrag.over;
+      this.cfDragEnd();
+      if (from === null || to === null || from === to) return;
+      const fields = this.formData.custom_fields;
+      const [field] = fields.splice(from, 1);
+      fields.splice(to, 0, field);
+      const [valid] = this.customFieldValid.splice(from, 1);
+      this.customFieldValid.splice(to, 0, valid);
+      this.$root.dispatchEvent(new CustomEvent('mark-dirty', { bubbles: true }));
+      if (window.knotAnnounce) window.knotAnnounce((field.name || 'Field') + ' moved to position ' + (to + 1) + ' of ' + fields.length + '.');
+    },
+    cfDragEnd() {
+      this.cfDrag.armed = null;
+      this.cfDrag.from = null;
+      this.cfDrag.over = null;
     },
 
     removeField(index) {

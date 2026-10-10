@@ -8718,6 +8718,9 @@ components:
           items:
             type: string
           description: A manual option list for select and autocomplete fields - exactly one source applies (handler or options); values are stored verbatim.
+        show_on_create:
+          type: boolean
+          description: For an optional field, show it on the create-space form with the required fields instead of behind the form's optional fields toggle. Layout only - it does not change the template hash. Ignored (stored false) on required fields; omitted means false. The order of custom_fields is the order the form shows them in.
 
     TemplateCreateRequest:
       type: object

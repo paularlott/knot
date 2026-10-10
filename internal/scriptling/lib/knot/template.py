@@ -46,6 +46,7 @@ def _custom_fields(fields):
             "default": default,
             "required": bool(cf.get("required", False)),
             "options": options,
+            "show_on_create": bool(cf.get("show_on_create", False)),
         })
     return out
 
@@ -106,6 +107,8 @@ def _custom_field_defs(fields, resolve_options=False):
             "type": cf.get("type") or "text",
             "required": bool(cf.get("required", False)),
         }
+        if cf.get("show_on_create"):
+            entry["show_on_create"] = True
         default = cf.get("default", "")
         if default != "":
             entry["default"] = default
@@ -270,8 +273,10 @@ def create(name, job="", description="", platform="", volumes="", active=True,
     fields: name, description, type ("text", "masked", "number", "bool",
     "select", "autocomplete" or "textarea"), handler, or a manual options
     list (select and autocomplete — exactly one of the two)
-    (textarea only), default (a bool default becomes "true"/"false") and
-    required (bool).
+    (textarea only), default (a bool default becomes "true"/"false"),
+    required (bool) and show_on_create (bool: an optional field shown on
+    the create-space form without opening its optional fields toggle).
+    The list order is the order the form shows the fields in.
     """
     volumes = _with_paths(volumes, paths)
     body = {
