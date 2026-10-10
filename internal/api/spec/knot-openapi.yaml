@@ -49,6 +49,13 @@ tags:
   - name: Stack Definitions
     description: |
       Operations for working with stack definitions (reusable space blueprints).
+  - name: File Storage
+    description: |
+      Buckets of files replicated across the cluster, shareable with users and groups.
+
+      A bucket's full name is `<owner>--<name>`; callers may use the short name for their own
+      buckets. Every file storage endpoint answers 503 when file storage is not enabled on the
+      server. Files are addressed by key, which may contain `/` to form folders.
   - name: MCP Servers
     description: |
       Operations for working with per-user MCP (Model Context Protocol) server configurations.
@@ -390,7 +397,17 @@ paths:
 
         **Event Types:**
         - `connected` - Initial connection confirmation
-        - `message` - JSON data containing event information
+        - `message` - JSON data containing event information: `type` names the event and
+          `payload` carries its details
+
+        **File storage:**
+        A `message` with type `files:changed` is sent when files or buckets change in file
+        storage, on this server or another in the cluster. Its payload `bucket_ids` lists the
+        ids of the buckets that changed; when it is empty or absent, any bucket may have
+        changed. Each user is sent only the ids of buckets they can see, or could see until
+        the change (so a bucket unshared from them or deleted still reaches them once), and
+        no event when none of the changed buckets is theirs. Clients following a bucket typically call `/api/files/changes/{bucket}`
+        with their cursor when the bucket's id is named (or none is).
 
         **Reconnecting:**
         Clients should implement automatic reconnection with exponential backoff
@@ -409,7 +426,10 @@ paths:
                 data: {"status":"ok"}
 
                 event: message
-                data: {"type":"space_changed","space_id":"..."}
+                data: {"type":"space:changed","payload":{"id":"...","user_id":"..."}}
+
+                event: message
+                data: {"type":"files:changed","payload":{"bucket_ids":["..."]}}
         "401":
           $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
@@ -1415,6 +1435,854 @@ paths:
           $ref: "#/components/responses/not-found"
         "500":
           $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/files/buckets:
+    get:
+      tags:
+        - File Storage
+      summary: List Buckets
+      description: |
+        List the buckets the caller owns or that are shared with them.
+
+        With `all=true` a file storage administrator sees every bucket on the server;
+        for anyone else the parameter has no effect.
+
+        The response is gzip-compressed when the client sends `Accept-Encoding: gzip`.
+      operationId: getFileBuckets
+      parameters:
+        - name: all
+          in: query
+          required: false
+          description: List every bucket (file storage administrators only).
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: The buckets visible to the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileBucketList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+    post:
+      tags:
+        - File Storage
+      summary: Create Bucket
+      description: |
+        Create a bucket owned by the caller.
+
+        The name may be given in short form (`photos`) or full form (`<username>--photos`);
+        a full name must carry the caller's own username. The short name is 3-30 lowercase
+        letters, digits and hyphens, starting and ending with a letter or digit, and must not
+        contain `--`; the full name must be at most 63 characters.
+
+        Requires permission to own buckets, and is subject to the caller's bucket limit.
+      operationId: createFileBucket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileBucketCreateRequest"
+      responses:
+        "201":
+          description: Bucket created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileBucket"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          description: The caller may not own buckets, or has reached their bucket limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "409":
+          description: A bucket with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/buckets/{bucket}:
+    get:
+      tags:
+        - File Storage
+      summary: Get Bucket
+      description: |
+        Describe a bucket the caller can access. Who the bucket is shared with (`grants`)
+        is listed only for those who manage it: the owner and file storage managers.
+      operationId: getFileBucket
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+      responses:
+        "200":
+          description: The bucket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileBucket"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - File Storage
+      summary: Delete Bucket
+      description: |
+        Delete a bucket. Without `force=true` the bucket must be empty; with it the bucket's
+        files are deleted with it.
+      operationId: deleteFileBucket
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - name: force
+          in: query
+          required: false
+          description: Delete the bucket's files with it.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Bucket deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileStatusResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: The bucket is not empty and `force` was not set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/buckets/{bucket}/share:
+    post:
+      tags:
+        - File Storage
+      summary: Share Bucket
+      description: |
+        Share a bucket with a user, a group or all users, with read or write access.
+        Sharing again with the same user or group changes its access.
+
+        Requires permission to share buckets and management of the bucket (its owner or a
+        file storage manager). A bucket can be shared with at most 256 users and groups.
+      operationId: shareFileBucket
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileShareRequest"
+      responses:
+        "200":
+          description: The bucket as it is now shared.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileBucket"
+        "400":
+          description: Invalid share type or access, the user or group was not found, or too many shares.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/buckets/{bucket}/unshare:
+    post:
+      tags:
+        - File Storage
+      summary: Unshare Bucket
+      description: Stop sharing a bucket with a user, a group or all users.
+      operationId: unshareFileBucket
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileUnshareRequest"
+      responses:
+        "200":
+          description: The bucket as it is now shared.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileBucket"
+        "400":
+          description: Invalid share type, or the user or group was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/buckets/{bucket}/transfer:
+    post:
+      tags:
+        - File Storage
+      summary: Transfer Bucket
+      description: |
+        Give a bucket to another user. The bucket is renamed into the new owner's namespace
+        (`<new-owner>--<name>`); its id is unchanged.
+
+        The caller must manage the bucket and have permission to transfer buckets, and the
+        new owner must be allowed to own buckets. The new owner's quota and bucket limit
+        apply unless `force` is set by an administrator.
+
+        The response describes the bucket under its new name, even when the previous owner
+        can no longer see it.
+      operationId: transferFileBucket
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileTransferRequest"
+      responses:
+        "200":
+          description: The bucket under its new owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileBucket"
+        "400":
+          description: The new owner was not found, or cannot own buckets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          description: The caller does not manage the bucket, may not transfer buckets, or the new owner has reached their bucket limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: The new owner already has a bucket with this name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "413":
+          description: The transfer would take the new owner over their quota.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/usage:
+    get:
+      tags:
+        - File Storage
+      summary: Get File Storage Usage
+      description: |
+        The caller's file storage use, across the buckets they own, and their effective
+        limits (including the server defaults when no user or group limit is set).
+      operationId: getFileUsage
+      responses:
+        "200":
+          description: The caller's usage and limits.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUsage"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/fsck:
+    post:
+      tags:
+        - File Storage
+      summary: Check File Storage
+      description: |
+        Check this server's file storage for inconsistencies, and with `repair` fix what can
+        be fixed: missing content is fetched from the cluster, counts and indexes are rebuilt,
+        and buckets of deleted users are removed. With `deep`, every stored content is read
+        and its checksum verified.
+
+        Only file storage administrators may run a check. The request can run for a long time.
+      operationId: fsckFiles
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileFsckRequest"
+      responses:
+        "200":
+          description: What the check found and repaired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileFsckReport"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/share-targets:
+    get:
+      tags:
+        - File Storage
+      summary: List Share Targets
+      description: |
+        List the active users and the groups a bucket can be shared with or transferred to,
+        sorted by name. Unlike `/api/users`, this needs no user management permission, only
+        permission to share or to transfer buckets. The caller is included and marked with
+        `self`.
+
+        The response is gzip-compressed when the client sends `Accept-Encoding: gzip`.
+      operationId: getFileShareTargets
+      responses:
+        "200":
+          description: The users and groups.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileShareTargets"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/list/{bucket}:
+    get:
+      tags:
+        - File Storage
+      summary: List Files
+      description: |
+        List a bucket's files in key order, a page at a time.
+
+        With a `delimiter` (usually `/`), keys sharing a prefix up to the delimiter are rolled
+        up into `prefixes`, so a folder is listed without its contents. When `is_truncated`
+        is set, pass `next` as `after` to fetch the following page.
+
+        The response is gzip-compressed when the client sends `Accept-Encoding: gzip`.
+      operationId: listFileObjects
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - name: prefix
+          in: query
+          required: false
+          description: Only list keys starting with this prefix, e.g. `docs/`.
+          schema:
+            type: string
+        - name: delimiter
+          in: query
+          required: false
+          description: Roll up keys sharing a prefix up to this delimiter into `prefixes`.
+          schema:
+            type: string
+            example: /
+        - name: after
+          in: query
+          required: false
+          description: Start after this key or prefix; the `next` value of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Most entries (files and prefixes) to return; missing, zero or over 1000 means 1000.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 1000
+      responses:
+        "200":
+          description: A page of the listing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileObjectList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/changes/{bucket}:
+    get:
+      tags:
+        - File Storage
+      summary: List File Changes
+      description: |
+        The bucket's change feed: what changed since a cursor, so a client following a bucket
+        fetches only what changed rather than listing it again.
+
+        - **Without a cursor**, every file under `prefix` is returned (no deletions), with a
+          cursor to follow on from.
+        - **With a cursor**, each file changed since then is returned once, as it is now, in
+          the order the changes were made on this server. A deleted file is returned with
+          `"deleted": true` and carries only `key` and `modified_at` (its other fields are
+          empty or zero).
+        - **With `cursor=now`**, no changes are returned, only a cursor to follow the bucket
+          from now on, for clients that need only the changes from here without reading every
+          file first.
+
+        Continue from the returned `cursor`. When `more` is set, more changes are waiting:
+        call again at once. When `reset` is set, the cursor can no longer be followed and the
+        client must start again without a cursor. This happens when the server's index was
+        rebuilt (for example after an unclean stop), when the cursor came from another server
+        (for example behind a load balancer), or when deletions the cursor had not seen were
+        forgotten after the 3-day tombstone TTL.
+
+        The cursor is opaque. Clients typically call this endpoint when the event stream
+        (`/api/events`) sends a `files:changed` event naming the bucket's id.
+
+        The response is gzip-compressed when the client sends `Accept-Encoding: gzip`.
+      operationId: listFileChanges
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - name: prefix
+          in: query
+          required: false
+          description: Only report keys starting with this prefix.
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          description: |
+            The `cursor` of the previous response; omit to list every file, or `now` for only
+            a cursor to follow on from.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Most changes to return; missing, zero or over 1000 means 1000.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 1000
+      responses:
+        "200":
+          description: A page of the change feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileChangeList"
+        "400":
+          description: The cursor is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/objects/{bucket}/{key}:
+    get:
+      tags:
+        - File Storage
+      summary: Download File
+      description: |
+        Download a file's content. Range requests (`Range`, `If-Range`) and conditional
+        requests (`If-None-Match`, `If-Modified-Since`) are supported.
+
+        The content is served as stored, with `Content-Disposition: attachment` and
+        `Cache-Control: no-transform`, so a browser saves it rather than rendering it.
+        Content not yet held by this server is fetched from the cluster.
+      operationId: getFileObject
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: Range
+          in: header
+          required: false
+          description: Byte range to return, e.g. `bytes=0-1023`.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The file's content.
+          headers:
+            ETag:
+              $ref: "#/components/headers/FileETag"
+            Last-Modified:
+              $ref: "#/components/headers/FileLastModified"
+            X-Knot-Sha256:
+              $ref: "#/components/headers/FileSha256"
+            X-Knot-Mtime:
+              $ref: "#/components/headers/FileMtime"
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: The requested range of the file's content.
+          headers:
+            ETag:
+              $ref: "#/components/headers/FileETag"
+            Last-Modified:
+              $ref: "#/components/headers/FileLastModified"
+            X-Knot-Sha256:
+              $ref: "#/components/headers/FileSha256"
+            X-Knot-Mtime:
+              $ref: "#/components/headers/FileMtime"
+            Content-Range:
+              schema:
+                type: string
+              description: The range returned.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "304":
+          description: Not Modified.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "416":
+          description: The requested range cannot be satisfied.
+        "503":
+          description: File storage is not enabled, or the content is not available on any reachable server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - File Storage
+      summary: Upload File
+      description: |
+        Write a file, replacing any file at the key. The request body is the file's content.
+
+        - `X-Knot-Mtime` keeps the file's own modification time (fractional unix seconds);
+          it is reported as the file's `modified_at` and in `X-Knot-Mtime` on download, while
+          `Last-Modified` stays the upload time.
+        - `If-Match` writes only if the file's current ETag matches; `If-None-Match: *` writes
+          only if no file exists at the key. Either answers 412 when it does not hold.
+        - `X-Knot-Reuse-Sha256`, with an empty body, writes the file with content the bucket
+          held until recently (a file deleted or replaced in the same bucket within the last
+          hour) without sending it, for example after a rename or a change undone. Only
+          content held by the same bucket can be reused. The server answers 409 when it does
+          not hold the content, or will not hold it for long enough; the client then uploads
+          the content normally.
+
+        The upload is charged to the bucket owner's quota.
+      operationId: putFileObject
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: Content-Type
+          in: header
+          required: false
+          description: The file's media type, stored with it; `application/octet-stream` when not given.
+          schema:
+            type: string
+        - name: X-Knot-Mtime
+          in: header
+          required: false
+          description: The file's modification time as fractional unix seconds, e.g. `1760054400.123456789`.
+          schema:
+            type: string
+        - name: If-Match
+          in: header
+          required: false
+          description: Only replace the file if its current ETag is this value (quoted or not).
+          schema:
+            type: string
+        - name: If-None-Match
+          in: header
+          required: false
+          description: "`*` to write only if no file exists at the key."
+          schema:
+            type: string
+            enum: ["*"]
+        - name: X-Knot-Reuse-Sha256
+          in: header
+          required: false
+          description: |
+            The SHA-256 (hex) of content the bucket held until recently; the body must then be
+            empty and the file is written with that content.
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{64}$"
+      requestBody:
+        required: false
+        description: The file's content; empty when `X-Knot-Reuse-Sha256` is given.
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: The file as written.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileObject"
+        "400":
+          description: Invalid key or metadata, a malformed checksum or a body sent with `X-Knot-Reuse-Sha256`, or the upload was cut short.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: "`X-Knot-Reuse-Sha256` names content the bucket does not hold (or not for long enough): upload the content instead."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "412":
+          description: "`If-Match` or `If-None-Match` did not hold: the file has changed, or exists."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "413":
+          description: The bucket owner's file storage quota would be exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - File Storage
+      summary: Delete File
+      description: |
+        Delete a file. Its content is held by the bucket for an hour afterwards, so it can be
+        written again with `X-Knot-Reuse-Sha256` without being sent. With `If-Match`, the
+        file is only deleted if it is still the version with that ETag, so a file changed
+        since the client looked at it is not deleted unseen.
+      operationId: deleteFileObject
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: If-Match
+          in: header
+          required: false
+          description: Delete only if the file's ETag is this; otherwise 412.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileStatusResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "412":
+          description: The file no longer has the ETag given in `If-Match`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/copy:
+    post:
+      tags:
+        - File Storage
+      summary: Copy File
+      description: |
+        Copy a file within or between buckets on the server, without transferring its
+        content. The caller needs read access to the source and write access to the
+        destination; the destination bucket's owner is charged for the new file. A file at
+        the destination is replaced, unless `if_match` or `if_none_match` says otherwise.
+        Bucket names may be given in short form.
+      operationId: copyFileObject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileCopyRequest"
+      responses:
+        "200":
+          description: The new file.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileObject"
+        "400":
+          description: A field is missing, the source and destination are the same file, or a key is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "412":
+          description: The destination did not meet `if_match` or `if_none_match`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "413":
+          description: The destination bucket owner's file storage quota would be exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/move:
+    post:
+      tags:
+        - File Storage
+      summary: Move Files
+      description: |
+        Rename a file, or a folder and everything under it, within a bucket, on the server
+        and without moving any content. A folder may be given with or without a trailing
+        slash. Every file is copied before any is deleted, so a failure part way leaves files
+        in both places, never in neither.
+
+        Without `overwrite`, the move is refused if the destination already holds a file.
+      operationId: moveFileObjects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileMoveRequest"
+      responses:
+        "200":
+          description: How many files were moved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMoveResponse"
+        "400":
+          description: A field is missing, or a key is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: A file already exists at the destination and `overwrite` was not set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
       security: [BearerAuth: []]
 
   /api/auth:
@@ -10906,6 +11774,405 @@ components:
         message:
           type: string
           description: Present when partial quota exhaustion occurred during creation.
+
+    FileGrant:
+      type: object
+      description: A share of a bucket.
+      properties:
+        type:
+          type: string
+          enum: [user, group, all]
+          description: Who the bucket is shared with.
+        id:
+          type: string
+          description: The user or group id; absent for `all`.
+        name:
+          type: string
+          description: The username or group name; absent for `all`.
+        access:
+          type: string
+          enum: [read, write]
+
+    FileBucket:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Fixed for the life of the bucket, whatever its name.
+        name:
+          type: string
+          description: The full name, `<owner>--<name>`.
+          example: alice--photos
+        display_name:
+          type: string
+          description: The short name for the caller's own buckets, otherwise the full name.
+          example: photos
+        owner_id:
+          type: string
+        owner_name:
+          type: string
+        grants:
+          type: array
+          description: Who the bucket is shared with; listed only for the owner and file storage managers, otherwise empty.
+          items:
+            $ref: "#/components/schemas/FileGrant"
+        size:
+          type: integer
+          format: int64
+          description: Total size of the bucket's files in bytes.
+        count:
+          type: integer
+          description: Number of files.
+        access:
+          type: string
+          enum: [owner, write, read, none]
+          description: The caller's effective access.
+        granted:
+          type: string
+          enum: [owner, write, read, none]
+          description: The access the caller holds in their own right, without file storage management.
+        via:
+          type: string
+          enum: [owner, user, group, all, ""]
+          description: How `granted` is held; empty when the caller reaches the bucket only as a file storage manager.
+        created_at:
+          type: string
+          format: date-time
+
+    FileBucketList:
+      type: object
+      properties:
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileBucket"
+
+    FileBucketCreateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The short name, or the full name carrying the caller's own username.
+          example: photos
+
+    FileShareRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [user, group, all]
+        name:
+          type: string
+          description: The username, email or user id for `user`; the group name or id for `group`; unused for `all`.
+        access:
+          type: string
+          enum: [read, write]
+          default: read
+
+    FileUnshareRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [user, group, all]
+        name:
+          type: string
+          description: The username, email or user id for `user`; the group name or id for `group`; unused for `all`.
+
+    FileTransferRequest:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          type: string
+          description: The new owner's username, email or user id.
+        force:
+          type: boolean
+          default: false
+          description: Transfer even when it takes the new owner over their quota or bucket limit; honoured only for administrators.
+
+    FileStatusResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          example: true
+
+    FileUsage:
+      type: object
+      properties:
+        used_bytes:
+          type: integer
+          format: int64
+          description: Bytes used across the buckets the caller owns.
+        objects:
+          type: integer
+          description: Files across the buckets the caller owns.
+        buckets:
+          type: integer
+          description: Buckets the caller owns.
+        quota_bytes:
+          type: integer
+          format: int64
+          description: The caller's effective storage quota in bytes.
+        max_buckets:
+          type: integer
+          description: The caller's effective bucket limit; 0 for no limit.
+
+    FileShareTargets:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileShareUser"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileShareGroup"
+
+    FileShareUser:
+      type: object
+      properties:
+        user_id:
+          type: string
+        username:
+          type: string
+        can_own:
+          type: boolean
+          description: The user may own buckets, so may receive a transfer.
+        self:
+          type: boolean
+          description: The user is the caller.
+
+    FileShareGroup:
+      type: object
+      properties:
+        group_id:
+          type: string
+        name:
+          type: string
+
+    FileObject:
+      type: object
+      properties:
+        key:
+          type: string
+          example: docs/report.pdf
+        size:
+          type: integer
+          format: int64
+        etag:
+          type: string
+          description: The content's ETag, unquoted.
+        sha256:
+          type: string
+          description: SHA-256 of the content, hex.
+        content_type:
+          type: string
+        modified_at:
+          type: string
+          format: date-time
+          description: The file's own modification time when known (from `X-Knot-Mtime`), otherwise the upload time.
+
+    FileObjectList:
+      type: object
+      properties:
+        objects:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileObject"
+        prefixes:
+          type: array
+          description: Keys rolled up by the delimiter, each ending with it.
+          items:
+            type: string
+        is_truncated:
+          type: boolean
+          description: More entries follow; pass `next` as `after` to fetch them.
+        next:
+          type: string
+          description: The continuation point when `is_truncated` is set.
+
+    FileChange:
+      description: |
+        One entry of a bucket's change feed: a file as it is now, or a deleted file. A deleted
+        file carries only `key`, `modified_at` (when it was deleted) and `deleted`; its other
+        fields are empty or zero.
+      allOf:
+        - $ref: "#/components/schemas/FileObject"
+        - type: object
+          properties:
+            deleted:
+              type: boolean
+              description: The file was deleted; present only when true.
+
+    FileChangeList:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileChange"
+        cursor:
+          type: string
+          description: Opaque; pass it as `cursor` to continue from here. Empty when `reset` is set.
+        more:
+          type: boolean
+          description: More changes are waiting; call again at once with `cursor`.
+        reset:
+          type: boolean
+          description: The cursor can no longer be followed; start again without a cursor.
+
+    FileCopyRequest:
+      type: object
+      required:
+        - source_bucket
+        - source_key
+        - dest_bucket
+        - dest_key
+      properties:
+        source_bucket:
+          type: string
+          description: The source bucket, short or full name.
+        source_key:
+          type: string
+        dest_bucket:
+          type: string
+          description: The destination bucket, short or full name.
+        dest_key:
+          type: string
+        if_match:
+          type: string
+          description: Copy only if the destination file has this ETag; otherwise 412.
+        if_none_match:
+          type: boolean
+          description: Copy only if there is no file at the destination; otherwise 412.
+
+    FileMoveRequest:
+      type: object
+      required:
+        - bucket
+        - from
+        - to
+      properties:
+        bucket:
+          type: string
+          description: The bucket, short or full name.
+        from:
+          type: string
+          description: The file, or the folder (with or without a trailing slash), to move.
+        to:
+          type: string
+          description: The new key or folder.
+        overwrite:
+          type: boolean
+          default: false
+          description: Replace files already at the destination.
+
+    FileMoveResponse:
+      type: object
+      properties:
+        moved:
+          type: integer
+          description: How many files were moved.
+
+    FileFsckRequest:
+      type: object
+      properties:
+        repair:
+          type: boolean
+          default: false
+          description: Fix what can be fixed.
+        deep:
+          type: boolean
+          default: false
+          description: Read every stored content and verify its checksum.
+
+    FileFsckIssue:
+      type: object
+      properties:
+        kind:
+          type: string
+          description: The kind of finding, e.g. `missing-content`, `corrupt-content`, `reference-count`, `statistics`, `owner-deleted`.
+        bucket:
+          type: string
+        key:
+          type: string
+        detail:
+          type: string
+
+    FileFsckReport:
+      type: object
+      properties:
+        buckets:
+          type: integer
+          description: Buckets checked.
+        files:
+          type: integer
+          description: Files checked.
+        found:
+          type: object
+          description: Findings by kind.
+          additionalProperties:
+            type: integer
+        repaired:
+          type: object
+          description: Repairs by kind.
+          additionalProperties:
+            type: integer
+        issues:
+          type: array
+          description: Individual findings, at most 200; the counts in `found` are complete.
+          items:
+            $ref: "#/components/schemas/FileFsckIssue"
+        notes:
+          type: array
+          items:
+            type: string
+
+  parameters:
+    FileBucketName:
+      name: bucket
+      in: path
+      required: true
+      description: The bucket's full name (`<owner>--<name>`), or the short name for the caller's own buckets.
+      schema:
+        type: string
+        example: photos
+    FileObjectKey:
+      name: key
+      in: path
+      required: true
+      description: The file's key. It may contain `/`; escape each segment between slashes.
+      schema:
+        type: string
+        example: docs/report.pdf
+
+  headers:
+    FileETag:
+      description: The content's ETag, quoted.
+      schema:
+        type: string
+    FileLastModified:
+      description: When the file was uploaded.
+      schema:
+        type: string
+    FileSha256:
+      description: SHA-256 of the content, hex.
+      schema:
+        type: string
+    FileMtime:
+      description: The file's own modification time as fractional unix seconds (the upload time when none was given).
+      schema:
+        type: string
 
   responses:
     bad-request:

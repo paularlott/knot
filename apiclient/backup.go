@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -119,7 +120,21 @@ func (c *ApiClient) RestoreStream(ctx context.Context, kind string, body io.Read
 	if err != nil {
 		return nil, err
 	}
-	resp, err := hc.DoRaw(ctx, http.MethodPost, "/api/restore/"+url.PathEscape(kind), body, -1, map[string]string{"Content-Type": "application/x-ndjson"})
+	// Records compress well; they are sent compressed as they are read.
+	pr, pw := io.Pipe()
+	go func() {
+		gz := gzip.NewWriter(pw)
+		_, err := io.Copy(gz, body)
+		if cerr := gz.Close(); err == nil {
+			err = cerr
+		}
+		pw.CloseWithError(err)
+	}()
+	defer pr.Close()
+	resp, err := hc.DoRaw(ctx, http.MethodPost, "/api/restore/"+url.PathEscape(kind), pr, -1, map[string]string{
+		"Content-Type":     "application/x-ndjson",
+		"Content-Encoding": "gzip",
+	})
 	if err != nil {
 		return nil, err
 	}

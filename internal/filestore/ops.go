@@ -646,6 +646,14 @@ func (s *Store) newObjectLocked(b *Bucket, key, sha, etag string, size int64, op
 // CopyObject copies an object. Content is shared, so only metadata is
 // written. With opts nil the source metadata is kept.
 func (s *Store) CopyObject(p *Principal, srcBucket, srcKey, dstBucket, dstKey string, opts *PutOptions) (*Object, error) {
+	return s.CopyObjectIf(p, srcBucket, srcKey, dstBucket, dstKey, opts, PutOptions{})
+}
+
+// CopyObjectIf is CopyObject made only if the destination meets the
+// conditions of cond: IfMatch, the ETag the file there must have, or
+// IfNoneMatch, that there is no file there. Otherwise it fails with
+// ErrPrecondition.
+func (s *Store) CopyObjectIf(p *Principal, srcBucket, srcKey, dstBucket, dstKey string, opts *PutOptions, cond PutOptions) (*Object, error) {
 	if !ValidKey(dstKey) {
 		return nil, ErrInvalidKey
 	}
@@ -706,7 +714,10 @@ func (s *Store) CopyObject(p *Principal, srcBucket, srcKey, dstBucket, dstKey st
 			if now == nil || now.IsDeleted || now.SHA256 != src.SHA256 {
 				return ErrNoSuchKey
 			}
-			return nil
+			if !s.liveLocked(cur) {
+				cur = nil
+			}
+			return checkPreconditions(cur, cond)
 		},
 	}})
 	if err != nil {
@@ -798,6 +809,13 @@ func (s *Store) MoveObjects(p *Principal, bucket, from, to string, overwrite boo
 
 // DeleteObject deletes an object.
 func (s *Store) DeleteObject(p *Principal, bucket, key string) error {
+	return s.DeleteObjectIf(p, bucket, key, "")
+}
+
+// DeleteObjectIf is DeleteObject made only if the file still has the ETag
+// ifMatch, when given: otherwise it fails with ErrPrecondition, so a file
+// changed since it was looked at is not deleted unseen.
+func (s *Store) DeleteObjectIf(p *Principal, bucket, key, ifMatch string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	b, err := s.bucketForLocked(p, bucket, AccessWrite)
@@ -818,7 +836,7 @@ func (s *Store) DeleteObject(p *Principal, bucket, key string) error {
 			if !s.liveLocked(cur) {
 				return ErrNoSuchKey
 			}
-			return nil
+			return checkPreconditions(cur, PutOptions{IfMatch: ifMatch})
 		},
 	}})
 	if err != nil {

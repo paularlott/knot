@@ -359,6 +359,10 @@ func HandleRestoreKind(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.NoDeadlines(w)
+	if err := rest.GunzipRequest(r); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid compressed body: " + err.Error()})
+		return
+	}
 
 	result := apiclient.RestoreResult{}
 	fail := func(err error, n int) {

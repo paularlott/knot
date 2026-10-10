@@ -207,8 +207,8 @@ def put(path, body=None):
     return None
 
 
-def delete(path):
-    """Make a DELETE request to the Knot API."""
+def delete(path, headers=None):
+    """Make a DELETE request to the Knot API, with any extra request headers."""
     import requests as req
 
     client = _get_client()
@@ -216,7 +216,11 @@ def delete(path):
         raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
 
     url = client["url"] + path
+    extra = headers
     headers = {"Authorization": "Bearer " + client["token"], "Content-Type": "application/json", "Accept": "application/json"}
+    if extra:
+        for k in extra:
+            headers[k] = extra[k]
 
     resp = req.delete(
         url,

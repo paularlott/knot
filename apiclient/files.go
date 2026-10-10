@@ -77,6 +77,25 @@ type FileObjectInfo struct {
 	ModifiedAt  time.Time `json:"modified_at"`
 }
 
+// FileChange is one entry of a bucket's change feed: a file as it is now, or
+// one that was deleted.
+type FileChange struct {
+	FileObjectInfo
+	Deleted bool `json:"deleted,omitempty"`
+}
+
+// FileChangeList is a page of a bucket's change feed. Cursor continues it;
+// with More set, more changes are waiting. Reset means the cursor can no
+// longer be followed (the server's index was rebuilt, the cursor came from
+// another server, or deletions it had not seen were forgotten): start again
+// without a cursor, which returns every file.
+type FileChangeList struct {
+	Changes []FileChange `json:"changes"`
+	Cursor  string       `json:"cursor"`
+	More    bool         `json:"more"`
+	Reset   bool         `json:"reset"`
+}
+
 type FileObjectList struct {
 	Objects     []FileObjectInfo `json:"objects"`
 	Prefixes    []string         `json:"prefixes"`
@@ -92,6 +111,10 @@ type FileCopyRequest struct {
 	SourceKey    string `json:"source_key"`
 	DestBucket   string `json:"dest_bucket"`
 	DestKey      string `json:"dest_key"`
+	// IfMatch copies only if the destination file has this ETag;
+	// IfNoneMatch only if there is no file there. Either refusal is a 412.
+	IfMatch     string `json:"if_match,omitempty"`
+	IfNoneMatch bool   `json:"if_none_match,omitempty"`
 }
 
 // FileMoveRequest renames a file, or a folder and everything under it, within
@@ -138,6 +161,12 @@ type FileUsage struct {
 // FileMtimeHeader carries an object's modification time as fractional unix
 // seconds, the same form rclone stores in x-amz-meta-mtime.
 const FileMtimeHeader = "X-Knot-Mtime"
+
+// FileReuseHeader on an upload with no body names the SHA-256 of content the
+// bucket held until recently (a file deleted or replaced within the hour):
+// the file is written with that content without it being sent. The server
+// answers 409 when it does not hold the content, and the client sends it.
+const FileReuseHeader = "X-Knot-Reuse-Sha256"
 
 func escapeKey(key string) string {
 	parts := strings.Split(key, "/")
@@ -232,6 +261,21 @@ func (c *ApiClient) DeleteFileObject(ctx context.Context, bucket, key string) er
 	return err
 }
 
+// DeleteFileObjectIfMatch deletes a file only if it still has the ETag etag:
+// otherwise it fails with an error IsPreconditionFailed recognises.
+func (c *ApiClient) DeleteFileObjectIfMatch(ctx context.Context, bucket, key, etag string) error {
+	hc, err := c.rawClient()
+	if err != nil {
+		return err
+	}
+	resp, err := hc.DoRaw(ctx, http.MethodDelete, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, map[string]string{"If-Match": `"` + etag + `"`})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return rest.DecodeResponse(resp, nil)
+}
+
 // CopyFileObject copies a file on the server, keeping its content type,
 // metadata and modification time, and replacing any file at the destination.
 func (c *ApiClient) CopyFileObject(ctx context.Context, req FileCopyRequest) (*FileObjectInfo, error) {
@@ -278,6 +322,75 @@ func (c *ApiClient) rawClient() (*rest.HTTPClient, error) {
 	return hc, nil
 }
 
+// FileCursorNow, as the cursor of ListFileChanges, returns no changes, only
+// a cursor to follow the bucket from now on.
+const FileCursorNow = "now"
+
+// ListFileChanges returns a page of what changed in a bucket under prefix
+// since cursor; with no cursor, every file and a cursor to follow on from.
+func (c *ApiClient) ListFileChanges(ctx context.Context, bucket, prefix, cursor string, limit int) (*FileChangeList, error) {
+	q := url.Values{}
+	if prefix != "" {
+		q.Set("prefix", prefix)
+	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	path := "/api/files/changes/" + url.PathEscape(bucket)
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	out := &FileChangeList{}
+	if _, err := c.httpClient.Get(ctx, path, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ReuseFileObject writes a file with content the bucket held until recently,
+// without sending it. ok is false when the server does not hold the content:
+// the caller uploads it instead. ifMatch, when set, is the ETag the file
+// must still have; ifAbsent writes only if there is no file.
+func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string, mtime time.Time, ifMatch string, ifAbsent bool) (*FileObjectInfo, bool, error) {
+	hc, err := c.rawClient()
+	if err != nil {
+		return nil, false, err
+	}
+	headers := map[string]string{FileReuseHeader: sha, "Content-Type": "application/octet-stream"}
+	if !mtime.IsZero() {
+		headers[FileMtimeHeader] = FormatMtime(mtime)
+	}
+	if ifMatch != "" {
+		headers["If-Match"] = `"` + ifMatch + `"`
+	}
+	if ifAbsent {
+		headers["If-None-Match"] = "*"
+	}
+	resp, err := hc.DoRaw(ctx, http.MethodPut, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
+	if err != nil {
+		return nil, false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusConflict {
+		io.Copy(io.Discard, resp.Body)
+		return nil, false, nil
+	}
+	info := &FileObjectInfo{}
+	if err := rest.DecodeResponse(resp, info); err != nil {
+		return nil, false, err
+	}
+	return info, true, nil
+}
+
+// PutFileObjectIfMatch uploads content only if the file still has the ETag
+// etag: otherwise it fails with an error IsPreconditionFailed recognises.
+func (c *ApiClient) PutFileObjectIfMatch(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, etag string) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, false, etag)
+}
+
 // PutFileObject uploads content of the given size (-1 if unknown).
 func (c *ApiClient) PutFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time) (*FileObjectInfo, error) {
 	return c.putFileObject(ctx, bucket, key, body, size, contentType, mtime, false)
@@ -296,6 +409,10 @@ func IsPreconditionFailed(err error) bool {
 }
 
 func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, ifAbsent, "")
+}
+
+func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool, ifMatch string) (*FileObjectInfo, error) {
 	hc, err := c.rawClient()
 	if err != nil {
 		return nil, err
@@ -310,6 +427,9 @@ func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body 
 	}
 	if ifAbsent {
 		headers["If-None-Match"] = "*"
+	}
+	if ifMatch != "" {
+		headers["If-Match"] = `"` + ifMatch + `"`
 	}
 
 	resp, err := hc.DoRaw(ctx, http.MethodPut, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), body, size, headers)

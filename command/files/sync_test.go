@@ -60,6 +60,7 @@ func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 	mux.HandleFunc("POST /api/files/copy", api.HandleCopyFileObject)
 	mux.HandleFunc("POST /api/files/move", api.HandleMoveFileObjects)
 	mux.HandleFunc("GET /api/files/list/{bucket}", api.HandleListFileObjects)
+	mux.HandleFunc("GET /api/files/changes/{bucket}", api.HandleListFileChanges)
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", api.HandleGetFileObject)
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", api.HandlePutFileObject)
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", api.HandleDeleteFileObject)

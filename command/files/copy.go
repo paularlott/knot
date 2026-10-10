@@ -238,25 +238,33 @@ func serverCopy(ctx context.Context, client *apiclient.ApiClient, s source, buck
 // downloadFile writes a bucket's file to local via a temporary file, or to
 // stdout for -.
 func downloadFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, local string) error {
+	n, err := fetchFile(ctx, client, bucket, key, local)
+	if err == nil && local != "-" {
+		fmt.Printf("%s -> %s (%s)\n", remoteName(bucket, key), local, formatBytes(n))
+	}
+	return err
+}
+
+// fetchFile is downloadFile without the report: it returns the bytes written.
+func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, local string) (int64, error) {
 	resp, err := client.GetFileObject(ctx, bucket, key)
 	if err != nil {
-		return fmt.Errorf("%s: %s", remoteName(bucket, key), cmdutil.CleanAPIError(err))
+		return 0, fmt.Errorf("%s: %s", remoteName(bucket, key), cmdutil.CleanAPIError(err))
 	}
 	defer resp.Body.Close()
 
 	if local == "-" {
-		_, err := io.Copy(os.Stdout, resp.Body)
-		return err
+		return io.Copy(os.Stdout, resp.Body)
 	}
 
 	if dir := filepath.Dir(local); dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
+			return 0, err
 		}
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(local), ".knot-download-*")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	n, err := io.Copy(tmp, resp.Body)
 	if cerr := tmp.Close(); err == nil {
@@ -264,7 +272,7 @@ func downloadFile(ctx context.Context, client *apiclient.ApiClient, bucket, key,
 	}
 	if err != nil {
 		os.Remove(tmp.Name())
-		return err
+		return 0, err
 	}
 	// The temporary file is private (0600); give the download the mode of
 	// the file it replaces, or the usual 0644.
@@ -275,13 +283,12 @@ func downloadFile(ctx context.Context, client *apiclient.ApiClient, bucket, key,
 	os.Chmod(tmp.Name(), mode)
 	if err := os.Rename(tmp.Name(), local); err != nil {
 		os.Remove(tmp.Name())
-		return err
+		return 0, err
 	}
 	if mtime, ok := apiclient.ParseMtime(resp.Header.Get(apiclient.FileMtimeHeader)); ok {
 		os.Chtimes(local, mtime, mtime)
 	}
-	fmt.Printf("%s -> %s (%s)\n", remoteName(bucket, key), local, formatBytes(n))
-	return nil
+	return n, nil
 }
 
 // copyFromStdin uploads stdin to a single bucket file.

@@ -63,6 +63,7 @@ func filesEnv(t *testing.T) (run func(script string) map[string]interface{}, sto
 	mux.HandleFunc("POST /api/files/buckets/{bucket}/transfer", HandleTransferFileBucket)
 	mux.HandleFunc("GET /api/files/usage", HandleGetFileUsage)
 	mux.HandleFunc("GET /api/files/list/{bucket}", HandleListFileObjects)
+	mux.HandleFunc("GET /api/files/changes/{bucket}", HandleListFileChanges)
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", HandleGetFileObject)
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", HandlePutFileObject)
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", HandleDeleteFileObject)
@@ -312,5 +313,63 @@ result["huge_exists"] = files.file_exists("scripts", "huge.bin")
 	}
 	if fmt.Sprint(r["big_len"]) != fmt.Sprint(5*1024*1024) || r["big_same"] != true {
 		t.Errorf("5 MB round trip: %v %v", r["big_len"], r["big_same"])
+	}
+}
+
+func TestKnotFilesListChanges(t *testing.T) {
+	run, _ := filesEnv(t)
+	r := run(`
+import knot.files as files
+
+result = {}
+files.create_bucket("feed")
+files.write_file("feed", "a.txt", "a")
+files.write_file("feed", "dir/b.txt", "b")
+first = files.list_changes("feed")
+result["first"] = sorted([c["key"] for c in first["changes"]])
+result["first_reset"] = first["reset"]
+
+files.write_file("feed", "a.txt", "a2")
+files.delete_file("feed", "dir/b.txt")
+files.write_file("feed", "c.txt", "c")
+nxt = files.list_changes("feed", cursor=first["cursor"])
+result["next"] = sorted([("-" if c["deleted"] else "") + c["key"] for c in nxt["changes"]])
+result["none"] = len(files.list_changes("feed", cursor=nxt["cursor"])["changes"])
+result["foreign"] = files.list_changes("feed", cursor="0000000000000000.1")["reset"]
+
+old = files.write_file("feed", "cond.txt", "v1")
+files.write_file("feed", "cond.txt", "v2")
+try:
+    files.delete_file("feed", "cond.txt", if_match=old["etag"])
+    result["stale_delete"] = ""
+except Exception as e:
+    result["stale_delete"] = str(e)
+result["kept"] = files.read_text("feed", "cond.txt")
+cur = [f for f in files.list_files("feed")["files"] if f["key"] == "cond.txt"][0]
+result["deleted"] = files.delete_file("feed", "cond.txt", if_match=cur["etag"])
+result["gone"] = not files.file_exists("feed", "cond.txt")
+try:
+    files.list_changes("feed", cursor="bad")
+    result["bad"] = ""
+except Exception as e:
+    result["bad"] = str(e)
+`)
+	if fmt.Sprint(r["first"]) != "[a.txt dir/b.txt]" || r["first_reset"] != false {
+		t.Errorf("first %v reset %v", r["first"], r["first_reset"])
+	}
+	if fmt.Sprint(r["next"]) != "[-dir/b.txt a.txt c.txt]" {
+		t.Errorf("next %v", r["next"])
+	}
+	if fmt.Sprint(r["none"]) != "0" || r["foreign"] != true {
+		t.Errorf("none %v foreign %v", r["none"], r["foreign"])
+	}
+	if !strings.Contains(fmt.Sprint(r["stale_delete"]), "412") || r["kept"] != "v2" {
+		t.Errorf("stale conditional delete: %v, file %v", r["stale_delete"], r["kept"])
+	}
+	if r["deleted"] != true || r["gone"] != true {
+		t.Errorf("current conditional delete: %v %v", r["deleted"], r["gone"])
+	}
+	if !strings.Contains(fmt.Sprint(r["bad"]), "invalid change cursor") {
+		t.Errorf("bad cursor: %v", r["bad"])
 	}
 }

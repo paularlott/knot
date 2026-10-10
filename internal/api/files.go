@@ -49,7 +49,7 @@ func filesError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, filestore.ErrCannotShare), errors.Is(err, filestore.ErrCannotTransfer):
 		status = http.StatusForbidden
 	case errors.Is(err, filestore.ErrBucketExists), errors.Is(err, filestore.ErrBucketNotEmpty), errors.Is(err, filestore.ErrTransferNameTaken),
-		errors.Is(err, filestore.ErrDestinationExists):
+		errors.Is(err, filestore.ErrDestinationExists), errors.Is(err, filestore.ErrContentNotHeld):
 		status = http.StatusConflict
 	case errors.Is(err, filestore.ErrQuotaExceeded):
 		status = http.StatusRequestEntityTooLarge
@@ -58,7 +58,8 @@ func filesError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, filestore.ErrInvalidName), errors.Is(err, filestore.ErrInvalidShortName), errors.Is(err, filestore.ErrNameTooLong),
 		errors.Is(err, filestore.ErrBucketNamespace), errors.Is(err, filestore.ErrUsernameUnusable), errors.Is(err, filestore.ErrRecipientCannotOwn),
 		errors.Is(err, filestore.ErrInvalidKey), errors.Is(err, filestore.ErrInvalidGrant), errors.Is(err, filestore.ErrTooManyGrants),
-		errors.Is(err, filestore.ErrMetadataTooLarge), errors.Is(err, filestore.ErrInvalidMetadata), errors.Is(err, filestore.ErrContentMismatch), errors.Is(err, io.ErrUnexpectedEOF):
+		errors.Is(err, filestore.ErrMetadataTooLarge), errors.Is(err, filestore.ErrInvalidMetadata), errors.Is(err, filestore.ErrContentMismatch), errors.Is(err, io.ErrUnexpectedEOF),
+		errors.Is(err, filestore.ErrInvalidCursor):
 		status = http.StatusBadRequest
 	case errors.Is(err, filestore.ErrUnavailable):
 		status = http.StatusServiceUnavailable
@@ -607,12 +608,52 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	o, err := store.PutObject(p, filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key"), r.Body, opts)
+	var o *filestore.Object
+	var err error
+	if sha := r.Header.Get(apiclient.FileReuseHeader); sha != "" {
+		// Content the bucket held until recently: nothing is sent.
+		if r.ContentLength > 0 {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "a reuse carries no content"})
+			return
+		}
+		o, err = store.ReuseObject(p, filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key"), strings.ToLower(sha), opts)
+	} else {
+		o, err = store.PutObject(p, filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key"), r.Body, opts)
+	}
 	if err != nil {
 		filesError(w, r, err)
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, objectResponse(o))
+}
+
+// HandleListFileChanges returns what changed in a bucket since a cursor.
+func HandleListFileChanges(w http.ResponseWriter, r *http.Request) {
+	store, _, p, ok := filesContext(w, r)
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	res, err := store.ListChanges(p, filestore.ResolveName(p, r.PathValue("bucket")), q.Get("prefix"), q.Get("cursor"), limit)
+	if err != nil {
+		filesError(w, r, err)
+		return
+	}
+	out := apiclient.FileChangeList{
+		Changes: make([]apiclient.FileChange, 0, len(res.Changes)),
+		Cursor:  res.Cursor,
+		More:    res.More,
+		Reset:   res.Reset,
+	}
+	for _, o := range res.Changes {
+		if o.IsDeleted {
+			out.Changes = append(out.Changes, apiclient.FileChange{FileObjectInfo: apiclient.FileObjectInfo{Key: o.Key, ModifiedAt: o.ModifiedAt}, Deleted: true})
+			continue
+		}
+		out.Changes = append(out.Changes, apiclient.FileChange{FileObjectInfo: objectResponse(o)})
+	}
+	rest.WriteResponse(http.StatusOK, w, r, out)
 }
 
 // HandleCopyFileObject copies a file within or between buckets without
@@ -641,7 +682,7 @@ func HandleCopyFileObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	o, err := store.CopyObject(p, src, req.SourceKey, dst, req.DestKey, nil)
+	o, err := store.CopyObjectIf(p, src, req.SourceKey, dst, req.DestKey, nil, filestore.PutOptions{IfMatch: req.IfMatch, IfNoneMatch: req.IfNoneMatch})
 	if err != nil {
 		filesError(w, r, err)
 		return
@@ -681,7 +722,8 @@ func HandleDeleteFileObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := store.DeleteObject(p, filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key")); err != nil {
+	// With If-Match, only the version the client saw is deleted.
+	if err := store.DeleteObjectIf(p, filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key"), r.Header.Get("If-Match")); err != nil {
 		filesError(w, r, err)
 		return
 	}

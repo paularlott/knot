@@ -101,6 +101,16 @@ type fsckScan struct {
 	markers   map[string]bool         // content queued to be fetched
 	tombs     map[string]bool         // deletion index entries expected
 	haveTombs map[string]bool         // and found
+	holds     map[string]uint32       // references taken by content held for reuse
+}
+
+// expect is the reference count content should have.
+func (sc *fsckScan) expect(raw string) uint32 {
+	n := sc.holds[raw]
+	if ref := sc.refs[raw]; ref != nil {
+		n += uint32(ref.files)
+	}
+	return n
 }
 
 // fsckScanLocked reads every record in one consistent snapshot. The caller
@@ -114,6 +124,7 @@ func (s *Store) fsckScanLocked() (*fsckScan, error) {
 		markers:   make(map[string]bool),
 		tombs:     make(map[string]bool),
 		haveTombs: make(map[string]bool),
+		holds:     make(map[string]uint32),
 	}
 	err := s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.IteratorOptions{PrefetchValues: true, PrefetchSize: 1000, Prefix: []byte{'o'}})
@@ -147,6 +158,8 @@ func (s *Store) fsckScanLocked() (*fsckScan, error) {
 			}
 		}
 		it.Close()
+
+		countHolds(txn, func(raw string) { sc.holds[raw]++ })
 
 		for _, kind := range []byte{'r', 'c', 'm', 't'} {
 			it = txn.NewIterator(badger.IteratorOptions{PrefetchValues: kind == 'r', Prefix: []byte{kind}})
@@ -268,19 +281,25 @@ func (s *Store) Fsck(ctx context.Context, opt FsckOptions) (*FsckReport, error) 
 	// Reference counts, queued content and the deletion index.
 	structural := 0
 	for raw, ref := range sc.refs {
-		if got := sc.have[raw]; got != uint32(ref.files) {
+		if got := sc.have[raw]; got != sc.expect(raw) {
 			structural++
-			rep.add(FsckRefCount, name(ref.bucketId), ref.key, fmt.Sprintf("content %s has %d files and a count of %d", hex.EncodeToString([]byte(raw))[:12], ref.files, got))
+			rep.add(FsckRefCount, name(ref.bucketId), ref.key, fmt.Sprintf("content %s has %d files, %d holds and a count of %d", hex.EncodeToString([]byte(raw))[:12], ref.files, sc.holds[raw], got))
+		}
+	}
+	for raw, n := range sc.holds {
+		if sc.refs[raw] == nil && sc.have[raw] != n {
+			structural++
+			rep.add(FsckRefCount, "", "", fmt.Sprintf("content %s has %d holds and a count of %d", hex.EncodeToString([]byte(raw))[:12], n, sc.have[raw]))
 		}
 	}
 	for raw := range sc.have {
-		if sc.refs[raw] == nil {
+		if sc.expect(raw) == 0 {
 			structural++
 			rep.add(FsckOrphanRef, "", "", "count for content "+hex.EncodeToString([]byte(raw))[:12]+" that no file uses")
 		}
 	}
 	for raw := range sc.inline {
-		if sc.refs[raw] == nil {
+		if sc.expect(raw) == 0 {
 			structural++
 			rep.add(FsckOrphanInline, "", "", "content "+hex.EncodeToString([]byte(raw))[:12]+" that no file uses")
 		}
@@ -343,7 +362,7 @@ func (s *Store) Fsck(ctx context.Context, opt FsckOptions) (*FsckReport, error) 
 	// Content files nothing uses.
 	orphanFiles := 0
 	s.blobs.walk(func(sha string) {
-		if sc.refs[string(rawSha(sha))] == nil {
+		if sc.expect(string(rawSha(sha))) == 0 {
 			orphanFiles++
 		}
 	})
@@ -491,12 +510,18 @@ func (s *Store) fsckRepairStructure(rep *FsckReport) error {
 	fixed := func(kind string) { rep.Repaired[kind]++ }
 	rawKey := func(kind byte, raw string) []byte { return append([]byte{kind}, raw...) }
 
-	for raw, ref := range sc.refs {
-		raw, ref := raw, ref
-		if sc.have[raw] != uint32(ref.files) {
+	counted := make(map[string]bool, len(sc.refs)+len(sc.holds))
+	for raw := range sc.refs {
+		counted[raw] = true
+	}
+	for raw := range sc.holds {
+		counted[raw] = true
+	}
+	for raw := range counted {
+		raw := raw
+		if n := sc.expect(raw); sc.have[raw] != n {
 			ops = append(ops, func(txn *badger.Txn) error {
 				var v [4]byte
-				n := uint32(ref.files)
 				v[0], v[1], v[2], v[3] = byte(n), byte(n>>8), byte(n>>16), byte(n>>24)
 				return txn.Set(rawKey('r', raw), v[:])
 			})
@@ -505,14 +530,14 @@ func (s *Store) fsckRepairStructure(rep *FsckReport) error {
 	}
 	for raw := range sc.have {
 		raw := raw
-		if sc.refs[raw] == nil {
+		if sc.expect(raw) == 0 {
 			ops = append(ops, func(txn *badger.Txn) error { return txn.Delete(rawKey('r', raw)) })
 			fixed(FsckOrphanRef)
 		}
 	}
 	for raw := range sc.inline {
 		raw := raw
-		if sc.refs[raw] == nil {
+		if sc.expect(raw) == 0 {
 			ops = append(ops, func(txn *badger.Txn) error { return txn.Delete(rawKey('c', raw)) })
 			fixed(FsckOrphanInline)
 		}

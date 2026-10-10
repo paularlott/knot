@@ -152,19 +152,44 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return errors.ParameterError("path", err)
 		}
 
-		var result interface{}
-		statusCode, apiErr := client.Delete(context.Background(), path, nil, &result, 0)
-		if apiErr != nil && apiErr != io.EOF {
-			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
+		// Extra request headers, such as If-Match for a conditional delete.
+		headers := map[string]string{}
+		if len(args) > 1 && args[1] != nil {
+			if d, ok := conversion.ToGo(args[1]).(map[string]interface{}); ok {
+				for k, v := range d {
+					headers[k] = fmt.Sprint(v)
+				}
+			}
 		}
-		if statusCode >= 400 {
-			return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
+
+		var result interface{}
+		if len(headers) > 0 {
+			hc, ok := client.(*rest.HTTPClient)
+			if !ok {
+				return &object.Error{Message: "API error: request headers need an HTTP client"}
+			}
+			resp, rerr := hc.DoRaw(ctx, http.MethodDelete, path, nil, 0, headers)
+			if rerr != nil {
+				return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+			}
+			defer resp.Body.Close()
+			if derr := rest.DecodeResponse(resp, &result); derr != nil && derr != io.EOF {
+				return &object.Error{Message: fmt.Sprintf("API error: %v", derr)}
+			}
+		} else {
+			statusCode, apiErr := client.Delete(context.Background(), path, nil, &result, 0)
+			if apiErr != nil && apiErr != io.EOF {
+				return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
+			}
+			if statusCode >= 400 {
+				return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
+			}
 		}
 		if result == nil {
 			return &object.Null{}
 		}
 		return conversion.FromGo(result)
-	}, "delete(path) - Make a DELETE request, returns Dict or List")
+	}, "delete(path, headers=None) - Make a DELETE request, with any extra request headers; returns Dict or List")
 
 	// Raw transfers carry file content, which is bytes rather than JSON.
 	rawClient := func() (*rest.HTTPClient, object.Object) {

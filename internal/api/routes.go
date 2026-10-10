@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
 	"github.com/paularlott/knot/internal/plugins"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 func ApiRoutes(router *http.ServeMux) {
@@ -74,7 +75,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("DELETE /api/sessions/{session_id}", middleware.ApiAuth(HandleDeleteSessions))
 
 	// File storage — every handler answers 503 when storage is disabled
-	router.HandleFunc("GET /api/files/buckets", middleware.ApiAuth(HandleGetFileBuckets))
+	router.HandleFunc("GET /api/files/buckets", middleware.ApiAuth(rest.Gzip(HandleGetFileBuckets)))
 	router.HandleFunc("POST /api/files/buckets", middleware.ApiAuth(HandleCreateFileBucket))
 	router.HandleFunc("GET /api/files/buckets/{bucket}", middleware.ApiAuth(HandleGetFileBucket))
 	router.HandleFunc("DELETE /api/files/buckets/{bucket}", middleware.ApiAuth(HandleDeleteFileBucket))
@@ -84,15 +85,16 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/files/usage", middleware.ApiAuth(HandleGetFileUsage))
 	router.HandleFunc("GET /api/backup/info", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleGetBackupInfo)))
 	router.HandleFunc("GET /api/backup/content/{sha}", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleBackupContent)))
-	router.HandleFunc("GET /api/backup/{kind}", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleBackupKind)))
+	router.HandleFunc("GET /api/backup/{kind}", middleware.ApiAuth(middleware.ApiPermissionBackup(rest.Gzip(HandleBackupKind))))
 	router.HandleFunc("POST /api/backup/complete", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleBackupComplete)))
 	router.HandleFunc("POST /api/restore/content/missing", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreContentMissing)))
 	router.HandleFunc("PUT /api/restore/content/{sha}", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreContent)))
 	router.HandleFunc("POST /api/restore/complete", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreComplete)))
 	router.HandleFunc("POST /api/restore/{kind}", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreKind)))
 	router.HandleFunc("POST /api/files/fsck", middleware.ApiAuth(HandleFilesFsck))
-	router.HandleFunc("GET /api/files/share-targets", middleware.ApiAuth(HandleGetFileShareTargets))
-	router.HandleFunc("GET /api/files/list/{bucket}", middleware.ApiAuth(HandleListFileObjects))
+	router.HandleFunc("GET /api/files/share-targets", middleware.ApiAuth(rest.Gzip(HandleGetFileShareTargets)))
+	router.HandleFunc("GET /api/files/list/{bucket}", middleware.ApiAuth(rest.Gzip(HandleListFileObjects)))
+	router.HandleFunc("GET /api/files/changes/{bucket}", middleware.ApiAuth(rest.Gzip(HandleListFileChanges)))
 	router.HandleFunc("GET /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleGetFileObject))
 	router.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandlePutFileObject))
 	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(HandleCopyFileObject))

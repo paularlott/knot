@@ -64,6 +64,8 @@ const (
 type Event struct {
 	Type    EventType   `json:"type"`
 	Payload interface{} `json:"payload,omitempty"`
+
+	toUser string // set for an event for one user's clients only
 }
 
 // ResourcePayload contains data for resource-specific events
@@ -165,6 +167,9 @@ func (h *Hub) run() {
 				continue
 			}
 			for client := range h.clients {
+				if event.toUser != "" && client.userId != event.toUser {
+					continue
+				}
 				select {
 				case client.send <- data:
 				default:
@@ -197,6 +202,28 @@ func (c *Client) Close() {
 // Send returns the channel for receiving events
 func (c *Client) Send() <-chan []byte {
 	return c.send
+}
+
+// UserIds returns the users with a stream open.
+func (h *Hub) UserIds() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	seen := make(map[string]bool)
+	var out []string
+	for client := range h.clients {
+		if !seen[client.userId] {
+			seen[client.userId] = true
+			out = append(out, client.userId)
+		}
+	}
+	return out
+}
+
+// SendToUser sends an event to one user's connected clients.
+func (h *Hub) SendToUser(userId string, event *Event) {
+	e := *event
+	e.toUser = userId
+	h.Broadcast(&e)
 }
 
 // Broadcast sends an event to all connected clients

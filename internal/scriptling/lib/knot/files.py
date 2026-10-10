@@ -314,6 +314,54 @@ def list_files(bucket, prefix="", recursive=False):
     return {"files": files, "folders": folders}
 
 
+def list_changes(bucket, prefix="", cursor=""):
+    """List what changed in a bucket since a cursor, to follow a bucket
+    without listing it again.
+
+    Without a cursor every file is returned, with a cursor to follow on from;
+    pass that cursor next time for just the files changed since, each once,
+    as it is now. Keep the returned cursor for the time after. The cursor
+    "now" returns no files, only a cursor to follow the bucket from now on.
+
+    Args:
+        bucket: Bucket name
+        prefix: Only keys starting with this; end it with "/" for a folder
+        cursor: The cursor from the last call, or "" to start
+
+    Returns:
+        A dict containing:
+        - changes: A list of file dicts, each with key, size, etag, sha256,
+          content_type, modified_at and deleted (True for a file that was
+          deleted, which has only key and modified_at)
+        - cursor: The cursor to pass next time
+        - reset: True when the cursor could not be followed (the server's
+          index was rebuilt, or the cursor came from another server): changes
+          is empty, and you start again without a cursor
+
+    Raises:
+        Exception if the bucket does not exist or is not visible to you, or
+        the cursor is not valid
+    """
+    changes = []
+    while True:
+        path = "/api/files/changes/" + _enc(bucket) + "?limit=1000"
+        if prefix:
+            path += "&prefix=" + _enc(prefix)
+        if cursor:
+            path += "&cursor=" + _enc(cursor)
+        response = api.get(path)
+        if response.get("reset"):
+            return {"changes": [], "cursor": "", "reset": True}
+        for info in response.get("changes") or []:
+            f = _file(info)
+            f["deleted"] = bool(info.get("deleted"))
+            changes.append(f)
+        cursor = response.get("cursor") or cursor
+        if not response.get("more"):
+            break
+    return {"changes": changes, "cursor": cursor, "reset": False}
+
+
 def read_file(bucket, key):
     """Read a file's content.
 
@@ -372,20 +420,27 @@ def write_file(bucket, key, data, content_type=""):
     return _file(api.put_bytes("/api/files/objects/" + _enc(bucket) + "/" + _enc_key(key), data, content_type))
 
 
-def delete_file(bucket, key):
+def delete_file(bucket, key, if_match=""):
     """Delete a file.
 
     Args:
         bucket: Bucket name
         key: The file's key
+        if_match: Only delete the file if it is still this version: the etag
+            from list_files, list_changes, write_file or copy_file. A file
+            changed since is left alone and an exception raised (HTTP 412)
 
     Returns:
         True on success
 
     Raises:
-        Exception if the file does not exist, you may not delete it, or on API error
+        Exception if the file does not exist, has changed since if_match,
+        you may not delete it, or on API error
     """
-    api.delete("/api/files/objects/" + _enc(bucket) + "/" + _enc_key(key))
+    headers = None
+    if if_match:
+        headers = {"If-Match": '"' + str(if_match).strip('"') + '"'}
+    api.delete("/api/files/objects/" + _enc(bucket) + "/" + _enc_key(key), headers)
     return True
 
 

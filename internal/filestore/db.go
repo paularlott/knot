@@ -183,7 +183,7 @@ type persistedStats struct {
 // content still to fetch, buckets with records to sweep, and the statistics
 // of each bucket, recounted from the records if the last shutdown was not
 // clean.
-func (s *Store) loadState() error {
+func (s *Store) loadState() (bool, error) {
 	var queued []string
 	clean := false
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -221,7 +221,7 @@ func (s *Store) loadState() error {
 		return err
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	for _, name := range queued {
 		s.sweepQueue[name] = struct{}{}
@@ -251,10 +251,10 @@ func (s *Store) loadState() error {
 		err = s.rebuildStats()
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	// From here an unclean exit must be noticed.
-	return s.db.Update(func(txn *badger.Txn) error { return txn.Delete(cleanKey) })
+	return clean, s.db.Update(func(txn *badger.Txn) error { return txn.Delete(cleanKey) })
 }
 
 // rebuildStats recounts every bucket's statistics from its records.
@@ -292,6 +292,9 @@ func (s *Store) saveState() error {
 			if err := txn.Set(statsKey(id), encodeRecord(&ps)); err != nil {
 				return err
 			}
+		}
+		if err := s.saveChanges(txn); err != nil {
+			return err
 		}
 		return txn.Set(cleanKey, []byte{1})
 	})

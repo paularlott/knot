@@ -196,6 +196,8 @@ type Store struct {
 	wg       sync.WaitGroup
 	bgMu     sync.Mutex // orders starting background work against Close
 	closed   bool
+	changes  changeLog     // numbers changes for the change feed
+	audience audience      // buckets as they were before a change, for change notices
 	writeSeq atomic.Uint64 // counts changes to records, so a check can tell the store was busy
 	damaged  atomic.Bool   // a write failed after memory was updated: statistics need recounting
 }
@@ -277,7 +279,11 @@ func Open(cfg Config) (*Store, error) {
 	if s.db, err = openDB(filepath.Join(cfg.Dir, "db"), cfg.NoSync); err != nil {
 		return nil, err
 	}
-	if err := s.loadState(); err != nil {
+	clean, err := s.loadState()
+	if err != nil {
+		return nil, err
+	}
+	if err := s.openChanges(clean); err != nil {
 		return nil, err
 	}
 
@@ -698,6 +704,9 @@ func (s *Store) contentHeld(sha string) {
 // indexLocked keeps the name and owner indexes in step as a bucket record
 // changes.
 func (s *Store) indexLocked(cur, next *Bucket) {
+	if live(cur) && cur != next {
+		s.audience.remember(cur)
+	}
 	if live(cur) {
 		if s.byName[cur.Name] == cur.Id {
 			delete(s.byName, cur.Name)
@@ -898,12 +907,14 @@ func (s *Store) applyObjects(ops []objectOp) ([]*Object, error) {
 
 func (s *Store) applyChunk(ops []objectOp) ([]*Object, error) {
 	var results []applied
+	first := s.changes.alloc(len(ops))
+	defer s.changes.done(first)
 	for attempt := 0; ; attempt++ {
 		results = results[:0]
 		err := s.db.Update(func(txn *badger.Txn) error {
 			results = results[:0]
-			for _, op := range ops {
-				a, err := s.applyOne(txn, op)
+			for i, op := range ops {
+				a, err := s.applyOne(txn, op, first+uint64(i))
 				if err != nil {
 					return err
 				}
@@ -980,7 +991,7 @@ func (s *Store) applyChunk(ops []objectOp) ([]*Object, error) {
 }
 
 // applyOne merges one object record in txn.
-func (s *Store) applyOne(txn *badger.Txn, op objectOp) (applied, error) {
+func (s *Store) applyOne(txn *badger.Txn, op objectOp, seq uint64) (applied, error) {
 	o := op.obj
 	if b := s.buckets[o.BucketId]; b != nil && b.IsDeleted {
 		return applied{}, nil
@@ -1002,6 +1013,9 @@ func (s *Store) applyOne(txn *badger.Txn, op objectOp) (applied, error) {
 	n := o.clone()
 	a := applied{obj: n, cur: cur, curLive: s.liveLocked(cur), newLive: s.liveLocked(n)}
 	if err := txn.Set(objectKey(o.BucketId, o.Key), encodeRecord(n)); err != nil {
+		return applied{}, err
+	}
+	if err := indexChange(txn, o.BucketId, o.Key, seq); err != nil {
 		return applied{}, err
 	}
 	if cur != nil && cur.IsDeleted {
@@ -1057,6 +1071,13 @@ func (s *Store) applyOne(txn *badger.Txn, op objectOp) (applied, error) {
 		}
 	}
 	if cur != nil && !cur.IsDeleted {
+		// What a delete or overwrite lets go is held a while, so a file
+		// renamed or changed back can be written again without sending it.
+		if n.IsDeleted || n.SHA256 != cur.SHA256 {
+			if err := s.holdContent(txn, cur); err != nil {
+				return applied{}, err
+			}
+		}
 		gone, err := s.release(txn, cur.SHA256)
 		if err != nil {
 			return applied{}, err
@@ -1423,6 +1444,9 @@ func (s *Store) dropTxn(recs []*Object, droppedOut *[]*Object, releasedOut *[]st
 			if err := txn.Delete(objectKey(o.BucketId, o.Key)); err != nil {
 				return err
 			}
+			if err := unindexChange(txn, o.BucketId, o.Key); err != nil {
+				return err
+			}
 			if o.IsDeleted {
 				if err := txn.Delete(tombKey(o.UpdatedAt, o.BucketId, o.Key)); err != nil {
 					return err
@@ -1629,6 +1653,7 @@ func (s *Store) maintenance() {
 		if time.Since(lastSweep) >= sweepInterval {
 			lastSweep = time.Now()
 			s.dropExpired()
+			s.expireHolds()
 			s.reconcileOwners()
 			if st := s.cleanup(); st != (cleanupStats{}) {
 				s.logger.Info("removed unused files", "content", st.Blobs, "temporary", st.TempFiles, "uploads", st.Uploads)
@@ -1834,9 +1859,12 @@ func (s *Store) reserveLocked(userId string, limit, delta int64) (func(), error)
 	if delta <= 0 || limit <= 0 {
 		return func() {}, nil
 	}
-	used, _ := s.usageLocked(userId)
+	// Usage is read under the lock that releases reservations: an upload
+	// counts in usage before its reservation goes, so it is never missed
+	// from both.
 	s.pendMu.Lock()
 	defer s.pendMu.Unlock()
+	used, _ := s.usageLocked(userId)
 	if used+s.pending[userId]+delta > limit {
 		return nil, ErrQuotaExceeded
 	}

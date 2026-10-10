@@ -57,8 +57,8 @@ export const knotLibraries = [
       },
       {
         "name": "delete",
-        "signature": "delete(path, expect)",
-        "description": "DELETE request to the Knot API",
+        "signature": "delete(path, headers)",
+        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match)",
         "returns": "dict"
       },
       {
@@ -236,6 +236,12 @@ export const knotLibraries = [
         "returns": "dict"
       },
       {
+        "name": "list_changes",
+        "signature": "list_changes(bucket, prefix, cursor)",
+        "description": "List what changed in a bucket since a cursor, to follow it without listing it again. Without a cursor every file is returned; cursor=\"now\" returns none, only a cursor to follow from now; with a cursor, each file changed since, once, as it is now (deleted=True for one that was deleted). Returns changes (key, size, etag, sha256, content_type, modified_at, deleted), cursor (pass it next time) and reset (True when the cursor could not be followed: start again without one)",
+        "returns": "dict"
+      },
+      {
         "name": "read_file",
         "signature": "read_file(bucket, key)",
         "description": "Read a file's content as bytes (at most 64 MB in a script)",
@@ -255,8 +261,8 @@ export const knotLibraries = [
       },
       {
         "name": "delete_file",
-        "signature": "delete_file(bucket, key)",
-        "description": "Delete a file",
+        "signature": "delete_file(bucket, key, if_match)",
+        "description": "Delete a file. With if_match (an etag from list_files, list_changes, write_file or copy_file), only if it is still that version: a file changed since is left alone and an exception raised (HTTP 412)",
         "returns": "bool"
       },
       {
