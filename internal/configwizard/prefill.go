@@ -41,6 +41,15 @@ type prefillConfig struct {
 			Database string `toml:"database"`
 		} `toml:"mysql"`
 
+		Postgres struct {
+			Enabled  bool   `toml:"enabled"`
+			Host     string `toml:"host"`
+			Port     int    `toml:"port"`
+			User     string `toml:"user"`
+			Password string `toml:"password"`
+			Database string `toml:"database"`
+		} `toml:"postgres"`
+
 		Redis struct {
 			Enabled  bool     `toml:"enabled"`
 			Hosts    []string `toml:"hosts"`
@@ -202,6 +211,10 @@ func FormFromConfig(base Form, path string) Form {
 		base.DBType = "mysql"
 		base.MySQLHost, base.MySQLPort = s.MySQL.Host, s.MySQL.Port
 		base.MySQLUser, base.MySQLPassword, base.MySQLDatabase = s.MySQL.User, s.MySQL.Password, s.MySQL.Database
+	case s.Postgres.Enabled:
+		base.DBType = "postgres"
+		base.PostgresHost, base.PostgresPort = s.Postgres.Host, s.Postgres.Port
+		base.PostgresUser, base.PostgresPassword, base.PostgresDatabase = s.Postgres.User, s.Postgres.Password, s.Postgres.Database
 	case s.Redis.Enabled:
 		base.DBType = "redis"
 	}
@@ -214,6 +227,9 @@ func FormFromConfig(base Form, path string) Form {
 	}
 	if base.MySQLPort == 0 {
 		base.MySQLPort = 3306
+	}
+	if base.PostgresPort == 0 {
+		base.PostgresPort = 5432
 	}
 
 	base.NomadAddr, base.NomadToken = s.Nomad.Addr, s.Nomad.Token

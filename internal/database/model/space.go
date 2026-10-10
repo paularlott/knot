@@ -93,12 +93,17 @@ func (v VolumeDataMap) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface.
 func (v *VolumeDataMap) Scan(value interface{}) error {
-	bytes, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("failed to unmarshal JSONB value: %v", value)
+	// MySQL hands TEXT columns over as []byte, PostgreSQL as string.
+	switch data := value.(type) {
+	case []byte:
+		return json.Unmarshal(data, v)
+	case string:
+		return json.Unmarshal([]byte(data), v)
+	case nil:
+		*v = VolumeDataMap{}
+		return nil
 	}
-
-	return json.Unmarshal(bytes, v)
+	return fmt.Errorf("failed to unmarshal JSONB value: %v", value)
 }
 
 // SpaceJob is one job definition stored on the space and pushed to the agent,

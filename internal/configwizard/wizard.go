@@ -40,6 +40,12 @@ type Form struct {
 	MySQLPassword string `json:"mysql_password"`
 	MySQLDatabase string `json:"mysql_database"`
 
+	PostgresHost     string `json:"postgres_host"`
+	PostgresPort     int    `json:"postgres_port"`
+	PostgresUser     string `json:"postgres_user"`
+	PostgresPassword string `json:"postgres_password"`
+	PostgresDatabase string `json:"postgres_database"`
+
 	RedisHosts    []string `json:"redis_hosts"`
 	RedisPassword string   `json:"redis_password"`
 
@@ -106,6 +112,8 @@ func DefaultForm() Form {
 		MySQLPort:             3306,
 		MySQLUser:             "",
 		MySQLDatabase:         "knot",
+		PostgresPort:          5432,
+		PostgresDatabase:      "knot",
 		RedisHosts:            nil,
 		EncryptionKey:         crypt.CreateKey(),
 		EnableMCP:             false,

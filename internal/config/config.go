@@ -59,6 +59,7 @@ type ServerConfig struct {
 	UI                    UIConfig
 	Cluster               ClusterConfig
 	MySQL                 MySQLConfig
+	Postgres              PostgresConfig
 	BadgerDB              BadgerDBConfig
 	Redis                 RedisConfig
 	Audit                 AuditConfig
@@ -161,6 +162,19 @@ type MySQLConfig struct {
 	User                  string
 	Password              string
 	Database              string
+	ConnectionMaxIdle     int
+	ConnectionMaxOpen     int
+	ConnectionMaxLifetime int
+}
+
+type PostgresConfig struct {
+	Enabled               bool
+	Host                  string
+	Port                  int
+	User                  string
+	Password              string
+	Database              string
+	SSLMode               string
 	ConnectionMaxIdle     int
 	ConnectionMaxOpen     int
 	ConnectionMaxLifetime int

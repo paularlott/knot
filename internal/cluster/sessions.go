@@ -102,21 +102,38 @@ func (c *Cluster) DoSessionFullSync(node *gossip.Node) error {
 	return nil
 }
 
+// mergeLookupLimit is the largest batch of gossiped sessions that
+// mergeSessions looks up one at a time.
+const mergeLookupLimit = 8
+
 // Merges the sessions from a cluster member with the local sessions
 func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 	c.logger.Trace("Merging sessions", "number_sessions", len(sessions))
 
-	// Get the list of sessions in the system
 	db := database.GetSessionStorage()
-	localSessions, err := db.GetSessions()
-	if err != nil {
-		return err
-	}
 
-	// Convert the list of local sessions to a map
+	// Gossip of a request's session refresh carries one session, so look
+	// those up by ID rather than reading every session, which for a database
+	// session store is a query per request. Full syncs load them all.
 	localSessionsMap := make(map[string]*model.Session)
-	for _, session := range localSessions {
-		localSessionsMap[session.Id] = session
+	if len(sessions) <= mergeLookupLimit {
+		for _, session := range sessions {
+			localSession, err := db.GetSession(session.Id)
+			if err != nil {
+				return err
+			}
+			if localSession != nil {
+				localSessionsMap[session.Id] = localSession
+			}
+		}
+	} else {
+		localSessions, err := db.GetSessions()
+		if err != nil {
+			return err
+		}
+		for _, session := range localSessions {
+			localSessionsMap[session.Id] = session
+		}
 	}
 
 	// Merge the sessions

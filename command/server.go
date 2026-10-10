@@ -629,6 +629,78 @@ var ServerCmd = &cli.Command{
 			DefaultValue: 5,
 		},
 
+		// PostgreSQL flags
+		&cli.BoolFlag{
+			Name:         "postgres-enabled",
+			Usage:        "Enable PostgreSQL database backend.",
+			ConfigPath:   []string{"server.postgres.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:         "postgres-host",
+			Usage:        "The PostgreSQL host to connect to.",
+			ConfigPath:   []string{"server.postgres.host"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_HOST"},
+			DefaultValue: "localhost",
+		},
+		&cli.IntFlag{
+			Name:         "postgres-port",
+			Usage:        "The PostgreSQL port to connect to.",
+			ConfigPath:   []string{"server.postgres.port"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_PORT"},
+			DefaultValue: 5432,
+		},
+		&cli.StringFlag{
+			Name:         "postgres-user",
+			Usage:        "The PostgreSQL user to connect as.",
+			ConfigPath:   []string{"server.postgres.user"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_USER"},
+			DefaultValue: "postgres",
+		},
+		&cli.StringFlag{
+			Name:         "postgres-password",
+			Usage:        "The PostgreSQL password to use.",
+			ConfigPath:   []string{"server.postgres.password"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_PASSWORD"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "postgres-database",
+			Usage:        "The PostgreSQL database to use.",
+			ConfigPath:   []string{"server.postgres.database"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_DATABASE"},
+			DefaultValue: "knot",
+		},
+		&cli.StringFlag{
+			Name:         "postgres-sslmode",
+			Usage:        "The PostgreSQL SSL mode: disable, allow, prefer, require, verify-ca or verify-full.",
+			ConfigPath:   []string{"server.postgres.sslmode"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_SSLMODE"},
+			DefaultValue: "prefer",
+		},
+		&cli.IntFlag{
+			Name:         "postgres-connection-max-idle",
+			Usage:        "The maximum number of idle connections in the connection pool.",
+			ConfigPath:   []string{"server.postgres.connection_max_idle"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_CONNECTION_MAX_IDLE"},
+			DefaultValue: 10,
+		},
+		&cli.IntFlag{
+			Name:         "postgres-connection-max-open",
+			Usage:        "The maximum number of open connections to the database.",
+			ConfigPath:   []string{"server.postgres.connection_max_open"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_CONNECTION_MAX_OPEN"},
+			DefaultValue: 100,
+		},
+		&cli.IntFlag{
+			Name:         "postgres-connection-max-lifetime",
+			Usage:        "The maximum amount of time in minutes a connection may be reused.",
+			ConfigPath:   []string{"server.postgres.connection_max_lifetime"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_CONNECTION_MAX_LIFETIME"},
+			DefaultValue: 5,
+		},
+
 		// BadgerDB flags
 		&cli.BoolFlag{
 			Name:         "badgerdb-enabled",
@@ -1728,6 +1800,18 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			ConnectionMaxOpen:     cmd.GetInt("mysql-connection-max-open"),
 			ConnectionMaxLifetime: cmd.GetInt("mysql-connection-max-lifetime"),
 		},
+		Postgres: config.PostgresConfig{
+			Enabled:               cmd.GetBool("postgres-enabled"),
+			Host:                  cmd.GetString("postgres-host"),
+			Port:                  cmd.GetInt("postgres-port"),
+			User:                  cmd.GetString("postgres-user"),
+			Password:              cmd.GetString("postgres-password"),
+			Database:              cmd.GetString("postgres-database"),
+			SSLMode:               cmd.GetString("postgres-sslmode"),
+			ConnectionMaxIdle:     cmd.GetInt("postgres-connection-max-idle"),
+			ConnectionMaxOpen:     cmd.GetInt("postgres-connection-max-open"),
+			ConnectionMaxLifetime: cmd.GetInt("postgres-connection-max-lifetime"),
+		},
 		BadgerDB: config.BadgerDBConfig{
 			Enabled: cmd.GetBool("badgerdb-enabled"),
 			Path:    cmd.GetString("badgerdb-path"),
@@ -1912,7 +1996,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			serverCfg.WildcardDomain = "*.knot.internal"
 		}
 
-		if !serverCfg.MySQL.Enabled && !serverCfg.BadgerDB.Enabled && !serverCfg.Redis.Enabled {
+		if !serverCfg.MySQL.Enabled && !serverCfg.Postgres.Enabled && !serverCfg.BadgerDB.Enabled && !serverCfg.Redis.Enabled {
 			if home, err := os.UserHomeDir(); err == nil {
 				serverCfg.BadgerDB.Enabled = true
 				if serverCfg.BadgerDB.Path == "" || serverCfg.BadgerDB.Path == "./badger" {

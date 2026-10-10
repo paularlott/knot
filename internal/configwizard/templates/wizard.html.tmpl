@@ -201,12 +201,16 @@
       <h3>MySQL / MariaDB</h3>
       <p>External database — proven reliability at scale. Good if you have existing database infrastructure. Each server needs its own database name.</p>
     </div>
+    <div class="radio-card" data-db="postgres">
+      <h3>PostgreSQL</h3>
+      <p>External database — proven reliability at scale. Also stores sessions, so they survive a restart without Redis. Each server needs its own database name.</p>
+    </div>
     <div class="radio-card" data-db="redis">
       <h3>Redis / Valkey</h3>
       <p>In-memory database — highest performance, requires more memory. Good for high-traffic deployments. Sessions go to Redis automatically.</p>
     </div>
 
-    <div class="warning">Never use the same database (same MySQL database name or Redis DB number) for multiple knot instances — each server must have its own.</div>
+    <div class="warning">Never use the same database (same MySQL or PostgreSQL database name, or Redis DB number) for multiple knot instances — each server must have its own.</div>
 
     <div id="badger-fields" class="collapsible">
       <label>BadgerDB path</label>
@@ -225,6 +229,21 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
         <div><label>User</label><input type="text" id="mysql_user" value="{{ .Form.MySQLUser }}" placeholder="username"></div>
         <div><label>Password</label><input type="password" id="mysql_password" value="{{ .Form.MySQLPassword }}"></div>
+      </div>
+    </div>
+
+    <div id="postgres-fields" class="collapsible">
+      <div class="field-group">
+        <label>PostgreSQL host <span class="hint">(prefix with srv+ for SRV lookup)</span></label>
+        <input type="text" id="postgres_host" value="{{ .Form.PostgresHost }}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+        <div><label>Port</label><input type="number" id="postgres_port" value="{{ .Form.PostgresPort }}"></div>
+        <div><label>Database name</label><input type="text" id="postgres_database" value="{{ .Form.PostgresDatabase }}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+        <div><label>User</label><input type="text" id="postgres_user" value="{{ .Form.PostgresUser }}" placeholder="username"></div>
+        <div><label>Password</label><input type="password" id="postgres_password" value="{{ .Form.PostgresPassword }}"></div>
       </div>
     </div>
 
@@ -651,6 +670,10 @@ function validateStep(n) {
       req("mysql_host", "MySQL host"); req("mysql_user", "MySQL user");
       req("mysql_password", "MySQL password"); req("mysql_database", "MySQL database");
     }
+    if (db === "postgres") {
+      req("postgres_host", "PostgreSQL host"); req("postgres_user", "PostgreSQL user");
+      req("postgres_password", "PostgreSQL password"); req("postgres_database", "PostgreSQL database");
+    }
     if (db === "redis") req("redis_hosts", "Redis hosts");
     if (db !== "redis" && $("session_redis_enabled").checked) req("redis_hosts", "Redis hosts (session storage)");
   } else if (n === 3) {
@@ -749,7 +772,7 @@ $("url").addEventListener("input", function() {
 function selectCard(db) {
   document.querySelectorAll("[data-db]").forEach(function(x){ x.classList.remove("selected"); });
   var el = document.querySelector('[data-db="'+db+'"]'); if (el) el.classList.add("selected");
-  ["badger","mysql"].forEach(function(k){ $(k+"-fields").style.display = k === db ? "block" : "none"; });
+  ["badger","mysql","postgres"].forEach(function(k){ $(k+"-fields").style.display = k === db ? "block" : "none"; });
   $("session-redis-section").style.display = db === "redis" ? "none" : "block";
   updateRedisVisibility();
 }
@@ -889,6 +912,9 @@ function generateTOML() {
   L.push("");
   L.push("[server.mysql]"); L.push(db === "mysql" ? "enabled = true" : "enabled = false");
   if (db === "mysql") { L.push('host = "' + E($("mysql_host").value) + '"'); L.push("port = " + E($("mysql_port").value)); L.push('user = "' + E($("mysql_user").value) + '"'); L.push('password = "' + E($("mysql_password").value) + '"'); L.push('database = "' + E($("mysql_database").value) + '"'); }
+  L.push("");
+  L.push("[server.postgres]"); L.push(db === "postgres" ? "enabled = true" : "enabled = false");
+  if (db === "postgres") { L.push('host = "' + E($("postgres_host").value) + '"'); L.push("port = " + E($("postgres_port").value)); L.push('user = "' + E($("postgres_user").value) + '"'); L.push('password = "' + E($("postgres_password").value) + '"'); L.push('database = "' + E($("postgres_database").value) + '"'); }
   L.push("");
   L.push("[server.redis]");
   var sessionRedis = db !== "redis" && $("session_redis_enabled").checked;

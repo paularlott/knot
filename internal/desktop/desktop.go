@@ -113,7 +113,7 @@ func needsSetup(cmd *cli.Command) bool {
 	// to fabricate an embedded BadgerDB, so treat it as unconfigured. Same
 	// enabled flags buildServerConfig reads, so flags/env that enable a
 	// backend still start the server directly.
-	return !cmd.GetBool("mysql-enabled") && !cmd.GetBool("badgerdb-enabled") && !cmd.GetBool("redis-enabled")
+	return !cmd.GetBool("mysql-enabled") && !cmd.GetBool("postgres-enabled") && !cmd.GetBool("badgerdb-enabled") && !cmd.GetBool("redis-enabled")
 }
 
 // runSetup serves the config wizard on the advertised address, pre-filled

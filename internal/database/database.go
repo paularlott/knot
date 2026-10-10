@@ -9,6 +9,7 @@ import (
 	driver_badgerdb "github.com/paularlott/knot/internal/database/drivers/badgerdb"
 	driver_memory "github.com/paularlott/knot/internal/database/drivers/memory"
 	driver_mysql "github.com/paularlott/knot/internal/database/drivers/mysql"
+	driver_postgres "github.com/paularlott/knot/internal/database/drivers/postgres"
 	driver_redis "github.com/paularlott/knot/internal/database/drivers/redis"
 	"github.com/paularlott/knot/internal/database/model"
 
@@ -202,6 +203,12 @@ func initDrivers() {
 
 			dbInstance = &driver_mysql.MySQLDriver{}
 
+		} else if cfg.Postgres.Enabled {
+			// Connect to and use PostgreSQL
+			logger.Debug("PostgreSQL enabled")
+
+			dbInstance = &driver_postgres.PostgresDriver{}
+
 		} else if cfg.BadgerDB.Enabled {
 			// Connect to and use BadgerDB
 			logger.Debug("BadgerDB enabled")
@@ -226,32 +233,40 @@ func initDrivers() {
 			logger.Debug("connected to database")
 		}
 
-		// If database driver implements a session storage interface then use
-		// it. The capability check runs against the raw driver — before the
+		// Sessions go to Redis when it's configured, even when the main
+		// database could hold them, so an existing Redis setup keeps working.
+		// Otherwise they use the main database if it implements session
+		// storage (PostgreSQL, which keeps them over a restart), and failing
+		// that memory. Both of those are per server, so sessions are gossiped
+		// between servers (see IsSessionDriverShared).
+		//
+		// The capability check runs against the raw driver — before the
 		// caching wrapper below — because the wrapper satisfies the
 		// interface by delegation and would otherwise claim support the
 		// wrapped driver doesn't have (e.g. MySQL), leaving sessions with a
 		// nil backend.
-		if driver, ok := dbInstance.(SessionStorage); ok {
+		if driver, ok := dbInstance.(*driver_redis.RedisDbDriver); ok {
 			logger.Debug("session storage using main database driver")
 			dbSessionInstance = driver
-		} else {
-			// If redis is enabled then use it for session storage
-			if cfg.Redis.Enabled {
-				// Connect to and use Redis
-				driver := &driver_redis.RedisDbDriver{}
-				err := driver.Connect()
-				if err != nil {
-					logger.Debug("failed to connect to redis")
-				} else {
-					logger.Debug("Using redis for session storage")
+		} else if cfg.Redis.Enabled {
+			// Connect to and use Redis
+			driver := &driver_redis.RedisDbDriver{}
+			err := driver.Connect()
+			if err != nil {
+				logger.Debug("failed to connect to redis")
+			} else {
+				logger.Debug("Using redis for session storage")
 
-					dbSessionInstance = driver
-				}
+				dbSessionInstance = driver
 			}
+		}
 
-			// No driver so use memory
-			if dbSessionInstance == nil {
+		if dbSessionInstance == nil {
+			if driver, ok := dbInstance.(SessionStorage); ok {
+				logger.Debug("session storage using main database driver")
+				dbSessionInstance = driver
+			} else {
+				// No driver so use memory
 				logger.Debug("Using memory for session storage")
 
 				driver := &driver_memory.MemoryDbDriver{}

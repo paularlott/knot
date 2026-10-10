@@ -39,6 +39,10 @@ type Config struct {
 	NoBuild bool
 	// SpaceReadyTimeout bounds waiting for a space to boot its agent.
 	SpaceReadyTimeoutSeconds int
+	// PostgresDSN, when set, runs every server on PostgreSQL instead of
+	// BadgerDB: each server gets a fresh database on this server, e.g.
+	// postgres://postgres:secret@127.0.0.1:5432/postgres?sslmode=disable.
+	PostgresDSN string
 
 	// DockerHost is the resolved docker endpoint for the daemon in use
 	// (DOCKER_HOST env or the active docker context). Passed to the server
@@ -96,6 +100,7 @@ func LoadConfig() *Config {
 		VerboseServer:            envBool("KNOT_TEST_VERBOSE_SERVER", false),
 		NoBuild:                  envBool("KNOT_TEST_NO_BUILD", false),
 		SpaceReadyTimeoutSeconds: envInt("KNOT_TEST_SPACE_READY_TIMEOUT", 600),
+		PostgresDSN:              envOr("KNOT_TEST_POSTGRES", ""),
 	}
 
 	if cfg.Runtime == "docker" {

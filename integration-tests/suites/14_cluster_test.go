@@ -74,6 +74,35 @@ func TestClusterGossip(t *testing.T) {
 		t.Fatalf("login on node B: %v", err)
 	}
 
+	// A web session made on A is accepted by B, as when a load balancer
+	// moves a user between servers.
+	sessionA, err := apiclient.NewClient(nodeA.BaseURL, "", true)
+	if err != nil {
+		t.Fatalf("client for A: %v", err)
+	}
+	sessionA.SetContentType("application/json")
+	sessionA.UseSessionCookie(true)
+	ctxLogin, cancelLogin := testCtx(15)
+	defer cancelLogin()
+	auth, code, err := sessionA.Login(ctxLogin, "admin@knot.test", "AdminPassw0rd!", "")
+	if err != nil {
+		t.Fatalf("session login on A: %v (status %d)", err, code)
+	}
+	sessionB, err := apiclient.NewClient(nodeB.BaseURL, auth.Token, true)
+	if err != nil {
+		t.Fatalf("client for B: %v", err)
+	}
+	sessionB.SetContentType("application/json")
+	sessionB.UseSessionCookie(true)
+	if !waitForCond(60, func() bool {
+		ctx, cancel := testCtx(15)
+		defer cancel()
+		who, err := sessionB.WhoAmI(ctx)
+		return err == nil && who.Username == "admin"
+	}) {
+		t.Fatal("session made on node A was never accepted by node B")
+	}
+
 	// A user created on A replicates to B.
 	name := uniqueName("it-cluster-user")
 	ctx2, cancel2 := testCtx(30)

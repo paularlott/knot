@@ -40,6 +40,9 @@ type Server struct {
 	DataDir string
 	LogPath string
 
+	// PostgresDB is the server's own database when the run uses PostgreSQL.
+	PostgresDB string
+
 	cmd     *exec.Cmd
 	logFile *os.File
 	mu      sync.Mutex
@@ -160,11 +163,19 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		"--agent-endpoint", fmt.Sprintf("%s:%d", containerHost, agentPort),
 		"--url", srv.ContainerBaseURL,
 		"--use-tls=false",
-		"--badgerdb-enabled",
-		"--badgerdb-path", filepath.Join(dataDir, "badger"),
 		"--zone", cfg.Zone,
 		"--enabled-backends", cfg.Runtime,
 		"--encrypt", hex.EncodeToString(encKey),
+	}
+	if cfg.PostgresDSN != "" {
+		dbName, dbArgs, err := createPostgresDatabase(cfg.PostgresDSN, name)
+		if err != nil {
+			return nil, err
+		}
+		srv.PostgresDB = dbName
+		args = append(args, dbArgs...)
+	} else {
+		args = append(args, "--badgerdb-enabled", "--badgerdb-path", filepath.Join(dataDir, "badger"))
 	}
 	if cfg.Registry() != "" {
 		args = append(args, "--base-image-registry", cfg.Registry())
@@ -362,6 +373,9 @@ func (s *Server) Stop() {
 	}
 	if !s.Config.Keep {
 		os.RemoveAll(s.DataDir)
+		if s.PostgresDB != "" {
+			dropPostgresDatabase(s.Config.PostgresDSN, s.PostgresDB)
+		}
 	}
 }
 
