@@ -3,8 +3,8 @@
 {{ define "pageTitle" }}Sign In{{ end }}
 
 {{ define "mainContent" }}
-<div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
-  <h1 class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+<div class="w-full max-w-md p-6 space-y-6 sm:p-8 bg-white rounded-2xl shadow-2xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
+  <h1 class="flex items-center justify-center text-3xl font-semibold dark:text-white">
     {{ if .logoURL }}
     <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="">
     <span class="sr-only">Sign in</span>
@@ -13,17 +13,13 @@
     <img src="{{ .pluginLogoDark }}" alt="" class="h-11 hidden dark:block">
     <span class="sr-only">Sign in</span>
     {{ else }}
-    <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Sign in to knot
+    <img src="images/logo.svg" class="mr-4 h-11" alt=""> Sign in to knot
     {{ end }}
   </h1>
 
   {{ if .passwordAuthEnabled }}
-  <form class="mt-8 mb-0 space-y-6" action="#" action="" method="POST" @submit.prevent="submitData">
-    <div class="auth-form-panel">
-      <div class="mb-5">
-        <h2 class="auth-form-heading">Sign in with email</h2>
-        <p class="auth-form-caption">Use your knot account to continue to your workspace.</p>
-      </div>
+  <form class="space-y-5" method="POST" @submit.prevent="submitData" aria-labelledby="login-email-heading">
+    <h2 id="login-email-heading" class="sr-only">Sign in with email</h2>
 
       <div class="space-y-4">
         <div>
@@ -68,7 +64,7 @@
         {{ end }}
       </div>
 
-      <div class="mt-5">
+      <div>
         <button type="submit" class="auth-form-submit flex items-center justify-center gap-2" :disabled="loading">
           <svg x-show="loading" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -76,36 +72,10 @@
           </svg>
           <span x-text="buttonLabel"></span>
         </button>
-        <p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">Secure sign-in with your knot account.</p>
       </div>
-    </div>
   </form>
   {{ end }}
 
-  {{ if .authProviders }}
-  <div class="mt-4">
-    {{ if .passwordAuthEnabled }}
-    <div class="relative flex items-center">
-      <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-      <span class="mx-3 text-sm text-gray-500 dark:text-gray-400">or continue with</span>
-      <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-    </div>
-    {{ end }}
-    <div class="mt-4 flex flex-col gap-2" x-data="{ linking: null }">
-      {{ range .authProviders }}
-      <a href="/auth/{{ .ID }}/start?redirect={{ $.redirect }}"
-         @click="linking = '{{ .ID }}'"
-         class="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors">
-        <svg x-show="linking === '{{ .ID }}'" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-        </svg>
-        <span x-text="linking === '{{ .ID }}' ? 'Signing in…' : 'Sign in with {{ .DisplayName }}'"></span>
-      </a>
-      {{ end }}
-    </div>
-  </div>
-  {{ end }}
 
   <!-- Modal: confirm the new authenticator secret before continuing. It
        can't be dismissed: the secret is already saved, so leaving without
