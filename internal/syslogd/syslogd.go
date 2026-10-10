@@ -35,42 +35,37 @@ func StartSyslogd(agentClient *agent_client.AgentClient, syslogPort int) {
 
 		message := string(buffer[:n])
 
-		// If the message has a priority then extract it and get the severity from it, priority mod 8
-		priority := 0
-		severity := 0
-		_, err = fmt.Sscanf(message, "<%d>", &priority)
-		if err == nil {
-			severity = priority % 8
-		}
-
-		/**
-		 * Map the severity to a log level
-		 * 0: Emergency (system is unusable)
-		 * 1: Alert (action must be taken immediately)
-		 * 2: Critical (critical conditions)
-		 * 3: Error (error conditions)
-		 * 4: Warning (warning conditions)
-		 * 5: Notice (normal but significant condition)
-		 * 6: Informational (informational messages)
-		 * 7: Debug (debug-level messages)
-		 */
-
-		// Severity mapping matches the numeric-level mapping used by the
-		// VictoriaLogs endpoint: 0-3 (emergency … error) map to error,
-		// 4-6 (warning … informational) round down to info — knot has no
-		// warn level — and 7 (debug) maps to debug.
-		var logLevel msg.LogLevel
-		if severity >= 7 {
-			logLevel = msg.LogLevelDebug
-		} else if severity >= 4 {
-			logLevel = msg.LogLevelInfo
-		} else {
-			logLevel = msg.LogLevelError
-		}
+		logLevel := levelFor(message)
 
 		// Forward the message to the server. Records arriving over syslog
 		// carry no service of their own, so they get the knot fallback
 		// service (source:knot still sifts them from other sources).
 		agentClient.SendLogMessage("knot_syslog", logLevel, message)
+	}
+}
+
+// levelFor maps a syslog message's severity (its <priority> mod 8) to a knot
+// log level, the same mapping the VictoriaLogs endpoint uses for numeric
+// levels:
+//
+//	0-3 (emergency, alert, critical, error)    -> error
+//	4-6 (warning, notice, informational)       -> info (knot has no warn level)
+//	7   (debug)                                -> debug
+//
+// A message without a priority, such as a program writing plain lines to the
+// socket (web server access logs), is informational: the syslog default
+// (RFC 3164 4.3.3, user.notice), not an emergency.
+func levelFor(message string) msg.LogLevel {
+	var priority int
+	if _, err := fmt.Sscanf(message, "<%d>", &priority); err != nil || priority < 0 {
+		return msg.LogLevelInfo
+	}
+	switch severity := priority % 8; {
+	case severity >= 7:
+		return msg.LogLevelDebug
+	case severity >= 4:
+		return msg.LogLevelInfo
+	default:
+		return msg.LogLevelError
 	}
 }
