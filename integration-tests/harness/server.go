@@ -40,8 +40,9 @@ type Server struct {
 	DataDir string
 	LogPath string
 
-	// PostgresDB is the server's own database when the run uses PostgreSQL.
-	PostgresDB string
+	// database is the server's own database when the run uses PostgreSQL
+	// or MySQL.
+	database *testDatabase
 
 	cmd     *exec.Cmd
 	logFile *os.File
@@ -167,14 +168,22 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		"--enabled-backends", cfg.Runtime,
 		"--encrypt", hex.EncodeToString(encKey),
 	}
-	if cfg.PostgresDSN != "" {
-		dbName, dbArgs, err := createPostgresDatabase(cfg.PostgresDSN, name)
+	switch {
+	case cfg.PostgresDSN != "":
+		db, dbArgs, err := createPostgresDatabase(cfg.PostgresDSN, name)
 		if err != nil {
 			return nil, err
 		}
-		srv.PostgresDB = dbName
+		srv.database = db
 		args = append(args, dbArgs...)
-	} else {
+	case cfg.MySQLDSN != "":
+		db, dbArgs, err := createMySQLDatabase(cfg.MySQLDSN, name)
+		if err != nil {
+			return nil, err
+		}
+		srv.database = db
+		args = append(args, dbArgs...)
+	default:
 		args = append(args, "--badgerdb-enabled", "--badgerdb-path", filepath.Join(dataDir, "badger"))
 	}
 	if cfg.Registry() != "" {
@@ -373,8 +382,8 @@ func (s *Server) Stop() {
 	}
 	if !s.Config.Keep {
 		os.RemoveAll(s.DataDir)
-		if s.PostgresDB != "" {
-			dropPostgresDatabase(s.Config.PostgresDSN, s.PostgresDB)
+		if s.database != nil {
+			s.database.drop()
 		}
 	}
 }

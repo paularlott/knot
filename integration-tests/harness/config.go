@@ -43,6 +43,9 @@ type Config struct {
 	// BadgerDB: each server gets a fresh database on this server, e.g.
 	// postgres://postgres:secret@127.0.0.1:5432/postgres?sslmode=disable.
 	PostgresDSN string
+	// MySQLDSN is PostgresDSN for a MySQL or MariaDB server, e.g.
+	// mysql://root:secret@127.0.0.1:3306.
+	MySQLDSN string
 
 	// DockerHost is the resolved docker endpoint for the daemon in use
 	// (DOCKER_HOST env or the active docker context). Passed to the server
@@ -101,6 +104,7 @@ func LoadConfig() *Config {
 		NoBuild:                  envBool("KNOT_TEST_NO_BUILD", false),
 		SpaceReadyTimeoutSeconds: envInt("KNOT_TEST_SPACE_READY_TIMEOUT", 600),
 		PostgresDSN:              envOr("KNOT_TEST_POSTGRES", ""),
+		MySQLDSN:                 envOr("KNOT_TEST_MYSQL", ""),
 	}
 
 	if cfg.Runtime == "docker" {
