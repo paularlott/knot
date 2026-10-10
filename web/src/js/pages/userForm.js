@@ -163,7 +163,10 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       return this.emailValid;
     },
     checkPassword() {
-      this.passwordValid = validate.password(this.formData.password);
+      // When editing, a blank password keeps the current one.
+      this.passwordValid =
+        (isEdit && this.formData.password === "" && this.formData.password_confirm === "") ||
+        validate.password(this.formData.password);
       return this.passwordValid;
     },
     checkConfirmPassword() {
@@ -337,19 +340,11 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
                     if (keyResponse.status === 200) {
                       finishSuccess();
                     } else {
-                      keyResponse.json().then((d) => {
-                        self.$dispatch("show-alert", {
-                          msg: `Failed to update SSH private key, ${d.error}`,
-                          type: "error",
-                        });
-                      });
+                      window.knotError("save your SSH private key (the rest of your profile was saved)", keyResponse);
                     }
                   })
                   .catch((error) => {
-                    self.$dispatch("show-alert", {
-                      msg: `Error!<br />${error.message}`,
-                      type: "error",
-                    });
+                    window.knotError("save your SSH private key (the rest of your profile was saved)", error);
                   });
                 return;
               }
@@ -362,19 +357,11 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
             });
             self.$dispatch("close-user-form");
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `${isEdit ? "Failed to update user, " : "Failed to create user, "} ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isProfile ? "save your profile" : isEdit ? "save the user" : "create the user", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isProfile ? "save your profile" : isEdit ? "save the user" : "create the user", error);
         });
     },
     confirmResetTOTP() {
@@ -410,8 +397,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         this._syncLinkableProviders();
         this.$dispatch('show-alert', { msg: 'Provider unlinked', type: 'success' });
       } else {
-        const d = await resp.json();
-        this.$dispatch('show-alert', { msg: d.error || 'Failed to unlink', type: 'error' });
+        window.knotError('unlink the sign-in provider', resp);
       }
     },
     _syncLinkableProviders() {
@@ -476,17 +462,10 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           await this.refreshLinkedUsers();
           this.$dispatch("show-alert", { msg: "User linked", type: "success" });
         } else {
-          const d = await response.json();
-          this.$dispatch("show-alert", {
-            msg: `Failed to link user, ${d.error}`,
-            type: "error",
-          });
+          window.knotError("link the user", response);
         }
       } catch (e) {
-        this.$dispatch("show-alert", {
-          msg: `Error!<br />${e.message}`,
-          type: "error",
-        });
+        window.knotError("link the user", e);
       } finally {
         this.linkBusy = false;
       }
@@ -512,11 +491,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         await this.refreshLinkedUsers();
         this.$dispatch("show-alert", { msg: "User unlinked", type: "success" });
       } else {
-        const d = await response.json();
-        this.$dispatch("show-alert", {
-          msg: `Failed to unlink user, ${d.error}`,
-          type: "error",
-        });
+        window.knotError("unlink the user", response);
       }
     },
   };

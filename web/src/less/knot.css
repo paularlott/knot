@@ -83,11 +83,13 @@
 }
 
 @utility app-search-shortcut {
-  @apply pointer-events-none absolute right-3 rounded-lg border border-slate-200 bg-white/85 px-2 py-1 text-xs font-semibold tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400;
+  @apply pointer-events-none absolute right-3 rounded-lg border border-slate-200 bg-white/85 px-2 py-0.5 text-sm tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400;
+  /* The system font draws ⌘ and ⇧ at a readable size; Nunito does not. */
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @utility app-search-clear {
-  @apply absolute right-14 flex cursor-pointer items-center justify-center rounded-md p-1 text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200;
+  @apply absolute right-3 flex cursor-pointer items-center justify-center rounded-md p-1 text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200;
 }
 
 @utility app-filter-chip {
@@ -786,4 +788,55 @@ main:focus {
    hover and focus; the colours meet 4.5:1 on the table rows in both themes. */
 @utility table-name-link {
   @apply text-blue-700 underline-offset-2 hover:underline focus-visible:underline dark:text-blue-300 cursor-pointer;
+}
+
+/* Keep a focused control clear of the sticky toasts at the bottom of the
+   page (WCAG 2.4.11) when the browser scrolls it into view. */
+html, main {
+  scroll-padding-bottom: 6rem;
+}
+
+/* ==== List pages: sortable headers, no-results rows, empty states ====
+   (components/sortable.js, partials/sort-th.tmpl, no-results.tmpl, empty.tmpl) */
+@utility table-sort-button {
+  @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase font-semibold text-inherit cursor-pointer hover:text-gray-900 dark:hover:text-white;
+}
+@utility table-sort-icon {
+  @apply size-3.5 shrink-0 text-gray-500 dark:text-gray-400;
+}
+@utility table-sort-icon-active {
+  @apply text-gray-900 dark:text-white;
+}
+@utility app-empty {
+  @apply flex flex-col items-center px-4 py-10 text-center;
+}
+@utility app-empty-heading {
+  @apply text-base font-semibold text-gray-900 dark:text-white;
+}
+@utility app-empty-text {
+  @apply mt-1 max-w-prose text-sm text-gray-600 dark:text-gray-300;
+}
+/* ==== end list pages ==== */
+
+/* ==== Spaces page (spaces.tmpl, partials/space-row-cells.tmpl) ==== */
+/* A row action with a visible label (Start / Stop), same height as the
+   icon-only row actions. */
+@utility row-action-labelled {
+  @apply row-action-button gap-1.5 px-3 text-sm font-medium whitespace-nowrap;
+  width: auto;
+}
+/* ==== end spaces page ==== */
+
+/* The shortcut hint and the clear button share the right edge of a page
+   search: the hint shows while the box is empty, the clear button once
+   there is something to clear. */
+.app-page-search:not(:placeholder-shown) ~ .app-search-shortcut {
+  display: none;
+}
+
+/* A key on the keyboard, for shortcut hints. The system font draws the
+   symbols (⌘ ⇧ ↑ ↵) at a readable size, which Nunito does not. */
+@utility kbd-key {
+  @apply inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-gray-300 bg-gray-50 px-1 text-sm leading-none text-gray-700 shadow-[0_1px_0_0] shadow-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:shadow-gray-600;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }

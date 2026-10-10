@@ -43,12 +43,12 @@ var DeleteCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
-		code, err := client.DeletePool(context.Background(), poolName)
+		_, err = client.DeletePool(context.Background(), poolName)
 		if err != nil {
-			return fmt.Errorf("Error deleting pool: %w (code %d)", err, code)
+			return fmt.Errorf("couldn't delete pool %q: %w", poolName, err)
 		}
 
 		fmt.Fprintln(os.Stderr, "Pool deleted:", poolName)

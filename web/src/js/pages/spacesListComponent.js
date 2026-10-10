@@ -1,6 +1,36 @@
 import Alpine from "alpinejs";
 import { popup } from "../popup.js";
 import { validate, sanitize } from "../validators.js";
+import { sortable } from "../components/sortable.js";
+import { focus } from "../focus.js";
+
+// Display order of space states when sorting by status: the ones needing
+// attention first, then running, then stopped.
+const STATUS_RANK = {
+  unhealthy: 0,
+  starting: 1,
+  stopping: 2,
+  deleting: 3,
+  running: 4,
+  stopped: 5,
+};
+
+// Milliseconds since the epoch for an API time, or 0 when unset (the zero
+// time "0001-01-01T00:00:00Z" means the space has never started).
+function timeMs(value) {
+  const ms = Date.parse(value || "");
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
+// The one state a space row shows. Text and icon go with it in the template,
+// so the state never depends on colour alone.
+function spaceStatusKey(s) {
+  if (!s) return "stopped";
+  if (s.is_deleting) return "deleting";
+  if (s.is_pending) return s.is_deployed ? "stopping" : "starting";
+  if (s.is_deployed) return s.health_known && !s.healthy ? "unhealthy" : "running";
+  return "stopped";
+}
 
 // Debounce function to limit rapid calls
 function debounce(func, wait) {
@@ -33,7 +63,19 @@ window.spacesListComponent = function (
   isLeafNode,
 ) {
   return {
+    ...sortable("spaces", {
+      name: (s) => s.name,
+      // By state, then the most recently started first within a state.
+      status: (s) => (STATUS_RANK[spaceStatusKey(s)] ?? 9) * 1e13 + (1e13 - timeMs(s.started_at)),
+      template: (s) => s.template_name,
+    }, { key: "name", dir: "asc" }),
     loading: true,
+    // Clock for the start-up elapsed timers, ticked every second while a
+    // space is starting (and live updates aren't paused).
+    now: Date.now(),
+    // Recent start/stop/restart clicks by space id, so the change they cause
+    // is not announced to screen readers a second time.
+    userActions: {},
     spaces: [],
     pools: [],
     poolsLoading: true,
@@ -369,17 +411,36 @@ window.spacesListComponent = function (
         });
       }
 
+      // Timers skip their tick while live updates are paused from the
+      // header; SSE events are held centrally and replayed on resume.
       this.refreshHandle = setInterval(() => {
+        if (window.knotLive?.paused) return;
         this.getSpaces();
         this.getPools();
       }, 10000);
 
-      // Refresh uptime displays every 5s
+      // Elapsed start-up timers every second, uptime every 5s.
+      let ticks = 0;
       this.uptimeHandle = setInterval(() => {
-        this.spaces.forEach((space) => {
-          space.uptime = this.formatTimeDiff(space.started_at);
+        if (window.knotLive?.paused) return;
+        ticks++;
+        if (this.spaces.some((s) => spaceStatusKey(s) === "starting")) {
+          this.now = Date.now();
+        }
+        if (ticks % 5 === 0) {
+          this.spaces.forEach((space) => {
+            space.uptime = this.formatTimeDiff(space.started_at);
+          });
+        }
+      }, 1000);
+
+      if (window.knotLive?.onResume) {
+        this.offResume = window.knotLive.onResume(() => {
+          this.now = Date.now();
+          this.getSpaces();
+          this.getPools();
         });
-      }, 5000);
+      }
     },
     destroy() {
       if (this.refreshHandle) {
@@ -390,6 +451,11 @@ window.spacesListComponent = function (
       if (this.uptimeHandle) {
         clearInterval(this.uptimeHandle);
         this.uptimeHandle = null;
+      }
+
+      if (this.offResume) {
+        this.offResume();
+        this.offResume = null;
       }
     },
     userSearchReset() {
@@ -592,10 +658,7 @@ window.spacesListComponent = function (
           window.location.href = "/logout";
         } else {
           const data = await response.json().catch(() => ({}));
-          this.$dispatch("show-alert", {
-            msg: data.error || "Failed to release lease",
-            type: "error",
-          });
+          window.knotError(`release the lease on ${space.name}`, {status: response.status, error: data.error});
         }
       } finally {
         this.leaseBusy[space.space_id] = false;
@@ -613,18 +676,12 @@ window.spacesListComponent = function (
           },
         });
         if (response.status === 200) {
-          const labels = { start: "started", stop: "stopped" };
-          this.$dispatch("show-alert", {
-            msg: `Pool ${labels[action] || action}`,
-            type: "success",
-          });
+          const labels = { start: "starting", stop: "stopping" };
+          window.knotAnnounce?.(`Pool ${pool.name} ${labels[action] || action}`);
           await this.getPools();
         } else {
           const data = await response.json().catch(() => ({}));
-          this.$dispatch("show-alert", {
-            msg: data.error || "Pool action failed",
-            type: "error",
-          });
+          window.knotError(`${action} the pool ${pool.name}`, {status: response.status, error: data.error});
         }
       } finally {
         this.poolBusy[pool.pool_id] = false;
@@ -655,10 +712,7 @@ window.spacesListComponent = function (
           await this.getPools();
         } else {
           const data = await response.json().catch(() => ({}));
-          this.$dispatch("show-alert", {
-            msg: data.error || "Pool size could not be updated",
-            type: "error",
-          });
+          window.knotError("update the pool size", {status: response.status, error: data.error});
         }
       } finally {
         this.poolBusy[pool.pool_id] = false;
@@ -677,17 +731,11 @@ window.spacesListComponent = function (
           },
         });
         if (response.status === 200) {
-          this.$dispatch("show-alert", {
-            msg: "Pool deleting",
-            type: "success",
-          });
+          window.knotAnnounce?.(`Deleting pool ${pool.name}`);
           await this.getPools();
         } else {
           const data = await response.json().catch(() => ({}));
-          this.$dispatch("show-alert", {
-            msg: data.error || "Pool could not be deleted",
-            type: "error",
-          });
+          window.knotError(`delete the pool ${pool.name}`, {status: response.status, error: data.error});
         }
       } finally {
         this.poolBusy[pool.pool_id] = false;
@@ -832,8 +880,9 @@ window.spacesListComponent = function (
     async submitPoolForm() {
       const modal = this.poolFormModal;
       modal.error = "";
-      if (!this.checkPoolName()) {
-        modal.error = "Invalid pool name";
+      if (!modal.isEdit && !this.checkPoolName()) {
+        window.knotToast?.("Some fields need attention.", "error");
+        focus.firstInvalid(this.$root);
         return;
       }
       if (!modal.templateId) {
@@ -902,6 +951,8 @@ window.spacesListComponent = function (
     },
     applySpaceState(target, source = null) {
       const space = source || target;
+      const previousStatus = source ? spaceStatusKey(target) : null;
+      const previousStartedAt = target.started_at;
 
       target.shares = space.shares || [];
       if (!space.is_deleting) {
@@ -940,9 +991,173 @@ window.spacesListComponent = function (
       target.uptime = this.formatTimeDiff(space.started_at);
       target.resource_usage = space.is_deployed ? space.resource_usage || null : null;
 
+      // When the current start began, for the elapsed timer. The drivers
+      // stamp started_at as the deploy begins; until that arrives (or for a
+      // space already starting when the page loaded) fall back sensibly.
+      const status = spaceStatusKey(target);
+      if (status === "starting") {
+        const startedMs = timeMs(space.started_at);
+        if (!target.pending_since) {
+          target.pending_since =
+            !source && startedMs && startedMs <= Date.now() ? startedMs : Date.now();
+        } else if (source && space.started_at !== previousStartedAt && startedMs && startedMs <= Date.now()) {
+          target.pending_since = startedMs;
+        }
+      } else {
+        target.pending_since = null;
+      }
+
+      if (previousStatus && previousStatus !== status) {
+        this.announceStatusChange(target, previousStatus, status);
+      }
+
       if (!source || target.icon_url !== space.icon_url) {
         target.icon_url = space.icon_url;
         target.icon_url_exists = this.imageExists(space.icon_url);
+      }
+    },
+    spaceStatus(s) {
+      return spaceStatusKey(s);
+    },
+    statusClass(s) {
+      switch (spaceStatusKey(s)) {
+        case "running": return "text-green-700 dark:text-green-400";
+        case "unhealthy":
+        case "deleting": return "text-red-700 dark:text-red-300";
+        case "starting":
+        case "stopping": return "text-amber-700 dark:text-amber-300";
+        default: return "text-gray-600 dark:text-gray-300";
+      }
+    },
+    platformBadge(s) {
+      if (!s.is_local) return { label: `Remote: ${s.zone}`, cls: "app-badge-warning" };
+      const labels = { manual: "Manual", docker: "Docker", podman: "Podman", apple: "Apple", container: "Container", kvm: "KVM", nomad: "Nomad" };
+      const label = labels[s.platform] || s.platform || "";
+      const cls = s.platform === "manual" ? "app-badge-warning" : s.platform === "nomad" ? "app-badge-success" : "app-badge-info";
+      return { label, cls: label ? cls : "hidden" };
+    },
+    spaceDescText(s) {
+      const description = (s.description || "").trim();
+      const note = (s.note || "").trim();
+      return description + (description && note ? "\n" : "") + note;
+    },
+    // What the Connect column says when there is nothing to connect to.
+    connectHint(s) {
+      if (!this.hasSpaceAccessForCurrentUser(s)) return "—";
+      if (!s.is_local) return `Runs in zone ${s.zone}`;
+      switch (spaceStatusKey(s)) {
+        case "stopping": return "Stopping…";
+        case "deleting": return "Being deleted";
+        case "stopped":
+          if (s.platform === "manual") return "Run its agent to connect";
+          if (s.pool_id) return "Started by its pool";
+          return "Start to connect";
+        default: return "—";
+      }
+    },
+    // Row tooltips: open on hover and focus, stay open while the pointer is
+    // over the tooltip itself (it is inside the wrapper), close on leave,
+    // blur and Escape (Escape is handled for every floating panel by
+    // disclosure.js). A tooltip is not a disclosure, so the aria-expanded the
+    // floating-ui plugin puts on its trigger is removed again — except on a
+    // button that also opens a menu (data-disclosure), which keeps its own.
+    tipParts(wrapper) {
+      const tip = wrapper && wrapper.querySelector(':scope > [role="tooltip"]');
+      const btn = wrapper && wrapper.querySelector(":scope > button");
+      return tip && btn && typeof tip.open === "function" ? { tip, btn } : null;
+    },
+    tipTidy(btn, expanded) {
+      if (btn.hasAttribute("data-disclosure")) {
+        btn.setAttribute("aria-expanded", expanded === "true" ? "true" : "false");
+      } else {
+        btn.removeAttribute("aria-expanded");
+      }
+    },
+    tipShow(wrapper) {
+      const parts = this.tipParts(wrapper);
+      if (!parts) return;
+      clearTimeout(wrapper._tipTimer);
+      if (parts.tip._x_isShown) return;
+      const expanded = parts.btn.getAttribute("aria-expanded");
+      parts.tip.open(parts.btn);
+      this.tipTidy(parts.btn, expanded);
+    },
+    tipHide(wrapper, delay = 0) {
+      const parts = this.tipParts(wrapper);
+      if (!parts) return;
+      clearTimeout(wrapper._tipTimer);
+      const close = () => {
+        const expanded = parts.btn.getAttribute("aria-expanded");
+        if (parts.tip._x_isShown) parts.tip.close();
+        this.tipTidy(parts.btn, expanded);
+      };
+      if (delay) wrapper._tipTimer = setTimeout(close, delay);
+      else close();
+    },
+    statusLabel(s) {
+      switch (spaceStatusKey(s)) {
+        case "deleting": return "Deleting";
+        case "stopping": return "Stopping";
+        case "starting": return "Starting";
+        case "unhealthy": return "Unhealthy";
+        case "running": return "Running";
+        default: return s && s.platform === "manual" ? "Not connected" : "Stopped";
+      }
+    },
+    // "1m 05s" since the current start began.
+    startingElapsed(s) {
+      if (!s || !s.pending_since) return "";
+      const secs = Math.max(0, Math.floor((this.now - s.pending_since) / 1000));
+      if (secs < 60) return `${secs}s`;
+      const m = Math.floor(secs / 60);
+      if (m < 60) return `${m}m ${String(secs % 60).padStart(2, "0")}s`;
+      return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+    },
+    // "3d ago" for a stopped space that has run before, else "".
+    lastStartedText(s) {
+      return timeMs(s && s.started_at) ? `${this.formatTimeDiff(s.started_at)} ago` : "";
+    },
+    canStartStop(s) {
+      return !s.pool_id && s.is_local && s.platform !== "manual";
+    },
+    // Remember that the user just asked for this, so the state change it
+    // causes is not announced again (the toast or announcement at the click
+    // covers it).
+    noteUserAction(spaceId, action) {
+      this.userActions[spaceId] = { at: Date.now(), action };
+    },
+    announceStatusChange(space, from, to) {
+      const name = space.name;
+      const recent = this.userActions[space.space_id];
+      const byUser = !!recent && Date.now() - recent.at < 30000;
+      // The immediate result of a click (stopped → starting, running →
+      // stopping) is the user's own doing; outcomes that arrive later
+      // (running, stopped, failed) are announced.
+      if (byUser && (to === "starting" || to === "stopping" || to === "deleting")) return;
+      // A restart passes through stopped on its way back up.
+      if (byUser && recent.action === "restart" && to === "stopped") return;
+      switch (to) {
+        case "running":
+          window.knotAnnounce?.(from === "unhealthy" ? `${name} is healthy again` : `${name} is running`);
+          break;
+        case "unhealthy":
+          window.knotAnnounce?.(`${name} is unhealthy`, { assertive: true });
+          break;
+        case "stopped":
+          if (from === "starting" && !(byUser && recent.action === "stop")) {
+            window.knotAnnounce?.(`${name} failed to start`, { assertive: true });
+          } else {
+            window.knotAnnounce?.(`${name} has stopped`);
+          }
+          break;
+        case "starting":
+          window.knotAnnounce?.(`${name} is starting`);
+          break;
+        case "stopping":
+          window.knotAnnounce?.(`${name} is stopping`);
+          break;
+        default:
+          break;
       }
     },
     usagePercent(used, limit = 100) {
@@ -978,166 +1193,119 @@ window.spacesListComponent = function (
 
       return `${this.formatBytes(used)} / ${this.formatBytes(limit)}`;
     },
+    spaceName(spaceId) {
+      return this.spaces.find((s) => s.space_id === spaceId)?.name || "the space";
+    },
+    // Start/stop/restart: the row shows the new state at once; screen readers
+    // hear what was asked for, and later hear the outcome (running, stopped,
+    // failed) from announceStatusChange.
     async startSpace(spaceId) {
-      const self = this;
-      await fetch(`/api/spaces/${spaceId}/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((response) => {
-          if (response.status === 200) {
-            self.$dispatch("show-alert", {
-              msg: "Space starting",
-              type: "success",
-            });
-          } else if (response.status === 503) {
-            response.json().then((data) => {
-              if (data.error === "outside of schedule") {
-                self.badScheduleShow = true;
-              } else {
-                self.$dispatch("show-alert", {
-                  msg: `Space could not be started: ${data.error}`,
-                  type: "error",
-                });
-              }
-            });
-          } else if (response.status === 507) {
-            response.json().then((data) => {
-              // If compute units exceeded then show the dialog
-              if (data.error === "compute unit quota exceeded") {
-                const space = self.spaces.find((s) => s.space_id === spaceId);
-
-                self.quotaComputeLimit.isShared =
-                  self.isSharedWithViewer(space);
-                self.quotaComputeLimit.show = true;
-              } else if (data.error === "storage unit quota exceeded") {
-                const space = self.spaces.find((s) => s.space_id === spaceId);
-
-                self.quotaStorageLimit.isShared =
-                  self.isSharedWithViewer(space);
-                self.quotaStorageLimit.show = true;
-              } else {
-                self.$dispatch("show-alert", {
-                  msg: "Space could not be as it has exceeded quota limits.",
-                  type: "error",
-                });
-              }
-            });
-          } else {
-            response
-              .json()
-              .then((data) => {
-                self.$dispatch("show-alert", {
-                  msg: `Space could not be started: ${data.error}`,
-                  type: "error",
-                });
-              })
-              .catch(() => {
-                self.$dispatch("show-alert", {
-                  msg: `Space could not be started`,
-                  type: "error",
-                });
-              });
-          }
-        })
-        .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Space could not be started: ${error}`,
-            type: "error",
-          });
-        })
-        .finally(() => {
-          self.getSpaces(spaceId);
+      const space = this.spaces.find((s) => s.space_id === spaceId);
+      const name = space?.name || "the space";
+      this.noteUserAction(spaceId, "start");
+      if (space) space.is_pending = true;
+      let failed = false;
+      try {
+        const response = await fetch(`/api/spaces/${spaceId}/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
         });
+        if (response.ok) {
+          window.knotAnnounce?.(`Starting ${name}`);
+          return;
+        }
+        if (response.status === 401) {
+          window.location.href = "/logout";
+          return;
+        }
+        failed = true;
+        const data = await response.clone().json().catch(() => ({}));
+        if (response.status === 503 && data.error === "outside of schedule") {
+          this.badScheduleShow = true;
+        } else if (response.status === 507 && data.error === "compute unit quota exceeded") {
+          this.quotaComputeLimit.isShared = this.isSharedWithViewer(space);
+          this.quotaComputeLimit.show = true;
+        } else if (response.status === 507 && data.error === "storage unit quota exceeded") {
+          this.quotaStorageLimit.isShared = this.isSharedWithViewer(space);
+          this.quotaStorageLimit.show = true;
+        } else if (response.status === 507) {
+          window.knotError(`start ${name}`, "Starting it would go over the quota limits");
+        } else {
+          window.knotError(`start ${name}`, response);
+        }
+      } catch (error) {
+        failed = true;
+        window.knotError(`start ${name}`, error);
+      } finally {
+        // Undo the optimistic state so the failure isn't also announced as
+        // "failed to start" — the error above already says so.
+        if (failed && space) space.is_pending = false;
+        this.getSpaces(spaceId);
+      }
     },
     async stopSpace(spaceId) {
-      const self = this;
-      await fetch(`/api/spaces/${spaceId}/stop`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((response) => {
-          if (response.status === 200) {
-            self.$dispatch("show-alert", {
-              msg: "Space stopping",
-              type: "success",
-            });
-          } else {
-            self.$dispatch("show-alert", {
-              msg: "Space could not be stopped",
-              type: "error",
-            });
-          }
-        })
-        .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Space could not be stopped: ${error}`,
-            type: "error",
-          });
-        })
-        .finally(() => {
-          self.getSpaces();
+      const space = this.spaces.find((s) => s.space_id === spaceId);
+      const name = space?.name || "the space";
+      this.noteUserAction(spaceId, "stop");
+      try {
+        const response = await fetch(`/api/spaces/${spaceId}/stop`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
         });
+        if (response.ok) {
+          window.knotAnnounce?.(`Stopping ${name}`);
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+        } else {
+          window.knotError(`stop ${name}`, response);
+        }
+      } catch (error) {
+        window.knotError(`stop ${name}`, error);
+      } finally {
+        this.getSpaces();
+      }
     },
     async restartSpace(spaceId) {
-      const self = this;
-      await fetch(`/api/spaces/${spaceId}/restart`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((response) => {
-          if (response.status === 200) {
-            self.$dispatch("show-alert", {
-              msg: "Space restarting",
-              type: "success",
-            });
-          } else {
-            self.$dispatch("show-alert", {
-              msg: "Space could not be restarted",
-              type: "error",
-            });
-          }
-        })
-        .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Space could not be restarted: ${error}`,
-            type: "error",
-          });
+      const name = this.spaceName(spaceId);
+      this.noteUserAction(spaceId, "restart");
+      try {
+        const response = await fetch(`/api/spaces/${spaceId}/restart`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
         });
+        if (response.ok) {
+          window.knotAnnounce?.(`Restarting ${name}`);
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+        } else {
+          window.knotError(`restart ${name}`, response);
+        }
+      } catch (error) {
+        window.knotError(`restart ${name}`, error);
+      } finally {
+        this.getSpaces(spaceId);
+      }
     },
     async deleteSpace(spaceId) {
-      const self = this;
-      await fetch(`/api/spaces/${spaceId}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((response) => {
-          if (response.status === 200) {
-            self.$dispatch("show-alert", {
-              msg: "Space deleting",
-              type: "success",
-            });
-          } else {
-            self.$dispatch("show-alert", {
-              msg: "Space could not be deleted",
-              type: "error",
-            });
-          }
-        })
-        .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Space could not be deleted: ${error}`,
-            type: "error",
-          });
+      const name = this.spaceName(spaceId);
+      this.noteUserAction(spaceId, "delete");
+      try {
+        const response = await fetch(`/api/spaces/${spaceId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
         });
+        if (response.ok) {
+          window.knotAnnounce?.(`Deleting ${name}`);
+        } else if (response.status === 401) {
+          window.location.href = "/logout";
+        } else {
+          window.knotError(`delete ${name}`, response);
+          this.getSpaces(spaceId);
+        }
+      } catch (error) {
+        window.knotError(`delete ${name}`, error);
+        this.getSpaces(spaceId);
+      }
     },
     confirmDeleteSpace(space) {
       window.knotConfirm({
@@ -1198,6 +1366,9 @@ window.spacesListComponent = function (
       const query = shareUserId
         ? `?user_id=${encodeURIComponent(shareUserId)}`
         : "";
+      const spaceName = space?.name || "the space";
+      const shareAction =
+        space?.user_id === userId ? `stop sharing ${spaceName}` : `leave the shared space ${spaceName}`;
 
       await fetch(`/api/spaces/${spaceId}/share${query}`, {
         method: "DELETE",
@@ -1219,31 +1390,22 @@ window.spacesListComponent = function (
             }
 
             self.$dispatch("show-alert", {
-              msg: "Sharing of Space Stopped",
+              msg: space?.user_id === userId ? `Stopped sharing ${spaceName}` : `You left the shared space ${spaceName}`,
               type: "success",
             });
           } else {
             response
               .json()
               .then((data) => {
-                self.$dispatch("show-alert", {
-                  msg: `Could not stop sharing of space: ${data.error}`,
-                  type: "error",
-                });
+                window.knotError(shareAction, {status: response.status, error: data.error});
               })
               .catch(() => {
-                self.$dispatch("show-alert", {
-                  msg: "Could not stop sharing of space",
-                  type: "error",
-                });
+                window.knotError(shareAction, response);
               });
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Could not stop sharing of space: ${error}`,
-            type: "error",
-          });
+          window.knotError(shareAction, error);
         });
     },
     editSpace(spaceId) {
@@ -1404,7 +1566,7 @@ window.spacesListComponent = function (
         }
         if (!defResponse.ok) {
           const body = await defResponse.json().catch(() => ({}));
-          self.jobsModal.error = body.error || `Failed to load jobs (${defResponse.status})`;
+          self.jobsModal.error = await window.knotErrorMessage("load the jobs", { status: defResponse.status, error: body.error });
           self.jobsModal.definitions = [];
           self.jobsModal.jobs = [];
           return;
@@ -1426,7 +1588,7 @@ window.spacesListComponent = function (
         }
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
-          self.jobsModal.error = body.error || `Failed to load job status (${response.status})`;
+          self.jobsModal.error = await window.knotErrorMessage("load the jobs' status", { status: response.status, error: body.error });
           self.jobsModal.jobs = [];
           return;
         }
@@ -1434,7 +1596,7 @@ window.spacesListComponent = function (
         self.jobsModal.liveUnavailable = false;
         self.jobsModal.jobs = data.jobs || [];
       } catch (error) {
-        self.jobsModal.error = `Failed to load jobs: ${error}`;
+        self.jobsModal.error = await window.knotErrorMessage("load the jobs", error);
       } finally {
         if (!silent) {
           self.jobsModal.loading = false;
@@ -1459,10 +1621,7 @@ window.spacesListComponent = function (
         }
         const body = await response.json().catch(() => ({}));
         if (!response.ok) {
-          self.$dispatch("show-alert", {
-            msg: body.error || `Job runner could not be ${enabled ? "enabled" : "disabled"}`,
-            type: "error",
-          });
+          window.knotError(`${enabled ? "turn on" : "turn off"} the job runner`, {status: response.status, error: body.error});
         } else {
           self.$dispatch("show-alert", {
             msg: `Job runner ${enabled ? "enabled" : "disabled"}`,
@@ -1470,10 +1629,7 @@ window.spacesListComponent = function (
           });
         }
       } catch (error) {
-        self.$dispatch("show-alert", {
-          msg: `Job runner could not be updated: ${error}`,
-          type: "error",
-        });
+        window.knotError("update the job runner", error);
       } finally {
         self.jobsModal.togglingRunner = false;
         if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
@@ -1549,10 +1705,8 @@ window.spacesListComponent = function (
         self.jobsModal.jobFormTouched[field] = true;
       });
       if (!self.jobFormValid()) {
-        self.$dispatch("show-alert", {
-          msg: "Please fix the validation errors before saving",
-          type: "error",
-        });
+        window.knotToast?.("Some fields need attention.", "error");
+        focus.firstInvalid(self.$refs.jobFormPanel);
         return;
       }
       self.jobsModal.savingJob = true;
@@ -1573,19 +1727,13 @@ window.spacesListComponent = function (
         }
         const body = await response.json().catch(() => ({}));
         if (!response.ok) {
-          self.$dispatch("show-alert", {
-            msg: body.error || "Job could not be saved",
-            type: "error",
-          });
+          window.knotError("save the job", {status: response.status, error: body.error});
         } else {
           self.jobsModal.showJobForm = false;
           self.$dispatch("show-alert", { msg: self.jobsModal.jobFormIsEdit ? "Job updated" : "Job added", type: "success" });
         }
       } catch (error) {
-        self.$dispatch("show-alert", {
-          msg: `Job could not be saved: ${error}`,
-          type: "error",
-        });
+        window.knotError("save the job", error);
       } finally {
         self.jobsModal.savingJob = false;
         if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
@@ -1619,18 +1767,12 @@ window.spacesListComponent = function (
         }
         const body = await response.json().catch(() => ({}));
         if (!response.ok) {
-          self.$dispatch("show-alert", {
-            msg: body.error || `Job '${name}' could not be removed`,
-            type: "error",
-          });
+          window.knotError(`remove the job ${name}`, {status: response.status, error: body.error});
         } else {
           self.$dispatch("show-alert", { msg: `Job '${name}' removed`, type: "success" });
         }
       } catch (error) {
-        self.$dispatch("show-alert", {
-          msg: `Job '${name}' could not be removed: ${error}`,
-          type: "error",
-        });
+        window.knotError(`remove the job ${name}`, error);
       } finally {
         if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
           self.loadJobs(spaceId, true);
@@ -1659,10 +1801,7 @@ window.spacesListComponent = function (
         }
         const body = await response.json().catch(() => ({}));
         if (!response.ok) {
-          self.$dispatch("show-alert", {
-            msg: body.error || `Job '${name}' could not be updated`,
-            type: "error",
-          });
+          window.knotError(`update the job ${name}`, {status: response.status, error: body.error});
         } else {
           self.$dispatch("show-alert", {
             msg: `Job '${name}' ${jobs.find((j) => j.name === name)?.enabled ? "enabled" : "disabled"}`,
@@ -1670,10 +1809,7 @@ window.spacesListComponent = function (
           });
         }
       } catch (error) {
-        self.$dispatch("show-alert", {
-          msg: `Job '${name}' could not be updated: ${error}`,
-          type: "error",
-        });
+        window.knotError(`update the job ${name}`, error);
       } finally {
         self.jobsModal.togglingJob = "";
         if (self.jobsModal.show && self.jobsModal.spaceId === spaceId) {
@@ -1698,10 +1834,7 @@ window.spacesListComponent = function (
         }
         const body = await response.json().catch(() => ({}));
         if (!response.ok || body.success === false) {
-          self.$dispatch("show-alert", {
-            msg: body.error || `Job '${name}' could not be started`,
-            type: "error",
-          });
+          window.knotError(`run the job ${name}`, {status: response.status, error: body.error});
         } else {
           self.$dispatch("show-alert", {
             msg: `Job '${name}' started`,
@@ -1709,10 +1842,7 @@ window.spacesListComponent = function (
           });
         }
       } catch (error) {
-        self.$dispatch("show-alert", {
-          msg: `Job '${name}' could not be started: ${error}`,
-          type: "error",
-        });
+        window.knotError(`run the job ${name}`, error);
       } finally {
         self.jobsModal.runningJob = "";
       }
@@ -1772,7 +1902,12 @@ window.spacesListComponent = function (
       });
     },
     async copyToClipboard(text) {
-      await navigator.clipboard.writeText(text);
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (error) {
+        window.knotError("copy to the clipboard", "The browser didn't allow it. Select the text and copy it instead");
+        return;
+      }
       this.$dispatch("show-alert", {
         msg: "Copied to clipboard",
         type: "success",
@@ -1830,55 +1965,31 @@ window.spacesListComponent = function (
             self.getSpaces();
           } else if (response.status === 507) {
             if (self.chooseUser.isShare) {
-              self.$dispatch("show-alert", {
-                msg: "Space could not be shared as the user has exceeded their quota.",
-                type: "error",
-              });
+              window.knotError(`share ${self.chooseUser.space.name}`, "It would put the user over their quota");
             } else {
-              self.$dispatch("show-alert", {
-                msg: "Space could not be transferred as the user has exceeded their quota.",
-                type: "error",
-              });
+              window.knotError(`transfer ${self.chooseUser.space.name}`, "It would put the user over their quota");
             }
           } else if (response.status === 403) {
             if (self.chooseUser.isShare) {
-              self.$dispatch("show-alert", {
-                msg: "Space could not be shared as the user is not allowed to use the template.",
-                type: "error",
-              });
+              window.knotError(`share ${self.chooseUser.space.name}`, "The user isn't allowed to use its template");
             } else {
-              self.$dispatch("show-alert", {
-                msg: "Space could not be transferred as the user is not allowed to use the template.",
-                type: "error",
-              });
+              window.knotError(`transfer ${self.chooseUser.space.name}`, "The user isn't allowed to use its template");
             }
           } else {
             response.json().then((data) => {
               if (self.chooseUser.isShare) {
-                self.$dispatch("show-alert", {
-                  msg: `Space could not be shared: ${data.error}`,
-                  type: "error",
-                });
+                window.knotError(`share ${self.chooseUser.space.name}`, {status: response.status, error: data.error});
               } else {
-                self.$dispatch("show-alert", {
-                  msg: `Space could not be transferred: ${data.error}`,
-                  type: "error",
-                });
+                window.knotError(`transfer ${self.chooseUser.space.name}`, {status: response.status, error: data.error});
               }
             });
           }
         })
         .catch((error) => {
           if (self.chooseUser.isShare) {
-            self.$dispatch("show-alert", {
-              msg: `Space could not be shared: ${error}`,
-              type: "error",
-            });
+            window.knotError(`share ${self.chooseUser.space.name}`, error);
           } else {
-            self.$dispatch("show-alert", {
-              msg: `Space could not be transferred: ${error}`,
-              type: "error",
-            });
+            window.knotError(`transfer ${self.chooseUser.space.name}`, error);
           }
         });
     },
@@ -1909,10 +2020,10 @@ window.spacesListComponent = function (
               return null;
             }
             const data = await res.json().catch(() => ({}));
-            return data.error || `Stack could not be ${action}ed`;
+            return { status: res.status, error: data.error };
           } catch (e) {
             if (e.name === "AbortError") {
-              return `Stack ${action} timed out`;
+              return "The server took too long to respond";
             }
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
@@ -1926,12 +2037,9 @@ window.spacesListComponent = function (
       try {
         const err = await this._stackAction(stackName, "start");
         if (err) {
-          this.$dispatch("show-alert", { msg: err, type: "error" });
+          window.knotError(`start the stack ${stackName}`, err);
         } else {
-          this.$dispatch("show-alert", {
-            msg: `Stack "${stackName}" started`,
-            type: "success",
-          });
+          window.knotAnnounce?.(`Stack ${stackName} started`);
         }
       } finally {
         this.stackBusy[stackName] = false;
@@ -1943,12 +2051,9 @@ window.spacesListComponent = function (
       try {
         const err = await this._stackAction(stackName, "stop");
         if (err) {
-          this.$dispatch("show-alert", { msg: err, type: "error" });
+          window.knotError(`stop the stack ${stackName}`, err);
         } else {
-          this.$dispatch("show-alert", {
-            msg: `Stack "${stackName}" stopped`,
-            type: "success",
-          });
+          window.knotAnnounce?.(`Stack ${stackName} stopped`);
         }
       } finally {
         this.stackBusy[stackName] = false;
@@ -1960,12 +2065,9 @@ window.spacesListComponent = function (
       try {
         const err = await this._stackAction(stackName, "restart");
         if (err) {
-          this.$dispatch("show-alert", { msg: err, type: "error" });
+          window.knotError(`restart the stack ${stackName}`, err);
         } else {
-          this.$dispatch("show-alert", {
-            msg: `Stack "${stackName}" restarted`,
-            type: "success",
-          });
+          window.knotAnnounce?.(`Stack ${stackName} restarted`);
         }
       } finally {
         this.stackBusy[stackName] = false;
@@ -1989,24 +2091,15 @@ window.spacesListComponent = function (
                 },
               );
               if (res.status === 202) {
-                this.$dispatch("show-alert", {
-                  msg: `Stack "${stackName}" deleting`,
-                  type: "success",
-                });
+                window.knotAnnounce?.(`Deleting stack ${stackName}`);
                 return;
               }
               const data = await res.json().catch(() => ({}));
-              this.$dispatch("show-alert", {
-                msg: data.error || `Stack could not be deleted`,
-                type: "error",
-              });
+              window.knotError(`delete the stack ${stackName}`, {status: res.status, error: data.error});
               return;
             } catch (e) {
               if (e.name === "AbortError") {
-                this.$dispatch("show-alert", {
-                  msg: `Stack "${stackName}" delete timed out`,
-                  type: "error",
-                });
+                window.knotError(`delete the stack ${stackName}`, "The server took too long to respond");
                 return;
               }
               await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -2031,12 +2124,12 @@ window.spacesListComponent = function (
         const spaces = this.spaces.filter(
           (s) => s.pool_id === pool.pool_id && !s.searchHide,
         );
-        result.push({ pool, spaces });
+        result.push({ pool, spaces: this.sorted(spaces) });
       }
       return result;
     },
     unstackedVisibleSpaces() {
-      return this.spaces.filter((s) => !s.stack && !s.pool_id && !s.searchHide);
+      return this.sorted(this.spaces.filter((s) => !s.stack && !s.pool_id && !s.searchHide));
     },
     stackedGroups() {
       const groups = new Map();
@@ -2052,9 +2145,33 @@ window.spacesListComponent = function (
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([name, spaces]) => ({
           name,
-          spaces,
+          spaces: this.sorted(spaces),
           count: spaces.length,
         }));
+    },
+    // Search or filters hide every space (and no pool matches either).
+    noSpacesMatch() {
+      return this.spaces.length > 0 && this.visibleSpaces === 0 && this.poolSpaceGroups().length === 0;
+    },
+    filtersActive() {
+      return this.showRunningOnly || !this.showLocalOnly || this.showSharedOnly ||
+        this.showSharedWithMeOnly || (this.canManageSpaces && this.forUserId !== userId && !this.showingSpecificUser);
+    },
+    clearFilters() {
+      const reload = !this.showLocalOnly;
+      const resetUser = this.canManageSpaces && !this.showingSpecificUser && this.forUserId !== userId;
+      this.searchTerm = "";
+      this.showRunningOnly = false;
+      this.showSharedOnly = false;
+      this.showSharedWithMeOnly = false;
+      this.showLocalOnly = true;
+      if (resetUser) {
+        this.userSearchReset();
+      } else if (reload) {
+        this.getSpaces();
+      }
+      this.searchChanged();
+      document.getElementById("search")?.focus();
     },
     formatTimeDiff(utcTime) {
       // Convert input to Date if not already
@@ -2323,6 +2440,7 @@ window.spacesListComponent = function (
         error: "",
         submitting: false,
       };
+      this.poolNameValid = true;
       this.$nextTick(() => {
         this.$refs.poolNameInput?.focus();
       });

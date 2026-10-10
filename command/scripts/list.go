@@ -17,12 +17,12 @@ var listCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		scripts, err := client.GetScripts(ctx)
 		if err != nil {
-			return fmt.Errorf("error getting scripts: %w", err)
+			return fmt.Errorf("couldn't list scripts: %w", err)
 		}
 
 		if scripts.Count == 0 {

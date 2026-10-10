@@ -41,25 +41,17 @@ func setJobRunner(ctx context.Context, cmd *cli.Command, enabled bool) error {
 		return err
 	}
 
-	definitions, code, err := client.GetSpaceJobs(ctx, spaceId)
+	definitions, _, err := client.GetSpaceJobs(ctx, spaceId)
 	if err != nil {
-		if code == 404 {
-			return fmt.Errorf("space not found")
-		}
-		return fmt.Errorf("failed to get jobs: %w", err)
+		return fmt.Errorf("couldn't get the jobs of space %q: %w", spaceName, err)
 	}
 
-	_, code, err = client.UpdateSpaceJobs(ctx, spaceId, &apiclient.SpaceJobsRequest{
+	_, _, err = client.UpdateSpaceJobs(ctx, spaceId, &apiclient.SpaceJobsRequest{
 		Jobs:    definitions.Jobs,
 		Enabled: enabled,
 	})
 	if err != nil {
-		if code == 403 {
-			return fmt.Errorf("no permission to update jobs")
-		} else if code == 404 {
-			return fmt.Errorf("space not found")
-		}
-		return fmt.Errorf("failed to update job runner: %w", err)
+		return fmt.Errorf("couldn't update the job runner of space %q: %w", spaceName, err)
 	}
 
 	fmt.Printf("Job runner %s in space '%s'.\n", map[bool]string{true: "enabled", false: "disabled"}[enabled], spaceName)

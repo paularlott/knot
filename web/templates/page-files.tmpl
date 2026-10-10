@@ -23,8 +23,8 @@
             <div class="w-full sm:w-auto">
               <label for="bucket-search" class="sr-only">Search buckets</label>
               <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-                <input type="search" id="bucket-search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-ref="searchInput">
-                <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+                <input type="search" id="bucket-search" data-page-search class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-ref="searchInput">
+                <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
               </div>
             </div>
             <template x-if="isAdmin">
@@ -39,7 +39,7 @@
                   <div class="mb-2 mt-2">
                     <label class="flex items-center cursor-pointer mb-2">
                       <input type="checkbox" class="sr-only peer" value="1" x-model="showAll" @change="loadBuckets()">
-                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                       <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Buckets</span>
                     </label>
                   </div>
@@ -48,9 +48,9 @@
             </template>
           </div>
           <div>
-            <button x-show="canOwn" type="button" @click="openCreate()" class="btn-primary flex items-center" aria-label="Create bucket">
+            <button x-show="canOwn" type="button" @click="openCreate()" class="btn-primary flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" /></svg>
-              Bucket
+              New Bucket
             </button>
           </div>
         </form>
@@ -64,31 +64,35 @@
 
         <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 sm:p-6 dark:bg-gray-800">
           {{ template "loading" . }}
-          <div x-show="!loading && filteredBuckets.length === 0" x-cloak>
-            <div class="text-center text-gray-500 dark:text-gray-400 py-8" role="status">
-              <p x-show="buckets.length === 0 && canOwn">No buckets yet. Create one to start storing files.</p>
-              <p x-show="buckets.length === 0 && !canOwn">No buckets have been shared with you.</p>
-              <p x-show="buckets.length > 0">No buckets match your search.</p>
-            </div>
+          <div x-show="!loading && buckets.length === 0" x-cloak>
+            {{ if .permissionUseFiles }}
+            {{ template "empty" (map "heading" "No buckets yet" "text" "Buckets hold your files. You can open them here or from your spaces, and share them with other people." "action" "New Bucket" "click" "openCreate()") }}
+            {{ else }}
+            {{ template "empty" (map "heading" "No buckets shared with you" "text" "When someone shares a bucket with you, it appears here.") }}
+            {{ end }}
+          </div>
+          <div x-show="!loading && buckets.length > 0 && filteredBuckets.length === 0" x-cloak class="px-4 py-8 text-center text-gray-600 dark:text-gray-300">
+            <p role="status" x-text="buckets.length > 0 && filteredBuckets.length === 0 ? 'No buckets match “' + searchTerm.trim() + '”.' : ''"></p>
+            <button type="button" class="btn-secondary mt-3" @click="clearBucketSearch()">Clear search</button>
           </div>
           <div x-show="!loading && filteredBuckets.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
-            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+            <table aria-label="Buckets" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
               <caption class="sr-only">Buckets you own or that are shared with you</caption>
               <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
                 <tr>
-                  <th scope="col" class="px-4 py-3">Bucket</th>
-                  <th scope="col" class="px-4 py-3 hidden sm:table-cell">Owner</th>
+                  {{ template "sort-th" (map "sort" "bucketSort" "key" "name" "label" "Bucket") }}
+                  {{ template "sort-th" (map "sort" "bucketSort" "key" "owner" "label" "Owner" "class" "hidden sm:table-cell") }}
                   <th scope="col" class="px-4 py-3 hidden md:table-cell">Your access</th>
-                  <th scope="col" class="px-4 py-3 hidden md:table-cell">Files</th>
-                  <th scope="col" class="px-4 py-3 hidden sm:table-cell">Size</th>
+                  {{ template "sort-th" (map "sort" "bucketSort" "key" "files" "label" "Files" "class" "hidden md:table-cell") }}
+                  {{ template "sort-th" (map "sort" "bucketSort" "key" "size" "label" "Size" "class" "hidden sm:table-cell") }}
                   <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
-                <template x-for="b in filteredBuckets" :key="b.name">
+                <template x-for="b in bucketSort.sorted(filteredBuckets)" :key="b.name">
                   <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                     <td class="px-4 py-3">
-                      <a href="#" @click.prevent="openBucket(b.name)" class="text-base font-semibold text-gray-900 dark:text-white hover:underline" :aria-label="'Open bucket ' + label(b)" x-text="label(b)"></a>
+                      <a :href="locationHref(b.name)" @click="knotEditClick($event, () => openBucket(b.name))" class="table-name-link text-base font-semibold"><span class="sr-only">Open bucket </span><span x-text="label(b)"></span></a>
                       <div class="sm:hidden mt-1 flex flex-wrap gap-1 text-xs">
                         <span class="app-badge-neutral" x-text="b.owner_name"></span>
                         <span :class="yourAccessClass(b)" x-text="yourAccess(b)"></span>
@@ -161,12 +165,12 @@
             <li><a href="/files" @click.prevent="showBuckets()" class="hover:underline text-blue-700 dark:text-blue-400">Buckets</a></li>
             <li aria-hidden="true">/</li>
             <li>
-              <a href="#" @click.prevent="openPrefix('')" @dragover.prevent="overFolder($event, '')" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, '')" :class="dropTarget === '' ? 'ring-2 ring-blue-500 rounded px-1' : ''" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="prefix === '' ? 'page' : null" x-text="label(bucket)"></a>
+              <a :href="locationHref(bucket && bucket.name)" @click="knotEditClick($event, () => openPrefix(''))" @dragover.prevent="overFolder($event, '')" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, '')" :class="dropTarget === '' ? 'ring-2 ring-blue-500 rounded px-1' : ''" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="prefix === '' ? 'page' : null" x-text="label(bucket)"></a>
             </li>
             <template x-for="(crumb, i) in breadcrumbs" :key="crumb.prefix">
               <li class="flex items-center gap-1">
                 <span aria-hidden="true">/</span>
-                <a href="#" @click.prevent="openPrefix(crumb.prefix)" @dragover.prevent="overFolder($event, crumb.prefix)" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, crumb.prefix)" :class="dropTarget === crumb.prefix ? 'ring-2 ring-blue-500 rounded px-1' : ''" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="i === breadcrumbs.length - 1 ? 'page' : null" x-text="crumb.name"></a>
+                <a :href="locationHref(bucket && bucket.name, crumb.prefix)" @click="knotEditClick($event, () => openPrefix(crumb.prefix))" @dragover.prevent="overFolder($event, crumb.prefix)" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, crumb.prefix)" :class="dropTarget === crumb.prefix ? 'ring-2 ring-blue-500 rounded px-1' : ''" class="hover:underline text-blue-700 dark:text-blue-400" :aria-current="i === breadcrumbs.length - 1 ? 'page' : null" x-text="crumb.name"></a>
               </li>
             </template>
           </ol>
@@ -179,7 +183,7 @@
             <template x-for="u in uploads" :key="u.id">
               <li class="text-sm">
                 <div class="flex items-center justify-between gap-2">
-                  <span class="truncate text-gray-800 dark:text-gray-200" x-text="u.name"></span>
+                  <span class="truncate text-gray-800 dark:text-gray-200" x-text="u.name" :title="u.name"></span>
                   <span class="shrink-0" :class="u.status === 'error' ? 'text-red-700 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'"
                         x-text="u.status === 'error' ? 'Failed: ' + u.error : (u.status === 'done' ? 'Done' : (u.status === 'queued' ? 'Waiting' : u.progress + '%'))"></span>
                 </div>
@@ -200,24 +204,25 @@
           </div>
 
           <div x-show="folders.length > 0 || files.length > 0" class="relative overflow-x-auto sm:rounded-lg">
-            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+            <table :aria-label="'Contents of ' + label(bucket) + (prefix ? '/' + prefix : '')" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
               <caption class="sr-only" x-text="'Contents of ' + label(bucket) + (prefix ? '/' + prefix : '')"></caption>
               <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
                 <tr>
-                  <th scope="col" class="px-4 py-3">Name</th>
-                  <th scope="col" class="px-4 py-3 hidden sm:table-cell">Size</th>
-                  <th scope="col" class="px-4 py-3 hidden md:table-cell">Modified</th>
+                  {{ template "sort-th" (map "sort" "fileSort" "key" "name" "label" "Name") }}
+                  {{ template "sort-th" (map "sort" "fileSort" "key" "size" "label" "Size" "class" "hidden sm:table-cell") }}
+                  {{ template "sort-th" (map "sort" "fileSort" "key" "modified" "label" "Modified" "class" "hidden md:table-cell") }}
                   <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
-                <template x-for="folder in folders" :key="'d:' + folder.prefix">
+                <template x-for="folder in fileSort.sorted(folders, { size: () => null, modified: () => null })" :key="'d:' + folder.prefix">
                   <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10"
                       :class="dropTarget === folder.prefix ? 'ring-2 ring-inset ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''"
                       :draggable="canWrite" @dragstart="dragEntry($event, folder, true)" @dragend="dropTarget = null"
                       @dragover.prevent="overFolder($event, folder.prefix)" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, folder.prefix)">
                     <td class="px-4 py-3">
-                      <a href="#" draggable="false" @click.prevent="openPrefix(folder.prefix)" class="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:underline" :aria-label="'Open folder ' + folder.name">
+                      <a :href="locationHref(bucket && bucket.name, folder.prefix)" draggable="false" @click="knotEditClick($event, () => openPrefix(folder.prefix))" class="table-name-link inline-flex items-center gap-2 font-medium">
+                        <span class="sr-only">Open folder </span>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
                         <span x-text="folder.name"></span>
                       </a>
@@ -236,13 +241,18 @@
                     </td>
                   </tr>
                 </template>
-                <template x-for="f in files" :key="'f:' + f.key">
+                <template x-for="f in fileSort.sorted(files)" :key="'f:' + f.key">
                   <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10"
                       :draggable="canWrite" @dragstart="dragEntry($event, f, false)" @dragend="dropTarget = null">
                     <td class="px-4 py-3">
                       <div class="inline-flex items-center gap-2 text-gray-900 dark:text-white">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-gray-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
-                        <span class="break-all" x-text="f.name"></span>
+                        <template x-if="isEditable(f)">
+                          <button type="button" @click="openEditor(f)" class="table-name-link break-all text-left"><span class="sr-only" x-text="canWrite ? 'Edit ' : 'View '"></span><span x-text="f.name"></span></button>
+                        </template>
+                        <template x-if="!isEditable(f)">
+                          <a :href="downloadUrl(f)" :download="f.name" class="table-name-link break-all"><span class="sr-only">Download </span><span x-text="f.name"></span></a>
+                        </template>
                       </div>
                       <div class="sm:hidden mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="formatBytes(f.size) + ' · ' + formatDate(f.modified_at)"></div>
                     </td>
@@ -384,7 +394,7 @@
                       <td class="px-3 py-2">
                         <label class="inline-flex items-center cursor-pointer">
                           <input type="checkbox" class="sr-only peer" :checked="g.access === 'write'" @change="toggleGrantWrite(g)" :disabled="shareModal.saving" :aria-label="'Read and write access for ' + grantLabel(g)">
-                          <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                          <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                           <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="g.access === 'write' ? 'Read & Write' : 'Read Only'"></span>
                         </label>
                       </td>
@@ -428,7 +438,7 @@
                   <input type="radio" name="share-type" :value="opt.v" :checked="shareModal.form.type === opt.v" @change="setShareType(opt.v)" class="sr-only peer">
                   <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
                       peer-checked:bg-blue-600 peer-checked:text-white
-                      peer-focus:ring-2 peer-focus:ring-blue-300
+                      peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600
                       transition-colors duration-200 ease-in-out
                       text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
                       hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
@@ -458,7 +468,7 @@
 
           <label class="inline-flex items-center cursor-pointer">
             <input type="checkbox" x-model="shareModal.form.write" class="sr-only peer" aria-describedby="share-access-desc">
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Read &amp; Write</span>
           </label>
           <p id="share-access-desc" class="description mt-1" x-text="shareModal.form.write ? 'Can list, download, upload, edit and delete files.' : 'Read only: can list and download files.'"></p>
@@ -516,7 +526,7 @@
           </div>
           <label x-show="isAdmin" class="inline-flex items-center cursor-pointer">
             <input type="checkbox" x-model="transferModal.force" class="sr-only peer">
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Transfer even if over quota</span>
           </label>
         </div>

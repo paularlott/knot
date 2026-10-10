@@ -1,19 +1,18 @@
+import { sortable } from '../components/sortable.js';
 import Alpine from "alpinejs";
 
 window.skillListComponent = function (userId, zone, permissionManageSkills, permissionManageOwnSkills, isLeafNode) {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search").focus();
-    }
-  });
-
   const canAccessOwn = permissionManageOwnSkills || isLeafNode || false;
   const canAccessGlobal = permissionManageSkills || isLeafNode || false;
   const defaultShowMySkills = canAccessOwn;
   const defaultShowGlobalSkills = canAccessGlobal;
 
   return {
+    ...sortable('skills', {
+      name: (s) => s.name,
+      owner: (s) => (s.user_id ? 'User' : 'Global'),
+      status: (s) => (s.active ? 0 : 1),
+    }),
     loading: true,
     confirmDelete(s) {
       window.knotConfirm({
@@ -251,13 +250,10 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, perm
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Skill could not be deleted",
-              type: "error",
-            });
+            window.knotError("delete the skill", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the skill", err));
       this.getSkills();
     },
 
@@ -273,6 +269,22 @@ window.skillListComponent = function (userId, zone, permissionManageSkills, perm
 
     searchChanged() {
       this.applyFilters();
+    },
+
+    filtersActive() {
+      return (this.canAccessOwn && !this.showMySkills) || (this.canAccessGlobal && !this.showGlobalSkills) || this.showAllZones || !this.showLocalSkills;
+    },
+
+    clearFilters() {
+      const reload = this.showAllZones;
+      this.searchTerm = "";
+      this.showMySkills = this.canAccessOwn;
+      this.showGlobalSkills = this.canAccessGlobal;
+      this.showLocalSkills = true;
+      this.showAllZones = false;
+      if (reload) this.showAllZonesChanged();
+      else this.applyFilters();
+      document.getElementById("search")?.focus();
     },
 
     applyFilters() {

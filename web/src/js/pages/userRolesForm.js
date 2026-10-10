@@ -133,19 +133,11 @@ window.userRolesForm = function (isEdit, roleId) {
             });
             self.$dispatch("close-role-form");
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `Failed to update the role, ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the role" : "create the role", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the role" : "create the role", error);
         })
         .finally(() => {
           this.loading = false;

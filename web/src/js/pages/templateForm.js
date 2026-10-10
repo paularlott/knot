@@ -24,6 +24,9 @@ import {
 } from "./specCompletions.js";
 import { scriptLibraries } from "./scriptCompletions.js";
 
+// Platforms the spec wizard can build a spec for (internal/specwizard Parse).
+const WIZARD_PLATFORMS = ["docker", "podman", "apple", "container", "nomad", "kvm"];
+
 window.templateForm = function (isEdit, templateId, isDuplicate = false) {
   return {
     fieldConfig: { show: false, index: -1, type: 'text', handler: '', language: '', default: '', required: false, options: '', handlers: [] },
@@ -186,6 +189,31 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     advancedMode: true,
     advancedForced: false,
     advancedForcedReason: "",
+
+    // New templates start in the spec wizard (for platforms it can build),
+    // so people fill in a form instead of facing a blank YAML editor.
+    // Opened once: on load when the platform is already known, otherwise
+    // when one is chosen. A pointer choice opens it straight away; a keyboard
+    // choice waits until focus leaves the platform group, so arrowing through
+    // the options doesn't pop the dialog up on each one.
+    _wizardAuto: { done: false, active: false, pending: false, dirty: false, pointerAt: 0 },
+
+    async maybeAutoOpenWizard() {
+      const a = this._wizardAuto;
+      a.pending = false;
+      if (a.done || this.isEdit || isDuplicate || this.loading || this.specWizard.show) return;
+      if (!WIZARD_PLATFORMS.includes(this.formData.platform)) return;
+      if ((this.formData.job || "").trim() !== "") return;
+      a.done = true;
+      a.active = true;
+      a.dirty = this._formDirty;
+      await this.openSpecWizard();
+      // The server decides whether the wizard can build this platform's
+      // spec; if it can't, quietly stay on the form.
+      if (!this.specWizard.wizardable && !this.specWizard.error && this.specWizard.show) {
+        this.specWizard.show = false;
+      }
+    },
 
     async initData() {
       // Auto-select when exactly one platform is offered (it can't be a
@@ -418,6 +446,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       });
 
       this.$watch("formData.platform", () => {
+        if (!this.isEdit && !this._wizardAuto.done) {
+          if (Date.now() - this._wizardAuto.pointerAt < 1500) {
+            this.$nextTick(() => this.maybeAutoOpenWizard());
+          } else {
+            this._wizardAuto.pending = true;
+          }
+        }
         this.applySpecEditors();
         this.specErrors.job = [];
         this.specErrors.volumes = [];
@@ -426,6 +461,20 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       });
 
       this.applySpecEditors();
+
+      // When the automatically opened wizard closes (Apply, Cancel or Esc),
+      // its own fill of the editors isn't an unsaved edit to warn about, and
+      // focus goes to the next thing to do rather than back to the page.
+      this.$watch("specWizard.show", (open) => {
+        if (open || !this._wizardAuto.active) return;
+        this._wizardAuto.active = false;
+        this._formDirty = this._wizardAuto.dirty;
+        setTimeout(() => {
+          const name = this.$root.querySelector('input[name="name"]');
+          if (name && !this.formData.name) name.focus();
+          else if (this.$refs.wizardButton) this.$refs.wizardButton.focus();
+        }, 50);
+      });
 
       window.addEventListener("theme-change", (e) => {
         if (e.detail.dark_theme) {
@@ -442,6 +491,11 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       });
 
       this.loading = false;
+
+      // Wait for the initial focus on the name field before opening.
+      if (!this.isEdit && !isDuplicate) {
+        setTimeout(() => this.maybeAutoOpenWizard(), 400);
+      }
     },
     toggleGroup(groupId) {
       if (this.formData.groups.includes(groupId)) {
@@ -605,7 +659,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
     scheduleSpecValidation() {
       clearTimeout(this._specValidationTimer);
       this._specValidationTimer = setTimeout(() => {
-        this.validateSpecs();
+        this.validateSpecs().catch(() => {}); // background check; submit reports failures
       }, 750);
     },
 
@@ -627,6 +681,10 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           volumes: this.formData.volumes,
         }),
       });
+
+      // Invalid specs come back as 200 with valid=false; anything else
+      // means the check itself failed.
+      if (!response.ok) throw response;
 
       const result = await response.json();
       const errors = result.errors || [];
@@ -655,27 +713,19 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       err = !this.checkJobsValid() || err;
       if (err) {
         focus.firstInvalid(this.$root);
-        this.$dispatch("show-alert", {
-          msg: "Please fix the validation errors before saving",
-          type: "error",
-        });
+        window.knotToast("Some fields need attention.", "error");
         return;
       }
 
       try {
         const specsValid = await this.validateSpecs();
         if (!specsValid) {
-          this.$dispatch("show-alert", {
-            msg: "Please fix the spec validation errors before saving",
-            type: "error",
-          });
+          window.knotToast("The template spec has errors. They're marked in the editor.", "error");
+          focus.firstInvalid(this.$root);
           return;
         }
       } catch (error) {
-        self.$dispatch("show-alert", {
-          msg: `Failed to validate the template, ${error.message}`,
-          type: "error",
-        });
+        window.knotError("check the template spec", error);
         return;
       }
 
@@ -777,19 +827,11 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
               self.$dispatch("close-template-form");
             }
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `Failed to update the template, ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the template" : "create the template", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the template" : "create the template", error);
         })
         .finally(() => {
           this.loading = false;
@@ -1165,9 +1207,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           window.location.href = "/logout";
           return;
         }
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
+        if (!resp.ok) throw resp;
         const data = await resp.json();
         this.specWizard.wizardable = !!data.wizardable;
         this.specWizard.notWizardableReason = data.reason || "";
@@ -1187,7 +1227,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.specWizard.spec = this.normaliseSpec({});
         }
       } catch (err) {
-        this.specWizard.error = "Failed to parse current spec: " + err.message;
+        this.specWizard.error = await window.knotErrorMessage("read the current spec", err);
         this.specWizard.wizardable = false;
       } finally {
         this.specWizard.loading = false;
@@ -1203,15 +1243,13 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           window.location.href = "/logout";
           return;
         }
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
+        if (!resp.ok) throw resp;
         const data = await resp.json();
         this.specWizard.baseImages = (data.images || []).filter((i) => i.image);
         this.specWizard.registryAuth = !!data.registry_auth;
         this.specWizard.baseImagesLoaded = true;
       } catch (err) {
-        this.specWizard.baseImagesError = "Failed to load base images: " + err.message;
+        this.specWizard.baseImagesError = await window.knotErrorMessage("load the base images", err);
       }
     },
 
@@ -1224,15 +1262,12 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           window.location.href = "/logout";
           return;
         }
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
+        if (!resp.ok) throw resp;
         const data = await resp.json();
         this.specWizard.capabilities = data.capabilities || [];
         this.specWizard.capabilitiesLoaded = true;
       } catch (err) {
-        this.specWizard.capabilitiesError =
-          "Failed to load capabilities: " + err.message;
+        this.specWizard.capabilitiesError = await window.knotErrorMessage("load the capabilities", err);
       }
     },
 
@@ -1977,10 +2012,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
             spec: this.specWizard.spec,
           }),
         });
-        if (!resp.ok) {
-          const txt = await resp.text();
-          throw new Error(`HTTP ${resp.status}: ${txt}`);
-        }
+        if (!resp.ok) throw resp;
         const data = await resp.json();
         if (this.jobEditor) {
           this.jobEditor.session.setValue(data.job || "");
@@ -1999,9 +2031,9 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
         }
         this.specWizard.show = false;
         this.$dispatch('show-alert', { msg: "Spec updated via wizard: " + this.generateWizardSummary(this.specWizard.spec), type: 'success' });
-        this.validateSpecs();
+        this.validateSpecs().catch(() => {});
       } catch (err) {
-        this.specWizard.error = "Failed to apply spec: " + err.message;
+        this.specWizard.error = await window.knotErrorMessage("build the spec from the wizard", err);
       } finally {
         this.specWizard.saving = false;
       }

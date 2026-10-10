@@ -6,11 +6,18 @@ window.pluginsListComponent = function () {
     warnings: [],
 
     async init() {
-      const response = await fetch("/api/plugins", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      let response;
+      try {
+        response = await fetch("/api/plugins", {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (err) {
+        this.loading = false;
+        window.knotError("load the plugins", err);
+        return;
+      }
 
       if (response.status === 401) {
         window.location.href = "/logout";
@@ -22,6 +29,8 @@ window.pluginsListComponent = function () {
         this.plugins = list.plugins || [];
         this.failed = list.failed || [];
         this.warnings = list.warnings || [];
+      } else {
+        window.knotError("load the plugins", response);
       }
 
       this.loading = false;

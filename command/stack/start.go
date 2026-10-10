@@ -26,12 +26,12 @@ var StartCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		_, err = client.StartStack(context.Background(), stackName)
 		if err != nil {
-			return fmt.Errorf("Error starting stack: %w", err)
+			return fmt.Errorf("couldn't start stack %q: %w", stackName, err)
 		}
 
 		fmt.Println("Stack started: ", stackName)

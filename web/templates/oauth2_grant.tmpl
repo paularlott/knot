@@ -6,10 +6,10 @@
 <div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800">
   <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
     {{ if .logoURL }}
-    <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">
+    <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="">
     {{ else if .pluginLogoLight }}
-    <img src="{{ .pluginLogoLight }}" alt="Logo" class="h-11 dark:hidden">
-    <img src="{{ .pluginLogoDark }}" alt="Logo" class="h-11 hidden dark:block">
+    <img src="{{ .pluginLogoLight }}" alt="" class="h-11 dark:hidden">
+    <img src="{{ .pluginLogoDark }}" alt="" class="h-11 hidden dark:block">
     {{ else }}
     <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Authorize Access
     {{ end }}
@@ -53,8 +53,8 @@
 
   {{ if .logoURL }}
   <div class="flex justify-end items-center mt-4">
-    <span class="text-xs text-gray-700 dark:text-gray-200 mr-2">Powered by Knot</span>
-    <img src="images/logo.svg" alt="Knot logo" class="h-6 opacity-80">
+    <span class="text-xs text-gray-700 dark:text-gray-200 mr-2">Powered by knot</span>
+    <img src="images/logo.svg" alt="knot logo" class="h-6 opacity-80">
   </div>
   {{ end }}
 </div>

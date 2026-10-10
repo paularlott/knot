@@ -1,19 +1,19 @@
+import { sortable } from '../components/sortable.js';
 import Alpine from "alpinejs";
 
 window.scriptListComponent = function (userId, zone, permissionManageScripts, permissionManageOwnScripts, isLeafNode) {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search").focus();
-    }
-  });
-
   const canAccessOwn = permissionManageOwnScripts || isLeafNode || false;
   const canAccessGlobal = permissionManageScripts || isLeafNode || false;
   const defaultShowMyScripts = canAccessOwn;
   const defaultShowGlobalScripts = canAccessGlobal;
 
   return {
+    ...sortable('scripts', {
+      name: (s) => s.name,
+      owner: (s) => (s.user_id ? 'User' : 'Global'),
+      status: (s) => (s.active ? 0 : 1),
+      type: (s) => s.script_type,
+    }),
     loading: true,
     confirmDelete(s) {
       window.knotConfirm({
@@ -262,13 +262,10 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, pe
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Script could not be deleted",
-              type: "error",
-            });
+            window.knotError("delete the script", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the script", err));
       this.getScripts();
     },
 
@@ -285,6 +282,22 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts, pe
 
     searchChanged() {
       this.applyFilters();
+    },
+
+    filtersActive() {
+      return (this.canAccessOwn && !this.showMyScripts) || (this.canAccessGlobal && !this.showGlobalScripts) || this.showAllZones || !this.showLocalScripts;
+    },
+
+    clearFilters() {
+      const reload = this.showAllZones;
+      this.searchTerm = "";
+      this.showMyScripts = this.canAccessOwn;
+      this.showGlobalScripts = this.canAccessGlobal;
+      this.showLocalScripts = true;
+      this.showAllZones = false;
+      if (reload) this.showAllZonesChanged();
+      else this.applyFilters();
+      document.getElementById("search")?.focus();
     },
 
     applyFilters() {

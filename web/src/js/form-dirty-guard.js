@@ -162,6 +162,9 @@ document.addEventListener(
   'keydown',
   (e) => {
     if (bypass || e.key !== 'Escape') return;
+    // Inside a code editor the first Escape is the editor's own (it arms Tab
+    // to leave the editor, see ace-a11y.js); a second one closes as usual.
+    if (e.target && e.target.closest && e.target.closest('.ace_editor') && !e.target.closest('[data-ace-esc-armed]')) return;
     // If the discard dialog is open, Esc cancels it (and must not also close
     // the dirty form behind it).
     if (Alpine.store('discardDialog').show) {

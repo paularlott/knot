@@ -3,12 +3,13 @@
   <div class="flex-1 min-h-0 overflow-y-auto p-5 relative">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData" :class="{ 'space-form-simple': !showAllOptions }">
+    {{ template "req-note" }}
     <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
       <div class="space-y-6">
         <div>
-          <label for="name" class="form-label">Space Name</label>
-          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Space name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)" :disabled="!!formData.stack_prefix" :title="formData.stack_prefix ? 'Remove the space from its stack to rename it' : ''">
+          <label for="name" class="form-label">Space Name{{ template "req" }}</label>
+          <input aria-required="true" type="text" class="form-field" name="name" id="name" x-on:blur="checkName()" x-on:input="if (!nameValid) checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Space name" :value="formData.name" @input="formData.name = sanitizeName($event.target.value)" :disabled="!!formData.stack_prefix" :title="formData.stack_prefix ? 'Remove the space from its stack to rename it' : ''">
           <div x-show="formData.stack_prefix" class="description" x-cloak>This space belongs to a stack, so its name can't be changed. Remove the stack to rename it.</div>
           <div id="name-error" x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
@@ -32,7 +33,7 @@
           <template x-for="(altName, index) in formData.alt_names" :key="index">
             <div class="mb-2">
               <div class="flex items-center gap-2">
-                <input type="text" class="form-field grow" :value="formData.alt_names[index].name" @input="formData.alt_names[index].name = sanitizeName($event.target.value)" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" :aria-invalid="!altNameValid[index] ? 'true' : 'false'" :aria-describedby="!altNameValid[index] ? 'space-alt-name-error-' + index : null" placeholder="Additional space name" aria-label="Additional space name">
+                <input type="text" class="form-field grow" :value="formData.alt_names[index].name" @input="formData.alt_names[index].name = sanitizeName($event.target.value)" x-on:blur="checkAltName(index)" x-on:input="if (!altNameValid[index]) checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" :aria-invalid="!altNameValid[index] ? 'true' : 'false'" :aria-describedby="!altNameValid[index] ? 'space-alt-name-error-' + index : null" placeholder="Additional space name" aria-label="Additional space name">
                 <select class="form-field w-32" x-model.number="formData.alt_names[index].port" aria-label="Port">
                   <template x-for="tp in templatePorts" :key="tp.port">
                     <option :value="tp.port" :selected="formData.alt_names[index].port === tp.port" x-text="tp.name || tp.port"></option>
@@ -59,7 +60,7 @@
         </div>
         <div data-advanced x-data="autocompleterStack()" data-parent-var-group="formData" data-parent-variable="stack" @refresh-stack-autocompleter.window="refresh()" class="relative">
           <label for="stack" class="form-label">Stack</label>
-          <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
+          <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
           <div class="description">Group spaces together under a stack name. Leave empty for unstacked.</div>
           <div x-show="showList" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible, 'divide-y divide-gray-100 dark:divide-gray-600': filteredOptions.length > 0}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
             <p x-show="filteredOptions.length === 0" class="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">No stacks found</p>
@@ -80,7 +81,7 @@
           <div class="flex items-center">
             <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
             <div class="relative w-full max-w-sm">
-              <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+              <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
               <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
                 <ul class="list-none" role="listbox" :id="_listboxId">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -148,7 +149,7 @@
         <div data-advanced x-show="!isManual && canSetSpaceStartupScript" x-cloak x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
           <label for="startup_script_id" class="form-label">User Startup Script</label>
           <div class="relative w-full">
-            <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+            <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
             <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
               <ul class="list-none" role="listbox" :id="_listboxId">
                 <template x-for="(option, index) in filteredOptions" :key="index">
@@ -202,14 +203,14 @@
               <div class="relative" x-data="fieldAutocompleter(template.custom_fields[index].handler, template.custom_fields[index].options)" :data-cf-index="index" x-id="['cfac']"
                    x-init="search = formData.custom_fields[index].value || ''">
                 <input type="search" x-ref="cfInput" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Search for a value" x-model="search" autocomplete="off"
-                       x-on:keyup.debounce.500ms="checkCustomField(index)"
-                       @input="snapValue(index); checkCustomField(index)"
-                       @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)"
+                       role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-controls="$id('cfac')" :aria-activedescendant="selectedIndex >= 0 ? $id('cfac') + '-opt-' + selectedIndex : ''"
+                       @input="snapValue(index); if (customFieldValid[index] === false) checkCustomField(index)"
+                       @focus="handleFocus()" @blur.debounce.200ms="showList = false; checkCustomField(index)" @keydown="handleKeydown($event)"
                        :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
                 <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
-                  <ul class="list-none" role="listbox" :aria-label="template.custom_fields[index].description + ' options'">
+                  <ul class="list-none" role="listbox" :id="$id('cfac')" :aria-label="template.custom_fields[index].description + ' options'">
                     <template x-for="(option, i) in filteredOptions" :key="i">
-                      <li @click="selectOption(option)" role="option" :aria-selected="selectedIndex === i ? 'true' : 'false'" x-text="optText(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === i}" class="my-1 cursor-pointer nav-item text-sm"></li>
+                      <li @click="selectOption(option)" role="option" :id="$id('cfac') + '-opt-' + i" :aria-selected="selectedIndex === i ? 'true' : 'false'" x-text="optText(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === i}" class="my-1 cursor-pointer nav-item text-sm"></li>
                     </template>
                   </ul>
                 </div>
@@ -219,15 +220,15 @@
               <div :class="{'border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden h-48': true, 'error': customFieldValid[index] === false}" x-data="customFieldEditor(index, template.custom_fields[index].language || 'text')" x-effect="aceSetInvalid(editor, customFieldValid[index] === false, 'space-cf-error-' + index)"></div>
             </template>
             <template x-if="template.custom_fields[index].type === 'masked'">
-              <input type="password" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" autocomplete="new-password" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
+              <input type="password" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" autocomplete="new-password" x-model="formData.custom_fields[index].value" x-on:blur="checkCustomField(index)" x-on:input="if (customFieldValid[index] === false) checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
             </template>
             <template x-if="template.custom_fields[index].type === 'number'">
-              <input type="number" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
+              <input type="number" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:blur="checkCustomField(index)" x-on:input="if (customFieldValid[index] === false) checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
             </template>
             <template x-if="template.custom_fields[index].type === 'bool'">
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" class="sr-only peer" :checked="formData.custom_fields[index].value === 'true'" @change="formData.custom_fields[index].value = $event.target.checked ? 'true' : 'false'">
-                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')'"></span>
               </label>
             </template>
@@ -240,7 +241,7 @@
               </select>
             </template>
             <template x-if="!['autocomplete', 'masked', 'number', 'textarea', 'bool', 'select'].includes(template.custom_fields[index].type)">
-              <input type="text" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:keyup.debounce.500ms="checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
+              <input type="text" :class="{'form-field': true, 'form-field-error': customFieldValid[index] === false}" placeholder="Field value" x-model="formData.custom_fields[index].value" x-on:blur="checkCustomField(index)" x-on:input="if (customFieldValid[index] === false) checkCustomField(index)" :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
             </template>
             <div :id="'space-cf-error-' + index" x-show="customFieldValid[index] === false" class="error-message" x-cloak>This field cannot be left blank.</div>
           </div>
@@ -253,7 +254,7 @@
         <div class="description">Choose whether the new space should be started immediately after it is created.</div>
         <label class="flex items-center cursor-pointer">
           <input type="checkbox" class="sr-only peer" value="1" x-model="startOnCreate" :checked="startOnCreate">
-          <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+          <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
           <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Start Space on Create</span>
         </label>
       </div>
@@ -280,7 +281,7 @@
       <div class="ui-modal-body">
         <p>Select a space in the same zone to add as a dependency.</p>
         <div x-data="autocompleterSpace()" x-init="setDataSource('dependencyOptions')" data-parent-var-group="dependencyModal" data-parent-variable="selectedId" data-parent-variable-name="selectedName" @refresh-space-autocompleter.window="refresh()" @space-selected="dependencyModal.invalid = false" class="relative mt-4">
-          <input x-model="search" class="form-field" type="search" placeholder="Search spaces..." aria-label="Search spaces" :aria-invalid="dependencyModal.invalid ? 'true' : 'false'" :aria-describedby="dependencyModal.invalid ? 'dependency-error' : null" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+          <input x-model="search" class="form-field" type="search" placeholder="Search spaces..." aria-label="Search spaces" :aria-invalid="dependencyModal.invalid ? 'true' : 'false'" :aria-describedby="dependencyModal.invalid ? 'dependency-error' : null" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
           <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-x-hidden overflow-y-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block">
             <ul class="list-none" role="listbox" :id="_listboxId">
               <template x-for="(option, index) in filteredOptions" :key="option.id">

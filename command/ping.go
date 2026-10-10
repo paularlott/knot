@@ -55,12 +55,12 @@ var PingCmd = &cli.Command{
 			cmd.GetBool("tls-skip-verify"),
 		)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		version, err := client.Ping(ctx)
 		if err != nil {
-			return fmt.Errorf("Failed to ping server: %w", err)
+			return fmt.Errorf("couldn't ping the server: %w", err)
 		}
 
 		fmt.Println("\nServer is healthy")

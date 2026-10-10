@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" style="height: 100%; overflow: hidden; position: fixed; width: 100%;">
 <head>
-	<title>Terminal</title>
+	<title>{{ if .spaceName }}{{ .spaceName }} – {{ end }}{{ if eq .shell "vscode-tunnel" }}VS Code Tunnel{{ else if .consoleView }}Console{{ else }}Terminal{{ end }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <script>if(localStorage.getItem('_x_darkMode') !== 'false') { document.documentElement.classList.add('dark') }</script>
 	<link rel="stylesheet" href="/assets/css/knot.css?_v={{ .assetVersion }}" />
@@ -84,8 +84,8 @@
       </button>
       <div x-show="showKeyboard" class="w-full bg-black/90 p-2 backdrop-blur">
         <div class="flex gap-1 justify-center items-stretch">
-          <button @click="toggleModifier('ctrl')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.ctrl, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.ctrl }">Ctrl</button>
-          <button @click="toggleModifier('alt')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.alt, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.alt }">Alt</button>
+          <button type="button" @click="toggleModifier('ctrl')" :aria-pressed="modifiers.ctrl ? 'true' : 'false'" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.ctrl, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.ctrl }">Ctrl</button>
+          <button type="button" @click="toggleModifier('alt')" :aria-pressed="modifiers.alt ? 'true' : 'false'" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.alt, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.alt }">Alt</button>
           <button @click="sendKey('\x1b')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all hover:bg-white/20">Esc</button>
           <button @click="sendKey('\t')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all hover:bg-white/20">Tab</button>
           <button @click="sendKey('\x1b[A')" aria-label="Arrow up" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">↑</button>

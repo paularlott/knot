@@ -219,7 +219,7 @@ func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket,
 		return err
 	}
 	if _, err := client.PutFileObject(ctx, bucket, key, f, info.Size(), contentType(local), info.ModTime()); err != nil {
-		return fmt.Errorf("%s: %s", local, cmdutil.CleanAPIError(err))
+		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
 	}
 	fmt.Printf("%s -> %s (%s)\n", local, remoteName(bucket, key), formatBytes(info.Size()))
 	return nil
@@ -229,7 +229,7 @@ func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket,
 func serverCopy(ctx context.Context, client *apiclient.ApiClient, s source, bucket, key string) error {
 	info, err := client.CopyFileObject(ctx, apiclient.FileCopyRequest{SourceBucket: s.bucket, SourceKey: s.key, DestBucket: bucket, DestKey: key})
 	if err != nil {
-		return fmt.Errorf("%s: %s", s, cmdutil.CleanAPIError(err))
+		return fmt.Errorf("%s: %w", s, cmdutil.CleanErr(err))
 	}
 	fmt.Printf("%s -> %s (%s)\n", s, remoteName(bucket, key), formatBytes(info.Size))
 	return nil
@@ -249,7 +249,7 @@ func downloadFile(ctx context.Context, client *apiclient.ApiClient, bucket, key,
 func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, local string) (int64, error) {
 	resp, err := client.GetFileObject(ctx, bucket, key)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %s", remoteName(bucket, key), cmdutil.CleanAPIError(err))
+		return 0, fmt.Errorf("%s: %w", remoteName(bucket, key), cmdutil.CleanErr(err))
 	}
 	defer resp.Body.Close()
 

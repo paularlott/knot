@@ -175,19 +175,11 @@ window.variableForm = function (isEdit, templateVarId, isLeafServer) {
             });
             self.$dispatch("close-variable-form");
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `Failed to update the variable, ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the variable" : "create the variable", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the variable" : "create the variable", error);
         })
         .finally(() => {
           this.buttonLabel = isEdit ? "Update" : "Create Variable";

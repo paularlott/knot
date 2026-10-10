@@ -12,6 +12,8 @@ import {} from './components/autocompleter.js';
 import md5 from 'crypto-js/md5';
 
 // SSE client for real-time updates
+import './live.js'; // knotLive / knotAnnounce / knotError
+import './session-timeout.js';
 import './sse.js';
 
 import './pages/initialUserForm.js';

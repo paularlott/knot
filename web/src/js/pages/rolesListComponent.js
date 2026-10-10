@@ -1,15 +1,11 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.rolesListComponent = function() {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('roles', {
+      name: (r) => r.name,
+    }),
     loading: true,
     roleFormModal: {
       show: false,
@@ -119,7 +115,7 @@ window.rolesListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Role could not be deleted", type: 'error' });
+          window.knotError('delete the role', response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively

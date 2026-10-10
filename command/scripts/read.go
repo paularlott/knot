@@ -30,7 +30,7 @@ var readCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		script, err := resolveScript(ctx, cmd, client, cmd.GetStringArg("name"))

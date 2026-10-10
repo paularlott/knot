@@ -3,7 +3,6 @@ package command_stack
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/command/cmdutil"
@@ -24,31 +23,26 @@ var CreateDefCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		req, err := loadStackDef(ctx, cmd.GetStringArg("file"), client)
 		if err != nil {
-			fmt.Println("Error reading definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't read the stack definition: %w", err)
 		}
 
 		// Fail if a definition with this name already exists
 		existing, err := client.GetStackDefinitionByName(ctx, req.Name)
 		if err != nil {
-			fmt.Println("Error checking for existing definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't check whether stack definition %q exists: %w", req.Name, err)
 		}
 		if existing != nil {
-			fmt.Printf("Stack definition %q already exists. Use 'apply' to update it.\n", req.Name)
-			os.Exit(1)
+			return fmt.Errorf("stack definition %q already exists; update it with `knot stack apply`", req.Name)
 		}
 
 		_, _, err = client.CreateStackDefinition(ctx, req)
 		if err != nil {
-			fmt.Println("Error creating stack definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't create stack definition %q: %w", req.Name, err)
 		}
 
 		fmt.Printf("Stack definition %q created.\n", req.Name)

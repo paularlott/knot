@@ -88,7 +88,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 		dir := cmd.GetStringArg("backupdir")
 		key := cmd.GetString("encrypt-key")
 		if key != "" && len(key) != 32 {
-			return errors.New("Error: Encrypt key must be 32 bytes long.")
+			return errors.New("the encryption key must be 32 bytes long")
 		}
 
 		client, err := adminClient(cmd)
@@ -97,7 +97,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 		}
 		info, err := client.GetBackupInfo(ctx)
 		if err != nil {
-			return fmt.Errorf("Error starting the backup: %s", cmdutil.CleanAPIError(err))
+			return fmt.Errorf("couldn't start the backup: %w", cmdutil.CleanErr(err))
 		}
 
 		// What to back up.
@@ -118,13 +118,13 @@ Restore the folder into a new server with knot admin restore, and list or restor
 		}
 		if !info.Files {
 			if selected["file-buckets"] && explicit {
-				return errors.New("Error: this server has no file storage to back up.")
+				return errors.New("this server has no file storage to back up")
 			}
 			delete(selected, "file-buckets")
 			delete(selected, "file-objects")
 		}
 		if len(selected) == 0 {
-			return errors.New("Error: nothing to back up.")
+			return errors.New("nothing to back up")
 		}
 		withContent := selected["file-objects"] && !cmd.GetBool("no-content")
 
@@ -178,7 +178,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 				return err
 			})
 			if err != nil {
-				return fmt.Errorf("Error backing up %s: %w", kind, err)
+				return fmt.Errorf("couldn't back up the %s records: %w", kind, err)
 			}
 			counts[kind] = n
 			fmt.Printf("  %-14s %d\n", kind, n)
@@ -216,13 +216,13 @@ Restore the folder into a new server with knot admin restore, and list or restor
 			return err
 		}
 		if err := commitRecords(dir, done); err != nil {
-			return fmt.Errorf("Error saving the records: %w", err)
+			return fmt.Errorf("couldn't save the records: %w", err)
 		}
 
 		if cmd.GetBool("prune") && withContent && warnings == 0 && cmd.GetString("limit-user") == "" {
 			removed, freed, err := pruneContent(dir, key)
 			if err != nil {
-				return fmt.Errorf("Error pruning content: %w", err)
+				return fmt.Errorf("couldn't prune old content: %w", err)
 			}
 			fmt.Printf("  %-14s %d removed (%s) that no file refers to\n", "pruned", removed, humanBytes(freed))
 		}
@@ -270,7 +270,7 @@ func prepareBackupDir(dir string) error {
 		return err
 	}
 	if len(entries) > 0 && !backupfile.IsBackupDir(dir) {
-		return fmt.Errorf("Error: %s is not empty and holds no backup; give a new or empty folder", dir)
+		return fmt.Errorf("%s is not empty and holds no backup; give a new or empty folder", dir)
 	}
 	if _, err := backupfile.ReadManifest(dir); err != nil {
 		if err := backupfile.MarkUnfinished(dir); err != nil {
@@ -300,7 +300,7 @@ func commitRecords(dir string, kinds []string) error {
 func backupKind(ctx context.Context, client *apiclient.ApiClient, dir, kind, key string, params url.Values, keep func([]byte) bool) (int, error) {
 	rc, err := client.BackupStream(ctx, kind, params)
 	if err != nil {
-		return 0, errors.New(cmdutil.CleanAPIError(err))
+		return 0, cmdutil.CleanErr(err)
 	}
 	defer rc.Close()
 
@@ -468,7 +468,7 @@ func copyContent(ctx context.Context, client *apiclient.ApiClient, dir, sha stri
 		return err
 	})
 	if err != nil {
-		return 0, errors.New(cmdutil.CleanAPIError(err))
+		return 0, cmdutil.CleanErr(err)
 	}
 	return total, nil
 }
@@ -504,6 +504,13 @@ func retryable(err error) bool {
 	if strings.Contains(msg, "does not match its checksum") {
 		return false
 	}
+	if code := apiclient.StatusCode(err); code != 0 {
+		switch code {
+		case 408, 429, 500, 502, 503, 504:
+			return true
+		}
+		return false
+	}
 	if strings.HasPrefix(msg, "unexpected status code: ") {
 		code := strings.TrimPrefix(msg, "unexpected status code: ")
 		if len(code) >= 3 {
@@ -535,7 +542,7 @@ func humanBytes(n int64) string {
 func adminClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 	// A server alone would fall back to the config file's, and fail oddly.
 	if cmd.GetString("server") != "" && cmd.GetString("token") == "" {
-		return nil, errors.New("Error: --server needs --token: a token from a user holding the Backup Server permission. For a new server, create its first user and use its token.")
+		return nil, errors.New("--server needs --token: a token from a user holding the Backup Server permission; for a new server, create its first user and use its token")
 	}
 	return cmdutil.GetClient(cmd)
 }

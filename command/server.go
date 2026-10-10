@@ -860,7 +860,7 @@ var ServerCmd = &cli.Command{
 			ValidateFlag: func(c *cli.Command) error {
 				value := c.GetString("chat-reasoning-effort")
 				if value != "" && value != "none" && value != "low" && value != "medium" && value != "high" {
-					return fmt.Errorf("If given, reasoning effort must be one of: none, low, medium, high")
+					return fmt.Errorf("--chat-reasoning-effort must be one of: none, low, medium, high (got %q)", value)
 				}
 				return nil
 			},
@@ -874,7 +874,7 @@ var ServerCmd = &cli.Command{
 			ValidateFlag: func(c *cli.Command) error {
 				value := c.GetString("chat-ui-style")
 				if value != "" && value != "icon" && value != "avatar" {
-					return fmt.Errorf("UI style must be one of: icon, avatar")
+					return fmt.Errorf("--chat-ui-style must be one of: icon, avatar (got %q)", value)
 				}
 				return nil
 			},

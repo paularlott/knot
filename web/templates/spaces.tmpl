@@ -22,7 +22,7 @@
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
             <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
-            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
           </div>
         </div>
 
@@ -37,9 +37,9 @@
 
           <div x-show="canManageSpaces && !showingSpecificUser" x-cloak class="mb-4">
             <div x-data="autocompleterUser()" x-init="setDataSource('forUsersList')" data-parent-group="" data-parent-variable="forUserId" data-on-change="userChagned" @refresh-user-autocompleter.window="refresh()" class="relative" @user-selected="userChanged">
-              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" />
+              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="Show spaces for user" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" />
               <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
-                <ul class="list-none" role="listbox" :id="_listboxId">
+                <ul class="list-none" role="listbox" :id="_listboxId" aria-label="Users">
                   <template x-for="(option, index) in filteredOptions" :key="index">
                     <li @click="selectOption(option)" x-text="option.username" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
                   </template>
@@ -51,31 +51,31 @@
           <div class="mb-4" :class="{'mt-4': !canManageSpaces || showingSpecificUser}">
             <label class="flex items-center cursor-pointer">
               <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showRunningOnly" x-model="showRunningOnly">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Running</span>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Running only</span>
             </label>
           </div>
 
           <div class="mb-4">
             <label class="flex items-center cursor-pointer mb-4">
               <input type="checkbox" @change="getSpaces()" class="sr-only peer" value="1" :checked="showLocalOnly" x-model="showLocalOnly">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">In This Zone</span>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">This zone only<span class="block text-xs font-normal text-gray-500 dark:text-gray-400">Hide spaces that run in other zones</span></span>
             </label>
           </div>
 
           <div class="mb-4">
             <label class="flex items-center cursor-pointer mb-4">
               <input type="checkbox" @change="showSharedOnly && (showSharedWithMeOnly = false); searchChanged()" class="sr-only peer" value="1" :checked="showSharedOnly" x-model="showSharedOnly">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared</span>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared with others</span>
             </label>
           </div>
           <div class="mb-4">
             <label class="flex items-center cursor-pointer mb-4">
               <input type="checkbox" @change="showSharedWithMeOnly && (showSharedOnly = false); searchChanged()" class="sr-only peer" value="1" :checked="showSharedWithMeOnly" x-model="showSharedWithMeOnly">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared With Me</span>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared with me</span>
             </label>
           </div>
 
@@ -83,26 +83,26 @@
 
       </div>
       <div class="flex gap-2">
-        <button @click.prevent="openTemplateSelector" type="button" class="btn-primary flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
+        <button @click.prevent="openTemplateSelector" type="button" class="btn-primary flex items-center gap-1.5 px-3 whitespace-nowrap" title="New space from a template">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Space
+          <span class="sr-only">New </span>Space
         </button>
         {{ if or .permissionManageOwnStackDefinitions .permissionUseStackDefinitions .isLeafNode }}
-        <button @click.prevent="openStackDefSelector" type="button" class="btn-primary flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
+        <button @click.prevent="openStackDefSelector" type="button" class="btn-primary flex items-center gap-1.5 px-3 whitespace-nowrap" title="New stack of spaces from a stack template">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Stack
+          <span class="sr-only">New </span>Stack
         </button>
         {{ end }}
         {{ if .permissionUsePools }}
-        <button x-show="canUsePools" x-cloak @click.prevent="openPoolTemplateSelector" type="button" class="btn-primary flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
+        <button x-show="canUsePools" x-cloak @click.prevent="openPoolTemplateSelector" type="button" class="btn-primary flex items-center gap-1.5 px-3 whitespace-nowrap" title="New pool of identical spaces">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Pool
+          <span class="sr-only">New </span>Pool
         </button>
         {{ end }}
       </div>
@@ -123,9 +123,9 @@
           <div class="flex-1 overflow-y-auto p-5 space-y-6">
           <div x-show="poolFormModal.error" x-cloak class="text-sm text-red-600 dark:text-red-400" x-text="poolFormModal.error"></div>
           <div>
-            <label for="pool-name" class="form-label">Pool Name</label>
-            <input id="pool-name" x-ref="poolNameInput" :value="poolFormModal.name" @input="poolFormModal.name = sanitizeName($event.target.value)" class="form-field" type="text" required :disabled="poolFormModal.isEdit" x-on:keyup.debounce.500ms="checkPoolName()" :aria-invalid="poolFormModal.name && !poolNameValid ? 'true' : 'false'" :aria-describedby="poolFormModal.name && !poolNameValid ? 'pool-name-error' : null">
-            <div id="pool-name-error" x-show="poolFormModal.name && !poolNameValid" class="error-message" x-cloak>Pool name must start with a letter and can only contain letters, numbers, and hyphens (max 64 characters).</div>
+            <label for="pool-name" class="form-label">Pool Name{{ template "req" }}</label>
+            <input id="pool-name" x-ref="poolNameInput" :value="poolFormModal.name" @input="poolFormModal.name = sanitizeName($event.target.value); if (!poolNameValid) checkPoolName()" @blur="if (!poolFormModal.isEdit) checkPoolName()" class="form-field" :class="{'form-field-error': !poolNameValid}" type="text" required aria-required="true" :disabled="poolFormModal.isEdit" :aria-invalid="!poolNameValid ? 'true' : 'false'" :aria-describedby="!poolNameValid ? 'pool-name-error' : null">
+            <div id="pool-name-error" x-show="!poolNameValid" class="error-message" x-cloak x-text="(poolFormModal.name || '').trim() ? 'Pool name must start with a letter and can only contain letters, numbers, and hyphens (max 64 characters).' : 'Pool name is required.'"></div>
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span>Template:</span>
@@ -140,33 +140,35 @@
           <!-- Create mode or stopped pool: editable autocompleter -->
           <div x-show="!poolFormModal.isEdit || !poolFormModal.active" x-data="autocompleterScript()" data-parent-var-group="poolFormModal" data-parent-variable="startupScriptId" @refresh-autocompleter.window="refresh()" x-id="['poolScript']">
             <label for="pool-startup-script" class="form-label">Startup Script</label>
-            <input id="pool-startup-script" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
-            <div x-show="showList && filteredOptions.length > 0" x-cloak :id="_listboxId" role="listbox" :class="{'hidden': !dropdownVisible}" class="fixed z-[70] mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white py-1 text-base shadow-lg dark:border-slate-700 dark:bg-slate-800" :style="dropdownStyle" x-ref="dropdown">
-              <template x-for="option in filteredOptions" :key="option.script_id">
-                <li :id="_listboxId + '-opt-' + filteredOptions.indexOf(option)" role="option" class="relative cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 dark:text-gray-100" @click="selectOption(option)" @mouseenter="selectedIndex = filteredOptions.indexOf(option)">
-                  <span class="block truncate" x-text="option.name"></span>
-                </li>
-              </template>
+            <input id="pool-startup-script" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+            <div x-show="showList && filteredOptions.length > 0" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white py-1 text-base shadow-lg dark:border-slate-700 dark:bg-slate-800" :style="dropdownStyle" x-ref="dropdown">
+              <ul class="list-none" role="listbox" :id="_listboxId" aria-label="Scripts">
+                <template x-for="(option, index) in filteredOptions" :key="option.script_id">
+                  <li :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="relative cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 dark:text-gray-100" @click="selectOption(option)" @mouseenter="selectedIndex = index">
+                    <span class="block truncate" :title="option.name" x-text="option.name"></span>
+                  </li>
+                </template>
+              </ul>
             </div>
             <div x-show="poolFormModal.isEdit" x-cloak class="text-xs text-gray-500 dark:text-gray-400 mt-1">Changes apply to all member spaces on next start.</div>
           </div>
           {{ end }}
           <div>
-            <label for="pool-desired-count" class="form-label">Desired Count</label>
-            <input id="pool-desired-count" x-model.number="poolFormModal.desiredCount" class="form-field" type="number" min="1" required>
+            <label for="pool-desired-count" class="form-label">Desired Count{{ template "req" }}</label>
+            <input id="pool-desired-count" x-model.number="poolFormModal.desiredCount" class="form-field" type="number" min="1" required aria-required="true">
           </div>
           <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Exclusive Leases</legend>
             <div class="space-y-4">
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" class="sr-only peer" x-model="poolFormModal.leaseEnabled">
-                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Allow checking members out exclusively</span>
               </label>
               <div x-show="poolFormModal.leaseEnabled" x-cloak class="space-y-4">
                 <label class="flex items-center cursor-pointer">
                   <input type="checkbox" class="sr-only peer" x-model="poolFormModal.leaseNoLimit">
-                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                   <span class="ms-3 text-sm text-gray-900 dark:text-gray-300">No limit - allocate, use, release</span>
                 </label>
                 <div x-show="!poolFormModal.leaseNoLimit" x-cloak>
@@ -185,7 +187,7 @@
                   <div class="flex items-center gap-3">
                     <label class="flex items-center cursor-pointer">
                       <input type="checkbox" class="sr-only peer" x-model="poolFormModal.leaseExtensionsUnlimited">
-                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                       <span class="ms-3 text-sm text-gray-900 dark:text-gray-300">Unlimited</span>
                     </label>
                     <input id="pool-lease-max-extensions" x-show="!poolFormModal.leaseExtensionsUnlimited" x-cloak x-model.number="poolFormModal.leaseMaxExtensions" class="form-field sm:w-28" type="number" min="0">
@@ -201,7 +203,7 @@
             <div class="space-y-4">
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" class="sr-only peer" x-model="poolFormModal.active">
-                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="poolFormModal.isEdit ? 'Active' : 'Start pool on create'"></span>
               </label>
             </div>
@@ -226,13 +228,14 @@
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       {{ template "loading" . }}
 
-      <template x-if="!loading && (!visibleSpaces && !searchTerm.length && showLocalOnly)">
-        <div class="w-full max-w-lg mx-auto p-4 bg-white border border-gray-200 rounded-lg shadow-lg dark:border-gray-700 dark:bg-gray-800">
-            <div class="text-center text-gray-500 dark:text-gray-400">No spaces found.<br />Get started by <button @click.prevent="openTemplateSelector" class="text-blue-600 hover:underline dark:text-blue-400">selecting a template</button>.</div>
+      <template x-if="!loading && !spaces.length && !visiblePools().length">
+        <div class="app-empty">
+          <p class="app-empty-heading">No spaces yet</p>
+          <p class="app-empty-text">A space is a development environment built from a template. <button type="button" @click.prevent="openTemplateSelector" class="text-blue-700 hover:underline dark:text-blue-300 cursor-pointer">Choose a template</button> to create one.</p>
         </div>
       </template>
 
-      <div x-show="!loading && (visibleSpaces || searchTerm.length)" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+      <div x-show="!loading && (spaces.length || visiblePools().length)" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Spaces" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <colgroup>
             <col class="w-1/1.1 lg:w-1/3.5 xl:w-1/3" />
@@ -244,14 +247,23 @@
           </colgroup>
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Details</th>
-              <th scope="col" class="px-4 py-3 hidden md:table-cell">Services</th>
-              <th scope="col" class="px-4 py-3 hidden lg:table-cell">Status</th>
-              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Share</th>
-              <th scope="col" class="px-4 py-3 hidden xl:table-cell">Template</th>
-              <th scope="col" class="px-4 py-3">&nbsp;</th>
+              {{ template "sort-th" (map "key" "name" "label" "Space") }}
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Connect</th>
+              {{ template "sort-th" (map "key" "status" "label" "Status" "class" "hidden lg:table-cell") }}
+              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Shared</th>
+              {{ template "sort-th" (map "key" "template" "label" "Template" "class" "hidden xl:table-cell") }}
+              <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
+          <!-- Search or filters hide every space -->
+          <tbody x-show="noSpacesMatch()" x-cloak>
+            <tr class="bg-white dark:bg-gray-800">
+              <td colspan="6" class="px-4 py-8 text-center text-gray-600 dark:text-gray-300">
+                <p role="status" x-text="noSpacesMatch() ? noMatchesText('spaces') : ''"></p>
+                <button type="button" class="btn-secondary mt-3" @click="clearFilters()" x-text="filtersActive() ? 'Clear search and filters' : 'Clear search'"></button>
+              </td>
+            </tr>
+          </tbody>
           <!-- Unstacked spaces -->
           <tbody>
             <!-- Show header only when stacks exist -->
@@ -260,7 +272,8 @@
                 <td colspan="6" class="px-4 py-2">
                   <button type="button" @click="toggleStack('')" :aria-expanded="!collapsedStacks[''] ? 'true' : 'false'" class="flex items-center gap-2 w-full text-left cursor-pointer rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500">
                     <svg :class="{'rotate-90': !collapsedStacks['']}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
-                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Unstacked</span>
+                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Other spaces</span>
+                    <span class="sr-only">(not in a stack)</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + unstackedVisibleSpaces().length + ' space' + (unstackedVisibleSpaces().length !== 1 ? 's' : '') + ')'"></span>
                   </button>
                 </td>
@@ -279,14 +292,14 @@
               <!-- Stack header row -->
               <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                 <td colspan="6" class="px-4 py-2">
-                  <div class="flex items-center gap-2">
-                    <button type="button" class="flex items-center gap-2 cursor-pointer select-none flex-1 text-left rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" @click="toggleStack(group.name)" :aria-expanded="!collapsedStacks[group.name] ? 'true' : 'false'">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" class="flex flex-wrap items-center gap-x-2 gap-y-1 cursor-pointer select-none flex-1 min-w-0 text-left rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" @click="toggleStack(group.name)" :aria-expanded="!collapsedStacks[group.name] ? 'true' : 'false'">
                       <svg :class="{'rotate-90': !collapsedStacks[group.name]}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
                       <span class="sr-only">Spaces in stack</span>
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="group.name"></span>
                       <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'(' + group.count + ' space' + (group.count !== 1 ? 's' : '') + ')'"></span>
                     </button>
-                    <div class="flex items-center gap-1 ml-auto">
+                    <div class="flex flex-wrap items-center gap-1 ml-auto">
                       <button x-show="group.spaces.some(s => s.is_local) && group.spaces.some(s => !s.is_deployed && !s.is_pending)" @click.stop="startStack(group.name)" :disabled="stackBusy[group.name] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-green-700 transition-colors hover:bg-slate-100 hover:text-green-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-green-400 dark:hover:bg-slate-700/70 dark:hover:text-green-300 dark:focus-visible:ring-offset-slate-900">
                         <svg x-show="stackBusy[group.name] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd"/></svg>
                         <svg x-show="stackBusy[group.name] === true" x-cloak class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -326,8 +339,8 @@
               <!-- Pool header row -->
               <tr class="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                 <td colspan="6" class="px-4 py-2">
-                  <div class="flex items-center gap-2">
-                    <button type="button" class="flex items-center gap-2 cursor-pointer select-none flex-1 text-left rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" @click="togglePool(pg.pool.pool_id)" :aria-expanded="collapsedPools[pg.pool.pool_id] === false ? 'true' : 'false'">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" class="flex flex-wrap items-center gap-x-2 gap-y-1 cursor-pointer select-none flex-1 min-w-0 text-left rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" @click="togglePool(pg.pool.pool_id)" :aria-expanded="collapsedPools[pg.pool.pool_id] === false ? 'true' : 'false'">
                       <svg :class="{'rotate-90': collapsedPools[pg.pool.pool_id] === false}" class="size-3 text-gray-500 dark:text-gray-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Pool:</span>
                       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="pg.pool.name"></span>
@@ -343,7 +356,7 @@
                         <span class="text-xs text-gray-500 dark:text-gray-400" x-text="Number(pg.pool.utilization?.combined_rps || 0).toFixed(1) + ' rps · ' + Number(pg.pool.utilization?.avg_cpu_percent || 0).toFixed(0) + '% cpu · ' + Number(pg.pool.utilization?.avg_memory_percent || 0).toFixed(0) + '% mem'"></span>
                       </template>
                     </button>
-                    <div class="flex items-center gap-1 ml-auto">
+                    <div class="flex flex-wrap items-center gap-1 ml-auto">
                       <button x-show="canUsePools && !pg.pool.active" @click.stop="poolAction(pg.pool, 'start')" :disabled="poolBusy[pg.pool.pool_id] === true" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-green-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/45 dark:text-green-400 dark:hover:bg-slate-700/70">
                         <svg x-show="poolBusy[pg.pool.pool_id] !== true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd"/></svg>
                         <svg x-show="poolBusy[pg.pool.pool_id] === true" x-cloak class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -407,9 +420,9 @@
             <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
             <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('shareUsers')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" data-parent-variable-username="toUserUsername" @refresh-autocompleter.window="refresh()" class="relative mt-2">
-              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="Search users" :aria-invalid="chooseUser.invalidUser ? 'true' : 'false'" :aria-describedby="chooseUser.invalidUser ? 'choose-user-error' : null" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="User" aria-autocomplete="list" :aria-invalid="chooseUser.invalidUser ? 'true' : 'false'" :aria-describedby="chooseUser.invalidUser ? 'choose-user-error' : null" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
               <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
-                <ul class="list-none" role="listbox" :id="_listboxId">
+                <ul class="list-none" role="listbox" :id="_listboxId" aria-label="Users">
                   <template x-for="(option, index) in filteredOptions" :key="index">
                     <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
                       {{ if .useGravatar }}
@@ -602,7 +615,8 @@
           <div class="ui-modal-body-scroll max-h-[75vh]">
             <template x-if="spaceUsageModal.show">
               <div x-data="spaceUsageComponent(spaceUsageModal.spaceId, spaceUsageModal.spaceName)" x-init="init()" x-effect="spaceUsageModal.show || destroy()">
-                <p class="text-sm text-gray-500 dark:text-gray-400">CPU, memory, and disk usage over the last 7 days.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">CPU, memory and disk use now, and their history.</p>
+                <p x-show="error" x-cloak role="alert" class="mt-3 text-sm text-red-700 dark:text-red-300" x-text="error"></p>
 
                 <div x-show="showCurrentCards()" x-cloak class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800">
@@ -631,18 +645,24 @@
                 </div>
 
                 <div :class="showCurrentCards() ? 'mt-4' : 'mt-0'" class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800">
-                  <div class="flex items-center justify-between gap-4">
+                  <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <h4 class="text-lg font-semibold text-gray-900 dark:text-white">History</h4>
                       <p class="text-sm text-gray-500 dark:text-gray-400" x-text="selectedRange === '1h' ? 'Per-minute history for the last hour.' : 'Daily rollup for the last 7 days.'"></p>
                     </div>
-                    <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                      <button type="button" @click="setRange('1h')" :class="selectedRange === '1h' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 dark:bg-gray-800 dark:text-gray-300'" class="px-3 py-1.5 text-xs font-medium">Last Hour</button>
-                      <button type="button" @click="setRange('7d')" :class="selectedRange === '7d' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 dark:bg-gray-800 dark:text-gray-300'" class="px-3 py-1.5 text-xs font-medium border-l border-gray-200 dark:border-gray-700">Last 7 Days</button>
+                    <div class="inline-flex shrink-0 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden" role="group" aria-label="History range">
+                      <button type="button" @click="setRange('1h')" :aria-pressed="selectedRange === '1h' ? 'true' : 'false'" :class="selectedRange === '1h' ? 'bg-blue-600 text-white font-semibold underline underline-offset-4' : 'bg-white text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium cursor-pointer whitespace-nowrap">
+                        <svg x-show="selectedRange === '1h'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" /></svg>
+                        Last Hour
+                      </button>
+                      <button type="button" @click="setRange('7d')" :aria-pressed="selectedRange === '7d' ? 'true' : 'false'" :class="selectedRange === '7d' ? 'bg-blue-600 text-white font-semibold underline underline-offset-4' : 'bg-white text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium cursor-pointer whitespace-nowrap border-l border-gray-300 dark:border-gray-600">
+                        <svg x-show="selectedRange === '7d'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" /></svg>
+                        Last 7 Days
+                      </button>
                     </div>
                   </div>
                   <div class="mt-4 h-[28rem]">
-                    <canvas x-ref="historyChart"></canvas>
+                    <canvas x-ref="historyChart" role="img" aria-label="Usage history chart"></canvas>
                   </div>
                 </div>
               </div>
@@ -673,7 +693,7 @@
               <label class="flex items-center cursor-pointer" :class="canEditJobs() && jobsModal.definitions.length > 0 ? '' : 'opacity-60 pointer-events-none'">
                 <span class="me-3 text-sm font-medium text-gray-900 dark:text-gray-300">Job Runner Enabled:</span>
                 <input type="checkbox" class="sr-only peer" :checked="jobsModal.enabled" :disabled="jobsModal.togglingRunner || !canEditJobs()" @change="toggleJobRunner">
-                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               </label>
             </div>
 
@@ -717,7 +737,7 @@
                           <label class="flex items-center cursor-pointer" :class="canEditJobs() && jobsModal.togglingJob !== job.name ? '' : 'opacity-60 pointer-events-none'">
                             <span class="sr-only" x-text="(job.enabled ? 'Disable job ' : 'Enable job ') + job.name"></span>
                             <input type="checkbox" class="sr-only peer" :checked="job.enabled" :disabled="jobsModal.togglingJob === job.name" @change="toggleJobEnabled(job.name)">
-                            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                            <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                           </label>
                         </td>
                         <td class="px-3 py-2 whitespace-nowrap text-xs">
@@ -776,8 +796,8 @@
           <div class="ui-modal-body">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="form-label" for="job-name">Name</label>
-                <input type="text" id="job-name" x-model="jobsModal.jobForm.name" @blur="touchJobFormField('name')" class="form-field" :class="{'form-field-error': jobFormFieldShowError('name')}" :aria-invalid="jobFormFieldShowError('name') ? 'true' : 'false'" :aria-describedby="jobFormFieldShowError('name') ? 'job-name-error' : null" placeholder="backup">
+                <label class="form-label" for="job-name">Name{{ template "req" }}</label>
+                <input type="text" id="job-name" aria-required="true" x-model="jobsModal.jobForm.name" @blur="touchJobFormField('name')" class="form-field" :class="{'form-field-error': jobFormFieldShowError('name')}" :aria-invalid="jobFormFieldShowError('name') ? 'true' : 'false'" :aria-describedby="jobFormFieldShowError('name') ? 'job-name-error' : null" placeholder="backup">
                 <div id="job-name-error" x-show="jobFormFieldShowError('name')" class="error-message" x-cloak x-text="jobFormNameValid() ? '' : (jobsModal.jobForm.name.trim() ? 'Job name is already used.' : 'Job name is required.')"></div>
               </div>
               <div>
@@ -786,15 +806,15 @@
                 <div id="job-schedule-error" x-show="jobFormFieldShowError('schedule')" class="error-message" x-cloak>Schedule must be a 5-field cron expression (minute hour day month weekday), e.g. <code>0 2 * * *</code>. Leave empty for a manual-only job.</div>
               </div>
               <div class="sm:col-span-2">
-                <label class="form-label" for="job-command">Command</label>
-                <input type="text" id="job-command" x-model="jobsModal.jobForm.command" @blur="touchJobFormField('command')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('command')}" :aria-invalid="jobFormFieldShowError('command') ? 'true' : 'false'" :aria-describedby="jobFormFieldShowError('command') ? 'job-command-error' : null" placeholder="./scripts/backup.sh">
+                <label class="form-label" for="job-command">Command{{ template "req" }}</label>
+                <input type="text" id="job-command" aria-required="true" x-model="jobsModal.jobForm.command" @blur="touchJobFormField('command')" class="form-field font-mono" :class="{'form-field-error': jobFormFieldShowError('command')}" :aria-invalid="jobFormFieldShowError('command') ? 'true' : 'false'" :aria-describedby="jobFormFieldShowError('command') ? 'job-command-error' : null" placeholder="./scripts/backup.sh">
                 <div id="job-command-error" x-show="jobFormFieldShowError('command')" class="error-message" x-cloak>Command is required.</div>
               </div>
             </div>
 
             <label class="inline-flex items-center cursor-pointer">
               <input type="checkbox" x-model="jobsModal.jobForm.enabled" class="sr-only peer">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Enabled <span class="text-gray-500 dark:text-gray-400">(fires automatically; manual runs always work)</span></span>
             </label>
           </div>
@@ -854,6 +874,26 @@
               <input type="search" class="form-field w-full" placeholder="Search templates..." aria-label="Search templates" x-model="templateSelector.searchTerm" x-on:input="templateSearchChanged" x-ref="templateSearchInput">
             </div>
 
+            <!-- Nothing to show: no templates at all, or none match the search -->
+            <div x-show="!templateSelector.templates.some((t) => !t.searchHide)" x-cloak class="app-empty" role="status">
+              <template x-if="templateSelector.searchTerm.trim().length">
+                <div>
+                  <p class="app-empty-heading" x-text="'No templates match “' + templateSelector.searchTerm.trim() + '”'"></p>
+                  <p class="app-empty-text">Try a different word, or <button type="button" class="text-blue-700 hover:underline dark:text-blue-300 cursor-pointer" @click="templateSelector.searchTerm = ''; templateSearchChanged(); $refs.templateSearchInput.focus()">clear the search</button>.</p>
+                </div>
+              </template>
+              <template x-if="!templateSelector.searchTerm.trim().length">
+                <div>
+                  <p class="app-empty-heading">No templates available</p>
+                  {{ if .permissionManageTemplates }}
+                  <p class="app-empty-text">There are no active templates for this zone<span x-show="templateSelector.intent === 'pool'"> that a pool can use</span>. <a href="/templates" class="text-blue-700 hover:underline dark:text-blue-300">Create or activate a template</a> first.</p>
+                  {{ else }}
+                  <p class="app-empty-text">There are no templates you can use in this zone<span x-show="templateSelector.intent === 'pool'"> that a pool can use</span>. Ask an administrator to give you access to one.</p>
+                  {{ end }}
+                </div>
+              </template>
+            </div>
+
             <!-- Template List -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <template x-for="t in templateSelector.templates" :key="t.template_id">
@@ -869,9 +909,9 @@
                           <div class="flex-grow min-w-0">
                             <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate">
                               <!-- The whole card is the button's target (after:inset-0); the schedule days sit above it. -->
-                              <button type="button" class="text-left truncate max-w-full cursor-pointer disabled:cursor-not-allowed focus:outline-none after:absolute after:inset-0 after:content-['']" :disabled="templateBlocked(t)" :aria-describedby="'tpl-desc-' + t.template_id + ' tpl-why-' + t.template_id" @click="selectTemplate(t.template_id)" x-text="t.name"></button>
+                              <button type="button" class="text-left truncate max-w-full cursor-pointer disabled:cursor-not-allowed focus:outline-none after:absolute after:inset-0 after:content-['']" :title="t.name" :disabled="templateBlocked(t)" :aria-describedby="'tpl-desc-' + t.template_id + ' tpl-why-' + t.template_id" @click="selectTemplate(t.template_id)" x-text="t.name"></button>
                             </h4>
-                            <p :id="'tpl-desc-' + t.template_id" class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="t.description"></p>
+                            <p :id="'tpl-desc-' + t.template_id" class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" :title="t.description" x-text="t.description"></p>
                           </div>
                         </div>
 
@@ -899,7 +939,7 @@
                             <div class="flex flex-wrap gap-1 mt-1">
                               <template x-for="index in 7" :key="index">
                                 <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
-                                  <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-50 text-blue-700 px-1 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
+                                  <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-50 text-blue-700 px-1 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-300 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
                                   <div x-ref="panel" x-float.teleport.placement.bottom-center.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                                     <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
                                   </div>
@@ -986,9 +1026,9 @@
                       <img x-show="d.icon_url && d.icon_url_exists" :src="d.icon_url" alt="" class="size-12 flex-shrink-0" />
                       <div class="flex-grow min-w-0">
                         <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate">
-                          <button type="button" class="text-left truncate max-w-full cursor-pointer focus:outline-none after:absolute after:inset-0 after:content-['']" :aria-describedby="'sdef-desc-' + d.stack_definition_id" @click="openCreateStackFromDef(d)" x-text="d.name"></button>
+                          <button type="button" class="text-left truncate max-w-full cursor-pointer focus:outline-none after:absolute after:inset-0 after:content-['']" :title="d.name" :aria-describedby="'sdef-desc-' + d.stack_definition_id" @click="openCreateStackFromDef(d)" x-text="d.name"></button>
                         </h4>
-                        <p :id="'sdef-desc-' + d.stack_definition_id" class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="d.description"></p>
+                        <p :id="'sdef-desc-' + d.stack_definition_id" class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" :title="d.description" x-text="d.description"></p>
                         <div class="flex flex-wrap gap-2 mt-2 items-center text-xs text-gray-500 dark:text-gray-400">
                           <span x-text="(d.spaces || []).length + ' space' + ((d.spaces || []).length === 1 ? '' : 's')"></span>
                           <span x-show="!d.user_id">· Global</span>

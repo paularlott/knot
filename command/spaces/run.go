@@ -54,19 +54,19 @@ var RunCmd = &cli.Command{
 		// Create a new websocket connection
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		// Get the current user
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
+			return fmt.Errorf("couldn't get the current user: %w", err)
 		}
 
 		// Get a list of available spaces
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		// Find the space by name
@@ -79,7 +79,7 @@ var RunCmd = &cli.Command{
 		}
 
 		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
+			return fmt.Errorf("space %q not found", spaceName)
 		}
 
 		// Get server info from client
@@ -97,12 +97,7 @@ var RunCmd = &cli.Command{
 		dialer.HandshakeTimeout = 5 * time.Second
 		ws, response, err := dialer.Dial(wsURL, header)
 		if err != nil {
-			if response != nil && response.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("failed to authenticate with server, check remote token")
-			} else if response != nil && response.StatusCode == http.StatusForbidden {
-				return fmt.Errorf("no permission to run commands in this space")
-			}
-			return fmt.Errorf("Error connecting to websocket: %w", err)
+			return cmdutil.WebSocketError(fmt.Sprintf("couldn't connect to space %q to run the command", spaceName), response, err)
 		}
 		defer ws.Close()
 
@@ -116,7 +111,7 @@ var RunCmd = &cli.Command{
 
 		err = ws.WriteJSON(execRequest)
 		if err != nil {
-			return fmt.Errorf("Error sending command: %w", err)
+			return fmt.Errorf("couldn't send the command to space %q: %w", spaceName, err)
 		}
 
 		// Read and display the output
@@ -127,7 +122,7 @@ var RunCmd = &cli.Command{
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 					break
 				}
-				return fmt.Errorf("Error reading message: %w", err)
+				return fmt.Errorf("lost the connection to space %q while the command was running: %w", spaceName, err)
 			}
 
 			// Check for end of execution marker

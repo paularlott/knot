@@ -1,19 +1,19 @@
+import { sortable } from '../components/sortable.js';
 import Alpine from "alpinejs";
 
 window.eventSinkListComponent = function (userId, permissionManageEvents, permissionManageGlobalEvents, isLeafNode) {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search").focus();
-    }
-  });
-
   const canAccessOwn = permissionManageEvents || isLeafNode || false;
   const canAccessGlobal = permissionManageGlobalEvents || isLeafNode || false;
   const defaultShowMySinks = canAccessOwn;
   const defaultShowGlobalSinks = canAccessGlobal;
 
   return {
+    ...sortable('event-sinks', {
+      name: (s) => s.name,
+      owner: (s) => (s.user_id ? 'User' : 'Global'),
+      type: (s) => s.sink_type,
+      status: (s) => (s.active ? 0 : 1),
+    }),
     loading: true,
     confirmDelete(s) {
       window.knotConfirm({
@@ -175,13 +175,10 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Event sink could not be deleted",
-              type: "error",
-            });
+            window.knotError("delete the event sink", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the event sink", err));
       this.getEventSinks();
     },
 
@@ -193,6 +190,18 @@ window.eventSinkListComponent = function (userId, permissionManageEvents, permis
 
     searchChanged() {
       this.applyFilters();
+    },
+
+    filtersActive() {
+      return (this.canAccessOwn && !this.showMySinks) || (this.canAccessGlobal && !this.showGlobalSinks);
+    },
+
+    clearFilters() {
+      this.searchTerm = "";
+      this.showMySinks = this.canAccessOwn;
+      this.showGlobalSinks = this.canAccessGlobal;
+      this.applyFilters();
+      document.getElementById("search")?.focus();
     },
 
     applyFilters() {

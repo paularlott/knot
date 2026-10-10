@@ -39,12 +39,12 @@ var PortStopCmd = &cli.Command{
 		// Get the space ID from the space name
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		spaces, _, err := client.GetSpaces(ctx, "", false)
 		if err != nil {
-			return fmt.Errorf("failed to get spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		var spaceId string
@@ -56,7 +56,7 @@ var PortStopCmd = &cli.Command{
 		}
 
 		if spaceId == "" {
-			return fmt.Errorf("space '%s' not found", spaceName)
+			return fmt.Errorf("space %q not found", spaceName)
 		}
 
 		// Create the request
@@ -67,14 +67,7 @@ var PortStopCmd = &cli.Command{
 		// Send the port stop request
 		code, err := client.StopPort(ctx, spaceId, request)
 		if err != nil {
-			if code == 401 {
-				return fmt.Errorf("failed to authenticate with server, check token")
-			} else if code == 403 {
-				return fmt.Errorf("no permission to stop port forwards")
-			} else if code == 404 {
-				return fmt.Errorf("space not found")
-			}
-			return fmt.Errorf("failed to stop port forward: %w", err)
+			return spaceApiError(code, err, "stop the port forward", spaceName)
 		}
 
 		fmt.Printf("Port forward on port %d stopped in space '%s'.\n", localPort, spaceName)

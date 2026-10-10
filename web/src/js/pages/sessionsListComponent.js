@@ -1,5 +1,11 @@
+import { sortable } from '../components/sortable.js';
 window.sessionsListComponent = function() {
   return {
+    ...sortable('sessions', {
+      current: (s) => (s.current ? 0 : 1),
+      ip: (s) => s.ip,
+      agent: (s) => s.user_agent,
+    }),
     loading: true,
     sessions: [],
     async init() {
@@ -13,7 +19,6 @@ window.sessionsListComponent = function() {
 
         window.sseClient.subscribe('sessions:deleted', (payload) => {
           this.sessions = this.sessions.filter(x => x.session_id !== payload?.id);
-          this.searchChanged();
         });
       }
     },
@@ -43,7 +48,7 @@ window.sessionsListComponent = function() {
       window.knotConfirm({
         danger: true,
         message: 'Are you sure you want to delete the session?',
-        detail: 'Deleting the session will cause the the browser to be logged out.',
+        detail: 'The browser using this session will be signed out.',
         confirmLabel: 'Delete Session',
         cancelLabel: 'Cancel',
       }).then((ok) => ok && this.deleteSession(session.session_id));
@@ -61,10 +66,11 @@ window.sessionsListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Session could not be deleted", type: 'error' });
+          window.knotError('delete the session', response);
         }
-      }).catch(() => {
+      }).catch((err) => {
         // Don't logout on network errors - Safari closes connections aggressively
+        window.knotError('delete the session', err);
       });
       this.getSessions();
     },

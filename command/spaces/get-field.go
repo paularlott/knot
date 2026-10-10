@@ -31,13 +31,13 @@ var GetFieldCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		// Get the custom field (API supports both name and ID)
 		response, _, err := client.GetSpaceCustomField(context.Background(), spaceName, fieldName)
 		if err != nil {
-			return fmt.Errorf("Error getting custom field: %w", err)
+			return fmt.Errorf("couldn't get custom field %q of space %q: %w", fieldName, spaceName, err)
 		}
 
 		fmt.Println(response.Value)

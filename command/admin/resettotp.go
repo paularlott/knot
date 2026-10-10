@@ -34,8 +34,7 @@ var ResetTOTPCmd = &cli.Command{
 		// Load the user
 		user, err := db.GetUserByEmail(email)
 		if err != nil {
-			fmt.Println("Error getting user: ", err)
-			return nil
+			return fmt.Errorf("couldn't find user %q: %w", email, err)
 		}
 
 		// Clear TOTP
@@ -45,8 +44,7 @@ var ResetTOTPCmd = &cli.Command{
 		// Save the user
 		err = db.SaveUser(user, []string{"TOTPSecret", "UpdatedAt"})
 		if err != nil {
-			fmt.Println("Error saving user: ", err)
-			return nil
+			return fmt.Errorf("couldn't save user %q: %w", email, err)
 		}
 
 		fmt.Print("\nTOTP Reset\n")

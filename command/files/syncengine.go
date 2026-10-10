@@ -870,7 +870,7 @@ func (s *syncer) upload(ctx context.Context, a action) error {
 			s.log.Debug("changed in the bucket meanwhile: looking again", "file", remoteName(s.opt.bucket, key))
 			return nil
 		}
-		return fmt.Errorf("%s: %s", local, cmdutil.CleanAPIError(err))
+		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
 	}
 	if how != "" {
 		s.log.Info("uploaded", "file", l.rel, "to", remoteName(s.opt.bucket, key), "size", formatBytes(l.size), "content", how)
@@ -1043,7 +1043,7 @@ func (s *syncer) deleteRemote(ctx context.Context, a action) error {
 		if strings.Contains(err.Error(), "404") {
 			return nil
 		}
-		return fmt.Errorf("%s: %s", name, cmdutil.CleanAPIError(err))
+		return fmt.Errorf("%s: %w", name, cmdutil.CleanErr(err))
 	}
 	s.log.Info("deleted", "file", name)
 	s.mu.Lock()

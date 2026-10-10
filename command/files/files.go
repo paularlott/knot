@@ -2,7 +2,6 @@ package command_files
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -77,7 +76,7 @@ Knot Pro also serves the same buckets over S3 at <server>/s3, using your usernam
 func getClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 	addr := cmdutil.GetServerAddr(cmd)
 	if addr == nil || addr.HttpServer == "" {
-		return nil, fmt.Errorf("no server configured, use knot connect or --alias")
+		return nil, cmdutil.ErrNoServer
 	}
 	skipVerify := cmd.GetBool("tls-skip-verify") || agentlink.IsAgentRunning()
 	return apiclient.NewClient(addr.HttpServer, addr.ApiToken, skipVerify)
@@ -85,7 +84,7 @@ func getClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 
 // apiError makes an API error readable.
 func apiError(err error) error {
-	return errors.New(cmdutil.CleanAPIError(err))
+	return cmdutil.CleanErr(err)
 }
 
 // dirPrefix makes a non-empty key prefix end in "/", so it names a folder.

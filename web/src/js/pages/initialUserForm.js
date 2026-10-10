@@ -72,13 +72,11 @@ window.createInitialUserForm = function() {
           if (response.status === 201) {
             window.location.href = '/';
           } else {
-            response.json().then((responseData) => {
-              self.$dispatch('show-alert', { msg: responseData.error, type: 'error' });
-            });
+            window.knotError('create the admin user', response);
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
+          window.knotError('create the admin user', error);
         })
         .finally(() => {
           this.buttonLabel = 'Create User';

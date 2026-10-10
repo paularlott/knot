@@ -369,27 +369,12 @@ window.eventSinkForm = function (isEdit, sinkId, isGlobal = false) {
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            try {
-              const data = await response.json();
-              this.$dispatch("show-alert", {
-                msg: data.error || "Failed to save event sink",
-                type: "error",
-              });
-            } catch (e) {
-              const text = await response.text();
-              this.$dispatch("show-alert", {
-                msg: text || "Failed to save event sink",
-                type: "error",
-              });
-            }
+            window.knotError(this.isEdit ? "save the event sink" : "create the event sink", response);
           }
           this.loading = false;
         })
         .catch((err) => {
-          this.$dispatch("show-alert", {
-            msg: "Network error: " + err.message,
-            type: "error",
-          });
+          window.knotError(this.isEdit ? "save the event sink" : "create the event sink", err);
           this.loading = false;
         });
     },

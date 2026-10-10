@@ -40,10 +40,10 @@ To get back a single file or folder, rather than the whole backup, use knot admi
 
 		manifest, err := backupfile.ReadManifest(dir)
 		if err != nil {
-			return fmt.Errorf("Error: %w", err)
+			return err
 		}
 		if manifest.Encrypted && key == "" {
-			return errors.New("Error: the backup is encrypted: give the key with --encrypt-key.")
+			return errors.New("the backup is encrypted: give the key with --encrypt-key")
 		}
 		client, err := adminClient(cmd)
 		if err != nil {
@@ -66,7 +66,7 @@ To get back a single file or folder, rather than the whole backup, use knot admi
 				return err
 			})
 			if err != nil {
-				return fmt.Errorf("Error restoring %s: %w", kind, err)
+				return fmt.Errorf("couldn't restore the %s records: %w", kind, err)
 			}
 			summary.Counts[kind] = res.Restored
 			fmt.Printf("  %-14s %d restored", kind, res.Restored)
@@ -138,7 +138,7 @@ func restoreKind(ctx context.Context, client *apiclient.ApiClient, dir, kind, ke
 
 	res, err := client.RestoreStream(ctx, kind, pr)
 	if err != nil {
-		return nil, 0, errors.New(cmdutil.CleanAPIError(err))
+		return nil, 0, cmdutil.CleanErr(err)
 	}
 	return res, <-sent, nil
 }
@@ -239,7 +239,7 @@ func uploadContentOnce(ctx context.Context, client *apiclient.ApiClient, dir, sh
 		return err
 	}
 	if err := client.RestoreContent(ctx, sha, f, info.Size()); err != nil {
-		return errors.New(cmdutil.CleanAPIError(err))
+		return cmdutil.CleanErr(err)
 	}
 	return nil
 }

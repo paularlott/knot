@@ -26,13 +26,13 @@ var RestartCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		// Restart the space (API supports both name and ID)
 		_, err = client.RestartSpace(context.Background(), spaceName)
 		if err != nil {
-			return fmt.Errorf("Error restarting space: %w", err)
+			return fmt.Errorf("couldn't restart space %q: %w", spaceName, err)
 		}
 
 		fmt.Println("Space restarting: ", spaceName)

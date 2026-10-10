@@ -691,7 +691,7 @@ func (o *mirrorOptions) uploadInParallel(ctx context.Context, uploads []upload, 
 				}
 				if err := o.uploadOne(ctx, u, buf); err != nil {
 					stats.failed.Add(1)
-					fmt.Fprintf(os.Stderr, "  ! %s: %v\n", u.rel, err)
+					fmt.Fprintf(os.Stderr, "  ! %s: %v\n", u.rel, cmdutil.Describe(err))
 					continue
 				}
 				stats.uploaded.Add(1)
@@ -816,7 +816,7 @@ func (o *mirrorOptions) deleteExtras(ctx context.Context, extras []string, stats
 			Recursive: true,
 		}); err != nil {
 			stats.failed.Add(1)
-			fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
+			fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, cmdutil.Describe(err))
 			continue
 		}
 		stats.deleted.Add(1)

@@ -203,20 +203,15 @@ Command body (markdown). Use \`$ARGUMENTS\` to insert the user's argument.
             } else {
               this.$dispatch("close-command-form");
             }
-          } else if (response.status === 400) {
-            const data = await response.json();
-            this.$dispatch("show-alert", { msg: data.error || "Validation error", type: "error" });
-            this.loading = false;
-          } else if (response.status === 403) {
-            const data = await response.json();
-            this.$dispatch("show-alert", { msg: data.error || "Permission denied", type: "error" });
-            this.loading = false;
           } else if (response.status === 401) {
             window.location.href = "/logout";
+          } else {
+            window.knotError(this.isEdit ? "save the command" : "create the command", response);
+            this.loading = false;
           }
         })
-        .catch(() => {
-          this.$dispatch("show-alert", { msg: "Network error", type: "error" });
+        .catch((err) => {
+          window.knotError(this.isEdit ? "save the command" : "create the command", err);
           this.loading = false;
         });
     },

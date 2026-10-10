@@ -15,7 +15,7 @@
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
           <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
-          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
         </div>
       </div>
       <div>
@@ -23,7 +23,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Volume
+          New Volume
         </button>
       </div>
     </form>
@@ -32,21 +32,21 @@
 
       {{ template "loading" . }}
             <div x-show="!loading && volumes.length === 0" x-cloak>
-        {{ template "empty" "No volumes yet." }}
+        {{ template "empty" (map "heading" "No volumes yet" "text" "Volumes are storage that lives on after a space stops and can be shared between spaces." "action" "New Volume" "click" "createVolume()") }}
       </div>
       <div x-show="!loading && volumes.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Volumes" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Details</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Zone / Server</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Type</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Deployed</th>
+              {{ template "sort-th" (map "key" "name" "label" "Name") }}
+              {{ template "sort-th" (map "key" "zone" "label" "Zone / Server" "class" "hidden sm:table-cell") }}
+              {{ template "sort-th" (map "key" "type" "label" "Type" "class" "hidden sm:table-cell") }}
+              {{ template "sort-th" (map "key" "deployed" "label" "Deployed" "class" "hidden sm:table-cell") }}
               <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-          <template x-for="v in volumes" :key="v.volume_id">
+          <template x-for="v in sorted(volumes)" :key="v.volume_id">
             <tr x-show="!v.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
               <td class="px-4 py-3">
                 <div class="text-base font-semibold text-gray-900 dark:text-white"><template x-if="!(v.active || v.starting || v.stopping)"><a :href="'/volumes?edit=' + encodeURIComponent(v.volume_id)" class="table-name-link" @click="knotEditClick($event, () => editVolume(v.volume_id))"><span class="sr-only">Edit volume </span><span x-text="v.name"></span></a></template><template x-if="!(!(v.active || v.starting || v.stopping))"><span x-text="v.name"></span></template></div>
@@ -143,6 +143,7 @@
               </td>
             </tr>
           </template>
+          {{ template "no-results" (map "list" "volumes" "things" "volumes" "cols" 5) }}
           </tbody>
         </table>
       </div>

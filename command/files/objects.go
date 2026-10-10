@@ -223,7 +223,7 @@ var rmCmd = &cli.Command{
 		count := 0
 		for _, f := range files {
 			if err := client.DeleteFileObject(ctx, f.bucket, f.key); err != nil {
-				return fmt.Errorf("%s: %s", f, cmdutil.CleanAPIError(err))
+				return fmt.Errorf("%s: %w", f, cmdutil.CleanErr(err))
 			}
 			fmt.Printf("deleted %s\n", f)
 			if !strings.HasSuffix(f.key, "/") {

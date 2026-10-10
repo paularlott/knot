@@ -51,7 +51,7 @@ var AcquireCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		if !cmd.GetBool("json") {

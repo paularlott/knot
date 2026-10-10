@@ -171,7 +171,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 
 	if (successCode == 0 && rec.Code >= http.StatusBadRequest) || (successCode > 0 && rec.Code != successCode) {
 		bodyBytes, _ := io.ReadAll(rec.Body)
-		return rec.Code, fmt.Errorf("unexpected status code: %d: %s", rec.Code, string(bodyBytes))
+		return rec.Code, NewHTTPError(rec.Code, method, path, bodyBytes)
 	}
 
 	if response != nil {

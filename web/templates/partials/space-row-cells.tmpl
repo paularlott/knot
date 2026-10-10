@@ -1,11 +1,161 @@
+{{/* Row cells for one space in the spaces table (spaces.tmpl), used inside an
+     element with x-data="{ s: space }". Columns: Space, Connect (md+),
+     Status (lg+), Shared (2xl+), Template (xl+), Actions. */}}
+
+{{/* The space's state: icon + text (never colour alone), then the start-up
+     elapsed time, uptime or when it last started. */}}
+{{ define "space-status" }}
+<div class="flex items-center gap-x-2 gap-y-1 flex-wrap">
+  <span class="inline-flex items-center gap-1 text-xs font-medium whitespace-nowrap" :class="statusClass(s)">
+    <svg x-show="spaceStatus(s) === 'running'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" /></svg>
+    <svg x-show="spaceStatus(s) === 'unhealthy'" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0" aria-hidden="true"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>
+    <svg x-show="spaceStatus(s) === 'starting' || spaceStatus(s) === 'stopping'" x-cloak class="size-4 shrink-0 animate-spin motion-reduce:animate-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+    <svg x-show="spaceStatus(s) === 'deleting'" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4Z" clip-rule="evenodd" /></svg>
+    <svg x-show="spaceStatus(s) === 'stopped'" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" /></svg>
+    <span x-text="statusLabel(s)"></span>
+  </span>
+  <span x-show="spaceStatus(s) === 'starting' && s.pending_since" x-cloak class="text-xs text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap" x-text="startingElapsed(s)"></span>
+  <span x-show="spaceStatus(s) === 'running' || spaceStatus(s) === 'unhealthy'" x-cloak class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"><span class="sr-only">Up for </span><span aria-hidden="true">Up </span><span x-text="s.uptime"></span></span>
+  <span x-show="spaceStatus(s) === 'stopped' && lastStartedText(s)" x-cloak class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" x-text="'Last started ' + lastStartedText(s)"></span>
+  <span x-show="s.is_local && s.update_available && !s.is_pending" x-cloak class="app-badge-purple whitespace-nowrap" title="The template has changed since this space started; restart it to use the new version">Update available</span>
+</div>
+{{ end }}
+
+{{/* Ways to connect to a running space (desktop: its own column; mobile:
+     under the name). Stopped and starting spaces say what to expect. */}}
+{{ define "space-services" }}
+  <!-- Running: connect buttons. Each tooltip opens on hover and focus, stays
+       open while the pointer moves onto it, and closes on Escape. -->
+  <template x-if="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s)">
+    <div class="flex flex-wrap items-center gap-1">
+      {{ if .permissionUseVNC }}
+      <div x-show="s.has_http_vnc" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openWindowForVNC(s.username, s.space_id, s.name)" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>
+          <span class="sr-only">Desktop</span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>Desktop</div>
+      </div>
+      <div x-show="s.platform === 'kvm' && s.template_has_vnc" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openVMDisplay(s.space_id)" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
+          <span class="sr-only">VM Display</span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>VM Display</div>
+      </div>
+      {{ end }}
+      {{ if .permissionUseCodeServer }}
+      <div x-show="s.has_code_server" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openCodeServer(s.space_id)" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
+          <span class="sr-only">Code Server</span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>Code Server</div>
+      </div>
+      {{ end }}
+      {{ if .permissionUseVSCodeTunnel }}
+      <div x-show="s.has_vscode_tunnel && !s.vscode_tunnel_name.length" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openTerminalTunnel(s.space_id)" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-red-600 dark:text-red-400" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
+          <span class="sr-only">Connect VSCode Tunnel</span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>Connect VSCode Tunnel</div>
+      </div>
+      <div x-show="s.has_vscode_tunnel && s.vscode_tunnel_name.length" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openVSCodeDev(s.vscode_tunnel_name)" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
+          <span class="sr-only">VSCode</span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>VSCode</div>
+      </div>
+      {{ end }}
+      {{ if .permissionUseWebTerminal }}
+      <div x-show="s.has_terminal" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openTerminal(s.space_id)" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+          <span class="sr-only">Terminal</span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>Terminal</div>
+      </div>
+      {{ end }}
+      <!-- Single HTTP port -->
+      <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1) && !(s.alt_names && s.alt_names.length)">
+        <div x-data class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+          <button type="button" @click="openWindowForPort(s.username, s.space_id, s.pool_name || s.name, Object.entries(s.http_ports)[0][0])" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
+            <span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
+          </button>
+          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak x-text="Object.entries(s.http_ports)[0][1]"></div>
+        </div>
+      </template>
+      <!-- Several ports: a menu of them -->
+      <template x-if="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length > 1) || (s.http_ports && Object.entries(s.http_ports).length && s.alt_names && s.alt_names.length)">
+        <div x-data class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+          <button type="button" @click="tipHide($el.parentElement); $refs.panel.toggle($event)" aria-expanded="false" data-disclosure class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
+            </svg><span class="sr-only">Ports</span>
+          </button>
+          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>Ports</div>
+          <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+            <template x-for="entry in getHttpPortEntries(s)" :key="entry.name + '-' + entry.key">
+              <button type="button" x-text="entry.label" @click="$refs.panel.close(); openWindowForPort(s.username, s.space_id, entry.name, entry.key)" class="nav-item text-sm px-4 w-full"></button>
+            </template>
+            <hr x-show="Object.entries(s.http_ports || {}).length && Object.entries(s.tcp_ports || {}).length" class="my-2" role="separator" />
+            <template x-for="[key, value] in Object.entries(s.tcp_ports || {})" :key="key">
+              <div class="nav-item text-sm px-4 w-full hover:bg-transparent dark:hover:bg-transparent cursor-default"><span x-text="key==value ? key : value + ' (' + key + ')'"></span><span class="sr-only"> (TCP port)</span></div>
+            </template>
+          </div>
+        </div>
+      </template>
+      {{ if .permissionUseLogs }}
+      <div x-show="s.platform !== 'kvm' && (s.has_state || s.platform !== 'manual')" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openLogWindow(s.space_id)" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+          <span class="sr-only">Logs</span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak>Logs</div>
+      </div>
+      {{ end }}
+      <div x-show="s.has_jobs" x-data x-cloak class="relative" @mouseenter="tipShow($el)" @mouseleave="tipHide($el, 150)" @focusin="tipShow($el)" @focusout="tipHide($el)">
+        <button type="button" @click="openJobs(s.space_id)" class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5" :class="s.jobs_enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+          <span class="sr-only" x-text="s.jobs_enabled ? 'Jobs (running)' : 'Jobs (stopped)'"></span>
+        </button>
+        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs whitespace-nowrap" role="tooltip" x-cloak x-text="s.jobs_enabled ? 'Jobs (running)' : 'Jobs (stopped)'"></div>
+      </div>
+      <!-- Deployed but the agent hasn't connected yet -->
+      <span x-show="!s.has_state && s.platform !== 'kvm' && s.platform !== 'manual'" x-cloak class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Connecting&hellip;</span>
+    </div>
+  </template>
+
+  <!-- Starting: the start-up log is available straight away -->
+  <template x-if="s.is_local && spaceStatus(s) === 'starting' && hasSpaceAccessForCurrentUser(s)">
+    <div class="flex flex-wrap items-center gap-2">
+      {{ if .permissionUseLogs }}
+      <button x-show="s.platform !== 'kvm'" type="button" @click="openLogWindow(s.space_id)" class="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium text-blue-700 hover:bg-gray-100 hover:underline dark:text-blue-300 dark:hover:bg-gray-700 cursor-pointer whitespace-nowrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+        <span>View start-up log</span><span class="sr-only"> for <span x-text="s.name"></span></span>
+      </button>
+      {{ end }}
+      <span class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Ready to connect once started</span>
+    </div>
+  </template>
+
+  <!-- Everything else: say why there's nothing to connect to -->
+  <template x-if="!(s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s)) && !(s.is_local && spaceStatus(s) === 'starting' && hasSpaceAccessForCurrentUser(s))">
+    <span class="text-xs text-gray-500 dark:text-gray-400" x-text="connectHint(s)"></span>
+  </template>
+{{ end }}
+
 {{ define "space-row-cells" }}
-                <!-- Space Details -->
+                <!-- Space -->
                 <td class="px-4 py-3">
-                  <div class="flex items-center gap-4">
-                    <img x-show="s.icon_url.length && s.icon_url_exists" :src="s.icon_url" :alt="s.name + ' icon'" class="hidden sm:block size-8" />
-                    <div>
-                      <div class="flex items-center gap-1.5">
-                        <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="s.name"></div>
+                  <div class="flex items-start gap-4">
+                    <img x-show="s.icon_url.length && s.icon_url_exists" :src="s.icon_url" alt="" class="hidden sm:block size-8 mt-0.5" />
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <div class="text-base font-semibold text-gray-900 dark:text-white break-all" x-text="s.name"></div>
                         <template x-if="s.lease_id">
                           <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="s.lease_expires_at && new Date(s.lease_expires_at) <= new Date() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'" :title="'Exclusively leased' + (s.lease_expires_at ? ' until ' + new Date(s.lease_expires_at).toLocaleString() : ' — no expiry')" x-text="s.lease_expires_at && new Date(s.lease_expires_at) <= new Date() ? 'Lease draining' : 'Leased'"></span>
                         </template>
@@ -14,70 +164,42 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400" x-text="'Host: ' + s.node_hostname"></div>
                       </template>
 
-                      <!-- Show first 2 lines of description inline -->
+                      <!-- First 2 lines of the description and note; the button shows the rest -->
                       <template x-if="s.description || s.note">
-                        <div class="flex gap-2">
-
-                          <!-- Only show info button if there's more than can be displayed -->
-                          <button x-show="((s.description || '').split('\n').concat((s.note || '').split('\n')).filter(Boolean)).length >= 2"
-                                  @click="spaceDesc.show = true; spaceDesc.space = s" aria-label="Show full description"
-                                  class="text-gray-500 dark:text-gray-400 flex-shrink-0 cursor-pointer">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" >
+                        <div class="flex gap-2 mt-0.5">
+                          <button type="button" x-show="((s.description || '').split('\n').concat((s.note || '').split('\n')).filter(Boolean)).length >= 2"
+                                  @click="spaceDesc.show = true; spaceDesc.space = s" :aria-label="'Show the full description of ' + s.name"
+                                  class="text-gray-500 dark:text-gray-400 flex-shrink-0 cursor-pointer rounded" title="Show full description">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" >
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </button>
-
-                          <div class="flex-grow">
-                            <div class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="s.description.trim() + (s.description.trim().length && s.note.trim().length ? '\n' : '') + s.note.trim()" style="white-space: pre-line"></div>
+                          <div class="flex-grow min-w-0">
+                            <div class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" :title="spaceDescText(s)" x-text="spaceDescText(s)" style="white-space: pre-line"></div>
                           </div>
                         </div>
                       </template>
 
-                      <div class="xl:hidden">
-                        <div class="mt-2 flex flex-wrap gap-1 text-xs">
-                          <template x-if="!s.is_local">
-                            <span class="app-badge-warning">Remote: <span x-text="s.zone"></span></span>
-                          </template>
-                          <template x-if="s.is_local && s.platform === 'manual'">
-                            <span class="app-badge-warning">Manual</span>
-                          </template>
-                          <template x-if="s.is_local && s.platform === 'docker'">
-                            <span class="app-badge-info">Docker</span>
-                          </template>
-                          <template x-if="s.is_local && s.platform === 'podman'">
-                            <span class="app-badge-info">Podman</span>
-                          </template>
-                          <template x-if="s.is_local && s.platform === 'apple'">
-                            <span class="app-badge-info">Apple</span>
-                          </template>
-                          <template x-if="s.is_local && s.platform === 'container'">
-                            <span class="app-badge-info">Container</span>
-                          </template>
-                          <template x-if="s.is_local && s.platform === 'kvm'">
-                            <span class="app-badge-info">KVM</span>
-                          </template>
-                          <template x-if="s.is_local && s.platform === 'nomad'">
-                            <span class="app-badge-success">Nomad</span>
-                          </template>
-                        </div>
+                      <!-- Type and template (until their column shows at xl) -->
+                      <div class="xl:hidden mt-2 flex flex-wrap items-center gap-1 text-xs">
+                        <span :class="platformBadge(s).cls" x-text="platformBadge(s).label"></span>
+                        <span class="text-gray-500 dark:text-gray-400">Template: <span class="text-gray-700 dark:text-gray-300" x-text="s.template_name"></span></span>
                       </div>
 
                       <div class="2xl:hidden">
                         <template x-if="hasShare(s)">
-                          <span class="mt-2 text-xs inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
+                          <span class="mt-2 text-xs inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-300 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
                         </template>
                       </div>
 
-                      <div class="xl:hidden"><div class="mt-2">Template: <span class="text-gray-700 dark:text-gray-300 text-xs" x-text="s.template_name"></span></div></div>
-
                       <template x-if="forUserId == ''">
-                        <div class="text-xs mt-2">User: <span class="text-gray-700 dark:text-gray-300" x-text="s.username"></span></div>
+                        <div class="text-xs mt-2 text-gray-500 dark:text-gray-400">User: <span class="text-gray-700 dark:text-gray-300" x-text="s.username"></span></div>
                       </template>
                       <template x-if="s.is_local && s.platform == 'manual'">
                         <div class="mt-2 text-xs">
                           <div class="flex flex-nowrap text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer w-full hover:bg-gray-200 dark:hover:bg-gray-800">
                             <div class="shrink-0 grow-0 py-1 pr-1">ID:</div>
-                            <input type="text" aria-label="Space ID" class="shrink grow w-full p-0 text-xs bg-transparent cursor-pointer outline-0 border-0 focus:border-0 focus:ring-0" x-model="s.space_id" readonly @click.debounce.750="copyToClipboard(s.space_id)" />
+                            <input type="text" aria-label="Space ID" class="shrink grow w-full p-0 text-xs bg-transparent cursor-pointer outline-0 border-0 focus:border-0 focus:ring-0" x-model="s.space_id" :title="s.space_id" readonly @click.debounce.750="copyToClipboard(s.space_id)" />
                             <button type="button" class="shrink-0 grow-0 ml-1 cursor-pointer rounded focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" @click.debounce.750="copyToClipboard(s.space_id)" aria-label="Copy space ID" title="Copy">
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 flex-shrink-0 self-end" aria-hidden="true" >
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
@@ -100,20 +222,13 @@
                         </div>
                       </template>
 
-                      <!-- Status & Uptime (mobile only) -->
-                      <div class="lg:hidden flex flex-col gap-1 items-start mt-2">
-                    <span x-show="s.is_deployed && !s.is_pending && (!s.health_known || s.healthy)" class="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400" :aria-label="s.name + ': Running'"><span class="size-1.5 rounded-full bg-green-500 dark:bg-green-400"></span>Running</span>
-                    <span x-show="s.is_deployed && !s.is_pending && s.health_known && !s.healthy" class="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:bg-red-600 dark:text-white dark:rounded-md dark:px-1.5 dark:py-0.5" :aria-label="s.name + ': Unhealthy'"><span class="size-1.5 rounded-full bg-red-500 dark:bg-white/80 animate-pulse"></span>Unhealthy</span>
-                        <span x-show="!s.is_deployed && s.is_pending" class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400" :aria-label="s.name + ': Starting'"><span class="size-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse"></span>Starting</span>
-                        <span x-show="s.is_deployed && s.is_pending" class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400" :aria-label="s.name + ': Stopping'"><span class="size-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>Stopping</span>
-                        <span x-show="s.is_deployed && !s.is_pending && s.health_known && !s.healthy" class="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:bg-red-600 dark:text-white dark:rounded-md dark:px-1.5 dark:py-0.5" :aria-label="s.name + ': Unhealthy'"><span class="size-1.5 rounded-full bg-red-500 dark:bg-white/80 animate-pulse"></span>Unhealthy</span>
-                        <span x-show="s.is_deleting" class="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400" :aria-label="s.name + ': Deleting'"><span class="size-1.5 rounded-full bg-red-500 dark:bg-red-400"></span>Deleting</span>
-                        <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400" :aria-label="s.name + ': Update Available'"><span class="size-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>Update Available</span>
+                      <!-- Status (until its column shows at lg) -->
+                      <div class="lg:hidden mt-2">
+                        {{ template "space-status" . }}
                       </div>
-                      <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 lg:hidden">Uptime: <span class="text-gray-700 dark:text-gray-300" x-text="s.is_deployed ? s.uptime : '-'"></span></div>
 
                       <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="mt-3 max-w-md space-y-2 lg:hidden">
-                        <button type="button" class="w-full text-left" @click="openSpaceUsage(s.space_id)">
+                        <button type="button" class="w-full text-left cursor-pointer" @click="openSpaceUsage(s.space_id)" :aria-label="'CPU ' + formatPercent(s.resource_usage?.cpu_percent || 0) + ', show usage of ' + s.name">
                           <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                             <span>CPU</span>
                             <span x-text="formatPercent(s.resource_usage?.cpu_percent || 0)"></span>
@@ -122,7 +237,7 @@
                             <div class="h-full rounded-full bg-blue-500" :style="`width: ${usagePercent(s.resource_usage?.cpu_percent || 0, 100)}%`"></div>
                           </div>
                         </button>
-                        <button type="button" class="w-full text-left" @click="openSpaceUsage(s.space_id)">
+                        <button type="button" class="w-full text-left cursor-pointer" @click="openSpaceUsage(s.space_id)" :aria-label="'Memory ' + formatUsage(s.resource_usage?.memory_used_bytes || 0, s.resource_usage?.memory_limit_bytes || 0) + ', show usage of ' + s.name">
                           <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                             <span>Memory</span>
                             <span x-text="formatUsage(s.resource_usage?.memory_used_bytes || 0, s.resource_usage?.memory_limit_bytes || 0)"></span>
@@ -133,257 +248,24 @@
                         </button>
                       </div>
 
-                      <!-- Services (mobile only) -->
-                      <div x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s)" class="flex flex-wrap items-center gap-1 md:hidden" x-data>
-                        {{ if .permissionUseVNC }}
-                        <!-- VNC -->
-                        <div x-data x-show="s.has_http_vnc" x-cloak>
-                          <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>
-                            <span class="sr-only">Desktop</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Desktop</div>
-                        </div>
-                        <!-- VM Display (QEMU VNC bridge) -->
-                        <div x-data x-show="s.platform === 'kvm' && s.template_has_vnc && s.is_deployed && !s.is_pending" x-cloak>
-                          <button @click="openVMDisplay(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
-                            <span class="sr-only">KVM Display</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>VM Display</div>
-                        </div>
-                        {{ end }}
-                        <!-- Code Server -->
-                        {{ if .permissionUseCodeServer }}
-                        <div x-data x-show="s.has_code_server" x-cloak>
-                          <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
-                            <span class="sr-only">Code Server</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Code Server</div>
-                        </div>
-                        {{ end }}
-                        <!-- VSCode Tunnel Connect -->
-                        {{ if .permissionUseVSCodeTunnel }}
-                        <div x-data x-show="s.has_vscode_tunnel && !s.vscode_tunnel_name.length" x-cloak>
-                          <button @click="openTerminalTunnel(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-red-600 dark:text-red-400" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
-                            <span class="sr-only">Connect VSCode Tunnel</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Connect VSCode Tunnel</div>
-                        </div>
-                        {{ end }}
-                        <!-- VSCode Tunnel Open -->
-                        {{ if .permissionUseVSCodeTunnel }}
-                        <div x-data x-show="s.has_vscode_tunnel && s.vscode_tunnel_name.length" x-cloak>
-                          <button @click="openVSCodeDev(s.vscode_tunnel_name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
-                            <span class="sr-only">VSCode</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>VSCode</div>
-                        </div>
-                        {{ end }}
-                        <!-- Terminal -->
-                        {{ if .permissionUseWebTerminal }}
-                        <div x-data x-show="s.has_terminal" x-cloak>
-                          <button @click="openTerminal(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
-                            <span class="sr-only">Terminal</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Terminal</div>
-                        </div>
-                        {{ end }}
-                         <!-- Single HTTP Port -->
-                         <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1) && !(s.alt_names && s.alt_names.length)">
-                           <div x-data>
-                             <button @click="openWindowForPort(s.username, s.space_id, s.pool_name || s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
-                               <span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
-                             </button>
-                             <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak x-text="Object.entries(s.http_ports)[0][1]"></div>
-                           </div>
-                         </template>
-                         <!-- Multiple Ports Dropdown -->
-                          <template x-if="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length > 1) || (s.http_ports && Object.entries(s.http_ports).length && s.alt_names && s.alt_names.length)">
-                           <div x-data x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length) || (s.alt_names && s.alt_names.length)" x-cloak>
-                             <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5">
-                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
-                                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
-                               </svg><span class="sr-only">Ports</span>
-                             </button>
-                             <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-xs" role="tooltip" x-cloak>Ports</div>
-                           </div>
-                         </template>
-
-                         <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                           <template x-for="entry in getHttpPortEntries(s)" :key="entry.name + '-' + entry.key">
-                             <button x-text="entry.label" @click="$refs.panel.close; openWindowForPort(s.username, s.space_id, entry.name, entry.key)" class="nav-item text-sm px-4 w-full"></button>
-                           </template>
-                           <hr x-show="Object.entries(s.http_ports).length && Object.entries(s.tcp_ports).length" class="my-2" role="separator" />
-                           <template x-for="[key, value] in Object.entries(s.tcp_ports)" :key="key">
-                             <button disabled="disabled" x-text="key==value ? key : value + ' (' + key + ')'" class="nav-item text-sm px-4 w-full hover:bg-transparent dark:hover:bg-transparent"></button>
-                           </template>
-                         </div>
-
-                         <!-- Logs -->
-                         {{ if .permissionUseLogs }}
-                         <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_state && s.platform !== 'kvm'">
-                           <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" /></svg>
-                            <span class="sr-only">Logs</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Logs</div>
-                        </div>
-                        {{ end }}
-
-                        <!-- Jobs -->
-                        <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_jobs">
-                          <button @click="openJobs(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5" :class="s.jobs_enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                            <span class="sr-only">Jobs</span>
-                          </button>
-                          <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak x-text="s.jobs_enabled ? 'Jobs (running)' : 'Jobs (stopped)'"></div>
-                        </div>
-
+                      <!-- Connect (until its column shows at md) -->
+                      <div class="md:hidden mt-2">
+                        {{ template "space-services" . }}
                       </div>
                     </div>
                   </div>
                 </td>
 
-                <!-- Services (desktop only) -->
+                <!-- Connect -->
                 <td class="px-4 py-3 hidden md:table-cell">
-                  <div x-show="!hasSpaceAccessForCurrentUser(s)">
-                    -
-                  </div>
-                  <div x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s)" class="flex flex-nowrap items-center gap-1" x-data>
-                    <!-- VNC -->
-                    {{ if .permissionUseVNC }}
-                    <div x-data x-show="s.has_http_vnc" x-cloak>
-                      <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>
-                        <span class="sr-only">Desktop</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Desktop</div>
-                    </div>
-                    <!-- VM Display (QEMU VNC bridge) -->
-                    <div x-data x-show="s.platform === 'kvm' && s.template_has_vnc && s.is_deployed && !s.is_pending" x-cloak>
-                      <button @click="openVMDisplay(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
-                        <span class="sr-only">KVM Display</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>VM Display</div>
-                    </div>
-                    {{ end }}
-                    <!-- Code Server -->
-                    {{ if .permissionUseCodeServer }}
-                    <div x-data x-show="s.has_code_server" x-cloak>
-                      <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
-                        <span class="sr-only">Code Server</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Code Server</div>
-                    </div>
-                    {{ end }}
-                    <!-- VSCode Tunnel Connect -->
-                    {{ if .permissionUseVSCodeTunnel }}
-                    <div x-data x-show="s.has_vscode_tunnel && !s.vscode_tunnel_name.length" x-cloak>
-                      <button @click="openTerminalTunnel(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-red-600 dark:text-red-400" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
-                        <span class="sr-only">Connect VSCode Tunnel</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Connect VSCode Tunnel</div>
-                    </div>
-                    {{ end }}
-                    <!-- VSCode Tunnel Open -->
-                    {{ if .permissionUseVSCodeTunnel }}
-                    <div x-data x-show="s.has_vscode_tunnel && s.vscode_tunnel_name.length" x-cloak>
-                      <button @click="openVSCodeDev(s.vscode_tunnel_name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
-                        <span class="sr-only">VSCode</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>VSCode</div>
-                    </div>
-                    {{ end }}
-                    <!-- Terminal -->
-                    {{ if .permissionUseWebTerminal }}
-                    <div x-data x-show="s.has_terminal" x-cloak>
-                      <button @click="openTerminal(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
-                        <span class="sr-only">Terminal</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Terminal</div>
-                    </div>
-                    {{ end }}
-                    <!-- Single HTTP Port -->
-                    <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1) && !(s.alt_names && s.alt_names.length)">
-                      <div x-data>
-                        <button @click="openWindowForPort(s.username, s.space_id, s.pool_name || s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
-                          <span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
-                        </button>
-                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak x-text="Object.entries(s.http_ports)[0][1]"></div>
-                      </div>
-                    </template>
-                    <!-- Multiple Ports Dropdown -->
-                    <template x-if="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length > 1) || (s.http_ports && Object.entries(s.http_ports).length && s.alt_names && s.alt_names.length)">
-                      <div x-data x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length) || (s.alt_names && s.alt_names.length)" x-cloak>
-                        <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
-                          </svg><span class="sr-only">Ports</span>
-                        </button>
-                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-xs" role="tooltip" x-cloak>Ports</div>
-                      </div>
-                    </template>
-
-                    <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                      <template x-for="entry in getHttpPortEntries(s)" :key="entry.name + '-' + entry.key">
-                        <button x-text="entry.label" @click="$refs.panel.close; openWindowForPort(s.username, s.space_id, entry.name, entry.key)" class="nav-item text-sm px-4 w-full"></button>
-                      </template>
-                      <hr x-show="Object.entries(s.http_ports).length && Object.entries(s.tcp_ports).length" class="my-2" role="separator" />
-                      <template x-for="[key, value] in Object.entries(s.tcp_ports)" :key="key">
-                        <button disabled="disabled" x-text="key==value ? key : value + ' (' + key + ')'" class="nav-item text-sm px-4 w-full hover:bg-transparent dark:hover:bg-transparent"></button>
-                      </template>
-                    </div>
-
-                    <!-- Logs -->
-                    {{ if .permissionUseLogs }}
-                    <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_state && s.platform !== 'kvm'">
-                      <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" /></svg>
-                        <span class="sr-only">Logs</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Logs</div>
-                    </div>
-                    {{ end }}
-
-                    <!-- Jobs -->
-                    <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_jobs">
-                      <button @click="openJobs(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5" :class="s.jobs_enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                        <span class="sr-only">Jobs</span>
-                      </button>
-                      <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak x-text="s.jobs_enabled ? 'Jobs (running)' : 'Jobs (stopped)'"></div>
-                    </div>
-
-                  </div>
+                  {{ template "space-services" . }}
                 </td>
 
-                <!-- Status & Uptime (desktop only) -->
+                <!-- Status -->
                 <td class="px-4 py-3 hidden lg:table-cell">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span x-show="!s.is_deployed && !s.is_pending && !s.is_deleting" class="text-xs text-gray-500 dark:text-gray-400">-</span>
-                    <span x-show="s.is_deployed && !s.is_pending && (!s.health_known || s.healthy)" class="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400" :aria-label="s.name + ': Running'"><span class="size-1.5 rounded-full bg-green-500 dark:bg-green-400"></span>Running</span>
-                    <span x-show="s.is_deployed && !s.is_pending && s.health_known && !s.healthy" class="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:bg-red-600 dark:text-white dark:rounded-md dark:px-1.5 dark:py-0.5" :aria-label="s.name + ': Unhealthy'"><span class="size-1.5 rounded-full bg-red-500 dark:bg-white/80 animate-pulse"></span>Unhealthy</span>
-                    <span x-show="!s.is_deployed && s.is_pending" class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400" :aria-label="s.name + ': Starting'"><span class="size-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse"></span>Starting</span>
-                    <span x-show="s.is_deployed && s.is_pending" class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400" :aria-label="s.name + ': Stopping'"><span class="size-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>Stopping</span>
-                    <span x-show="s.is_deleting" class="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400" :aria-label="s.name + ': Deleting'"><span class="size-1.5 rounded-full bg-red-500 dark:bg-red-400"></span>Deleting</span>
-                    <span x-show="s.is_deployed && !s.is_pending" class="text-[11px] text-gray-500 dark:text-gray-400">·</span>
-                    <span x-show="s.is_deployed && !s.is_pending" class="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap" x-text="s.uptime"></span>
-                    <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400" :aria-label="s.name + ': Update Available'"><span class="size-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>Update Available</span>
-                  </div>
-                  <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="mt-2 grid grid-cols-2 gap-2">
-                    <button type="button" class="w-full text-left" @click="openSpaceUsage(s.space_id)">
+                  {{ template "space-status" . }}
+                  <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="mt-2 grid grid-cols-2 gap-2 min-w-[9rem]">
+                    <button type="button" class="w-full text-left cursor-pointer" @click="openSpaceUsage(s.space_id)" :aria-label="'CPU ' + formatPercent(s.resource_usage?.cpu_percent || 0) + ', show usage of ' + s.name">
                       <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                         <span>CPU</span>
                         <span x-text="formatPercent(s.resource_usage?.cpu_percent || 0)"></span>
@@ -392,7 +274,7 @@
                         <div class="h-full rounded-full bg-blue-500" :style="`width: ${usagePercent(s.resource_usage?.cpu_percent || 0, 100)}%`"></div>
                       </div>
                     </button>
-                    <button type="button" class="w-full text-left" @click="openSpaceUsage(s.space_id)">
+                    <button type="button" class="w-full text-left cursor-pointer" @click="openSpaceUsage(s.space_id)" :aria-label="'Memory ' + formatPercent(usagePercent(s.resource_usage?.memory_used_bytes || 0, s.resource_usage?.memory_limit_bytes || 0)) + ', show usage of ' + s.name">
                       <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                         <span>Mem</span>
                         <span x-text="formatPercent(usagePercent(s.resource_usage?.memory_used_bytes || 0, s.resource_usage?.memory_limit_bytes || 0))"></span>
@@ -404,96 +286,70 @@
                   </div>
                 </td>
 
-                <!-- Share (desktop only) -->
+                <!-- Shared -->
                 <td class="px-4 py-3 hidden 2xl:table-cell text-xs">
                   <template x-if="hasShare(s)">
-                    <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-400 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
+                    <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-300 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
                   </template>
                   <template x-if="!hasShare(s)">
-                    <div class="text-gray-500 dark:text-gray-400">-</div>
+                    <div class="text-gray-500 dark:text-gray-400"><span aria-hidden="true">&mdash;</span><span class="sr-only">Not shared</span></div>
                   </template>
                 </td>
 
-                <!-- Template / Type (desktop only) -->
+                <!-- Template and type -->
                 <td class="px-4 py-3 hidden xl:table-cell">
-                  <div class="flex flex-wrap gap-1 text-xs">
-                    <template x-if="!s.is_local">
-                      <span class="app-badge-warning">Remote: <span x-text="s.zone"></span></span>
-                    </template>
-                    <template x-if="s.is_local && s.platform == 'manual'">
-                      <span class="app-badge-warning">Manual</span>
-                    </template>
-                    <template x-if="s.is_local && s.platform == 'docker'">
-                      <span class="app-badge-info">Docker</span>
-                    </template>
-                    <template x-if="s.is_local && s.platform == 'podman'">
-                      <span class="app-badge-info">Podman</span>
-                    </template>
-                    <template x-if="s.is_local && s.platform === 'apple'">
-                      <span class="app-badge-info">Apple</span>
-                    </template>
-                    <template x-if="s.is_local && s.platform === 'container'">
-                      <span class="app-badge-info">Container</span>
-                    </template>
-                    <template x-if="s.is_local && s.platform === 'kvm'">
-                      <span class="app-badge-info">KVM</span>
-                    </template>
-                    <template x-if="s.is_local && s.platform === 'nomad'">
-                      <span class="app-badge-success">Nomad</span>
-                    </template>
-                  </div>
-                  <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    <div>Template: <span class="text-gray-700 dark:text-gray-300" x-text="s.template_name"></span></div>
+                  <div class="text-sm text-gray-700 dark:text-gray-300 max-w-[14rem] truncate" :title="s.template_name" x-text="s.template_name"></div>
+                  <div class="mt-1 flex flex-wrap gap-1 text-xs">
+                    <span :class="platformBadge(s).cls" x-text="platformBadge(s).label"></span>
                   </div>
                 </td>
 
-                <!-- More Actions -->
+                <!-- Actions: the main one (Start, or Stop) as a labelled button
+                     from md up; everything else in the ⋮ menu. -->
                 <td class="px-4 py-3 text-right">
                   <div x-data x-show="s.is_local || hasSpaceAccessForCurrentUser(s)" x-cloak class="flex items-center justify-end gap-2">
-                    <div class="hidden xl:flex items-center justify-end gap-2" aria-label="Space actions">
-                      <button x-show="!s.pool_id && s.is_local && !s.is_deployed && s.platform != 'manual'" x-bind:disabled="s.is_pending" @click="startSpace(s.space_id); s.is_pending = true" class="row-action-button row-action-success" type="button" :aria-label="'Start space ' + s.name" title="Start">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
-                        </svg>
-                        <span class="sr-only">Start</span>
-                      </button>
-                      <button x-show="!s.pool_id && s.is_local && (s.is_deployed || s.is_pending) && s.platform != 'manual'" @click="setAction('stop'); doAction(s.space_id)" class="row-action-button row-action-danger" type="button" :aria-label="'Stop space ' + s.name" title="Stop">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
-                        </svg>
-                        <span class="sr-only">Stop</span>
-                      </button>
-                      <button x-show="!s.pool_id && s.is_local && s.is_deployed && s.platform != 'manual'" x-bind:disabled="s.is_pending" @click="setAction('restart'); doAction(s.space_id)" class="row-action-button row-action-warning" type="button" :aria-label="'Restart space ' + s.name" title="Restart">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                        </svg>
-                        <span class="sr-only">Restart</span>
-                      </button>
-                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local" x-bind:disabled="s.is_pending" @click="editSpace(s.space_id)" class="row-action-button" type="button" :aria-label="'Edit space ' + s.name" title="Edit">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                        </svg>
-                        <span class="sr-only">Edit</span>
-                      </button>
+                    <div class="hidden md:flex items-center">
+                    <button x-show="canStartStop(s) && spaceStatus(s) === 'stopped'" @click="startSpace(s.space_id)" class="row-action-labelled row-action-success" type="button" :aria-label="'Start ' + s.name">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" /></svg>
+                      <span>Start</span>
+                    </button>
+                    <button x-show="canStartStop(s) && (s.is_deployed || s.is_pending) && !s.is_deleting" :disabled="spaceStatus(s) === 'stopping'" @click="stopSpace(s.space_id)" class="row-action-labelled row-action-danger" type="button" :aria-label="(spaceStatus(s) === 'stopping' ? 'Stopping ' : 'Stop ') + s.name">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M5.25 3A2.25 2.25 0 0 0 3 5.25v9.5A2.25 2.25 0 0 0 5.25 17h9.5A2.25 2.25 0 0 0 17 14.75v-9.5A2.25 2.25 0 0 0 14.75 3h-9.5Z" /></svg>
+                      <span x-text="spaceStatus(s) === 'stopping' ? 'Stopping' : 'Stop'"></span>
+                    </button>
+                    <button x-show="canStartStop(s) && s.is_deployed && !s.is_pending" @click="restartSpace(s.space_id)" class="row-action-labelled ml-2" type="button" :aria-label="'Restart ' + s.name">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                      <span>Restart</span>
+                    </button>
                     </div>
-                    <button @click="$refs.panel.toggle" class="row-action-menu-trigger" type="button" :aria-label="'More actions for space ' + s.name">
+
+                    <button @click="$refs.panel.toggle($event)" class="row-action-menu-trigger" type="button" aria-expanded="false" :aria-label="'More actions for ' + s.name" :title="'More actions for ' + s.name">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true" >
                         <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
-                      </svg><span class="sr-only">More</span>
+                      </svg>
                     </button>
 
-                    <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                      <button x-show="!s.pool_id && s.is_local && !s.is_deployed && !s.is_pending && s.platform != 'manual'" @click="$refs.panel.close; startSpace(s.space_id); s.is_pending = true" class="group nav-item text-sm px-4 w-full xl:hidden">
+                    <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap min-w-44" x-cloak>
+                      <!-- Start / Stop live in the row from md up -->
+                      <button x-show="canStartStop(s) && spaceStatus(s) === 'stopped'" @click="$refs.panel.close(); startSpace(s.space_id)" class="group nav-item text-sm px-4 w-full md:hidden" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" /></svg> Start
+                      </button>
+                      <button x-show="canStartStop(s) && (s.is_deployed || s.is_pending) && !s.is_deleting" :disabled="spaceStatus(s) === 'stopping'" @click="$refs.panel.close(); stopSpace(s.space_id)" class="group nav-item text-sm px-4 w-full md:hidden disabled:opacity-50" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path d="M5.25 3A2.25 2.25 0 0 0 3 5.25v9.5A2.25 2.25 0 0 0 5.25 17h9.5A2.25 2.25 0 0 0 17 14.75v-9.5A2.25 2.25 0 0 0 14.75 3h-9.5Z" /></svg> Stop
+                      </button>
+                      <button x-show="canStartStop(s) && s.is_deployed && !s.is_pending" @click="$refs.panel.close(); restartSpace(s.space_id)" class="group nav-item text-sm px-4 w-full md:hidden" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
-                        </svg> Start
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg> Restart
+                      </button>
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local" :disabled="s.is_pending" @click="$refs.panel.close(); editSpace(s.space_id)" class="group nav-item text-sm px-4 w-full disabled:opacity-50" type="button" :title="s.is_pending ? 'Wait until the space has started or stopped' : null">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg> Edit
                       </button>
 
                       {{ if .permissionUseVSCodeTunnel }}
-                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_vscode_tunnel && s.vscode_tunnel_name.length" @click="$refs.panel.close; openTerminalTunnel(s.space_id)" class="group nav-item text-sm px-4 w-full">
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_vscode_tunnel && s.vscode_tunnel_name.length" @click="$refs.panel.close(); openTerminalTunnel(s.space_id)" class="group nav-item text-sm px-4 w-full" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
                         </svg> VSCode Tunnel
@@ -501,137 +357,71 @@
                       {{ end }}
 
                       {{ if .permissionUseWebTerminal }}
-                      <button x-show="s.platform === 'kvm' && s.template_has_terminal && s.is_deployed && !s.is_pending" @click="$refs.panel.close; openConsole(s.space_id)" class="group nav-item text-sm px-4 w-full">
+                      <button x-show="s.platform === 'kvm' && s.template_has_terminal && s.is_deployed && !s.is_pending" @click="$refs.panel.close(); openConsole(s.space_id)" class="group nav-item text-sm px-4 w-full" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" />
-                        </svg> KVM Console
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg> VM Console
                       </button>
                       {{ end }}
 
-                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close; editSpace(s.space_id)" class="group nav-item text-sm px-4 w-full xl:hidden">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                        </svg> Edit
+                      {{ if .permissionUseSSH }}
+                      <button x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_ssh" @click="$refs.panel2.toggle($event)" aria-expanded="false" class="group nav-item text-sm px-4 w-full" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
+                          <path fill-rule="evenodd" d="M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clip-rule="evenodd" />
+                        </svg> SSH Command
                       </button>
+                      {{ end }}
 
-                      <button @click="$refs.panel.close; openSpaceUsage(s.space_id)" class="group nav-item text-sm px-4 w-full">
+                      <button @click="$refs.panel.close(); openSpaceUsage(s.space_id)" class="group nav-item text-sm px-4 w-full" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7.5 15l3-3 2.25 2.25L16.5 9" />
                         </svg> Usage
                       </button>
 
-                      <button x-show="s.lease_id" x-bind:disabled="leaseBusy[s.space_id] === true" @click="$refs.panel.close; releaseLease(s)" class="group nav-item text-sm px-4 w-full" type="button">
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close(); openJobs(s.space_id)" class="group nav-item text-sm px-4 w-full" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg> Jobs
+                      </button>
+
+                      <button x-show="s.lease_id" :disabled="leaseBusy[s.space_id] === true" @click="$refs.panel.close(); releaseLease(s)" class="group nav-item text-sm px-4 w-full disabled:opacity-50" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                         </svg> Release Lease
                       </button>
 
-                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close; openJobs(s.space_id)" class="group nav-item text-sm px-4 w-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg> View Jobs
-                      </button>
-
-
-                      {{ if .permissionUseSSH }}
-                      <button x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_ssh" @click="$refs.panel2.toggle" class="group nav-item text-sm px-4 w-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                          <path fill-rule="evenodd" d="M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clip-rule="evenodd" />
-                        </svg> SSH Info
-                      </button>
-                      {{ end }}
-
-                       {{ if and (or .permissionShareSpaces .permissionManageSpaces) (not .isLeafNode) }}
-                        <button x-cloak x-show="!s.pool_id && !hasShare(s) && s.is_local && ({{ .permissionManageSpaces }} || s.user_id === '{{ .user_id }}')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full">
+                      {{ if and (or .permissionShareSpaces .permissionManageSpaces) (not .isLeafNode) }}
+                      <button x-cloak x-show="!s.pool_id && !hasShare(s) && s.is_local && ({{ .permissionManageSpaces }} || s.user_id === '{{ .user_id }}')" @click="$refs.panel.close(); chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-                        </svg> Share
+                        </svg> Share&hellip;
                       </button>
                       {{ end }}
-                      <button x-show="!s.pool_id && hasShare(s) && s.is_local" @click="$refs.panel.close; openCeaseShareConfirm(s)" class="group nav-item text-sm px-4 w-full">
+                      <button x-show="!s.pool_id && hasShare(s) && s.is_local" @click="$refs.panel.close(); openCeaseShareConfirm(s)" class="group nav-item text-sm px-4 w-full" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                         </svg><span x-text="s.user_id === '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></span>
                       </button>
 
-                      <hr x-show="s.is_local && (s.is_deployed || s.is_pending) && s.platform != 'manual'" class="my-2 xl:hidden" role="separator" />
-                      <div x-data x-show="s.is_local && (s.is_deployed || s.is_pending) && s.platform != 'manual'" x-cloak class="relative inline-flex w-full xl:hidden">
-                        <!-- Main button -->
-                        <button
-                          @click="$refs.panel.close; doAction(s.space_id)"
-                          :class="action === 'stop'
-                            ? 'bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700'
-                            : 'bg-yellow-700 hover:bg-yellow-800 dark:bg-yellow-600 dark:hover:bg-yellow-700'"
-                          class="flex items-center p-2 text-gray-900 dark:text-gray-200 border-none my-1 cursor-pointer text-sm px-4 w-full text-white focus:z-10 rounded-l-lg"
-                          type="button"
-                        >
-                          <template x-if="action === 'stop'">
-                            <span class="inline-flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
-                              </svg>
-                              Stop
-                            </span>
-                          </template>
-                          <template x-if="action === 'restart'">
-                            <span class="inline-flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                              </svg>
-                              Restart
-                            </span>
-                          </template>
-                        </button>
-                        <!-- Dropdown toggle -->
-                        <button
-                          @click="$refs.panel2.toggle"
-                          :class="action === 'stop'
-                            ? 'bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700 border-white'
-                            : 'bg-yellow-700 hover:bg-yellow-800 dark:bg-yellow-600 dark:hover:bg-yellow-700'"
-                            class="shrink-0 grow-0 flex items-center p-2 text-gray-900 dark:text-gray-200 border-none my-1 cursor-pointer text-sm text-white focus:z-10 rounded-r-lg ml-[1px] "
-                          type="button"
-                          aria-label="More actions"
-                        >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" >
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                          </svg>
-                        </button>
-                        <!-- Dropdown menu -->
-                        <div x-ref="panel2" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                          <button x-show="!s.pool_id" @click="$refs.panel2.close(); $refs.panel.close(); setAction('stop'); doAction(s.space_id)" class="group nav-item text-sm px-4 w-full" type="button">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
-                            </svg> Stop
-                          </button>
-                          <button x-show="!s.pool_id" @click="$refs.panel2.close(); $refs.panel.close(); setAction('restart'); doAction(s.space_id)" class="group nav-item text-sm px-4 w-full" type="button">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                            </svg> Restart
-                          </button>
-                        </div>
-                      </div>
-
-                      <hr x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" class="my-2" role="separator" />
-                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; confirmDeleteSpace(s)" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                        </svg> Delete
-                      </button>
-
                       {{ if and .permissionTransferSpaces (not .isLeafNode) }}
-                      <hr x-cloak class="my-2" x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" role="separator" />
-                      <button x-cloak x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = false; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full">
+                      <button x-cloak x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close(); chooseUser.show = true; chooseUser.isShare = false; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                        </svg> Transfer To &hellip;
+                        </svg> Transfer To&hellip;
                       </button>
                       {{ end }}
+
+                      <hr x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" class="my-2 border-gray-200 dark:border-gray-700" role="separator" />
+                      <button x-show="!s.pool_id && s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.platform == 'manual')" @click="$refs.panel.close(); confirmDeleteSpace(s)" class="group nav-item text-sm px-4 w-full text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg> Delete&hellip;
+                      </button>
                     </div>
 
-                    <div x-ref="panel2" x-float.teleport.placement.left-end.flip.offset="{offset: 16}" @click.away="$refs.panel2.close" @keydown.window.escape="$refs.panel2.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap w-full max-w-lg" x-cloak>
-                      <input type="text" x-model="s.sshCmd" readonly aria-label="SSH command" class="form-field w-full cursor-pointer" @click="copyToClipboard(s.sshCmd); $refs.panel2.close();" />
+                    <div x-ref="panel2" x-float.teleport.placement.left-end.flip.offset="{offset: 16}" @click.away="$refs.panel2.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap w-full max-w-lg" x-cloak>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1" :for="'ssh-' + s.space_id">SSH command (select to copy)</label>
+                      <input type="text" :id="'ssh-' + s.space_id" x-model="s.sshCmd" readonly class="form-field w-full cursor-pointer" :title="s.sshCmd" @click="copyToClipboard(s.sshCmd); $refs.panel2.close(); $refs.panel.close()" />
                     </div>
                   </div>
                 </td>

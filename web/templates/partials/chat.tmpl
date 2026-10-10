@@ -191,7 +191,9 @@
         <!-- Active chat -->
         <div x-show="currentId" class="flex-1 flex flex-col min-h-0">
           <!-- Messages -->
-          <div x-ref="messages"
+          <!-- A log: new messages are read out; aria-busy holds a reply back
+               while it streams in, so it is read once, whole. -->
+          <div x-ref="messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Conversation" :aria-busy="streaming ? 'true' : 'false'"
                class="flex-1 overflow-y-auto p-3 space-y-3 relative">
             <template x-for="(m, idx) in messages" :key="m.id || idx">
               <!-- Skip tool-role messages; their result renders inline in the

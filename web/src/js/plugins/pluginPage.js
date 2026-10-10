@@ -219,6 +219,9 @@ window.pluginPage = function pluginPage(url) {
         const slot = this._timerSeq = (this._timerSeq + 1) % 5;
         this.timers[column.id] = setTimeout(() => {
           this.timers[column.id] = setInterval(() => {
+            // Live updates paused from the header, or the user is reading
+            // this region: leave it alone this tick.
+            if (window.knotLive && window.knotLive.paused) return;
             if (!this.userReading()) this.fetchColumn(column, body, true);
           }, period);
         }, (period / 5) * slot);
@@ -268,7 +271,10 @@ window.pluginPage = function pluginPage(url) {
         this.renderColumnData(column, data, body, isRefresh);
       } catch (e) {
         body.innerHTML = '';
-        body.appendChild(el('div', 'rounded-lg border border-red-200 dark:border-red-900 p-3 text-sm text-red-700 dark:text-red-300', 'This panel failed to load.'));
+        const failed = el('div', 'rounded-lg border border-red-200 dark:border-red-900 p-3 text-sm text-red-700 dark:text-red-300', 'This panel failed to load.');
+        // A refresh that fails happens by itself: say so.
+        if (isRefresh) failed.setAttribute('role', 'alert');
+        body.appendChild(failed);
       } finally {
         body.closest('[data-col-id]')?.setAttribute('aria-busy', 'false');
       }

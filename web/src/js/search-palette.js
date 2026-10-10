@@ -39,9 +39,20 @@ function isCoarse() {
 // can't steal focus or keyboard from the open form.
 const MODAL_SELECTOR = '.ui-modal-panel, .ui-modal-panel-wide, .ui-modal-panel-xl, .ui-modal-panel-2xl';
 function isModalOpen() {
+  // Rendered, not just present: dialogs such as the confirm and the session
+  // warning keep their panel in the page inside a hidden backdrop.
   return Array.from(document.querySelectorAll(MODAL_SELECTOR)).some(
-    (el) => window.getComputedStyle(el).display !== 'none'
+    (el) => el.getClientRects().length > 0
   );
+}
+
+// The search shortcuts: ⌘/Ctrl/Alt + K focuses the page's own search,
+// with Shift it opens the search-everything palette. Matched on the
+// physical key, as Alt+K types a character on a Mac ("˚").
+export function searchShortcut(e) {
+  if (!(e.metaKey || e.ctrlKey || e.altKey)) return null;
+  if (!(e.code === 'KeyK' || e.key === 'k' || e.key === 'K')) return null;
+  return e.shiftKey ? 'global' : 'page';
 }
 
 Alpine.data('searchPalette', () => ({
@@ -56,7 +67,7 @@ Alpine.data('searchPalette', () => ({
   init() {
     // Global shortcut: Shift + Cmd/Ctrl + K. Ignored on touch-primary inputs.
     document.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'k' || e.key === 'K')) {
+      if (searchShortcut(e) === 'global') {
         e.preventDefault();
         this.openPalette();
       }
@@ -216,17 +227,27 @@ function prefillPageSearchFromQuery() {
 
 document.addEventListener('alpine:initialized', prefillPageSearchFromQuery);
 
-// Cmd/Ctrl+K (without Shift) focuses the current page's #search filter input
-// when one is present — i.e. on list pages. Global so every list page gets the
-// local-search shortcut without per-component wiring. Shift+Cmd/Ctrl+K opens
-// the global palette (handled in the Alpine component above).
+// ⌘/Ctrl/Alt+K (without Shift) focuses the current page's search filter when
+// one is showing: the list pages' #search, or any visible [data-page-search]
+// (Files marks its bucket and file filters). Global so every page gets the
+// shortcut without per-component wiring. With Shift it opens the palette
+// (handled in the Alpine component above).
 document.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'k' || e.key === 'K')) {
-    const input = document.getElementById('search');
-    if (input && !isModalOpen()) {
-      e.preventDefault();
-      input.focus();
-      if (typeof input.select === 'function') input.select();
+  if (searchShortcut(e) !== 'page' || isModalOpen()) return;
+  const input = Array.from(document.querySelectorAll('#search, [data-page-search]'))
+    .find((el) => el.getClientRects().length > 0);
+  if (!input) return;
+  e.preventDefault();
+  input.focus();
+  if (typeof input.select === 'function') input.select();
+});
+
+// Tell assistive tech about the page-search shortcut on the fields it reaches.
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#search, [data-page-search]').forEach((el) => {
+    if (!el.hasAttribute('aria-keyshortcuts')) el.setAttribute('aria-keyshortcuts', 'Meta+K Control+K Alt+K');
+    if (!el.title && window.knotShortcutLabel) {
+      el.title = 'Search this page (' + window.knotShortcutLabel('mod+k') + ' or ' + window.knotShortcutLabel('alt+k') + ')';
     }
-  }
+  });
 });

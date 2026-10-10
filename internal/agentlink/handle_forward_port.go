@@ -169,6 +169,13 @@ func checkForwardTarget(ctx context.Context, client *apiclient.ApiClient, ref st
 		return ""
 	}
 
+	if err == nil {
+		return fmt.Sprintf("forward target check returned status %d", code)
+	}
+	if he := apiclient.AsHTTPError(err); he != nil {
+		return he.Message()
+	}
+
 	message := err.Error()
 	if prefix := "unexpected status code: "; strings.HasPrefix(message, prefix) {
 		message = message[len(prefix):]

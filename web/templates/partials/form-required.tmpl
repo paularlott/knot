@@ -1,0 +1,6 @@
+{{/* Required-field marker for form labels: a visible asterisk, announced as
+     "required" to screen readers. Pair it with aria-required="true" on the
+     field. "req-note" is the visual legend shown once per form; screen
+     readers already hear "required" in each label, so it is hidden from them. */}}
+{{ define "req" }}<span class="ml-0.5 text-red-700 dark:text-red-400" aria-hidden="true">*</span><span class="sr-only"> (required)</span>{{ end }}
+{{ define "req-note" }}<p class="text-sm text-slate-600 dark:text-slate-300" aria-hidden="true"><span class="text-red-700 dark:text-red-400">*</span> required</p>{{ end }}

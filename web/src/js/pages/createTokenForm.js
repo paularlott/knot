@@ -20,6 +20,7 @@ window.createTokenForm = function() {
       const self = this;
       err = !this.checkName() || err;
       if(err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -41,11 +42,11 @@ window.createTokenForm = function() {
           if (response.status === 201) {
             self.$dispatch('close-token-form');
           } else {
-            self.$dispatch('show-alert', { msg: "Failed to create API token", type: 'error' });
+            window.knotError('create the API token', response);
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
+          window.knotError('create the API token', error);
         })
         .finally(() => {
           this.buttonLabel = 'Create Token';

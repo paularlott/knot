@@ -38,7 +38,7 @@
 		<button id="vnc-scale" type="button"></button>
 	</div>
 	<div id="screen" data-space-id="{{ .spaceId }}"></div>
-	<div id="vnc-status">Connecting to the VM's display…</div>
+	<div id="vnc-status" role="status" aria-live="polite">Connecting to the VM's display…</div>
 
 	<script type="module" src="/assets/js/vnc.js?_v={{ .assetVersion }}"></script>
 </body>

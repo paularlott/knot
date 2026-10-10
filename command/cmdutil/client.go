@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/paularlott/cli"
@@ -43,7 +44,7 @@ func GetServerAddr(cmd *cli.Command) *config.ServerAddr {
 
 		server, token, err := agentlink.GetConnectionInfo()
 		if err != nil {
-			fmt.Printf("Error: failed to get agent connection info: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error: couldn't get the server connection from the space agent: %v\n", err)
 			return nil
 		}
 
@@ -58,12 +59,12 @@ func GetClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 	if agentlink.IsAgentRunning() {
 		server, token, err := agentlink.GetConnectionInfo()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get agent connection info: %w", err)
+			return nil, fmt.Errorf("couldn't get the server connection from the space agent: %w", err)
 		}
 
 		client, err := apiclient.NewClient(server, token, true)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create agent API client: %w", err)
+			return nil, fmt.Errorf("couldn't create the API client for %s: %w", server, err)
 		}
 
 		return client, nil
@@ -73,12 +74,12 @@ func GetClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 	cfg := config.GetServerAddr(alias, cmd)
 
 	if cfg.HttpServer == "" {
-		return nil, fmt.Errorf("no server configured")
+		return nil, ErrNoServer
 	}
 
 	client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create API client: %w", err)
+		return nil, fmt.Errorf("couldn't create the API client for %s: %w", cfg.HttpServer, err)
 	}
 
 	return client, nil
@@ -88,6 +89,9 @@ func GetClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 // non-2xx responses ("unexpected status code: 400: …") and returns just the
 // server's error message.
 func CleanAPIError(err error) string {
+	if he := apiclient.AsHTTPError(err); he != nil {
+		return strings.Replace(err.Error(), he.Error(), he.Message(), 1)
+	}
 	const prefix = "unexpected status code: "
 	msg := err.Error()
 	if strings.HasPrefix(msg, prefix) {
@@ -98,6 +102,21 @@ func CleanAPIError(err error) string {
 	}
 	return msg
 }
+
+// CleanErr wraps err so its text is CleanAPIError's (the server's message
+// without the REST client's framing) while errors.As still finds the
+// underlying HTTPError, letting FormatError add the status and a hint.
+func CleanErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &cleanedError{err: err}
+}
+
+type cleanedError struct{ err error }
+
+func (e *cleanedError) Error() string { return CleanAPIError(e.err) }
+func (e *cleanedError) Unwrap() error { return e.err }
 
 // ClientFlags returns the flags that choose the server a command talks to: an
 // explicit --server and --token, else the alias (default "default") from the

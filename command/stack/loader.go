@@ -105,7 +105,7 @@ func loadStackDefFromTOML(ctx context.Context, filePath string, client *apiclien
 
 		tmpl, err := client.GetTemplateByName(ctx, templateName)
 		if err != nil {
-			return nil, fmt.Errorf("template not found: %s", templateName)
+			return nil, fmt.Errorf("template %q not found", templateName)
 		}
 
 		space := apiclient.StackDefSpace{

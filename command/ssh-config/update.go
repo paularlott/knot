@@ -36,18 +36,18 @@ var SshConfigUpdateCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		// Get the current user
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
+			return fmt.Errorf("couldn't get the current user: %w", err)
 		}
 
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		// If a config file was given then we need to use it
@@ -55,7 +55,7 @@ var SshConfigUpdateCmd = &cli.Command{
 		if cmd.HasFlag("config") {
 			absPath, err := filepath.Abs(cmd.GetString("config"))
 			if err != nil {
-				return fmt.Errorf("Failed to resolve absolute path for config file: %w", err)
+				return fmt.Errorf("couldn't resolve the path of the SSH config file: %w", err)
 			}
 			configFile = " --config=" + absPath
 		}

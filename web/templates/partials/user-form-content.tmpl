@@ -5,30 +5,30 @@
   <div>
       {{ template "loading" . }}
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
+        {{ template "req-note" }}
         <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
           <div class="space-y-6">
             <div>
-              <label for="username" class="form-label">Username</label>
-              <input type="text" id="username" class="form-field" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" :aria-invalid="!usernameValid ? 'true' : 'false'" :aria-describedby="!usernameValid ? 'username-error' : null" autocomplete="username" placeholder="Username (a - Z, 0 - 9, - and .)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
+              <label for="username" class="form-label">Username<span x-show="!isEdit">{{ template "req" }}</span></label>
+              <input type="text" id="username" class="form-field" name="username" x-on:blur="checkUsername()" x-on:input="if (!usernameValid) checkUsername()" :class="{'form-field-error': !usernameValid}" :aria-invalid="!usernameValid ? 'true' : 'false'" :aria-required="!isEdit ? 'true' : null" :aria-describedby="!usernameValid ? 'username-help username-error' : 'username-help'" autocomplete="username" placeholder="Username" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
+              <p id="username-help" class="description" x-show="!isEdit">Letters, numbers, hyphens (-) and dots (.). Start with a letter, end with a letter or number, up to 30 characters.</p>
               <div id="username-error" x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 30 characters.</div>
             </div>
             <div>
-              <label for="email" class="form-label">Email</label>
-              <input type="email" id="email" class="form-field" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" :aria-describedby="!emailValid ? 'email-error' : null" autocomplete="email" placeholder="Email address" x-model="formData.email">
+              <label for="email" class="form-label">Email{{ template "req" }}</label>
+              <input type="email" id="email" class="form-field" name="email" x-on:blur="checkEmail()" x-on:input="if (!emailValid) checkEmail()" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" aria-required="true" :aria-describedby="!emailValid ? 'email-error' : null" autocomplete="email" placeholder="Email address" x-model="formData.email">
               <div id="email-error" x-show="!emailValid" class="error-message" x-cloak>Enter a valid email address.</div>
             </div>
             <div>
-              <label for="password" class="form-label">Password</label>
-              <input type="password" id="password" class="form-field" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" {{ if .isProfile }}:aria-describedby="!passwordValid ? 'password-help password-error' : 'password-help'"{{ else }}:aria-describedby="!passwordValid ? 'password-error' : null"{{ end }} autocomplete="new-password" placeholder="Password" x-model="formData.password">
-              {{ if .isProfile }}
-              <p id="password-help" class="description">Leave blank to keep the current password.</p>
-              {{ end }}
+              <label for="password" class="form-label">Password<span x-show="!isEdit">{{ template "req" }}</span></label>
+              <input type="password" id="password" class="form-field" name="password" x-on:blur="checkPassword()" x-on:input="if (!passwordValid) checkPassword(); if (!confirmPasswordValid) checkConfirmPassword()" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" :aria-required="!isEdit ? 'true' : null" :aria-describedby="!passwordValid ? 'password-help password-error' : 'password-help'" autocomplete="new-password" placeholder="Password" x-model="formData.password">
+              <p id="password-help" class="description" x-text="isEdit ? 'At least 8 characters. Leave blank to keep the current password.' : 'At least 8 characters.'">At least 8 characters.</p>
               <div id="password-error" x-show="!passwordValid" class="error-message" x-cloak>Password must be at least 8 characters.</div>
             </div>
             <div>
-              <label for="confirm_password" class="form-label">Confirm Password</label>
-              <input type="password" id="confirm_password" class="form-field" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" :aria-invalid="!confirmPasswordValid ? 'true' : 'false'" :aria-describedby="!confirmPasswordValid ? 'confirm_password-error' : null" autocomplete="new-password" placeholder="Confirm password" x-model="formData.password_confirm">
+              <label for="confirm_password" class="form-label">Confirm Password<span x-show="!isEdit">{{ template "req" }}</span></label>
+              <input type="password" id="confirm_password" class="form-field" name="confirm_password" x-on:blur="checkConfirmPassword()" x-on:input="if (!confirmPasswordValid) checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" :aria-invalid="!confirmPasswordValid ? 'true' : 'false'" :aria-required="!isEdit ? 'true' : null" :aria-describedby="!confirmPasswordValid ? 'confirm_password-error' : null" autocomplete="new-password" placeholder="Confirm password" x-model="formData.password_confirm">
               <div id="confirm_password-error" x-show="!confirmPasswordValid" class="error-message" x-cloak>Both passwords must match.</div>
             </div>
             <div>
@@ -45,11 +45,11 @@
             <div>
               <label for="tz" class="form-label">Timezone</label>
               <div x-data="autocompleter()" x-init="setData(window.Timezones)" data-parent-variable="timezone" @refresh-autocompleter.window="refresh()" class="relative">
-                <input id="tz" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search..." :aria-invalid="!tzValid ? 'true' : 'false'" :aria-describedby="!tzValid ? 'tz-error' : null" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)">
+                <input id="tz" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search..." role="combobox" aria-autocomplete="list" autocomplete="off" :aria-expanded="showList && filteredOptions.length > 0" :aria-controls="_listboxId" :aria-activedescendant="activeDescendant" :aria-invalid="!tzValid ? 'true' : 'false'" :aria-describedby="!tzValid ? 'tz-error' : null" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)">
                 <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
-                  <ul class="list-none" role="listbox" aria-label="Timezones">
+                  <ul class="list-none" role="listbox" aria-label="Timezones" :id="_listboxId">
                     <template x-for="(option, index) in filteredOptions" :key="index">
-                      <li @click="selectOption(option)" role="option" :aria-selected="selectedIndex === index ? 'true' : 'false'" x-text="option" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
+                      <li @click="selectOption(option)" role="option" :id="`${_listboxId}-opt-${index}`" :aria-selected="selectedIndex === index ? 'true' : 'false'" x-text="option" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
                     </template>
                   </ul>
                 </div>
@@ -59,7 +59,7 @@
             {{ if .isProfile }}
             <div>
               <label for="service_password" class="form-label">Service Password</label>
-              <input type="text" id="service_password" class="form-field" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'form-field-error': !servicePasswordValid}" :aria-invalid="!servicePasswordValid ? 'true' : 'false'" :aria-describedby="!servicePasswordValid ? 'service_password-help service_password-error' : 'service_password-help'" placeholder="Service Password" x-model="formData.service_password">
+              <input type="text" id="service_password" class="form-field" name="service_password" x-on:blur="checkServicePassword()" x-on:input="if (!servicePasswordValid) checkServicePassword()" :class="{'form-field-error': !servicePasswordValid}" :aria-invalid="!servicePasswordValid ? 'true' : 'false'" :aria-describedby="!servicePasswordValid ? 'service_password-help service_password-error' : 'service_password-help'" placeholder="Service Password" x-model="formData.service_password">
               <p id="service_password-help" class="description">A password made available for initializing services such as databases.</p>
               <div id="service_password-error" x-show="!servicePasswordValid" class="error-message" x-cloak>The service password is required.</div>
             </div>
@@ -72,7 +72,7 @@
           <div class="space-y-6">
             <div>
               <label for="github_username" class="form-label">GitHub Username</label>
-              <input type="text" id="github_username" class="form-field" name="github_username" x-on:keyup.debounce.500ms="checkGithubUsername()" :class="{'form-field-error': !githubUsernameValid}" :aria-invalid="!githubUsernameValid ? 'true' : 'false'" :aria-describedby="!githubUsernameValid ? 'github_username-help github_username-error' : 'github_username-help'" placeholder="GitHub Username" x-model="formData.github_username">
+              <input type="text" id="github_username" class="form-field" name="github_username" x-on:blur="checkGithubUsername()" x-on:input="if (!githubUsernameValid) checkGithubUsername()" :class="{'form-field-error': !githubUsernameValid}" :aria-invalid="!githubUsernameValid ? 'true' : 'false'" :aria-describedby="!githubUsernameValid ? 'github_username-help github_username-error' : 'github_username-help'" placeholder="GitHub Username" x-model="formData.github_username">
               <p id="github_username-help" class="description">If the GitHub username is given then the public SSH keys are loaded from it by the agent.</p>
               <div id="github_username-error" x-show="!githubUsernameValid" class="error-message" x-cloak>Enter a valid GitHub username.</div>
             </div>
@@ -84,7 +84,7 @@
             {{ if .isProfile }}
               <div>
                 <label for="ssh_private_key" class="form-label">SSH Private Key</label>
-                <textarea id="ssh_private_key" class="form-field font-mono" name="ssh_private_key" rows="8" placeholder="SSH Private Key" x-on:keyup.debounce.500ms="checkPrivateKey()" :class="{'form-field-error': !privateKeyValid}" :aria-invalid="!privateKeyValid ? 'true' : 'false'" :aria-describedby="!privateKeyValid ? 'ssh_private_key-help ssh_private_key-error' : 'ssh_private_key-help'" x-model="formData.ssh_private_key"></textarea>
+                <textarea id="ssh_private_key" class="form-field font-mono" name="ssh_private_key" rows="8" placeholder="SSH Private Key" x-on:blur="checkPrivateKey()" x-on:input="if (!privateKeyValid) checkPrivateKey()" :class="{'form-field-error': !privateKeyValid}" :aria-invalid="!privateKeyValid ? 'true' : 'false'" :aria-describedby="!privateKeyValid ? 'ssh_private_key-help ssh_private_key-error' : 'ssh_private_key-help'" x-model="formData.ssh_private_key"></textarea>
                 <p id="ssh_private_key-help" class="description">If given, this key will be written to <code>~/.ssh/id_ed25519</code>, <code>~/.ssh/id_rsa</code>, or <code>~/.ssh/id_ecdsa</code> in your SSH-enabled spaces depending on key format.</p>
                 <div id="ssh_private_key-error" x-show="!privateKeyValid" class="error-message" x-cloak>Enter a valid SSH private key.</div>
               </div>
@@ -99,44 +99,44 @@
             <div x-show="isEdit && formData.user_id !== '{{ .user.id }}'" x-cloak>
               <label class="flex items-center cursor-pointer mb-2">
                 <input type="checkbox" id="active" name="active" x-model="formData.active" class="sr-only peer">
-                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
               </label>
             </div>
             <div class="grid gap-4 md:grid-cols-2">
               <div>
                 <label for="max_spaces" class="form-label">Maximum Spaces</label>
-                <input type="number" id="max_spaces" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="10000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" :aria-invalid="!maxSpacesValid ? 'true' : 'false'" :aria-describedby="!maxSpacesValid ? 'max_spaces-help max_spaces-error' : 'max_spaces-help'">
+                <input type="number" id="max_spaces" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="10000" x-on:blur="checkMaxSpaces()" x-on:input="if (!maxSpacesValid) checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" :aria-invalid="!maxSpacesValid ? 'true' : 'false'" :aria-describedby="!maxSpacesValid ? 'max_spaces-help max_spaces-error' : 'max_spaces-help'">
                 <p id="max_spaces-help" class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
                 <div id="max_spaces-error" x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 10,000.</div>
               </div>
               <div>
                 <label for="compute_units" class="form-label">Compute Units Limit</label>
-                <input type="number" id="compute_units" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" :aria-invalid="!computeUnitsValid ? 'true' : 'false'" :aria-describedby="!computeUnitsValid ? 'compute_units-help compute_units-error' : 'compute_units-help'">
+                <input type="number" id="compute_units" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:blur="checkComputeUnits()" x-on:input="if (!computeUnitsValid) checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" :aria-invalid="!computeUnitsValid ? 'true' : 'false'" :aria-describedby="!computeUnitsValid ? 'compute_units-help compute_units-error' : 'compute_units-help'">
                 <p id="compute_units-help" class="description">The maximum number of compute units (CPU, GPU, RAM, etc.) this user can use, 0 for unlimited.</p>
                 <div id="compute_units-error" x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
               <div>
                 <label for="storage_units" class="form-label">Storage Units Limit</label>
-                <input type="number" id="storage_units" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" :aria-invalid="!storageUnitsValid ? 'true' : 'false'" :aria-describedby="!storageUnitsValid ? 'storage_units-help storage_units-error' : 'storage_units-help'">
+                <input type="number" id="storage_units" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:blur="checkStorageUnits()" x-on:input="if (!storageUnitsValid) checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" :aria-invalid="!storageUnitsValid ? 'true' : 'false'" :aria-describedby="!storageUnitsValid ? 'storage_units-help storage_units-error' : 'storage_units-help'">
                 <p id="storage_units-help" class="description">The maximum number of storage units this user can use, 0 for unlimited.</p>
                 <div id="storage_units-error" x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
               <div>
                 <label for="max_tunnels" class="form-label">Maximum Tunnels</label>
-                <input type="number" id="max_tunnels" class="form-field" name="max_tunnels" x-model="formData.max_tunnels" min="0" x-on:keyup.debounce.500ms="checkMaxTunnels()" :class="{'form-field-error': !maxTunnelsValid}" :aria-invalid="!maxTunnelsValid ? 'true' : 'false'" :aria-describedby="!maxTunnelsValid ? 'max_tunnels-help max_tunnels-error' : 'max_tunnels-help'">
+                <input type="number" id="max_tunnels" class="form-field" name="max_tunnels" x-model="formData.max_tunnels" min="0" x-on:blur="checkMaxTunnels()" x-on:input="if (!maxTunnelsValid) checkMaxTunnels()" :class="{'form-field-error': !maxTunnelsValid}" :aria-invalid="!maxTunnelsValid ? 'true' : 'false'" :aria-describedby="!maxTunnelsValid ? 'max_tunnels-help max_tunnels-error' : 'max_tunnels-help'">
                 <p id="max_tunnels-help" class="description">The maximum number of tunnels this user can create, 0 for unlimited.</p>
                 <div id="max_tunnels-error" x-show="!maxTunnelsValid" class="error-message" x-cloak>Enter a valid number between 0 and 100.</div>
               </div>
               <div>
                 <label for="file_storage_mb" class="form-label">File Storage (MB)</label>
-                <input type="number" id="file_storage_mb" class="form-field" name="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:keyup.debounce.500ms="checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" :aria-invalid="!fileStorageValid ? 'true' : 'false'" :aria-describedby="!fileStorageValid ? 'file_storage_mb-help file_storage_mb-error' : 'file_storage_mb-help'">
+                <input type="number" id="file_storage_mb" class="form-field" name="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:blur="checkFileStorage()" x-on:input="if (!fileStorageValid) checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" :aria-invalid="!fileStorageValid ? 'true' : 'false'" :aria-describedby="!fileStorageValid ? 'file_storage_mb-help file_storage_mb-error' : 'file_storage_mb-help'">
                 <p id="file_storage_mb-help" class="description">The maximum size of the files in buckets this user owns, in MB, 0 to use the server default.</p>
                 <div id="file_storage_mb-error" x-show="!fileStorageValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
               <div>
                 <label for="max_buckets" class="form-label">Maximum Buckets</label>
-                <input type="number" id="max_buckets" class="form-field" name="max_buckets" x-model="formData.max_buckets" min="0" x-on:keyup.debounce.500ms="checkMaxBuckets()" :class="{'form-field-error': !maxBucketsValid}" :aria-invalid="!maxBucketsValid ? 'true' : 'false'" :aria-describedby="!maxBucketsValid ? 'max_buckets-help max_buckets-error' : 'max_buckets-help'">
+                <input type="number" id="max_buckets" class="form-field" name="max_buckets" x-model="formData.max_buckets" min="0" x-on:blur="checkMaxBuckets()" x-on:input="if (!maxBucketsValid) checkMaxBuckets()" :class="{'form-field-error': !maxBucketsValid}" :aria-invalid="!maxBucketsValid ? 'true' : 'false'" :aria-describedby="!maxBucketsValid ? 'max_buckets-help max_buckets-error' : 'max_buckets-help'">
                 <p id="max_buckets-help" class="description">The maximum number of file storage buckets this user can own, 0 to use the server default.</p>
                 <div id="max_buckets-error" x-show="!maxBucketsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
@@ -147,7 +147,7 @@
                 <template x-for="(role, index) in roles" :key="index">
                   <label class="flex items-center cursor-pointer mb-2">
                     <input type="checkbox" class="sr-only peer" :id="'role-' + index" name="roles[]" :value="role.role_id" :checked="formData.roles.includes(role.role_id)" @change="toggleRole(role.role_id)">
-                    <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                    <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                     <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="role.name"></span>
                   </label>
                 </template>
@@ -157,7 +157,7 @@
                 <template x-for="(group, index) in groups" :key="index">
                   <label class="flex items-center cursor-pointer mb-2">
                     <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
-                    <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                    <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                     <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
                   </label>
                 </template>
@@ -279,7 +279,7 @@
               <p class="text-sm text-gray-500 dark:text-gray-400">Search for an account this user can become. The grant is one way: the account you pick gains nothing — this user can switch into it, not the other way around.</p>
               <div class="relative mt-4" x-data="autocompleterUser()" x-init="setDataSource('linkableUsers'); loadUserOptions()" data-parent-var-group="linkUserForm" data-parent-variable="userId" data-parent-variable-username="username" @refresh-autocompleter.window="refresh()">
                 <label class="form-label" for="linked-user-search">User</label>
-                <input id="linked-user-search" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" autocomplete="off">
+                <input id="linked-user-search" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" autocomplete="off">
                 <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                   <ul class="list-none" role="listbox" :id="_listboxId">
                     <template x-for="(option, index) in filteredOptions" :key="index">

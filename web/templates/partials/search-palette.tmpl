@@ -3,8 +3,9 @@
   <div x-show="open"
        class="fixed inset-0 z-[60] flex items-start justify-center bg-gray-900/50 px-4 pt-[10vh]"
        x-transition.opacity
+       x-trap.inert.noscroll="open"
        @click.self="close()">
-    <div class="w-full max-w-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[70vh]"
+    <div role="dialog" aria-modal="true" aria-label="Search everything" class="w-full max-w-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[70vh]"
          @keydown.escape.stop="close()">
 
       <div class="p-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
@@ -41,8 +42,8 @@
                       @click="activate({type: g.key, hit: hit})"
                       @mousemove="activeIndex = flatIndexFor(g.key, hit)">
                 <div class="flex-grow min-w-0">
-                  <div class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="hit.name"></div>
-                  <div x-show="hit.description" class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="hit.description"></div>
+                  <div class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="hit.name" :title="hit.name"></div>
+                  <div x-show="hit.description" class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="hit.description" :title="hit.description"></div>
                 </div>
                 <span class="text-xs text-gray-500 dark:text-gray-400 shrink-0 self-center" x-text="g.label"></span>
               </button>
@@ -51,15 +52,19 @@
         </template>
       </div>
 
-      <div class="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 shrink-0">
-        <span class="flex items-center gap-1">
-          <kbd class="border border-gray-200 dark:border-gray-600 rounded px-1">&uarr;</kbd>
-          <kbd class="border border-gray-200 dark:border-gray-600 rounded px-1">&darr;</kbd>
+      <div class="flex items-center justify-between gap-4 px-3 py-2 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 shrink-0">
+        <span class="flex items-center gap-1.5">
+          <kbd class="kbd-key" aria-label="Up arrow">&uarr;</kbd>
+          <kbd class="kbd-key" aria-label="Down arrow">&darr;</kbd>
           navigate
         </span>
-        <span class="flex items-center gap-1">
-          <kbd class="border border-gray-200 dark:border-gray-600 rounded px-1">&crarr;</kbd>
+        <span class="flex items-center gap-1.5">
+          <kbd class="kbd-key" aria-label="Enter">&crarr;</kbd>
           open
+        </span>
+        <span class="flex items-center gap-1.5">
+          <kbd class="kbd-key px-1.5 text-xs font-semibold">Esc</kbd>
+          close
         </span>
       </div>
     </div>

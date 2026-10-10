@@ -16,7 +16,7 @@
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
             <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
-            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
           </div>
         </div>
       </div>
@@ -25,7 +25,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Add Server
+          New MCP Server
         </button>
       </div>
     </form>
@@ -33,21 +33,21 @@
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       {{ template "loading" . }}
             <div x-show="!loading && servers.length === 0" x-cloak>
-        {{ template "empty" "No MCP servers yet." }}
+        {{ template "empty" (map "heading" "No MCP servers yet" "text" "MCP servers give AI assistants in your spaces extra tools, such as access to other services." "action" "New MCP Server" "click" "createServer()") }}
       </div>
       <div x-show="!loading && servers.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="MCP Servers" class="w-full text-sm text-left rtl:text-right">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Namespace</th>
-              <th scope="col" class="px-4 py-3 hidden md:table-cell">Endpoint</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Visibility</th>
-              <th scope="col" class="px-4 py-3">Status</th>
+              {{ template "sort-th" (map "key" "name" "label" "Namespace") }}
+              {{ template "sort-th" (map "key" "endpoint" "label" "Endpoint" "class" "hidden md:table-cell") }}
+              {{ template "sort-th" (map "key" "visibility" "label" "Visibility" "class" "hidden sm:table-cell") }}
+              {{ template "sort-th" (map "key" "status" "label" "Status") }}
               <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-            <template x-for="s in servers" :key="s.mcp_server_id">
+            <template x-for="s in sorted(servers)" :key="s.mcp_server_id">
               <template x-if="!s.searchHide">
                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <td class="px-4 py-3">
@@ -64,7 +64,7 @@
                     <template x-if="!s.command && s.url">
                       <div class="flex items-center gap-1">
                         <span class="app-badge-success">http</span>
-                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400 truncate max-w-xs" x-text="s.url"></span>
+                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400 truncate max-w-xs" x-text="s.url" :title="s.url"></span>
                       </div>
                     </template>
                   </td>
@@ -105,6 +105,7 @@
                 </tr>
               </template>
             </template>
+            {{ template "no-results" (map "list" "servers" "things" "MCP servers" "cols" 5) }}
           </tbody>
         </table>
       </div>
@@ -174,7 +175,7 @@
                 </div>
                 <label class="flex items-center cursor-pointer shrink-0 mt-0.5">
                   <input type="checkbox" class="sr-only peer" :checked="tool.enabled" @change="toggleToolModal(tool, $event.target.checked)">
-                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 </label>
               </div>
             </template>

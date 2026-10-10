@@ -9,6 +9,11 @@
 //     (data-labelledby for a plain <div> host, which may not carry one),
 // and inherits the host's aria-describedby. Clicking the label focuses the
 // editor, as it would a native control.
+//
+// Keyboard exit (WCAG 2.1.2): Tab indents inside an editor, so pressing Esc
+// arms the next Tab (or Shift+Tab) to move focus out of the editor instead.
+// Any other key disarms it. The editor's input is described by a hidden hint
+// saying so, and arming is announced.
 
 import ace from 'ace-builds/src-noconflict/ace';
 
@@ -52,9 +57,64 @@ window.aceSetInvalid = function aceSetInvalid(editor, invalid, describedby) {
     : null;
   if (!input) return;
   input.setAttribute('aria-invalid', invalid ? 'true' : 'false');
-  if (invalid && describedby) input.setAttribute('aria-describedby', describedby);
-  else if (describedby && input.getAttribute('aria-describedby') === describedby) input.removeAttribute('aria-describedby');
+  if (!describedby) return;
+  // Add or drop the error ids, keeping anything else (the keyboard hint).
+  const ids = describedby.split(' ').filter(Boolean);
+  let list = (input.getAttribute('aria-describedby') || '').split(' ').filter((id) => id && !ids.includes(id));
+  if (invalid) list = ids.concat(list);
+  if (list.length) input.setAttribute('aria-describedby', list.join(' '));
+  else input.removeAttribute('aria-describedby');
 };
+
+const HINT_ID = 'knot-ace-keyboard-hint';
+function hintId() {
+  if (!document.getElementById(HINT_ID) && document.body) {
+    const hint = document.createElement('div');
+    hint.id = HINT_ID;
+    hint.className = 'sr-only';
+    hint.textContent = 'Tab indents. Press Escape, then Tab, to move out of the editor.';
+    document.body.appendChild(hint);
+  }
+  return HINT_ID;
+}
+
+function keyboardExit(editor) {
+  const input = editor && editor.textInput && editor.textInput.getElement
+    ? editor.textInput.getElement()
+    : null;
+  if (!input || !editor.keyBinding) return;
+  const described = (input.getAttribute('aria-describedby') || '').split(' ').filter(Boolean);
+  if (!described.includes(HINT_ID)) described.push(hintId());
+  input.setAttribute('aria-describedby', described.join(' '));
+
+  let armed = false;
+  const disarm = () => {
+    armed = false;
+    if (editor.container) editor.container.removeAttribute('data-ace-esc-armed');
+  };
+  // Low priority (just above Ace's defaults), so popups such as
+  // autocompletion and search keep their own Escape.
+  editor.keyBinding.addKeyboardHandler({
+    handleKeyboard(data, hashId, keyString) {
+      if (hashId === -1) { disarm(); return undefined; } // typed text
+      if (keyString === 'esc' && hashId === 0) {
+        // A second Escape is an ordinary one (closes the dialog).
+        if (armed) { disarm(); return { command: 'null', passEvent: true }; }
+        if (window.knotAnnounce) window.knotAnnounce('Press Tab to move out of the editor, or Escape again to close.');
+        armed = true;
+        editor.container.setAttribute('data-ace-esc-armed', '');
+        return { command: 'null' };
+      }
+      if (armed && keyString === 'tab' && (hashId === 0 || hashId === 4)) {
+        disarm();
+        return { command: 'null', passEvent: true };
+      }
+      if (keyString && !['shift', 'ctrl', 'alt', 'cmd', 'meta'].includes(keyString)) disarm();
+      return undefined;
+    },
+  }, 1);
+  editor.on('blur', () => disarm());
+}
 
 if (ace && typeof ace.edit === 'function') {
   const origEdit = ace.edit;
@@ -76,6 +136,11 @@ if (ace && typeof ace.edit === 'function') {
       labelEditor(editor, scope, hostId, attrs);
     } catch (e) {
       /* labelling is best-effort */
+    }
+    try {
+      keyboardExit(editor);
+    } catch (e) {
+      /* best-effort */
     }
     return editor;
   };

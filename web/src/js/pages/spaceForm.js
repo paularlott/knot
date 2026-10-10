@@ -669,10 +669,7 @@ window.spaceForm = function (
           this.showAllOptions = true;
         }
         focus.firstInvalid(this.$root);
-        self.$dispatch("show-alert", {
-          msg: "Please fix the validation errors before saving",
-          type: "error",
-        });
+        window.knotToast("Some fields need attention.", "error");
         return;
       }
 
@@ -713,61 +710,22 @@ window.spaceForm = function (
                         }),
                       );
                     } else {
-                      response2.text().then((text) => {
-                        try {
-                          const d = JSON.parse(text);
-                          window.dispatchEvent(
-                            new CustomEvent("show-alert", {
-                              detail: {
-                                msg: `Failed to start space, ${d.error}`,
-                                type: "error",
-                              },
-                            }),
-                          );
-                        } catch {
-                          window.dispatchEvent(
-                            new CustomEvent("show-alert", {
-                              detail: {
-                                msg: `Failed to start space`,
-                                type: "error",
-                              },
-                            }),
-                          );
-                        }
-                      });
+                      window.knotError("start the new space", response2);
                     }
                   })
                   .catch((error) => {
-                    window.dispatchEvent(
-                      new CustomEvent("show-alert", {
-                        detail: {
-                          msg: `Error!<br />${error.message}`,
-                          type: "error",
-                        },
-                      }),
-                    );
+                    window.knotError("start the new space", error);
                   });
               }
             });
           } else if (response.status === 507) {
             self.quotaStorageLimitShow = true;
           } else {
-            response.json().then((data) => {
-              self.$dispatch("show-alert", {
-                msg:
-                  (isEdit
-                    ? "Failed to update space, "
-                    : "Failed to create space, ") + data.error,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the space" : "create the space", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the space" : "create the space", error);
         })
         .finally(() => {
           this.loading = false;

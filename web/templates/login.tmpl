@@ -6,14 +6,14 @@
 <div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
   <h1 class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
     {{ if .logoURL }}
-    <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">
+    <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="">
     <span class="sr-only">Sign in</span>
     {{ else if .pluginLogoLight }}
-    <img src="{{ .pluginLogoLight }}" alt="Logo" class="h-11 dark:hidden">
-    <img src="{{ .pluginLogoDark }}" alt="Logo" class="h-11 hidden dark:block">
+    <img src="{{ .pluginLogoLight }}" alt="" class="h-11 dark:hidden">
+    <img src="{{ .pluginLogoDark }}" alt="" class="h-11 hidden dark:block">
     <span class="sr-only">Sign in</span>
     {{ else }}
-    <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Sign in to Knot
+    <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Sign in to knot
     {{ end }}
   </h1>
 
@@ -22,7 +22,7 @@
     <div class="auth-form-panel">
       <div class="mb-5">
         <h2 class="auth-form-heading">Sign in with email</h2>
-        <p class="auth-form-caption">Use your Knot account credentials to continue into your workspace.</p>
+        <p class="auth-form-caption">Use your knot account to continue to your workspace.</p>
       </div>
 
       <div class="space-y-4">
@@ -34,7 +34,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21.75 7.5v9A2.25 2.25 0 0 1 19.5 18.75h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.92l-7.5 4.615a2.25 2.25 0 0 1-2.36 0l-7.5-4.615a2.25 2.25 0 0 1-1.07-1.92V7.5" />
               </svg>
             </div>
-            <input type="email" name="email" id="email" class="auth-form-field" placeholder="name@company.com" required="" autocomplete="username" x-on:keyup.debounce.500ms="checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" :aria-describedby="!emailValid ? 'email-error' : null">
+            <input type="email" name="email" id="email" class="auth-form-field" placeholder="name@company.com" required="" autocomplete="username" x-on:blur="checkEmail()" x-on:input="!emailValid && checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" :aria-describedby="!emailValid ? 'email-error' : null">
           </div>
           <div id="email-error" class="error-message mt-2" x-show="!emailValid" x-cloak>Enter a valid email address.</div>
         </div>
@@ -47,22 +47,23 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21h-10.5A2.25 2.25 0 0 1 4.5 18.75v-6A2.25 2.25 0 0 1 6.75 10.5Z" />
               </svg>
             </div>
-            <input type="password" name="password" id="password" placeholder="your password" class="auth-form-field" required="" autocomplete="current-password" x-on:keyup.debounce.500ms="checkPassword()" x-model="formData.password" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" :aria-describedby="!passwordValid ? 'password-error' : null">
+            <input type="password" name="password" id="password" placeholder="your password" class="auth-form-field" required="" autocomplete="current-password" x-on:blur="checkPassword()" x-on:input="!passwordValid && checkPassword()" x-model="formData.password" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" :aria-describedby="!passwordValid ? 'password-error' : null">
           </div>
           <div id="password-error" class="error-message mt-2" x-show="!passwordValid" x-cloak>Enter your password.</div>
         </div>
 
         {{ if .totpEnabled }}
         <div>
-          <label for="totp" class="form-label">One Time Password</label>
+          <label for="totp" class="form-label">Authenticator code</label>
           <div class="auth-form-field-shell">
             <div class="auth-form-field-icon" aria-hidden="true">
               <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15.75 5.25V3.75m-7.5 1.5V3.75m12 4.5v10.5A2.25 2.25 0 0 1 18 21H6a2.25 2.25 0 0 1-2.25-2.25V8.25m16.5 0A2.25 2.25 0 0 0 18 6H6a2.25 2.25 0 0 0-2.25 2.25m16.5 0v.75A2.25 2.25 0 0 1 18 11.25H6A2.25 2.25 0 0 1 3.75 9V8.25m5.25 5.25h6" />
               </svg>
             </div>
-            <input type="text" name="totp" id="totp" placeholder="123456" class="auth-form-field" autocomplete="one-time-code" inputmode="numeric" x-model="formData.totp_code">
+            <input type="text" name="totp" id="totp" placeholder="123456" class="auth-form-field" autocomplete="one-time-code" inputmode="numeric" maxlength="6" aria-describedby="totp-help" x-model="formData.totp_code">
           </div>
+          <p id="totp-help" class="description">6-digit code from your authenticator app. Leave blank if you haven't set one up.</p>
         </div>
         {{ end }}
       </div>
@@ -75,7 +76,7 @@
           </svg>
           <span x-text="buttonLabel"></span>
         </button>
-        <p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">Secure sign-in with your Knot account credentials.</p>
+        <p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">Secure sign-in with your knot account.</p>
       </div>
     </div>
   </form>
@@ -106,10 +107,13 @@
   </div>
   {{ end }}
 
-  <!-- Modal -->
-  <div x-cloak x-show="showTOTP" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showTOTP" @keydown.esc.window="showTOTP = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="totpModalTitle">
+  <!-- Modal: confirm the new authenticator secret before continuing. It
+       can't be dismissed: the secret is already saved, so leaving without
+       recording it would lock the user out at their next sign-in. -->
+  <div x-cloak x-show="showTOTP" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showTOTP" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="totpModalTitle" aria-describedby="totpModalDesc">
     <!-- Modal Dialog -->
     <div x-show="showTOTP" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+      <form @submit.prevent="verifyTOTP" novalidate>
       <!-- Dialog Header -->
       <div class="ui-modal-header">
         <div class="ui-modal-icon">
@@ -118,32 +122,45 @@
           </svg>
         </div>
         <div>
-          <h3 id="totpModalTitle" class="ui-modal-title">Secure your account</h3>
-          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Save this one-time password secret in your authenticator app before continuing.</p>
+          <h3 id="totpModalTitle" class="ui-modal-title">Set up your authenticator app</h3>
+          <p id="totpModalDesc" class="mt-1 text-sm text-gray-600 dark:text-gray-400">This server requires a code from an authenticator app each time you sign in.</p>
         </div>
       </div>
       <!-- Dialog Body -->
-      <div class="ui-modal-body text-center">
-        <p class="mx-auto max-w-md">This system requires one-time passwords. Scan the QR code or record the secret below in your authenticator app.</p>
-        <div class="mt-4 rounded-2xl border border-dashed border-gray-300 bg-slate-50 px-4 py-3 font-jbmono text-sm font-medium tracking-wide text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+      <div class="ui-modal-body">
+        <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
+          <li>Scan the QR code with your authenticator app, or enter the secret by hand.</li>
+          <li>Enter the 6-digit code the app shows to confirm it works.</li>
+        </ol>
+        <template x-if="totpSecret.length">
+          <img :src="'/qrcode/' + totpSecret" alt="QR code containing your authenticator secret" class="mx-auto mt-4 h-48 w-48 rounded-2xl bg-white p-3 shadow-sm">
+        </template>
+        <p class="mt-4 text-center text-sm text-gray-600 dark:text-gray-400" id="totp-secret-label">Secret</p>
+        <div class="mt-1 rounded-2xl border border-dashed border-gray-300 bg-slate-50 px-4 py-3 text-center font-jbmono text-sm font-medium tracking-wide text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" aria-labelledby="totp-secret-label">
           <strong x-text="totpSecret"></strong>
         </div>
-        <template x-if="totpSecret.length">
-          <img :src="'/qrcode/' + totpSecret" alt="QR Code" class="mx-auto mt-4 h-48 w-48 rounded-2xl bg-white p-3 shadow-sm">
-        </template>
-        <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">You can view this code again later from your profile page.</p>
+        <div class="mt-4">
+          <label for="totp-confirm" class="form-label">Code from your app{{ template "req" }}</label>
+          <input type="text" id="totp-confirm" name="totp-confirm" class="form-field" autocomplete="one-time-code" inputmode="numeric" maxlength="6" required aria-required="true" placeholder="123456" x-model="confirmCode" x-on:input="if (!confirmCodeValid) confirmCodeValid = /^\d{6}$/.test(confirmCode.trim())" :class="{'form-field-error': !confirmCodeValid}" :aria-invalid="!confirmCodeValid ? 'true' : 'false'" :aria-describedby="!confirmCodeValid ? 'totp-confirm-help totp-confirm-error' : 'totp-confirm-help'">
+          <p id="totp-confirm-help" class="description">The code changes every 30 seconds. If it doesn't match, wait for the next one or scan the QR code again.</p>
+          <div id="totp-confirm-error" class="error-message mt-2" x-show="!confirmCodeValid" x-text="confirmCodeError" x-cloak></div>
+        </div>
+        <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">You can view this secret again later from your profile page.</p>
       </div>
       <!-- Dialog Footer -->
       <div class="ui-modal-footer">
-          <button @click="window.location.href = redirect;" type="button" class="ui-button-primary">I Have Recorded The Code</button>
+        <button type="submit" class="ui-button-primary" :disabled="verifying">
+          <span x-text="verifying ? 'Checking…' : 'Verify and continue'"></span>
+        </button>
       </div>
+      </form>
     </div>
   </div>
 
   {{ if .logoURL }}
   <div class="flex justify-end items-center mt-4">
-    <span class="text-xs text-gray-700 dark:text-gray-200 mr-2">Powered by Knot</span>
-    <img src="images/logo.svg" alt="Knot logo" class="h-6 opacity-80">
+    <span class="text-xs text-gray-700 dark:text-gray-200 mr-2">Powered by knot</span>
+    <img src="images/logo.svg" alt="knot logo" class="h-6 opacity-80">
   </div>
   {{ end }}
 

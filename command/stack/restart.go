@@ -26,12 +26,12 @@ var RestartCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		_, err = client.RestartStack(context.Background(), stackName)
 		if err != nil {
-			return fmt.Errorf("Error restarting stack: %w", err)
+			return fmt.Errorf("couldn't restart stack %q: %w", stackName, err)
 		}
 
 		fmt.Println("Stack restarted: ", stackName)

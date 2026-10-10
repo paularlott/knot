@@ -1,15 +1,13 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.templateVarListComponent = function() {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('variables', {
+      name: (v) => v.name,
+      restricted: { value: (v) => (v.restricted ? 1 : 0), dir: 'desc' },
+      protected: { value: (v) => (v.protected ? 1 : 0), dir: 'desc' },
+    }),
     loading: true,
     confirmDelete(v) {
       window.knotConfirm({
@@ -114,7 +112,7 @@ window.templateVarListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Variable could not be deleted", type: 'error' });
+          window.knotError('delete the variable', response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively

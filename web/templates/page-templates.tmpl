@@ -16,7 +16,7 @@
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
             <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
-            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+            <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
           </div>
         </div>
         {{ if .permissionManageTemplates }}
@@ -32,14 +32,14 @@
           <div class="mb-4 mt-2">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" @change="searchChanged" :checked="showAll" x-model="showAll">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Zones</span>
             </label>
           </div>
           <div class="mb-2">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" @change="searchChanged" :checked="showInactive" x-model="showInactive">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show Inactive</span>
             </label>
           </div>
@@ -47,7 +47,7 @@
           <div class="mb-2 mt-4">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" @change="searchChanged" :checked="showLocal" x-model="showLocal">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Local Only</span>
             </label>
           </div>
@@ -62,7 +62,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Template
+          New Template
         </button>
       </div>
       {{ end }}
@@ -78,15 +78,15 @@
 
       {{ template "loading" . }}
             <div x-show="!loading && templates.length === 0" x-cloak>
-        {{ template "empty" "No templates yet." }}
+        {{ template "empty" (map "heading" "No templates yet" "text" "Templates define what a space runs: its image, resources and tools." "action" (and (or .permissionManageTemplates .isLeafNode) "New Template") "click" "createTemplate()") }}
       </div>
       <div x-show="!loading && templates.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Templates" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Name & Description</th>
-              <th scope="col" class="px-4 py-3 hidden md:table-cell">Type</th>
-              <th scope="col" class="px-4 py-3 hidden md:table-cell">Status</th>
+              {{ template "sort-th" (map "key" "name" "label" "Name & Description") }}
+              {{ template "sort-th" (map "key" "type" "label" "Type" "class" "hidden md:table-cell") }}
+              {{ template "sort-th" (map "key" "status" "label" "Status" "class" "hidden md:table-cell") }}
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Resources</th>
               {{ if or .permissionManageTemplates (not .isLeafNode) }}
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Availability</th>
@@ -95,7 +95,7 @@
             </tr>
           </thead>
           <tbody>
-            <template x-for="t in templates" :key="t.template_id">
+            <template x-for="t in sorted(templates)" :key="t.template_id">
               <template x-if="!t.searchHide">
                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <!-- Name & Description -->
@@ -139,7 +139,7 @@
                               <div class="flex flex-wrap gap-1 mt-1">
                                 <template x-for="index in 7" :key="index">
                                   <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
-                                    <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
+                                    <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
                                     <div x-ref="panel" x-float.teleport.placement.bottom-start.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                                       <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
                                     </div>
@@ -250,7 +250,7 @@
                           <div class="flex flex-wrap gap-1 mt-1">
                             <template x-for="index in 7" :key="index">
                               <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
-                                <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
+                                <button type="button" @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-400 cursor-pointer" :aria-label="getDayOfWeek(index % 7) + ' schedule: ' + t.schedule[index % 7].from + ' - ' + t.schedule[index % 7].to" x-text="getDayOfWeek(index % 7).substring(0,3)"></button>
                                 <div x-ref="panel" x-float.teleport.placement.bottom-center.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                                   <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
                                 </div>
@@ -387,6 +387,7 @@
                 </tr>
               </template>
             </template>
+            {{ template "no-results" (map "list" "templates" "things" "templates" "cols" 6) }}
           </tbody>
         </table>
       </div>
@@ -416,11 +417,11 @@
 
             <div x-show="canManageSpaces">
               <div x-data="autocompleterUser()" x-init="setDataSource('users')" data-parent-var-group="chooseUser" data-parent-variable="forUserId" @refresh-autocompleter.window="refresh()" class="relative mt-2">
-                <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" :aria-invalid="chooseUser.invalidUser || chooseUser.invalidTemplate ? 'true' : 'false'" :aria-describedby="chooseUser.invalidUser ? 'choose-user-error' : (chooseUser.invalidTemplate ? 'choose-user-template-error' : null)" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+                <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-controls="_listboxId" :aria-activedescendant="activeDescendant" autocomplete="off" :aria-invalid="chooseUser.invalidUser || chooseUser.invalidTemplate ? 'true' : 'false'" :aria-describedby="chooseUser.invalidUser ? 'choose-user-error' : (chooseUser.invalidTemplate ? 'choose-user-template-error' : null)" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
                 <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
-                  <ul class="list-none" role="listbox" aria-label="Users">
+                  <ul class="list-none" role="listbox" aria-label="Users" :id="_listboxId">
                     <template x-for="(option, index) in filteredOptions" :key="index">
-                      <li @click="selectOption(option)" role="option" :aria-selected="selectedIndex === index ? 'true' : 'false'" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
+                      <li @click="selectOption(option)" role="option" :id="`${_listboxId}-opt-${index}`" :aria-selected="selectedIndex === index ? 'true' : 'false'" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
                         {{ if .useGravatar }}
                         <img :src="showList ? `https://www.gravatar.com/avatar/${MD5(option.email)}?s=64&d=mp` : 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2020%2020%22%3E%3Ccircle%20cx=%2210%22%20cy=%2210%22%20r=%2210%22%20fill=%22%23d1d5db%22/%3E%3C/svg%3E'" alt="User Avatar" class="size-5 rounded-full mr-2">
                         {{ end }}

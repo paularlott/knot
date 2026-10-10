@@ -3,13 +3,15 @@
   <div class="flex-1 min-h-0 overflow-y-auto p-5 relative">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData(false)">
+    {{ template "req-note" }}
     <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
       <div class="space-y-6">
         <div>
-          <label for="namespace" class="form-label">Namespace</label>
-          <input type="text" id="namespace" x-model="formData.namespace" class="form-field" placeholder="e.g. github, filesystem">
-          <div class="description">Unique name used as a tool name prefix (e.g. <code>namespace.tool_name</code>).</div>
+          <label for="namespace" class="form-label">Namespace{{ template "req" }}</label>
+          <input type="text" id="namespace" x-model="formData.namespace" class="form-field" placeholder="e.g. github, filesystem" aria-required="true" x-on:blur="checkNamespace()" x-on:input="if (!namespaceValid) checkNamespace()" :class="{'form-field-error': !namespaceValid}" :aria-invalid="!namespaceValid ? 'true' : 'false'" :aria-describedby="!namespaceValid ? 'namespace-help namespace-error' : 'namespace-help'">
+          <div id="namespace-help" class="description">Unique name used as a tool name prefix (e.g. <code>namespace.tool_name</code>).</div>
+          <div id="namespace-error" x-show="!namespaceValid" class="error-message" x-cloak>Enter a namespace.</div>
         </div>
 
         <div>
@@ -26,7 +28,7 @@
                 >
                 <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
                   peer-checked:bg-blue-600 peer-checked:text-white
-                  peer-focus:ring-2 peer-focus:ring-blue-300
+                  peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600
                   transition-colors duration-200 ease-in-out
                   text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
                   hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
@@ -45,8 +47,9 @@
         <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">HTTP Connection</legend>
         <div class="space-y-6">
           <div>
-            <label for="url" class="form-label">URL</label>
-            <input type="url" id="url" x-model="formData.url" class="form-field" placeholder="https://mcp-server.example.com">
+            <label for="url" class="form-label">URL{{ template "req" }}</label>
+            <input type="url" id="url" x-model="formData.url" class="form-field" placeholder="https://mcp-server.example.com" aria-required="true" x-on:blur="checkUrl()" x-on:input="if (!urlValid) checkUrl()" :class="{'form-field-error': !urlValid}" :aria-invalid="!urlValid ? 'true' : 'false'" :aria-describedby="!urlValid ? 'url-error' : null">
+            <div id="url-error" x-show="!urlValid" class="error-message" x-cloak>Enter the server's URL, starting with http:// or https://.</div>
           </div>
           <div>
             <label for="auth_type" class="form-label">Authentication</label>
@@ -92,8 +95,9 @@
         <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Stdio Process</legend>
         <div class="space-y-6">
           <div>
-            <label for="command" class="form-label">Command</label>
-            <input type="text" id="command" x-model="formData.command" class="form-field" placeholder="e.g. npx, python, /usr/local/bin/mcp-server">
+            <label for="command" class="form-label">Command{{ template "req" }}</label>
+            <input type="text" id="command" x-model="formData.command" class="form-field" placeholder="e.g. npx, python, /usr/local/bin/mcp-server" aria-required="true" x-on:blur="checkCommand()" x-on:input="if (!commandValid) checkCommand()" :class="{'form-field-error': !commandValid}" :aria-invalid="!commandValid ? 'true' : 'false'" :aria-describedby="!commandValid ? 'command-error' : null">
+            <div id="command-error" x-show="!commandValid" class="error-message" x-cloak>Enter the command that starts the server.</div>
           </div>
           <div>
             <label for="args" class="form-label">Arguments</label>
@@ -122,7 +126,7 @@
         <div>
           <label class="flex items-center cursor-pointer mb-2">
             <input type="checkbox" class="sr-only peer" x-model="formData.enabled">
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Enabled</span>
           </label>
           <div class="description">Only enabled servers provide tools to AI assistants.</div>
@@ -130,7 +134,7 @@
         <div>
           <label class="flex items-center cursor-pointer mb-2">
             <input type="checkbox" class="sr-only peer" x-model="formData.remote_search">
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Delegate tool_search</span>
           </label>
           <div class="description">Forward tool_search calls to this remote server.</div>

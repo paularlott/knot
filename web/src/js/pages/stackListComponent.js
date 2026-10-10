@@ -1,19 +1,20 @@
 import Alpine from "alpinejs";
+import { sortable } from "../components/sortable.js";
 
 window.stackListComponent = function (userId, zone, permissionManageStackDefinitions, permissionManageOwnStackDefinitions, isLeafNode, permissionUseStackDefinitions) {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search").focus();
-    }
-  });
-
   const defaultShowMyDefs = permissionManageOwnStackDefinitions || false;
   const defaultShowGlobalDefs = permissionManageStackDefinitions || permissionUseStackDefinitions || false;
 
   return {
     // Spread in the builder functionality from the separate module
     ...window.stackDefinitionBuilder(),
+
+    ...sortable("stack-templates", {
+      name: (d) => d.name,
+      owner: (d) => (d.user_id ? "User" : "Global"),
+      status: (d) => (d.active ? 0 : 1),
+      spaces: { value: (d) => (d.spaces || []).length, dir: "desc" },
+    }),
 
     loading: true,
     definitions: [],
@@ -37,10 +38,10 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
     confirmDeleteDef(d) {
       window.knotConfirm({
         danger: true,
-        message: 'Are you sure you want to delete the stack definition {name}?',
+        message: 'Are you sure you want to delete the stack template {name}?',
         name: d.name,
-        confirmLabel: 'Delete Definition',
-        cancelLabel: 'Keep Definition',
+        confirmLabel: 'Delete Stack Template',
+        cancelLabel: 'Keep Stack Template',
       }).then((ok) => ok && this.deleteDefinition(d.stack_definition_id));
     },
     createStackModal: { show: false, def: null, prefix: "", name: "", error: "", creating: false },
@@ -222,7 +223,7 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
       const spaces = modal.def.spaces || [];
 
       if (spaces.length === 0) {
-        modal.error = "This definition has no spaces.";
+        modal.error = "This stack template has no spaces.";
         return;
       }
 
@@ -281,9 +282,8 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
             return;
           }
           if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
             throw new Error(
-              `Failed to create space "${spaceName}": ${err.error || res.statusText}`,
+              await window.knotErrorMessage(`create the space "${spaceName}"`, res),
             );
           }
 
@@ -365,7 +365,9 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
             () => {},
           );
         }
-        modal.error = err.message;
+        modal.error = err instanceof TypeError
+          ? await window.knotErrorMessage("create the stack", err)
+          : err.message;
       } finally {
         modal.creating = false;
       }
@@ -379,19 +381,16 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
         .then((response) => {
           if (response.status === 200) {
             this.$dispatch("show-alert", {
-              msg: "Stack definition deleted",
+              msg: "Stack template deleted",
               type: "success",
             });
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Stack definition could not be deleted",
-              type: "error",
-            });
+            window.knotError("delete the stack template", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the stack template", err));
       this.getDefinitions();
     },
 
@@ -409,6 +408,22 @@ window.stackListComponent = function (userId, zone, permissionManageStackDefinit
 
     searchChanged() {
       this.applyFilters();
+    },
+
+    filtersActive() {
+      return (this.canAccessOwn && !this.showMyDefs) || (this.canAccessGlobal && !this.showGlobalDefs) || this.showAllZones || this.showInactive;
+    },
+
+    clearFilters() {
+      const reload = this.showAllZones || this.showInactive;
+      this.searchTerm = "";
+      this.showMyDefs = true;
+      this.showGlobalDefs = true;
+      this.showAllZones = false;
+      this.showInactive = false;
+      if (reload) this.showAllZonesChanged();
+      else this.applyFilters();
+      document.getElementById("search")?.focus();
     },
 
     applyFilters() {

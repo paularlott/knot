@@ -48,7 +48,7 @@ var writeCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		global := cmd.GetBool("global")
@@ -92,7 +92,7 @@ var writeCmd = &cli.Command{
 
 			resp, err := client.CreateScript(ctx, req)
 			if err != nil {
-				return fmt.Errorf("error creating script: %w", err)
+				return fmt.Errorf("couldn't create script %q: %w", scriptName, err)
 			}
 			fmt.Printf("Script %s created (id: %s)\n", scriptName, resp.Id)
 			return nil
@@ -116,7 +116,7 @@ var writeCmd = &cli.Command{
 
 		err = client.UpdateScript(ctx, existing.Id, req)
 		if err != nil {
-			return fmt.Errorf("error updating script: %w", err)
+			return fmt.Errorf("couldn't update script %q: %w", scriptName, err)
 		}
 		fmt.Printf("Script %s updated\n", scriptName)
 		return nil

@@ -405,7 +405,7 @@ func (c *ApiClient) PutFileObjectIfAbsent(ctx context.Context, bucket, key strin
 // IsPreconditionFailed reports whether err is the server refusing a
 // conditional write because the condition did not hold.
 func IsPreconditionFailed(err error) bool {
-	return err != nil && strings.HasPrefix(err.Error(), "unexpected status code: 412")
+	return rest.IsStatus(err, http.StatusPreconditionFailed)
 }
 
 func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool) (*FileObjectInfo, error) {

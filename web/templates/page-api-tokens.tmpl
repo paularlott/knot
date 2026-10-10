@@ -15,7 +15,7 @@
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
           <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
-          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
         </div>
       </div>
       <div>
@@ -23,7 +23,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Token
+          New API Token
         </button>
       </div>
     </form>
@@ -32,26 +32,27 @@
 
       {{ template "loading" . }}
             <div x-show="!loading && tokens.length === 0" x-cloak>
-        {{ template "empty" "No API tokens yet." }}
+        {{ template "empty" (map "heading" "No API tokens yet" "text" "API tokens let scripts, the knot command line client and other tools act as you without your password." "action" "New API Token" "click" "createToken()") }}
       </div>
       <div x-show="!loading && tokens.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="API tokens" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Details</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Name</th>
+              <th scope="col" class="px-4 py-3">Token ID</th>
+              {{ template "sort-th" (map "key" "name" "label" "Name" "class" "hidden sm:table-cell") }}
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Scopes</th>
               <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-          <template x-for="t in tokens" :key="t.token_id">
+          <template x-for="t in sorted(tokens)" :key="t.token_id">
             <tr x-show="!t.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
               <td class="px-4 py-3">
                 <div class="flex flex-nowrap text-xs p-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer w-full">
                   <input type="text" readonly aria-label="Token ID" class="shrink grow w-full p-0 text-xs bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer outline-0 border-0 focus:border-0 focus:ring-0" x-model="t.token_id" @click.debounce.750="copyToClipboard(t.token_id)" />
-                  <button type="button" class="shrink-0 grow-0 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" @click.debounce.750="copyToClipboard(t.token_id)" :aria-label="'Copy token ID for ' + t.name" title="Copy">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 ml-2 flex-shrink-0 self-end" aria-hidden="true" >
+                  <button type="button" class="shrink-0 grow-0 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" @click.debounce.750="copyToClipboard(t.token_id)" :aria-label="'Copy token ID for ' + t.name" :title="copiedId === t.token_id ? 'Copied' : 'Copy'">
+                    <svg x-show="copiedId === t.token_id" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 ml-2 flex-shrink-0 self-end text-green-700 dark:text-green-400" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <svg x-show="copiedId !== t.token_id" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 ml-2 flex-shrink-0 self-end" aria-hidden="true" >
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
                     </svg>
                   </button>
@@ -89,6 +90,7 @@
               </td>
             </tr>
           </template>
+          {{ template "no-results" (map "list" "tokens" "things" "API tokens" "cols" 4) }}
           </tbody>
         </table>
       </div>
@@ -114,9 +116,10 @@
         <template x-if="tokenFormModal.show">
           <form class="contents" @submit.prevent="submitTokenForm">
             <div class="flex-1 overflow-y-auto p-5 space-y-6">
+            {{ template "req-note" }}
             <div>
-              <label for="name" class="form-label">Token Name</label>
-              <input type="text" id="name" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Token name" x-model="createForm.name">
+              <label for="name" class="form-label">Token Name{{ template "req" }}</label>
+              <input aria-required="true" type="text" id="name" name="name" class="form-field" x-on:blur="checkName()" x-on:input="if (!nameValid) checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Token name" x-model="createForm.name">
               <div id="name-error" x-show="!nameValid" class="error-message" x-cloak>The token name is required and must be shorter than 255 characters.</div>
             </div>
 
@@ -127,7 +130,7 @@
                 <div class="description">Choose what this token can access. Full Access removes all restrictions; scoped tokens are limited to the selected endpoint groups.</div>
                 <label class="flex items-center cursor-pointer">
                   <input type="checkbox" class="sr-only peer" x-model="createForm.fullAccess">
-                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                   <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Full Access</span>
                   <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">— token can reach any endpoint the user has permission for</span>
                 </label>
@@ -135,7 +138,7 @@
                   <template x-for="scope in availableScopes" :key="scope.value">
                     <label class="flex items-center cursor-pointer">
                       <input type="checkbox" class="sr-only peer" x-model="createForm.scopes[scope.value]">
-                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                       <div class="ms-3">
                         <span class="text-sm font-medium text-gray-900 dark:text-gray-300" x-text="scope.label"></span>
                         <span class="block text-xs text-gray-500 dark:text-gray-400" x-text="scope.description"></span>
@@ -175,9 +178,10 @@
         <template x-if="editModal.show">
           <form class="contents" @submit.prevent="submitEditForm">
             <div class="flex-1 overflow-y-auto p-5 space-y-6">
+            {{ template "req-note" }}
             <div>
-              <label for="edit-name" class="form-label">Token Name</label>
-              <input type="text" id="edit-name" name="name" class="form-field" x-on:keyup.debounce.500ms="checkEditName()" :class="{'form-field-error': !editNameValid}" :aria-invalid="!editNameValid ? 'true' : 'false'" :aria-describedby="!editNameValid ? 'edit-name-error' : null" placeholder="Token name" x-model="editForm.name">
+              <label for="edit-name" class="form-label">Token Name{{ template "req" }}</label>
+              <input aria-required="true" type="text" id="edit-name" name="name" class="form-field" x-on:blur="checkEditName()" x-on:input="if (!editNameValid) checkEditName()" :class="{'form-field-error': !editNameValid}" :aria-invalid="!editNameValid ? 'true' : 'false'" :aria-describedby="!editNameValid ? 'edit-name-error' : null" placeholder="Token name" x-model="editForm.name">
               <div id="edit-name-error" x-show="!editNameValid" class="error-message" x-cloak>The token name is required and must be shorter than 255 characters.</div>
             </div>
 
@@ -188,7 +192,7 @@
                 <div class="description">Choose what this token can access. Full Access removes all restrictions; scoped tokens are limited to the selected endpoint groups.</div>
                 <label class="flex items-center cursor-pointer">
                   <input type="checkbox" class="sr-only peer" x-model="editForm.fullAccess">
-                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                   <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Full Access</span>
                   <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">— token can reach any endpoint the user has permission for</span>
                 </label>
@@ -196,7 +200,7 @@
                   <template x-for="scope in availableScopes" :key="scope.value">
                     <label class="flex items-center cursor-pointer">
                       <input type="checkbox" class="sr-only peer" x-model="editForm.scopes[scope.value]">
-                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                       <div class="ms-3">
                         <span class="text-sm font-medium text-gray-900 dark:text-gray-300" x-text="scope.label"></span>
                         <span class="block text-xs text-gray-500 dark:text-gray-400" x-text="scope.description"></span>

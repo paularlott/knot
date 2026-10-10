@@ -26,13 +26,13 @@ var StopCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		// Stop the space (API supports both name and ID)
 		_, err = client.StopSpace(context.Background(), spaceName)
 		if err != nil {
-			return fmt.Errorf("Error stopping space: %w", err)
+			return fmt.Errorf("couldn't stop space %q: %w", spaceName, err)
 		}
 
 		fmt.Println("Space stopped: ", spaceName)

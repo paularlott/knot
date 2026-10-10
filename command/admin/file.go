@@ -141,7 +141,7 @@ Restore what you find with knot admin file restore.`,
 		dir, key := cmd.GetStringArg("backupdir"), cmd.GetString("encrypt-key")
 		buckets, err := openBackupFiles(dir, key)
 		if err != nil {
-			return fmt.Errorf("Error: %w", err)
+			return err
 		}
 		arg := cmd.GetStringArg("path")
 
@@ -189,11 +189,11 @@ Restore what you find with knot admin file restore.`,
 
 		bucketName, prefix, err := splitBucketPath(arg)
 		if err != nil {
-			return fmt.Errorf("Error: %w", err)
+			return err
 		}
 		b := findBucket(buckets, bucketName)
 		if b == nil {
-			return fmt.Errorf("Error: the backup has no bucket %s", bucketName)
+			return fmt.Errorf("the backup has no bucket %s", bucketName)
 		}
 
 		folders, files, err := listPath(dir, key, b.Id, prefix, cmd.GetBool("recursive"))
@@ -201,7 +201,7 @@ Restore what you find with knot admin file restore.`,
 			return err
 		}
 		if len(files) == 0 && len(folders) == 0 {
-			return fmt.Errorf("Error: no files at %s", arg)
+			return fmt.Errorf("no files at %s", arg)
 		}
 
 		if cmd.GetBool("json") {
@@ -249,18 +249,18 @@ The files are written as the user the command connects as, who needs the Manage 
 		dir, key := cmd.GetStringArg("backupdir"), cmd.GetString("encrypt-key")
 		buckets, err := openBackupFiles(dir, key)
 		if err != nil {
-			return fmt.Errorf("Error: %w", err)
+			return err
 		}
 		bucketName, prefix, err := splitBucketPath(cmd.GetStringArg("path"))
 		if err != nil {
-			return fmt.Errorf("Error: %w", err)
+			return err
 		}
 		src := findBucket(buckets, bucketName)
 		if src == nil {
-			return fmt.Errorf("Error: the backup has no bucket %s", bucketName)
+			return fmt.Errorf("the backup has no bucket %s", bucketName)
 		}
 		if prefix == "" {
-			return errors.New("Error: name a file or folder: to restore a whole bucket use bucket:/ with -r")
+			return errors.New("name a file or folder: to restore a whole bucket use bucket:/ with -r")
 		}
 
 		recursive := cmd.GetBool("recursive")
@@ -291,11 +291,11 @@ The files are written as the user the command connects as, who needs the Manage 
 			return err
 		}
 		if len(matches) == 0 {
-			return fmt.Errorf("Error: no files at %s in the backup", cmd.GetStringArg("path"))
+			return fmt.Errorf("no files at %s in the backup", cmd.GetStringArg("path"))
 		}
 		isFolder := folder || !exact
 		if isFolder && !recursive {
-			return fmt.Errorf("Error: %s is a folder: use -r to restore it with everything below it", cmd.GetStringArg("path"))
+			return fmt.Errorf("%s is a folder: use -r to restore it with everything below it", cmd.GetStringArg("path"))
 		}
 		srcPrefix := prefix
 		if isFolder && !strings.HasSuffix(srcPrefix, "/") && srcPrefix != "" {
@@ -309,14 +309,14 @@ The files are written as the user the command connects as, who needs the Manage 
 		}
 		live, err := client.GetFileBuckets(ctx, true)
 		if err != nil {
-			return fmt.Errorf("Error listing buckets: %s", cmdutil.CleanAPIError(err))
+			return fmt.Errorf("couldn't list the server's buckets: %w", cmdutil.CleanErr(err))
 		}
 		destName, destPrefix := "", ""
 		if to := cmd.GetString("to"); to != "" {
 			b, p, err := splitBucketPath(to)
 			if err != nil {
 				if strings.Contains(to, ":") {
-					return fmt.Errorf("Error: %w", err)
+					return err
 				}
 				b, p = to, ""
 			}
@@ -336,9 +336,9 @@ The files are written as the user the command connects as, who needs the Manage 
 		}
 		if dest == nil {
 			if destName != "" {
-				return fmt.Errorf("Error: the server has no bucket %s", destName)
+				return fmt.Errorf("the server has no bucket %s", destName)
 			}
-			return fmt.Errorf("Error: the bucket %s no longer exists on the server: create it, or restore into another with --to", src.Name)
+			return fmt.Errorf("the bucket %s no longer exists on the server: create it, or restore into another with --to", src.Name)
 		}
 
 		keyFor := func(k string) string {
@@ -457,7 +457,7 @@ func restoreFile(ctx context.Context, client *apiclient.ApiClient, dir, bucket, 
 	case apiclient.IsPreconditionFailed(err):
 		return "exists", nil
 	}
-	return "failed", errors.New(cmdutil.CleanAPIError(err))
+	return "failed", cmdutil.CleanErr(err)
 }
 
 func backupfileManifest(dir string) (*backupfile.Manifest, error) {

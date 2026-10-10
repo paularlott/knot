@@ -361,7 +361,7 @@ func (c *ApiClient) StackExists(ctx context.Context, stackName string) (bool, er
 		return false, err
 	}
 	if code != 200 {
-		return false, fmt.Errorf("unexpected status %d checking stack existence", code)
+		return false, fmt.Errorf("checking whether stack %q exists: %w", stackName, newStatusError(code, "GET", "/api/stacks/"+stackName+"/exists"))
 	}
 	return response.Exists, nil
 }

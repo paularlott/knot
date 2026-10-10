@@ -287,7 +287,7 @@ func syncBuckets(ctx context.Context, client *apiclient.ApiClient, srcBucket, sr
 		}
 		info, err := client.CopyFileObject(ctx, apiclient.FileCopyRequest{SourceBucket: srcBucket, SourceKey: o.Key, DestBucket: dstBucket, DestKey: dstPrefix + rel})
 		if err != nil {
-			return fmt.Errorf("%s: %s", from, cmdutil.CleanAPIError(err))
+			return fmt.Errorf("%s: %w", from, cmdutil.CleanErr(err))
 		}
 		l.Info("copied", "file", from, "to", to, "size", formatBytes(info.Size))
 	}
@@ -303,7 +303,7 @@ func syncBuckets(ctx context.Context, client *apiclient.ApiClient, srcBucket, sr
 				continue
 			}
 			if err := client.DeleteFileObject(ctx, dstBucket, dstPrefix+rel); err != nil {
-				return fmt.Errorf("%s: %s", remoteName(dstBucket, dstPrefix+rel), cmdutil.CleanAPIError(err))
+				return fmt.Errorf("%s: %w", remoteName(dstBucket, dstPrefix+rel), cmdutil.CleanErr(err))
 			}
 			l.Info("deleted", "file", remoteName(dstBucket, dstPrefix+rel))
 		}

@@ -296,7 +296,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, http.MethodGet, path, bodyBytes)
 	}
 
 	if response != nil {
@@ -344,7 +344,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 
 	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, method, path, bodyBytes)
 	}
 
 	if response != nil {
@@ -359,6 +359,15 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 		}
 	}
 	return resp.StatusCode, nil
+}
+
+// httpError builds an HTTPError for a failed request made by this client.
+func (c *HTTPClient) httpError(statusCode int, method, path string, body []byte) *HTTPError {
+	he := NewHTTPError(statusCode, method, path, body)
+	if c.baseURL != nil && c.baseURL.Host != "" {
+		he.Server = (&url.URL{Scheme: c.baseURL.Scheme, Host: c.baseURL.Host}).String()
+	}
+	return he
 }
 
 // errorMessageFromBody returns a human-readable error message from a response
@@ -439,7 +448,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 
 	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, method, path, bodyBytes)
 	}
 
 	if response != nil {
@@ -508,7 +517,7 @@ func (c *HTTPClient) GetJSON(ctx context.Context, path string, response interfac
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, http.MethodGet, path, bodyBytes)
 	}
 
 	if response != nil {
@@ -588,7 +597,7 @@ func (c *HTTPClient) streamDataCore(
 	// Check status code
 	if resp.StatusCode >= http.StatusBadRequest {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return c.httpError(resp.StatusCode, method, path, bodyBytes)
 	}
 
 	// SSE streaming logic
@@ -718,7 +727,18 @@ func (c *HTTPClient) DoRaw(ctx context.Context, method string, path string, body
 func DecodeResponse(resp *http.Response, response interface{}) error {
 	if resp.StatusCode >= http.StatusMultipleChoices {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		var method, path string
+		if resp.Request != nil {
+			method = resp.Request.Method
+			if resp.Request.URL != nil {
+				path = resp.Request.URL.Path
+			}
+		}
+		he := NewHTTPError(resp.StatusCode, method, path, bodyBytes)
+		if resp.Request != nil && resp.Request.URL != nil {
+			he.Server = (&url.URL{Scheme: resp.Request.URL.Scheme, Host: resp.Request.URL.Host}).String()
+		}
+		return he
 	}
 	if response == nil {
 		return nil

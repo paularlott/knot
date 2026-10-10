@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -37,7 +38,7 @@ var LogsCmd = &cli.Command{
 		follow := cmd.GetBool("follow")
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		// Get server info from client
@@ -52,19 +53,16 @@ var LogsCmd = &cli.Command{
 		dialer.HandshakeTimeout = 5 * time.Second
 		ws, response, err := dialer.Dial(wsURL, header)
 		if err != nil {
-			if response != nil && response.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("failed to authenticate with server, check remote token")
-			} else if response != nil && response.StatusCode == http.StatusForbidden {
-				return fmt.Errorf("no permission to view logs")
-			}
-			return fmt.Errorf("Error connecting to websocket: %w", err)
+			return cmdutil.WebSocketError(fmt.Sprintf("couldn't open the logs of space %q", spaceName), response, err)
 		}
 		defer ws.Close()
 
 		for {
 			_, message, err := ws.ReadMessage()
 			if err != nil {
-				fmt.Println("Error reading message: ", err)
+				if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					fmt.Fprintln(os.Stderr, cmdutil.FormatError(fmt.Errorf("lost the log stream of space %q: %w", spaceName, err)))
+				}
 				break
 			}
 

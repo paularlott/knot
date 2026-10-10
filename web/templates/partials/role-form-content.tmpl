@@ -3,20 +3,21 @@
   <div class="flex-1 min-h-0 overflow-y-auto p-5 relative">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
+    {{ template "req-note" }}
     <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
       <div>
-        <label for="name" class="form-label">Name</label>
-        <input type="text" name="name" id="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Role name" x-model="formData.name">
+        <label for="name" class="form-label">Name{{ template "req" }}</label>
+        <input aria-required="true" type="text" name="name" id="name" class="form-field" x-on:blur="checkName()" x-on:input="if (!nameValid) checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="Role name" x-model="formData.name">
         <div id="name-error" x-show="!nameValid" class="error-message" x-cloak>Role name can be a max 64 characters.</div>
       </div>
     </fieldset>
     <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Permissions</legend>
-      <div class="description mb-4">Choose the capabilities this role grants throughout Knot.</div>
+      <div class="description mb-4">Choose the capabilities this role grants throughout knot.</div>
       <label class="flex items-center cursor-pointer mb-4">
         <input type="checkbox" class="sr-only peer" id="select-all-permissions" @change="toggleSelectAllPermissions($event)">
-        <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+        <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
         <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Select All Permissions</span>
       </label>
       <template x-for="(perms, group) in groupedPermissions" :key="group">
@@ -26,7 +27,7 @@
             <template x-for="(perm, index) in perms" :key="perm.id">
               <label class="flex items-center cursor-pointer mb-2">
                 <input type="checkbox" class="sr-only peer" :id="'group-' + group + '-' + index" name="permissions[]" :value="perm.id" :checked="formData.permissions.includes(perm.id)" @change="togglePermission(perm.id)">
-                <div class="relative w-9 h-5 shrink-0 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="relative w-9 h-5 shrink-0 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <div class="ms-3 min-w-0">
                   <span class="block text-sm font-medium text-gray-900 dark:text-gray-300" x-text="perm.name"></span>
                   <span class="block text-xs text-gray-500 dark:text-gray-400" x-show="perm.description" x-text="perm.description"></span>
@@ -48,7 +49,7 @@
             <template x-for="(perm, index) in plugin.permissions" :key="perm.id">
               <label class="flex items-center cursor-pointer mb-2">
                 <input type="checkbox" class="sr-only peer" :id="'plugin-' + name + '-' + index" name="plugin_permissions[]" :value="perm.id" :checked="formData.plugin_permissions.includes(perm.id)" @change="togglePluginPermission(perm.id)">
-                <div class="relative w-9 h-5 shrink-0 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <div class="relative w-9 h-5 shrink-0 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <div class="ms-3 min-w-0">
                   <span class="block text-sm font-medium text-gray-900 dark:text-gray-300" x-text="perm.label"></span>
                   <span class="block text-xs text-gray-500 dark:text-gray-400 font-mono truncate" x-text="perm.id"></span>

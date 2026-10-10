@@ -1,15 +1,18 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.userListComponent = function() {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('users', {
+      name: (u) => u.username,
+      status: (u) => (u.active ? 0 : 1),
+      spaces: { value: (u) => u.number_spaces, dir: 'desc' },
+      compute: { value: (u) => u.used_compute_units, dir: 'desc' },
+      storage: { value: (u) => u.used_storage_units, dir: 'desc' },
+      files: { value: (u) => u.used_file_storage_mb || 0, dir: 'desc' },
+      tunnels: { value: (u) => u.max_tunnels || 0, dir: 'desc' },
+      login: { value: (u) => u.last_login_ts, dir: 'desc' },
+    }),
     loading: true,
     userFormModal: {
       show: false,
@@ -122,8 +125,10 @@ window.userListComponent = function() {
               // Make last_login_at human readable data time in the browser's timezone
               if (user.last_login_at) {
                 const date = new Date(user.last_login_at);
+                user.last_login_ts = date.getTime();
                 user.last_login_at = date.toLocaleString();
               } else {
+                user.last_login_ts = null;
                 user.last_login_at = '-';
               }
 
@@ -221,7 +226,7 @@ window.userListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "User could not be deleted", type: 'error' });
+          window.knotError('delete the user', response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively
@@ -238,11 +243,11 @@ window.userListComponent = function() {
         }
       }).then((response) => {
         if (response.status === 200) {
-          self.$dispatch('show-alert', { msg: "User spaces stopped", type: 'success' });
+          self.$dispatch('show-alert', { msg: "The user's spaces are stopping.", type: 'success' });
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "User spaces could not be stopped", type: 'error' });
+          window.knotError("stop the user's spaces", response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively

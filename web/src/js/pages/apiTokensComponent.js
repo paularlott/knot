@@ -1,16 +1,10 @@
+import { sortable } from '../components/sortable.js';
 import Alpine from "alpinejs";
 import { focus } from "../focus.js";
 
 // canBackup is whether the user holds the Backup Server permission: only then
 // is a backup-scoped token any use to them, so only then is the scope offered.
 window.apiTokensComponent = function (canBackup) {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search").focus();
-    }
-  });
-
   // Available scopes. Each entry has:
   //   value: the scope string stored in the DB
   //   label: human-readable label for the checkbox
@@ -69,6 +63,9 @@ window.apiTokensComponent = function (canBackup) {
   }
 
   return {
+    ...sortable('api-tokens', {
+      name: (t) => t.name,
+    }),
     loading: true,
     tokens: [],
     availableScopes,
@@ -263,18 +260,10 @@ window.apiTokensComponent = function (canBackup) {
             this.tokenFormModal.show = false;
             this.getTokens();
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Failed to create API token",
-              type: "error",
-            });
+            window.knotError("create the API token", response);
           }
         })
-        .catch((error) => {
-          this.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
-        })
+        .catch((error) => window.knotError("create the API token", error))
         .finally(() => {
           this.loading = false;
         });
@@ -306,7 +295,10 @@ window.apiTokensComponent = function (canBackup) {
     },
 
     async submitEditForm() {
-      if (!this.checkEditName()) return;
+      if (!this.checkEditName()) {
+        focus.firstInvalid(this.$root);
+        return;
+      }
       if (
         !this.editForm.fullAccess &&
         !this.hasAnyScope(this.editForm.scopes)
@@ -342,18 +334,10 @@ window.apiTokensComponent = function (canBackup) {
             this.editModal.show = false;
             this.getTokens();
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Failed to update token",
-              type: "error",
-            });
+            window.knotError("update the API token", response);
           }
         })
-        .catch((error) => {
-          this.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
-        })
+        .catch((error) => window.knotError("update the API token", error))
         .finally(() => {
           this.loading = false;
         });
@@ -387,13 +371,10 @@ window.apiTokensComponent = function (canBackup) {
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            self.$dispatch("show-alert", {
-              msg: "Token could not be deleted",
-              type: "error",
-            });
+            window.knotError("delete the API token", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the API token", err));
       this.getTokens();
     },
 
@@ -410,12 +391,21 @@ window.apiTokensComponent = function (canBackup) {
       });
     },
 
+    copiedId: "",
+
+    // Copying shows a tick on the button for a moment and tells screen
+    // readers, rather than raising a toast for something the user just did.
     async copyToClipboard(text) {
-      await navigator.clipboard.writeText(text);
-      this.$dispatch("show-alert", {
-        msg: "Copied to clipboard",
-        type: "success",
-      });
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        window.knotError("copy the token ID", "The browser didn't allow access to the clipboard. Select the ID and copy it instead.");
+        return;
+      }
+      this.copiedId = text;
+      window.knotAnnounce("Token ID copied.");
+      clearTimeout(this._copiedTimer);
+      this._copiedTimer = setTimeout(() => { this.copiedId = ""; }, 2000);
     },
   };
 };

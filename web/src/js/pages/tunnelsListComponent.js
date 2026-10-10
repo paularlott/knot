@@ -1,5 +1,9 @@
+import { sortable } from '../components/sortable.js';
 window.tunnelsListComponent = function() {
   return {
+    ...sortable('tunnels', {
+      name: (t) => t.address || t.name,
+    }),
     loading: true,
     tunnels: [],
 
@@ -61,10 +65,11 @@ window.tunnelsListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Failed to terminate tunnel", type: 'error' });
+          window.knotError('close the tunnel', response);
         }
-      }).catch(() => {
+      }).catch((err) => {
         // Don't logout on network errors - Safari closes connections aggressively
+        window.knotError('close the tunnel', err);
       });
     }
   };

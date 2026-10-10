@@ -15,6 +15,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/command"
 	commands_admin "github.com/paularlott/knot/command/admin"
+	"github.com/paularlott/knot/command/cmdutil"
 	command_files "github.com/paularlott/knot/command/files"
 	commands_forward "github.com/paularlott/knot/command/forward"
 	command_method "github.com/paularlott/knot/command/method"
@@ -183,7 +184,7 @@ It offers both a user-friendly web interface and a command line interface to str
 	if err != nil {
 		// stderr, not stdout: commands that emit structured output (e.g.
 		// --json modes) must keep stdout parseable on failure paths too.
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintln(os.Stderr, cmdutil.FormatError(err))
 		os.Exit(1)
 	}
 

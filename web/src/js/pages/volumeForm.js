@@ -200,6 +200,10 @@ window.volumeForm = function (isEdit, volumeId) {
         }),
       });
 
+      // Invalid specs come back as 200 with valid=false; anything else
+      // means the check itself failed.
+      if (!response.ok) throw response;
+
       const result = await response.json();
       const errors = result.errors || [];
       this.specErrors = errors.map((error) => error.message);
@@ -226,27 +230,19 @@ window.volumeForm = function (isEdit, volumeId) {
       err = !this.checkPlatform() || err;
       if (err) {
         focus.firstInvalid(this.$root);
-        this.$dispatch("show-alert", {
-          msg: "Please fix the validation errors before saving",
-          type: "error",
-        });
+        window.knotToast("Some fields need attention.", "error");
         return;
       }
 
       try {
         const specValid = await this.validateSpec();
         if (!specValid) {
-          this.$dispatch("show-alert", {
-            msg: "Please fix the volume definition errors before saving",
-            type: "error",
-          });
+          window.knotToast("The volume definition has errors. They're marked in the editor.", "error");
+          focus.firstInvalid(this.$root);
           return;
         }
       } catch (error) {
-        self.$dispatch("show-alert", {
-          msg: `Failed to validate the volume, ${error.message}`,
-          type: "error",
-        });
+        window.knotError("check the volume definition", error);
         return;
       }
 
@@ -280,19 +276,11 @@ window.volumeForm = function (isEdit, volumeId) {
             });
             self.$dispatch("close-volume-form");
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `Failed to update the volume, ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the volume" : "create the volume", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the volume" : "create the volume", error);
         })
         .finally(() => {
           this.loading = false;

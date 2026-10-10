@@ -3,7 +3,6 @@ package command_spaces
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/util"
@@ -25,8 +24,7 @@ var ListCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		allZones := cmd.GetBool("all-zones")
@@ -34,22 +32,19 @@ var ListCmd = &cli.Command{
 		// Get the server zone
 		pingResponse, err := client.Ping(context.Background())
 		if err != nil {
-			fmt.Println("Error getting server info:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't get the server info: %w", err)
 		}
 		zone := pingResponse.Zone
 
 		// Get the current user
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			fmt.Println("Error getting user: ", err)
-			return nil
+			return fmt.Errorf("couldn't get the current user: %w", err)
 		}
 
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id, allZones)
 		if err != nil {
-			fmt.Println("Error getting spaces: ", err)
-			return nil
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		// Fetch pool names so we can label pool groups by name instead of ID

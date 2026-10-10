@@ -3,6 +3,8 @@
  * Replaces polling with Server-Sent Events for efficient data synchronization
  */
 
+import { knotLive } from './live.js';
+
 class SSEClient {
   constructor() {
     this.eventSource = null;
@@ -15,6 +17,12 @@ class SSEClient {
     this.hasActiveSubscriptions = false; // Track if there are any active subscriptions
     this.wasDisconnected = false; // Track if we were previously disconnected
     this.connectedAt = null; // Track when connection was established
+    this.held = new Map(); // events held while live updates are paused
+    knotLive.onResume(() => {
+      const held = [...this.held.values()];
+      this.held.clear();
+      held.forEach((event) => this.dispatch(event));
+    });
   }
 
   /**
@@ -70,6 +78,21 @@ class SSEClient {
       window.location.href = '/logout';
       return;
     }
+
+    // Live updates paused (knotLive): hold the event, keeping only the
+    // latest per kind and item, and deliver it on resume.
+    if (knotLive.paused) {
+      const id = event.payload && (event.payload.id || event.payload.space_id || event.payload.user_id);
+      this.held.set(event.type + ':' + (id || ''), event);
+      knotLive.held = this.held.size;
+      window.dispatchEvent(new CustomEvent('knot:live-changed', { detail: { paused: true } }));
+      return;
+    }
+    this.dispatch(event);
+  }
+
+  // dispatch hands an event to its listeners.
+  dispatch(event) {
 
     // Dispatch to registered listeners
     // First check for exact match

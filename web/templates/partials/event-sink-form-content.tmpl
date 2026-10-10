@@ -3,12 +3,13 @@
   <div class="flex-1 min-h-0 overflow-y-auto p-5 relative">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
+    {{ template "req-note" }}
     <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
       <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">General</legend>
       <div class="space-y-6">
         <div>
-          <label for="name" class="form-label">Name</label>
-          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="event_sink_name" x-model="formData.name">
+          <label for="name" class="form-label">Name{{ template "req" }}</label>
+          <input aria-required="true" type="text" class="form-field" name="name" id="name" x-on:blur="checkName()" x-on:input="if (!nameValid) checkName()" :class="{'form-field-error': !nameValid}" :aria-invalid="!nameValid ? 'true' : 'false'" :aria-describedby="!nameValid ? 'name-error' : null" placeholder="event_sink_name" x-model="formData.name">
           <div id="name-error" x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
         </div>
         <div>
@@ -42,7 +43,7 @@
                   >
                   <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
                     peer-checked:bg-blue-600 peer-checked:text-white
-                    peer-focus:ring-2 peer-focus:ring-blue-300
+                    peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600
                     transition-colors duration-200 ease-in-out
                     text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
                     hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
@@ -63,7 +64,7 @@
           <div>
             <label class="flex items-center cursor-pointer">
               <input type="checkbox" x-model="formData.webhook.skip_tls_verify" class="sr-only peer">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Skip TLS Verification</span>
             </label>
             <div class="description">Disable certificate validation when connecting to the webhook URL. Use with caution.</div>
@@ -124,17 +125,19 @@
           <div class="relative w-full" @click.away="scriptShowList = false">
             <input id="script_id" x-model="scriptSearch" class="form-field" type="search"
                    placeholder="Search scripts..."
-                   role="combobox"
+                   role="combobox" aria-autocomplete="list" aria-controls="script_id-listbox"
+                   :aria-expanded="scriptShowList && filteredScripts.length > 0"
+                   :aria-activedescendant="scriptSelectedIndex >= 0 ? 'script_id-opt-' + scriptSelectedIndex : ''"
                    @focus="scriptShowList = true; scriptSelectedIndex = -1"
                    @blur.debounce.200ms="scriptShowList = false"
                    @keydown="scriptKeydown($event)"
                    spellcheck="false" autocomplete="off">
             <div x-show="scriptShowList && filteredScripts.length" x-cloak
                  class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 text-base shadow-lg dark:border-slate-700 dark:bg-slate-800">
-              <ul class="list-none" role="listbox">
+              <ul class="list-none" role="listbox" id="script_id-listbox" aria-label="Scripts">
                 <template x-for="(option, index) in filteredScripts" :key="option.script_id">
                   <li @mousedown.prevent="scriptSelect(option)"
-                      role="option"
+                      role="option" :id="'script_id-opt-' + index"
                       :aria-selected="scriptSelectedIndex === index"
                       :class="{'bg-blue-100 dark:bg-blue-900': scriptSelectedIndex === index}"
                       class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
@@ -164,7 +167,7 @@
     <div>
       <label class="flex items-center cursor-pointer mb-2">
         <input type="checkbox" name="active" id="active" x-model="formData.active" class="sr-only peer">
-        <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+        <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
         <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
       </label>
       <div class="description">Only active sinks respond to events.</div>

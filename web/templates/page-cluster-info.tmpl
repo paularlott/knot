@@ -17,17 +17,17 @@
         <table aria-label="Cluster information" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3 text-left">Node</th>
-              <th scope="col" class="px-4 py-3 text-left">State</th>
-              <th scope="col" class="px-4 py-3 text-left hidden md:table-cell">Zone</th>
+              {{ template "sort-th" (map "key" "name" "label" "Node" "class" "text-left") }}
+              {{ template "sort-th" (map "key" "state" "label" "State" "class" "text-left") }}
+              {{ template "sort-th" (map "key" "zone" "label" "Zone" "class" "text-left hidden md:table-cell") }}
               <th scope="col" class="px-4 py-3 text-left hidden lg:table-cell">Endpoint</th>
-              <th scope="col" class="px-4 py-3 text-left hidden sm:table-cell">Node Spaces</th>
+              {{ template "sort-th" (map "key" "spaces" "label" "Node Spaces" "class" "text-left hidden sm:table-cell") }}
               <th scope="col" class="px-4 py-3 text-left hidden xl:table-cell">Local Runtimes</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             <template x-if="nodes.length > 0">
-              <template x-for="node in nodes" :key="node.id">
+              <template x-for="node in sorted(nodes)" :key="node.id">
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
                     <div class="text-sm font-semibold text-gray-900 dark:text-white" x-text="node.metadata.hostname || 'unknown'"></div>

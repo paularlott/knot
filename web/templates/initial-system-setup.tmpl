@@ -11,24 +11,27 @@
   <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Create Admin User</h1>
 
   <form action="" method="POST" @submit.prevent="submitData" class="mt-8 space-y-6">
+    {{ template "req-note" }}
     <div>
-      <label for="username" class="form-label">Username</label>
-      <input type="text" name="username" id="username" class="form-field" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" :aria-invalid="!usernameValid ? 'true' : 'false'" :aria-describedby="!usernameValid ? 'username-error' : null" autocomplete="username" placeholder="Username (a - Z, 0 - 9, - and .)" x-model="formData.username">
+      <label for="username" class="form-label">Username{{ template "req" }}</label>
+      <input type="text" name="username" id="username" class="form-field" x-on:blur="checkUsername()" x-on:input="if (!usernameValid) checkUsername()" :class="{'form-field-error': !usernameValid}" :aria-invalid="!usernameValid ? 'true' : 'false'" :aria-describedby="!usernameValid ? 'username-help username-error' : 'username-help'" autocomplete="username" placeholder="Username" aria-required="true" x-model="formData.username">
+      <p id="username-help" class="description">Letters, numbers, hyphens (-) and dots (.). Start with a letter, end with a letter or number, up to 30 characters.</p>
       <div id="username-error" class="error-message" x-show="!usernameValid" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 30 characters.</div>
     </div>
     <div>
-      <label for="email" class="form-label">Email</label>
-      <input type="email" name="email" id="email" class="form-field" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" :aria-describedby="!emailValid ? 'email-error' : null" autocomplete="email" placeholder="Email address" x-model="formData.email">
+      <label for="email" class="form-label">Email{{ template "req" }}</label>
+      <input type="email" name="email" id="email" class="form-field" x-on:blur="checkEmail()" x-on:input="if (!emailValid) checkEmail()" :class="{'form-field-error': !emailValid}" :aria-invalid="!emailValid ? 'true' : 'false'" :aria-describedby="!emailValid ? 'email-error' : null" autocomplete="email" placeholder="Email address" aria-required="true" x-model="formData.email">
       <div id="email-error" class="error-message" x-show="!emailValid" x-cloak>Enter a valid email address.</div>
     </div>
     <div>
-      <label for="password" class="form-label">Password</label>
-      <input type="password" name="password" id="password" class="form-field" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" :aria-describedby="!passwordValid ? 'password-error' : null" autocomplete="new-password" placeholder="Password" x-model="formData.password">
+      <label for="password" class="form-label">Password{{ template "req" }}</label>
+      <input type="password" name="password" id="password" class="form-field" x-on:blur="checkPassword()" x-on:input="if (!passwordValid) checkPassword(); if (!confirmPasswordValid) checkConfirmPassword()" :class="{'form-field-error': !passwordValid}" :aria-invalid="!passwordValid ? 'true' : 'false'" :aria-describedby="!passwordValid ? 'password-help password-error' : 'password-help'" autocomplete="new-password" placeholder="Password" aria-required="true" x-model="formData.password">
+      <p id="password-help" class="description">At least 8 characters.</p>
       <div id="password-error" class="error-message" x-show="!passwordValid" x-cloak>Password must be at least 8 characters.</div>
     </div>
     <div>
-      <label for="confirm_password" class="form-label">Confirm Password</label>
-      <input type="password" name="confirm_password" id="confirm_password" class="form-field" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" :aria-invalid="!confirmPasswordValid ? 'true' : 'false'" :aria-describedby="!confirmPasswordValid ? 'confirm_password-error' : null" autocomplete="new-password" placeholder="Confirm password" x-model="formData.password_confirm">
+      <label for="confirm_password" class="form-label">Confirm Password{{ template "req" }}</label>
+      <input type="password" name="confirm_password" id="confirm_password" class="form-field" x-on:blur="checkConfirmPassword()" x-on:input="if (!confirmPasswordValid) checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" :aria-invalid="!confirmPasswordValid ? 'true' : 'false'" :aria-describedby="!confirmPasswordValid ? 'confirm_password-error' : null" autocomplete="new-password" placeholder="Confirm password" aria-required="true" x-model="formData.password_confirm">
       <div id="confirm_password-error" class="error-message" x-show="!confirmPasswordValid" x-cloak>Both passwords must match.</div>
     </div>
 

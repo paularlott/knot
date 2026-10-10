@@ -1,14 +1,14 @@
+import { sortable } from '../components/sortable.js';
 import Alpine from "alpinejs";
 
 window.mcpServerListComponent = function (userId, isLeafNode) {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search").focus();
-    }
-  });
-
   return {
+    ...sortable('mcp-servers', {
+      name: (s) => s.namespace,
+      endpoint: (s) => s.command || s.url,
+      visibility: (s) => (s.tool_visibility === 'ondemand' || s.tool_visibility === 'discoverable' ? 'Discoverable' : 'Native'),
+      status: (s) => (s.enabled ? 0 : 1),
+    }),
     loading: true,
     servers: [],
     searchTerm: "",
@@ -128,13 +128,13 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
           const data = await resp.json();
           this.toolsModal.tools = data.tools || [];
           if (data.error) {
-            this.toolsModal.error = data.error;
+            this.toolsModal.error = await window.knotErrorMessage("load the tools from this server", { error: data.error });
           }
         } else {
-          this.toolsModal.error = "Failed to load tools.";
+          this.toolsModal.error = await window.knotErrorMessage("load the tools", resp);
         }
-      } catch {
-        this.toolsModal.error = "Failed to connect to the remote server.";
+      } catch (err) {
+        this.toolsModal.error = await window.knotErrorMessage("load the tools", err);
       }
       this.toolsModal.loading = false;
 
@@ -161,9 +161,11 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
         });
         if (!resp.ok) {
           tool.enabled = prev;
+          window.knotError(`${enabled ? "enable" : "disable"} the tool ${tool.name}`, resp);
         }
-      } catch {
+      } catch (err) {
         tool.enabled = prev;
+        window.knotError(`${enabled ? "enable" : "disable"} the tool ${tool.name}`, err);
       }
     },
 
@@ -190,13 +192,10 @@ window.mcpServerListComponent = function (userId, isLeafNode) {
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            this.$dispatch("show-alert", {
-              msg: "MCP server could not be deleted",
-              type: "error",
-            });
+            window.knotError("delete the MCP server", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the MCP server", err));
       this.getServers();
     },
 

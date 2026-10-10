@@ -1,19 +1,18 @@
+import { sortable } from '../components/sortable.js';
 import Alpine from "alpinejs";
 
 window.commandListComponent = function (userId, zone, permissionManageCommands, permissionManageOwnCommands, isLeafNode) {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search")?.focus();
-    }
-  });
-
   const canAccessOwn = permissionManageOwnCommands || isLeafNode || false;
   const canAccessGlobal = permissionManageCommands || isLeafNode || false;
   const defaultShowMy = canAccessOwn;
   const defaultShowGlobal = canAccessGlobal;
 
   return {
+    ...sortable('commands', {
+      name: (c) => c.name,
+      owner: (c) => (c.user_id ? 'User' : 'Global'),
+      status: (c) => (c.active ? 0 : 1),
+    }),
     loading: true,
     confirmDelete(c) {
       window.knotConfirm({
@@ -165,10 +164,10 @@ window.commandListComponent = function (userId, zone, permissionManageCommands, 
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            this.$dispatch("show-alert", { msg: "Command could not be deleted", type: "error" });
+            window.knotError("delete the command", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the command", err));
       this.getCommands();
     },
 
@@ -182,6 +181,22 @@ window.commandListComponent = function (userId, zone, permissionManageCommands, 
 
     searchChanged() {
       this.applyFilters();
+    },
+
+    filtersActive() {
+      return (this.canAccessOwn && !this.showMyCommands) || (this.canAccessGlobal && !this.showGlobalCommands) || this.showAllZones || !this.showLocalCommands;
+    },
+
+    clearFilters() {
+      const reload = this.showAllZones;
+      this.searchTerm = "";
+      this.showMyCommands = this.canAccessOwn;
+      this.showGlobalCommands = this.canAccessGlobal;
+      this.showLocalCommands = true;
+      this.showAllZones = false;
+      if (reload) this.showAllZonesChanged();
+      else this.applyFilters();
+      document.getElementById("search")?.focus();
     },
 
     applyFilters() {

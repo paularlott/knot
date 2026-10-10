@@ -23,6 +23,24 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
+// authClientIP returns the client address used to key the auth rate limiter.
+// Normalized the same way as RequestProperties: first X-Forwarded-For entry,
+// port stripped — otherwise direct connections key the limiter per TCP
+// connection and never trip.
+func authClientIP(r *http.Request) string {
+	clientIP := r.Header.Get("X-Forwarded-For")
+	if clientIP == "" {
+		clientIP = r.RemoteAddr
+	}
+	if strings.Contains(clientIP, ",") {
+		clientIP = strings.TrimSpace(strings.Split(clientIP, ",")[0])
+	}
+	if host, _, err := net.SplitHostPort(clientIP); err == nil {
+		clientIP = host
+	}
+	return clientIP
+}
+
 func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var userId string = ""
 	var showTOTPSecret string = ""
@@ -36,20 +54,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get client IP (consistent with how we got it for rate limiting).
-	// Normalized the same way as RequestProperties: first X-Forwarded-For
-	// entry, port stripped — otherwise direct connections key the limiter
-	// per TCP connection and never trip.
-	clientIP := r.Header.Get("X-Forwarded-For")
-	if clientIP == "" {
-		clientIP = r.RemoteAddr
-	}
-	if strings.Contains(clientIP, ",") {
-		clientIP = strings.TrimSpace(strings.Split(clientIP, ",")[0])
-	}
-	if host, _, err := net.SplitHostPort(clientIP); err == nil {
-		clientIP = host
-	}
+	clientIP := authClientIP(r)
 
 	cfg := config.GetServerConfig()
 
@@ -110,6 +115,21 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		// If the user has a TOTP secret then check the code
 		if user.TOTPSecret != "" {
 			if !totp.VerifyCode(user.TOTPSecret, request.TOTPCode, cfg.TOTP.Window) {
+				// A wrong code counts against the account like a wrong
+				// password, or the code could be guessed without limit.
+				if cfg.AuthIPRateLimiting {
+					until, _ := authratelimit.RecordFailure(clientIP, request.Email)
+					gossipAuthFailure(&authratelimit.Event{
+						IP: clientIP, Email: request.Email, At: time.Now(), BlockUntil: until,
+					})
+				}
+				audit.LogWithRequest(r,
+					request.Email,
+					model.AuditActorTypeUser,
+					model.AuditEventAuthFailed,
+					"",
+					&map[string]interface{}{},
+				)
 				rest.WriteResponse(http.StatusUnauthorized, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
 				return
 			}
@@ -225,6 +245,83 @@ func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.UsingTOTPResponse{
 		UsingTOTP: cfg.TOTP.Enabled,
 	})
+}
+
+// TOTPVerifyRequest is the body of POST /api/auth/totp/verify.
+type TOTPVerifyRequest struct {
+	Code string `json:"code"`
+}
+
+// TOTPVerifyResponse reports a successful TOTP check.
+type TOTPVerifyResponse struct {
+	Valid bool `json:"valid"`
+}
+
+// HandleVerifyTOTP checks a code against the signed-in user's stored TOTP
+// secret. The web login uses it after showing a newly generated secret, so
+// the user proves their authenticator app works before carrying on. It
+// changes nothing; wrong codes count towards the same rate limiter as
+// failed logins and are audit-logged.
+func HandleVerifyTOTP(w http.ResponseWriter, r *http.Request) {
+	user, _ := r.Context().Value("user").(*model.User)
+	if user == nil {
+		rest.WriteResponse(http.StatusUnauthorized, w, r, ErrorResponse{Error: "authentication required"})
+		return
+	}
+
+	cfg := config.GetServerConfig()
+	if !cfg.TOTP.Enabled {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "two-factor authentication is not enabled on this server"})
+		return
+	}
+	if user.TOTPSecret == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "no authenticator app is set up for this account"})
+		return
+	}
+
+	request := TOTPVerifyRequest{}
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	clientIP := authClientIP(r)
+	if cfg.AuthIPRateLimiting && authratelimit.Blocked(clientIP, user.Email) {
+		audit.LogWithRequest(r,
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventAuthBlocked,
+			fmt.Sprintf("Blocked TOTP verification for %s", user.Email),
+			&map[string]interface{}{
+				"email": user.Email,
+			},
+		)
+		rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many attempts, wait a few minutes and try again"})
+		return
+	}
+
+	code := strings.ReplaceAll(strings.TrimSpace(request.Code), " ", "")
+	if len(code) != 6 || !totp.VerifyCode(user.TOTPSecret, code, cfg.TOTP.Window) {
+		if cfg.AuthIPRateLimiting {
+			until, _ := authratelimit.RecordFailure(clientIP, user.Email)
+			gossipAuthFailure(&authratelimit.Event{
+				IP: clientIP, Email: user.Email, At: time.Now(), BlockUntil: until,
+			})
+		}
+		audit.LogWithRequest(r,
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventAuthFailed,
+			"TOTP verification failed",
+			&map[string]interface{}{
+				"email": user.Email,
+			},
+		)
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "that code didn't match"})
+		return
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, TOTPVerifyResponse{Valid: true})
 }
 
 // HandleClearAuthBlocks flushes all auth rate-limit state (failed-login

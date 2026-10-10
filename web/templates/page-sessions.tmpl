@@ -17,14 +17,14 @@
         <table aria-label="Sessions" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-6 py-3">IP</th>
-              <th scope="col" class="px-6 py-3">User Agent</th>
-              <th scope="col" class="px-6 py-3">Current</th>
+              {{ template "sort-th" (map "key" "ip" "label" "IP" "class" "px-6") }}
+              {{ template "sort-th" (map "key" "agent" "label" "User Agent" "class" "px-6") }}
+              {{ template "sort-th" (map "key" "current" "label" "Current" "class" "px-6") }}
               <th scope="col" class="px-6 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-          <template x-for="session in sessions" :key="session.session_id">
+          <template x-for="session in sorted(sessions)" :key="session.session_id">
             <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
               <td x-text="session.ip" class="px-6 py-4 text-nowrap"></td>
               <td x-text="session.user_agent" class="px-6 py-4"></td>

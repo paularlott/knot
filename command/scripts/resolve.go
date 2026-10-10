@@ -19,7 +19,7 @@ func resolveScript(ctx context.Context, cmd *cli.Command, client *apiclient.ApiC
 	if global && script.UserId != "" {
 		scripts, err := client.GetScripts(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("error listing scripts: %w", err)
+			return nil, fmt.Errorf("couldn't list scripts: %w", err)
 		}
 		for _, s := range scripts.Scripts {
 			if s.Name == name && s.UserId == "" {

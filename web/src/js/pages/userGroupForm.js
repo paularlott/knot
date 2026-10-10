@@ -153,19 +153,11 @@ window.userGroupForm = function (isEdit, groupId) {
             });
             self.$dispatch("close-group-form");
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `Failed to update the group, ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the group" : "create the group", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the group" : "create the group", error);
         })
         .finally(() => {
           this.loading = false;

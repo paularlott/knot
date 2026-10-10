@@ -8,7 +8,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
               </svg>
             </div>
-            <h3 id="builderTitle" class="ui-modal-title" x-text="editor.defId ? 'Edit Stack Definition' : 'Create Stack Definition'"></h3>
+            <h3 id="builderTitle" class="ui-modal-title" x-text="editor.defId ? 'Edit Stack Template' : 'Create Stack Template'"></h3>
             <button @click="closeEditor()" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -28,9 +28,9 @@
             <div class="flex flex-col lg:flex-row">
               <!-- Metadata form -->
               <div class="lg:w-2/5 p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700">
-                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Definition</h4>
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Stack Template</h4>
                 <div>
-                  <label for="sdb-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span class="text-red-600" aria-hidden="true">*</span></label>
+                  <label for="sdb-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name{{ template "req" }}</label>
                   <input id="sdb-name" type="text" class="form-field w-full" x-model="editor.form.name" @input="markDirty()" placeholder="My Stack" aria-required="true" />
                 </div>
                 <div>
@@ -42,7 +42,7 @@
                   <div class="flex items-center">
                     <img x-show="editor.icon_url" :src="editor.icon_url" alt="Icon" class="size-10 mr-2">
                     <div class="relative w-full">
-                      <input id="stack_icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+                      <input id="stack_icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
                       <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
                         <ul class="list-none" role="listbox" :id="_listboxId">
                           <template x-for="(option, index) in filteredOptions" :key="index">
@@ -59,7 +59,7 @@
                 <div>
                   <label class="flex items-center cursor-pointer">
                     <input type="checkbox" class="sr-only peer" :checked="editor.form.active" @change="editor.form.active = !editor.form.active; markDirty()">
-                    <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                    <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                     <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
                   </label>
                 </div>
@@ -69,7 +69,7 @@
                   <template x-for="(group, index) in editor.groups" :key="group.group_id">
                     <label class="flex items-center cursor-pointer mb-2">
                       <input type="checkbox" class="sr-only peer" :checked="editor.form.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
-                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                       <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
                     </label>
                   </template>
@@ -86,7 +86,7 @@
                   <template x-for="(name, index) in editor.form.zones" :key="index">
                     <div class="mb-2">
                       <div class="flex items-center">
-                        <input type="text" class="form-field mr-2" x-model="editor.form.zones[index]" @keyup.debounce.500ms="checkZone(index)" :class="{'form-field-error': !editor.zoneValid[index]}" placeholder="Zone Name" :aria-label="'Zone ' + (index + 1)" :aria-invalid="!editor.zoneValid[index] ? 'true' : 'false'" :aria-describedby="'sdb-zone-error-' + index" @input="markDirty()">
+                        <input type="text" class="form-field mr-2" x-model="editor.form.zones[index]" @blur="checkZone(index)" @input="if (!editor.zoneValid[index]) checkZone(index)" :class="{'form-field-error': !editor.zoneValid[index]}" placeholder="Zone Name" :aria-label="'Zone ' + (index + 1)" :aria-invalid="!editor.zoneValid[index] ? 'true' : 'false'" :aria-describedby="'sdb-zone-error-' + index" @input="markDirty()">
                         <button type="button" @click="removeZone(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-1.5">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                           <span class="sr-only">Remove</span>
@@ -178,15 +178,15 @@
             <div class="ui-modal-body space-y-4">
               <!-- Name -->
               <div>
-                <label for="sdb-comp-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span class="text-red-600" aria-hidden="true">*</span></label>
+                <label for="sdb-comp-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name{{ template "req" }}</label>
                 <input id="sdb-comp-name" type="text" class="form-field w-full" aria-required="true" x-model="componentEditor.form.name" @input="markDirty()" placeholder="e.g. db" />
               </div>
 
               <!-- Template -->
               <div>
-                <label for="sdb-comp-template" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template <span class="text-red-600" aria-hidden="true">*</span></label>
+                <label for="sdb-comp-template" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template{{ template "req" }}</label>
                 <div x-data="autocompleterTemplatePicker()" @sync-comp-pickers.window="syncSearch()" class="relative">
-                  <input id="sdb-comp-template" type="search" aria-required="true" class="form-field w-full text-sm" placeholder="Search templates..." x-model="search" @focus="handleFocus" @click="handleFocus" @keydown="handleKeydown" @input="handleInput()" @blur="setTimeout(() => showList = false, 200)" aria-autocomplete="list" :aria-controls="'tmpl-listbox-' + _listboxId" :aria-activedescendant="activeDescendant" />
+                  <input id="sdb-comp-template" type="search" aria-required="true" class="form-field w-full text-sm" placeholder="Search templates..." x-model="search" @focus="handleFocus" @click="handleFocus" @keydown="handleKeydown" @input="handleInput()" @blur="setTimeout(() => showList = false, 200)" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredTemplates.length > 0" :aria-controls="'tmpl-listbox-' + _listboxId" :aria-activedescendant="activeDescendant" />
                   <ul x-show="showList && filteredTemplates.length > 0" :id="'tmpl-listbox-' + _listboxId" role="listbox" class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-auto">
                     <template x-for="(t, ti) in filteredTemplates" :key="t.template_id">
                       <li :id="_listboxId + '-opt-' + ti" role="option" :aria-selected="selectedIndex === ti" @mousedown.prevent="selectTemplate(t)" :class="selectedIndex === ti ? 'bg-blue-50 dark:bg-blue-900/30' : ''" class="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -220,7 +220,7 @@
               <div>
                 <label for="sdb-comp-script" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startup Script</label>
                 <div x-data="autocompleterScriptPicker()" @sync-comp-pickers.window="syncSearch()" class="relative">
-                  <input id="sdb-comp-script" type="search" class="form-field w-full text-sm" placeholder="Search scripts..." x-model="search" @focus="handleFocus" @click="handleFocus" @keydown="handleKeydown" @input="handleInput()" @blur="setTimeout(() => showList = false, 200)" aria-autocomplete="list" :aria-controls="'script-listbox-' + _listboxId" :aria-activedescendant="activeDescendant" />
+                  <input id="sdb-comp-script" type="search" class="form-field w-full text-sm" placeholder="Search scripts..." x-model="search" @focus="handleFocus" @click="handleFocus" @keydown="handleKeydown" @input="handleInput()" @blur="setTimeout(() => showList = false, 200)" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredScripts.length > 0" :aria-controls="'script-listbox-' + _listboxId" :aria-activedescendant="activeDescendant" />
                   <ul x-show="showList && filteredScripts.length > 0" :id="'script-listbox-' + _listboxId" role="listbox" class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-auto">
                     <template x-for="(s, si) in filteredScripts" :key="s.script_id">
                       <li :id="_listboxId + '-opt-' + si" role="option" :aria-selected="selectedIndex === si" @mousedown.prevent="selectScript(s)" :class="selectedIndex === si ? 'bg-blue-50 dark:bg-blue-900/30' : ''" class="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" x-text="s.name"></li>
@@ -235,7 +235,7 @@
                 <template x-for="otherName in componentEditor.form._targetOptions" :key="otherName">
                   <label class="flex items-center cursor-pointer mb-2">
                     <input type="checkbox" class="sr-only peer" :checked="componentEditor.form.depends_on.includes(otherName)" @change="toggleDependency(otherName)">
-                    <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                    <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                     <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="otherName"></span>
                   </label>
                 </template>

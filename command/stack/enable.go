@@ -3,7 +3,6 @@ package command_stack
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -27,18 +26,15 @@ var EnableCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		def, err := client.GetStackDefinitionByName(ctx, name)
 		if err != nil {
-			fmt.Println("Error looking up stack definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't look up stack definition %q: %w", name, err)
 		}
 		if def == nil {
-			fmt.Printf("Stack definition %q not found.\n", name)
-			os.Exit(1)
+			return fmt.Errorf("stack definition %q not found", name)
 		}
 
 		if def.Active {
@@ -56,8 +52,7 @@ var EnableCmd = &cli.Command{
 			Spaces:      def.Spaces,
 		})
 		if err != nil {
-			fmt.Println("Error enabling stack definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't enable stack definition %q: %w", name, err)
 		}
 
 		fmt.Printf("Stack definition %q enabled.\n", name)

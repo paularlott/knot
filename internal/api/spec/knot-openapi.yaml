@@ -2368,6 +2368,62 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/auth/totp/verify:
+    post:
+      tags:
+        - Authorization
+      summary: Verify a TOTP code
+      description: |
+        Check a 6-digit code from an authenticator app against the signed-in
+        user's stored TOTP secret. Nothing is changed. The web login uses this
+        after showing a newly generated secret, so the user confirms their
+        authenticator app works before continuing.
+
+        Wrong codes count towards the same rate limit as failed logins and
+        are recorded in the audit log.
+      operationId: VerifyTOTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  description: The 6-digit code shown by the authenticator app.
+                  example: "123456"
+      responses:
+        "200":
+          description: The code matches the stored secret
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+        "400":
+          description: |
+            The code didn't match, TOTP is not enabled on the server, or the
+            user has no TOTP secret.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "429":
+          description: Too many failed attempts; try again later
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/auth/blocked:
     delete:
       tags:

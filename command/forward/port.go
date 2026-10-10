@@ -40,7 +40,7 @@ var PortCmd = &cli.Command{
 
 		port, err := strconv.Atoi(cmd.GetStringArg("port"))
 		if err != nil || port < 1 || port > 65535 {
-			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535")
+			return fmt.Errorf("invalid port number: use a port between 1 and 65535")
 		}
 
 		proxy.RunTCPForwarderViaAgent(cfg.WsServer, util.FixListenAddress(cmd.GetStringArg("listen")), cmd.GetStringArg("space"), port, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))

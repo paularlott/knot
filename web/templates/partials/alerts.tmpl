@@ -3,8 +3,11 @@
      success, info, warning or error. Success and info notes leave after 8s,
      but wait while pointed at or focused so they can be read; warnings and
      errors stay until closed, so nothing that needs acting on slips away.
-     Errors and warnings are announced at once (role=alert), the rest
-     politely (role=status). At most four show; the oldest goes first. */}}
+     Screen readers hear each one through the page's permanent live regions
+     (knotAnnounce): errors and warnings at once, the rest politely. A toast
+     inserted with its text already inside is often not read, so the toasts
+     themselves are not live regions. At most four show; the oldest goes
+     first. */}}
 <div class="fixed bottom-2 left-1/2 -translate-x-1/2 px-3 w-full sm:w-auto sm:min-w-96 max-w-lg z-[60] flex flex-col gap-2"
      x-data="{
        toasts: [], nextId: 1,
@@ -14,6 +17,11 @@
          this.toasts.push(t);
          while (this.toasts.length > 4) this.remove(this.toasts[0].id);
          this.arm(t);
+         if (window.knotAnnounce) {
+           const text = new DOMParser().parseFromString('<p>' + t.msg + '</p>', 'text/html').body.textContent;
+           const prefix = { success: '', info: '', warning: 'Warning: ', error: 'Error: ' }[type];
+           window.knotAnnounce(prefix + text, { assertive: this.sticky(t) });
+         }
        },
        sticky(t) { return t.type === 'error' || t.type === 'warning'; },
        arm(t) {
@@ -28,8 +36,7 @@
      }"
      @show-alert.window="add($event.detail || {})">
   <template x-for="t in toasts" :key="t.id">
-    <div :role="sticky(t) ? 'alert' : 'status'"
-         class="flex items-start w-full p-4 text-gray-700 bg-white rounded-lg shadow-lg dark:text-gray-200 dark:bg-gray-800 border"
+    <div class="flex items-start w-full p-4 text-gray-700 bg-white rounded-lg shadow-lg dark:text-gray-200 dark:bg-gray-800 border"
          :class="{
            'border-red-300 dark:border-red-800': t.type === 'error',
            'border-amber-300 dark:border-amber-800': t.type === 'warning',

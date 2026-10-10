@@ -15,7 +15,7 @@
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
           <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
-          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
         </div>
       </div>
       <div>
@@ -23,7 +23,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          User
+          New User
         </button>
       </div>
     </form>
@@ -32,28 +32,28 @@
 
       {{ template "loading" . }}
             <div x-show="!loading && users.length === 0" x-cloak>
-        {{ template "empty" "No users yet." }}
+        {{ template "empty" (map "heading" "No users yet" "text" "Users are the people who sign in to knot and run spaces." "action" "New User" "click" "createUser()") }}
       </div>
       <div x-show="!loading && users.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Users" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">User</th>
-              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Status</th>
-              <th scope="col" class="px-4 py-3 hidden md:table-cell">Spaces</th>
-              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Compute</th>
-              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Storage</th>
-              {{ if .filesEnabled }}<th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Files</th>{{ end }}
-              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Tunnels</th>
+              {{ template "sort-th" (map "key" "name" "label" "User") }}
+              {{ template "sort-th" (map "key" "status" "label" "Status" "class" "hidden 2xl:table-cell") }}
+              {{ template "sort-th" (map "key" "spaces" "label" "Spaces" "class" "hidden md:table-cell") }}
+              {{ template "sort-th" (map "key" "compute" "label" "Compute" "class" "hidden 2xl:table-cell") }}
+              {{ template "sort-th" (map "key" "storage" "label" "Storage" "class" "hidden 2xl:table-cell") }}
+              {{ if .filesEnabled }}{{ template "sort-th" (map "key" "files" "label" "Files" "class" "hidden 2xl:table-cell") }}{{ end }}
+              {{ template "sort-th" (map "key" "tunnels" "label" "Tunnels" "class" "hidden 2xl:table-cell") }}
               <th scope="col" class="px-4 py-3 hidden lg:table-cell 2xl:hidden">Resources</th>
               <th scope="col" class="px-4 py-3 hidden xl:table-cell">Roles</th>
               <th scope="col" class="px-4 py-3 hidden xl:table-cell">Groups</th>
-              <th scope="col" class="px-4 py-3 hidden xl:table-cell">Last Login</th>
+              {{ template "sort-th" (map "key" "login" "label" "Last Login" "class" "hidden xl:table-cell") }}
               <th scope="col" class="px-4 py-3 text-right">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-            <template x-for="u in users" :key="u.user_id">
+            <template x-for="u in sorted(users)" :key="u.user_id">
               <tr x-show="!u.searchHide" class="group bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                 <!-- User Info Column - Always Visible -->
                 <td class="px-4 py-3">
@@ -69,7 +69,7 @@
                           <span x-show="!u.active" class="2xl:hidden ml-2 app-badge-danger">Inactive</span>
                           <span x-show="u.has_linked_users" x-cloak class="2xl:hidden ml-2 app-badge-purple" title="This account has linked users it can switch to">Linked</span>
                         </div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[180px]" x-text="u.email"></div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[180px]" x-text="u.email" :title="u.email"></div>
                       </div>
                     </div>
 
@@ -271,6 +271,7 @@
                 </td>
               </tr>
             </template>
+            {{ template "no-results" (map "list" "users" "things" "users" "cols" 13) }}
           </tbody>
         </table>
       </div>

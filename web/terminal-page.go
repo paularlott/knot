@@ -90,6 +90,7 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 		"shell":        shell,
 		"renderer":     renderer,
 		"spaceId":      spaceId,
+		"spaceName":    space.Name,
 		"logView":      false,
 		"consoleView":  consoleView,
 		"version":      build.Version,

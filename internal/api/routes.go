@@ -265,6 +265,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)
 	router.HandleFunc("GET /api/auth/using-totp", HandleUsingTotp)
+	router.HandleFunc("POST /api/auth/totp/verify", middleware.ApiAuth(HandleVerifyTOTP))
 	router.HandleFunc("DELETE /api/auth/blocked", middleware.ApiAuth(middleware.ApiPermissionManageUsers(HandleClearAuthBlocks)))
 
 	// OAuth2 routes

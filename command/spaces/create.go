@@ -69,7 +69,7 @@ var CreateCmd = &cli.Command{
 		// Check shell is one of bash,zsh,fish,sh
 		shell := cmd.GetString("shell")
 		if shell != "bash" && shell != "zsh" && shell != "fish" && shell != "sh" {
-			return fmt.Errorf("Invalid shell: %s", shell)
+			return fmt.Errorf("invalid shell %q: use bash, zsh, fish or sh", shell)
 		}
 
 		customFields, err := parseCustomFields(cmd.GetStringSlice("custom-field"))
@@ -83,13 +83,13 @@ var CreateCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		// Get a list of available templates
 		templates, _, err := client.GetTemplates(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting templates: %w", err)
+			return fmt.Errorf("couldn't list templates: %w", err)
 		}
 
 		// Find the ID of the template from the name
@@ -102,7 +102,7 @@ var CreateCmd = &cli.Command{
 		}
 
 		if templateId == "" {
-			return fmt.Errorf("Template not found: %s", cmd.GetStringArg("template"))
+			return fmt.Errorf("template %q not found", cmd.GetStringArg("template"))
 		}
 
 		// Create the template
@@ -118,7 +118,7 @@ var CreateCmd = &cli.Command{
 
 		_, _, err = client.CreateSpace(context.Background(), space)
 		if err != nil {
-			return fmt.Errorf("Error creating space: %w", err)
+			return fmt.Errorf("couldn't create space %q: %w", cmd.GetStringArg("space"), err)
 		}
 
 		fmt.Println("Space created: ", cmd.GetStringArg("space"))

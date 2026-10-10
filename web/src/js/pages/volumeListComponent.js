@@ -1,15 +1,14 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.volumeListComponent = function() {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('volumes', {
+      name: (v) => v.name,
+      zone: (v) => v.zone,
+      type: (v) => v.platform,
+      deployed: (v) => (v.active ? 0 : 1),
+    }),
     loading: true,
     volumeFormModal: {
       show: false,
@@ -141,7 +140,7 @@ window.volumeListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Volume could not be deleted", type: 'error' });
+          window.knotError('delete the volume', response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively
@@ -180,9 +179,7 @@ window.volumeListComponent = function() {
         } else {
           const volume = self.volumes.find(vol => vol.volume_id === volumeId);
           if (volume) volume.starting = false;
-          response.json().then((d) => {
-            self.$dispatch('show-alert', { msg: `Volume could not be started: ${d.error}`, type: 'error' });
-          });
+          window.knotError('start the volume', response);
         }
       }).catch((error) => {
         const volume = self.volumes.find(vol => vol.volume_id === volumeId);
@@ -190,7 +187,7 @@ window.volumeListComponent = function() {
         if (error.message && error.message.includes('401')) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: `Volume could not be started: ${error}`, type: 'error' });
+          window.knotError('start the volume', error);
         }
       });
     },
@@ -216,13 +213,13 @@ window.volumeListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Volume could not be stopped", type: 'error' });
+          window.knotError('stop the volume', response);
         }
       }).catch((error) => {
         if (error.message && error.message.includes('401')) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: `Volume could not be stopped: ${error}`, type: 'error' });
+          window.knotError('stop the volume', error);
         }
       });
     },

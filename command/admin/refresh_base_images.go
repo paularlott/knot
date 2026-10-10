@@ -135,6 +135,9 @@ func refreshOne(ctx context.Context, label string, client *apiclient.ApiClient) 
 // cleanRestError strips the REST client's "unexpected status code: N: " wrapper
 // so the underlying server-provided message reads cleanly.
 func cleanRestError(err error) string {
+	if he := apiclient.AsHTTPError(err); he != nil {
+		return strings.Replace(err.Error(), he.Error(), he.Message(), 1)
+	}
 	return restErrPrefix.ReplaceAllString(err.Error(), "")
 }
 

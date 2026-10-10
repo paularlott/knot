@@ -15,7 +15,7 @@
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
           <input type="search" name="search" id="search" class="form-field grow pr-24 app-page-search" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged" x-ref="searchInput">
-          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut">⌘ K</div>
+          <button type="button" x-show="searchTerm" x-cloak @click="searchTerm=''; searchChanged(); $refs.searchInput.focus()" aria-label="Clear search" class="app-search-clear"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button><div class="app-search-shortcut" aria-hidden="true" data-shortcut="mod+k">⌘ K</div>
         </div>
       </div>
       <div>
@@ -23,7 +23,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Group
+          New Group
         </button>
       </div>
     </form>
@@ -32,22 +32,22 @@
 
       {{ template "loading" . }}
             <div x-show="!loading && groups.length === 0" x-cloak>
-        {{ template "empty" "No groups yet." }}
+        {{ template "empty" (map "heading" "No groups yet" "text" "Groups set how many spaces, compute, storage and tunnels their members can use." "action" "New Group" "click" "createGroup()") }}
       </div>
       <div x-show="!loading && groups.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Groups" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Details</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Max Spaces</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Compute Units</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Storage Units</th>
-              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Max Tunnels</th>
+              {{ template "sort-th" (map "key" "name" "label" "Name") }}
+              {{ template "sort-th" (map "key" "spaces" "label" "Max Spaces" "class" "hidden sm:table-cell") }}
+              {{ template "sort-th" (map "key" "compute" "label" "Compute Units" "class" "hidden sm:table-cell") }}
+              {{ template "sort-th" (map "key" "storage" "label" "Storage Units" "class" "hidden sm:table-cell") }}
+              {{ template "sort-th" (map "key" "tunnels" "label" "Max Tunnels" "class" "hidden sm:table-cell") }}
               <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
             </thead>
             <tbody>
-            <template x-for="g in groups" :key="g.group_id">
+            <template x-for="g in sorted(groups)" :key="g.group_id">
               <tr x-show="!g.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                 <td class="px-4 py-3">
                   <div class="text-base font-semibold text-gray-900 dark:text-white whitespace-nowrap"><a :href="'/groups?edit=' + encodeURIComponent(g.group_id)" class="table-name-link" @click="knotEditClick($event, () => editGroup(g.group_id))"><span class="sr-only">Edit group </span><span x-text="g.name"></span></a></div>
@@ -103,6 +103,7 @@
                 </td>
               </tr>
             </template>
+            {{ template "no-results" (map "list" "groups" "things" "groups" "cols" 6) }}
             </tbody>
           </table>
       </div>

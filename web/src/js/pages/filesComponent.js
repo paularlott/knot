@@ -1,4 +1,5 @@
 import ace from "ace-builds/src-noconflict/ace";
+import { sortable } from "../components/sortable.js";
 import "ace-builds/src-noconflict/mode-text";
 import "ace-builds/src-noconflict/mode-markdown";
 import "ace-builds/src-noconflict/mode-yaml";
@@ -87,12 +88,11 @@ function jsonHeaders() {
   return { 'Content-Type': 'application/json', 'Accept': 'application/json' };
 }
 
-async function apiError(response) {
-  try {
-    const data = await response.json();
-    if (data && data.error) return data.error;
-  } catch (e) { /* not JSON */ }
-  return `request failed (${response.status})`;
+// apiError is a plain-language reason for a failed request, from the
+// server's message or the status (see knotErrorMessage in live.js). With
+// an action it says what failed: "Couldn't open the bucket. ...".
+async function apiError(response, action = '') {
+  return window.knotErrorMessage(action, response);
 }
 
 function formatBytes(n) {
@@ -131,6 +131,18 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
     buckets: [],
     showAll: false,
     searchTerm: '',
+    bucketSort: sortable('file-buckets', {
+      name: (b) => b.display_name || b.name,
+      owner: (b) => b.owner_name,
+      files: { value: (b) => b.count, dir: 'desc' },
+      size: { value: (b) => b.size, dir: 'desc' },
+    }),
+    // Sorts the loaded part of a folder; folders stay above files.
+    fileSort: sortable('files', {
+      name: (e) => e.name,
+      size: { value: (e) => e.size, dir: 'desc' },
+      modified: { value: (e) => (e.modified_at ? Date.parse(e.modified_at) : null), dir: 'desc' },
+    }),
     usage: null,
 
     // Browser
@@ -163,12 +175,6 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
 
     async init() {
       window.addEventListener('popstate', () => this.loadFromLocation());
-      document.addEventListener('keydown', (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k' && this.view === 'buckets') {
-          e.preventDefault();
-          document.getElementById('bucket-search')?.focus();
-        }
-      });
       await this.loadFromLocation();
 
       window.addEventListener('theme-change', (e) => {
@@ -287,6 +293,15 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       this.loading = false;
     },
 
+    // The address of a bucket (and folder in it), so names can be real links:
+    // a plain click opens in place, a modified one in a new tab.
+    locationHref(bucket, prefix = '') {
+      const u = new URL(location.pathname, location.origin);
+      if (bucket) u.searchParams.set('bucket', bucket);
+      if (prefix) u.searchParams.set('prefix', prefix);
+      return u.pathname + u.search;
+    },
+
     pushLocation() {
       const u = new URL(location.href);
       u.search = '';
@@ -323,12 +338,17 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
     async loadBuckets() {
       const response = await request('/api/files/buckets' + (this.showAll ? '?all=true' : ''), { headers: jsonHeaders() });
       if (!response.ok) {
-        this.alert(await apiError(response), 'error');
+        this.alert(await apiError(response, 'load the buckets'), 'error');
         return;
       }
       const data = await response.json();
       this.buckets = data.buckets || [];
       await this.loadUsage();
+    },
+
+    clearBucketSearch() {
+      this.searchTerm = '';
+      document.getElementById('bucket-search')?.focus();
     },
 
     get filteredBuckets() {
@@ -658,7 +678,7 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
     async openBucket(name, prefix = '', push = true) {
       const response = await request(`/api/files/buckets/${encodeURIComponent(name)}`, { headers: jsonHeaders() });
       if (!response.ok) {
-        this.alert(await apiError(response), 'error');
+        this.alert(await apiError(response, 'open the bucket'), 'error');
         this.view = 'buckets';
         await this.loadBuckets();
         return;
@@ -683,7 +703,7 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       const response = await request(`/api/files/list/${encodeURIComponent(this.bucket.name)}?${q}`, { headers: jsonHeaders() });
       this.listing = false;
       if (!response.ok) {
-        this.alert(await apiError(response), 'error');
+        this.alert(await apiError(response, 'list the files'), 'error');
         return;
       }
       const data = await response.json();
@@ -770,7 +790,7 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       const body = { bucket: this.bucket.name, from, to, overwrite: false };
       const response = await request('/api/files/move', { method: 'POST', headers: jsonHeaders(), body: JSON.stringify(body) });
       if (response.status === 409) return `${dest || 'The top level'} already has a file or folder named ${entry.name}.`;
-      if (!response.ok) return await apiError(response);
+      if (!response.ok) return await apiError(response, `move ${entry.name}`);
       this.alert(`${entry.name} moved to ${dest ? dest.replace(/\/$/, '') : 'the top level'}`);
       await this.listFiles(false);
       return '';

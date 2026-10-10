@@ -43,14 +43,14 @@ var TemplateExportCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		name := cmd.GetStringArg("name")
 		yaml, code, err := client.ExportTemplate(ctx, name)
 		if err != nil {
 			if code == 404 {
-				return fmt.Errorf("template not found: %s", name)
+				return fmt.Errorf("template %q not found", name)
 			}
 			return fmt.Errorf("failed to export template: %w", err)
 		}
@@ -81,7 +81,7 @@ var TemplateImportCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		// Read YAML from file or stdin.

@@ -3,7 +3,6 @@ package command_stack
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -45,20 +44,17 @@ var ListCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			fmt.Println("Error getting user:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't get the current user: %w", err)
 		}
 
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
-			fmt.Println("Error getting spaces:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		// Group spaces by stack, preserving first-seen order.

@@ -42,19 +42,19 @@ The check needs the Manage File Storage permission; --from-backup also needs the
 		opts := filestore.FsckOptions{Repair: cmd.GetBool("repair"), Deep: cmd.GetBool("deep")}
 		backup := cmd.GetString("from-backup")
 		if backup != "" && !opts.Repair {
-			return errors.New("Error: --from-backup repairs, so it needs --repair.")
+			return errors.New("--from-backup repairs, so it needs --repair")
 		}
 		key := cmd.GetString("encrypt-key")
 		if backup != "" {
 			m, err := backupfileManifest(backup)
 			if err != nil {
-				return fmt.Errorf("Error: %w", err)
+				return err
 			}
 			if m.Encrypted && key == "" {
-				return errors.New("Error: the backup is encrypted: give the key with --encrypt-key.")
+				return errors.New("the backup is encrypted: give the key with --encrypt-key")
 			}
 			if !m.Content {
-				return errors.New("Error: the backup holds no file content.")
+				return errors.New("the backup holds no file content")
 			}
 		}
 
@@ -64,7 +64,7 @@ The check needs the Manage File Storage permission; --from-backup also needs the
 		}
 		report := &filestore.FsckReport{}
 		if err := client.FilesFsck(ctx, opts, report); err != nil {
-			return fmt.Errorf("Error checking file storage: %s", cmdutil.CleanAPIError(err))
+			return fmt.Errorf("couldn't check the file storage: %w", cmdutil.CleanErr(err))
 		}
 
 		// Content no server holds comes from the backup.
