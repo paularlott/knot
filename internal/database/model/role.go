@@ -67,6 +67,20 @@ const (
 	// impersonation-grade: whoever holds it can link to any account —
 	// administrators included — and act as it fully.
 	PermissionLinkUsers // Can link user accounts for fast user switching
+	PermissionUseFiles  // Can use file storage: own buckets and buckets shared with them
+	// PermissionManageFiles grants full access to every bucket, including
+	// transferring a bucket to another owner.
+	PermissionManageFiles // Can manage all file storage buckets
+	// PermissionShareBuckets lets an owner share their buckets with users,
+	// groups or everyone; PermissionTransferBuckets lets an owner give
+	// their buckets to another user.
+	PermissionShareBuckets    // Can share own buckets
+	PermissionTransferBuckets // Can transfer own buckets to another user
+	// PermissionBackup lets a user back up everything the server holds, every
+	// user's files and credentials included, and restore it. It is root
+	// equivalent and is not part of the Admin role: a new server gets a
+	// Backup User role carrying it, which its first user is given.
+	PermissionBackup // Can back up and restore the server
 )
 
 type PermissionName struct {
@@ -113,6 +127,11 @@ var permissionKeys = map[uint16]string{
 	PermissionManageVariables:           "manage_variables",
 	PermissionManageVolumes:             "manage_volumes",
 	PermissionLinkUsers:                 "link_users",
+	PermissionUseFiles:                  "use_files",
+	PermissionManageFiles:               "manage_files",
+	PermissionShareBuckets:              "share_buckets",
+	PermissionTransferBuckets:           "transfer_buckets",
+	PermissionBackup:                    "backup_server",
 	PermissionRunCommands:               "run_commands",
 	PermissionSetSpaceDependencies:      "set_space_dependencies",
 	PermissionShareSpaces:               "share_spaces",
@@ -142,6 +161,7 @@ var PermissionNames = []PermissionName{
 
 	{PermissionClusterInfo, "System", "View Cluster Info", "View cluster node and topology information."},
 	{PermissionViewPlugins, "System", "View Plugins", "View the loaded plugins inventory."},
+	{PermissionBackup, "System", "Backup Server", "Back up all of the server's data, including every user's files and credentials, and restore it. Equivalent to full access: not part of the Admin role."},
 
 	{PermissionManageGroups, "User Management", "Manage Groups", "Create, edit, and delete user groups."},
 	{PermissionManageRoles, "User Management", "Manage Roles", "Create, edit, and delete roles and their permissions."},
@@ -152,6 +172,11 @@ var PermissionNames = []PermissionName{
 	{PermissionManageTemplates, "Resource Management", "Manage Templates", "Create, edit, and delete space templates."},
 	{PermissionManageVariables, "Resource Management", "Manage Variables", "Create, edit, and delete system variables."},
 	{PermissionManageVolumes, "Resource Management", "Manage Volumes", "Create, edit, and delete volumes."},
+
+	{PermissionUseFiles, "File Storage", "Use File Storage", "Create and delete own buckets and manage their files."},
+	{PermissionShareBuckets, "File Storage", "Share Buckets", "Share own buckets with users, groups or everyone."},
+	{PermissionTransferBuckets, "File Storage", "Transfer Buckets", "Transfer own buckets to another user."},
+	{PermissionManageFiles, "File Storage", "Manage File Storage", "Full access to every bucket, including sharing and transferring any bucket."},
 
 	{PermissionUseMCPServer, "AI Tools", "Use MCP Server", "Connect to the knot MCP server."},
 	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant", "Use the built-in web AI assistant."},
@@ -213,7 +238,16 @@ type Role struct {
 // Roles
 const (
 	RoleAdminUUID = "00000000-0000-0000-0000-000000000000"
+
+	// BackupRoleName is the name of the role a new server creates for backups.
+	BackupRoleName = "Backup User"
 )
+
+// IsBuiltinRole reports whether a role is built in: it can't be edited or
+// deleted.
+func IsBuiltinRole(id string) bool {
+	return id == RoleAdminUUID
+}
 
 var (
 	roleCacheMutex = sync.RWMutex{}
@@ -275,6 +309,10 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageEvents,
 			PermissionManageGlobalEvents,
 			PermissionLinkUsers,
+			PermissionUseFiles,
+			PermissionManageFiles,
+			PermissionShareBuckets,
+			PermissionTransferBuckets,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

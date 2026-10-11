@@ -101,6 +101,10 @@ func (c *Cluster) DoGroupFullSync(node *gossip.Node) error {
 func (c *Cluster) mergeGroups(groups []*model.Group) error {
 	c.logger.Trace("Merging groups", "number_groups", len(groups))
 
+	// With a shared database the change may already be stored, so is never
+	// saved here; drop this server's cached list so it is read afresh.
+	database.GroupsChanged()
+
 	// Get the list of groups in the system
 	db := database.GetInstance()
 	localGroups, err := db.GetGroups()

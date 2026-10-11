@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/startlog"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/validate"
 
@@ -66,6 +67,7 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 		"shell":        "",
 		"renderer":     renderer,
 		"spaceId":      spaceId,
+		"spaceName":    space.Name,
 		"assetVersion": assetVersionKey(),
 	}
 
@@ -114,33 +116,35 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer ws.Close()
 
-	// Get the agent session
+	// Monitor for the websocket closing. Only this goroutine reads; only the
+	// handler writes.
+	done := make(chan struct{})
+	go func() {
+		for {
+			if _, _, err := ws.ReadMessage(); err != nil {
+				logger.WithError(err).Debug("websocket closed")
+				close(done)
+				return
+			}
+		}
+	}()
+
+	// Before the space's agent connects (the space is starting, or not
+	// running yet) show the server's start-up log and wait for the agent.
 	agentSession := agent_server.GetSession(spaceId)
 	if agentSession == nil {
-		w.WriteHeader(http.StatusNotFound)
-		ws.Close()
-		return
+		agentSession = waitForAgentSession(ws, done, space.Id, space.Name, location)
+		if agentSession == nil {
+			return
+		}
 	}
 
 	// Register a notification channel with the session
 	listenerId, channel := agentSession.RegisterLogListener()
 	if channel == nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		ws.Close()
 		return
 	}
-
-	// Monitor for the websocket closing
-	go func() {
-		for {
-			_, _, err := ws.ReadMessage()
-			if err != nil {
-				logger.WithError(err).Debug("websocket closed")
-				agentSession.UnregisterLogListener(listenerId)
-				return
-			}
-		}
-	}()
+	defer agentSession.UnregisterLogListener(listenerId)
 
 	// Write the log history to the websocket
 	agentSession.LogHistoryMutex.RLock()
@@ -156,18 +160,98 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	// Send a marker to indicate the end of the history
 	ws.WriteMessage(websocket.TextMessage, []byte{0})
 
-	// Simulate streaming logs
 	for {
-		// Wait for a log message
-		logMessage, ok := <-channel
-		if !ok {
+		select {
+		case <-done:
 			return
+		case logMessage, ok := <-channel:
+			if !ok {
+				// The agent's session ended (the space stopped).
+				return
+			}
+			if err := writeLogMessage(ws, logMessage, location); err != nil {
+				logger.WithError(err).Error("error writing message")
+				return
+			}
+		}
+	}
+}
+
+// waitForAgentSession streams the space's start-up log (internal/startlog)
+// and a line for each change of state until the space's agent connects, then
+// returns its session. It returns nil when the websocket closes or the space
+// is deleted. The connection stays open while the space is stopped, so a log
+// window opened early (or left open after a failed start) follows the next
+// start too.
+func waitForAgentSession(ws *websocket.Conn, done <-chan struct{}, spaceId, spaceName string, location *time.Location) *agent_server.Session {
+	history, lines, cancel := startlog.Subscribe(spaceId)
+	defer cancel()
+
+	for _, logMessage := range history {
+		if err := writeLogMessage(ws, logMessage, location); err != nil {
+			return nil
+		}
+	}
+	// End of history: the window now knows the stream is live.
+	ws.WriteMessage(websocket.TextMessage, []byte{0})
+
+	status := func(text string) bool {
+		return writeLogMessage(ws, &msg.LogMessage{Level: msg.LogLevelInfo, Service: startlog.Service, Message: "\033[90m" + text + "\033[0m", Date: time.Now()}, location) == nil
+	}
+
+	db := database.GetInstance()
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	lastState := ""
+	for {
+		if session := agent_server.GetSession(spaceId); session != nil {
+			if lastState != "" && !status("Agent connected") {
+				return nil
+			}
+			return session
 		}
 
-		// Write the log message to the websocket
-		if err := writeLogMessage(ws, logMessage, location); err != nil {
-			logger.WithError(err).Error("error writing message")
-			return
+		space, err := db.GetSpace(spaceId)
+		if err != nil || space == nil || space.IsDeleted {
+			status(spaceName + " no longer exists.")
+			return nil
+		}
+
+		var state, text string
+		switch {
+		case space.IsDeleting:
+			state, text = "deleting", spaceName+" is being deleted."
+		case space.IsPending && !space.IsDeployed:
+			state, text = "starting", "Waiting for "+spaceName+" to start…"
+		case space.IsPending:
+			state, text = "stopping", spaceName+" is stopping."
+		case space.IsDeployed:
+			state, text = "connecting", "Waiting for "+spaceName+"'s agent to connect…"
+		default:
+			state = "stopped"
+			if lastState == "starting" || lastState == "connecting" {
+				text = spaceName + " stopped before its agent connected. Its log will continue here if it starts again."
+			} else {
+				text = spaceName + " isn't running. Its log will appear here when it starts."
+			}
+		}
+		if state != lastState {
+			if !status(text) {
+				return nil
+			}
+			lastState = state
+		}
+
+		select {
+		case <-done:
+			return nil
+		case logMessage, ok := <-lines:
+			if ok {
+				if err := writeLogMessage(ws, logMessage, location); err != nil {
+					return nil
+				}
+			}
+		case <-ticker.C:
 		}
 	}
 }

@@ -37,12 +37,12 @@ var SetSizeCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
-		code, err := client.SetPoolSize(context.Background(), poolName, desired)
+		_, err = client.SetPoolSize(context.Background(), poolName, desired)
 		if err != nil {
-			return fmt.Errorf("Error setting pool size: %w (code %d)", err, code)
+			return fmt.Errorf("couldn't set the size of pool %q: %w", poolName, err)
 		}
 
 		fmt.Printf("Pool %q size set to %d.\n", poolName, desired)

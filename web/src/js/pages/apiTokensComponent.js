@@ -1,19 +1,15 @@
+import { sortable } from '../components/sortable.js';
 import Alpine from "alpinejs";
 import { focus } from "../focus.js";
 
-window.apiTokensComponent = function () {
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      document.getElementById("search").focus();
-    }
-  });
-
+// canBackup is whether the user holds the Backup Server permission: only then
+// is a backup-scoped token any use to them, so only then is the scope offered.
+window.apiTokensComponent = function (canBackup) {
   // Available scopes. Each entry has:
   //   value: the scope string stored in the DB
   //   label: human-readable label for the checkbox
   //   description: short help text
-  const availableScopes = [
+  const allScopes = [
     {
       value: "methods",
       label: "Methods",
@@ -29,15 +25,30 @@ window.apiTokensComponent = function () {
       label: "Tunnels",
       description: "Create and manage web tunnels only",
     },
+    {
+      value: "files",
+      label: "Files",
+      description: "File storage: the knot file commands and the Files page (and S3 on Knot Pro)",
+    },
+    {
+      value: "backup",
+      label: "Backup",
+      description: "Back up and restore the server (needs the Backup Server permission)",
+    },
   ];
+
+  // The scopes this user may choose. Existing tokens are still labelled from
+  // allScopes.
+  const availableScopes = allScopes.filter((s) => s.value !== "backup" || canBackup);
 
   // Helper: build a scope-checkbox state object from the available scopes,
   // defaulting to all checked (scoped mode assumes you want every scope
-  // unless you explicitly untick one). Called for form initialization.
+  // unless you explicitly untick one) except backup, which is never on by
+  // default as it reaches every user's data. Called for form initialization.
   function defaultScopeState() {
     const state = {};
     availableScopes.forEach((s) => {
-      state[s.value] = true;
+      state[s.value] = s.value !== "backup";
     });
     return state;
   }
@@ -52,9 +63,13 @@ window.apiTokensComponent = function () {
   }
 
   return {
+    ...sortable('api-tokens', {
+      name: (t) => t.name,
+    }),
     loading: true,
     tokens: [],
     availableScopes,
+    allScopes,
 
     // Create modal state
     tokenFormModal: { show: false },
@@ -75,10 +90,6 @@ window.apiTokensComponent = function () {
     },
     editNameValid: true,
 
-    deleteConfirm: {
-      show: false,
-      token: { token_id: "", name: "" },
-    },
     searchTerm: Alpine.$persist("")
       .as("apitoken-search-term")
       .using(sessionStorage),
@@ -175,7 +186,7 @@ window.apiTokensComponent = function () {
       }
       return token.scopes
         .map((s) => {
-          const match = this.availableScopes.find((a) => a.value === s);
+          const match = this.allScopes.find((a) => a.value === s);
           return match ? match.label : s;
         })
         .join(", ");
@@ -187,7 +198,7 @@ window.apiTokensComponent = function () {
         return [];
       }
       return token.scopes.map((s) => {
-        const match = this.availableScopes.find((a) => a.value === s);
+        const match = this.allScopes.find((a) => a.value === s);
         return match ? match.label : s;
       });
     },
@@ -221,7 +232,10 @@ window.apiTokensComponent = function () {
         });
         return;
       }
-      if (err) return;
+      if (err) {
+        focus.firstInvalid(this.$root);
+        return;
+      }
 
       this.loading = true;
 
@@ -246,18 +260,10 @@ window.apiTokensComponent = function () {
             this.tokenFormModal.show = false;
             this.getTokens();
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Failed to create API token",
-              type: "error",
-            });
+            window.knotError("create the API token", response);
           }
         })
-        .catch((error) => {
-          this.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
-        })
+        .catch((error) => window.knotError("create the API token", error))
         .finally(() => {
           this.loading = false;
         });
@@ -289,7 +295,10 @@ window.apiTokensComponent = function () {
     },
 
     async submitEditForm() {
-      if (!this.checkEditName()) return;
+      if (!this.checkEditName()) {
+        focus.firstInvalid(this.$root);
+        return;
+      }
       if (
         !this.editForm.fullAccess &&
         !this.hasAnyScope(this.editForm.scopes)
@@ -325,24 +334,27 @@ window.apiTokensComponent = function () {
             this.editModal.show = false;
             this.getTokens();
           } else {
-            this.$dispatch("show-alert", {
-              msg: "Failed to update token",
-              type: "error",
-            });
+            window.knotError("update the API token", response);
           }
         })
-        .catch((error) => {
-          this.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
-        })
+        .catch((error) => window.knotError("update the API token", error))
         .finally(() => {
           this.loading = false;
         });
     },
 
     // ---- Delete ----
+
+    confirmDelete(t) {
+      window.knotConfirm({
+        danger: true,
+        message: "Are you sure you want to delete the API token {name}?",
+        name: t.name,
+        detail: "Deleting the token may prevent access.",
+        confirmLabel: "Delete Token",
+        cancelLabel: "Keep Token",
+      }).then((ok) => ok && this.deleteToken(t.token_id));
+    },
 
     async deleteToken(tokenId) {
       const self = this;
@@ -359,13 +371,10 @@ window.apiTokensComponent = function () {
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            self.$dispatch("show-alert", {
-              msg: "Token could not be deleted",
-              type: "error",
-            });
+            window.knotError("delete the API token", response);
           }
         })
-        .catch(() => {});
+        .catch((err) => window.knotError("delete the API token", err));
       this.getTokens();
     },
 
@@ -382,12 +391,21 @@ window.apiTokensComponent = function () {
       });
     },
 
+    copiedId: "",
+
+    // Copying shows a tick on the button for a moment and tells screen
+    // readers, rather than raising a toast for something the user just did.
     async copyToClipboard(text) {
-      await navigator.clipboard.writeText(text);
-      this.$dispatch("show-alert", {
-        msg: "Copied to clipboard",
-        type: "success",
-      });
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        window.knotError("copy the token ID", "The browser didn't allow access to the clipboard. Select the ID and copy it instead.");
+        return;
+      }
+      this.copiedId = text;
+      window.knotAnnounce("Token ID copied.");
+      clearTimeout(this._copiedTimer);
+      this._copiedTimer = setTimeout(() => { this.copiedId = ""; }, 2000);
     },
   };
 };

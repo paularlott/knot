@@ -43,14 +43,7 @@ var JobsListCmd = &cli.Command{
 
 		definitions, code, err := client.GetSpaceJobs(ctx, spaceId)
 		if err != nil {
-			if code == 401 {
-				return fmt.Errorf("failed to authenticate with server, check token")
-			} else if code == 403 {
-				return fmt.Errorf("no permission to list jobs")
-			} else if code == 404 {
-				return fmt.Errorf("space not found")
-			}
-			return fmt.Errorf("failed to list jobs: %w", err)
+			return spaceApiError(code, err, "list jobs", spaceName)
 		}
 
 		if len(definitions.Jobs) == 0 {

@@ -19,11 +19,14 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
       },
     },
     history: [],
+    error: "",
     refreshHandle: null,
 
     async init() {
       await this.refresh();
-      this.refreshHandle = setInterval(() => this.refresh(), 10000);
+      this.refreshHandle = setInterval(() => {
+        if (!(window.knotLive && window.knotLive.paused)) this.refresh();
+      }, 10000);
     },
 
     destroy() {
@@ -49,12 +52,15 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
     },
 
     async refreshCurrent() {
-      const response = await fetch(`/api/spaces/${this.spaceId}/usage/current`);
-      if (!response.ok) {
-        return;
+      try {
+        const response = await fetch(`/api/spaces/${this.spaceId}/usage/current`);
+        if (!response.ok) {
+          return;
+        }
+        this.current = await response.json();
+      } catch (_) {
+        // The history request reports connection problems.
       }
-
-      this.current = await response.json();
     },
 
     showCurrentCards() {
@@ -62,15 +68,43 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
     },
 
     async refreshHistory() {
-      const response = await fetch(`/api/spaces/${this.spaceId}/usage/history?range=${encodeURIComponent(this.selectedRange)}`);
+      let response;
+      try {
+        response = await fetch(`/api/spaces/${this.spaceId}/usage/history?range=${encodeURIComponent(this.selectedRange)}`);
+      } catch (error) {
+        this.error = await window.knotErrorMessage("load the usage history", error);
+        return;
+      }
       if (!response.ok) {
+        this.error = await window.knotErrorMessage("load the usage history", response);
         return;
       }
 
+      this.error = "";
       const payload = await response.json();
       this.history = payload.points || [];
       await this.$nextTick();
       this.renderChart();
+    },
+
+    // A text summary of the chart for screen readers (the canvas is an image).
+    chartSummary() {
+      const range = this.selectedRange === "7d" ? "the last 7 days" : "the last hour";
+      if (!this.history.length) {
+        return `Usage history for ${range}: no data yet.`;
+      }
+      const series = [
+        ["CPU", (p) => p.resource_usage?.cpu_percent || 0],
+        ["memory", (p) => this.usagePercent(p.resource_usage?.memory_used_bytes || 0, p.resource_usage?.memory_limit_bytes || 0)],
+        ["disk", (p) => this.usagePercent(p.resource_usage?.disk_used_bytes || 0, p.resource_usage?.disk_limit_bytes || 0)],
+      ].map(([name, fn]) => {
+        const values = this.history.map(fn);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        const max = Math.max(...values);
+        const last = values[values.length - 1];
+        return `${name} averaged ${avg.toFixed(0)}%, peaked at ${max.toFixed(0)}%, latest ${last.toFixed(0)}%`;
+      });
+      return `Usage history for ${range}, ${this.history.length} points, as a percentage of each limit: ${series.join("; ")}.`;
     },
 
     renderChart() {
@@ -106,6 +140,12 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
         historyChart.destroy();
       }
 
+      context.setAttribute("role", "img");
+      context.setAttribute("aria-label", this.chartSummary());
+
+      // Each line differs by dash and point shape as well as colour.
+      const markers = this.history.length <= 90 ? 3 : 0;
+
       historyChart = new Chart(context, {
         type: "line",
         data: {
@@ -117,7 +157,8 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
               borderColor: "#3b82f6",
               backgroundColor: "rgba(59, 130, 246, 0.15)",
               tension: 0.25,
-              pointRadius: 0,
+              pointStyle: "circle",
+              pointRadius: markers,
             },
             {
               label: "Memory %",
@@ -125,7 +166,9 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
               borderColor: "#10b981",
               backgroundColor: "rgba(16, 185, 129, 0.15)",
               tension: 0.25,
-              pointRadius: 0,
+              borderDash: [8, 4],
+              pointStyle: "rect",
+              pointRadius: markers,
             },
             {
               label: "Disk %",
@@ -133,7 +176,9 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
               borderColor: "#f59e0b",
               backgroundColor: "rgba(245, 158, 11, 0.15)",
               tension: 0.25,
-              pointRadius: 0,
+              borderDash: [2, 3],
+              pointStyle: "triangle",
+              pointRadius: markers,
             },
           ],
         },
@@ -171,6 +216,8 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
             legend: {
               labels: {
                 color: textColor,
+                // The legend shows each line's point shape, not just colour.
+                usePointStyle: true,
               },
             },
           },

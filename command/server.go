@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/paularlott/knot/internal/filestore"
 	"net"
 	"net/http"
 	"net/url"
@@ -287,6 +288,27 @@ var ServerCmd = &cli.Command{
 			ConfigPath:   []string{"server.private_files_path"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PRIVATE_FILES_PATH"},
 			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "files-path",
+			Usage:        "The directory for replicated file storage (buckets and the knot file commands; Knot Pro adds an S3 endpoint). File storage is disabled when not set.",
+			ConfigPath:   []string{"server.files.path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_PATH"},
+			DefaultValue: "",
+		},
+		&cli.IntFlag{
+			Name:         "files-default-quota-mb",
+			Usage:        "File storage quota in MB for users whose own and group limits are all 0 (0 = unlimited).",
+			ConfigPath:   []string{"server.files.default_quota_mb"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_DEFAULT_QUOTA_MB"},
+			DefaultValue: 0,
+		},
+		&cli.IntFlag{
+			Name:         "files-default-max-buckets",
+			Usage:        "Maximum number of file storage buckets a user can own when their own and group limits are all 0 (0 = unlimited).",
+			ConfigPath:   []string{"server.files.default_max_buckets"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_DEFAULT_MAX_BUCKETS"},
+			DefaultValue: 0,
 		},
 		&cli.StringFlag{
 			Name:         "mcp-tools-path",
@@ -607,6 +629,78 @@ var ServerCmd = &cli.Command{
 			DefaultValue: 5,
 		},
 
+		// PostgreSQL flags
+		&cli.BoolFlag{
+			Name:         "postgres-enabled",
+			Usage:        "Enable PostgreSQL database backend.",
+			ConfigPath:   []string{"server.postgres.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:         "postgres-host",
+			Usage:        "The PostgreSQL host to connect to.",
+			ConfigPath:   []string{"server.postgres.host"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_HOST"},
+			DefaultValue: "localhost",
+		},
+		&cli.IntFlag{
+			Name:         "postgres-port",
+			Usage:        "The PostgreSQL port to connect to.",
+			ConfigPath:   []string{"server.postgres.port"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_PORT"},
+			DefaultValue: 5432,
+		},
+		&cli.StringFlag{
+			Name:         "postgres-user",
+			Usage:        "The PostgreSQL user to connect as.",
+			ConfigPath:   []string{"server.postgres.user"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_USER"},
+			DefaultValue: "postgres",
+		},
+		&cli.StringFlag{
+			Name:         "postgres-password",
+			Usage:        "The PostgreSQL password to use.",
+			ConfigPath:   []string{"server.postgres.password"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_PASSWORD"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "postgres-database",
+			Usage:        "The PostgreSQL database to use.",
+			ConfigPath:   []string{"server.postgres.database"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_DATABASE"},
+			DefaultValue: "knot",
+		},
+		&cli.StringFlag{
+			Name:         "postgres-sslmode",
+			Usage:        "The PostgreSQL SSL mode: disable, allow, prefer, require, verify-ca or verify-full.",
+			ConfigPath:   []string{"server.postgres.sslmode"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_SSLMODE"},
+			DefaultValue: "prefer",
+		},
+		&cli.IntFlag{
+			Name:         "postgres-connection-max-idle",
+			Usage:        "The maximum number of idle connections in the connection pool.",
+			ConfigPath:   []string{"server.postgres.connection_max_idle"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_CONNECTION_MAX_IDLE"},
+			DefaultValue: 10,
+		},
+		&cli.IntFlag{
+			Name:         "postgres-connection-max-open",
+			Usage:        "The maximum number of open connections to the database.",
+			ConfigPath:   []string{"server.postgres.connection_max_open"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_CONNECTION_MAX_OPEN"},
+			DefaultValue: 100,
+		},
+		&cli.IntFlag{
+			Name:         "postgres-connection-max-lifetime",
+			Usage:        "The maximum amount of time in minutes a connection may be reused.",
+			ConfigPath:   []string{"server.postgres.connection_max_lifetime"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_POSTGRES_CONNECTION_MAX_LIFETIME"},
+			DefaultValue: 5,
+		},
+
 		// BadgerDB flags
 		&cli.BoolFlag{
 			Name:         "badgerdb-enabled",
@@ -722,17 +816,16 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.BoolFlag{
 			Name:         "base-images-update-enabled",
-			Usage:        "Master gate for fetching the base image manifest from --base-images-update-url. When set, the server fetches once on startup (background) and the admin refresh command is permitted; when unset, no remote fetch happens and `knot admin refresh-base-images` will fail. With --base-images-manifest set, the file is the baseline and a fetched copy overlays it only when newer.",
+			Usage:        "Master gate for fetching the base image manifest from --base-images-update-url. When set together with --base-images-update-url, the server fetches once on startup (background) and the admin refresh command is permitted; otherwise no remote fetch happens and `knot admin refresh-base-images` will fail. With --base-images-manifest set, the file is the baseline and a fetched copy overlays it only when newer.",
 			ConfigPath:   []string{"server.base_image.update_enabled"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_ENABLED"},
 			DefaultValue: false,
 		},
 		&cli.StringFlag{
-			Name:        "base-images-update-url",
-			Usage:       "URL to fetch the base image manifest from. When unset, the default (" + specwizard.DefaultUpdateURL + ") is used unless a manifest file is configured.",
+			Name:       "base-images-update-url",
+			Usage:      "URL to fetch the base image manifest from. No default: a fetch only happens when this is set and --base-images-update-enabled is on. For example, point it at https://raw.githubusercontent.com/paularlott/knot/main/internal/specwizard/manifest.toml to track the catalog shipped with knot releases.",
 			ConfigPath:  []string{"server.base_image.update_url"},
 			EnvVars:     []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_URL"},
-			DefaultText: specwizard.DefaultUpdateURL,
 		},
 
 		// MCP flags
@@ -761,10 +854,10 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:         "chat-provider",
-			Usage:        "LLM provider for chat functionality (openai, claude, gemini, ollama, mistral, zai).",
+			Usage:        "LLM provider for chat (openai, claude, gemini, ollama, mistral, zai, grok); base_url defaults to the provider's API. Ignored when chat-type is set.",
 			ConfigPath:   []string{"server.chat.provider"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_PROVIDER"},
-			DefaultValue: "openai",
+			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-api-key",
@@ -782,10 +875,10 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:         "chat-type",
-			Usage:        "AI API type (openai, anthropic, google, ollama). Determines the protocol used to communicate with the LLM.",
+			Usage:        "AI API protocol (openai, anthropic, google, ollama, xai) for the endpoint at chat-base-url. Takes precedence over chat-provider.",
 			ConfigPath:   []string{"server.chat.type"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TYPE"},
-			DefaultValue: "openai",
+			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
@@ -838,7 +931,7 @@ var ServerCmd = &cli.Command{
 			ValidateFlag: func(c *cli.Command) error {
 				value := c.GetString("chat-reasoning-effort")
 				if value != "" && value != "none" && value != "low" && value != "medium" && value != "high" {
-					return fmt.Errorf("If given, reasoning effort must be one of: none, low, medium, high")
+					return fmt.Errorf("--chat-reasoning-effort must be one of: none, low, medium, high (got %q)", value)
 				}
 				return nil
 			},
@@ -852,7 +945,7 @@ var ServerCmd = &cli.Command{
 			ValidateFlag: func(c *cli.Command) error {
 				value := c.GetString("chat-ui-style")
 				if value != "" && value != "icon" && value != "avatar" {
-					return fmt.Errorf("UI style must be one of: icon, avatar")
+					return fmt.Errorf("--chat-ui-style must be one of: icon, avatar (got %q)", value)
 				}
 				return nil
 			},
@@ -933,6 +1026,23 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 
 	// Start the SSE hub for real-time updates
 	sse.GetHub().Start()
+
+	// Open file storage when a storage directory is configured
+	if cfg.FilesPath != "" {
+		store, err := filestore.Open(filestore.Config{
+			Dir:         cfg.FilesPath,
+			Quota:       filestore.DatabaseQuota,
+			BucketLimit: filestore.DatabaseBucketLimit,
+			OwnerState:  filestore.DatabaseOwnerState,
+			Changed:     api.NotifyFilesChanged,
+		})
+		if err != nil {
+			logger.WithError(err).Fatal("failed to open file storage", "path", cfg.FilesPath)
+		}
+		filestore.SetInstance(store)
+		defer store.Close()
+		logger.Info("file storage enabled", "path", cfg.FilesPath)
+	}
 
 	// Sweep stale chat conversations (retention). Only on full cluster
 	// members — leaf nodes keep chat history in the browser.
@@ -1031,6 +1141,11 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	rest.SetAPIMux(routes)
 
 	api.ApiRoutes(routes)
+
+	// Extra file storage endpoints registered by other packages
+	if store := filestore.Get(); store != nil {
+		filestore.MountRoutes(routes, store)
+	}
 	proxy.Routes(routes, cfg)
 	web.Routes(routes, cfg)
 
@@ -1419,9 +1534,8 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 
 	// Kick off a one-shot background fetch of the base image manifest from
 	// the update URL (no periodic loop; the catalog only changes on startup
-	// or via an explicit admin refresh). Does nothing unless
-	// --base-images-update-enabled is on and no external manifest file is
-	// configured.
+	// or via an explicit admin refresh). Does nothing unless both
+	// --base-images-update-enabled and --base-images-update-url are set.
 	specwizard.FetchOnStartup()
 
 	service.GetPoolService().StartSweep()
@@ -1520,6 +1634,71 @@ func absPath(v string) string {
 	return v
 }
 
+// chatProviderForType maps the user-facing chat API type to the MCP
+// package's provider name; unknown types are OpenAI-compatible.
+func chatProviderForType(chatType string) string {
+	switch chatType {
+	case "anthropic":
+		return string(ai.ProviderClaude)
+	case "google":
+		return string(ai.ProviderGemini)
+	case "ollama":
+		return string(ai.ProviderOllama)
+	case "xai", "grok":
+		return string(ai.ProviderGrok)
+	default:
+		return string(ai.ProviderOpenAI)
+	}
+}
+
+// chatProviderBaseURLs are the default base URLs for chat providers, used
+// when only a provider is configured.
+var chatProviderBaseURLs = map[string]string{
+	string(ai.ProviderOpenAI):  "https://api.openai.com/v1",
+	string(ai.ProviderClaude):  "https://api.anthropic.com/v1",
+	string(ai.ProviderGemini):  "https://generativelanguage.googleapis.com/v1beta",
+	string(ai.ProviderOllama):  "http://127.0.0.1:11434/v1",
+	string(ai.ProviderMistral): "https://api.mistral.ai/v1",
+	string(ai.ProviderZAi):     "https://api.z.ai/api/paas/v4",
+	string(ai.ProviderGrok):    "https://api.x.ai/v1",
+}
+
+// localChatBaseURL is where an OpenAI-compatible chat endpoint is assumed to
+// be when neither a provider nor a base URL is configured.
+const localChatBaseURL = "http://127.0.0.1:11434/v1"
+
+// resolveChatEndpoint works out the chat provider and base URL from the
+// config:
+//   - type: the API protocol of the endpoint at base_url (precedence over
+//     provider). Without a base_url, the OpenAI and Ollama protocols assume a
+//     local server, as before; others use their provider's default.
+//   - provider alone: that provider, at its default base URL unless base_url
+//     overrides it.
+//   - neither: an OpenAI-compatible server on localhost.
+func resolveChatEndpoint(chatType, provider, baseURL string) (string, string) {
+	switch {
+	case chatType != "":
+		provider = chatProviderForType(chatType)
+		if baseURL == "" {
+			if provider == string(ai.ProviderOpenAI) || provider == string(ai.ProviderOllama) {
+				baseURL = localChatBaseURL
+			} else {
+				baseURL = chatProviderBaseURLs[provider]
+			}
+		}
+	case provider != "":
+		if baseURL == "" {
+			baseURL = chatProviderBaseURLs[provider]
+		}
+	default:
+		provider = string(ai.ProviderOpenAI)
+		if baseURL == "" {
+			baseURL = localChatBaseURL
+		}
+	}
+	return provider, baseURL
+}
+
 func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger := log.WithGroup("server")
 
@@ -1544,39 +1723,42 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	serverCfg := &config.ServerConfig{
-		DesktopMode:          cmd.Name == "knot",
-		Listen:               cmd.GetString("listen"),
-		ListenAgent:          cmd.GetString("listen-agent"),
-		URL:                  cmd.GetString("url"),
-		AgentEndpoint:        cmd.GetString("agent-endpoint"),
-		WildcardDomain:       cmd.GetString("wildcard-domain"),
-		HTMLPath:             cmd.GetString("html-path"),
-		TemplatePath:         cmd.GetString("template-path"),
-		AgentPath:            cmd.GetString("agent-path"),
-		PackagePath:          cmd.GetString("package-path"),
-		PrivateFilesPath:     cmd.GetString("private-files-path"),
-		PublicFilesPath:      cmd.GetString("public-files-path"),
-		MCPToolsPath:         cmd.GetString("mcp-tools-path"),
-		MCPToolsDisabled:     cmd.GetStringSlice("mcp-disable-builtin-tools"),
-		PluginsPath:          cmd.GetString("plugins-path"),
-		DownloadPath:         cmd.GetString("download-path"),
-		DisableSpaceCreate:   cmd.GetBool("disable-space-create"),
-		ListenTunnel:         cmd.GetString("listen-tunnel"),
-		TunnelDomain:         cmd.GetString("tunnel-domain"),
-		TunnelServer:         cmd.GetString("tunnel-server"),
-		TerminalWebGL:        cmd.GetBool("terminal-webgl"),
-		EncryptionKey:        cmd.GetString("encrypt"),
-		Zone:                 zone,
-		Hostname:             hostname,
-		Timezone:             cmd.GetString("timezone"),
-		LeafNode:             cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
-		AuthIPRateLimiting:   cmd.GetBool("auth-ip-rate-limiting"),
-		DNSEnabled:           cmd.GetBool("dns-enabled"),
-		DNSListen:            cmd.GetString("dns-listen"),
-		Nameservers:          cmd.GetStringSlice("nameservers"),
-		MCPToolTimeout:       cmd.GetInt("mcp-tool-timeout"),
-		ScriptFSAllowedPaths: cmd.GetStringSlice("script-fs-allowed-paths"),
-		ScriptNetPolicyFile:  cmd.GetString("script-net-policy"),
+		DesktopMode:            cmd.Name == "knot",
+		Listen:                 cmd.GetString("listen"),
+		ListenAgent:            cmd.GetString("listen-agent"),
+		URL:                    cmd.GetString("url"),
+		AgentEndpoint:          cmd.GetString("agent-endpoint"),
+		WildcardDomain:         cmd.GetString("wildcard-domain"),
+		HTMLPath:               cmd.GetString("html-path"),
+		TemplatePath:           cmd.GetString("template-path"),
+		AgentPath:              cmd.GetString("agent-path"),
+		PackagePath:            cmd.GetString("package-path"),
+		PrivateFilesPath:       cmd.GetString("private-files-path"),
+		FilesPath:              absPath(cmd.GetString("files-path")),
+		FilesDefaultQuotaMB:    cmd.GetInt("files-default-quota-mb"),
+		FilesDefaultMaxBuckets: cmd.GetInt("files-default-max-buckets"),
+		PublicFilesPath:        cmd.GetString("public-files-path"),
+		MCPToolsPath:           cmd.GetString("mcp-tools-path"),
+		MCPToolsDisabled:       cmd.GetStringSlice("mcp-disable-builtin-tools"),
+		PluginsPath:            cmd.GetString("plugins-path"),
+		DownloadPath:           cmd.GetString("download-path"),
+		DisableSpaceCreate:     cmd.GetBool("disable-space-create"),
+		ListenTunnel:           cmd.GetString("listen-tunnel"),
+		TunnelDomain:           cmd.GetString("tunnel-domain"),
+		TunnelServer:           cmd.GetString("tunnel-server"),
+		TerminalWebGL:          cmd.GetBool("terminal-webgl"),
+		EncryptionKey:          cmd.GetString("encrypt"),
+		Zone:                   zone,
+		Hostname:               hostname,
+		Timezone:               cmd.GetString("timezone"),
+		LeafNode:               cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
+		AuthIPRateLimiting:     cmd.GetBool("auth-ip-rate-limiting"),
+		DNSEnabled:             cmd.GetBool("dns-enabled"),
+		DNSListen:              cmd.GetString("dns-listen"),
+		Nameservers:            cmd.GetStringSlice("nameservers"),
+		MCPToolTimeout:         cmd.GetInt("mcp-tool-timeout"),
+		ScriptFSAllowedPaths:   cmd.GetStringSlice("script-fs-allowed-paths"),
+		ScriptNetPolicyFile:    cmd.GetString("script-net-policy"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),
@@ -1615,6 +1797,18 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			ConnectionMaxIdle:     cmd.GetInt("mysql-connection-max-idle"),
 			ConnectionMaxOpen:     cmd.GetInt("mysql-connection-max-open"),
 			ConnectionMaxLifetime: cmd.GetInt("mysql-connection-max-lifetime"),
+		},
+		Postgres: config.PostgresConfig{
+			Enabled:               cmd.GetBool("postgres-enabled"),
+			Host:                  cmd.GetString("postgres-host"),
+			Port:                  cmd.GetInt("postgres-port"),
+			User:                  cmd.GetString("postgres-user"),
+			Password:              cmd.GetString("postgres-password"),
+			Database:              cmd.GetString("postgres-database"),
+			SSLMode:               cmd.GetString("postgres-sslmode"),
+			ConnectionMaxIdle:     cmd.GetInt("postgres-connection-max-idle"),
+			ConnectionMaxOpen:     cmd.GetInt("postgres-connection-max-open"),
+			ConnectionMaxLifetime: cmd.GetInt("postgres-connection-max-lifetime"),
 		},
 		BadgerDB: config.BadgerDBConfig{
 			Enabled: cmd.GetBool("badgerdb-enabled"),
@@ -1729,19 +1923,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 				UIStyle:          cmd.GetString("chat-ui-style"),
 			}
 
-			// Map the user-facing type to the MCP package's internal provider name.
-			// Type is the canonical field; Provider is set from it for backwards compat.
-			switch chatCfg.Type {
-			case "anthropic":
-				chatCfg.Provider = string(ai.ProviderClaude)
-			case "google":
-				chatCfg.Provider = string(ai.ProviderGemini)
-			case "ollama":
-				chatCfg.Provider = string(ai.ProviderOllama)
-			default:
-				chatCfg.Provider = string(ai.ProviderOpenAI)
-			}
-
 			// Fallback to deprecated openai_* keys if new keys are not set
 			if chatCfg.APIKey == "" && chatCfg.OpenAIAPIKey != "" {
 				chatCfg.APIKey = chatCfg.OpenAIAPIKey
@@ -1750,10 +1931,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 				chatCfg.BaseURL = chatCfg.OpenAIBaseURL
 			}
 
-			// Default base URL for openai/ollama if still empty
-			if chatCfg.BaseURL == "" && (chatCfg.Provider == string(ai.ProviderOpenAI) || chatCfg.Provider == string(ai.ProviderOllama)) {
-				chatCfg.BaseURL = "http://127.0.0.1:11434/v1"
-			}
+			chatCfg.Provider, chatCfg.BaseURL = resolveChatEndpoint(chatCfg.Type, chatCfg.Provider, chatCfg.BaseURL)
 
 			return chatCfg
 		}(),
@@ -1816,7 +1994,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			serverCfg.WildcardDomain = "*.knot.internal"
 		}
 
-		if !serverCfg.MySQL.Enabled && !serverCfg.BadgerDB.Enabled && !serverCfg.Redis.Enabled {
+		if !serverCfg.MySQL.Enabled && !serverCfg.Postgres.Enabled && !serverCfg.BadgerDB.Enabled && !serverCfg.Redis.Enabled {
 			if home, err := os.UserHomeDir(); err == nil {
 				serverCfg.BadgerDB.Enabled = true
 				if serverCfg.BadgerDB.Path == "" || serverCfg.BadgerDB.Path == "./badger" {

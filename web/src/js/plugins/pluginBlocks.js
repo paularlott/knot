@@ -219,6 +219,8 @@ function buildTextareaField(field, inputId) {
   host.className = 'editor-wrap';
   host.style.height = `${(field.rows || 6) * 21 + 14}px`;
   host.dataset.aceField = '';
+  // Names the editor's input (see ace-a11y.js): the field's visible label.
+  host.dataset.labelledby = `${inputId}-label`;
 
   // Ace measures its container when created: initialize only after the
   // fragment has been inserted — every caller appends synchronously, and
@@ -268,6 +270,8 @@ export function resetPluginForm(form) {
   });
 }
 
+let fieldSeq = 0;
+
 function buildFormFields(form, block, hooks) {
   const wrap = q(form, '[data-fields]');
   wrap.innerHTML = '';
@@ -282,10 +286,13 @@ function buildFormFields(form, block, hooks) {
     }
     const row = tpl('pb-form-field');
     row.dataset.fieldType = field.type;
+    // Ids carry a per-render sequence so two forms on one page that share a
+    // field name still label their own control.
+    const inputId = `plugin-field-${field.name}-${++fieldSeq}`;
     q(row, '[data-label]').textContent = field.label;
-    q(row, '[data-label]').setAttribute('for', `plugin-field-${field.name}`);
+    q(row, '[data-label]').setAttribute('for', inputId);
+    q(row, '[data-label]').id = `${inputId}-label`;
     const control = q(row, '[data-control]');
-    const inputId = `plugin-field-${field.name}`;
     if (field.type === 'select') {
       const input = document.createElement('select');
       input.name = field.name;
@@ -307,7 +314,7 @@ function buildFormFields(form, block, hooks) {
       input.value = field.value || '';
       if (field.placeholder) input.placeholder = field.placeholder;
       const list = q(ac, '[data-ac-list]');
-      const listId = `plugin-list-${field.name}`;
+      const listId = `${inputId}-list`;
       list.id = listId;
       input.setAttribute('role', 'combobox');
       input.setAttribute('aria-autocomplete', 'list');
@@ -353,7 +360,7 @@ export function renderBlock(block, hooks) {
         const delta = q(node, '[data-delta]');
         const down = !!block.down;
         delta.textContent = `${down ? '▼' : '▲'} ${block.delta}`;
-        delta.classList.add(down ? 'text-red-600' : 'text-green-600', down ? 'dark:text-red-400' : 'dark:text-green-400');
+        delta.classList.add(down ? 'text-red-600' : 'text-green-700', down ? 'dark:text-red-400' : 'dark:text-green-400');
       }
       break;
     }
@@ -377,7 +384,7 @@ export function renderBlock(block, hooks) {
       (block.columns || []).forEach((col) => {
         const th = document.createElement('th');
         th.scope = 'col';
-        th.className = 'px-4 py-3 text-xs font-medium tracking-wider text-left uppercase';
+        th.className = 'px-4 py-3';
         th.textContent = col.label;
         head.appendChild(th);
       });
@@ -387,7 +394,7 @@ export function renderBlock(block, hooks) {
         tr.className = 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10';
         block.columns.forEach((col, index) => {
           const td = tr.insertCell();
-          td.className = 'px-4 py-3 align-top text-gray-700 dark:text-gray-200';
+          td.className = 'px-4 py-3';
           const value = row[col.key];
           if (col.badge) {
             td.classList.add('whitespace-nowrap');

@@ -57,8 +57,29 @@ type containerInspect struct {
 	} `json:"status"`
 }
 
+// appleStatus is a container's state in `container ls --format json`:
+// container CLI 1.1 and later report an object ({"state": "running", ...}),
+// earlier versions a plain string.
+type appleStatus string
+
+func (s *appleStatus) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = appleStatus(str)
+		return nil
+	}
+	var obj struct {
+		State string `json:"state"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	*s = appleStatus(obj.State)
+	return nil
+}
+
 type appleListContainer struct {
-	Status        string `json:"status"`
+	Status        appleStatus `json:"status"`
 	Configuration struct {
 		ID string `json:"id"`
 	} `json:"configuration"`
@@ -822,19 +843,25 @@ func (c *AppleClient) ListRunningSpaceRuntimeRefs() (map[string]bool, error) {
 		return nil, err
 	}
 
+	return parseAppleRunningRefs(output), nil
+}
+
+// parseAppleRunningRefs returns the IDs of running containers from
+// `container ls --format json` output: a JSON array, or one object per line.
+func parseAppleRunningRefs(output []byte) map[string]bool {
 	refs := make(map[string]bool)
+	add := func(item appleListContainer) {
+		if item.Status == "running" && item.Configuration.ID != "" {
+			refs[item.Configuration.ID] = true
+		}
+	}
 
 	var listResponse []appleListContainer
 	if err := json.Unmarshal(output, &listResponse); err == nil {
 		for _, container := range listResponse {
-			if container.Status != "running" {
-				continue
-			}
-			if container.Configuration.ID != "" {
-				refs[container.Configuration.ID] = true
-			}
+			add(container)
 		}
-		return refs, nil
+		return refs
 	}
 
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
@@ -842,19 +869,12 @@ func (c *AppleClient) ListRunningSpaceRuntimeRefs() (map[string]bool, error) {
 		if line == "" {
 			continue
 		}
-
 		var item appleListContainer
 		if err := json.Unmarshal([]byte(line), &item); err == nil {
-			if item.Status != "running" {
-				continue
-			}
-			if item.Configuration.ID != "" {
-				refs[item.Configuration.ID] = true
-			}
+			add(item)
 		}
 	}
-
-	return refs, nil
+	return refs
 }
 
 func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {

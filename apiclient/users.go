@@ -26,6 +26,8 @@ type UserResponse struct {
 	ComputeUnits               uint32           `json:"compute_units"`
 	StorageUnits               uint32           `json:"storage_units"`
 	MaxTunnels                 uint32           `json:"max_tunnels"`
+	FileStorageMB              uint32           `json:"file_storage_mb"`
+	MaxBuckets                 uint32           `json:"max_buckets"`
 	SSHPublicKey               string           `json:"ssh_public_key"`
 	SSHPrivateKey              string           `json:"ssh_private_key"`
 	GitHubUsername             string           `json:"github_username"`
@@ -55,6 +57,8 @@ type CreateUserRequest struct {
 	ComputeUnits   uint32   `json:"compute_units"`
 	StorageUnits   uint32   `json:"storage_units"`
 	MaxTunnels     uint32   `json:"max_tunnels"`
+	FileStorageMB  uint32   `json:"file_storage_mb"`
+	MaxBuckets     uint32   `json:"max_buckets"`
 	SSHPublicKey   string   `json:"ssh_public_key"`
 	GitHubUsername string   `json:"github_username"`
 	PreferredShell string   `json:"preferred_shell"`
@@ -74,6 +78,8 @@ type UpdateUserRequest struct {
 	ComputeUnits    uint32   `json:"compute_units"`
 	StorageUnits    uint32   `json:"storage_units"`
 	MaxTunnels      uint32   `json:"max_tunnels"`
+	FileStorageMB   uint32   `json:"file_storage_mb"`
+	MaxBuckets      uint32   `json:"max_buckets"`
 	SSHPublicKey    string   `json:"ssh_public_key"`
 	GitHubUsername  string   `json:"github_username"`
 	PreferredShell  string   `json:"preferred_shell"`
@@ -97,6 +103,8 @@ type UserInfo struct {
 	ComputeUnits               uint32     `json:"compute_units"`
 	StorageUnits               uint32     `json:"storage_units"`
 	MaxTunnels                 uint32     `json:"max_tunnels"`
+	FileStorageMB              uint32     `json:"file_storage_mb"`
+	MaxBuckets                 uint32     `json:"max_buckets"`
 	Current                    bool       `json:"current"`
 	HasLinkedUsers             bool       `json:"has_linked_users"`
 	LastLoginAt                *time.Time `json:"last_login_at"`
@@ -106,6 +114,8 @@ type UserInfo struct {
 	UsedComputeUnits           uint32     `json:"used_compute_units"`
 	UsedStorageUnits           uint32     `json:"used_storage_units"`
 	UsedTunnels                uint32     `json:"used_tunnels"`
+	UsedFileStorageMB          float64    `json:"used_file_storage_mb"`
+	UsedBuckets                int        `json:"used_buckets"`
 }
 type UserInfoList struct {
 	Count int        `json:"count"`
@@ -113,15 +123,19 @@ type UserInfoList struct {
 }
 
 type UserQuota struct {
-	MaxSpaces            uint32 `json:"max_spaces"`
-	ComputeUnits         uint32 `json:"compute_units"`
-	StorageUnits         uint32 `json:"storage_units"`
-	MaxTunnels           uint32 `json:"max_tunnels"`
-	NumberSpaces         int    `json:"number_spaces"`
-	NumberSpacesDeployed int    `json:"number_spaces_deployed"`
-	UsedComputeUnits     uint32 `json:"used_compute_units"`
-	UsedStorageUnits     uint32 `json:"used_storage_units"`
-	UsedTunnels          uint32 `json:"used_tunnels"`
+	MaxSpaces            uint32  `json:"max_spaces"`
+	ComputeUnits         uint32  `json:"compute_units"`
+	StorageUnits         uint32  `json:"storage_units"`
+	MaxTunnels           uint32  `json:"max_tunnels"`
+	FileStorageMB        uint32  `json:"file_storage_mb"`
+	MaxBuckets           uint32  `json:"max_buckets"`
+	NumberSpaces         int     `json:"number_spaces"`
+	NumberSpacesDeployed int     `json:"number_spaces_deployed"`
+	UsedComputeUnits     uint32  `json:"used_compute_units"`
+	UsedStorageUnits     uint32  `json:"used_storage_units"`
+	UsedTunnels          uint32  `json:"used_tunnels"`
+	UsedFileStorageMB    float64 `json:"used_file_storage_mb"`
+	UsedBuckets          int     `json:"used_buckets"`
 }
 
 type UserPermissions struct {
@@ -149,6 +163,7 @@ type UpdateOwnSSHPrivateKeyRequest struct {
 // see (plugins.Registry.VisibleMenuURLs).
 var ValidNavURLs = map[string]bool{
 	"/spaces": true, "/tunnels": true, "/api-tokens": true, "/volumes": true,
+	"/files":     true,
 	"/templates": true, "/variables": true, "/stacks": true, "/scripts": true,
 	"/events": true, "/skills": true, "/commands": true, "/mcp-servers": true,
 	"/users": true, "/groups": true, "/roles": true, "/audit-logs": true,

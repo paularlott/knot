@@ -8,8 +8,8 @@ import (
 
 // TestFetchDecision locks the fetch rule. Notation: M = manifest file set,
 // A = update-enabled on, U = update-url set. Startup and manual use the same
-// decision: fetch iff A && (!M || U); URL is the configured url when set, else
-// the default (only reachable when !M).
+// decision: fetch iff A && U (there is no default URL, so the gate alone is
+// never enough); the URL is always the configured one.
 func TestFetchDecision(t *testing.T) {
 	cfg := func(m, a, u bool) *config.ServerConfig {
 		c := &config.ServerConfig{BaseImagesUpdateEnabled: a}
@@ -23,24 +23,23 @@ func TestFetchDecision(t *testing.T) {
 	}
 
 	cases := []struct {
-		name        string
-		m, a, u     bool
-		wantOK      bool
-		wantDefault bool // true → expect DefaultUpdateURL
+		name    string
+		m, a, u bool
+		wantOK  bool
 	}{
 		// Gate off → never fetch, regardless of M/U.
-		{"A=F !M !U", false, false, false, false, false},
-		{"A=F !M  U", false, false, true, false, false},
-		{"A=F  M !U", true, false, false, false, false},
-		{"A=F  M  U", true, false, true, false, false},
+		{"A=F !M !U", false, false, false, false},
+		{"A=F !M  U", false, false, true, false},
+		{"A=F  M !U", true, false, false, false},
+		{"A=F  M  U", true, false, true, false},
 
-		// Gate on, no file → always fetch (default URL when none given).
-		{"A=T !M !U", false, true, false, true, true},
-		{"A=T !M  U", false, true, true, true, false},
+		// Gate on but no URL → never fetch: knot looks nowhere by default.
+		{"A=T !M !U", false, true, false, false},
+		{"A=T  M !U", true, true, false, false},
 
-		// Gate on, file set → fetch only when an explicit URL is given.
-		{"A=T  M !U", true, true, false, false, false},
-		{"A=T  M  U", true, true, true, true, false},
+		// Gate on with a URL → always fetch, file or not (file is baseline).
+		{"A=T !M  U", false, true, true, true},
+		{"A=T  M  U", true, true, true, true},
 	}
 	for _, c := range cases {
 		url, ok := FetchDecision(cfg(c.m, c.a, c.u))
@@ -51,11 +50,8 @@ func TestFetchDecision(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if c.wantDefault && url != DefaultUpdateURL {
-			t.Errorf("%s: got url %q, want default %q", c.name, url, DefaultUpdateURL)
-		}
-		if !c.wantDefault && url == DefaultUpdateURL {
-			t.Errorf("%s: got default url, want the configured url", c.name)
+		if url != "https://example.com/given.toml" {
+			t.Errorf("%s: got url %q, want the configured url", c.name, url)
 		}
 	}
 
@@ -71,12 +67,12 @@ func TestFetchDisabledReason(t *testing.T) {
 	if r := FetchDisabledReason(&config.ServerConfig{}); r == "" {
 		t.Error("expected a reason when update-enabled is off")
 	}
-	// Gate on, file set, no url.
-	if r := FetchDisabledReason(&config.ServerConfig{BaseImagesUpdateEnabled: true, BaseImagesManifest: "/x.toml"}); r == "" {
-		t.Error("expected a reason when a file is in use without a url")
-	}
-	// Fetchable → reason is informational but should still be non-empty.
+	// Gate on but no URL configured.
 	if r := FetchDisabledReason(&config.ServerConfig{BaseImagesUpdateEnabled: true}); r == "" {
-		t.Error("expected a non-empty reason")
+		t.Error("expected a reason when no update URL is configured")
+	}
+	// Fetchable → empty (no reason to report).
+	if r := FetchDisabledReason(&config.ServerConfig{BaseImagesUpdateEnabled: true, BaseImagesUpdateURL: "https://example.com/x.toml"}); r != "" {
+		t.Errorf("expected no reason for a fetchable config, got %q", r)
 	}
 }

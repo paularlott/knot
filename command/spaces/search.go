@@ -16,7 +16,7 @@ import (
 func resolveSpaceID(ctx context.Context, client *apiclient.ApiClient, nameOrID string) (string, error) {
 	space, err := client.GetSpaceByName(ctx, nameOrID)
 	if err != nil {
-		return "", fmt.Errorf("error getting space: %w", err)
+		return "", fmt.Errorf("couldn't find space %q: %w", nameOrID, err)
 	}
 	return space.SpaceId, nil
 }

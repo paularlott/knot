@@ -37,13 +37,13 @@ var SetFieldCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		// Set the custom field (API supports both name and ID)
 		_, err = client.SetSpaceCustomField(context.Background(), spaceName, fieldName, fieldValue)
 		if err != nil {
-			return fmt.Errorf("Error setting custom field: %w", err)
+			return fmt.Errorf("couldn't set custom field %q of space %q: %w", fieldName, spaceName, err)
 		}
 
 		fmt.Printf("Custom field '%s' set to '%s' on space '%s'\n", fieldName, fieldValue, spaceName)

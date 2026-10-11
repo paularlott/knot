@@ -26,12 +26,12 @@ var StartCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
-		code, err := client.StartPool(context.Background(), poolName)
+		_, err = client.StartPool(context.Background(), poolName)
 		if err != nil {
-			return fmt.Errorf("Error starting pool: %w (code %d)", err, code)
+			return fmt.Errorf("couldn't start pool %q: %w", poolName, err)
 		}
 
 		fmt.Println("Pool started:", poolName)

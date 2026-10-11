@@ -71,23 +71,35 @@ function askDiscard(panel) {
   });
 }
 
-// Shared discard-confirmation dialog state.
+// Shared discard-confirmation dialog. Rendered through the common confirm
+// dialog (window.knotConfirm, see confirm.js); this store keeps the original
+// ask/confirm/cancel/show API for callers.
 Alpine.store('discardDialog', {
   show: false,
   _onConfirm: null,
   ask(onConfirm) {
     this._onConfirm = onConfirm;
     this.show = true;
+    window.knotConfirm({
+      danger: true,
+      icon: 'warning',
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes. Are you sure you want to discard them?',
+      cancelLabel: 'Keep Editing',
+      confirmLabel: 'Discard Changes',
+    }).then((ok) => {
+      // Ignore the result of a request superseded by a newer ask().
+      if (this._onConfirm !== onConfirm) return;
+      this._onConfirm = null;
+      this.show = false;
+      if (ok && onConfirm) onConfirm();
+    });
   },
   confirm() {
-    const fn = this._onConfirm;
-    this._onConfirm = null;
-    this.show = false;
-    if (fn) fn();
+    if (this.show) Alpine.store('confirmDialog').confirm();
   },
   cancel() {
-    this._onConfirm = null;
-    this.show = false;
+    if (this.show) Alpine.store('confirmDialog').cancel();
   },
 });
 
@@ -150,6 +162,12 @@ document.addEventListener(
   'keydown',
   (e) => {
     if (bypass || e.key !== 'Escape') return;
+    // A dialog inside a form that closes itself on Escape (e.g. the custom
+    // field settings in the template form) handles it: the form stays.
+    if (e.target && e.target.closest && e.target.closest('[data-escape-local]')) return;
+    // Inside a code editor the first Escape is the editor's own (it arms Tab
+    // to leave the editor, see ace-a11y.js); a second one closes as usual.
+    if (e.target && e.target.closest && e.target.closest('.ace_editor') && !e.target.closest('[data-ace-esc-armed]')) return;
     // If the discard dialog is open, Esc cancels it (and must not also close
     // the dirty form behind it).
     if (Alpine.store('discardDialog').show) {

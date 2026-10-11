@@ -13,6 +13,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/command/cmdutil"
 )
 
 // debounceInterval is how long the watcher waits after the last filesystem
@@ -132,7 +133,7 @@ func (w *mirrorWatcher) seedDirs(root string) {
 			return filepath.SkipDir
 		}
 		if err := w.fsw.Add(p); err != nil {
-			fmt.Fprintf(os.Stderr, "  ! watch %s: %v\n", rel, err)
+			fmt.Fprintf(os.Stderr, "  ! watch %s: %v\n", rel, cmdutil.Describe(err))
 		}
 		return nil
 	})
@@ -233,7 +234,7 @@ func (w *mirrorWatcher) watchTree(root string) {
 			return filepath.SkipDir
 		}
 		if err := w.fsw.Add(p); err != nil {
-			fmt.Fprintf(os.Stderr, "  ! watch %s: %v\n", rel, err)
+			fmt.Fprintf(os.Stderr, "  ! watch %s: %v\n", rel, cmdutil.Describe(err))
 		}
 		return nil
 	})
@@ -295,7 +296,7 @@ func (w *mirrorWatcher) uploadFile(ctx context.Context, localAbs, rel string, in
 		mode:     uint32(info.Mode().Perm()),
 	}
 	if err := w.opts.uploadOne(ctx, u, w.buf); err != nil {
-		fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
+		fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, cmdutil.Describe(err))
 		return
 	}
 	if w.opts.verbose {
@@ -313,7 +314,7 @@ func (w *mirrorWatcher) uploadSymlink(ctx context.Context, rel, target string) {
 	}
 	dest := path.Join(w.opts.remoteDir, rel)
 	if err := w.opts.client.CreateSymlinkSpaceFile(ctx, w.opts.spaceID, dest, target); err != nil {
-		fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
+		fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, cmdutil.Describe(err))
 		return
 	}
 	if w.opts.verbose {
@@ -334,7 +335,7 @@ func (w *mirrorWatcher) deleteRemote(ctx context.Context, rel string) {
 		Recursive: true,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
+		fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, cmdutil.Describe(err))
 		return
 	}
 	// Suppress output if the agent reported nothing removed — the path may

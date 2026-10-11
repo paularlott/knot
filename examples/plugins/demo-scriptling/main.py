@@ -368,7 +368,10 @@ def _space_actions(name, state):
     actions.append({"action": "notes", "label": "Notes", "icon": "assets/notes.svg", "menu": True, "handler": "widget_notes"})
     actions.append({"action": "restart", "label": "Restart " + name, "icon": "assets/restart.svg", "menu": True, "confirm": "Restart " + name + "?"})
     actions.append({"action": "report", "label": "Run report", "icon": "assets/report.svg", "menu": True})
-    actions.append({"action": "archive", "label": "Archive " + name, "icon": "assets/archive.svg", "style": "danger", "menu": True, "confirm": "Archive " + name + "? This only hides it in the demo."})
+    # confirm also takes an object: title, message and label (the confirm
+    # button text; it defaults to the action's label).
+    actions.append({"action": "archive", "label": "Archive " + name, "icon": "assets/archive.svg", "style": "danger", "menu": True,
+                    "confirm": {"title": "Archive Widget", "message": "Archive " + name + "? This only hides it in the demo.", "label": "Archive"}})
     return actions
 
 
@@ -457,6 +460,8 @@ def col_widget_form(request):
             {"type": "select", "name": "size", "label": "Size", "options": ["small", "medium", "large"]},
         ],
         "submit": "Create widget",
+        # Ask before POSTing: a string, or {title, message, label, danger}.
+        "confirm": {"title": "Create Widget", "message": "Create this widget?"},
     }
 
 
@@ -497,6 +502,8 @@ def col_echo(request):
             :disabled="peerBusy"
             @click="peerBusy = true; try { const p = await pluginFetch('peer_summary', { plugin: 'demo-go' }); const c = await pluginFetch('peer_class', { plugin: 'demo-go' }); peer = 'demo-go peer: ' + p.summary + ' (class demo: ' + c.first + ', ' + c.second + ')' } catch (e) { peer = 'demo-go not available: ' + e.message } finally { peerBusy = false }"
             x-text="peerBusy ? '...' : 'Ask demo-go'"></button>
+    <button class="kp-button"
+            @click="if (await knotConfirm({ title: 'Clear Echo', message: 'Clear the reply {name}?', name: reply || '(empty)', confirmLabel: 'Clear', cancelLabel: 'Keep' })) { reply = ''; peer = ''; knotToast('Echo cleared.', 'success') } else { knotToast('Nothing changed.', 'info') }">Clear</button>
   </div>
   <div class="kp-muted" style="margin-top:0.5rem; min-height:1.2rem" x-show="reply" x-text="reply"></div>
   <div class="kp-muted" style="margin-top:0.25rem; min-height:1.2rem" x-show="peer" x-text="peer"></div>

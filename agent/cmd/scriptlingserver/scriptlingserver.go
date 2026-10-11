@@ -7,9 +7,12 @@
 package scriptlingserver
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -278,6 +281,101 @@ func registerAPIFunctions(server *plugin.Server, client rest.RESTClient) {
 	register("api_post", "POST", true)
 	register("api_put", "PUT", true)
 	register("api_delete", "DELETE", false)
+
+	// Raw transfers carry file content, which is bytes rather than JSON.
+	// The plugin protocol has no bytes value, so they cross the wire as
+	// Base64, capped as in the embedded knot.apiclient library.
+	const maxRawTransfer = 64 << 20
+
+	rawClient := func() (*rest.HTTPClient, object.Object) {
+		hc, ok := client.(*rest.HTTPClient)
+		if !ok {
+			return nil, &object.Error{Message: "API error: raw transfers need an HTTP client"}
+		}
+		return hc, nil
+	}
+
+	server.RegisterBuiltin("api_get_bytes", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		if len(args) < 1 {
+			return &object.Error{Message: "api_get_bytes: missing path argument"}
+		}
+		path, err := args[0].AsString()
+		if err != nil {
+			return &object.Error{Message: fmt.Sprintf("api_get_bytes: path: %v", err)}
+		}
+		hc, errObj := rawClient()
+		if errObj != nil {
+			return errObj
+		}
+
+		resp, rerr := hc.DoRaw(ctx, http.MethodGet, path, nil, 0, nil)
+		if rerr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 300 {
+			return &object.Error{Message: fmt.Sprintf("API error (HTTP %d): %v", resp.StatusCode, rest.DecodeResponse(resp, nil))}
+		}
+		body, rerr := io.ReadAll(io.LimitReader(resp.Body, maxRawTransfer+1))
+		if rerr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		if len(body) > maxRawTransfer {
+			return &object.Error{Message: fmt.Sprintf("API error: the response is larger than the %d MB a script may read", maxRawTransfer>>20)}
+		}
+		return object.NewString(base64.StdEncoding.EncodeToString(body))
+	})
+
+	server.RegisterBuiltin("api_put_bytes", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		if len(args) < 2 {
+			return &object.Error{Message: "api_put_bytes: missing path or data argument"}
+		}
+		path, err := args[0].AsString()
+		if err != nil {
+			return &object.Error{Message: fmt.Sprintf("api_put_bytes: path: %v", err)}
+		}
+		encoded, err := args[1].AsString()
+		if err != nil {
+			return &object.Error{Message: fmt.Sprintf("api_put_bytes: data: %v", err)}
+		}
+		data, derr := base64.StdEncoding.DecodeString(encoded)
+		if derr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: data is not valid Base64: %v", derr)}
+		}
+		if len(data) > maxRawTransfer {
+			return &object.Error{Message: fmt.Sprintf("API error: a script may write at most %d MB at a time", maxRawTransfer>>20)}
+		}
+		contentType := "application/octet-stream"
+		if ct := kwargs.Get("content_type"); ct != nil {
+			if s, serr := ct.AsString(); serr == nil && s != "" {
+				contentType = s
+			}
+		} else if len(args) > 2 {
+			if s, serr := args[2].AsString(); serr == nil && s != "" {
+				contentType = s
+			}
+		}
+		hc, errObj := rawClient()
+		if errObj != nil {
+			return errObj
+		}
+
+		resp, rerr := hc.DoRaw(ctx, http.MethodPut, path, bytes.NewReader(data), int64(len(data)), map[string]string{"Content-Type": contentType})
+		if rerr != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		defer resp.Body.Close()
+
+		var result interface{}
+		// HTTP 200 with an empty body yields io.EOF, as with the JSON calls.
+		if rerr := rest.DecodeResponse(resp, &result); rerr != nil && rerr != io.EOF {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+		}
+		if result == nil {
+			return &object.Null{}
+		}
+		return conversion.FromGo(result)
+	})
 
 	server.RegisterBuiltin("connection_info", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		baseURL := client.GetBaseURL()

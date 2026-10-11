@@ -1,14 +1,15 @@
-// Make all modal panels draggable + resizable without changing
+// Make the larger modal panels (the wide/xl/2xl forms and editors,
+// where room to work matters) draggable + resizable without changing
 // how they render on open. The panel stays flex-centered by the
 // backdrop (original behavior) until the user drags or resizes.
+// Small dialogs — confirms, short forms — stay put: moving them adds
+// nothing but another thing to grab. Nothing depends on moving a panel,
+// so it is a pointer convenience only (and off on touch screens).
 //
 // Resize uses dedicated handle elements at each edge/corner — same
 // approach as the AI chat window. Each handle has its own cursor so
 // it always shows the right resize indicator regardless of what
 // form content is underneath.
-//
-// Delete-confirmation dialogs (ui-modal-icon-danger) get drag but
-// not resize.
 //
 // A panel that has been dragged or resized is remembered for the
 // browser session (per page + form), so reopening the same form
@@ -19,7 +20,8 @@
 
 const GEO_KEY = 'knot:modalGeo';
 const MOVABLE_SELECTOR =
-  '.ui-modal-panel, .ui-modal-panel-wide, .ui-modal-panel-xl, .ui-modal-panel-2xl';
+  '.ui-modal-panel-wide, .ui-modal-panel-xl, .ui-modal-panel-2xl';
+const FINE_POINTER = window.matchMedia ? window.matchMedia('(pointer: fine)') : null;
 
 function loadGeoMap() {
   try { return JSON.parse(sessionStorage.getItem(GEO_KEY) || '{}'); }
@@ -61,10 +63,30 @@ function enhancePanel(panel) {
     panel.style.position = 'fixed';
     panel.style.left = x + 'px';
     panel.style.top = y + 'px';
-    panel.style.width = w + 'px';
-    if (h) panel.style.height = h + 'px';
+    panel.style.width = Math.min(w, window.innerWidth) + 'px';
+    if (h) panel.style.height = Math.min(h, window.innerHeight) + 'px';
     panel.style.maxWidth = 'none';
+    // A moved panel is never taller than the window: its body scrolls.
+    panel.style.maxHeight = window.innerHeight + 'px';
+    clamp();
   }
+
+  // clamp keeps a moved panel wholly inside the window, measured as it is
+  // now: its content can grow after a drag (a section opens, data loads),
+  // and the panel moves up rather than run off the bottom.
+  function clamp() {
+    if (!pos) return;
+    const r = panel.getBoundingClientRect();
+    const x = Math.max(0, Math.min(pos.x, window.innerWidth - r.width));
+    const y = Math.max(0, Math.min(pos.y, window.innerHeight - r.height));
+    if (x !== pos.x || y !== pos.y) {
+      pos.x = x;
+      pos.y = y;
+      panel.style.left = x + 'px';
+      panel.style.top = y + 'px';
+    }
+  }
+  if (window.ResizeObserver) new ResizeObserver(clamp).observe(panel);
 
   function detach() {
     if (pos) return;
@@ -86,6 +108,7 @@ function enhancePanel(panel) {
     panel.style.width = '';
     panel.style.height = '';
     panel.style.maxWidth = '';
+    panel.style.maxHeight = '';
   }
   panel._resetMovable = reset;
 
@@ -166,9 +189,11 @@ function enhancePanel(panel) {
 
     const onMove = (ev) => {
       // Keep the whole panel inside the viewport — it can't be dragged
-      // off the right/bottom edge (nor off the top/left).
-      const maxX = Math.max(0, window.innerWidth - size.w);
-      const maxY = Math.max(0, window.innerHeight - size.h);
+      // off the right/bottom edge (nor off the top/left). Measured live:
+      // the panel's height can change while it is open.
+      const r = panel.getBoundingClientRect();
+      const maxX = Math.max(0, window.innerWidth - r.width);
+      const maxY = Math.max(0, window.innerHeight - r.height);
       pos.x = Math.max(0, Math.min(maxX, ev.clientX - startX));
       pos.y = Math.max(0, Math.min(maxY, ev.clientY - startY));
       panel.style.left = pos.x + 'px';
@@ -240,7 +265,9 @@ function enhancePanel(panel) {
 }
 
 function checkPanels() {
+  if (FINE_POINTER && !FINE_POINTER.matches) return;
   document.querySelectorAll(MOVABLE_SELECTOR).forEach(panel => {
+    if (panel.closest('[role="alertdialog"]')) return;
     if (!panel._movable && window.getComputedStyle(panel).display !== 'none') {
       enhancePanel(panel);
     }

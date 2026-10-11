@@ -22,11 +22,6 @@ func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) erro
 		existingUser, _ := db.GetUser(user.Id)
 		if existingUser != nil {
 			newUser = false
-
-			// Don't allow username to be changed unless deleting the user
-			if !user.IsDeleted || (len(updateFields) > 0 && !util.InArray(updateFields, "IsDeleted")) {
-				user.Username = existingUser.Username
-			}
 		}
 
 		var oldProviders map[string]model.ExternalProvider
@@ -52,8 +47,9 @@ func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) erro
 			}
 		}
 
-		// Check if the new username is unique
-		if newUser {
+		// A changed username must be unique; the old one is released below
+		renamed := !newUser && !strings.EqualFold(existingUser.Username, user.Username) && (len(updateFields) == 0 || util.InArray(updateFields, "Username"))
+		if newUser || renamed {
 			exists, err := db.keyExists(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(user.Username)))
 			if err != nil {
 				return err
@@ -224,7 +220,8 @@ func (db *BadgerDbDriver) GetUserByUsername(name string) (*model.User, error) {
 	var user *model.User = nil
 
 	err := db.connection.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(fmt.Sprintf("UsersByUsername:%s", name)))
+		// The index is keyed by the lowercased username, as usernames are unique regardless of case.
+		item, err := txn.Get([]byte(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(name))))
 		if err != nil {
 			return err
 		}

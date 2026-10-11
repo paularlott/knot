@@ -184,6 +184,7 @@ Add your skill documentation here in markdown format.
       this.contentValid = this.formData.content.length <= 4 * 1024 * 1024;
 
       if (!this.contentValid || !this.checkZonesValid()) {
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -238,19 +239,12 @@ Add your skill documentation here in markdown format.
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            const text = await response.text();
-            this.$dispatch("show-alert", {
-              msg: text || "Failed to save skill",
-              type: "error",
-            });
+            window.knotError(this.isEdit ? "save the skill" : "create the skill", response);
           }
           this.loading = false;
         })
         .catch((err) => {
-          this.$dispatch("show-alert", {
-            msg: "Network error: " + err.message,
-            type: "error",
-          });
+          window.knotError(this.isEdit ? "save the skill" : "create the skill", err);
           this.loading = false;
         });
     },

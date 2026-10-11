@@ -35,7 +35,7 @@ var JobsCmd = &cli.Command{
 func jobsSpaceId(ctx context.Context, client *apiclient.ApiClient, spaceName string) (string, error) {
 	spaces, _, err := client.GetSpaces(ctx, "", false)
 	if err != nil {
-		return "", fmt.Errorf("failed to get spaces: %w", err)
+		return "", fmt.Errorf("couldn't list spaces: %w", err)
 	}
 
 	for _, s := range spaces.Spaces {
@@ -43,14 +43,14 @@ func jobsSpaceId(ctx context.Context, client *apiclient.ApiClient, spaceName str
 			return s.Id, nil
 		}
 	}
-	return "", fmt.Errorf("space '%s' not found", spaceName)
+	return "", fmt.Errorf("space %q not found", spaceName)
 }
 
 // jobsClient builds an API client for jobs commands.
 func jobsClient(cmd *cli.Command) (*apiclient.ApiClient, error) {
 	client, err := cmdutil.GetClient(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create API client: %w", err)
+		return nil, err
 	}
 	return client, nil
 }

@@ -410,7 +410,7 @@ def col_me(request):
         "grant_held": me.has_permission("plugin.whoami.read"),
         "grant_lacked": me.has_permission("plugin.whoami.write"),
         "list_arg": me.has_permission(["manage_spaces"]),
-    })}
+    }, separators=(",", ":"))}
 `, model.PermissionUseMCPServer)
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte(source), 0o644); err != nil {
 		t.Fatal(err)

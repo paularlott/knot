@@ -21,6 +21,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/startlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -498,11 +499,13 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		select {
 		case <-ctx.Done():
 			c.Logger.Warn("image pull cancelled due to timeout", "space_id", space.Id, "image", spec.Image, "timeout", spaceStartupTimeout)
+			startlog.Error(space.Id, "Gave up: the space didn't start within %s", spaceStartupTimeout)
 			return
 		default:
 		}
 
 		c.Logger.Debug("pulling image", "image", spec.Image)
+		startlog.Info(space.Id, "Pulling image %s", spec.Image)
 		if err := c.imagePull(ctx, spec.Image, authHeader); err != nil {
 			// A failed pull is fatal only when the image isn't available
 			// locally: the registry may be unreachable or refuse the
@@ -510,33 +513,40 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			// slightly older tag) beats a space that can't start at all.
 			if !c.imageExists(ctx, spec.Image) {
 				c.Logger.Error("pulling image error", "image", spec.Image, "error", err)
+				startlog.Error(space.Id, "Couldn't pull image %s: %v", spec.Image, err)
 				return
 			}
 			c.Logger.Warn("image pull failed, using local image", "image", spec.Image, "error", err)
+			startlog.Info(space.Id, "Couldn't pull image %s, so using the local copy: %v", spec.Image, err)
 		}
 
 		select {
 		case <-ctx.Done():
 			c.Logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "timeout", spaceStartupTimeout)
+			startlog.Error(space.Id, "Gave up: the space didn't start within %s", spaceStartupTimeout)
 			return
 		default:
 		}
 
 		if err := c.removeStoppedContainerByName(ctx, spec.ContainerName); err != nil {
 			c.Logger.Error("checking existing container error", "name", spec.ContainerName, "error", err)
+			startlog.Error(space.Id, "Couldn't remove the old container %s: %v", spec.ContainerName, err)
 			return
 		}
 
 		c.Logger.Debug("creating container", "name", spec.ContainerName)
+		startlog.Info(space.Id, "Creating container %s", spec.ContainerName)
 		containerID, err := c.containerCreate(ctx, spec.ContainerName, createReq)
 		if err != nil {
 			c.Logger.Error("creating container error", "name", spec.ContainerName, "error", err)
+			startlog.Error(space.Id, "Couldn't create the container: %v", err)
 			return
 		}
 
 		select {
 		case <-ctx.Done():
 			c.Logger.Warn("container start cancelled due to timeout", "space_id", space.Id, "timeout", spaceStartupTimeout)
+			startlog.Error(space.Id, "Gave up: the space didn't start within %s", spaceStartupTimeout)
 			c.containerRemove(ctx, containerID)
 			return
 		default:
@@ -546,10 +556,12 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		if err := c.containerStart(ctx, containerID); err != nil {
 			c.containerRemove(ctx, containerID)
 			c.Logger.Error("starting container error", "name", spec.ContainerName, "error", err)
+			startlog.Error(space.Id, "Couldn't start the container: %v", err)
 			return
 		}
 
 		c.Logger.Debug("container running", "name", spec.ContainerName, "id", containerID)
+		startlog.Info(space.Id, "Container started")
 
 		oldSpace := *space
 		space.ContainerId = containerID

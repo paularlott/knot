@@ -43,17 +43,17 @@ var ReadFileCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
+			return fmt.Errorf("couldn't get the current user: %w", err)
 		}
 
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		var spaceId string
@@ -65,12 +65,12 @@ var ReadFileCmd = &cli.Command{
 		}
 
 		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
+			return fmt.Errorf("space %q not found", spaceName)
 		}
 
 		content, totalLines, err := client.ReadSpaceFileRange(context.Background(), spaceId, filePath, offset, limit)
 		if err != nil {
-			return fmt.Errorf("Error reading file: %w", err)
+			return fmt.Errorf("couldn't read %s in space %q: %w", filePath, spaceName, err)
 		}
 
 		fmt.Print(content)
@@ -117,7 +117,7 @@ var WriteFileCmd = &cli.Command{
 		if content == "" || content == "-" {
 			bytes, err := io.ReadAll(os.Stdin)
 			if err != nil {
-				return fmt.Errorf("Error reading from stdin: %w", err)
+				return fmt.Errorf("couldn't read from stdin: %w", err)
 			}
 			content = string(bytes)
 		}
@@ -126,17 +126,17 @@ var WriteFileCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
+			return fmt.Errorf("couldn't get the current user: %w", err)
 		}
 
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		var spaceId string
@@ -148,12 +148,12 @@ var WriteFileCmd = &cli.Command{
 		}
 
 		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
+			return fmt.Errorf("space %q not found", spaceName)
 		}
 
 		err = client.WriteSpaceFileMode(context.Background(), spaceId, filePath, content, cmd.GetString("mode"))
 		if err != nil {
-			return fmt.Errorf("Error writing file: %w", err)
+			return fmt.Errorf("couldn't write %s in space %q: %w", filePath, spaceName, err)
 		}
 
 		fmt.Printf("Successfully wrote to %s\n", filePath)

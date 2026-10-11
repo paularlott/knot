@@ -1,23 +1,16 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.groupListComponent = function() {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('groups', {
+      name: (g) => g.name,
+      spaces: { value: (g) => g.max_spaces, dir: 'desc' },
+      compute: { value: (g) => g.compute_units, dir: 'desc' },
+      storage: { value: (g) => g.storage_units, dir: 'desc' },
+      tunnels: { value: (g) => g.max_tunnels, dir: 'desc' },
+    }),
     loading: true,
-    deleteConfirm: {
-      show: false,
-      group: {
-        group_id: '',
-        name: '',
-      }
-    },
     groupFormModal: {
       show: false,
       isEdit: false,
@@ -104,6 +97,15 @@ window.groupListComponent = function() {
     loadGroups() {
       this.getGroups();
     },
+    confirmDelete(g) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the group {name}?',
+        name: g.name,
+        confirmLabel: 'Delete Group',
+        cancelLabel: 'Keep Group',
+      }).then((ok) => ok && this.deleteGroup(g.group_id));
+    },
     async deleteGroup(groupId) {
       const self = this;
       await fetch(`/api/groups/${groupId}`, {
@@ -117,10 +119,11 @@ window.groupListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Group could not be deleted", type: 'error' });
+          window.knotError('delete the group', response);
         }
-      }).catch(() => {
+      }).catch((err) => {
         // Don't logout on network errors - Safari closes connections aggressively
+        window.knotError('delete the group', err);
       });
       this.getGroups();
     },

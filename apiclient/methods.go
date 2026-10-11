@@ -2,8 +2,6 @@ package apiclient
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/paularlott/knot/internal/methods"
 )
@@ -19,11 +17,8 @@ func (c *ApiClient) GetMethods(ctx context.Context) (*MethodList, error) {
 	if err != nil {
 		return nil, err
 	}
-	if statusCode == 401 {
-		return nil, errors.New("unauthorized")
-	}
 	if statusCode >= 400 {
-		return nil, fmt.Errorf("unexpected status code: %d", statusCode)
+		return nil, newStatusError(statusCode, "GET", "/api/methods")
 	}
 	return &response, nil
 }
@@ -34,11 +29,11 @@ func (c *ApiClient) CallMethod(ctx context.Context, request *methods.JSONRPCRequ
 	if err != nil && statusCode == 0 {
 		return nil, err
 	}
-	if statusCode == 401 {
-		return nil, errors.New("unauthorized")
-	}
 	if statusCode >= 400 {
-		return nil, fmt.Errorf("unexpected status code: %d", statusCode)
+		if he := AsHTTPError(err); he != nil {
+			return nil, he
+		}
+		return nil, newStatusError(statusCode, "POST", "/api/methods/call")
 	}
 	return &response, nil
 }
@@ -52,11 +47,11 @@ func (c *ApiClient) CallMethodBatch(ctx context.Context, items []methods.JSONRPC
 	if err != nil && statusCode == 0 {
 		return nil, err
 	}
-	if statusCode == 401 {
-		return nil, errors.New("unauthorized")
-	}
 	if statusCode >= 400 {
-		return nil, fmt.Errorf("unexpected status code: %d", statusCode)
+		if he := AsHTTPError(err); he != nil {
+			return nil, he
+		}
+		return nil, newStatusError(statusCode, "POST", "/api/methods/call")
 	}
 	return responses, nil
 }

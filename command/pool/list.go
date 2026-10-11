@@ -18,8 +18,7 @@ var ListCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		pools, code, err := client.GetPools(context.Background())
@@ -28,7 +27,7 @@ var ListCmd = &cli.Command{
 				fmt.Println("No pools found.")
 				return nil
 			}
-			return fmt.Errorf("Error listing pools: %w", err)
+			return fmt.Errorf("couldn't list pools: %w", err)
 		}
 
 		if len(pools.Pools) == 0 {

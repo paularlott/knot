@@ -23,7 +23,7 @@ var deleteCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		scriptName := cmd.GetStringArg("name")
@@ -34,7 +34,7 @@ var deleteCmd = &cli.Command{
 
 		err = client.DeleteScript(ctx, script.Id)
 		if err != nil {
-			return fmt.Errorf("error deleting script: %w", err)
+			return fmt.Errorf("couldn't delete script %q: %w", scriptName, err)
 		}
 
 		fmt.Printf("Script %s deleted\n", scriptName)

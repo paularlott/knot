@@ -12,6 +12,12 @@ import (
 	"github.com/paularlott/knot/internal/util"
 )
 
+// quoteIdent quotes a table or column name, so names that are reserved words
+// in some servers (e.g. groups in MySQL 8) are always accepted.
+func quoteIdent(name string) string {
+	return "`" + name + "`"
+}
+
 func (db *MySQLDriver) create(tableName string, obj interface{}) error {
 	return db.createWithExecutor(db.connection, tableName, obj)
 }
@@ -49,13 +55,13 @@ func (db *MySQLDriver) createWithExecutor(executor interface {
 			} else {
 				values = append(values, val.Field(i).Interface())
 			}
-			columns = append(columns, tag)
+			columns = append(columns, quoteIdent(tag))
 			placeholders = append(placeholders, "?")
 		}
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		tableName,
+		quoteIdent(tableName),
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "))
 
@@ -114,7 +120,7 @@ func (db *MySQLDriver) updateWithExecutor(executor interface {
 						values = append(values, fieldValue)
 					}
 				}
-				setClauses = append(setClauses, fmt.Sprintf("%s = ?", tag))
+				setClauses = append(setClauses, fmt.Sprintf("%s = ?", quoteIdent(tag)))
 			}
 		}
 	}
@@ -129,9 +135,9 @@ func (db *MySQLDriver) updateWithExecutor(executor interface {
 
 	values = append(values, pkValue)
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?",
-		tableName,
+		quoteIdent(tableName),
 		strings.Join(setClauses, ", "),
-		pkColumn)
+		quoteIdent(pkColumn))
 
 	_, err := executor.Exec(query, values...)
 	return err
@@ -171,7 +177,7 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 					tag = strings.Replace(tag, ",json", "", -1)
 					jsonFields[len(columns)] = field.Name
 				}
-				columns = append(columns, strings.Replace(tag, ",pk", "", -1))
+				columns = append(columns, quoteIdent(strings.Replace(tag, ",pk", "", -1)))
 				fieldNames = append(fieldNames, field.Name)
 			}
 		}
@@ -189,14 +195,14 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 						tag = strings.Replace(tag, ",json", "", -1)
 						jsonFields[len(columns)] = fieldName
 					}
-					columns = append(columns, strings.Replace(tag, ",pk", "", -1))
+					columns = append(columns, quoteIdent(strings.Replace(tag, ",pk", "", -1)))
 					fieldNames = append(fieldNames, fieldName)
 				}
 			}
 		}
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", strings.Join(columns, ", "), tableName, where)
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", strings.Join(columns, ", "), quoteIdent(tableName), where)
 	rows, err := db.connection.Query(query, args...)
 	if err != nil {
 		return err

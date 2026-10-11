@@ -3,6 +3,7 @@ package commands_admin
 import (
 	"context"
 
+	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/paularlott/cli"
@@ -13,7 +14,7 @@ var AdminCmd = &cli.Command{
 	Usage:       "Admin Operations",
 	Description: "Run administration operations for the server.",
 	MaxArgs:     cli.NoArgs,
-	Flags: []cli.Flag{
+	Flags: append(cmdutil.ClientFlags(false), []cli.Flag{
 		// MySQL flags
 		&cli.BoolFlag{
 			Name:         "mysql-enabled",
@@ -115,12 +116,12 @@ var AdminCmd = &cli.Command{
 			DefaultValue: false,
 			Global:       true,
 		},
-		&cli.StringFlag{
-			Name:         "redis-host",
-			Usage:        "The redis server.",
-			ConfigPath:   []string{"server.redis.host"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_HOST"},
-			DefaultValue: "localhost:6379",
+		&cli.StringSliceFlag{
+			Name:         "redis-hosts",
+			Usage:        "The redis server(s), can be specified multiple times.",
+			ConfigPath:   []string{"server.redis.hosts"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_HOSTS"},
+			DefaultValue: []string{"localhost:6379"},
 			Global:       true,
 		},
 		&cli.StringFlag{
@@ -163,14 +164,16 @@ var AdminCmd = &cli.Command{
 			DefaultValue: "",
 			Global:       true,
 		},
-	},
+	}...),
 	Commands: []*cli.Command{
 		RenameZoneCmd,
 		SetPasswordCmd,
 		ResetTOTPCmd,
 		BackupCmd,
 		RestoreCmd,
+		FileCmd,
 		RefreshBaseImagesCmd,
+		AdminTemplateCmd,
 	},
 	PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 		var err error

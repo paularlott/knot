@@ -1,0 +1,8 @@
+{{/* Shown in a list table when search or filters hide every row (components/sortable.js).
+     Call: {{ template "no-results" (map "list" "groups" "things" "groups" "cols" 6) }} */}}
+{{ define "no-results" }}<tr x-show="noMatches({{ .list }})" x-cloak class="bg-white dark:bg-gray-800">
+  <td colspan="{{ .cols }}" class="px-4 py-8 text-center text-gray-600 dark:text-gray-300">
+    <p role="status" x-text="noMatches({{ .list }}) ? noMatchesText('{{ .things }}') : ''"></p>
+    <button type="button" class="btn-secondary mt-3" x-show="searchTerm || filtersActive()" @click="clearFilters()" x-text="filtersActive() ? 'Clear search and filters' : 'Clear search'"></button>
+  </td>
+</tr>{{ end }}

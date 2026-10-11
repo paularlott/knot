@@ -83,11 +83,13 @@
 }
 
 @utility app-search-shortcut {
-  @apply pointer-events-none absolute right-3 rounded-lg border border-slate-200 bg-white/85 px-2 py-1 text-xs font-semibold tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400;
+  @apply pointer-events-none absolute right-3 rounded-lg border border-slate-200 bg-white/85 px-2 py-0.5 text-sm tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400;
+  /* The system font draws ⌘ and ⇧ at a readable size; Nunito does not. */
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @utility app-search-clear {
-  @apply absolute right-14 flex cursor-pointer items-center justify-center rounded-md p-1 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200;
+  @apply absolute right-3 flex cursor-pointer items-center justify-center rounded-md p-1 text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200;
 }
 
 @utility app-filter-chip {
@@ -202,7 +204,7 @@
 }
 
 @utility auth-form-field-icon {
-  @apply pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-400;
+  @apply pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400;
 }
 
 @utility auth-form-field {
@@ -318,11 +320,45 @@
 }
 
 @utility nav-star-btn {
-  @apply shrink-0 rounded-md p-1 text-gray-300 hover:text-amber-500 dark:text-gray-600 dark:hover:text-amber-400 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500;
+  @apply shrink-0 rounded-md p-1 text-gray-500 hover:text-amber-600 dark:text-gray-400 dark:hover:text-amber-300 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500;
+}
+
+@utility nav-move-btn {
+  @apply shrink-0 rounded-md p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500;
 }
 
 @utility nav-drag-handle {
-  @apply shrink-0 cursor-grab px-0.5 text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 active:cursor-grabbing;
+  @apply shrink-0 cursor-grab px-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 active:cursor-grabbing;
+}
+
+/* Section headings: small caps labels; the collapsible ones are buttons. */
+@utility nav-section-title {
+  @apply px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400;
+}
+
+@utility nav-section-toggle {
+  @apply flex w-full items-center gap-2 rounded-md py-1 uppercase tracking-wide text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500;
+}
+
+/* The current page. */
+.nav-item[aria-current="page"] {
+  @apply bg-blue-50 text-blue-800 font-semibold dark:bg-gray-700 dark:text-white;
+}
+.nav-item[aria-current="page"] .nav-item-icon {
+  @apply text-blue-700 dark:text-white;
+}
+
+/* Row controls (star, move) stay out of the way until the row is pointed at
+   or focused, so the sidebar reads as a list of places. Starred rows keep
+   their filled star. Touch screens have no hover: they always show them. */
+@media (hover: hover) and (pointer: fine) {
+  .nav-row:not(:hover):not(:focus-within) .nav-star-btn:not([data-starred]),
+  .nav-row:not(:hover):not(:focus-within) .nav-move-group {
+    opacity: 0;
+  }
+}
+.nav-move-group {
+  @apply flex shrink-0 flex-col;
 }
 
 /* Pinned nav item being reordered via HTML5 drag. */
@@ -375,10 +411,6 @@
   textarea:disabled,
   select:disabled {
     @apply cursor-not-allowed bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400;
-  }
-
-  table[aria-label] thead th {
-    @apply border-b border-slate-200/90 bg-slate-100/95 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300;
   }
 
   table[aria-label] tbody tr {
@@ -730,3 +762,81 @@
 .pb-markdown img { max-width: 100%; border-radius: 0.4rem; }
 
 
+
+/* Every control shows where focus is. Unlayered, so it holds over utilities
+   that hide the outline in favour of a faint ring: the ring may stay, but
+   the outline is what meets 3:1 against the page in both themes. */
+:where(a[href], button, [role="button"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--color-blue-600);
+  outline-offset: 2px;
+}
+.dark :where(a[href], button, [role="button"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline-color: var(--color-blue-400);
+}
+/* The skip link's target takes focus programmatically; it needs no ring. */
+main:focus {
+  outline: none;
+}
+
+/* Creating a space shows the essentials first; the rest waits behind
+   "More options" (see space-form-content.tmpl). */
+.space-form-simple [data-advanced] {
+  display: none !important;
+}
+
+/* A list row's name that opens its editor. Link-coloured and underlined on
+   hover and focus; the colours meet 4.5:1 on the table rows in both themes. */
+@utility table-name-link {
+  @apply text-blue-700 underline-offset-2 hover:underline focus-visible:underline dark:text-blue-300 cursor-pointer;
+}
+
+/* Keep a focused control clear of the sticky toasts at the bottom of the
+   page (WCAG 2.4.11) when the browser scrolls it into view. */
+html, main {
+  scroll-padding-bottom: 6rem;
+}
+
+/* ==== List pages: sortable headers, no-results rows, empty states ====
+   (components/sortable.js, partials/sort-th.tmpl, no-results.tmpl, empty.tmpl) */
+@utility table-sort-button {
+  @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase font-semibold text-inherit cursor-pointer hover:text-gray-900 dark:hover:text-white;
+}
+@utility table-sort-icon {
+  @apply size-3.5 shrink-0 text-gray-500 dark:text-gray-400;
+}
+@utility table-sort-icon-active {
+  @apply text-gray-900 dark:text-white;
+}
+@utility app-empty {
+  @apply flex flex-col items-center px-4 py-10 text-center;
+}
+@utility app-empty-heading {
+  @apply text-base font-semibold text-gray-900 dark:text-white;
+}
+@utility app-empty-text {
+  @apply mt-1 max-w-prose text-sm text-gray-600 dark:text-gray-300;
+}
+/* ==== end list pages ==== */
+
+/* ==== Spaces page (spaces.tmpl, partials/space-row-cells.tmpl) ==== */
+/* A row action with a visible label (Start / Stop), same height as the
+   icon-only row actions. */
+@utility row-action-labelled {
+  @apply row-action-button gap-1.5 px-3 text-sm font-medium whitespace-nowrap;
+  width: auto;
+}
+/* ==== end spaces page ==== */
+
+/* The shortcut hint and the clear button share the right edge of a page
+   search: the hint shows while the box is empty, the clear button once
+   there is something to clear. */
+.app-page-search:not(:placeholder-shown) ~ .app-search-shortcut {
+  display: none;
+}
+
+/* A key on the keyboard, for shortcut hints. The system font draws the
+   symbols (⌘ ⇧ ↑ ↵) at a readable size, which Nunito does not. */
+@utility kbd-key {
+  @apply inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-gray-300 bg-gray-50 px-1 text-sm leading-none text-gray-700 shadow-[0_1px_0_0] shadow-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:shadow-gray-600;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

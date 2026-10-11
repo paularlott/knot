@@ -89,7 +89,7 @@ def configure(url, token, insecure=False, ai_url="", ai_token="", ai_model="", a
         ai_url: AI endpoint URL (default: url + "/v1")
         ai_token: AI access token (default: same as token)
         ai_model: Default AI model name (default: "")
-        ai_provider: AI provider type - openai, claude, gemini, ollama, mistral (default: "openai")
+        ai_provider: AI provider type - openai, claude, gemini, ollama, mistral, zai, grok (default: "openai")
 
     Returns:
         True if configuration was successful
@@ -207,8 +207,8 @@ def put(path, body=None):
     return None
 
 
-def delete(path):
-    """Make a DELETE request to the Knot API."""
+def delete(path, headers=None):
+    """Make a DELETE request to the Knot API, with any extra request headers."""
     import requests as req
 
     client = _get_client()
@@ -216,11 +216,67 @@ def delete(path):
         raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
 
     url = client["url"] + path
+    extra = headers
     headers = {"Authorization": "Bearer " + client["token"], "Content-Type": "application/json", "Accept": "application/json"}
+    if extra:
+        for k in extra:
+            headers[k] = extra[k]
 
     resp = req.delete(
         url,
         headers=headers,
+        verify=not client["insecure"]
+    )
+
+    if resp.status_code >= 400:
+        raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
+
+    if resp.text:
+        return resp.json()
+    return None
+
+
+def get_bytes(path):
+    """Make a GET request to the Knot API and return the response body as bytes."""
+    import requests as req
+
+    client = _get_client()
+    if not client:
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
+
+    resp = req.get(
+        client["url"] + path,
+        headers={"Authorization": "Bearer " + client["token"]},
+        verify=not client["insecure"]
+    )
+
+    if resp.status_code >= 400:
+        raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
+
+    return resp.content
+
+
+def put_bytes(path, data, content_type=""):
+    """Make a PUT request to the Knot API with a str or bytes body (file content)."""
+    import requests as req
+
+    client = _get_client()
+    if not client:
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
+
+    # A str body must become UTF-8 bytes here: CPython's http.client would
+    # otherwise send it as latin-1, corrupting everything outside ASCII.
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+
+    resp = req.put(
+        client["url"] + path,
+        headers={
+            "Authorization": "Bearer " + client["token"],
+            "Content-Type": content_type or "application/octet-stream",
+            "Accept": "application/json",
+        },
+        data=data,
         verify=not client["insecure"]
     )
 

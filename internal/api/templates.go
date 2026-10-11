@@ -110,14 +110,15 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.CustomFields = make([]apiclient.CustomFieldDef, len(template.CustomFields))
 		for i, field := range template.CustomFields {
 			templateData.CustomFields[i] = apiclient.CustomFieldDef{
-				Name:        field.Name,
-				Description: field.Description,
-				Type:        field.Type,
-				Handler:     field.Handler,
-				Language:    field.Language,
-				Default:     field.Default,
-				Required:    field.Required,
-				Options:     field.Options,
+				Name:         field.Name,
+				Description:  field.Description,
+				Type:         field.Type,
+				Handler:      field.Handler,
+				Language:     field.Language,
+				Default:      field.Default,
+				Required:     field.Required,
+				Options:      field.Options,
+				ShowOnCreate: field.ShowOnCreate,
 			}
 		}
 
@@ -699,14 +700,15 @@ func normalizeCustomFields(fields []apiclient.CustomFieldDef) ([]model.TemplateC
 			language = ""
 		}
 		out = append(out, model.TemplateCustomField{
-			Name:        field.Name,
-			Description: field.Description,
-			Type:        fieldType,
-			Handler:     handler,
-			Language:    language,
-			Default:     field.Default,
-			Required:    field.Required,
-			Options:     options,
+			Name:         field.Name,
+			Description:  field.Description,
+			Type:         fieldType,
+			Handler:      handler,
+			Language:     language,
+			Default:      field.Default,
+			Required:     field.Required,
+			Options:      options,
+			ShowOnCreate: field.ShowOnCreate && !field.Required,
 		})
 	}
 	return out, ""

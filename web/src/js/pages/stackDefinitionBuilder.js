@@ -44,17 +44,6 @@ window.stackDefinitionBuilder = function () {
       form: blankComponent(),
     },
 
-    // Delete component confirmation
-    deleteCompConfirm: {
-      show: false,
-      index: null,
-    },
-
-    // Discard unsaved changes confirmation
-    discardConfirm: {
-      show: false,
-    },
-
     // Editor state
     editor: {
       active: false,
@@ -215,14 +204,20 @@ window.stackDefinitionBuilder = function () {
 
     closeEditor() {
       if (this.editor.dirty) {
-        this.discardConfirm.show = true;
+        window.knotConfirm({
+          danger: true,
+          icon: 'warning',
+          title: 'Unsaved Changes',
+          message: 'You have unsaved changes. Are you sure you want to discard them?',
+          confirmLabel: 'Discard Changes',
+          cancelLabel: 'Keep Editing',
+        }).then((ok) => ok && this.discardChanges());
         return;
       }
       this.editor.active = false;
     },
 
     discardChanges() {
-      this.discardConfirm.show = false;
       this.editor.active = false;
     },
 
@@ -302,16 +297,17 @@ window.stackDefinitionBuilder = function () {
     },
 
     confirmDeleteComponent(ni) {
-      this.deleteCompConfirm.index = ni;
-      this.deleteCompConfirm.show = true;
-    },
-
-    executeDeleteComponent() {
-      const ni = this.deleteCompConfirm.index;
-      this.deleteCompConfirm.show = false;
-      if (ni !== null && ni !== undefined) {
-        this.deleteComponent(ni);
-      }
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the space {name}?',
+        name: this.editor.form.spaces[ni]?.name || '',
+        confirmLabel: 'Delete Space',
+        cancelLabel: 'Keep Space',
+      }).then((ok) => {
+        if (ok && ni !== null && ni !== undefined) {
+          this.deleteComponent(ni);
+        }
+      });
     },
 
     // ---- Component editor modal ----
@@ -377,7 +373,8 @@ window.stackDefinitionBuilder = function () {
       const form = this.componentEditor.form;
 
       if (!form.template_id) {
-        this.$dispatch("show-alert", { msg: "A template is required for each space", type: "error" });
+        window.knotToast("Choose a template for this space.", "error");
+        this.$nextTick(() => document.getElementById('sdb-comp-template')?.focus());
         return;
       }
 
@@ -516,10 +513,14 @@ window.stackDefinitionBuilder = function () {
           if (!data.valid) {
             this.editor.errors = data.errors || [];
           } else {
-            this.$dispatch("show-alert", { msg: "Validation passed", type: "success" });
+            this.$dispatch("show-alert", { msg: "The stack template is valid", type: "success" });
           }
+        } else {
+          window.knotError("check the stack template", res);
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        window.knotError("check the stack template", e);
+      }
       this.editor.validating = false;
     },
 
@@ -573,14 +574,13 @@ window.stackDefinitionBuilder = function () {
           this.editor.dirty = false;
           this.editor.valid = true;
           this.editor.active = false;
-          this.$dispatch("show-alert", { msg: "Stack definition saved", type: "success" });
+          this.$dispatch("show-alert", { msg: "Stack template saved", type: "success" });
           this.getDefinitions();
         } else {
-          const err = await res.json().catch(() => ({}));
-          this.editor.errors = [{ field: '', message: err.error || 'Save failed' }];
+          this.editor.errors = [{ field: '', message: await window.knotErrorMessage("save the stack template", res) }];
         }
       } catch (e) {
-        this.editor.errors = [{ field: '', message: 'Network error' }];
+        this.editor.errors = [{ field: '', message: await window.knotErrorMessage("save the stack template", e) }];
       }
       this.editor.saving = false;
     },
@@ -658,7 +658,7 @@ window.stackDefinitionBuilder = function () {
         }
       }
 
-      this._exportHelper(new Blob([toml], { type: 'text/plain' }), (form.name || 'stack-definition') + '.toml');
+      this._exportHelper(new Blob([toml], { type: 'text/plain' }), (form.name || 'stack-template') + '.toml');
     },
 
     exportJSON() {
@@ -684,7 +684,7 @@ window.stackDefinitionBuilder = function () {
         }),
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      this._exportHelper(blob, (this.editor.form.name || 'stack-definition') + '.json');
+      this._exportHelper(blob, (this.editor.form.name || 'stack-template') + '.json');
     },
   };
 };

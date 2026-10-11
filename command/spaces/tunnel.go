@@ -130,17 +130,17 @@ func runSpaceTunnelStart(ctx context.Context, cmd *cli.Command, protocol string)
 
 	port := cmd.GetIntArg("port")
 	if port < 1 || port > 65535 {
-		return fmt.Errorf("invalid port, must be between 1 and 65535")
+		return fmt.Errorf("invalid port %d: use a port between 1 and 65535", port)
 	}
 
 	name := cmd.GetStringArg("name")
 	if !validate.Name(name) {
-		return fmt.Errorf("invalid name, must be all lowercase and only contain letters, numbers and dashes")
+		return fmt.Errorf("invalid tunnel name %q: use lower-case letters, numbers and dashes only", name)
 	}
 
 	client, err := cmdutil.GetClient(cmd)
 	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+		return err
 	}
 
 	spaceId, err := resolveSpaceId(ctx, client, spaceName)
@@ -162,7 +162,7 @@ func runSpaceTunnelStart(ctx context.Context, cmd *cli.Command, protocol string)
 		ServerTlsSkipVerify: skipVerify,
 	})
 	if err != nil {
-		return spaceApiError(code, err, "start tunnel")
+		return spaceApiError(code, err, "start the tunnel", spaceName)
 	}
 
 	if !response.Success {
@@ -197,7 +197,7 @@ var spaceTunnelStopCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		spaceId, err := resolveSpaceId(ctx, client, spaceName)
@@ -207,7 +207,7 @@ var spaceTunnelStopCmd = &cli.Command{
 
 		code, err := client.StopSpaceTunnel(ctx, spaceId, &apiclient.SpaceTunnelStopRequest{Name: name})
 		if err != nil {
-			return spaceApiError(code, err, "stop tunnel")
+			return spaceApiError(code, err, "stop the tunnel", spaceName)
 		}
 
 		fmt.Printf("Tunnel %s stopped in space '%s'.\n", name, spaceName)
@@ -232,7 +232,7 @@ var spaceTunnelListCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		spaceId, err := resolveSpaceId(ctx, client, spaceName)
@@ -242,7 +242,7 @@ var spaceTunnelListCmd = &cli.Command{
 
 		response, code, err := client.ListSpaceTunnels(ctx, spaceId)
 		if err != nil {
-			return spaceApiError(code, err, "list tunnels")
+			return spaceApiError(code, err, "list tunnels", spaceName)
 		}
 
 		if len(response.Tunnels) == 0 {
@@ -266,7 +266,7 @@ func resolveSpaceId(ctx context.Context, client *apiclient.ApiClient, spaceName 
 
 	spaces, _, err := client.GetSpaces(ctx, "", false)
 	if err != nil {
-		return "", fmt.Errorf("failed to get spaces: %w", err)
+		return "", fmt.Errorf("couldn't list spaces: %w", err)
 	}
 
 	for _, s := range spaces.Spaces {
@@ -275,22 +275,16 @@ func resolveSpaceId(ctx context.Context, client *apiclient.ApiClient, spaceName 
 		}
 	}
 
-	return "", fmt.Errorf("space '%s' not found", spaceName)
+	return "", fmt.Errorf("space %q not found", spaceName)
 }
 
-// spaceApiError maps common HTTP status codes from the space-io API to
-// user-friendly errors.
-func spaceApiError(code int, err error, op string) error {
-	switch code {
-	case 401:
-		return fmt.Errorf("failed to authenticate with server, check token")
-	case 403:
-		return fmt.Errorf("no permission to %s", op)
-	case 404:
-		return fmt.Errorf("space not found")
-	case 409:
-		return fmt.Errorf("space is not running")
-	default:
-		return fmt.Errorf("failed to %s: %w", op, err)
+// spaceApiError describes a failed space-io API call. The status and the
+// server's reason come from the wrapped HTTPError (the CLI's error formatter
+// turns them into plain words and a hint); a 409 from these endpoints means
+// the space isn't running, which gets a direct suggestion.
+func spaceApiError(code int, err error, op string, spaceName string) error {
+	if code == 409 {
+		return fmt.Errorf("couldn't %s in space %q: the space isn't running; start it with `knot space start %s`", op, spaceName, spaceName)
 	}
+	return fmt.Errorf("couldn't %s in space %q: %w", op, spaceName, err)
 }

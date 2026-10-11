@@ -22,19 +22,19 @@ var ListCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		// Get the server zone
 		pingResponse, err := client.Ping(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting server info: %w", err)
+			return fmt.Errorf("couldn't get the server info: %w", err)
 		}
 		zone := pingResponse.Zone
 
 		templates, _, err := client.GetTemplates(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting templates: %w", err)
+			return fmt.Errorf("couldn't list templates: %w", err)
 		}
 
 		data := [][]string{{"Name", "Description"}}

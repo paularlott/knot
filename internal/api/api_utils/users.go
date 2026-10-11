@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/filestore"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util"
@@ -102,6 +103,13 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 			if transport := service.GetTransport(); transport != nil {
 				transport.GossipMCPServer(server)
 			}
+		}
+	}
+
+	// Delete the user's file storage buckets and their grants on others'
+	if store := filestore.Get(); store != nil {
+		if n := store.DeleteUser(toDelete.Id); n > 0 {
+			log.Debug("delete user: deleted buckets", "user_id", toDelete.Id, "buckets", n)
 		}
 	}
 

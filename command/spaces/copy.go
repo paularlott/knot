@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/config"
 )
 
@@ -66,10 +67,10 @@ var CopyCmd = &cli.Command{
 			destSpaceName = dest[:destColonIndex]
 			destSpacePath = dest[destColonIndex+1:]
 			if sourceSpacePath == "" {
-				return fmt.Errorf("Source space path cannot be empty after '%s:'", sourceSpaceName)
+				return fmt.Errorf("the source path is missing after '%s:'", sourceSpaceName)
 			}
 			if destSpacePath == "" {
-				return fmt.Errorf("Destination space path cannot be empty after '%s:'", destSpaceName)
+				return fmt.Errorf("the destination path is missing after '%s:'", destSpaceName)
 			}
 		} else if sourceIsSpace {
 			// Copy from space to local
@@ -78,7 +79,7 @@ var CopyCmd = &cli.Command{
 			spacePath = source[sourceColonIndex+1:]
 			localPath = dest
 			if spacePath == "" {
-				return fmt.Errorf("Space path cannot be empty after '%s:'", spaceName)
+				return fmt.Errorf("the space path is missing after '%s:'", spaceName)
 			}
 		} else if destIsSpace {
 			// Copy from local to space
@@ -87,10 +88,10 @@ var CopyCmd = &cli.Command{
 			spacePath = dest[destColonIndex+1:]
 			localPath = source
 			if spacePath == "" {
-				return fmt.Errorf("Space path cannot be empty after '%s:'", spaceName)
+				return fmt.Errorf("the space path is missing after '%s:'", spaceName)
 			}
 		} else {
-			return fmt.Errorf("One path must use the format 'spacename:path' (space name must be more than 1 character)")
+			return fmt.Errorf("one of the paths must be written space:path (with a space name of 2 or more characters)")
 		}
 
 		// Create API client
@@ -98,19 +99,19 @@ var CopyCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		// Get the current user
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
+			return fmt.Errorf("couldn't get the current user: %w", err)
 		}
 
 		// Get a list of available spaces
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id, false)
 		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		// Helper function to find space ID by name
@@ -120,7 +121,7 @@ var CopyCmd = &cli.Command{
 					return space.Id, nil
 				}
 			}
-			return "", fmt.Errorf("Space not found: %s", name)
+			return "", fmt.Errorf("space %q not found", name)
 		}
 
 		// Helper function to connect to a space websocket
@@ -135,12 +136,7 @@ var CopyCmd = &cli.Command{
 			dialer.HandshakeTimeout = 5 * time.Second
 			ws, response, err := dialer.Dial(wsUrl, header)
 			if err != nil {
-				if response != nil && response.StatusCode == http.StatusUnauthorized {
-					return nil, fmt.Errorf("failed to authenticate with server, check remote token")
-				} else if response != nil && response.StatusCode == http.StatusForbidden {
-					return nil, fmt.Errorf("no permission to copy files in this space")
-				}
-				return nil, fmt.Errorf("Error connecting to websocket: %w", err)
+				return nil, cmdutil.WebSocketError("couldn't connect to the space to copy files", response, err)
 			}
 			return ws, nil
 		}
@@ -181,19 +177,19 @@ var CopyCmd = &cli.Command{
 
 			err = sourceWs.WriteJSON(sourceRequest)
 			if err != nil {
-				return fmt.Errorf("Error sending source copy request: %w", err)
+				return fmt.Errorf("couldn't ask space %q for %s: %w", sourceSpaceName, sourceSpacePath, err)
 			}
 
 			var sourceResult map[string]interface{}
 			err = sourceWs.ReadJSON(&sourceResult)
 			if err != nil {
-				return fmt.Errorf("Error reading source response: %w", err)
+				return fmt.Errorf("couldn't read %s from space %q: %w", sourceSpacePath, sourceSpaceName, err)
 			}
 
 			success, ok := sourceResult["success"].(bool)
 			if !ok || !success {
 				errorMsg, _ := sourceResult["error"].(string)
-				return fmt.Errorf("Source read failed: %s", errorMsg)
+				return fmt.Errorf("couldn't read %s from space %q: %s", sourceSpacePath, sourceSpaceName, orUnknown(errorMsg))
 			}
 
 			// Extract content
@@ -201,10 +197,10 @@ var CopyCmd = &cli.Command{
 			if contentStr, ok := sourceResult["content"].(string); ok {
 				content, err = base64.StdEncoding.DecodeString(contentStr)
 				if err != nil {
-					return fmt.Errorf("Error decoding file content: %w", err)
+					return fmt.Errorf("the space sent file content that couldn't be decoded: %w", err)
 				}
 			} else {
-				return fmt.Errorf("Invalid content format in response")
+				return fmt.Errorf("the space sent a reply without file content")
 			}
 
 			// Write to destination space
@@ -217,19 +213,19 @@ var CopyCmd = &cli.Command{
 
 			err = destWs.WriteJSON(destRequest)
 			if err != nil {
-				return fmt.Errorf("Error sending destination copy request: %w", err)
+				return fmt.Errorf("couldn't send %s to space %q: %w", destSpacePath, destSpaceName, err)
 			}
 
 			var destResult map[string]interface{}
 			err = destWs.ReadJSON(&destResult)
 			if err != nil {
-				return fmt.Errorf("Error reading destination response: %w", err)
+				return fmt.Errorf("couldn't write %s in space %q: %w", destSpacePath, destSpaceName, err)
 			}
 
 			success, ok = destResult["success"].(bool)
 			if !ok || !success {
 				errorMsg, _ := destResult["error"].(string)
-				return fmt.Errorf("Destination write failed: %s", errorMsg)
+				return fmt.Errorf("couldn't write %s in space %q: %s", destSpacePath, destSpaceName, orUnknown(errorMsg))
 			}
 
 			fmt.Println("Copy completed successfully")
@@ -257,7 +253,7 @@ var CopyCmd = &cli.Command{
 			// Read local file
 			content, err := os.ReadFile(localPath)
 			if err != nil {
-				return fmt.Errorf("Error reading local file: %w", err)
+				return fmt.Errorf("couldn't read local file %s: %w", localPath, err)
 			}
 
 			copyRequest.DestPath = spacePath
@@ -273,20 +269,20 @@ var CopyCmd = &cli.Command{
 		// Send the copy request
 		err = ws.WriteJSON(copyRequest)
 		if err != nil {
-			return fmt.Errorf("Error sending copy request: %w", err)
+			return fmt.Errorf("couldn't send the copy request to space %q: %w", spaceName, err)
 		}
 
 		// Read the response
 		var result map[string]interface{}
 		err = ws.ReadJSON(&result)
 		if err != nil {
-			return fmt.Errorf("Error reading response: %w", err)
+			return fmt.Errorf("couldn't read the reply from space %q: %w", spaceName, err)
 		}
 
 		success, ok := result["success"].(bool)
 		if !ok || !success {
 			errorMsg, _ := result["error"].(string)
-			return fmt.Errorf("Copy failed: %s", errorMsg)
+			return fmt.Errorf("couldn't copy %s in space %q: %s", spacePath, spaceName, orUnknown(errorMsg))
 		}
 
 		if direction == "from_space" {
@@ -297,26 +293,34 @@ var CopyCmd = &cli.Command{
 				var err error
 				content, err = base64.StdEncoding.DecodeString(contentStr)
 				if err != nil {
-					return fmt.Errorf("Error decoding file content: %w", err)
+					return fmt.Errorf("the space sent file content that couldn't be decoded: %w", err)
 				}
 			} else {
-				return fmt.Errorf("Invalid content format in response")
+				return fmt.Errorf("the space sent a reply without file content")
 			}
 
 			// Create directory if it doesn't exist
 			localDir := filepath.Dir(localPath)
 			if err := os.MkdirAll(localDir, 0755); err != nil {
-				return fmt.Errorf("Error creating local directory: %w", err)
+				return fmt.Errorf("couldn't create local folder %s: %w", localDir, err)
 			}
 
 			// Write file
 			err = os.WriteFile(localPath, content, 0644)
 			if err != nil {
-				return fmt.Errorf("Error writing local file: %w", err)
+				return fmt.Errorf("couldn't write local file %s: %w", localPath, err)
 			}
 		}
 
 		fmt.Println("Copy completed successfully")
 		return nil
 	},
+}
+
+// orUnknown stands in for an empty failure reason from the agent.
+func orUnknown(msg string) string {
+	if msg == "" {
+		return "the space gave no reason"
+	}
+	return msg
 }

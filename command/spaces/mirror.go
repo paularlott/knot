@@ -17,6 +17,7 @@ import (
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
+	"github.com/paularlott/knot/internal/util/excludes"
 )
 
 // MirrorCmd mirrors a local directory tree to a space. Source is local,
@@ -690,7 +691,7 @@ func (o *mirrorOptions) uploadInParallel(ctx context.Context, uploads []upload, 
 				}
 				if err := o.uploadOne(ctx, u, buf); err != nil {
 					stats.failed.Add(1)
-					fmt.Fprintf(os.Stderr, "  ! %s: %v\n", u.rel, err)
+					fmt.Fprintf(os.Stderr, "  ! %s: %v\n", u.rel, cmdutil.Describe(err))
 					continue
 				}
 				stats.uploaded.Add(1)
@@ -815,7 +816,7 @@ func (o *mirrorOptions) deleteExtras(ctx context.Context, extras []string, stats
 			Recursive: true,
 		}); err != nil {
 			stats.failed.Add(1)
-			fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
+			fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, cmdutil.Describe(err))
 			continue
 		}
 		stats.deleted.Add(1)
@@ -877,84 +878,9 @@ func (o *mirrorOptions) fetchRemoteSet(ctx context.Context) (map[string]remoteMe
 }
 
 // compileExcludes returns a function that reports whether a slash-relative
-// path should be skipped. Each pattern is matched against the basename and
-// the full relative path; ancestor matches make excludes transitive (so
-// "node_modules" excludes everything under it).
+// path should be skipped; see excludes.Compile.
 func compileExcludes(patterns []string) func(rel string, isDir bool) bool {
-	type compiled struct {
-		glob    string
-		dirOnly bool
-	}
-	var cs []compiled
-	for _, p := range patterns {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		dirOnly := false
-		if strings.HasSuffix(p, "/") {
-			dirOnly = true
-			p = strings.TrimSuffix(p, "/")
-		}
-		p = path.Clean(p)
-		if p == "." || p == "" {
-			continue
-		}
-		cs = append(cs, compiled{glob: p, dirOnly: dirOnly})
-	}
-	return func(rel string, isDir bool) bool {
-		base := rel
-		if i := strings.LastIndexByte(rel, '/'); i >= 0 {
-			base = rel[i+1:]
-		}
-		// Direct match.
-		for _, c := range cs {
-			if c.dirOnly && !isDir {
-				continue
-			}
-			if ok, _ := filepath.Match(c.glob, rel); ok {
-				return true
-			}
-			if base != rel {
-				if ok, _ := filepath.Match(c.glob, base); ok {
-					return true
-				}
-			}
-		}
-		// Ancestor match — makes excludes transitive.
-		for _, c := range cs {
-			if ancestorMatches(rel, c.glob) {
-				return true
-			}
-		}
-		return false
-	}
-}
-
-// ancestorMatches reports whether any parent directory of rel matches glob.
-// "a/b/c.txt" checks "a/b" then "a".
-func ancestorMatches(rel, glob string) bool {
-	p := rel
-	for {
-		i := strings.LastIndexByte(p, '/')
-		if i < 0 {
-			return false
-		}
-		parent := p[:i]
-		parentBase := parent
-		if j := strings.LastIndexByte(parent, '/'); j >= 0 {
-			parentBase = parent[j+1:]
-		}
-		if ok, _ := filepath.Match(glob, parent); ok {
-			return true
-		}
-		if parentBase != parent {
-			if ok, _ := filepath.Match(glob, parentBase); ok {
-				return true
-			}
-		}
-		p = parent
-	}
+	return excludes.Compile(patterns)
 }
 
 // relativiseRemote returns the part of sub that lies under base, slash-

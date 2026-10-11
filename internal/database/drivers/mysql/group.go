@@ -17,7 +17,7 @@ func (db *MySQLDriver) SaveGroup(group *model.Group) error {
 
 	// Test if the PK exists in the database
 	var doUpdate bool
-	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM groups WHERE group_id=?)", group.Id).Scan(&doUpdate)
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM `groups` WHERE group_id=?)", group.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -40,7 +40,7 @@ func (db *MySQLDriver) SaveGroup(group *model.Group) error {
 }
 
 func (db *MySQLDriver) DeleteGroup(group *model.Group) error {
-	_, err := db.connection.Exec("DELETE FROM groups WHERE group_id = ?", group.Id)
+	_, err := db.connection.Exec("DELETE FROM `groups` WHERE group_id = ?", group.Id)
 	return err
 }
 

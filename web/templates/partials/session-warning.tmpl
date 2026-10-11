@@ -1,0 +1,23 @@
+{{ define "session-warning" }}
+{{/* Shown two minutes before the session would time out from inactivity
+     (web/src/js/session-timeout.js). */}}
+<div data-session-warning x-data x-cloak x-show="$store.sessionWarning && $store.sessionWarning.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="$store.sessionWarning && $store.sessionWarning.show" @keydown.escape.window="$store.sessionWarning && $store.sessionWarning.show && $store.sessionWarning.stay()" class="ui-modal-backdrop z-[100]" role="alertdialog" aria-modal="true" aria-labelledby="sessionWarningTitle" aria-describedby="sessionWarningBody">
+  <div class="ui-modal-panel">
+    <div class="ui-modal-header">
+      <div class="ui-modal-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <h3 id="sessionWarningTitle" class="ui-modal-title">Still there?</h3>
+    </div>
+    <div id="sessionWarningBody" class="ui-modal-body">
+      <p>You'll be signed out in <strong x-text="$store.sessionWarning ? $store.sessionWarning.label : ''"></strong> because nothing has happened for a while. Anything you haven't saved will be lost.</p>
+    </div>
+    <div class="ui-modal-footer">
+      <button type="button" @click="$store.sessionWarning.signOut()" class="ui-button-secondary sm:mr-auto">Sign Out</button>
+      <button type="button" @click="$store.sessionWarning.stay()" class="ui-button-primary" x-effect="$store.sessionWarning && $store.sessionWarning.show && $nextTick(() => $el.focus())">Stay Signed In</button>
+    </div>
+  </div>
+</div>
+{{ end }}

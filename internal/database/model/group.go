@@ -16,6 +16,8 @@ type Group struct {
 	ComputeUnits  uint32        `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
 	StorageUnits  uint32        `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
 	MaxTunnels    uint32        `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB uint32        `json:"file_storage_mb" db:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets    uint32        `json:"max_buckets" db:"max_buckets" msgpack:"max_buckets"`
 	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
 	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`

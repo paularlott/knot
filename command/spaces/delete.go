@@ -46,13 +46,13 @@ var DeleteCmd = &cli.Command{
 		cfg := config.GetServerAddr(alias, cmd)
 		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return fmt.Errorf("couldn't create the API client: %w", err)
 		}
 
 		// Delete the space (API supports both name and ID)
 		_, err = client.DeleteSpace(context.Background(), spaceName)
 		if err != nil {
-			return fmt.Errorf("Error deleting space: %w", err)
+			return fmt.Errorf("couldn't delete space %q: %w", spaceName, err)
 		}
 
 		fmt.Println("Space deleting: ", spaceName)

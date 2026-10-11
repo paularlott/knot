@@ -1,23 +1,12 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.rolesListComponent = function() {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('roles', {
+      name: (r) => r.name,
+    }),
     loading: true,
-    deleteConfirm: {
-      show: false,
-      role: {
-        role_id: '',
-        name: '',
-      }
-    },
     roleFormModal: {
       show: false,
       isEdit: false,
@@ -104,6 +93,15 @@ window.rolesListComponent = function() {
     loadRoles() {
       this.getRoles();
     },
+    confirmDelete(r) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the role {name}?',
+        name: r.name,
+        confirmLabel: 'Delete Role',
+        cancelLabel: 'Keep Role',
+      }).then((ok) => ok && this.deleteRole(r.role_id));
+    },
     async deleteRole(roleId) {
       const self = this;
       await fetch(`/api/roles/${roleId}`, {
@@ -117,7 +115,7 @@ window.rolesListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Role could not be deleted", type: 'error' });
+          window.knotError('delete the role', response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively

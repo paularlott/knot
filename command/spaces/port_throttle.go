@@ -64,12 +64,12 @@ var PortThrottleCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		spaces, _, err := client.GetSpaces(ctx, "", false)
 		if err != nil {
-			return fmt.Errorf("failed to get spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		var spaceId string
@@ -80,7 +80,7 @@ var PortThrottleCmd = &cli.Command{
 			}
 		}
 		if spaceId == "" {
-			return fmt.Errorf("space '%s' not found", spaceName)
+			return fmt.Errorf("space %q not found", spaceName)
 		}
 
 		request := apiclient.PortThrottleRequest{
@@ -122,16 +122,7 @@ var PortThrottleCmd = &cli.Command{
 
 		code, err := client.ThrottlePort(ctx, spaceId, &request)
 		if err != nil {
-			if code == 401 {
-				return fmt.Errorf("failed to authenticate with server, check token")
-			} else if code == 403 {
-				return fmt.Errorf("no permission to throttle port forwards")
-			} else if code == 404 {
-				return fmt.Errorf("space not found")
-			} else if code == 409 {
-				return fmt.Errorf("space is not running")
-			}
-			return fmt.Errorf("failed to set throttle: %w", err)
+			return spaceApiError(code, err, "set the throttle", spaceName)
 		}
 
 		if request.Reset {

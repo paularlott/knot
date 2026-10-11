@@ -1,14 +1,32 @@
-// Sidebar pin/unpin + drag-to-reorder for starred (pinned) nav items.
+// Sidebar star/unstar and reordering for starred nav items.
 //
-// The menu is server-rendered in two modes (see web/nav.go):
-//   • Mode A (no pins) — default layout; every item shows an outline star.
-//   • Mode B (≥1 pin)  — pinned items sit on top with a drag handle; everything
-//     else collapses into "More".
+// The menu is server-rendered (see web/nav.go): starred items sit in their
+// own block at the top, in the user's order; the rest stay in their sections
+// (Workspace, Build, Admin, Extensions), and a section left empty is hidden.
 //
-// Clicking a star toggles membership, POSTs the new full ordering to the
-// server, and reloads so the server re-renders the right mode. Dragging a
-// pinned item reorders it live in the DOM; on drop the new order is POSTed
-// with no reload (the DOM already matches the server state).
+// Clicking a star toggles membership, PUTs the new full ordering to the
+// server, and reloads so the server re-renders the sections. Starred items
+// reorder by dragging the handle or with the move up/down buttons (the
+// single-pointer and keyboard way); the DOM is updated in place and the new
+// order PUT with no reload.
+
+// knotNavOpen reads (open undefined) or remembers whether a nav section is
+// open; fallback is the section's default when nothing is remembered. Storage
+// can be unavailable (private windows, blocked site data): sections then
+// simply start at their defaults.
+window.knotNavOpen = function knotNavOpen(key, open, fallback = false) {
+  const name = 'knot:nav-open:' + key;
+  try {
+    if (open === undefined) {
+      const v = localStorage.getItem(name);
+      return v === null ? !!fallback : v === '1';
+    }
+    localStorage.setItem(name, open ? '1' : '0');
+  } catch (_) {
+    return open === undefined ? !!fallback : !!open;
+  }
+  return !!open;
+};
 
 (function () {
   const ENDPOINT = '/api/users/preferences/nav';
@@ -17,8 +35,8 @@
     return document.getElementById('nav-main-list');
   }
 
-  // Pinned URLs in current DOM order (the starred rows at the top). Empty in
-  // Mode A, which correctly seeds the first pin as a single-item list.
+  // Starred URLs in current DOM order. Empty with nothing starred, which
+  // correctly seeds the first star as a single-item list.
   function pinnedOrderFromDOM(container) {
     return Array.from(container.querySelectorAll('.nav-starred-item[data-nav-url]'))
       .map((li) => li.getAttribute('data-nav-url'));
@@ -56,7 +74,31 @@
   }
 
   function findItem(container, url) {
-    return container.querySelector('.nav-starred-item[data-nav-url="' + url + '"]');
+    return Array.from(container.querySelectorAll('.nav-starred-item[data-nav-url]'))
+      .find((li) => li.getAttribute('data-nav-url') === url);
+  }
+
+  // Move buttons: the non-drag way to reorder starred items. Focus stays on
+  // the button pressed so repeated presses keep moving the same item.
+  function onMoveClick(container, e) {
+    const btn = e.target.closest('.nav-move-btn');
+    if (!btn || !container.contains(btn)) return false;
+    e.preventDefault();
+    const li = btn.closest('.nav-starred-item');
+    const list = li && li.parentElement;
+    if (!list) return true;
+    if (btn.dataset.navMove === 'up' && li.previousElementSibling) {
+      list.insertBefore(li, li.previousElementSibling);
+    } else if (btn.dataset.navMove === 'down' && li.nextElementSibling) {
+      list.insertBefore(li.nextElementSibling, li);
+    } else {
+      return true;
+    }
+    btn.focus();
+    saveStarred(pinnedOrderFromDOM(container)).catch((err) => {
+      console.error('failed to save nav order', err);
+    });
+    return true;
   }
 
   function wireDrag(container) {
@@ -93,21 +135,22 @@
       e.dataTransfer.dropEffect = 'move';
 
       const target = e.target.closest('.nav-starred-item');
-      // Only reorder relative to other pinned rows — pins can't be dragged
-      // into "More" and More items aren't drop targets here.
+      // Only reorder relative to other starred rows — they can't be dragged
+      // into a section, and section items aren't drop targets here.
       if (!target || target.getAttribute('data-nav-url') === dragUrl) return;
 
       const dragging = findItem(container, dragUrl);
       if (!dragging) return;
 
+      const list = target.parentElement;
       const rect = target.getBoundingClientRect();
       const after = e.clientY - rect.top > rect.height / 2;
       if (after && target.nextSibling) {
-        container.insertBefore(dragging, target.nextSibling);
+        list.insertBefore(dragging, target.nextSibling);
       } else if (after) {
-        container.appendChild(dragging);
+        list.appendChild(dragging);
       } else {
-        container.insertBefore(dragging, target);
+        list.insertBefore(dragging, target);
       }
     });
 
@@ -125,7 +168,9 @@
     if (!container || container.dataset.navReady) return;
     container.dataset.navReady = '1';
 
-    container.addEventListener('click', (e) => onStarClick(container, e));
+    container.addEventListener('click', (e) => {
+      if (!onMoveClick(container, e)) onStarClick(container, e);
+    });
     wireDrag(container);
   }
 

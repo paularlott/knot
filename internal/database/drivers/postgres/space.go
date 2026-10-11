@@ -1,0 +1,297 @@
+package driver_postgres
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util"
+
+	"github.com/google/uuid"
+)
+
+func (db *PostgresDriver) getAltNames(id string) ([]model.AltNameEntry, error) {
+	var entries []model.AltNameEntry
+	var spaces []*model.Space
+	err := db.read("spaces", &spaces, []string{"Name", "Description"}, "parent_space_id = ? ORDER BY name ASC", id)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, space := range spaces {
+		var port uint16
+		if space.Description != "" {
+			if p, err := strconv.ParseUint(space.Description, 10, 16); err == nil {
+				port = uint16(p)
+			}
+		}
+		entries = append(entries, model.AltNameEntry{Name: space.Name, Port: port})
+	}
+	return entries, nil
+}
+
+func (db *PostgresDriver) SaveSpace(space *model.Space, updateFields []string) error {
+	space.NormalizeShares()
+	space.NormalizeDependsOn()
+
+	tx, err := db.connection.Begin()
+	if err != nil {
+		return err
+	}
+
+	var existingSpaces []model.Space
+	err = db.read("spaces", &existingSpaces, []string{"Name"}, "space_id = ?", space.Id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	var doUpdate = len(existingSpaces) > 0
+
+	// Update the owner of alt names
+	if doUpdate && (len(updateFields) == 0 || util.InArray(updateFields, "UserId")) {
+		_, err = tx.Exec("UPDATE spaces SET user_id=? WHERE parent_space_id = ?", space.UserId, space.Id)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// If saving the name then check if the name has changed, and if it has is it still unique
+	if len(updateFields) == 0 || util.InArray(updateFields, "Name") {
+		if !doUpdate || existingSpaces[0].Name != space.Name {
+			// Check if the space name already in use by another space
+			var exists bool
+			err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM spaces WHERE user_id=? AND name=?)", space.UserId, space.Name).Scan(&exists)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+
+			if exists {
+				tx.Rollback()
+				return fmt.Errorf("space name already used")
+			}
+		}
+	}
+
+	if doUpdate {
+		// Update the update time
+		if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
+			updateFields = append(updateFields, "UpdatedAt")
+		}
+
+		err = db.update("spaces", space, updateFields)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	} else {
+		err = db.create("spaces", space)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// If updating all or explicitly updating alt names
+	if len(updateFields) == 0 || util.InArray(updateFields, "AltNames") {
+
+		// Get the current list of alt names
+		altNames, err := db.getAltNames(space.Id)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Remove any alt names that are no longer in the list
+		for _, altName := range altNames {
+			found := false
+			for _, name := range space.AltNames {
+				if altName.Name == name.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				_, err = tx.Exec("DELETE FROM spaces WHERE parent_space_id = ? AND name = ?", space.Id, altName.Name)
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+
+		// Add or update alt names
+		for _, name := range space.AltNames {
+			found := false
+			for _, altName := range altNames {
+				if altName.Name == name.Name {
+					found = true
+
+					_, err = tx.Exec("UPDATE spaces SET description=?, zone=?, updated_at=? WHERE parent_space_id = ? AND name = ?", strconv.FormatUint(uint64(name.Port), 10), space.Zone, space.UpdatedAt, space.Id, name.Name)
+					if err != nil {
+						tx.Rollback()
+						return err
+					}
+
+					break
+				}
+			}
+			if !found {
+				altId, err := uuid.NewV7()
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+
+				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, description, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", altId.String(), space.Id, space.UserId, name.Name, strconv.FormatUint(uint64(name.Port), 10), space.Zone, space.CreatedAt, space.UpdatedAt)
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+	}
+
+	tx.Commit()
+
+	return nil
+}
+
+func (db *PostgresDriver) DeleteSpace(space *model.Space) error {
+	tx, err := db.connection.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = db.connection.Exec("DELETE FROM spaces WHERE space_id = ?", space.Id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	_, err = db.connection.Exec("DELETE FROM spaces WHERE parent_space_id = ?", space.Id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
+
+	return nil
+}
+
+func (db *PostgresDriver) GetSpace(id string) (*model.Space, error) {
+	var spaces []model.Space
+	err := db.read("spaces", &spaces, nil, "space_id = ? AND parent_space_id = ''", id)
+	if err != nil {
+		return nil, err
+	}
+	if len(spaces) == 0 {
+		return nil, fmt.Errorf("space not found")
+	}
+	spaces[0].NormalizeShares()
+	spaces[0].NormalizeDependsOn()
+
+	// Load the alt names
+	spaces[0].AltNames, err = db.getAltNames(spaces[0].Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &spaces[0], nil
+}
+
+func (db *PostgresDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
+	var spaces []*model.Space
+	err := db.read("spaces", &spaces, nil, "(user_id = ? OR shares @> jsonb_build_array(?::text)) AND parent_space_id = '' ORDER BY name ASC", userId, userId)
+	if err != nil {
+		return nil, err
+	}
+	for _, space := range spaces {
+		space.NormalizeShares()
+		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return spaces, nil
+}
+
+func (db *PostgresDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
+	var spaces []model.Space
+	err := db.read("spaces", &spaces, nil, "(user_id = ? OR shares @> jsonb_build_array(?::text)) AND name = ? ORDER BY CASE WHEN user_id = ? THEN 0 ELSE 1 END ASC LIMIT 1", userId, userId, spaceName, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(spaces) == 0 {
+		return nil, fmt.Errorf("space not found")
+	}
+	spaces[0].NormalizeShares()
+	spaces[0].NormalizeDependsOn()
+
+	// If has a parent ID then load the parent space
+	if spaces[0].ParentSpaceId != "" {
+		return db.GetSpace(spaces[0].ParentSpaceId)
+	}
+
+	return &spaces[0], nil
+}
+
+func (db *PostgresDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space, error) {
+	var spaces []*model.Space
+	err := db.read("spaces", &spaces, nil, "template_id = ? AND parent_space_id = '' ORDER BY name ASC", templateId)
+	if err != nil {
+		return nil, err
+	}
+	for _, space := range spaces {
+		space.NormalizeShares()
+		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return spaces, nil
+}
+
+func (db *PostgresDriver) GetSpacesByPoolId(poolId string) ([]*model.Space, error) {
+	var spaces []*model.Space
+	err := db.read("spaces", &spaces, nil, "pool_id = ? AND parent_space_id = '' ORDER BY name ASC", poolId)
+	if err != nil {
+		return nil, err
+	}
+	for _, space := range spaces {
+		space.NormalizeShares()
+		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return spaces, nil
+}
+
+func (db *PostgresDriver) GetSpaces() ([]*model.Space, error) {
+	var spaces []*model.Space
+	err := db.read("spaces", &spaces, nil, "parent_space_id = '' ORDER BY name ASC")
+	if err != nil {
+		return nil, err
+	}
+	for _, space := range spaces {
+		space.NormalizeShares()
+		space.NormalizeDependsOn()
+		space.AltNames, err = db.getAltNames(space.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return spaces, nil
+}

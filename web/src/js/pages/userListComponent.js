@@ -1,34 +1,23 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.userListComponent = function() {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('users', {
+      name: (u) => u.username,
+      status: (u) => (u.active ? 0 : 1),
+      spaces: { value: (u) => u.number_spaces, dir: 'desc' },
+      compute: { value: (u) => u.used_compute_units, dir: 'desc' },
+      storage: { value: (u) => u.used_storage_units, dir: 'desc' },
+      files: { value: (u) => u.used_file_storage_mb || 0, dir: 'desc' },
+      tunnels: { value: (u) => u.max_tunnels || 0, dir: 'desc' },
+      login: { value: (u) => u.last_login_ts, dir: 'desc' },
+    }),
     loading: true,
     userFormModal: {
       show: false,
       isEdit: false,
       userId: ''
-    },
-    deleteConfirm: {
-      show: false,
-      user: {
-        user_id: '',
-        username: '',
-      }
-    },
-    stopConfirm: {
-      show: false,
-      user: {
-        user_id: '',
-        username: '',
-      }
     },
     usageModal: {
       show: false,
@@ -136,14 +125,16 @@ window.userListComponent = function() {
               // Make last_login_at human readable data time in the browser's timezone
               if (user.last_login_at) {
                 const date = new Date(user.last_login_at);
+                user.last_login_ts = date.getTime();
                 user.last_login_at = date.toLocaleString();
               } else {
+                user.last_login_ts = null;
                 user.last_login_at = '-';
               }
 
               // Convert role IDs to names
               user.role_names = [];
-              user.roles.forEach(roleId => {
+              (user.roles || []).forEach(roleId => {
                 this.roles.forEach(role => {
                   if (role.role_id === roleId) {
                     user.role_names.push(role.name);
@@ -153,7 +144,7 @@ window.userListComponent = function() {
 
               // Convert group IDs to names
               user.group_names = [];
-              user.groups.forEach(groupId => {
+              (user.groups || []).forEach(groupId => {
                 this.groups.forEach(group => {
                   if (group.group_id === groupId) {
                     user.group_names.push(group.name);
@@ -201,6 +192,27 @@ window.userListComponent = function() {
       this.usageModal.username = username;
       this.usageModal.show = true;
     },
+    confirmDelete(u) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the user {name}?',
+        name: u.username,
+        detail: 'All spaces will be stopped and deleted, any data in template volumes will be deleted.',
+        confirmLabel: 'Delete User',
+        cancelLabel: 'Keep User',
+      }).then((ok) => ok && this.deleteUser(u.user_id));
+    },
+    confirmStop(u) {
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Confirm Stop Spaces',
+        message: 'Are you sure you want to stop all spaces for the user {name}?',
+        name: u.username,
+        confirmLabel: 'Stop Spaces',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.stopSpaces(u.user_id));
+    },
     async deleteUser(userId) {
       const self = this;
       await fetch(`/api/users/${userId}`, {
@@ -214,14 +226,13 @@ window.userListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "User could not be deleted", type: 'error' });
+          window.knotError('delete the user', response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively
       });
 
       this.getUsers();
-      this.deleteConfirm.show = false
     },
     async stopSpaces(userId) {
       const self = this;
@@ -232,18 +243,17 @@ window.userListComponent = function() {
         }
       }).then((response) => {
         if (response.status === 200) {
-          self.$dispatch('show-alert', { msg: "User spaces stopped", type: 'success' });
+          self.$dispatch('show-alert', { msg: "The user's spaces are stopping.", type: 'success' });
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "User spaces could not be stopped", type: 'error' });
+          window.knotError("stop the user's spaces", response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively
       });
 
       this.getUsers();
-      this.stopConfirm.show = false
     },
     searchChanged() {
       const term = this.searchTerm.toLowerCase();

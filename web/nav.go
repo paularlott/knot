@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/paularlott/knot/internal/filestore"
 	"html/template"
 	"strings"
 
@@ -21,6 +22,7 @@ type NavItem struct {
 	Icon     template.HTML
 	Starred  bool
 	External bool
+	Active   bool // owns the current page
 }
 
 // navIcon is the shared <svg> wrapper attributes applied to every nav entry's
@@ -51,6 +53,7 @@ const (
 	iconGroups    = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />`
 	iconRoles     = `<path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />`
 	iconAudit     = `<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />`
+	iconFiles     = `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />`
 	iconCluster   = `<path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z" />`
 )
 
@@ -101,15 +104,34 @@ func isExternalNavURL(url string) bool {
 	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
 }
 
-// buildNav returns the two ordered lists of visible nav items exactly as the
-// sidebar rendered them before this feature: top (the always-visible primary
-// entries) and more (the entries collapsed under "More"). Visibility mirrors
-// the permission gates that were previously inlined in menus.tmpl.
+// NavSection is one titled group of sidebar entries. Every section collapses;
+// Workspace, the everyday destinations, starts open and the others closed,
+// and a section opens by itself when it holds the current page.
+type NavSection struct {
+	Key         string
+	Label       string
+	Items       []NavItem
+	DefaultOpen bool
+	Active      bool // holds the current page
+}
+
+const (
+	navWorkspace = "workspace"
+	navBuild     = "build"
+	navAdmin     = "admin"
+	navPlugins   = "plugins"
+)
+
+// buildNav returns the visible nav items grouped into sections, in render
+// order: Workspace (what people use day to day), Build (what spaces are made
+// from, their volumes, and the automation around them), Admin (people, access and the
+// system) and Extensions (plugin pages). Visibility mirrors the permission
+// gates of each page. Sections with nothing visible are left out.
 //
 // auditAvailable is whether the audit-log feature is usable at all in this
 // deployment (storage present + not routed externally); it's passed in rather
 // than read from the database here so the function stays pure and testable.
-func buildNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool) (top, more []NavItem) {
+func buildNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool) []NavSection {
 	leaf := cfg.LeafNode
 	useSpaces := user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces)
 	useTunnels := user.HasPermission(model.PermissionUseTunnels) && cfg.ListenTunnel != ""
@@ -131,103 +153,119 @@ func buildNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool) (
 	viewAudit := user.HasPermission(model.PermissionViewAuditLogs) && auditAvailable
 	viewPlugins := user.HasPermission(model.PermissionViewPlugins) && plugins.GetRegistry().Present()
 
-	// Primary (top) section.
+	var workspace, build, admin []NavItem
 	if useSpaces || leaf {
-		top = append(top, nav("/spaces", "Spaces", iconSpaces))
+		workspace = append(workspace, nav("/spaces", "Spaces", iconSpaces))
+	}
+	if filestore.CanUseFilesPage(filestore.Get(), user) {
+		workspace = append(workspace, nav("/files", "Files", iconFiles))
 	}
 	if useTunnels && !leaf {
-		top = append(top, nav("/tunnels", "Tunnels", iconTunnels))
+		workspace = append(workspace, nav("/tunnels", "Tunnels", iconTunnels))
 	}
 	if !cfg.UI.HideAPITokens {
-		top = append(top, nav("/api-tokens", "API Tokens", iconTokens))
+		workspace = append(workspace, nav("/api-tokens", "API Tokens", iconTokens))
+	}
+
+	// A leaf node manages its own templates and variables, the main thing
+	// done there, so they sit with the everyday items.
+	if leaf {
+		workspace = append(workspace, nav("/templates", "Templates", iconTemplates))
+		workspace = append(workspace, nav("/variables", "Variables", iconVariables))
+	} else {
+		if manageTemplates {
+			build = append(build, nav("/templates", "Templates", iconTemplates))
+		}
+		if manageVariables {
+			build = append(build, nav("/variables", "Variables", iconVariables))
+		}
+	}
+	if manageStacks {
+		build = append(build, nav("/stacks", "Stack Templates", iconStacks))
 	}
 	if manageVolumes || leaf {
-		top = append(top, nav("/volumes", "Volumes", iconVolumes))
-	}
-	if leaf {
-		top = append(top, nav("/templates", "Templates", iconTemplates))
-		top = append(top, nav("/variables", "Variables", iconVariables))
-	}
-
-	// "More" section, in legacy render order.
-	if manageStacks {
-		more = append(more, nav("/stacks", "Stack Templates", iconStacks))
-	}
-	if !leaf && manageVariables {
-		more = append(more, nav("/variables", "Variables", iconVariables))
-	}
-	if !leaf && manageTemplates {
-		more = append(more, nav("/templates", "Templates", iconTemplates))
+		build = append(build, nav("/volumes", "Volumes", iconVolumes))
 	}
 	if manageScripts {
-		more = append(more, nav("/scripts", "Scripts", iconScripts))
+		build = append(build, nav("/scripts", "Scripts", iconScripts))
 	}
 	if manageEvents {
-		more = append(more, nav("/events", "Events", iconEvents))
+		build = append(build, nav("/events", "Events", iconEvents))
 	}
 	if manageSkills {
-		more = append(more, nav("/skills", "Skills", iconSkills))
+		build = append(build, nav("/skills", "Skills", iconSkills))
 	}
 	if manageCommands {
-		more = append(more, nav("/commands", "Slash Commands", iconCommands))
+		build = append(build, nav("/commands", "Slash Commands", iconCommands))
 	}
 	if manageMCP || leaf {
-		more = append(more, nav("/mcp-servers", "MCP Servers", iconMCP))
+		build = append(build, nav("/mcp-servers", "MCP Servers", iconMCP))
 	}
+
 	if manageUsers && !leaf {
-		more = append(more, nav("/users", "Users", iconUsers))
+		admin = append(admin, nav("/users", "Users", iconUsers))
 	}
 	if manageGroups && !leaf {
-		more = append(more, nav("/groups", "Groups", iconGroups))
+		admin = append(admin, nav("/groups", "Groups", iconGroups))
 	}
 	if manageRoles && !leaf {
-		more = append(more, nav("/roles", "Roles", iconRoles))
+		admin = append(admin, nav("/roles", "Roles", iconRoles))
 	}
 	if viewAudit {
-		more = append(more, nav("/audit-logs", "Audit Logs", iconAudit))
+		admin = append(admin, nav("/audit-logs", "Audit Logs", iconAudit))
 	}
 	if viewCluster && !leaf {
-		more = append(more, nav("/cluster-info", "Cluster Info", iconCluster))
+		admin = append(admin, nav("/cluster-info", "Cluster Info", iconCluster))
 	}
-	// The plugin inventory sits under Cluster Info — admin-only, like the
-	// page itself (admin role) — and only when the plugins
-	// path produced anything (loaded, failed, or warnings); with no plugins
-	// the surface is hidden entirely.
+	// The plugin inventory is admin-only, like the page itself, and only
+	// shown when the plugins path produced anything (loaded, failed, or
+	// warnings); with no plugins the surface is hidden entirely.
 	if viewPlugins && !leaf {
-		more = append(more, nav("/plugins", "Plugins", iconPlugin))
+		admin = append(admin, nav("/plugins", "Plugins", iconPlugin))
 	}
 
-	// Plugin-declared menu items, permission/group gated per item.
-	more = append(more, pluginNavItems(user)...)
-
-	return top, more
+	sections := []NavSection{
+		{Key: navWorkspace, Label: "Workspace", Items: workspace, DefaultOpen: true},
+		{Key: navBuild, Label: "Build", Items: build},
+		{Key: navAdmin, Label: "Admin", Items: admin},
+		// Plugin-declared menu items, permission/group gated per item.
+		{Key: navPlugins, Label: "Extensions", Items: pluginNavItems(user)},
+	}
+	return nonEmptySections(sections)
 }
 
-// resolveNav computes the final sidebar state for the current user. When the
-// user has at least one pinned item (Mode B) the pinned items occupy the top
-// region in their stored order and everything else — including the items that
-// normally live on top — collapses into "More" (demoted primary items first).
-// With no pinned items (Mode A) the layout is exactly the legacy default.
+func nonEmptySections(sections []NavSection) []NavSection {
+	out := sections[:0]
+	for _, s := range sections {
+		if len(s.Items) > 0 {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// resolveNav computes the final sidebar state for the current user: the
+// starred items, in the user's order, then the sections with the starred
+// items taken out of them. A section left empty is not shown, so starring
+// everything a section held hides its heading too.
 //
-// moreActive reports whether "More" should render expanded for requestPath
-// (see moreActiveFor).
-func resolveNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool, requestPath string) (modeB bool, starred, top, more []NavItem, moreActive bool) {
-	top, more = buildNav(user, cfg, auditAvailable)
+// The item owning requestPath is marked Active (for aria-current), and its
+// section opens.
+func resolveNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool, requestPath string) (starred []NavItem, sections []NavSection) {
+	sections = buildNav(user, cfg, auditAvailable)
 
 	// Build a URL→item lookup over everything the user can see.
-	visible := make(map[string]NavItem, len(top)+len(more))
-	for _, it := range top {
-		visible[it.URL] = it
-	}
-	for _, it := range more {
-		visible[it.URL] = it
+	visible := make(map[string]NavItem)
+	for _, s := range sections {
+		for _, it := range s.Items {
+			visible[it.URL] = it
+		}
 	}
 
 	// Resolve the stored pin order, dropping stale/hidden/duplicate entries so
 	// a revoked permission or renamed route can't leave dead pins around.
-	starredOrder := user.GetNavStarred()
-	pinned := make(map[string]bool, len(starredOrder))
-	for _, url := range starredOrder {
+	pinned := make(map[string]bool)
+	for _, url := range user.GetNavStarred() {
 		if it, ok := visible[url]; ok && !pinned[url] {
 			it.Starred = true
 			starred = append(starred, it)
@@ -235,36 +273,42 @@ func resolveNav(user *model.User, cfg *config.ServerConfig, auditAvailable bool,
 		}
 	}
 
-	if len(starred) == 0 {
-		// Mode A: default layout.
-		return false, nil, top, more, moreActiveFor(requestPath, top, more)
+	for i := range sections {
+		kept := make([]NavItem, 0, len(sections[i].Items))
+		for _, it := range sections[i].Items {
+			if !pinned[it.URL] {
+				kept = append(kept, it)
+			}
+		}
+		sections[i].Items = kept
 	}
+	sections = nonEmptySections(sections)
 
-	// Mode B: pinned items on top; the rest go under "More", with the demoted
-	// primary items placed first (so Spaces/Tunnels/API Tokens/Volumes sit at
-	// the top of More), followed by the usual More entries.
-	moreB := make([]NavItem, 0, len(top)+len(more))
-	for _, it := range top {
-		if !pinned[it.URL] {
-			moreB = append(moreB, it)
+	lists := [][]NavItem{starred}
+	for _, s := range sections {
+		lists = append(lists, s.Items)
+	}
+	if owner, ok := navPathOwner(requestPath, lists...); ok {
+		for i := range starred {
+			starred[i].Active = starred[i].URL == owner.URL
+		}
+		for i := range sections {
+			for j := range sections[i].Items {
+				if sections[i].Items[j].URL == owner.URL {
+					sections[i].Items[j].Active = true
+					sections[i].Active = true
+				}
+			}
 		}
 	}
-	for _, it := range more {
-		if !pinned[it.URL] {
-			moreB = append(moreB, it)
-		}
-	}
-	// templates treat an empty-but-non-nil slice as truthy; nil it so the
-	// "More" section is omitted entirely when there's nothing left to show.
-	if len(moreB) == 0 {
-		moreB = nil
-	}
-	return true, starred, nil, moreB, moreActiveFor(requestPath, starred, moreB)
+	return starred, sections
 }
 
 // navPathOwner returns the item whose URL owns requestPath — an exact match
 // or a whole-segment prefix ("/spaces" owns "/spaces/123") — preferring the
-// longest URL when several items match.
+// longest URL when several items match. The longest-match rule keeps nested
+// URLs honest: a plugin page under /plugins/<name> is owned by the plugin's
+// own menu item, not the shorter /plugins inventory entry.
 func navPathOwner(requestPath string, lists ...[]NavItem) (NavItem, bool) {
 	var best NavItem
 	found := false
@@ -281,34 +325,11 @@ func navPathOwner(requestPath string, lists ...[]NavItem) (NavItem, bool) {
 	return best, found
 }
 
-// moreActiveFor reports whether "More" should render expanded for
-// requestPath: the page's owning item — the longest URL match across the top
-// region (pinned or primary) and the collapsed More entries — must itself be
-// a More entry. The longest-match rule keeps nested URLs honest: a plugin
-// page under /plugins/<name> is owned by the plugin's own menu item, not the
-// shorter /plugins inventory entry, so pinning the plugin item closes More
-// instead of leaving it wedged open by its neighbour.
-func moreActiveFor(requestPath string, topRegion, more []NavItem) bool {
-	owner, ok := navPathOwner(requestPath, topRegion, more)
-	if !ok {
-		return false
-	}
-	for _, it := range more {
-		if it.URL == owner.URL {
-			return true
-		}
-	}
-	return false
-}
-
 // applyNav builds the sidebar state for the request and merges it into the
 // template data map.
 func applyNav(user *model.User, cfg *config.ServerConfig, requestPath string, data map[string]interface{}) {
 	auditAvailable := database.GetInstance().HasAuditLog() && cfg.Audit.Routing != "external"
-	modeB, starred, top, more, moreActive := resolveNav(user, cfg, auditAvailable, requestPath)
-	data["navModeB"] = modeB
+	starred, sections := resolveNav(user, cfg, auditAvailable, requestPath)
 	data["navStarred"] = starred
-	data["navTop"] = top
-	data["navMore"] = more
-	data["moreSectionActive"] = moreActive
+	data["navSections"] = sections
 }

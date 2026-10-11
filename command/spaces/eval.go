@@ -31,13 +31,13 @@ var EvalCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 		client.SetTimeout(5 * time.Minute)
 
 		space, err := client.GetSpaceByName(ctx, cmd.GetStringArg("space-name"))
 		if err != nil {
-			return fmt.Errorf("error getting space: %w", err)
+			return fmt.Errorf("couldn't find space %q: %w", cmd.GetStringArg("space-name"), err)
 		}
 
 		code := cmd.GetStringArg("code")
@@ -58,7 +58,7 @@ var EvalCmd = &cli.Command{
 
 		exitCode, err := client.ExecuteScriptContentStream(ctx, space.SpaceId, code, argv)
 		if err != nil {
-			return fmt.Errorf("error executing code: %w", err)
+			return fmt.Errorf("couldn't run the code in space %q: %w", cmd.GetStringArg("space-name"), err)
 		}
 		if exitCode != 0 {
 			os.Exit(exitCode)

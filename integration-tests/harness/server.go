@@ -40,6 +40,10 @@ type Server struct {
 	DataDir string
 	LogPath string
 
+	// database is the server's own database when the run uses PostgreSQL
+	// or MySQL.
+	database *testDatabase
+
 	cmd     *exec.Cmd
 	logFile *os.File
 	mu      sync.Mutex
@@ -160,11 +164,27 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 		"--agent-endpoint", fmt.Sprintf("%s:%d", containerHost, agentPort),
 		"--url", srv.ContainerBaseURL,
 		"--use-tls=false",
-		"--badgerdb-enabled",
-		"--badgerdb-path", filepath.Join(dataDir, "badger"),
 		"--zone", cfg.Zone,
 		"--enabled-backends", cfg.Runtime,
 		"--encrypt", hex.EncodeToString(encKey),
+	}
+	switch {
+	case cfg.PostgresDSN != "":
+		db, dbArgs, err := createPostgresDatabase(cfg.PostgresDSN, name)
+		if err != nil {
+			return nil, err
+		}
+		srv.database = db
+		args = append(args, dbArgs...)
+	case cfg.MySQLDSN != "":
+		db, dbArgs, err := createMySQLDatabase(cfg.MySQLDSN, name)
+		if err != nil {
+			return nil, err
+		}
+		srv.database = db
+		args = append(args, dbArgs...)
+	default:
+		args = append(args, "--badgerdb-enabled", "--badgerdb-path", filepath.Join(dataDir, "badger"))
 	}
 	if cfg.Registry() != "" {
 		args = append(args, "--base-image-registry", cfg.Registry())
@@ -313,9 +333,7 @@ func (s *Server) Kill() {
 		s.cmd.Process.Kill()
 		s.cmd.Wait()
 	}
-	if s.logFile != nil {
-		s.logFile.Close()
-	}
+	s.cleanup()
 }
 
 // LogTail returns the last n lines of the server log for diagnostics.
@@ -357,11 +375,20 @@ func (s *Server) Stop() {
 			<-done
 		}
 	}
+	s.cleanup()
+}
+
+// cleanup closes the log and, unless the run keeps them, removes the
+// server's data dir and database once its process has exited.
+func (s *Server) cleanup() {
 	if s.logFile != nil {
 		s.logFile.Close()
 	}
 	if !s.Config.Keep {
 		os.RemoveAll(s.DataDir)
+		if s.database != nil {
+			s.database.drop()
+		}
 	}
 }
 

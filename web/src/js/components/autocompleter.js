@@ -38,6 +38,10 @@ const autocompleterBase = () => ({
       e.preventDefault();
       this.selectOption(filtered[this.selectedIndex]);
     } else if (e.key === 'Escape') {
+      // Close just the suggestions: the dialog the field sits in listens for
+      // Escape on window and must not close too.
+      e.preventDefault();
+      e.stopPropagation();
       this.showList = false;
       this.selectedIndex = -1;
     }

@@ -276,6 +276,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
       this.contentValid = this.formData.content.length <= 4 * 1024 * 1024;
 
       if (!this.nameValid || !this.contentValid || !this.checkZonesValid()) {
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -336,27 +337,12 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            try {
-              const data = await response.json();
-              this.$dispatch("show-alert", {
-                msg: data.error || "Failed to save script",
-                type: "error",
-              });
-            } catch (e) {
-              const text = await response.text();
-              this.$dispatch("show-alert", {
-                msg: text || "Failed to save script",
-                type: "error",
-              });
-            }
+            window.knotError(this.isEdit ? "save the script" : "create the script", response);
           }
           this.loading = false;
         })
         .catch((err) => {
-          this.$dispatch("show-alert", {
-            msg: "Network error: " + err.message,
-            type: "error",
-          });
+          window.knotError(this.isEdit ? "save the script" : "create the script", err);
           this.loading = false;
         });
     },

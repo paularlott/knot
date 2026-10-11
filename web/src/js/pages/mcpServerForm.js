@@ -1,9 +1,14 @@
+import { focus } from "../focus.js";
+
 window.mcpServerForm = function (isEdit, serverId) {
   return {
     loading: true,
     isEdit: isEdit,
     serverId: serverId,
     transportType: "http",
+    namespaceValid: true,
+    urlValid: true,
+    commandValid: true,
     argsText: "",
     envText: "",
     formData: {
@@ -78,12 +83,31 @@ window.mcpServerForm = function (isEdit, serverId) {
       return args;
     },
 
+    checkNamespace() {
+      this.namespaceValid = (this.formData.namespace || "").trim().length > 0;
+      return this.namespaceValid;
+    },
+    checkUrl() {
+      this.urlValid = /^https?:\/\/\S+$/i.test((this.formData.url || "").trim());
+      return this.urlValid;
+    },
+    checkCommand() {
+      this.commandValid = (this.formData.command || "").trim().length > 0;
+      return this.commandValid;
+    },
+
     async submitData(continueEditing = false) {
-      if (!this.formData.namespace) {
-        this.$dispatch("show-alert", {
-          msg: "Namespace is required",
-          type: "error",
-        });
+      let err = !this.checkNamespace();
+      if (this.transportType === "stdio") {
+        this.urlValid = true;
+        err = !this.checkCommand() || err;
+      } else {
+        this.commandValid = true;
+        err = !this.checkUrl() || err;
+      }
+      if (err) {
+        window.knotToast("Some fields need attention.", "error");
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -100,13 +124,6 @@ window.mcpServerForm = function (isEdit, serverId) {
         submitData.command = "";
         submitData.args = [];
         submitData.env = [];
-        if (!submitData.url) {
-          this.$dispatch("show-alert", {
-            msg: "URL is required for HTTP transport",
-            type: "error",
-          });
-          return;
-        }
       }
 
       if (!continueEditing) {
@@ -147,27 +164,12 @@ window.mcpServerForm = function (isEdit, serverId) {
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            const text = await response.text();
-            try {
-              const errData = JSON.parse(text);
-              this.$dispatch("show-alert", {
-                msg: errData.error || "Failed to save MCP server",
-                type: "error",
-              });
-            } catch {
-              this.$dispatch("show-alert", {
-                msg: "Failed to save MCP server",
-                type: "error",
-              });
-            }
+            window.knotError(this.isEdit ? "save the MCP server" : "create the MCP server", response);
           }
           this.loading = false;
         })
         .catch((err) => {
-          this.$dispatch("show-alert", {
-            msg: "Network error: " + err.message,
-            type: "error",
-          });
+          window.knotError(this.isEdit ? "save the MCP server" : "create the MCP server", err);
           this.loading = false;
         });
     },

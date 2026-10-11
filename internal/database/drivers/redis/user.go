@@ -22,11 +22,6 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 	existingUser, _ := db.GetUser(user.Id)
 	if existingUser != nil {
 		newUser = false
-
-		// Don't allow username to be changed unless deleting the user
-		if !user.IsDeleted || (len(updateFields) > 0 && !util.InArray(updateFields, "IsDeleted")) {
-			user.Username = existingUser.Username
-		}
 	}
 
 	var oldProviders map[string]model.ExternalProvider
@@ -52,8 +47,9 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 		}
 	}
 
-	// Check if the new username is unique
-	if newUser {
+	// A changed username must be unique; the old one is released below
+	renamed := !newUser && !strings.EqualFold(existingUser.Username, user.Username) && (len(updateFields) == 0 || util.InArray(updateFields, "Username"))
+	if newUser || renamed {
 		exists, err := db.keyExists(fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username)))
 		if err != nil {
 			return err
@@ -189,7 +185,8 @@ func (db *RedisDbDriver) GetUserByEmail(email string) (*model.User, error) {
 func (db *RedisDbDriver) GetUserByUsername(name string) (*model.User, error) {
 	var user *model.User = nil
 
-	v, err := db.get(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, name))
+	// The index is keyed by the lowercased username, as usernames are unique regardless of case.
+	v, err := db.get(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(name)))
 	if err != nil {
 		if errors.Is(err, valkey.Nil) {
 			return nil, fmt.Errorf("user not found")

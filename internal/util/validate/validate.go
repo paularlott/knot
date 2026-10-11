@@ -28,6 +28,18 @@ func Username(name string) bool {
 	return re.MatchString(name) && !strings.Contains(name, "--") && !strings.Contains(name, "..")
 }
 
+// NewUsername is the stricter rule for creating a user: a valid username of
+// at most 30 characters ending in a letter or digit, so that
+// "<username>--<bucket>" file storage names stay within S3's 63 characters.
+// Existing usernames are only held to Username.
+func NewUsername(name string) bool {
+	if !Username(name) || len(name) > 30 {
+		return false
+	}
+	last := name[len(name)-1]
+	return last >= 'a' && last <= 'z' || last >= 'A' && last <= 'Z' || last >= '0' && last <= '9'
+}
+
 func VarName(name string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{1,63}$`)
 	return re.MatchString(name)

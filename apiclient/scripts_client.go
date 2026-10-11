@@ -44,7 +44,7 @@ func (c *ApiClient) GetScriptByName(ctx context.Context, name string) (string, e
 		return "", fmt.Errorf("%w: %s", ErrScriptNotFound, name)
 	}
 	if statusCode >= 400 {
-		return "", fmt.Errorf("unexpected status code: %d", statusCode)
+		return "", newStatusError(statusCode, "GET", "/api/scripts/name/"+name+"/script")
 	}
 	return content, nil
 }
@@ -91,7 +91,7 @@ func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, 
 		return "", fmt.Errorf("library not found: %s", name)
 	}
 	if statusCode >= 400 {
-		return "", fmt.Errorf("unexpected status code: %d", statusCode)
+		return "", newStatusError(statusCode, "GET", "/api/scripts/name/"+name+"/lib")
 	}
 	return content, nil
 }

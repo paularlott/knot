@@ -247,7 +247,9 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 	for _, fwd := range response.Forwards {
 		mode := fwd.Mode
 		if mode == "" {
-			mode = "relay"
+			// Older agents default an unused forward to relay; treat an
+			// empty mode as unknown rather than relay.
+			mode = "—"
 		}
 		forwards = append(forwards, apiclient.PortForwardInfo{
 			LocalPort:   fwd.LocalPort,

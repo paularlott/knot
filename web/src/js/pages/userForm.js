@@ -23,6 +23,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       compute_units: 0,
       storage_units: 0,
       max_tunnels: 0,
+      file_storage_mb: 0,
+      max_buckets: 0,
       roles: [],
       groups: [],
       totp_secret: "",
@@ -46,9 +48,9 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     computeUnitsValid: true,
     storageUnitsValid: true,
     maxTunnelsValid: true,
+    fileStorageValid: true,
+    maxBucketsValid: true,
     showTOTP: false,
-    resetConfirmShow: false,
-    unlinkConfirm: { show: false, providerID: '', providerName: '' },
     originalSSHPrivateKey: "",
 
     // Switch-group management (user manager only; see the Linked Users
@@ -59,7 +61,6 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
     linkableUsers: [],
     linkUserForm: { userId: "", username: "" },
     linkModal: { show: false },
-    linkedUnlinkConfirm: { show: false, userId: "", username: "" },
     linkBusy: false,
 
     async initUsers() {
@@ -104,6 +105,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           this.formData.compute_units = user.compute_units;
           this.formData.storage_units = user.storage_units;
           this.formData.max_tunnels = user.max_tunnels;
+          this.formData.file_storage_mb = user.file_storage_mb || 0;
+          this.formData.max_buckets = user.max_buckets || 0;
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
@@ -151,7 +154,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       }
     },
     checkUsername() {
-      this.usernameValid = validate.username(this.formData.username);
+      // Existing usernames keep the original rule; new ones the stricter.
+      this.usernameValid = isEdit ? validate.username(this.formData.username) : validate.newUsername(this.formData.username);
       return this.usernameValid;
     },
     checkEmail() {
@@ -159,7 +163,10 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       return this.emailValid;
     },
     checkPassword() {
-      this.passwordValid = validate.password(this.formData.password);
+      // When editing, a blank password keeps the current one.
+      this.passwordValid =
+        (isEdit && this.formData.password === "" && this.formData.password_confirm === "") ||
+        validate.password(this.formData.password);
       return this.passwordValid;
     },
     checkConfirmPassword() {
@@ -212,6 +219,22 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       );
       return this.maxTunnelsValid;
     },
+    checkFileStorage() {
+      this.fileStorageValid = validate.isNumber(
+        this.formData.file_storage_mb,
+        0,
+        4294967295,
+      );
+      return this.fileStorageValid;
+    },
+    checkMaxBuckets() {
+      this.maxBucketsValid = validate.isNumber(
+        this.formData.max_buckets,
+        0,
+        4294967295,
+      );
+      return this.maxBucketsValid;
+    },
     checkServicePassword() {
       this.servicePasswordValid = this.formData.service_password.length <= 255;
       return this.servicePasswordValid;
@@ -244,6 +267,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         err = !this.checkComputeUnits() || err;
         err = !this.checkStorageUnits() || err;
         err = !this.checkMaxTunnels() || err;
+        err = !this.checkFileStorage() || err;
+        err = !this.checkMaxBuckets() || err;
       }
       if (isProfile) {
         err = !this.checkServicePassword() || err;
@@ -253,6 +278,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       err = !this.checkTz() || err;
       err = !this.checkGithubUsername() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -270,6 +296,8 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         storage_units: parseInt(this.formData.storage_units),
         compute_units: parseInt(this.formData.compute_units),
         max_tunnels: parseInt(this.formData.max_tunnels),
+        file_storage_mb: parseInt(this.formData.file_storage_mb),
+        max_buckets: parseInt(this.formData.max_buckets),
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,
@@ -312,19 +340,11 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
                     if (keyResponse.status === 200) {
                       finishSuccess();
                     } else {
-                      keyResponse.json().then((d) => {
-                        self.$dispatch("show-alert", {
-                          msg: `Failed to update SSH private key, ${d.error}`,
-                          type: "error",
-                        });
-                      });
+                      window.knotError("save your SSH private key (the rest of your profile was saved)", keyResponse);
                     }
                   })
                   .catch((error) => {
-                    self.$dispatch("show-alert", {
-                      msg: `Error!<br />${error.message}`,
-                      type: "error",
-                    });
+                    window.knotError("save your SSH private key (the rest of your profile was saved)", error);
                   });
                 return;
               }
@@ -337,32 +357,39 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
             });
             self.$dispatch("close-user-form");
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `${isEdit ? "Failed to update user, " : "Failed to create user, "} ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isProfile ? "save your profile" : isEdit ? "save the user" : "create the user", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isProfile ? "save your profile" : isEdit ? "save the user" : "create the user", error);
         });
+    },
+    confirmResetTOTP() {
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Reset TOTP?',
+        message: 'The user will need to set up TOTP again on next login.',
+        confirmLabel: 'Reset',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.resetTOTP());
     },
     resetTOTP() {
       this.formData.totp_secret = "";
-      this.resetConfirmShow = false;
       this.submitData();
     },
     confirmUnlinkProvider(providerID, providerName) {
-      this.unlinkConfirm = { show: true, providerID, providerName };
+      const label = String(providerName || '');
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: `Unlink ${label.charAt(0).toUpperCase() + label.slice(1)}?`,
+        message: 'You will no longer be able to sign in with this account.',
+        confirmLabel: 'Unlink',
+        cancelLabel: 'Cancel',
+      }).then((ok) => ok && this.unlinkProvider(providerID));
     },
-    async unlinkProvider() {
-      const { providerID } = this.unlinkConfirm;
-      this.unlinkConfirm.show = false;
+    async unlinkProvider(providerID) {
       const resp = await fetch(`/api/users/${userId}/auth-provider/${providerID}`, { method: 'DELETE' });
       if (resp.ok) {
         delete this.formData.external_auth_providers[providerID];
@@ -370,8 +397,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         this._syncLinkableProviders();
         this.$dispatch('show-alert', { msg: 'Provider unlinked', type: 'success' });
       } else {
-        const d = await resp.json();
-        this.$dispatch('show-alert', { msg: d.error || 'Failed to unlink', type: 'error' });
+        window.knotError('unlink the sign-in provider', resp);
       }
     },
     _syncLinkableProviders() {
@@ -436,31 +462,27 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
           await this.refreshLinkedUsers();
           this.$dispatch("show-alert", { msg: "User linked", type: "success" });
         } else {
-          const d = await response.json();
-          this.$dispatch("show-alert", {
-            msg: `Failed to link user, ${d.error}`,
-            type: "error",
-          });
+          window.knotError("link the user", response);
         }
       } catch (e) {
-        this.$dispatch("show-alert", {
-          msg: `Error!<br />${e.message}`,
-          type: "error",
-        });
+        window.knotError("link the user", e);
       } finally {
         this.linkBusy = false;
       }
     },
     confirmUnlinkLinkedUser(linkedUserId, linkedUsername) {
-      this.linkedUnlinkConfirm = {
-        show: true,
-        userId: linkedUserId,
-        username: linkedUsername,
-      };
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Unlink User',
+        message: `Stop ${this.formData.username} becoming {name}?`,
+        name: linkedUsername,
+        detail: 'This user will no longer be able to switch into that account; the other account is unaffected.',
+        confirmLabel: 'Unlink User',
+        cancelLabel: 'Keep Linked',
+      }).then((ok) => ok && this.unlinkLinkedUser(linkedUserId));
     },
-    async unlinkLinkedUser() {
-      const { userId: linkedUserId } = this.linkedUnlinkConfirm;
-      this.linkedUnlinkConfirm.show = false;
+    async unlinkLinkedUser(linkedUserId) {
       const response = await fetch(
         `/api/users/${userId}/linked-users/${linkedUserId}`,
         { method: "DELETE", headers: { "Content-Type": "application/json" } },
@@ -469,11 +491,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         await this.refreshLinkedUsers();
         this.$dispatch("show-alert", { msg: "User unlinked", type: "success" });
       } else {
-        const d = await response.json();
-        this.$dispatch("show-alert", {
-          msg: `Failed to unlink user, ${d.error}`,
-          type: "error",
-        });
+        window.knotError("unlink the user", response);
       }
     },
   };

@@ -35,15 +35,24 @@ func validateTomlConfig(probe map[string]interface{}) []string {
 		return v
 	}
 
-	// Redis alongside badger or mysql is session storage, not the primary
-	// backend, so it only counts as the primary when nothing else is enabled.
+	// Redis alongside badger, mysql or postgres is session storage, not the
+	// primary backend, so it only counts as the primary when nothing else is
+	// enabled.
 	badger := boolOf("server.badgerdb", "enabled")
 	mysql := boolOf("server.mysql", "enabled")
+	postgres := boolOf("server.postgres", "enabled")
 	redis := boolOf("server.redis", "enabled")
 
+	primaries := 0
+	for _, on := range []bool{badger, mysql, postgres} {
+		if on {
+			primaries++
+		}
+	}
+
 	switch {
-	case badger && mysql:
-		errs = append(errs, "multiple database backends enabled — pick exactly one of badgerdb, mysql, redis")
+	case primaries > 1:
+		errs = append(errs, "multiple database backends enabled — pick exactly one of badgerdb, mysql, postgres, redis")
 	case badger:
 		if str2(probe, "server.badgerdb", "path") == "" {
 			errs = append(errs, "[server.badgerdb] path is required")
@@ -54,12 +63,18 @@ func validateTomlConfig(probe map[string]interface{}) []string {
 				errs = append(errs, "[server.mysql] "+key+" is required")
 			}
 		}
+	case postgres:
+		for _, key := range []string{"host", "user", "password", "database"} {
+			if str2(probe, "server.postgres", key) == "" {
+				errs = append(errs, "[server.postgres] "+key+" is required")
+			}
+		}
 	case redis:
 		if len(listOf(probe, "server.redis", "hosts")) == 0 {
 			errs = append(errs, "[server.redis] hosts is required")
 		}
 	default:
-		errs = append(errs, "no database backend enabled (one of [server.badgerdb], [server.mysql], [server.redis] is required)")
+		errs = append(errs, "no database backend enabled (one of [server.badgerdb], [server.mysql], [server.postgres], [server.redis] is required)")
 	}
 
 	return errs

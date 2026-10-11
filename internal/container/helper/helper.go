@@ -21,6 +21,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spaceutil"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/startlog"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -169,6 +170,7 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 		transport.GossipSpace(space)
 	}
 	sse.PublishSpaceChanged(space.Id, space.UserId)
+	startlog.Begin(space.Id, "Starting %s", space.Name)
 
 	// Revert the pending status if the deploy fails
 	var deployFailed = true
@@ -197,20 +199,25 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 	containerClient, err := h.createClient(template.Platform)
 	if err != nil {
 		log.WithError(err).Error("StartSpace: failed to create container client")
+		startlog.Error(space.Id, "Couldn't connect to the %s runtime: %v", template.Platform, err)
 		return err
 	}
 
 	// Create volumes
+	startlog.Info(space.Id, "Preparing volumes")
 	err = containerClient.CreateSpaceVolumes(user, template, space, vars)
 	if err != nil {
 		log.WithError(err).Error("StartSpace")
+		startlog.Error(space.Id, "Couldn't prepare the volumes: %v", err)
 		return err
 	}
 
 	// Start the job
+	startlog.Info(space.Id, "Deploying the space")
 	err = containerClient.CreateSpaceJob(user, template, space, vars)
 	if err != nil {
 		log.WithError(err).Error("StartSpace")
+		startlog.Error(space.Id, "Couldn't deploy the space: %v", err)
 		return err
 	}
 

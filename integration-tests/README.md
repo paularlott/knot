@@ -28,6 +28,8 @@ Copy `.env.example` to `.env`. The knobs:
 | `KNOT_TEST_DOCKER_CACHE` | registry-cache prefix (default `hub.anaconda.ovh/docker`; falls back to docker hub when the cache is unreachable; empty = docker hub direct) |
 | `KNOT_TEST_CONTAINER_HOST` | host address as seen from inside containers |
 | `KNOT_TEST_ZONE` | zone name for test servers |
+| `KNOT_TEST_POSTGRES` | DSN of a PostgreSQL server; when set, every server runs on its own fresh database there instead of BadgerDB |
+| `KNOT_TEST_MYSQL` | the same for MySQL or MariaDB, e.g. `mysql://root:secret@127.0.0.1:3306` |
 | `KNOT_TEST_KEEP` | `1` = keep servers/data dirs for debugging |
 | `KNOT_TEST_VERBOSE_SERVER` | `1` = stream server logs into the test output |
 | `KNOT_TEST_NO_BUILD` | `1` = skip `task build`, use existing `bin/knot` |

@@ -47,16 +47,7 @@ var JobsRunCmd = &cli.Command{
 
 		response, code, err := client.RunJob(ctx, spaceId, request)
 		if err != nil {
-			if code == 401 {
-				return fmt.Errorf("failed to authenticate with server, check token")
-			} else if code == 403 {
-				return fmt.Errorf("no permission to run commands")
-			} else if code == 404 {
-				return fmt.Errorf("space not found")
-			} else if code == 409 {
-				return fmt.Errorf("space is not running")
-			}
-			return fmt.Errorf("failed to run job: %w", err)
+			return spaceApiError(code, err, "run the job", spaceName)
 		}
 		if !response.Success {
 			return fmt.Errorf("failed to run job: %s", response.Error)

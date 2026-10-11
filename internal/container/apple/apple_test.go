@@ -137,3 +137,31 @@ func TestIsIgnorableAppleCleanupOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAppleRunningRefs(t *testing.T) {
+	// container CLI 1.1+ (verified on 1.5): status is an object.
+	current := `[{"configuration":{"id":"web","image":{"reference":"docker.io/x:1"}},"id":"web","status":{"networks":[],"startedDate":"2026-10-03T08:33:13Z","state":"running"}},` +
+		`{"configuration":{"id":"old"},"id":"old","status":{"state":"stopped"}}]`
+	refs := parseAppleRunningRefs([]byte(current))
+	if !refs["web"] || refs["old"] || len(refs) != 1 {
+		t.Fatalf("CLI 1.1+ output: got %v, want only web", refs)
+	}
+
+	// Earlier CLIs: status is a plain string.
+	legacy := `[{"configuration":{"id":"db"},"status":"running"},{"configuration":{"id":"x"},"status":"stopped"}]`
+	refs = parseAppleRunningRefs([]byte(legacy))
+	if !refs["db"] || len(refs) != 1 {
+		t.Fatalf("legacy output: got %v, want only db", refs)
+	}
+
+	// One object per line.
+	lines := "{\"configuration\":{\"id\":\"a\"},\"status\":{\"state\":\"running\"}}\n{\"configuration\":{\"id\":\"b\"},\"status\":\"running\"}\n"
+	refs = parseAppleRunningRefs([]byte(lines))
+	if !refs["a"] || !refs["b"] || len(refs) != 2 {
+		t.Fatalf("line output: got %v, want a and b", refs)
+	}
+
+	if refs := parseAppleRunningRefs([]byte("[]")); len(refs) != 0 {
+		t.Fatalf("empty: got %v", refs)
+	}
+}

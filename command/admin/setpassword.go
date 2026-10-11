@@ -34,7 +34,7 @@ var SetPasswordCmd = &cli.Command{
 		fmt.Printf("Enter the new password: ")
 		password, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
-			return fmt.Errorf("Failed to read password: %w", err)
+			return fmt.Errorf("couldn't read the password: %w", err)
 		}
 		fmt.Println()
 
@@ -44,7 +44,7 @@ var SetPasswordCmd = &cli.Command{
 		// Load the user
 		user, err := db.GetUserByEmail(email)
 		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
+			return fmt.Errorf("couldn't find user %q: %w", email, err)
 		}
 
 		// Set the new password
@@ -54,7 +54,7 @@ var SetPasswordCmd = &cli.Command{
 		// Save the user
 		err = db.SaveUser(user, []string{"Password", "UpdatedAt"})
 		if err != nil {
-			return fmt.Errorf("Error saving user: %w", err)
+			return fmt.Errorf("couldn't save user %q: %w", email, err)
 		}
 
 		fmt.Print("\nPassword set\n")

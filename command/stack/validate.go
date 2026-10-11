@@ -24,20 +24,17 @@ var ValidateCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		req, err := loadStackDef(ctx, cmd.GetStringArg("file"), client)
 		if err != nil {
-			fmt.Println("Error reading definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't read the stack definition: %w", err)
 		}
 
 		result, _, err := client.ValidateStackDefinition(ctx, req)
 		if err != nil {
-			fmt.Println("Error validating definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't validate the stack definition: %w", err)
 		}
 
 		if result.Valid {

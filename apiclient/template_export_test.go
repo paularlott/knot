@@ -254,3 +254,39 @@ func containsStr(s, substr string) bool {
 	}
 	return false
 }
+
+// Required, options and show_on_create survive an export and re-import;
+// older exports without them import with them unset.
+func TestTemplateExportCustomFieldFlags(t *testing.T) {
+	d := &TemplateDetails{CustomFields: []CustomFieldDef{
+		{Name: "region", Type: "select", Options: []string{"eu", "us"}, Required: true},
+		{Name: "branch", Default: "main", ShowOnCreate: true},
+		{Name: "seed"},
+	}}
+	out, err := yaml.Marshal(ExportFromDetails(d))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back TemplateExport
+	if err := yaml.Unmarshal(out, &back); err != nil {
+		t.Fatal(err)
+	}
+	got := defaultCustomFields(back.CustomFields)
+	if !got[0].Required || len(got[0].Options) != 2 || got[0].ShowOnCreate {
+		t.Errorf("region lost its flags: %+v", got[0])
+	}
+	if !got[1].ShowOnCreate || got[1].Required {
+		t.Errorf("branch lost show_on_create: %+v", got[1])
+	}
+	if got[2].ShowOnCreate || got[2].Required {
+		t.Errorf("seed gained flags: %+v", got[2])
+	}
+
+	var old TemplateExport
+	if err := yaml.Unmarshal([]byte("name: t\ncustom_fields:\n  - name: legacy\n    default: x\n"), &old); err != nil {
+		t.Fatal(err)
+	}
+	if f := defaultCustomFields(old.CustomFields)[0]; f.Required || f.ShowOnCreate || f.Options != nil {
+		t.Errorf("legacy export gained flags: %+v", f)
+	}
+}

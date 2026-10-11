@@ -1,0 +1,41 @@
+{{ define "usage-meters" }}
+<!-- Resource usage against quota, one meter row per resource (usageComponent). -->
+<ul class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 divide-y divide-gray-100 dark:divide-gray-700 lg:divide-y-0" aria-label="Resource usage">
+  <template x-for="m in meters" :key="m.key">
+    <li class="py-3">
+      <div class="flex items-baseline justify-between gap-3">
+        <span :id="'usage-meter-' + m.key" class="text-sm font-medium text-gray-900 dark:text-white" x-text="m.label"></span>
+        <span class="text-sm text-gray-600 dark:text-gray-300 tabular-nums text-right" x-text="m.text"></span>
+      </div>
+
+      <div x-show="m.state !== 'unlimited'"
+           class="mt-2 flex h-2 w-full gap-0.5 rounded-full overflow-hidden"
+           :class="m.state === 'full' ? 'bg-red-100 dark:bg-red-900/50' : (m.state === 'warn' ? 'bg-amber-100 dark:bg-amber-900/50' : 'bg-blue-100 dark:bg-blue-900/50')"
+           role="meter" aria-valuemin="0" :aria-valuenow="m.used" :aria-valuemax="m.limit" :aria-valuetext="m.valueText"
+           :aria-labelledby="'usage-meter-' + m.key" :title="m.valueText">
+        <template x-for="(seg, i) in m.segments" :key="i">
+          <div x-show="seg.percent > 0" class="h-full rounded-full" :class="seg.cls" :style="`width: ${seg.percent}%`"></div>
+        </template>
+      </div>
+
+      <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+        <span x-show="m.state === 'unlimited'">No limit</span>
+        <span x-show="m.state === 'warn'" class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5" aria-hidden="true"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>
+          Near limit
+        </span>
+        <span x-show="m.state === 'full'" class="inline-flex items-center gap-1 text-red-700 dark:text-red-400">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>
+          At limit
+        </span>
+        <template x-for="(l, i) in m.legend" :key="'l' + i">
+          <span class="inline-flex items-center gap-1.5">
+            <span class="inline-block size-2.5 rounded-sm" :class="l.cls" aria-hidden="true"></span>
+            <span x-text="l.label"></span>
+          </span>
+        </template>
+      </div>
+    </li>
+  </template>
+</ul>
+{{ end }}

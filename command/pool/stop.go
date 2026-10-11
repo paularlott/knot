@@ -26,12 +26,12 @@ var StopCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
-		code, err := client.StopPool(context.Background(), poolName)
+		_, err = client.StopPool(context.Background(), poolName)
 		if err != nil {
-			return fmt.Errorf("Error stopping pool: %w (code %d)", err, code)
+			return fmt.Errorf("couldn't stop pool %q: %w", poolName, err)
 		}
 
 		fmt.Println("Pool stopped:", poolName)

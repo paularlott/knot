@@ -81,6 +81,18 @@ const (
 	AuditEventVolumeUpdate = "Volume Update"
 	AuditEventVolumeDelete = "Volume Delete"
 
+	// File storage buckets
+	AuditEventBucketCreate   = "Bucket Create"
+	AuditEventBucketDelete   = "Bucket Delete"
+	AuditEventBucketShare    = "Bucket Share"
+	AuditEventBucketUnshare  = "Bucket Unshare"
+	AuditEventBucketTransfer = "Bucket Transfer"
+	AuditEventBucketRename   = "Bucket Rename"
+
+	// Backup and restore
+	AuditEventBackup  = "Backup"
+	AuditEventRestore = "Restore"
+
 	// Scripts
 	AuditEventScriptCreate  = "Script Create"
 	AuditEventScriptUpdate  = "Script Update"

@@ -149,20 +149,30 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					ctx = context.WithValue(ctx, "space_id", spaceId)
 				} else {
 					// Regular API token
-					token, _ := db.GetToken(bearer)
+					token, err := db.GetToken(bearer)
 					if token == nil || token.IsDeleted {
+						// A database that cannot answer is not a bad token: say so,
+						// so clients retry rather than give up their credentials.
+						if err != nil && !tokenNotFound(err) {
+							logger.Error("failed to look up token", "error", err)
+							rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "Authentication is temporarily unavailable"})
+							return
+						}
 						returnUnauthorized(w, r)
 						return
 					}
 
 					userId = token.UserId
 
-					// Save the token to extend its life
-					expiresAfter := time.Now().Add(model.MaxTokenAge)
-					token.ExpiresAfter = expiresAfter.UTC()
-					token.UpdatedAt = hlc.Now()
-					db.SaveToken(token)
-					service.GetTransport().GossipToken(token)
+					// Extend the token's life. A busy client makes thousands of
+					// requests a second, so it is saved, and gossiped, only when
+					// the expiry is an hour behind where it would be.
+					if tokenNeedsExtending(token, time.Now()) {
+						token.ExpiresAfter = time.Now().Add(model.MaxTokenAge).UTC()
+						token.UpdatedAt = hlc.Now()
+						db.SaveToken(token)
+						service.GetTransport().GossipToken(token)
+					}
 
 					// Add the token to the context
 					ctx = context.WithValue(r.Context(), "access_token", token)
@@ -451,6 +461,54 @@ func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// tokenNotFound reports whether an error from looking a token up means there
+// is no such token, as opposed to the database failing.
+func tokenNotFound(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not found") || strings.Contains(msg, "no rows") ||
+		msg == "nil" || strings.HasSuffix(msg, ": nil") || strings.Contains(msg, "nil message")
+}
+
+// tokenExtendInterval is how far a token's expiry may fall behind before a
+// request extends it again.
+const tokenExtendInterval = time.Hour
+
+// tokenNeedsExtending reports whether a request using token should push its
+// expiry out again: not on every request, which would write to the database and
+// gossip to the cluster for each one.
+func tokenNeedsExtending(token *model.Token, now time.Time) bool {
+	return token.ExpiresAfter.Before(now.Add(model.MaxTokenAge - tokenExtendInterval))
+}
+
+// ApiPermissionBackup requires the Backup Server permission. A server with no
+// users has no one to hold it: its first user is created first, and takes the
+// Backup User role, so backing up and restoring both start from a token.
+func ApiPermissionBackup(next http.HandlerFunc) http.HandlerFunc {
+	return backupPermission(next, "No permission to back up the server")
+}
+
+// ApiPermissionRestore requires the Backup Server permission, as a backup does.
+// There is no open window for a server with no users: restoring into a new
+// server starts by creating its first user, whose token does the restore.
+func ApiPermissionRestore(next http.HandlerFunc) http.HandlerFunc {
+	return backupPermission(next, "No permission to restore the server")
+}
+
+func backupPermission(next http.HandlerFunc, denied string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !HasUsers {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "The server has no users: create the first user, then use its token"})
+			return
+		}
+		user, _ := r.Context().Value("user").(*model.User)
+		if user == nil || !user.HasPermission(model.PermissionBackup) {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: denied})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func ApiPermissionManageMCPServers(next http.HandlerFunc) http.HandlerFunc {
 	cfg := config.GetServerConfig()
 	if cfg.LeafNode {
@@ -488,6 +546,8 @@ var tokenScopeAllowedPaths = map[string][]string{
 	model.ScopeMethods: {"/api/methods"},
 	model.ScopeMCP:     {"/mcp"},
 	model.ScopeTunnels: {"/tunnel/", "/api/tunnels"},
+	model.ScopeFiles:   {"/api/files"},
+	model.ScopeBackup:  {"/api/backup", "/api/restore"},
 }
 
 // tokenScopeBaselinePaths are the endpoints every scoped token can reach

@@ -26,18 +26,18 @@ var StartCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("Failed to create API client: %w", err)
+			return err
 		}
 
 		// Start the space (API supports both name and ID)
 		code, err := client.StartSpace(context.Background(), spaceName)
 		if err != nil {
 			if code == 503 {
-				return fmt.Errorf("Cannot start space as outside of schedule")
+				return fmt.Errorf("couldn't start space %q: it is outside its schedule", spaceName)
 			} else if code == 507 {
-				return fmt.Errorf("Cannot start space as resource quota exceeded")
+				return fmt.Errorf("couldn't start space %q: it would exceed your resource quota; stop another space first", spaceName)
 			} else {
-				return fmt.Errorf("Error starting space: %w", err)
+				return fmt.Errorf("couldn't start space %q: %w", spaceName, err)
 			}
 		}
 

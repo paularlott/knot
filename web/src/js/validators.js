@@ -20,6 +20,12 @@ export const validate = {
     return re.test(name) && !/--/.test(name) && !/\.\./.test(name);
   },
 
+  // newUsername is the stricter rule for creating a user: at most 30
+  // characters, ending in a letter or digit (matches validate.NewUsername).
+  newUsername(name) {
+    return this.username(name) && name.length <= 30 && /[a-zA-Z0-9]$/.test(name);
+  },
+
   templateName(name) {
     return name.length <= 64 && name.length >= 2;
   },

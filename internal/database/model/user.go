@@ -44,6 +44,8 @@ type User struct {
 	ComputeUnits   uint32         `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
 	StorageUnits   uint32         `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
 	MaxTunnels     uint32         `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB  uint32         `json:"file_storage_mb" db:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets     uint32         `json:"max_buckets" db:"max_buckets" msgpack:"max_buckets"`
 	PreferredShell string         `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
 	Timezone       string         `json:"timezone" db:"timezone" msgpack:"timezone"`
 	Preferences    map[string]any `json:"preferences" db:"preferences,json" msgpack:"preferences"`
@@ -61,10 +63,12 @@ type Usage struct {
 }
 
 type Quota struct {
-	ComputeUnits uint32
-	StorageUnits uint32
-	MaxSpaces    uint32
-	MaxTunnels   uint32
+	ComputeUnits  uint32
+	StorageUnits  uint32
+	MaxSpaces     uint32
+	MaxTunnels    uint32
+	FileStorageMB uint32
+	MaxBuckets    uint32
 }
 
 func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string, maxSpaces uint32, githubUsername string, computeUnits uint32, storageUnits uint32, maxTunnels uint32) *User {

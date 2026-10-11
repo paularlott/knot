@@ -98,6 +98,10 @@ func (c *Cluster) mergeTokens(tokens []*model.Token) error {
 
 	// Merge the tokens
 	for _, token := range tokens {
+		// With a shared database the change may already be stored, so is
+		// never saved here; drop this server's cached copy either way.
+		database.TokensChanged(token.UserId)
+
 		if localToken, ok := localTokensMap[token.Id]; ok {
 			// If the remote token is newer than the local token then use it's data
 			if token.UpdatedAt.After(localToken.UpdatedAt) {

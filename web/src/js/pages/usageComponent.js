@@ -1,314 +1,98 @@
-import Chart from 'chart.js/auto';
+// Resource usage against quota, shown as one meter row per resource: the
+// label, a bar filled to the share of the limit and the exact figures. A
+// resource without a limit shows its figure and "No limit" instead of a bar.
 
-function initSpacesChart(ident, textColor) {
-  // Create the space usage chart
-  const chartConfig = {
-    type: 'doughnut',
-    data: {
-      labels: ['Running', 'Stopped', 'Available'],
-      datasets: [
-        {
-          data: [ 0, 0, 0 ],
-          backgroundColor: [
-            '#3b82f6', // Tailwind blue-500
-            '#8b5cf6', // Tailwind purple-500
-            '#94a3b8' // Tailwind slate-400
-          ],
-          hoverOffset: 4,
-        },
-        // Background dataset (will show when main dataset is all zeros)
-        {
-          data: [ 1, 1 ],
-          backgroundColor: ['#e2e8f0'], // Tailwind slate-200
-          borderWidth: 0,
-          hoverOffset: 0,
-          weight: 0.1, // Make this less visually dominant
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: textColor,
-          },
-        },
-        title: {
-          display: true,
-          text: 'Space Usage',
-          color: textColor,
-          font: { size: 16, weight: 'normal', },
-        },
-        tooltip: {
-          filter(tooltipItem) {
-            // Only show tooltips for the main dataset (index 0)
-            return tooltipItem.datasetIndex === 0;
-          }
-        },
-      }
-    },
-  };
+const WARN_AT = 0.8;
 
-  const chart = new Chart(
-    ident,
-    chartConfig
-  );
-
-  return chart;
+function formatMB(mb) {
+  if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
+  if (mb > 0 && mb < 0.1) return '< 0.1 MB';
+  return (Math.round(mb * 10) / 10) + ' MB';
 }
 
-function initTunnelChart(ident, textColor) {
-  // Create the tunnel usage chart
-  const chartConfig = {
-    type: 'doughnut',
-    data: {
-      labels: ['Used', 'Available'],
-      datasets: [
-        {
-          data: [ 0, 0 ],
-          backgroundColor: [
-            '#3b82f6', // Tailwind blue-500
-            '#94a3b8' // Tailwind slate-400
-          ],
-          hoverOffset: 4,
-        },
-        // Background dataset (will show when main dataset is all zeros)
-        {
-          data: [ 1, 1 ],
-          backgroundColor: ['#e2e8f0'], // Tailwind slate-200
-          borderWidth: 0,
-          hoverOffset: 0,
-          weight: 0.1, // Make this less visually dominant
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: textColor,
-          },
-        },
-        title: {
-          display: true,
-          text: 'Tunnel Usage',
-          color: textColor,
-          font: { size: 16, weight: 'normal', },
-        },
-        tooltip: {
-          filter(tooltipItem) {
-            // Only show tooltips for the main dataset (index 0)
-            return tooltipItem.datasetIndex === 0;
-          }
-        },
-      }
-    },
-  };
-
-  const chart = new Chart(
-    ident,
-    chartConfig
-  );
-
-  return chart;
+function fillClass(state) {
+  return state === 'full' ? 'bg-red-600' : (state === 'warn' ? 'bg-amber-500' : 'bg-blue-600');
 }
 
-function initComputeChart(ident, textColor) {
-  // Create the compute usage chart
-  const chartConfig = {
-    type: 'doughnut',
-    data: {
-      labels: ['Used', 'Available'],
-      datasets: [
-        {
-          data: [ 0, 0 ],
-          backgroundColor: [
-            '#3b82f6', // Tailwind blue-500
-            '#94a3b8' // Tailwind slate-400
-          ],
-          hoverOffset: 4,
-        },
-        // Background dataset (will show when main dataset is all zeros)
-        {
-          data: [ 1, 1 ],
-          backgroundColor: ['#e2e8f0'], // Tailwind slate-200
-          borderWidth: 0,
-          hoverOffset: 0,
-          weight: 0.1, // Make this less visually dominant
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: textColor,
-          },
-        },
-        title: {
-          display: true,
-          text: 'Compute Usage',
-          color: textColor,
-          font: { size: 16, weight: 'normal', },
-        },
-        tooltip: {
-          filter(tooltipItem) {
-            // Only show tooltips for the main dataset (index 0)
-            return tooltipItem.datasetIndex === 0;
-          }
-        },
-      }
-    },
-  };
-
-  const chart = new Chart(
-    ident,
-    chartConfig
-  );
-
-  return chart;
+// meter builds a row. used and limit are numbers; fmt renders a value.
+function meter(key, label, used, limit, fmt = (v) => String(v)) {
+  const row = { key, label, used, limit, segments: [], legend: [] };
+  if (limit > 0) {
+    const ratio = used / limit;
+    row.percent = Math.min(100, Math.round(ratio * 100));
+    row.state = ratio >= 1 ? 'full' : (ratio >= WARN_AT ? 'warn' : 'ok');
+    row.text = `${fmt(used)} of ${fmt(limit)}`;
+    row.valueText = `${fmt(used)} of ${fmt(limit)} used, ${row.percent}%` +
+      (row.state === 'full' ? ', at limit' : (row.state === 'warn' ? ', near limit' : ''));
+    row.segments = [{ percent: row.percent, cls: fillClass(row.state) }];
+  } else {
+    row.state = 'unlimited';
+    row.text = `${fmt(used)} used`;
+    row.valueText = `${fmt(used)} used, no limit`;
+  }
+  return row;
 }
 
-function initStorageChart(ident, textColor) {
-  // Create the storage usage chart
-  const chartConfig = {
-    type: 'doughnut',
-    data: {
-      labels: ['Used', 'Available'],
-      datasets: [
-        {
-          data: [ 0, 0 ],
-          backgroundColor: [
-            '#3b82f6', // Tailwind blue-500
-            '#94a3b8' // Tailwind slate-400
-          ],
-          hoverOffset: 4,
-        },
-        // Background dataset (will show when main dataset is all zeros)
-        {
-          data: [ 1, 1 ],
-          backgroundColor: ['#e2e8f0'], // Tailwind slate-200
-          borderWidth: 0,
-          hoverOffset: 0,
-          weight: 0.1, // Make this less visually dominant
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: textColor,
-          },
-        },
-        title: {
-          display: true,
-          text: 'Storage Usage',
-          color: textColor,
-          font: { size: 16, weight: 'normal', },
-        },
-        tooltip: {
-          filter(tooltipItem) {
-            // Only show tooltips for the main dataset (index 0)
-            return tooltipItem.datasetIndex === 0;
-          }
-        },
-      }
-    },
-  };
-
-  const chart = new Chart(
-    ident,
-    chartConfig
-  );
-
-  return chart;
-}
-
-window.usageComponent = function(userId) {
-  let spacesChart = null,
-      tunnelsChart = null,
-      computeChart = null,
-      storageChart = null;
-
+window.usageComponent = function(userId, filesEnabled = false) {
   return {
     loading: true,
-    quota: {
-      max_spaces: 0,
-      compute_units: 0,
-      storage_units: 0,
-      number_spaces: 0,
-      max_tunnels: 0,
-      number_spaces_deployed: 0,
-      used_compute_units: 0,
-      used_storage_units: 0,
-      used_tunnels: 0,
+    quota: null,
+
+    get meters() {
+      const q = this.quota;
+      if (!q) return [];
+
+      // Spaces split into running and stopped within the one bar.
+      const total = q.number_spaces || 0;
+      const running = q.number_spaces_deployed || 0;
+      const stopped = total - running;
+      const spaces = meter('spaces', 'Spaces', total, q.max_spaces || 0);
+      if (spaces.state !== 'unlimited') {
+        const runPct = Math.min(100, (running / q.max_spaces) * 100);
+        const stopPct = Math.min(100 - runPct, (stopped / q.max_spaces) * 100);
+        const light = spaces.state === 'full' ? 'bg-red-300 dark:bg-red-800'
+          : (spaces.state === 'warn' ? 'bg-amber-300 dark:bg-amber-700' : 'bg-blue-300 dark:bg-blue-800');
+        spaces.segments = [
+          { percent: runPct, cls: fillClass(spaces.state) },
+          { percent: stopPct, cls: light },
+        ];
+        spaces.legend = [
+          { label: `Running ${running}`, cls: spaces.segments[0].cls },
+          { label: `Stopped ${stopped}`, cls: light },
+        ];
+      }
+      spaces.valueText += `, ${running} running, ${stopped} stopped`;
+      if (spaces.state === 'unlimited' && total > 0) {
+        spaces.text += ` (${running} running)`;
+      }
+
+      const rows = [
+        spaces,
+        meter('compute', 'Compute', q.used_compute_units || 0, q.compute_units || 0),
+        meter('storage', 'Storage', q.used_storage_units || 0, q.storage_units || 0),
+        meter('tunnels', 'Tunnels', q.used_tunnels || 0, q.max_tunnels || 0),
+      ];
+      if (filesEnabled) {
+        rows.push(meter('files', 'File Storage', q.used_file_storage_mb || 0, q.file_storage_mb || 0, formatMB));
+        rows.push(meter('buckets', 'Buckets', q.used_buckets || 0, q.max_buckets || 0));
+      }
+      return rows;
     },
 
-    get darkMode() {
-      return document.documentElement.classList.contains('dark');
-    },
+    unsubscribers: [],
 
     destroy() {
-      if (spacesChart) { spacesChart.destroy(); spacesChart = null; }
-      if (tunnelsChart) { tunnelsChart.destroy(); tunnelsChart = null; }
-      if (computeChart) { computeChart.destroy(); computeChart = null; }
-      if (storageChart) { storageChart.destroy(); storageChart = null; }
+      this.unsubscribers.forEach((off) => off());
+      this.unsubscribers = [];
     },
 
     async init() {
-      // Initialize the graphs
-      const textColor = this.darkMode ? '#9ca3af' : '#6b7280'; // dark:text-gray-400 : text-gray-500
-
-      spacesChart = initSpacesChart(this.$refs.spacesChart, textColor);
-      tunnelsChart = initTunnelChart(this.$refs.tunnelsChart, textColor);
-      computeChart = initComputeChart(this.$refs.computeChart, textColor);
-      storageChart = initStorageChart(this.$refs.storageChart, textColor);
-
-      // Track the theme and adjust the label colors
-      window.addEventListener('theme-change', (e) => {
-        const col = e.detail.dark_theme ? '#9ca3af' : '#6b7280'; // dark:text-gray-400 : text-gray-500
-
-        spacesChart.options.plugins.legend.labels.color = col;
-        spacesChart.options.plugins.title.color = col;
-        spacesChart.update();
-
-        tunnelsChart.options.plugins.legend.labels.color = col;
-        tunnelsChart.options.plugins.title.color = col;
-        tunnelsChart.update();
-
-        computeChart.options.plugins.legend.labels.color = col;
-        computeChart.options.plugins.title.color = col;
-        computeChart.update();
-
-        storageChart.options.plugins.legend.labels.color = col;
-        storageChart.options.plugins.title.color = col;
-        storageChart.update();
-      });
-
       await this.getUsage();
 
       // Subscribe to SSE for real-time updates when spaces change
       if (window.sseClient) {
-        window.sseClient.subscribe('space:changed', () => {
-          this.getUsage();
-        });
-
-        window.sseClient.subscribe('space:deleted', () => {
-          this.getUsage();
-        });
+        this.unsubscribers = ['space:changed', 'space:deleted'].map((event) =>
+          window.sseClient.subscribe(event, () => this.getUsage()));
       }
     },
 
@@ -323,43 +107,6 @@ window.usageComponent = function(userId) {
           response.json().then((quota) => {
             self.quota = quota;
             self.loading = false;
-
-            if (spacesChart) {
-              spacesChart.data.datasets[0].data = [
-                self.quota.number_spaces_deployed,
-                self.quota.number_spaces - self.quota.number_spaces_deployed,
-                Math.max(0, self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : 0)
-              ];
-              spacesChart.data.labels = [`Running ${self.quota.number_spaces_deployed}`, `Stopped ${self.quota.number_spaces - self.quota.number_spaces_deployed}`, `Available ${self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : '-'}`];
-              spacesChart.update();
-            }
-
-            if (tunnelsChart) {
-              tunnelsChart.data.datasets[0].data = [
-                self.quota.used_tunnels,
-                Math.max(0, self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : 0)
-              ];
-              tunnelsChart.data.labels = [`Used ${self.quota.used_tunnels}`, `Available ${self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : '-'}`];
-              tunnelsChart.update();
-            }
-
-            if (computeChart) {
-              computeChart.data.datasets[0].data = [
-                self.quota.used_compute_units,
-                Math.max(0, self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : 0)
-              ];
-              computeChart.data.labels = [`Used ${self.quota.used_compute_units}`, `Available ${self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : '-'}`];
-              computeChart.update();
-            }
-
-            if (storageChart) {
-              storageChart.data.datasets[0].data = [
-                self.quota.used_storage_units,
-                Math.max(0, self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : 0)
-              ];
-              storageChart.data.labels = [`Used ${self.quota.used_storage_units}`, `Available ${self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : '-'}`];
-              storageChart.update();
-            }
           });
         } else if (response.status === 401) {
           window.location.href = '/logout';

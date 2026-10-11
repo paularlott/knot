@@ -10,28 +10,31 @@ import (
 )
 
 type ServerConfig struct {
-	Listen             string
-	ListenAgent        string
-	URL                string
-	AgentEndpoint      string
-	WildcardDomain     string
-	HTMLPath           string
-	TemplatePath       string
-	AgentPath          string
-	PackagePath        string
-	PrivateFilesPath   string
-	PublicFilesPath    string
-	DownloadPath       string
-	DisableSpaceCreate bool
-	ListenTunnel       string
-	TunnelDomain       string
-	TunnelServer       string
-	TerminalWebGL      bool
-	EncryptionKey      string
-	Zone               string
-	Hostname           string
-	Timezone           string
-	LeafNode           bool
+	Listen                 string
+	ListenAgent            string
+	URL                    string
+	AgentEndpoint          string
+	WildcardDomain         string
+	HTMLPath               string
+	TemplatePath           string
+	AgentPath              string
+	PackagePath            string
+	PrivateFilesPath       string
+	FilesPath              string // file storage directory; empty disables file storage
+	FilesDefaultQuotaMB    int    // quota for users whose own and group limits are all 0; 0 = unlimited
+	FilesDefaultMaxBuckets int    // bucket limit for users whose own and group limits are all 0; 0 = unlimited
+	PublicFilesPath        string
+	DownloadPath           string
+	DisableSpaceCreate     bool
+	ListenTunnel           string
+	TunnelDomain           string
+	TunnelServer           string
+	TerminalWebGL          bool
+	EncryptionKey          string
+	Zone                   string
+	Hostname               string
+	Timezone               string
+	LeafNode               bool
 	// DesktopMode is set when the server was started by bare `knot`
 	// (desktop / leaf mode) rather than `knot server`.
 	DesktopMode bool
@@ -56,6 +59,7 @@ type ServerConfig struct {
 	UI                    UIConfig
 	Cluster               ClusterConfig
 	MySQL                 MySQLConfig
+	Postgres              PostgresConfig
 	BadgerDB              BadgerDBConfig
 	Redis                 RedisConfig
 	Audit                 AuditConfig
@@ -163,6 +167,19 @@ type MySQLConfig struct {
 	ConnectionMaxLifetime int
 }
 
+type PostgresConfig struct {
+	Enabled               bool
+	Host                  string
+	Port                  int
+	User                  string
+	Password              string
+	Database              string
+	SSLMode               string
+	ConnectionMaxIdle     int
+	ConnectionMaxOpen     int
+	ConnectionMaxLifetime int
+}
+
 type BadgerDBConfig struct {
 	Enabled bool
 	Path    string
@@ -257,7 +274,7 @@ type MCPConfig struct {
 
 type ChatConfig struct {
 	Enabled          bool
-	Type             string // API type: openai, anthropic, google, ollama. Defaults to openai. Maps to Provider.
+	Type             string // API protocol of the endpoint at BaseURL: openai, anthropic, google, ollama, xai. Takes precedence over Provider.
 	Provider         string
 	APIKey           string
 	BaseURL          string

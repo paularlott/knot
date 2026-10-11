@@ -3,7 +3,6 @@ package command_stack
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -41,18 +40,15 @@ var CreateCmd = &cli.Command{
 
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		def, err := client.GetStackDefinitionByName(ctx, defName)
 		if err != nil {
-			fmt.Println("Error looking up stack definition:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't look up stack definition %q: %w", defName, err)
 		}
 		if def == nil {
-			fmt.Printf("Stack definition %q not found.\n", defName)
-			os.Exit(1)
+			return fmt.Errorf("stack definition %q not found", defName)
 		}
 
 		// Resolve template names to IDs for each component
@@ -66,11 +62,9 @@ var CreateCmd = &cli.Command{
 		// Refuse to create a stack whose name is already in use — reusing an
 		// existing stack name would mix spaces from different stack instances.
 		if exists, err := client.StackExists(ctx, stackName); err != nil {
-			fmt.Println("Error checking for existing stack:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't check whether stack %q exists: %w", stackName, err)
 		} else if exists {
-			fmt.Printf("Stack %q already exists. Use a different stack name or delete the existing stack first.\n", stackName)
-			os.Exit(1)
+			return fmt.Errorf("stack %q already exists; choose another stack name or delete the existing stack first", stackName)
 		}
 
 		// Pass 1: Create all spaces
@@ -98,12 +92,11 @@ var CreateCmd = &cli.Command{
 				CustomFields: customFields,
 			})
 			if err != nil {
-				fmt.Printf("Error creating space %q: %v\n", spaceName, err)
 				// Attempt to clean up already-created spaces
 				for _, s := range spaces {
 					client.DeleteSpace(ctx, s.id)
 				}
-				os.Exit(1)
+				return fmt.Errorf("couldn't create space %q for stack %q: %w", spaceName, stackName, err)
 			}
 
 			spaces = append(spaces, createdSpace{key: comp.Name, id: spaceId, space: comp})
@@ -137,7 +130,7 @@ var CreateCmd = &cli.Command{
 					Stack:     stackName,
 				})
 				if err != nil {
-					fmt.Printf("  Warning: failed to set dependencies for %q: %v\n", spaceName, err)
+					fmt.Printf("  Warning: failed to set dependencies for %q: %v\n", spaceName, cmdutil.Describe(err))
 				}
 			}
 		}
@@ -164,7 +157,7 @@ var CreateCmd = &cli.Command{
 			if len(forwards) > 0 {
 				_, _, err := client.ApplyPorts(ctx, s.id, &apiclient.PortApplyRequest{Forwards: forwards})
 				if err != nil {
-					fmt.Printf("  Warning: failed to apply port forwards for space %q: %v\n", s.key, err)
+					fmt.Printf("  Warning: failed to apply port forwards for space %q: %v\n", s.key, cmdutil.Describe(err))
 				}
 			}
 		}

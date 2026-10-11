@@ -5,6 +5,7 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/filestore"
 )
 
 func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
@@ -45,6 +46,19 @@ func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc 
 			return
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+// checkFilesPage admits users who can own buckets or have one shared with
+// them; the page is no use to anyone else.
+func checkFilesPage(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !filestore.CanUseFilesPage(filestore.Get(), user) {
+			showPageForbidden(w, r)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

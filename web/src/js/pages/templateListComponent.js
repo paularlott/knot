@@ -1,27 +1,27 @@
 import Alpine from 'alpinejs';
+import { sortable } from '../components/sortable.js';
 
 window.templateListComponent = function(canManageSpaces, zone, isLeafNode = false) {
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search').focus();
-      }
-    }
-  );
-
   return {
+    ...sortable('templates', {
+      name: (t) => t.name,
+      type: (t) => t.platform,
+      status: (t) => (t.active ? 0 : 1),
+    }),
     isLeafNode,
     loading: true,
     showAll: Alpine.$persist(false).as('templates-show-all').using(sessionStorage),
     showInactive: Alpine.$persist(false).as('templates-show-inactive').using(sessionStorage),
     showLocal: Alpine.$persist(false).as('templates-show-local').using(sessionStorage),
     zone,
-    deleteConfirm: {
-      show: false,
-      template: {
-        template_id: '',
-        name: '',
-      }
+    confirmDelete(t) {
+      window.knotConfirm({
+        danger: true,
+        message: 'Are you sure you want to delete the template {name}?',
+        name: t.name,
+        confirmLabel: 'Delete Template',
+        cancelLabel: 'Keep Template',
+      }).then((ok) => ok && this.deleteTemplate(t.template_id));
     },
     chooseUser: {
       forUserId: '',
@@ -233,7 +233,7 @@ window.templateListComponent = function(canManageSpaces, zone, isLeafNode = fals
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
-          self.$dispatch('show-alert', { msg: "Template could not be deleted", type: 'error' });
+          window.knotError('delete the template', response);
         }
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively
@@ -320,6 +320,10 @@ window.templateListComponent = function(canManageSpaces, zone, isLeafNode = fals
 
         template.searchHide = !showRow;
       });
+    },
+    noMatchesText(things) {
+      const term = String(this.searchTerm || '').trim();
+      return term ? `No ${things} match “${term}”.` : `No ${things} are available here with the current filters.`;
     },
     getDayOfWeek(day) {
       return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day];

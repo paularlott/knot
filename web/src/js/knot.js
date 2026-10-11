@@ -2,7 +2,7 @@ import '../less/knot.css';
 
 import Alpine from 'alpinejs';
 import persist from '@alpinejs/persist';
-import AlpineFloatingUI from "@awcodes/alpine-floating-ui";
+import floatingDisclosure from "./disclosure.js";
 import collapse from '@alpinejs/collapse';
 import focus from '@alpinejs/focus';
 
@@ -12,6 +12,8 @@ import {} from './components/autocompleter.js';
 import md5 from 'crypto-js/md5';
 
 // SSE client for real-time updates
+import './live.js'; // knotLive / knotAnnounce / knotError
+import './session-timeout.js';
 import './sse.js';
 
 import './pages/initialUserForm.js';
@@ -33,6 +35,7 @@ import './pages/templateVarListComponent.js';
 import './pages/variableForm.js';
 import './pages/volumeListComponent.js';
 import './pages/volumeForm.js';
+import './pages/filesComponent.js';
 import './pages/spaceForm.js';
 import './pages/spacesListComponent.js';
 import './pages/spaceUsageComponent.js';
@@ -59,13 +62,37 @@ import './terminal.js';
 import './movable-modal.js';
 import './nav-starred.js';
 import './search-palette.js';
+import './confirm.js'; // window.knotConfirm / window.knotToast
 import './form-dirty-guard.js';
+import './ace-a11y.js';
 
 window.Alpine = Alpine;
 // Expose the bundled chart.js for plugin pages (plugins are trusted; they
 // render inline with knot's own libraries and versions).
 import Chart from 'chart.js/auto';
 window.Chart = Chart;
+
+// A list row's name links to its editor: the page with ?edit=<id>, which every
+// list page honours (the search palette uses the same). A plain click opens
+// the editor in place; a modified or middle click follows the link, so the
+// editor opens in a new tab and the link can be copied or shared.
+window.knotEditClick = function knotEditClick(e, open) {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  open();
+};
+
+// The skip link moves focus to the page's <main>: its #main-content target
+// is a display:contents wrapper, which cannot take focus itself.
+window.knotSkipToMain = function knotSkipToMain(e) {
+  const main = document.querySelector('#main-content main') || document.querySelector('main');
+  if (!main) return true;
+  e.preventDefault();
+  if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+  main.focus();
+  main.scrollIntoView();
+  return false;
+};
 
 // Switch the session to another user the current one may become (the
 // profile menu's Switch User list) or back to the session's origin, then
@@ -174,9 +201,22 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
     // not one of the options. Typing never writes free text into the form:
     // an exact match of an option's key or text snaps to that key, anything
     // else clears the value (the picker sets it properly).
+    // matchOption compares case insensitively; pasted references often carry
+    // decoration ("#wr1234", "[wr1234]"), so when the raw text matches
+    // nothing the comparison retries with leading and trailing characters
+    // outside a-z 0-9 - _ trimmed from the query: try #wr1234, then wr1234.
+    matchOption(q) {
+      if (q === null || q === undefined) return undefined;
+      const query = String(q).toLowerCase();
+      const find = (term) => this.options.find((o) =>
+        String(this.optKey(o)).toLowerCase() === term || String(this.optText(o)).toLowerCase() === term);
+      const match = find(query);
+      if (match) return match;
+      const trimmed = query.replace(/^[^a-z0-9_-]+|[^a-z0-9_-]+$/g, '');
+      return trimmed && trimmed !== query ? find(trimmed) : undefined;
+    },
     snapValue(index) {
-      const q = this.search;
-      const match = this.options.find((o) => this.optKey(o) === q || this.optText(o) === q);
+      const match = this.matchOption(this.search);
       const ctx = this.formDataCtx();
       if (ctx) {
         try { ctx.data.formData.custom_fields[index].value = match ? this.optKey(match) : ''; } catch (e) { /* index race */ }
@@ -185,7 +225,13 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
     get filteredOptions() {
       const q = (this.search || '').toLowerCase();
       if (!q) return this.options;
-      return this.options.filter((o) => this.optText(o).toLowerCase().includes(q) || this.optKey(o).toLowerCase().includes(q));
+      const filter = (term) => this.options.filter((o) => this.optText(o).toLowerCase().includes(term) || this.optKey(o).toLowerCase().includes(term));
+      const filtered = filter(q);
+      if (filtered.length) return filtered;
+      // Same trim fallback as matchOption: "#wr1234" should still list the
+      // wr1234 option, not "no matches".
+      const trimmed = q.replace(/^[^a-z0-9_-]+|[^a-z0-9_-]+$/g, '');
+      return trimmed && trimmed !== q ? filter(trimmed) : filtered;
     },
     // The same fixed-position dropdown the icon search uses: the list
     // overlays the form (footer included) instead of being clipped by the
@@ -309,7 +355,7 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
   };
 };
 Alpine.plugin(persist);
-Alpine.plugin(AlpineFloatingUI);
+Alpine.plugin(floatingDisclosure); // x-float + disclosure a11y fixes
 Alpine.plugin(focus);
 Alpine.plugin(collapse);
 Alpine.start();

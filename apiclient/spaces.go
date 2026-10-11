@@ -247,7 +247,7 @@ type PortForwardInfo struct {
 	Space       string `json:"space"`
 	RemotePort  uint16 `json:"remote_port"`
 	Persistent  bool   `json:"persistent"`
-	Mode        string `json:"mode"` // "direct" or "relay"
+	Mode        string `json:"mode"` // "—", "direct" or "relay"; "—" = no connection yet, mode unknown
 	LatencyMs   int    `json:"latency_ms"`
 	JitterMs    int    `json:"jitter_ms"`
 	BandwidthKB int    `json:"bandwidth_kb"`
@@ -361,7 +361,7 @@ func (c *ApiClient) StackExists(ctx context.Context, stackName string) (bool, er
 		return false, err
 	}
 	if code != 200 {
-		return false, fmt.Errorf("unexpected status %d checking stack existence", code)
+		return false, fmt.Errorf("checking whether stack %q exists: %w", stackName, newStatusError(code, "GET", "/api/stacks/"+stackName+"/exists"))
 	}
 	return response.Exists, nil
 }

@@ -27,11 +27,11 @@ func HandleGetBaseImages(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleRefreshBaseImages forces an immediate fetch of the base image manifest.
-// It uses the same FetchDecision as the startup path: it fetches iff
-// --base-images-update-enabled is on and (no manifest file is set, or a manifest
-// file is set AND an explicit --base-images-update-url is given). The fetched
-// copy overlays the baseline only when its manifest_version is newer. Exposed
-// via the `knot admin refresh-base-images` CLI command.
+// It uses the same FetchDecision as the startup path: it fetches iff both
+// --base-images-update-enabled and --base-images-update-url are set (there is
+// no default URL). With a manifest file configured, the file is the baseline
+// and the fetched copy overlays it only when its manifest_version is newer.
+// Exposed via the `knot admin refresh-base-images` CLI command.
 func HandleRefreshBaseImages(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
 	url, ok := specwizard.FetchDecision(cfg)

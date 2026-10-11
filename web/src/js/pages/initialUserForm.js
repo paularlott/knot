@@ -1,4 +1,5 @@
 import { validate } from '../validators.js';
+import { focus } from '../focus.js';
 
 window.createInitialUserForm = function() {
   return {
@@ -15,7 +16,7 @@ window.createInitialUserForm = function() {
     passwordValid: true,
     confirmPasswordValid: true,
     checkUsername() {
-      this.usernameValid = validate.username(this.formData.username);
+      this.usernameValid = validate.newUsername(this.formData.username);
       return this.usernameValid;
     },
     checkEmail() {
@@ -38,6 +39,7 @@ window.createInitialUserForm = function() {
       err = !this.checkPassword() || err;
       err = !this.checkConfirmPassword() || err;
       if(err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -70,13 +72,11 @@ window.createInitialUserForm = function() {
           if (response.status === 201) {
             window.location.href = '/';
           } else {
-            response.json().then((responseData) => {
-              self.$dispatch('show-alert', { msg: responseData.error, type: 'error' });
-            });
+            window.knotError('create the admin user', response);
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
+          window.knotError('create the admin user', error);
         })
         .finally(() => {
           this.buttonLabel = 'Create User';

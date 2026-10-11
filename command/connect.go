@@ -73,15 +73,13 @@ var ConnectCmd = &cli.Command{
 
 		u, err := url.Parse(server)
 		if err != nil {
-			fmt.Println("Failed to parse server URL")
-			os.Exit(1)
+			return fmt.Errorf("invalid server address %q: %w", server, err)
 		}
 
 		// Get the host name
 		hostname, err := os.Hostname()
 		if err != nil {
-			fmt.Println("Failed to get hostname")
-			os.Exit(1)
+			return fmt.Errorf("couldn't get this computer's host name to name the token: %w", err)
 		}
 
 		hostname = "knot client " + hostname
@@ -92,15 +90,13 @@ var ConnectCmd = &cli.Command{
 			cmd.GetBool("tls-skip-verify"),
 		)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't create the API client for %s: %w", server, err)
 		}
 
 		// Query if the server is using TOTP
 		totp, _, err := client.UsingTOTP(context.Background())
 		if err != nil {
-			fmt.Println("Failed to query server for TOTP")
-			os.Exit(1)
+			return fmt.Errorf("couldn't connect to %s: %w", server, err)
 		}
 
 		// If using web authentication or server has TOTP enabled then open the server URL in the default browser
@@ -108,19 +104,19 @@ var ConnectCmd = &cli.Command{
 			u.Path = "/api-tokens/create/" + url.PathEscape(hostname)
 			err = util.OpenBrowser(u.String())
 			if err != nil {
-				fmt.Println("Failed to open server URL, you will need to generate the API token manually")
-				os.Exit(1)
+				return fmt.Errorf("couldn't open %s in a browser (%w); create an API token in the web interface and run connect again", u.String(), err)
 			}
 			fmt.Print("Enter token: ")
 			_, err = fmt.Scanln(&token)
 			if err != nil {
-				fmt.Println("Failed to read token, you will need to generate the API token manually")
-				os.Exit(1)
+				return fmt.Errorf("couldn't read the token: %w", err)
 			}
 
 			// Check the server is compatible before saving the connection
 			client.SetAuthToken(token)
-			requireCompatibleServer(client)
+			if err := requireCompatibleServer(client); err != nil {
+				return err
+			}
 		} else {
 			username := cmd.GetString("username")
 			var password []byte
@@ -129,28 +125,33 @@ var ConnectCmd = &cli.Command{
 				fmt.Print("Enter email: ")
 				_, err = fmt.Scanln(&username)
 				if err != nil {
-					fmt.Println("Failed to read email address")
-					os.Exit(1)
+					return fmt.Errorf("couldn't read the email address: %w", err)
 				}
 			}
 
 			fmt.Print("Enter password: ")
 			password, err = term.ReadPassword(int(syscall.Stdin))
 			if err != nil {
-				fmt.Println("Failed to read password")
-				os.Exit(1)
+				return fmt.Errorf("couldn't read the password: %w", err)
 			}
 			fmt.Println()
 
 			if username == "" || string(password) == "" {
-				fmt.Println("Username and password must be given")
-				os.Exit(1)
+				return fmt.Errorf("an email address and password are required")
 			}
 
-			response, _, _ := client.Login(context.Background(), username, string(password), "")
+			response, _, err := client.Login(context.Background(), username, string(password), "")
+			if err != nil {
+				// A 401 here means wrong credentials, not an expired
+				// session, so show the server's reason without the
+				// "run knot connect" hint the formatter would add.
+				if he := apiclient.AsHTTPError(err); he != nil && apiclient.IsUnauthorized(err) {
+					return fmt.Errorf("couldn't sign in to %s as %s: %s", server, username, he.Message())
+				}
+				return fmt.Errorf("couldn't sign in to %s as %s: %w", server, username, err)
+			}
 			if response == nil || response.Token == "" {
-				fmt.Println("Failed to login")
-				os.Exit(1)
+				return fmt.Errorf("couldn't sign in to %s as %s: the server returned no session", server, username)
 			}
 
 			client.UseSessionCookie(true).SetAuthToken(response.Token)
@@ -158,19 +159,22 @@ var ConnectCmd = &cli.Command{
 			// Refuse servers too old to talk to this client before the token
 			// creation fails with an unexplained error. No version reported
 			// means a server from before version checking existed.
-			requireCompatibleServer(client)
+			if err := requireCompatibleServer(client); err != nil {
+				return err
+			}
 
 			token, _, err = client.CreateToken(context.Background(), hostname, nil)
-			if err != nil || token == "" {
-				fmt.Println("Failed to create token")
-				os.Exit(1)
+			if err != nil {
+				return fmt.Errorf("couldn't create an API token on %s: %w", server, err)
+			}
+			if token == "" {
+				return fmt.Errorf("couldn't create an API token on %s: the server returned an empty token", server)
 			}
 		}
 
 		alias := cmd.GetString("alias")
 		if err := config.SaveConnection(alias, server, token, cmd); err != nil {
-			fmt.Println("Failed to save connection:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't save the connection %q: %w", alias, err)
 		}
 
 		fmt.Println("Successfully connected to server:", server)
@@ -179,20 +183,18 @@ var ConnectCmd = &cli.Command{
 }
 
 // requireCompatibleServer checks the authenticated server reports a version
-// this client is compatible with, exiting with guidance when it doesn't.
-func requireCompatibleServer(client *apiclient.ApiClient) {
+// this client is compatible with, returning guidance when it doesn't.
+func requireCompatibleServer(client *apiclient.ApiClient) error {
 	ping, err := client.Ping(context.Background())
 	if err != nil {
-		fmt.Println("Failed to check server version:", err)
-		os.Exit(1)
+		return fmt.Errorf("couldn't check the server version: %w", err)
 	}
 
 	if !build.IsCompatible(ping.Version) {
 		if ping.Version == "" {
-			fmt.Println("Client and server are not compatible, the server did not report a version")
-		} else {
-			fmt.Printf("Client and server are not compatible, client version %s, server version %s\n", build.Version, ping.Version)
+			return fmt.Errorf("this client (version %s) isn't compatible with the server, which didn't report a version; upgrade the server or use an older client", build.Version)
 		}
-		os.Exit(1)
+		return fmt.Errorf("this client (version %s) isn't compatible with the server (version %s); use a client that matches the server version", build.Version, ping.Version)
 	}
+	return nil
 }

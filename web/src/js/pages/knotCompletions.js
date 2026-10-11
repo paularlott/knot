@@ -28,7 +28,7 @@ export const knotLibraries = [
       {
         "name": "configure",
         "signature": "configure(url, token, insecure, ai_url, ai_token, ai_model, ai_provider)",
-        "description": "Configure the API client for use outside the knot runtime (spaces and server scripts get it pre-configured). ai_url defaults to url + \"/v1\", ai_token to token; ai_provider is openai, claude, gemini, ollama or mistral",
+        "description": "Configure the API client for use outside the knot runtime (spaces and server scripts get it pre-configured). ai_url defaults to url + \"/v1\", ai_token to token; ai_provider is openai, claude, gemini, ollama, mistral, zai or grok",
         "returns": "bool"
       },
       {
@@ -57,8 +57,20 @@ export const knotLibraries = [
       },
       {
         "name": "delete",
-        "signature": "delete(path, expect)",
-        "description": "DELETE request to the Knot API",
+        "signature": "delete(path, headers)",
+        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match)",
+        "returns": "dict"
+      },
+      {
+        "name": "get_bytes",
+        "signature": "get_bytes(path)",
+        "description": "GET request to the Knot API returning the response body as bytes (file content)",
+        "returns": "bytes"
+      },
+      {
+        "name": "put_bytes",
+        "signature": "put_bytes(path, data, content_type)",
+        "description": "PUT request to the Knot API with a string or bytes body (file content)",
         "returns": "dict"
       }
     ]
@@ -162,6 +174,108 @@ export const knotLibraries = [
         "signature": "custom()",
         "description": "Get custom fields dict (sink scripts only)",
         "returns": "dict<str, str>"
+      }
+    ]
+  },
+  {
+    "module": "knot.files",
+    "description": "Store, read and copy files in buckets replicated across the cluster, and manage the buckets.",
+    "functions": [
+      {
+        "name": "list_buckets",
+        "signature": "list_buckets(all)",
+        "description": "List the buckets you own or that are shared with you; all=True lists every bucket (file storage managers). Each has name (<owner>--<name>), display_name, owner, owner_id, access (owner, write or read), size, count, shared (type, name and access of each share) and created_at",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "get_bucket",
+        "signature": "get_bucket(name)",
+        "description": "Get one bucket by its short name (your own) or full name; same fields as list_buckets",
+        "returns": "dict"
+      },
+      {
+        "name": "create_bucket",
+        "signature": "create_bucket(name)",
+        "description": "Create a bucket named <your username>--<name>; name is 3 to 30 lowercase letters, digits and hyphens with no --",
+        "returns": "dict"
+      },
+      {
+        "name": "delete_bucket",
+        "signature": "delete_bucket(name, force)",
+        "description": "Delete a bucket; a bucket that holds files is refused unless force=True, which deletes them with it",
+        "returns": "bool"
+      },
+      {
+        "name": "share_bucket",
+        "signature": "share_bucket(name, user, group, everyone, access)",
+        "description": "Share a bucket with exactly one of a user (username or email), a group or everyone; access is \"read\" (default) or \"write\". Sharing again changes the access",
+        "returns": "dict"
+      },
+      {
+        "name": "unshare_bucket",
+        "signature": "unshare_bucket(name, user, group, everyone)",
+        "description": "Stop sharing a bucket with exactly one of a user, a group or everyone",
+        "returns": "dict"
+      },
+      {
+        "name": "transfer_bucket",
+        "signature": "transfer_bucket(name, user, force)",
+        "description": "Give a bucket to another user, who must be allowed to own buckets; it is renamed into their namespace and their quota is charged. force allows going over their quota (file storage managers only)",
+        "returns": "dict"
+      },
+      {
+        "name": "usage",
+        "signature": "usage()",
+        "description": "Your file storage usage and limits: used_bytes, files, buckets, quota_bytes and max_buckets (0 for no limit)",
+        "returns": "dict"
+      },
+      {
+        "name": "list_files",
+        "signature": "list_files(bucket, prefix, recursive)",
+        "description": "List the files in a bucket. Returns files (key, size, etag, sha256, content_type, modified_at) and folders (prefixes ending in /). prefix restricts to keys starting with it, so end it with / for a folder; recursive=True lists every file below the prefix and returns no folders",
+        "returns": "dict"
+      },
+      {
+        "name": "list_changes",
+        "signature": "list_changes(bucket, prefix, cursor)",
+        "description": "List what changed in a bucket since a cursor, to follow it without listing it again. Without a cursor every file is returned; cursor=\"now\" returns none, only a cursor to follow from now; with a cursor, each file changed since, once, as it is now (deleted=True for one that was deleted). Returns changes (key, size, etag, sha256, content_type, modified_at, deleted), cursor (pass it next time) and reset (True when the cursor could not be followed: start again without one)",
+        "returns": "dict"
+      },
+      {
+        "name": "read_file",
+        "signature": "read_file(bucket, key)",
+        "description": "Read a file's content as bytes (at most 64 MB in a script)",
+        "returns": "bytes"
+      },
+      {
+        "name": "read_text",
+        "signature": "read_text(bucket, key)",
+        "description": "Read a file's content as UTF-8 text",
+        "returns": "string"
+      },
+      {
+        "name": "write_file",
+        "signature": "write_file(bucket, key, data, content_type)",
+        "description": "Write a file, replacing any file with that key; folders need no creating. data is a string (written as UTF-8) or bytes, at most 64 MB at a time. content_type defaults to text/plain for a string, else application/octet-stream. Returns the file's key, size, etag, sha256, content_type and modified_at",
+        "returns": "dict"
+      },
+      {
+        "name": "delete_file",
+        "signature": "delete_file(bucket, key, if_match)",
+        "description": "Delete a file. With if_match (an etag from list_files, list_changes, write_file or copy_file), only if it is still that version: a file changed since is left alone and an exception raised (HTTP 412)",
+        "returns": "bool"
+      },
+      {
+        "name": "copy_file",
+        "signature": "copy_file(source_bucket, source_key, dest_bucket, dest_key)",
+        "description": "Copy a file within a bucket or to another, on the server without transferring its content; keeps its content type, metadata and modification time and replaces any file at the destination",
+        "returns": "dict"
+      },
+      {
+        "name": "file_exists",
+        "signature": "file_exists(bucket, key)",
+        "description": "Check whether there is a file with exactly this key",
+        "returns": "bool"
       }
     ]
   },
@@ -1564,7 +1678,7 @@ export const knotLibraries = [
       {
         "name": "create",
         "signature": "create(name, job, description, platform, volumes, active, custom_fields, **kwargs: Any)",
-        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects, protocol one of \"http\", \"https\", \"tcp\" or \"shared\" (a shared port is reachable by every user in the same zone through a port forward as user--space, not just the space's owner; http/https get dev URLs, tcp is published on the host); port_forwards is a list of {local_port, space, remote_port} dicts seeded into spaces created from the template and connected when they start (space: a space or pool name, or user--name for another user's shared port); jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields. max_uptime / max_uptime_unit and idle_timeout / idle_timeout_unit control the max-runtime and idle auto-stops (unit one of \"minute\", \"hour\", \"day\"; \"disabled\" or a 0 value turns the stop off).\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement.",
+        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects, protocol one of \"http\", \"https\", \"tcp\" or \"shared\" (a shared port is reachable by every user in the same zone through a port forward as user--space, not just the space's owner; http/https get dev URLs, tcp is published on the host); port_forwards is a list of {local_port, space, remote_port} dicts seeded into spaces created from the template and connected when they start (space: a space or pool name, or user--name for another user's shared port); jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields. max_uptime / max_uptime_unit and idle_timeout / idle_timeout_unit control the max-runtime and idle auto-stops (unit one of \"minute\", \"hour\", \"day\"; \"disabled\" or a 0 value turns the stop off).\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement — and show_on_create\n    (bool): an optional field shown on the create-space form without opening\n    its optional fields toggle. The list order is the order the form shows\n    the fields in.",
         "returns": "string"
       },
       {

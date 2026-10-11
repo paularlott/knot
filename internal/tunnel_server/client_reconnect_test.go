@@ -314,14 +314,10 @@ func TestServerCloseRequestStopsTunnel(t *testing.T) {
 		return fake.live.Load() != nil
 	})
 
-	// The server deletes the tunnel: close-request marker, then the session.
+	// The server deletes the tunnel as the real one does: the close request,
+	// acknowledged by the client, then the session.
 	session := fake.live.Load()
-	stream, err := session.Open()
-	if err != nil {
-		t.Fatalf("failed to open stream: %v", err)
-	}
-	stream.Write([]byte{0})
-	stream.Close()
+	sendCloseRequest(session)
 	session.Close()
 
 	// The client context dies (the registry entry goes with it).

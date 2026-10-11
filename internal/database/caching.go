@@ -25,6 +25,27 @@ const (
 	userMaxLifetime = time.Hour
 )
 
+// tokenTTL bounds how long a token change that bypassed this server's cache
+// (another server writing a shared database, or an offline admin command)
+// can go unseen. Changes made here or gossiped here invalidate at once.
+const tokenTTL = 30 * time.Second
+
+type tokenCacheEntry struct {
+	tokens  []*model.Token
+	expires time.Time
+}
+
+// tokenByIdEntry is one token, looked up by its id.
+type tokenByIdEntry struct {
+	token   *model.Token
+	expires time.Time
+}
+
+type groupCacheEntry struct {
+	groups  []*model.Group
+	expires time.Time
+}
+
 type userCacheEntry struct {
 	user        *model.User
 	expires     time.Time // sliding: refreshed on read, drops quiet users
@@ -83,6 +104,16 @@ type cachingDriver struct {
 	users      map[string]*userCacheEntry
 	userByName map[string]string
 
+	// API tokens by user, read on every S3 request, and the group list,
+	// read for every quota check.
+	userTokens map[string]*tokenCacheEntry
+	groups     *groupCacheEntry
+
+	// API tokens by id, read to authenticate every request, and the ids held
+	// for each user so a change to a user's tokens drops them.
+	tokenByID      map[string]*tokenByIdEntry
+	tokenIDsByUser map[string]map[string]struct{}
+
 	now func() time.Time // overridable in tests
 }
 
@@ -93,15 +124,18 @@ type templateCacheListEntry struct {
 
 func newCachingDriver(inner DbDriver) *cachingDriver {
 	d := &cachingDriver{
-		DbDriver:    inner,
-		templates:   make(map[string]*templateCacheEntry),
-		nameToID:    make(map[string]string),
-		poolMembers: make(map[string]*poolCacheEntry),
-		poolBySpace: make(map[string]string),
-		poolDefs:    make(map[string]*poolDefCacheEntry),
-		users:       make(map[string]*userCacheEntry),
-		userByName:  make(map[string]string),
-		now:         time.Now,
+		DbDriver:       inner,
+		templates:      make(map[string]*templateCacheEntry),
+		nameToID:       make(map[string]string),
+		poolMembers:    make(map[string]*poolCacheEntry),
+		poolBySpace:    make(map[string]string),
+		poolDefs:       make(map[string]*poolDefCacheEntry),
+		users:          make(map[string]*userCacheEntry),
+		userByName:     make(map[string]string),
+		userTokens:     make(map[string]*tokenCacheEntry),
+		tokenByID:      make(map[string]*tokenByIdEntry),
+		tokenIDsByUser: make(map[string]map[string]struct{}),
+		now:            time.Now,
 	}
 	if sessions, ok := inner.(SessionStorage); ok {
 		d.sessions = sessions
@@ -507,6 +541,186 @@ func (d *cachingDriver) DeleteUser(user *model.User) error {
 	}
 	d.mu.Unlock()
 	return err
+}
+
+// ---------------------------------------------------------------------------
+// Tokens and groups
+// ---------------------------------------------------------------------------
+
+func copyTokens(tokens []*model.Token) []*model.Token {
+	out := make([]*model.Token, len(tokens))
+	for i, t := range tokens {
+		c := *t
+		c.Scopes = append([]string(nil), t.Scopes...)
+		out[i] = &c
+	}
+	return out
+}
+
+func copyGroups(groups []*model.Group) []*model.Group {
+	out := make([]*model.Group, len(groups))
+	for i, g := range groups {
+		c := *g
+		out[i] = &c
+	}
+	return out
+}
+
+func (d *cachingDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
+	d.mu.Lock()
+	entry := d.userTokens[userId]
+	if entry != nil && d.expired(entry.expires) {
+		delete(d.userTokens, userId)
+		entry = nil
+	}
+	d.mu.Unlock()
+	if entry != nil {
+		return copyTokens(entry.tokens), nil
+	}
+
+	tokens, err := d.DbDriver.GetTokensForUser(userId)
+	if err != nil {
+		return tokens, err
+	}
+	d.mu.Lock()
+	d.userTokens[userId] = &tokenCacheEntry{tokens: copyTokens(tokens), expires: d.now().Add(tokenTTL)}
+	d.mu.Unlock()
+	return tokens, nil
+}
+
+func (d *cachingDriver) SaveToken(token *model.Token) error {
+	err := d.DbDriver.SaveToken(token)
+	if token != nil {
+		d.InvalidateTokens(token.UserId)
+	}
+	return err
+}
+
+func (d *cachingDriver) DeleteToken(token *model.Token) error {
+	err := d.DbDriver.DeleteToken(token)
+	if token != nil {
+		d.InvalidateTokens(token.UserId)
+	}
+	return err
+}
+
+// GetToken reads a token by its id, which every request authenticated with
+// an API token does, so it is cached: a busy client would otherwise make a
+// database read for each of its requests. A change to the user's tokens made
+// here or gossiped here drops it at once; others are seen within tokenTTL.
+// Tokens that are not found are not cached.
+func (d *cachingDriver) GetToken(id string) (*model.Token, error) {
+	d.mu.Lock()
+	entry := d.tokenByID[id]
+	if entry != nil && d.expired(entry.expires) {
+		d.dropTokenLocked(id, entry.token.UserId)
+		entry = nil
+	}
+	var cached *model.Token
+	if entry != nil {
+		c := *entry.token
+		c.Scopes = append([]string(nil), entry.token.Scopes...)
+		cached = &c
+	}
+	d.mu.Unlock()
+	if cached != nil {
+		return cached, nil
+	}
+
+	token, err := d.DbDriver.GetToken(id)
+	if err != nil || token == nil {
+		return token, err
+	}
+	c := *token
+	c.Scopes = append([]string(nil), token.Scopes...)
+	d.mu.Lock()
+	d.tokenByID[id] = &tokenByIdEntry{token: &c, expires: d.now().Add(tokenTTL)}
+	ids := d.tokenIDsByUser[token.UserId]
+	if ids == nil {
+		ids = make(map[string]struct{})
+		d.tokenIDsByUser[token.UserId] = ids
+	}
+	ids[id] = struct{}{}
+	d.mu.Unlock()
+	return token, nil
+}
+
+func (d *cachingDriver) dropTokenLocked(id, userId string) {
+	delete(d.tokenByID, id)
+	if ids := d.tokenIDsByUser[userId]; ids != nil {
+		delete(ids, id)
+		if len(ids) == 0 {
+			delete(d.tokenIDsByUser, userId)
+		}
+	}
+}
+
+// InvalidateTokens drops a user's cached tokens.
+func (d *cachingDriver) InvalidateTokens(userId string) {
+	d.mu.Lock()
+	delete(d.userTokens, userId)
+	for id := range d.tokenIDsByUser[userId] {
+		delete(d.tokenByID, id)
+	}
+	delete(d.tokenIDsByUser, userId)
+	d.mu.Unlock()
+}
+
+func (d *cachingDriver) GetGroups() ([]*model.Group, error) {
+	d.mu.Lock()
+	entry := d.groups
+	if entry != nil && d.expired(entry.expires) {
+		d.groups, entry = nil, nil
+	}
+	d.mu.Unlock()
+	if entry != nil {
+		return copyGroups(entry.groups), nil
+	}
+
+	groups, err := d.DbDriver.GetGroups()
+	if err != nil {
+		return groups, err
+	}
+	d.mu.Lock()
+	d.groups = &groupCacheEntry{groups: copyGroups(groups), expires: d.now().Add(cacheTTL)}
+	d.mu.Unlock()
+	return groups, nil
+}
+
+func (d *cachingDriver) SaveGroup(group *model.Group) error {
+	err := d.DbDriver.SaveGroup(group)
+	d.InvalidateGroups()
+	return err
+}
+
+func (d *cachingDriver) DeleteGroup(group *model.Group) error {
+	err := d.DbDriver.DeleteGroup(group)
+	d.InvalidateGroups()
+	return err
+}
+
+// InvalidateGroups drops the cached group list.
+func (d *cachingDriver) InvalidateGroups() {
+	d.mu.Lock()
+	d.groups = nil
+	d.mu.Unlock()
+}
+
+// TokensChanged drops a user's cached tokens. A server sharing its database
+// with others calls it for each token change gossiped to it, as the change
+// may already be in the database and so never saved, and so never seen,
+// here.
+func TokensChanged(userId string) {
+	if d, ok := GetInstance().(*cachingDriver); ok {
+		d.InvalidateTokens(userId)
+	}
+}
+
+// GroupsChanged drops the cached group list, for the same reason.
+func GroupsChanged() {
+	if d, ok := GetInstance().(*cachingDriver); ok {
+		d.InvalidateGroups()
+	}
 }
 
 // ---------------------------------------------------------------------------

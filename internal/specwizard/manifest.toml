@@ -26,9 +26,10 @@
 # incompatibly.
 version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
-# whether a manifest fetched from getknot.dev is newer than the one compiled
-# into this binary. Lexicographic compare == chronological compare.
-manifest_version = "2026082704"
+# whether a manifest fetched from a configured --base-images-update-url is
+# newer than the one compiled into this binary. Lexicographic compare ==
+# chronological compare.
+manifest_version = "2026101101"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -187,10 +188,10 @@ protocol = "http"
 # ── Language runtimes ───────────────────────────────────────────────────────
 
 [[image]]
-name            = "go-1.26"
-display_name    = "Go 1.26"
+name            = "go-1.27"
+display_name    = "Go 1.27"
 description     = "Ubuntu with the Go toolchain."
-image           = "${{ .server.base_image_registry }}/knot-go:1.26"
+image           = "${{ .server.base_image_registry }}/knot-go:1.27"
 icon            = "/icons/go.svg"
 category        = "base"
 default_memory  = "2G"
@@ -428,7 +429,7 @@ default_memory  = "512M"
 [[image.volume]]
 path        = "/data"
 name        = "${{ .space.id }}-data"
-description = "Redis working directory (RDB snapshots / AOF)."
+description = "Redis working directory (RDB snapshots / AOF). Persist for durable data."
 
 # ── Database management ─────────────────────────────────────────────────────
 

@@ -28,11 +28,6 @@ window.spaceForm = function (
       selectedName: "",
       invalid: false,
     },
-    dependencyRemoveConfirm: {
-      show: false,
-      id: "",
-      name: "",
-    },
     dependencyTargetZone: "",
     canSetSpaceDependencies,
     canSetSpaceStartupScript,
@@ -82,6 +77,11 @@ window.spaceForm = function (
     altNameValid: [],
     descValid: true,
     startOnCreate: true,
+    // Creating a space shows the essentials; the rest is a click away.
+    showAllOptions: isEdit,
+    // Optional custom fields the template doesn't mark to show wait behind
+    // their own toggle on create.
+    showOptionalFields: isEdit,
     saving: false,
     quotaStorageLimitShow: false,
     availableNodes: [],
@@ -271,22 +271,16 @@ window.spaceForm = function (
       if (!this.canSetSpaceDependencies) {
         return;
       }
-      this.dependencyRemoveConfirm.show = true;
-      this.dependencyRemoveConfirm.id = dependency.id;
-      this.dependencyRemoveConfirm.name = dependency.name;
-    },
-
-    closeRemoveDependencyConfirm() {
-      this.dependencyRemoveConfirm.show = false;
-      this.dependencyRemoveConfirm.id = "";
-      this.dependencyRemoveConfirm.name = "";
-    },
-
-    confirmRemoveDependency() {
-      if (this.dependencyRemoveConfirm.id) {
-        this.removeDependency(this.dependencyRemoveConfirm.id);
-      }
-      this.closeRemoveDependencyConfirm();
+      window.knotConfirm({
+        danger: true,
+        icon: 'stop',
+        title: 'Remove Dependency',
+        message: 'Are you sure you want to remove the dependency {name}?',
+        name: dependency.name,
+        detail: 'This space will no longer require it to be running before start.',
+        confirmLabel: 'Remove Dependency',
+        cancelLabel: 'Keep Dependency',
+      }).then((ok) => ok && dependency.id && this.removeDependency(dependency.id));
     },
 
     formatCreatedAt() {
@@ -453,6 +447,9 @@ window.spaceForm = function (
 
       if (!isEdit) {
         this.formData.icon_url = this.template.icon_url;
+        if (!this.formData.name) {
+          this.formData.name = this.suggestName(this.template.name);
+        }
       }
 
       // Fetch available nodes for local container templates
@@ -498,6 +495,7 @@ window.spaceForm = function (
       if (darkMode == null) darkMode = true;
 
       const editorDesc = ace.edit("description");
+      this.descriptionEditor = editorDesc;
       editorDesc.session.setValue(this.formData.description);
       editorDesc.session.on("change", () => {
         this.formData.description = editorDesc.getValue();
@@ -515,8 +513,77 @@ window.spaceForm = function (
         customScrollbar: true,
         useWorker: false,
       });
+      // The editor starts hidden behind "More options" on create: lay it
+      // out again once it is shown.
+      this.$watch("showAllOptions", (shown) => {
+        if (shown) this.$nextTick(() => editorDesc.resize());
+      });
 
       this.loading = false;
+    },
+    // Custom fields shown without opening the optional fields toggle:
+    // required ones and the optional ones the template marks to show.
+    customFieldPinned(field) {
+      return !!(field && (field.required || field.show_on_create));
+    },
+    customFieldShown(index) {
+      const field = this.template && this.template.custom_fields[index];
+      return this.showOptionalFields || this.customFieldPinned(field);
+    },
+    hiddenOptionalFields() {
+      const fields = (this.template && this.template.custom_fields) || [];
+      return fields.filter((f) => !this.customFieldPinned(f));
+    },
+    // The order the fields are shown in. Editing keeps the template's order;
+    // creating puts the always-shown fields first (each group in template
+    // order), so the optional fields open below their toggle.
+    customFieldOrder() {
+      const fields = (this.template && this.template.custom_fields) || [];
+      const all = fields.map((_, i) => i);
+      if (isEdit || !this.hiddenOptionalFields().length) return all;
+      return all.filter((i) => this.customFieldPinned(fields[i]))
+        .concat(all.filter((i) => !this.customFieldPinned(fields[i])));
+    },
+    // Index of the field the toggle follows: the last always-shown field,
+    // -1 to put it first, or null when there is no toggle.
+    customFieldToggleAfter() {
+      if (isEdit || !this.hiddenOptionalFields().length) return null;
+      const fields = this.template.custom_fields;
+      const pinned = fields.map((_, i) => i).filter((i) => this.customFieldPinned(fields[i]));
+      return pinned.length ? pinned[pinned.length - 1] : -1;
+    },
+    optionalFieldsLabel() {
+      const n = this.hiddenOptionalFields().length;
+      return this.showOptionalFields ? "Show fewer fields" : "Show " + n + " more field" + (n === 1 ? "" : "s");
+    },
+    toggleOptionalFields() {
+      this.showOptionalFields = !this.showOptionalFields;
+      // Code editors created while hidden need laying out once shown.
+      if (this.showOptionalFields) {
+        this.$nextTick(() => {
+          this.$root.querySelectorAll(".ace_editor").forEach((el) => el.env && el.env.editor && el.env.editor.resize());
+        });
+      }
+    },
+    // suggestName offers a valid space name from the template's, made unique
+    // among the owner's spaces (known on the spaces page) with -2, -3, ...
+    suggestName(templateName) {
+      let base = String(templateName || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (!/^[a-z]/.test(base)) base = "space" + (base ? "-" + base : "");
+      base = base.slice(0, 58).replace(/-+$/, "");
+      if (base.length < 2) base = "space";
+      const owner = this.formData.user_id || userId;
+      const taken = new Set(
+        (Array.isArray(this.spaces) ? this.spaces : [])
+          .filter((s) => !owner || !s.user_id || s.user_id === owner)
+          .map((s) => String(s.name).toLowerCase()),
+      );
+      let name = base;
+      for (let n = 2; taken.has(name); n++) name = base + "-" + n;
+      return name;
     },
     addAltName() {
       this.altNameValid.push(true);
@@ -639,10 +706,16 @@ window.spaceForm = function (
 
       if (err) {
         self.saving = false;
-        self.$dispatch("show-alert", {
-          msg: "Please fix the validation errors before saving",
-          type: "error",
-        });
+        // A problem in a field behind a toggle must be seen to be fixed.
+        if (!this.descValid || this.altNameValid.includes(false)) {
+          this.showAllOptions = true;
+        }
+        if (this.customFieldValid.some((ok, i) => !ok && !this.customFieldShown(i))) {
+          this.showOptionalFields = true;
+        }
+        // Focus once a toggle that just opened has rendered its fields.
+        this.$nextTick(() => focus.firstInvalid(this.$root));
+        window.knotToast("Some fields need attention.", "error");
         return;
       }
 
@@ -683,61 +756,22 @@ window.spaceForm = function (
                         }),
                       );
                     } else {
-                      response2.text().then((text) => {
-                        try {
-                          const d = JSON.parse(text);
-                          window.dispatchEvent(
-                            new CustomEvent("show-alert", {
-                              detail: {
-                                msg: `Failed to start space, ${d.error}`,
-                                type: "error",
-                              },
-                            }),
-                          );
-                        } catch {
-                          window.dispatchEvent(
-                            new CustomEvent("show-alert", {
-                              detail: {
-                                msg: `Failed to start space`,
-                                type: "error",
-                              },
-                            }),
-                          );
-                        }
-                      });
+                      window.knotError("start the new space", response2);
                     }
                   })
                   .catch((error) => {
-                    window.dispatchEvent(
-                      new CustomEvent("show-alert", {
-                        detail: {
-                          msg: `Error!<br />${error.message}`,
-                          type: "error",
-                        },
-                      }),
-                    );
+                    window.knotError("start the new space", error);
                   });
               }
             });
           } else if (response.status === 507) {
             self.quotaStorageLimitShow = true;
           } else {
-            response.json().then((data) => {
-              self.$dispatch("show-alert", {
-                msg:
-                  (isEdit
-                    ? "Failed to update space, "
-                    : "Failed to create space, ") + data.error,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the space" : "create the space", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the space" : "create the space", error);
         })
         .finally(() => {
           this.loading = false;

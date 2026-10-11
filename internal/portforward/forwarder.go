@@ -56,7 +56,7 @@ type ForwardInfo struct {
 	LocalPort  uint16
 	Space      string
 	RemotePort uint16
-	mode       string // "relay" or "direct" — use GetMode/SetMode (thread-safe)
+	mode       string // "", "relay" or "direct"; "" means direct will be (re)tried — use GetMode/SetMode (thread-safe)
 	Cancel     context.CancelFunc
 	Listener   net.Listener
 
@@ -302,15 +302,18 @@ func (w *throttledWriter) Write(p []byte) (int, error) {
 	return w.dest.Write(p)
 }
 
-// ResetModeForSpace sets the mode to "direct" on all forwards targeting the
+// ResetModeForSpace clears the relay latch on all forwards targeting the
 // given space, called when a fresh PeerIntroduce arrives with an updated peer
-// address. The forwarder will use direct; if it fails it switches to "relay".
+// address. The mode only reports "direct" after a connection has actually
+// gone through, so clearing — not stamping "direct" — keeps it truthful: the
+// forward keeps showing relay until a direct dial succeeds, while the cleared
+// latch makes the next connection retry direct.
 func ResetModeForSpace(space string) {
 	forwardsMux.Lock()
 	defer forwardsMux.Unlock()
 	for _, fwd := range forwards {
 		if fwd.Space == space {
-			fwd.mode = "direct"
+			fwd.mode = ""
 		}
 	}
 }
@@ -327,7 +330,7 @@ func RunTCPForwarderViaAgentWithContext(ctx context.Context, proxyServerURL, lis
 		wsURL = "ws://" + proxyServerURL[7:]
 	}
 
-	logger.Info("port forward listening", "local", listen, "space", space, "port", port)
+	logger.Debug("port forward listening", "local", listen, "space", space, "port", port)
 	return forwardTCPWithContext(ctx, fmt.Sprintf("%s/proxy/spaces/%s/port/%d", wsURL, space, port), token, listen, skipTLSVerify)
 }
 
@@ -360,49 +363,13 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 			header = nil
 		}
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			tcpConn, err := tcpConnection.Accept()
-			if err != nil {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					logger.Debug("listener closed", "error", err)
-					return
-				}
-			}
-
-			// Try direct peer connection first — but only if this forward
-			// hasn't already been switched to relay mode after a failure.
-			if dialer := getDirectDialer(); dialer != nil {
-				if fwd, ok := GetForward(localPort); ok && fwd.GetMode() != "relay" {
-					if err := dialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
-						if fwd.GetMode() != "direct" {
-							logger.Info("using direct", "space", fwd.Space, "local_port", localPort)
-						}
-						fwd.SetMode("direct")
-						tcpConn.Close()
-						continue
-					}
-					// Direct failed — switch to relay mode for subsequent connections
-					if fwd.GetMode() != "relay" {
-						logger.Warn("direct failed, using relay", "space", fwd.Space, "local_port", localPort)
-					}
-					fwd.SetMode("relay")
-				}
-			}
-
-			// Relay via server WebSocket
-			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
-			dialer.HandshakeTimeout = 5 * time.Second
-			wsConn, response, err := dialer.Dial(dialURL, header)
+		// relay dials the server WebSocket and pumps the connection through
+		// it in its own goroutine, returning immediately.
+		relay := func(tcpConn net.Conn) {
+			wsDialer := websocket.DefaultDialer
+			wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
+			wsDialer.HandshakeTimeout = 5 * time.Second
+			wsConn, response, err := wsDialer.Dial(dialURL, header)
 			if err != nil {
 				if response != nil {
 					body, _ := io.ReadAll(response.Body)
@@ -413,7 +380,7 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 				}
 
 				tcpConn.Close()
-				continue
+				return
 			}
 
 			conn := wsconn.New(wsConn)
@@ -444,6 +411,55 @@ func forwardTCPWithContext(ctx context.Context, dialURL, token, listen string, s
 				_, _ = io.Copy(toClient, conn)
 				once.Do(closeBoth)
 			}()
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			tcpConn, err := tcpConnection.Accept()
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					logger.Debug("listener closed", "error", err)
+					return
+				}
+			}
+
+			// Try direct peer connection first — but only if this forward
+			// hasn't already been switched to relay mode after a failure.
+			// The attempt runs in its own goroutine and owns the connection:
+			// it pipes for the connection's lifetime on success, or falls
+			// back to relay itself on failure, so the accept loop never
+			// blocks on a (possibly slow) direct dial.
+			if directDialer := getDirectDialer(); directDialer != nil {
+				if fwd, ok := GetForward(localPort); ok && fwd.GetMode() != "relay" {
+					go func(fwd *ForwardInfo, tcpConn net.Conn) {
+						if err := directDialer(ctx, tcpConn, fwd.Space, fwd.RemotePort); err == nil {
+							// The dialer marked the forward direct when it
+							// established the session and has owned the
+							// connection for its lifetime — clean up.
+							tcpConn.Close()
+							return
+						}
+						// Direct failed — switch to relay mode for subsequent connections
+						if fwd.GetMode() != "relay" {
+							logger.Debug("direct failed, using relay", "space", fwd.Space, "local_port", localPort)
+						}
+						fwd.SetMode("relay")
+						relay(tcpConn)
+					}(fwd, tcpConn)
+					continue
+				}
+			}
+
+			// Relay via server WebSocket
+			relay(tcpConn)
 		}
 	}()
 

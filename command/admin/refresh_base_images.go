@@ -31,7 +31,7 @@ var RefreshBaseImagesCmd = &cli.Command{
 	Usage: "Force a base image manifest refresh across the cluster",
 	Description: `Force every server to fetch the base image manifest from its update URL immediately.
 
-Each server keeps the fetched copy only if it is newer than its active catalog. By default the command fans out to all servers in the cluster (via cluster-info); pass --local-only to refresh just the connected server. Each server must have --base-images-update-enabled on; if a server uses a manifest file it must also have --base-images-update-url set, otherwise that server reports a conflict and keeps using its file.`,
+Each server keeps the fetched copy only if it is newer than its active catalog. By default the command fans out to all servers in the cluster (via cluster-info); pass --local-only to refresh just the connected server. Each server must have both --base-images-update-enabled and --base-images-update-url set, otherwise that server reports a conflict and keeps its current catalog.`,
 	MaxArgs: cli.NoArgs,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
@@ -135,6 +135,9 @@ func refreshOne(ctx context.Context, label string, client *apiclient.ApiClient) 
 // cleanRestError strips the REST client's "unexpected status code: N: " wrapper
 // so the underlying server-provided message reads cleanly.
 func cleanRestError(err error) string {
+	if he := apiclient.AsHTTPError(err); he != nil {
+		return strings.Replace(err.Error(), he.Error(), he.Message(), 1)
+	}
 	return restErrPrefix.ReplaceAllString(err.Error(), "")
 }
 

@@ -25,6 +25,16 @@ const (
 	ContentTypeMsgPack = "application/msgpack"
 )
 
+// decodeJSON decodes a JSON response body. Numbers landing in an interface{}
+// arrive as json.Number rather than float64, so an integer the server sent
+// stays an integer for callers that convert the result dynamically (the
+// scriptling transports); decoding into concrete types is unaffected.
+func decodeJSON(body io.Reader, response interface{}) error {
+	dec := json.NewDecoder(body)
+	dec.UseNumber()
+	return dec.Decode(response)
+}
+
 // RESTClient interface for both HTTP and Mux clients
 type RESTClient interface {
 	Get(ctx context.Context, path string, response interface{}) (int, error)
@@ -286,7 +296,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, http.MethodGet, path, bodyBytes)
 	}
 
 	if response != nil {
@@ -294,7 +304,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 		if strings.Contains(contentType, ContentTypeMsgPack) {
 			err = DecodeMsgPack(resp.Body, response)
 		} else {
-			err = json.NewDecoder(resp.Body).Decode(response)
+			err = decodeJSON(resp.Body, response)
 		}
 	}
 	return resp.StatusCode, err
@@ -334,7 +344,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 
 	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, method, path, bodyBytes)
 	}
 
 	if response != nil {
@@ -342,13 +352,22 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 		if strings.Contains(contentType, ContentTypeMsgPack) {
 			err = DecodeMsgPack(resp.Body, response)
 		} else {
-			err = json.NewDecoder(resp.Body).Decode(response)
+			err = decodeJSON(resp.Body, response)
 		}
 		if err != nil {
 			return resp.StatusCode, err
 		}
 	}
 	return resp.StatusCode, nil
+}
+
+// httpError builds an HTTPError for a failed request made by this client.
+func (c *HTTPClient) httpError(statusCode int, method, path string, body []byte) *HTTPError {
+	he := NewHTTPError(statusCode, method, path, body)
+	if c.baseURL != nil && c.baseURL.Host != "" {
+		he.Server = (&url.URL{Scheme: c.baseURL.Scheme, Host: c.baseURL.Host}).String()
+	}
+	return he
 }
 
 // errorMessageFromBody returns a human-readable error message from a response
@@ -429,7 +448,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 
 	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, method, path, bodyBytes)
 	}
 
 	if response != nil {
@@ -437,7 +456,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 		if strings.Contains(respContentType, ContentTypeMsgPack) {
 			err = DecodeMsgPack(resp.Body, response)
 		} else {
-			err = json.NewDecoder(resp.Body).Decode(response)
+			err = decodeJSON(resp.Body, response)
 		}
 		if err != nil {
 			return resp.StatusCode, err
@@ -498,11 +517,11 @@ func (c *HTTPClient) GetJSON(ctx context.Context, path string, response interfac
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return resp.StatusCode, c.httpError(resp.StatusCode, http.MethodGet, path, bodyBytes)
 	}
 
 	if response != nil {
-		err = json.NewDecoder(resp.Body).Decode(response)
+		err = decodeJSON(resp.Body, response)
 	}
 	return resp.StatusCode, err
 }
@@ -578,7 +597,7 @@ func (c *HTTPClient) streamDataCore(
 	// Check status code
 	if resp.StatusCode >= http.StatusBadRequest {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, errorMessageFromBody(bodyBytes))
+		return c.httpError(resp.StatusCode, method, path, bodyBytes)
 	}
 
 	// SSE streaming logic
@@ -670,4 +689,62 @@ func StreamData[P Pointer[T], T any](
 			// P is *T, so new(T) gives us *T directly
 			return new(T)
 		})
+}
+
+// DoRaw sends a request with a streamed body and returns the raw response,
+// leaving the body for the caller to read and close. size is the body length,
+// -1 if unknown. Unlike the JSON helpers it applies no overall timeout, so
+// large transfers are bounded only by ctx.
+func (c *HTTPClient) DoRaw(ctx context.Context, method string, path string, body io.Reader, size int64, headers map[string]string) (*http.Response, error) {
+	rel, err := url.Parse(path)
+	if err != nil {
+		return nil, fmt.Errorf("invalid path: %s, error: %v", path, err)
+	}
+	u := c.baseURL.ResolveReference(rel)
+
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.ContentLength = size
+	}
+
+	c.setHeaders(req)
+	if body == nil {
+		req.Header.Del("Content-Type")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	client := &http.Client{Transport: c.HTTPClient.Transport}
+	return client.Do(req)
+}
+
+// DecodeResponse turns a non-2xx response into an error carrying the server's
+// message, otherwise decodes the body into response when it is not nil.
+func DecodeResponse(resp *http.Response, response interface{}) error {
+	if resp.StatusCode >= http.StatusMultipleChoices {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		var method, path string
+		if resp.Request != nil {
+			method = resp.Request.Method
+			if resp.Request.URL != nil {
+				path = resp.Request.URL.Path
+			}
+		}
+		he := NewHTTPError(resp.StatusCode, method, path, bodyBytes)
+		if resp.Request != nil && resp.Request.URL != nil {
+			he.Server = (&url.URL{Scheme: resp.Request.URL.Scheme, Host: resp.Request.URL.Host}).String()
+		}
+		return he
+	}
+	if response == nil {
+		return nil
+	}
+	if strings.Contains(resp.Header.Get("Content-Type"), ContentTypeMsgPack) {
+		return DecodeMsgPack(resp.Body, response)
+	}
+	return decodeJSON(resp.Body, response)
 }

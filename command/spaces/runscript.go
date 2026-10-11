@@ -30,13 +30,13 @@ var RunScriptCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 		client.SetTimeout(5 * time.Minute)
 
 		space, err := client.GetSpaceByName(ctx, cmd.GetStringArg("space-name"))
 		if err != nil {
-			return fmt.Errorf("error getting space: %w", err)
+			return fmt.Errorf("couldn't find space %q: %w", cmd.GetStringArg("space-name"), err)
 		}
 
 		scriptArg := cmd.GetStringArg("script")
@@ -54,7 +54,7 @@ var RunScriptCmd = &cli.Command{
 			}
 			exitCode, err := client.ExecuteScriptContentStream(ctx, space.SpaceId, string(content), argv)
 			if err != nil {
-				return fmt.Errorf("error executing script: %w", err)
+				return fmt.Errorf("couldn't run the script in space %q: %w", cmd.GetStringArg("space-name"), err)
 			}
 			if exitCode != 0 {
 				os.Exit(exitCode)
@@ -63,7 +63,7 @@ var RunScriptCmd = &cli.Command{
 			// It's a named script - use streaming
 			exitCode, err := client.ExecuteScriptStream(ctx, space.SpaceId, scriptArg, argv)
 			if err != nil {
-				return fmt.Errorf("error executing script: %w", err)
+				return fmt.Errorf("couldn't run the script in space %q: %w", cmd.GetStringArg("space-name"), err)
 			}
 			if exitCode != 0 {
 				os.Exit(exitCode)

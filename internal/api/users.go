@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/paularlott/gossip/hlc"
@@ -10,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/filestore"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
@@ -70,7 +72,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate
-	if !validate.Username(request.Username) ||
+	if !validate.NewUsername(request.Username) ||
 		!validate.Password(request.Password) ||
 		!validate.Email(request.Email) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
@@ -125,6 +127,22 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// The first user of a new server runs it, and is the one to take
+	// backups: they are given the Admin role and a Backup User role made
+	// for the purpose, an ordinary role that can be edited or removed.
+	if !middleware.HasUsers {
+		backupRole, err := ensureBackupRole(db)
+		if err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to create the backup role: " + err.Error()})
+			return
+		}
+		for _, role := range []string{model.RoleAdminUUID, backupRole.Id} {
+			if !slices.Contains(userRoles, role) {
+				userRoles = append(userRoles, role)
+			}
+		}
+	}
+
 	// Check the groups are present in the system
 	for _, groupId := range request.Groups {
 		_, err := db.GetGroup(groupId)
@@ -136,6 +154,8 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create the user
 	userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
+	userNew.FileStorageMB = request.FileStorageMB
+	userNew.MaxBuckets = request.MaxBuckets
 	err = db.SaveUser(userNew, nil)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -222,6 +242,8 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		ComputeUnits:               user.ComputeUnits,
 		StorageUnits:               user.StorageUnits,
 		MaxTunnels:                 user.MaxTunnels,
+		FileStorageMB:              user.FileStorageMB,
+		MaxBuckets:                 user.MaxBuckets,
 		SSHPublicKey:               user.SSHPublicKey,
 		GitHubUsername:             user.GitHubUsername,
 		PreferredShell:             user.PreferredShell,
@@ -374,6 +396,8 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		ComputeUnits:    user.ComputeUnits,
 		StorageUnits:    user.StorageUnits,
 		MaxTunnels:      user.MaxTunnels,
+		FileStorageMB:   user.FileStorageMB,
+		MaxBuckets:      user.MaxBuckets,
 		SSHPublicKey:    user.SSHPublicKey,
 		SSHPrivateKey:   decryptSSHPrivateKey(user.SSHPrivateKey),
 		GitHubUsername:  user.GitHubUsername,
@@ -576,6 +600,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			data.ComputeUnits = user.ComputeUnits
 			data.StorageUnits = user.StorageUnits
 			data.MaxTunnels = user.MaxTunnels
+			data.FileStorageMB = user.FileStorageMB
+			data.MaxBuckets = user.MaxBuckets
 			data.Current = user.Id == activeUser.Id
 			// Marks accounts with linked subaccounts on the users list.
 			data.HasLinkedUsers = len(user.LinkedUsers) > 0
@@ -591,6 +617,13 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			data.ComputeUnits = quota.ComputeUnits
 			data.StorageUnits = quota.StorageUnits
 			data.MaxTunnels = quota.MaxTunnels
+			data.FileStorageMB = quota.FileStorageMB
+			data.MaxBuckets = quota.MaxBuckets
+			// File storage use, with the effective limits including the
+			// server defaults.
+			if store := filestore.Get(); store != nil {
+				data.UsedFileStorageMB, data.UsedBuckets, data.FileStorageMB, data.MaxBuckets = fileUsage(store, user.Id, quota)
+			}
 
 			if user.LastLoginAt != nil {
 				t := user.LastLoginAt.UTC()
@@ -688,7 +721,9 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	user.Timezone = request.Timezone
 	user.TOTPSecret = request.TOTPSecret
 
-	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
+	oldUsername := user.Username
+
+	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "FileStorageMB", "MaxBuckets", "UpdatedAt"}
 
 	if activeUser.Id == user.Id {
 		if request.SSHPrivateKey != "" {
@@ -720,6 +755,11 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if activeUser.HasPermission(model.PermissionManageUsers) {
+		// A changed name is held to the rules of a new one: buckets are named from it.
+		if request.Username != user.Username && !validate.NewUsername(request.Username) {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid username"})
+			return
+		}
 		user.Username = request.Username
 		saveFields = append(saveFields, "Username")
 
@@ -762,6 +802,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.ComputeUnits = request.ComputeUnits
 		user.StorageUnits = request.StorageUnits
 		user.MaxTunnels = request.MaxTunnels
+		user.FileStorageMB = request.FileStorageMB
+		user.MaxBuckets = request.MaxBuckets
 	}
 
 	user.UpdatedAt = hlc.Now()
@@ -805,6 +847,11 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipUser(user)
 	sse.PublishUsersChanged(user.Id)
+
+	// Their file storage buckets are named after them.
+	if user.Username != oldUsername {
+		RenameUserBuckets(r, activeUser, user, oldUsername)
+	}
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go service.GetUserService().UpdateUserSpaces(user)
@@ -891,16 +938,21 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 	}
 
 	quota := apiclient.UserQuota{
-		MaxSpaces:    userQuota.MaxSpaces,
-		ComputeUnits: userQuota.ComputeUnits,
-		StorageUnits: userQuota.StorageUnits,
-		MaxTunnels:   userQuota.MaxTunnels,
+		MaxSpaces:     userQuota.MaxSpaces,
+		ComputeUnits:  userQuota.ComputeUnits,
+		StorageUnits:  userQuota.StorageUnits,
+		MaxTunnels:    userQuota.MaxTunnels,
+		FileStorageMB: userQuota.FileStorageMB,
+		MaxBuckets:    userQuota.MaxBuckets,
 
 		NumberSpaces:         usage.NumberSpaces,
 		NumberSpacesDeployed: usage.NumberSpacesDeployed,
 		UsedComputeUnits:     usage.ComputeUnits,
 		UsedStorageUnits:     usage.StorageUnits,
 		UsedTunnels:          tunnel_server.CountUserTunnels(userId),
+	}
+	if store := filestore.Get(); store != nil {
+		quota.UsedFileStorageMB, quota.UsedBuckets, quota.FileStorageMB, quota.MaxBuckets = fileUsage(store, user.Id, userQuota)
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, quota)
@@ -971,4 +1023,27 @@ func HandleGetUserHasPermission(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{
 		"has_permission": hasPermission,
 	})
+}
+
+// ensureBackupRole returns the Backup User role of a new server, creating it
+// in the database if there isn't one: a role with the Backup Server
+// permission, which administrators don't otherwise have.
+func ensureBackupRole(db database.DbDriver) (*model.Role, error) {
+	roles, err := db.GetRoles()
+	if err != nil {
+		return nil, err
+	}
+	for _, role := range roles {
+		if !role.IsDeleted && role.Name == model.BackupRoleName {
+			return role, nil
+		}
+	}
+
+	role := model.NewRole(model.BackupRoleName, []uint16{model.PermissionBackup}, "")
+	if err := db.SaveRole(role); err != nil {
+		return nil, err
+	}
+	model.SaveRoleToCache(role)
+	service.GetTransport().GossipRole(role)
+	return role, nil
 }

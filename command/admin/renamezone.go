@@ -53,8 +53,7 @@ The zone name is updated within the database however spaces and volumes are not 
 		fmt.Print("Updating volumes\n")
 		volumes, err := db.GetVolumes()
 		if err != nil {
-			fmt.Println("Error getting volumes: ", err)
-			return nil
+			return fmt.Errorf("couldn't load the volumes: %w", err)
 		}
 
 		for _, volume := range volumes {
@@ -64,8 +63,8 @@ The zone name is updated within the database however spaces and volumes are not 
 				volume.UpdatedAt = hlc.Now()
 				err := db.SaveVolume(volume, []string{"Zone", "UpdatedAt"})
 				if err != nil {
-					fmt.Println("Error updating volume: ", err)
-					return nil
+					fmt.Println()
+					return fmt.Errorf("couldn't update volume %q: %w", volume.Name, err)
 				}
 				fmt.Print(" - Updated\n")
 			} else {
@@ -77,8 +76,7 @@ The zone name is updated within the database however spaces and volumes are not 
 		fmt.Print("\nUpdating spaces\n")
 		spaces, err := db.GetSpaces()
 		if err != nil {
-			fmt.Println("Error getting spaces: ", err)
-			return nil
+			return fmt.Errorf("couldn't load the spaces: %w", err)
 		}
 
 		for _, space := range spaces {
@@ -88,8 +86,8 @@ The zone name is updated within the database however spaces and volumes are not 
 				space.UpdatedAt = hlc.Now()
 				err := db.SaveSpace(space, []string{"Zone", "UpdatedAt"})
 				if err != nil {
-					fmt.Println("Error updating space: ", err)
-					return nil
+					fmt.Println()
+					return fmt.Errorf("couldn't update space %q: %w", space.Name, err)
 				}
 				fmt.Print(" - Updated\n")
 			} else {

@@ -61,7 +61,7 @@ func TestLeafNodeJobsPermission(t *testing.T) {
 	}
 	t.Cleanup(leaf.Stop)
 
-	leafOwner, err := harness.LoginUser(leaf, owner.Username, "Passw0rd!test")
+	leafOwner, err := harness.LoginLeafUser(leaf, owner.Username, "Passw0rd!test")
 	if err != nil {
 		t.Fatalf("login restricted user on leaf: %v", err)
 	}

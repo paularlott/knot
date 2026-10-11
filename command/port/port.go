@@ -100,12 +100,12 @@ command runs (Ctrl-C to stop).`,
 
 		spacePort := cmd.GetIntArg("space-port")
 		if spacePort < 1 || spacePort > 65535 {
-			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535")
+			return fmt.Errorf("invalid port number: use a port between 1 and 65535")
 		}
 
 		localPort := cmd.GetIntArg("local-port")
 		if localPort < 1 || localPort > 65535 {
-			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535")
+			return fmt.Errorf("invalid port number: use a port between 1 and 65535")
 		}
 
 		opts := tunnel_server.TunnelOpts{
@@ -130,7 +130,7 @@ command runs (Ctrl-C to stop).`,
 			&opts,
 		)
 		if err := client.ConnectAndServe(); err != nil {
-			return fmt.Errorf("Failed to create tunnel: %w", err)
+			return fmt.Errorf("couldn't forward port %d of space %q: %w", spacePort, spaceName, err)
 		}
 
 		// Wait for ctrl-c

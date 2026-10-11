@@ -3,7 +3,6 @@ package command_stack
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/paularlott/cli"
@@ -25,14 +24,12 @@ var ListDefsCmd = &cli.Command{
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			fmt.Println("Failed to create API client:", err)
-			os.Exit(1)
+			return err
 		}
 
 		list, _, err := client.GetStackDefinitions(ctx)
 		if err != nil {
-			fmt.Println("Error listing stack definitions:", err)
-			os.Exit(1)
+			return fmt.Errorf("couldn't list stack definitions: %w", err)
 		}
 
 		if list.Count == 0 {

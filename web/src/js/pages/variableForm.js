@@ -61,6 +61,7 @@ window.variableForm = function (isEdit, templateVarId, isLeafServer) {
 
       // Create the job editor
       const editor = ace.edit("value");
+      this.valueEditor = editor;
       editor.session.setValue(this.formData.value);
       editor.session.on("change", () => {
         this.formData.value = editor.getValue();
@@ -144,6 +145,7 @@ window.variableForm = function (isEdit, templateVarId, isLeafServer) {
       err = !this.checkValue() || err;
       err = !this.checkZonesValid() || err;
       if (err) {
+        focus.firstInvalid(this.$root);
         return;
       }
 
@@ -173,19 +175,11 @@ window.variableForm = function (isEdit, templateVarId, isLeafServer) {
             });
             self.$dispatch("close-variable-form");
           } else {
-            response.json().then((d) => {
-              self.$dispatch("show-alert", {
-                msg: `Failed to update the variable, ${d.error}`,
-                type: "error",
-              });
-            });
+            window.knotError(isEdit ? "save the variable" : "create the variable", response);
           }
         })
         .catch((error) => {
-          self.$dispatch("show-alert", {
-            msg: `Error!<br />${error.message}`,
-            type: "error",
-          });
+          window.knotError(isEdit ? "save the variable" : "create the variable", error);
         })
         .finally(() => {
           this.buttonLabel = isEdit ? "Update" : "Create Variable";

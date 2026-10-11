@@ -15,19 +15,19 @@
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Cluster information" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
-          <thead class="bg-gray-100 dark:bg-gray-700">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Node</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">State</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden md:table-cell">Zone</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden lg:table-cell">Endpoint</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden sm:table-cell">Node Spaces</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden xl:table-cell">Local Runtimes</th>
+              {{ template "sort-th" (map "key" "name" "label" "Node" "class" "text-left") }}
+              {{ template "sort-th" (map "key" "state" "label" "State" "class" "text-left") }}
+              {{ template "sort-th" (map "key" "zone" "label" "Zone" "class" "text-left hidden md:table-cell") }}
+              <th scope="col" class="px-4 py-3 text-left hidden lg:table-cell">Endpoint</th>
+              {{ template "sort-th" (map "key" "spaces" "label" "Node Spaces" "class" "text-left hidden sm:table-cell") }}
+              <th scope="col" class="px-4 py-3 text-left hidden xl:table-cell">Local Runtimes</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             <template x-if="nodes.length > 0">
-              <template x-for="node in nodes" :key="node.id">
+              <template x-for="node in sorted(nodes)" :key="node.id">
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
                     <div class="text-sm font-semibold text-gray-900 dark:text-white" x-text="node.metadata.hostname || 'unknown'"></div>
@@ -51,7 +51,7 @@
                       <div class="text-sm">
                         <span class="font-medium">Spaces:</span>
                         <span x-text="`${node.metadata.running_spaces || 0} / ${node.metadata.allocated_spaces || 0}`" class="text-gray-600 dark:text-gray-300"></span>
-                        <span class="text-xs text-gray-400">(running / allocated)</span>
+                        <span class="text-xs text-gray-500">(running / allocated)</span>
                       </div>
                     </div>
                     <div class="xl:hidden mt-2 space-y-1">
@@ -87,7 +87,7 @@
                       <span x-text="node.metadata.allocated_spaces || 0"></span>
                     </div>
                     <div class="text-xs text-gray-500 dark:text-gray-400">running / allocated</div>
-                    <div class="text-xs text-gray-400 dark:text-gray-500">(includes pending)</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">(includes pending)</div>
                   </td>
                   <td class="px-4 py-3 text-gray-700 dark:text-gray-200 hidden xl:table-cell">
                     <template x-if="node.metadata.runtimes">

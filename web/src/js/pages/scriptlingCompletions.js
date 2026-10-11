@@ -59,6 +59,12 @@ const scriptlingLibraries = [
         returns: "str",
       },
     ],
+    classes: [
+      {
+        name: "JSONDecodeError",
+        description: "Raised by loads() on malformed JSON; subclasses ValueError, as in Python.",
+      },
+    ],
   },
   {
     module: "msgpack",
@@ -105,6 +111,12 @@ const scriptlingLibraries = [
         signature: "getcwd()",
         description: "Return the current working directory.",
         returns: "str",
+      },
+      {
+        name: "getpid",
+        signature: "getpid()",
+        description: "Return the current process id.",
+        returns: "int",
       },
       {
         name: "listdir",
@@ -286,6 +298,12 @@ const scriptlingLibraries = [
         description: "Return the modification time as a timestamp.",
         returns: "float",
       },
+      {
+        name: "commonprefix",
+        signature: "commonprefix(paths)",
+        description: "Return the longest common leading component of the paths.",
+        returns: "str",
+      },
     ],
   },
   {
@@ -307,6 +325,18 @@ const scriptlingLibraries = [
             signature: "joinpath(*other)",
             description: "Combine this path with other path segments.",
             returns: "\"Path\"",
+          },
+          {
+            name: "__truediv__",
+            signature: "__truediv__(other)",
+            description: "Path(\"/etc\") / \"hosts\": join a segment, like joinpath().",
+            returns: "\"Path\"",
+          },
+          {
+            name: "__str__",
+            signature: "__str__()",
+            description: "The path as a string.",
+            returns: "str",
           },
           {
             name: "exists",
@@ -547,7 +577,7 @@ const scriptlingLibraries = [
       {
         name: "tool_calls",
         signature: "tool_calls(response_or_message)",
-        description: "Extract normalized tool calls from a completion response, message dict, or tool call list.",
+        description: "Extract normalized tool calls from a completion response, Responses API response, message dict, or tool call list. For a Responses API response each id is the call_id.",
         returns: "list[dict[str, Any]] - List of normalized tool call dicts with id, type, and function fields",
       },
       {
@@ -555,6 +585,12 @@ const scriptlingLibraries = [
         signature: "execute_tool_calls(registry, tool_calls)",
         description: "Execute normalized tool calls using handlers from a ToolRegistry.",
         returns: "list[dict[str, Any]] - List of tool result message dicts with role, tool_call_id, and content",
+      },
+      {
+        name: "tool_outputs",
+        signature: "tool_outputs(tool_results)",
+        description: "Convert tool results from execute_tool_calls() into Responses API input items.",
+        returns: "list[dict[str, Any]] - List of function_call_output dicts with call_id and output",
       },
       {
         name: "collect_stream",
@@ -659,8 +695,14 @@ const scriptlingLibraries = [
             returns: "dict[str, Any] - Response dict with object and data fields. data contains the model list.",
           },
           {
+            name: "supports",
+            signature: "supports(capability)",
+            description: "Check a client capability.",
+            returns: "bool - True if supported",
+          },
+          {
             name: "response_create",
-            signature: "response_create(model, input, system_prompt=None, background=False, extra_body=None)",
+            signature: "response_create(model, input, system_prompt=None, instructions=None, previous_response_id=None, tools=None, store=True, background=False, extra_body=None)",
             description: "Create a response using the OpenAI Responses API.",
             returns: "dict[str, Any] - Response object with id, status, output, usage, etc.",
           },
@@ -684,15 +726,15 @@ const scriptlingLibraries = [
           },
           {
             name: "response_stream",
-            signature: "response_stream(model, input, system_prompt=None, extra_body=None)",
+            signature: "response_stream(model, input, system_prompt=None, instructions=None, previous_response_id=None, tools=None, store=True, extra_body=None)",
             description: "Stream a response using the Responses API.",
             returns: "ResponseStream - ResponseStream object with a next() method",
           },
           {
             name: "response_compact",
-            signature: "response_compact(id)",
-            description: "Compact a response by removing intermediate reasoning steps.",
-            returns: "dict[str, Any] - Compacted response object with reasoning removed",
+            signature: "response_compact(model, previous_response_id=None, input=None, instructions=None)",
+            description: "Compact a conversation into a short output to continue from.",
+            returns: "dict[str, Any] - Compaction dict with id, object (\"response.compaction\"), output and usage",
           },
           {
             name: "embedding",
@@ -768,6 +810,10 @@ const scriptlingLibraries = [
       },
       {
         name: "MISTRAL",
+        description: "str",
+      },
+      {
+        name: "GROK",
         description: "str",
       },
     ],
@@ -2853,6 +2899,42 @@ const scriptlingLibraries = [
         ],
       },
       {
+        name: "Stream",
+        description: "A streamed reply returned by Cluster.open_stream(). Use it in a with statement to close it automatically.",
+        methods: [
+          {
+            name: "read",
+            signature: "read(size=-1)",
+            description: "Read up to size bytes, or the rest of the reply when size is omitted. Returns b'' at the end; a handler error is raised by the read that reaches it.",
+            returns: "bytes",
+          },
+          {
+            name: "readline",
+            signature: "readline()",
+            description: "Read one line including its newline. Returns b'' at the end.",
+            returns: "bytes",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the stream, abandoning any unread reply.",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "StreamWriter",
+        description: "The reply writer passed to a handle_stream() handler. Only valid while the handler runs.",
+        methods: [
+          {
+            name: "write",
+            signature: "write(data)",
+            description: "Send str (as UTF-8) or bytes to the caller. Returns the number of bytes written.",
+            returns: "int",
+          },
+        ],
+      },
+      {
         name: "Cluster",
         description: "Gossip cluster object returned by create().",
         methods: [
@@ -2914,6 +2996,18 @@ const scriptlingLibraries = [
             name: "handle_with_reply",
             signature: "handle_with_reply(message_type, handler)",
             description: "Register a request/reply message handler.",
+            returns: "None",
+          },
+          {
+            name: "open_stream",
+            signature: "open_stream(node_id, message_type, data)",
+            description: "Request a reply of any size from a node's handle_stream() handler.",
+            returns: "Stream - A Stream to read the reply from",
+          },
+          {
+            name: "handle_stream",
+            signature: "handle_stream(message_type, handler)",
+            description: "Serve open_stream() requests for a message type.",
             returns: "None",
           },
           {
@@ -3802,7 +3896,7 @@ const scriptlingLibraries = [
       },
       {
         name: "choices",
-        signature: "choices(population, weights=None, k=1)",
+        signature: "choices(population, weights=None, cum_weights=None, k=1)",
         description: "Weighted random sampling with replacement.",
         returns: "List - List of k selected items",
       },
@@ -4565,6 +4659,18 @@ const scriptlingLibraries = [
         signature: "vectorize(text, dims=256)",
         description: "Generate a vector from text using the feature-hashing trick (CPU-only).",
         returns: "list[float] - Normalised vector of length dims.",
+      },
+      {
+        name: "sentences",
+        signature: "sentences(text)",
+        description: "Split text into sentences.",
+        returns: "list[str] - List of sentences in order.",
+      },
+      {
+        name: "extract",
+        signature: "extract(text, max_chars=None, max_sentences=None, ratio=None)",
+        description: "Keep the most informative sentences of a text, in their original order, within the given bounds (CPU-only, no model).",
+        returns: "str - The selected sentences joined with spaces (newlines for line-oriented text).",
       },
     ],
   },

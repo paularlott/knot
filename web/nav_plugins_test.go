@@ -48,7 +48,7 @@ func TestNavPluginsItemPresence(t *testing.T) {
 
 	// No registry (plugins path unset): nothing anywhere.
 	plugins.SetRegistry(nil)
-	_, more := buildNav(admin, cfg, true)
+	more := allItems(buildNav(admin, cfg, true))
 	for _, item := range more {
 		if item.URL == "/plugins" {
 			t.Error("plugins inventory item must not appear with no plugins loaded")
@@ -58,7 +58,7 @@ func TestNavPluginsItemPresence(t *testing.T) {
 	// Registry present: the item appears under Cluster Info for admins.
 	cfg.Cluster.AdvertiseAddr = "127.0.0.1:9000"
 	withPluginRegistry(t)
-	_, more = buildNav(admin, cfg, true)
+	more = section(buildNav(admin, cfg, true), navAdmin)
 	found, clusterIdx, pluginsIdx := false, -1, -1
 	for i, item := range more {
 		switch item.URL {
@@ -77,7 +77,7 @@ func TestNavPluginsItemPresence(t *testing.T) {
 
 	// A non-admin never sees it.
 	plain := &model.User{Username: "plain"}
-	_, more = buildNav(plain, cfg, true)
+	more = allItems(buildNav(plain, cfg, true))
 	for _, item := range more {
 		if item.URL == "/plugins" {
 			t.Error("plugins inventory item must not appear for non-admins")
@@ -85,11 +85,10 @@ func TestNavPluginsItemPresence(t *testing.T) {
 	}
 }
 
-// TestNavPluginPagePinKeepsMoreClosed pins the regression where a plugin page
+// TestNavPluginPageOwnsItsPath pins the regression where a plugin page
 // (served under /plugins/<name>) also prefix-matched the shorter /plugins
-// inventory entry inside More, so More auto-expanded on every plugin page
-// even with the plugin's own menu item pinned out of it.
-func TestNavPluginPagePinKeepsMoreClosed(t *testing.T) {
+// inventory entry, opening the wrong section.
+func TestNavPluginPageOwnsItsPath(t *testing.T) {
 	model.SetRoleCache(nil)
 	cfg := &config.ServerConfig{}
 	withPluginRegistrySource(t, "# /// script\n"+
@@ -107,33 +106,45 @@ func TestNavPluginPagePinKeepsMoreClosed(t *testing.T) {
 	admin := &model.User{Username: "admin", Roles: []string{model.RoleAdminUUID}}
 	const pageURL = "/plugins/hello/dashboard"
 
-	// Sanity: the page's menu item is a visible More entry alongside the
-	// inventory item it nests under.
-	_, more := buildNav(admin, cfg, true)
+	// Sanity: the page's menu item is in Extensions, the inventory item it
+	// nests under in Admin.
+	sections := buildNav(admin, cfg, true)
 	hasPage, hasInventory := false, false
-	for _, item := range more {
+	for _, item := range section(sections, navPlugins) {
 		hasPage = hasPage || item.URL == pageURL
+	}
+	for _, item := range section(sections, navAdmin) {
 		hasInventory = hasInventory || item.URL == "/plugins"
 	}
 	if !hasPage || !hasInventory {
-		t.Fatalf("want both %s and /plugins in More, got %v", pageURL, urls(more))
+		t.Fatalf("want %s in Extensions and /plugins in Admin, got %v", pageURL, urls(allItems(sections)))
 	}
 
-	// Unpinned (Mode A) on the plugin page: More opens to reveal the active
-	// item.
-	if _, _, _, _, moreActive := resolveNav(admin, cfg, true, pageURL); !moreActive {
-		t.Fatal("Mode A on a plugin page: More should auto-expand to reveal it")
+	// On the plugin page its own item owns the path, not the shorter
+	// /plugins entry: Extensions opens, Admin stays closed.
+	_, sections = resolveNav(admin, cfg, true, pageURL)
+	if !sectionByKey(sections, navPlugins).Active || sectionByKey(sections, navAdmin).Active {
+		t.Fatal("a plugin page should open Extensions only")
 	}
 
-	// Pinned (Mode B) on the plugin page: the page's own item owns the path,
-	// not the shorter /plugins entry, so More must stay closed.
+	// Starred, the page leaves Extensions (now empty and hidden) and no
+	// section opens.
 	admin.SetNavStarred([]string{pageURL})
-	if _, _, _, _, moreActive := resolveNav(admin, cfg, true, pageURL); moreActive {
-		t.Fatal("Mode B with the plugin page pinned: More must stay closed")
+	starred, sections := resolveNav(admin, cfg, true, pageURL)
+	if len(starred) != 1 || !starred[0].Active {
+		t.Fatalf("want the starred plugin page current, got %v", starred)
+	}
+	for _, s := range sections {
+		if s.Active {
+			t.Fatalf("section %s opened for a starred page", s.Key)
+		}
+		if s.Key == navPlugins {
+			t.Fatal("Extensions should be hidden once its only item is starred")
+		}
 	}
 
-	// The inventory page itself still lives in More and opens it.
-	if _, _, _, _, moreActive := resolveNav(admin, cfg, true, "/plugins"); !moreActive {
-		t.Fatal("the /plugins inventory page lives in More: it should auto-expand")
+	// The inventory page itself lives in Admin and opens it.
+	if _, sections := resolveNav(admin, cfg, true, "/plugins"); !sectionByKey(sections, navAdmin).Active {
+		t.Fatal("the /plugins inventory page lives in Admin: it should open")
 	}
 }

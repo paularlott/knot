@@ -17,6 +17,7 @@ package lmchatkit
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/paularlott/knot/internal/config"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/paularlott/lmchatkit"
 	mcplib "github.com/paularlott/mcp"
+	"github.com/paularlott/mcp/ai"
 )
 
 // ScriptToolsProvider returns the per-user MCP tool providers (script tools,
@@ -41,12 +43,6 @@ type ScriptToolsProvider func(ctx context.Context, user *model.User) []mcplib.To
 // MCP server, and single persona. The per-user tool provider is injected by
 // AuthMiddleware (callers must wrap lmchatkit's routes with it).
 func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvider ScriptToolsProvider) *lmchatkit.StandardHost {
-	// StandardHost.Complete appends "/v1/chat/completions" itself, so strip
-	// a trailing /v1 from the configured BaseURL to avoid a doubled path
-	// (e.g. http://host:1234/v1 → http://host:1234 + /v1/chat/completions).
-	baseURL := strings.TrimSuffix(cfg.BaseURL, "/")
-	baseURL = strings.TrimSuffix(baseURL, "/v1")
-
 	return &lmchatkit.StandardHost{
 		ModelsFunc: func(ctx context.Context) ([]lmchatkit.Model, error) {
 			if cfg.Model == "" {
@@ -54,8 +50,8 @@ func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvide
 			}
 			return []lmchatkit.Model{{ID: cfg.Model}}, nil
 		},
-		OpenAIBaseURL: baseURL,
-		OpenAIToken:   cfg.APIKey,
+		ChatCompletionsURL: ChatCompletionsURL(cfg.Provider, cfg.BaseURL),
+		OpenAIToken:        cfg.APIKey,
 		MCPServer: func(ctx context.Context) *mcplib.Server {
 			return mcpServer
 		},
@@ -68,6 +64,21 @@ func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvide
 				"Call the lmchatkit__get_skill tool with the skill URI to retrieve detailed instructions:")
 		},
 	}
+}
+
+// ChatCompletionsURL returns the OpenAI-compatible chat completions URL for a
+// provider's base URL. The web chat always speaks the OpenAI protocol, which
+// Gemini serves under /openai. A base URL without a path (e.g.
+// http://host:1234) gets /v1, as before.
+func ChatCompletionsURL(provider, baseURL string) string {
+	base := strings.TrimSuffix(baseURL, "/")
+	if provider == string(ai.ProviderGemini) {
+		return base + "/openai/chat/completions"
+	}
+	if u, err := url.Parse(base); err == nil && (u.Path == "" || u.Path == "/") {
+		return base + "/v1/chat/completions"
+	}
+	return base + "/chat/completions"
 }
 
 // AuthMiddleware returns the middleware that wraps every lmchatkit HTTP handler.
@@ -117,7 +128,17 @@ func PersonaSource() lmchatkit.PersonaSource {
 		Name:         "Default",
 		SystemPrompt: systemPrompt,
 		DefaultModel: defaultModelName(),
+		Params:       personaParams(cfg),
 	}}
+}
+
+// personaParams returns the model params set in the chat config.
+func personaParams(cfg *config.ServerConfig) map[string]interface{} {
+	params := map[string]interface{}{}
+	if cfg != nil && cfg.Chat.ReasoningEffort != "" {
+		params["reasoning_effort"] = cfg.Chat.ReasoningEffort
+	}
+	return params
 }
 
 // defaultModelName returns the configured chat model, or empty if not set.

@@ -57,3 +57,50 @@ func TestCloseSessionDropsOnlyThatSession(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+// An event for one user reaches only that user's streams.
+func TestSendToUser(t *testing.T) {
+	h := &Hub{
+		clients:    make(map[*Client]bool),
+		broadcast:  make(chan *Event, 256),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		shutdown:   make(chan struct{}),
+	}
+	go h.run()
+	defer close(h.shutdown)
+
+	a1 := h.NewClient("alice", "s1")
+	a2 := h.NewClient("alice", "s2")
+	b := h.NewClient("bob", "s3")
+	if ids := h.UserIds(); len(ids) != 2 {
+		t.Fatalf("user ids %v", ids)
+	}
+
+	h.SendToUser("alice", &Event{Type: EventFilesChanged, Payload: FilesPayload{BucketIds: []string{"x"}}})
+	for _, c := range []*Client{a1, a2} {
+		select {
+		case data := <-c.Send():
+			if string(data) != `{"type":"files:changed","payload":{"bucket_ids":["x"]}}` {
+				t.Errorf("got %s", data)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("alice's stream got nothing")
+		}
+	}
+	select {
+	case data := <-b.Send():
+		t.Errorf("bob got %s", data)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Broadcasts still reach everyone.
+	h.Broadcast(&Event{Type: EventTemplatesChanged})
+	for _, c := range []*Client{a1, a2, b} {
+		select {
+		case <-c.Send():
+		case <-time.After(2 * time.Second):
+			t.Fatal("broadcast missed a stream")
+		}
+	}
+}

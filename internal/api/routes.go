@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
 	"github.com/paularlott/knot/internal/plugins"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 func ApiRoutes(router *http.ServeMux) {
@@ -73,6 +74,33 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/sessions", middleware.ApiAuth(HandleGetSessions))
 	router.HandleFunc("DELETE /api/sessions/{session_id}", middleware.ApiAuth(HandleDeleteSessions))
 
+	// File storage — every handler answers 503 when storage is disabled
+	router.HandleFunc("GET /api/files/buckets", middleware.ApiAuth(rest.Gzip(HandleGetFileBuckets)))
+	router.HandleFunc("POST /api/files/buckets", middleware.ApiAuth(HandleCreateFileBucket))
+	router.HandleFunc("GET /api/files/buckets/{bucket}", middleware.ApiAuth(HandleGetFileBucket))
+	router.HandleFunc("DELETE /api/files/buckets/{bucket}", middleware.ApiAuth(HandleDeleteFileBucket))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/share", middleware.ApiAuth(HandleShareFileBucket))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/unshare", middleware.ApiAuth(HandleUnshareFileBucket))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/transfer", middleware.ApiAuth(HandleTransferFileBucket))
+	router.HandleFunc("GET /api/files/usage", middleware.ApiAuth(HandleGetFileUsage))
+	router.HandleFunc("GET /api/backup/info", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleGetBackupInfo)))
+	router.HandleFunc("GET /api/backup/content/{sha}", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleBackupContent)))
+	router.HandleFunc("GET /api/backup/{kind}", middleware.ApiAuth(middleware.ApiPermissionBackup(rest.Gzip(HandleBackupKind))))
+	router.HandleFunc("POST /api/backup/complete", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleBackupComplete)))
+	router.HandleFunc("POST /api/restore/content/missing", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreContentMissing)))
+	router.HandleFunc("PUT /api/restore/content/{sha}", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreContent)))
+	router.HandleFunc("POST /api/restore/complete", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreComplete)))
+	router.HandleFunc("POST /api/restore/{kind}", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreKind)))
+	router.HandleFunc("POST /api/files/fsck", middleware.ApiAuth(HandleFilesFsck))
+	router.HandleFunc("GET /api/files/share-targets", middleware.ApiAuth(rest.Gzip(HandleGetFileShareTargets)))
+	router.HandleFunc("GET /api/files/list/{bucket}", middleware.ApiAuth(rest.Gzip(HandleListFileObjects)))
+	router.HandleFunc("GET /api/files/changes/{bucket}", middleware.ApiAuth(rest.Gzip(HandleListFileChanges)))
+	router.HandleFunc("GET /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleGetFileObject))
+	router.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandlePutFileObject))
+	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(HandleCopyFileObject))
+	router.HandleFunc("POST /api/files/move", middleware.ApiAuth(HandleMoveFileObjects))
+	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleDeleteFileObject))
+
 	// Tokens
 	router.HandleFunc("GET /api/tokens", middleware.ApiAuth(HandleGetTokens))
 	router.HandleFunc("POST /api/tokens", middleware.ApiAuth(HandleCreateToken))
@@ -134,7 +162,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
-	router.HandleFunc("GET /api/templates/{template_id}/export", middleware.ApiAuth(HandleExportTemplate))
+	router.HandleFunc("GET /api/templates/{template_id}/export", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleExportTemplate)))
 	router.HandleFunc("POST /api/templates/import", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleImportTemplate)))
 
 	// Template spec wizard (base image catalog + spec parse/build)
@@ -237,6 +265,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)
 	router.HandleFunc("GET /api/auth/using-totp", HandleUsingTotp)
+	router.HandleFunc("POST /api/auth/totp/verify", middleware.ApiAuth(HandleVerifyTOTP))
 	router.HandleFunc("DELETE /api/auth/blocked", middleware.ApiAuth(middleware.ApiPermissionManageUsers(HandleClearAuthBlocks)))
 
 	// OAuth2 routes

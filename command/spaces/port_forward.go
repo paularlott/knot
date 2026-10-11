@@ -67,12 +67,12 @@ var PortForwardCmd = &cli.Command{
 		// Get the space ID from the space name
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to create API client: %w", err)
+			return err
 		}
 
 		spaces, _, err := client.GetSpaces(ctx, "", false)
 		if err != nil {
-			return fmt.Errorf("failed to get spaces: %w", err)
+			return fmt.Errorf("couldn't list spaces: %w", err)
 		}
 
 		var fromSpaceInfo *apiclient.SpaceInfo
@@ -84,12 +84,12 @@ var PortForwardCmd = &cli.Command{
 		}
 
 		if fromSpaceInfo == nil {
-			return fmt.Errorf("space '%s' not found", fromSpace)
+			return fmt.Errorf("space %q not found", fromSpace)
 		}
 
 		if !fromSpaceInfo.IsDeployed || !fromSpaceInfo.HasState {
 			if !cmd.GetBool("persistent") {
-				return fmt.Errorf("space '%s' is not running", fromSpace)
+				return fmt.Errorf("space %q is not running", fromSpace)
 			}
 		}
 
@@ -106,7 +106,7 @@ var PortForwardCmd = &cli.Command{
 				}
 			}
 			if toSpaceInfo != nil && !toSpaceInfo.IsDeployed && !toSpaceInfo.HasState {
-				return fmt.Errorf("space '%s' is not running", toSpace)
+				return fmt.Errorf("space %q is not running", toSpace)
 			}
 		}
 
@@ -125,17 +125,11 @@ var PortForwardCmd = &cli.Command{
 		}
 
 		// Send the port forward request
-		code, err := client.ForwardPort(ctx, spaceId, request)
+		_, err = client.ForwardPort(ctx, spaceId, request)
 		if err != nil {
-			if code == 401 {
-				return fmt.Errorf("failed to authenticate with server, check token")
-			}
-			// Surface the server's reason (target not found, port not
-			// public, pool empty, target not running) when there is one.
-			if message := cmdutil.CleanAPIError(err); message != "" {
-				return fmt.Errorf("port forward failed: %s", message)
-			}
-			return fmt.Errorf("port forward failed: %w", err)
+			// The server's reason (target not found, port not public, pool
+			// empty, target not running) is carried by the wrapped error.
+			return fmt.Errorf("couldn't forward %s:%d to %s:%d: %w", fromSpace, fromPort, toSpace, toPort, err)
 		}
 
 		fmt.Printf("Port forward established: %s:%d -> %s:%d\n", fromSpace, fromPort, toSpace, toPort)
