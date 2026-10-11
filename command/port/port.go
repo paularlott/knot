@@ -82,7 +82,7 @@ command runs (Ctrl-C to stop).`,
 		},
 		&cli.StringFlag{
 			Name:    "port-tls-name",
-			Usage:   "The name to present to local port when using.",
+			Usage:   "The TLS server name (SNI) to present to the local port when it is reached over https.",
 			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TLS_NAME"},
 		},
 		&cli.BoolFlag{

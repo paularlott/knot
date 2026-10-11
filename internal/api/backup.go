@@ -21,9 +21,10 @@ import (
 
 // Backup and restore are streams of JSON lines, one stream for each kind of
 // record, so a server of any size is backed up and restored without holding
-// it in memory, by a client that can run anywhere. Backing up needs the
-// Backup Server permission. A restore needs it too, except on a server with
-// no users yet, which is how a lost server is rebuilt.
+// it in memory, by a client that can run anywhere. Backing up and restoring
+// both need the Backup Server permission, and a server with no users refuses
+// both: a lost server is rebuilt by creating its first user, which holds the
+// permission, and restoring with that user's token.
 
 var backupKinds = apiclient.BackupKinds
 

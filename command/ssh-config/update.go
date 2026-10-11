@@ -27,7 +27,7 @@ var SshConfigUpdateCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:         "binary",
-			Usage:        "Option path to the knot binary.",
+			Usage:        "Optional path to the knot binary.",
 			DefaultValue: "knot",
 		},
 	},

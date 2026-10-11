@@ -29,7 +29,7 @@ var lsCmd = &cli.Command{
 	},
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "recursive", Aliases: []string{"r"}, Usage: "List every file below the path instead of one level."},
-		&cli.BoolFlag{Name: "all", Usage: "With no path, list every bucket (file administrators only)."},
+		&cli.BoolFlag{Name: "all", Usage: "With no path, list every bucket (file storage managers only)."},
 		jsonFlag,
 	},
 	MaxArgs: cli.NoArgs,

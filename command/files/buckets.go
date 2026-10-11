@@ -94,7 +94,7 @@ var bucketListCmd = &cli.Command{
 	Name:  "list",
 	Usage: "List buckets you own or that are shared with you",
 	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "all", Usage: "List every bucket (file administrators only)."},
+		&cli.BoolFlag{Name: "all", Usage: "List every bucket (file storage managers only)."},
 		jsonFlag,
 	},
 	MaxArgs: cli.NoArgs,
@@ -346,7 +346,7 @@ var bucketTransferCmd = &cli.Command{
 		&cli.StringArg{Name: "user", Usage: "Username or email of the new owner", Required: true},
 	},
 	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "force", Aliases: []string{"f"}, Usage: "Transfer even if it takes the new owner over their quota (administrators only)."},
+		&cli.BoolFlag{Name: "force", Aliases: []string{"f"}, Usage: "Transfer even if it takes the new owner over their quota (file storage managers only)."},
 	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
