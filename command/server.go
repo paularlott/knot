@@ -824,8 +824,8 @@ var ServerCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:       "base-images-update-url",
 			Usage:      "URL to fetch the base image manifest from. No default: a fetch only happens when this is set and --base-images-update-enabled is on. For example, point it at https://raw.githubusercontent.com/paularlott/knot/main/internal/specwizard/manifest.toml to track the catalog shipped with knot releases.",
-			ConfigPath:  []string{"server.base_image.update_url"},
-			EnvVars:     []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_URL"},
+			ConfigPath: []string{"server.base_image.update_url"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_URL"},
 		},
 
 		// MCP flags
@@ -909,11 +909,10 @@ var ServerCmd = &cli.Command{
 			DefaultValue: 0,
 		},
 		&cli.Float32Flag{
-			Name:         "chat-temperature",
-			Usage:        "Temperature for chat responses.",
-			ConfigPath:   []string{"server.chat.temperature"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TEMPERATURE"},
-			DefaultValue: 0.1,
+			Name:       "chat-temperature",
+			Usage:      "Temperature for chat responses (unset uses the provider's default).",
+			ConfigPath: []string{"server.chat.temperature"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_CHAT_TEMPERATURE"},
 		},
 		&cli.StringFlag{
 			Name:         "chat-system-prompt-file",
@@ -1917,7 +1916,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 				OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
 				Model:            cmd.GetString("chat-model"),
 				MaxTokens:        cmd.GetInt("chat-max-tokens"),
-				Temperature:      cmd.GetFloat32("chat-temperature"),
+				Temperature:      chatTemperature(cmd),
 				SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
 				ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
 				UIStyle:          cmd.GetString("chat-ui-style"),
@@ -2046,4 +2045,14 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	return serverCfg
+}
+
+// chatTemperature returns the configured chat temperature, or nil when it isn't
+// set so the provider's default applies; reasoning models reject a temperature.
+func chatTemperature(cmd *cli.Command) *float32 {
+	if !cmd.HasFlag("chat-temperature") {
+		return nil
+	}
+	t := cmd.GetFloat32("chat-temperature")
+	return &t
 }

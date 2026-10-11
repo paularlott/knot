@@ -32,4 +32,13 @@ func TestPersonaParams(t *testing.T) {
 	if got := personaParams(nil); len(got) != 0 {
 		t.Errorf("nil config params = %v", got)
 	}
+	temp := float32(0.2)
+	got := personaParams(&config.ServerConfig{Chat: config.ChatConfig{Temperature: &temp, MaxTokens: 512}})
+	if got["temperature"] != float32(0.2) || got["max_tokens"] != 512 {
+		t.Errorf("params = %v, want temperature 0.2 and max_tokens 512", got)
+	}
+	zero := float32(0)
+	if got := personaParams(&config.ServerConfig{Chat: config.ChatConfig{Temperature: &zero}}); got["temperature"] != float32(0) {
+		t.Errorf("params = %v, want an explicit temperature 0 sent", got)
+	}
 }

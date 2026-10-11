@@ -202,9 +202,9 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
     // an exact match of an option's key or text snaps to that key, anything
     // else clears the value (the picker sets it properly).
     // matchOption compares case insensitively; pasted references often carry
-    // decoration ("#wr1234", "[wr1234]"), so when the raw text matches
+    // decoration ("#1234", "[1234]"), so when the raw text matches
     // nothing the comparison retries with leading and trailing characters
-    // outside a-z 0-9 - _ trimmed from the query: try #wr1234, then wr1234.
+    // outside a-z 0-9 - _ trimmed from the query: try #1234, then 1234.
     matchOption(q) {
       if (q === null || q === undefined) return undefined;
       const query = String(q).toLowerCase();
@@ -228,8 +228,8 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
       const filter = (term) => this.options.filter((o) => this.optText(o).toLowerCase().includes(term) || this.optKey(o).toLowerCase().includes(term));
       const filtered = filter(q);
       if (filtered.length) return filtered;
-      // Same trim fallback as matchOption: "#wr1234" should still list the
-      // wr1234 option, not "no matches".
+      // Same trim fallback as matchOption: "#1234" should still list the
+      // 1234 option, not "no matches".
       const trimmed = q.replace(/^[^a-z0-9_-]+|[^a-z0-9_-]+$/g, '');
       return trimmed && trimmed !== q ? filter(trimmed) : filtered;
     },

@@ -135,8 +135,17 @@ func PersonaSource() lmchatkit.PersonaSource {
 // personaParams returns the model params set in the chat config.
 func personaParams(cfg *config.ServerConfig) map[string]interface{} {
 	params := map[string]interface{}{}
-	if cfg != nil && cfg.Chat.ReasoningEffort != "" {
+	if cfg == nil {
+		return params
+	}
+	if cfg.Chat.ReasoningEffort != "" {
 		params["reasoning_effort"] = cfg.Chat.ReasoningEffort
+	}
+	if cfg.Chat.Temperature != nil {
+		params["temperature"] = *cfg.Chat.Temperature
+	}
+	if cfg.Chat.MaxTokens > 0 {
+		params["max_tokens"] = cfg.Chat.MaxTokens
 	}
 	return params
 }

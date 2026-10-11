@@ -282,7 +282,7 @@ type ChatConfig struct {
 	OpenAIBaseURL    string // Deprecated: use BaseURL
 	Model            string
 	MaxTokens        int
-	Temperature      float32
+	Temperature      *float32 // nil leaves the provider's default
 	SystemPromptFile string
 	SystemPrompt     string
 	ReasoningEffort  string
