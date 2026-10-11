@@ -56,6 +56,8 @@ func main() {
 
 It offers both a user-friendly web interface and a command line interface to streamline the deployment process and simplify access.`,
 		Version: build.Version,
+		// Suggest close matches for a mistyped command.
+		Suggestions: true,
 		ConfigFile: cli_toml.NewConfigFile(&configFile, func() []string {
 			paths := []string{"."}
 

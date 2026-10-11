@@ -105,10 +105,10 @@ def create_def(name, description="", icon_url="", scope="user", active=True, gro
         zones: List of zone restrictions
         spaces: List of space dicts, each containing:
             - name: Space identifier (used in prefix-name naming and dependency references)
-            - template: Template name
+            - template_id: Template ID
             - description: Space description
             - shell: Override shell
-            - startup_script: Startup script name
+            - startup_script_id: Startup script ID
             - depends_on: List of space names this depends on
             - custom_fields: List of {name, value} dicts
             - port_forwards: List of {to_space, local_port, remote_port} dicts
@@ -499,7 +499,7 @@ def list():
         stacks[stack].append({
             "id": space.get("space_id", space.get("id", "")),
             "name": space.get("name", ""),
-            "is_running": space.get("is_deployed", False),
+            "is_running": space.get("is_running", False),
         })
 
     result = []

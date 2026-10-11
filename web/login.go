@@ -92,7 +92,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
-	session := r.Context().Value("session").(*model.Session)
+	session, _ := r.Context().Value("session").(*model.Session)
 	if session != nil {
 		session.IsDeleted = true
 		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
@@ -120,7 +120,7 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 // and whitening the screen before the real navigation starts.
 func HandleSwitchUserPage(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
-	session := r.Context().Value("session").(*model.Session)
+	session, _ := r.Context().Value("session").(*model.Session)
 
 	target, err := database.GetInstance().GetUser(r.PathValue("user_id"))
 	if err != nil || target == nil || target.IsDeleted || !target.Active || session == nil {

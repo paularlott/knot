@@ -34,7 +34,7 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
 	// Build a json array of session data to return to the client
 	sessionData := []*sessionResponse{}
 
-	currentSession := r.Context().Value("session").(*model.Session)
+	currentSession, _ := r.Context().Value("session").(*model.Session)
 
 	for _, session := range sessions {
 		if session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {

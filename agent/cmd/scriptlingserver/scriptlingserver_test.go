@@ -196,7 +196,7 @@ func TestShouldAutoStart(t *testing.T) {
 	os.Args = []string{"knot"}
 
 	t.Run("with env var", func(t *testing.T) {
-		t.Setenv(PeerEnvVar, "0.23.0")
+		t.Setenv(PeerEnvVar, "0.27.0")
 		if !ShouldAutoStart() {
 			t.Fatal("expected auto-start with env var set")
 		}
@@ -209,7 +209,7 @@ func TestShouldAutoStart(t *testing.T) {
 	})
 	t.Run("with plugin args", func(t *testing.T) {
 		os.Args = []string{"knot", "--alias", "work"}
-		t.Setenv(PeerEnvVar, "0.23.0")
+		t.Setenv(PeerEnvVar, "0.27.0")
 		if !ShouldAutoStart() {
 			t.Fatal("expected auto-start with env var set and plugin args present")
 		}
@@ -301,10 +301,12 @@ func TestCheckPeerVersion(t *testing.T) {
 		version string
 		ok      bool
 	}{
-		{"0.23.0", true},
-		{"0.23.1", true},
-		{"0.24.0", true},
+		{"0.27.0", true},
+		{"0.27.1", true},
+		{"0.30.2", true},
 		{"1.0.0", true},
+		{"0.26.0", false}, // str.encode() returns a list, not bytes
+		{"0.23.0", false},
 		{"0.22.0", false}, // before the fetcher contract
 		{"0.21.4", false},
 		{"garbage", false},
@@ -551,6 +553,14 @@ func (s *filesStore) put(key string, body []byte, contentType string) {
 	s.types[key] = contentType
 }
 
+func (s *filesStore) delete(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.files[key]
+	delete(s.files, key)
+	return ok
+}
+
 func (s *filesStore) get(key string) ([]byte, string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -582,6 +592,19 @@ func mockFilesAPI(t *testing.T) (*httptest.Server, *filesStore) {
 			"key": r.PathValue("key"), "size": len(body), "etag": "etag", "sha256": "sha",
 			"content_type": r.Header.Get("Content-Type"), "modified_at": "2026-10-05T00:00:00Z",
 		})
+	})
+	// Every stored file has the etag "etag", so a conditional delete with any
+	// other If-Match is stale.
+	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {
+		if m := r.Header.Get("If-Match"); m != "" && m != `"etag"` {
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return
+		}
+		if !store.delete(r.PathValue("key")) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	return httptest.NewServer(mux), store
 }
@@ -677,6 +700,15 @@ result = {
     "text": knot.files.read_text("scripts", "app/héllo.txt"),
     "roundtrip": knot.files.read_file("scripts", "app/héllo.txt").decode() == "héllo ü",
 }
+try:
+    knot.files.delete_file("scripts", "app/héllo.txt", if_match="stale")
+    result["stale_delete"] = ""
+except Exception as e:
+    result["stale_delete"] = str(e)
+result["kept"] = knot.files.read_text("scripts", "app/héllo.txt")
+result["deleted"] = knot.files.delete_file("scripts", "app/héllo.txt", if_match=info["etag"])
+knot.files.write_file("scripts", "plain.txt", "x")
+result["plain_deleted"] = knot.files.delete_file("scripts", "plain.txt")
 `
 		if _, err := env.Eval(script); err != nil {
 			t.Fatalf("script failed: %v", err)
@@ -701,8 +733,14 @@ result = {
 		if m["text"] != "héllo ü" || m["roundtrip"] != true {
 			t.Errorf("round trip failed: %v", m)
 		}
-		if body, ct, _ := store.get("app/héllo.txt"); string(body) != "héllo ü" || ct != "text/plain; charset=utf-8" {
-			t.Fatalf("server stored %q (%s)", body, ct)
+		if !strings.Contains(fmt.Sprint(m["stale_delete"]), "412") || m["kept"] != "héllo ü" {
+			t.Errorf("stale conditional delete: %v, file %v", m["stale_delete"], m["kept"])
+		}
+		if m["deleted"] != true || m["plain_deleted"] != true {
+			t.Errorf("deletes: conditional %v, plain %v", m["deleted"], m["plain_deleted"])
+		}
+		if _, _, ok := store.get("app/héllo.txt"); ok {
+			t.Error("the conditional delete left the file on the server")
 		}
 	})
 }
@@ -769,6 +807,20 @@ func testPluginValue(o object.Object) (plugin.Value, error) {
 		return plugin.Value{Type: "bool", Value: v.BoolValue()}, nil
 	case *object.Null:
 		return plugin.Value{Type: "null"}, nil
+	case *object.Dict:
+		entries := make(map[string]plugin.Value, len(v.Pairs))
+		for _, pair := range v.Pairs {
+			key, errObj := pair.Key.AsString()
+			if errObj != nil {
+				return plugin.Value{}, fmt.Errorf("dict keys must be strings")
+			}
+			e, err := testPluginValue(pair.Value)
+			if err != nil {
+				return plugin.Value{}, err
+			}
+			entries[key] = e
+		}
+		return plugin.Value{Type: "dict", Entries: entries}, nil
 	}
 	return plugin.Value{}, fmt.Errorf("cannot pass %s to a plugin in tests", o.Type())
 }

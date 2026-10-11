@@ -164,9 +164,9 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 
 		var result interface{}
 		if len(headers) > 0 {
-			hc, ok := client.(*rest.HTTPClient)
+			hc, ok := client.(rest.RawClient)
 			if !ok {
-				return &object.Error{Message: "API error: request headers need an HTTP client"}
+				return &object.Error{Message: "API error: request headers are not supported by this client"}
 			}
 			resp, rerr := hc.DoRaw(ctx, http.MethodDelete, path, nil, 0, headers)
 			if rerr != nil {
@@ -192,10 +192,10 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 	}, "delete(path, headers=None) - Make a DELETE request, with any extra request headers; returns Dict or List")
 
 	// Raw transfers carry file content, which is bytes rather than JSON.
-	rawClient := func() (*rest.HTTPClient, object.Object) {
-		hc, ok := client.(*rest.HTTPClient)
+	rawClient := func() (rest.RawClient, object.Object) {
+		hc, ok := client.(rest.RawClient)
 		if !ok {
-			return nil, &object.Error{Message: "API error: raw transfers need an HTTP client"}
+			return nil, &object.Error{Message: "API error: raw transfers are not supported by this client"}
 		}
 		return hc, nil
 	}

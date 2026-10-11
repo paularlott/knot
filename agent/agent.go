@@ -45,6 +45,8 @@ func main() {
 
 The agent connects environments to the knot server.`,
 		Version: build.FullVersion(),
+		// Suggest close matches for a mistyped command.
+		Suggestions: true,
 		ConfigFile: cli_toml.NewConfigFile(&configFile, func() []string {
 			paths := []string{"."}
 

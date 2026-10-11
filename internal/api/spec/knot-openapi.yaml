@@ -56,6 +56,20 @@ tags:
       A bucket's full name is `<owner>--<name>`; callers may use the short name for their own
       buckets. Every file storage endpoint answers 503 when file storage is not enabled on the
       server. Files are addressed by key, which may contain `/` to form folders.
+  - name: Slash Commands
+    description: |
+      Operations for working with slash commands: reusable prompts with YAML or TOML frontmatter
+      (name, description, argument-hint, allowed-tools) that users run from AI chat.
+  - name: Backup
+    description: |
+      Backup and restore of a whole server, or one user or template, as streams of JSON lines
+      (`application/x-ndjson`), one stream for each kind of record, so a server of any size is
+      backed up and restored without being held in memory. Each stream ends with a line
+      `{"_end": <count>}` giving how many records it held, so a stream cut short is detected.
+
+      Every endpoint needs the Backup Server permission. A token with the `backup` scope can
+      reach these endpoints and nothing else. On a server with no users they answer 403:
+      create the first user and use its token to restore.
   - name: MCP Servers
     description: |
       Operations for working with per-user MCP (Model Context Protocol) server configurations.
@@ -629,45 +643,6 @@ paths:
           $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
-  /api/users/{user_id}/activity:
-    get:
-      tags:
-        - Users
-      summary: Get User Activity
-      description: Retrieve per-minute filesystem activity for the last hour or daily activity for the last 7 days.
-      operationId: getUserActivity
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          description: The ID or username of the user.
-          schema:
-            type: string
-            format: uuid
-        - name: range
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [1h, 7d]
-            default: 1h
-      responses:
-        "200":
-          description: Aggregated user activity history
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserActivityHistoryResponse"
-        "400":
-          $ref: "#/components/responses/bad-request"
-        "401":
-          $ref: "#/components/responses/unauthorized"
-        "403":
-          $ref: "#/components/responses/forbidden"
-        "404":
-          $ref: "#/components/responses/not-found"
-      security: [BearerAuth: []]
-
     put:
       tags:
         - Users
@@ -726,6 +701,45 @@ paths:
           $ref: "#/components/responses/not-found"
         "500":
           $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/activity:
+    get:
+      tags:
+        - Users
+      summary: Get User Activity
+      description: Retrieve per-minute filesystem activity for the last hour or daily activity for the last 7 days.
+      operationId: getUserActivity
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID or username of the user.
+          schema:
+            type: string
+            format: uuid
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1h, 7d]
+            default: 1h
+      responses:
+        "200":
+          description: Aggregated user activity history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserActivityHistoryResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
   /api/users/{user_id}/quota:
@@ -2599,6 +2613,272 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: []
 
+  /api/backup/info:
+    get:
+      tags:
+        - Backup
+      summary: Start a Backup
+      description: Get what the server can back up, and record the start of a backup in the audit log. The file kinds are listed only when file storage is enabled.
+      operationId: getBackupInfo
+      responses:
+        "200":
+          description: What the server can back up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+      security: [BearerAuth: []]
+
+  /api/backup/{kind}:
+    get:
+      tags:
+        - Backup
+      summary: Back Up a Kind of Record
+      description: |
+        Stream the records of one kind as JSON lines, ending with a `{"_end": <count>}` line.
+        The response may be gzip compressed. With `limit_user` or `limit_template` only the
+        records belonging to that user or template are sent.
+      operationId: backupKind
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          description: The kind of record, one of the kinds `/api/backup/info` lists.
+          schema:
+            type: string
+            enum: [roles, groups, templates, template-vars, volumes, scripts, skills, commands, responses, cfg-values, audit-logs, file-buckets, file-objects, spaces, tokens, users]
+        - name: limit_user
+          in: query
+          required: false
+          description: Only back up the records of this user, by username.
+          schema:
+            type: string
+        - name: limit_template
+          in: query
+          required: false
+          description: Only back up the records of this template.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The records, one JSON object per line.
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/backup/content/{sha}:
+    get:
+      tags:
+        - Backup
+      summary: Back Up File Content
+      description: Get a file's content by its checksum, fetched from another server in the cluster if this one does not hold it. Supports range requests.
+      operationId: backupContent
+      parameters:
+        - name: sha
+          in: path
+          required: true
+          description: The SHA-256 checksum of the content, as 64 hex characters.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The content.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/backup/complete:
+    post:
+      tags:
+        - Backup
+      summary: Finish a Backup
+      description: Record the end of a backup, with what it held, in the audit log.
+      operationId: backupComplete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupSummary"
+      responses:
+        "200":
+          description: Recorded.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+      security: [BearerAuth: []]
+
+  /api/restore/{kind}:
+    post:
+      tags:
+        - Backup
+      summary: Restore a Kind of Record
+      description: |
+        Save the records of one kind, sent as JSON lines as a backup streamed them. The body may
+        be gzip compressed (`Content-Encoding: gzip`). Records that fail are skipped and
+        reported; the first 20 failures are given in full.
+      operationId: restoreKind
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          description: The kind of record, one of the kinds `/api/backup/info` lists.
+          schema:
+            type: string
+            enum: [roles, groups, templates, template-vars, volumes, scripts, skills, commands, responses, cfg-values, audit-logs, file-buckets, file-objects, spaces, tokens, users]
+      requestBody:
+        required: true
+        content:
+          application/x-ndjson:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: What was restored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreResult"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/restore/content/missing:
+    post:
+      tags:
+        - Backup
+      summary: Find Missing File Content
+      description: Given the checksums of file content, return those the server holds no content for, so a restore sends only what is needed.
+      operationId: restoreContentMissing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shas:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: The checksums with no content on the server.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  missing:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/restore/content/{sha}:
+    put:
+      tags:
+        - Backup
+      summary: Restore File Content
+      description: Store a file's content, checked against its checksum. Content that no file refers to is not kept.
+      operationId: restoreContent
+      parameters:
+        - name: sha
+          in: path
+          required: true
+          description: The SHA-256 checksum of the content, as 64 hex characters.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "204":
+          description: Stored.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/restore/complete:
+    post:
+      tags:
+        - Backup
+      summary: Finish a Restore
+      description: Record the end of a restore, with what it restored, in the audit log.
+      operationId: restoreComplete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupSummary"
+      responses:
+        "200":
+          description: Recorded.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+      security: [BearerAuth: []]
+
   /api/tokens:
     get:
       summary: Get Tokens
@@ -2647,6 +2927,40 @@ paths:
       security: [BearerAuth: []]
 
   /api/tokens/{token_id}:
+    put:
+      summary: Update Token
+      description: |
+        Rename a token of the authenticated user or change its scopes. Omitted fields keep their
+        current values; an empty `scopes` list clears the scopes, giving the token full access.
+      tags:
+        - Tokens
+      operationId: UpdateToken
+      parameters:
+        - in: path
+          name: token_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the token to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTokenRequest"
+      responses:
+        "200":
+          description: Successful operation.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
     delete:
       summary: Delete Token
       description: Delete a specific token for the authenticated user.
@@ -5627,6 +5941,33 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/events/emit:
+    post:
+      tags:
+        - Event Sinks
+      summary: Emit User Event
+      description: |
+        Emit a custom event as the authenticated user, with no space; the event's space ID is the
+        nil UUID. This is how scripts run as MCP tools emit events. Requires the use spaces
+        permission.
+      operationId: emitUserEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmitEventRequest"
+      responses:
+        "200":
+          description: Event emitted successfully.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+      security: [BearerAuth: []]
+
   /api/event-sinks:
     get:
       tags:
@@ -5755,6 +6096,171 @@ paths:
       responses:
         "200":
           description: Event sink deleted.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/command:
+    get:
+      summary: List Slash Commands
+      description: |
+        Get the slash commands the user may manage: global commands with the manage global slash
+        commands permission, and the user's own commands with the manage own slash commands
+        permission. A user with neither gets an empty list.
+      tags:
+        - Slash Commands
+      operationId: listCommands
+      parameters:
+        - name: user_id
+          in: query
+          description: Only list the commands of this user. Listing another user's commands needs the manage global slash commands permission.
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: all_zones
+          in: query
+          description: If true, returns commands from all zones. If false or omitted, only returns commands valid for the current zone.
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  commands:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommandInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      summary: Create Slash Command
+      description: Create a new slash command. Its name, description, argument hint and allowed tools are taken from the content's frontmatter.
+      tags:
+        - Slash Commands
+      operationId: createCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommandCreateRequest"
+      responses:
+        "201":
+          description: Command created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  command_id:
+                    type: string
+                    format: uuid
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/command/{command_id}:
+    get:
+      summary: Get Slash Command
+      description: Get a slash command, including its body.
+      tags:
+        - Slash Commands
+      operationId: getCommand
+      parameters:
+        - name: command_id
+          in: path
+          required: true
+          description: The ID or name of the command.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+    put:
+      summary: Update Slash Command
+      description: Replace a slash command's content, groups, zones and active flag.
+      tags:
+        - Slash Commands
+      operationId: updateCommand
+      parameters:
+        - name: command_id
+          in: path
+          required: true
+          description: The ID or name of the command.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommandUpdateRequest"
+      responses:
+        "200":
+          description: Command updated successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      summary: Delete Slash Command
+      tags:
+        - Slash Commands
+      operationId: deleteCommand
+      parameters:
+        - name: command_id
+          in: path
+          required: true
+          description: The ID or name of the command.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command deleted successfully
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -9740,13 +10246,30 @@ components:
           type: array
           items:
             type: string
-            enum: [methods, mcp, tunnels]
+            enum: [methods, mcp, tunnels, files, backup]
           description: >-
             Endpoint groups the token may reach. Absent or empty means
             full access (every endpoint the user can); a non-empty list
             restricts the token to the listed groups: methods
             (/api/methods*), mcp (/mcp), tunnels (/tunnel/* and
-            /api/tunnels*).
+            /api/tunnels*), files (/api/files* and, on Knot Pro, the S3
+            endpoint) and backup (/api/backup* and /api/restore*).
+
+    UpdateTokenRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The new name of the token. Omit to keep the current name.
+          maxLength: 255
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: [methods, mcp, tunnels, files, backup]
+          description: >-
+            The token's new scopes, as for CreateTokenRequest. Omit to keep
+            the current scopes; an empty list clears them, giving full access.
 
     CreateTokenResponse:
       type: object
@@ -11321,6 +11844,137 @@ components:
         is_managed:
           type: boolean
           description: True if managed by parent server (read-only on leaf nodes)
+
+    CommandInfo:
+      type: object
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          description: The owner of a user command; empty for a global command.
+        name:
+          type: string
+        description:
+          type: string
+        argument_hint:
+          type: string
+          description: A hint at the arguments the command takes, shown when it is run.
+        allowed_tools:
+          type: array
+          items:
+            type: string
+          description: The tools the command may use.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        zones:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+        is_managed:
+          type: boolean
+          description: True if managed by parent server (read-only on leaf nodes)
+
+    CommandDetails:
+      allOf:
+        - $ref: "#/components/schemas/CommandInfo"
+        - type: object
+          properties:
+            body:
+              type: string
+              description: The command's prompt, its content without the frontmatter.
+
+    CommandCreateRequest:
+      type: object
+      required:
+        - content
+      properties:
+        user_id:
+          type: string
+          description: User ID for a user command, empty for a global command. Use "current" for the current user.
+        content:
+          type: string
+          description: Markdown content with YAML or TOML frontmatter giving name and description, and optionally argument-hint and allowed-tools (comma separated). At most 1 MB.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Group IDs that can use the command. Only applies to global commands.
+        zones:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+
+    CommandUpdateRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: Markdown content with frontmatter, as for CommandCreateRequest.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        zones:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+
+    BackupInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The server's version.
+        time:
+          type: string
+          format: date-time
+        kinds:
+          type: array
+          items:
+            type: string
+          description: The kinds of record the server can back up, in the order a restore applies them.
+        files:
+          type: boolean
+          description: True if the server has file storage.
+
+    BackupSummary:
+      type: object
+      properties:
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+          description: The number of records of each kind.
+        warnings:
+          type: integer
+
+    RestoreResult:
+      type: object
+      properties:
+        restored:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+          description: The first failures, in full.
 
     SkillCreateRequest:
       type: object

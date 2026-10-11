@@ -142,8 +142,9 @@ func servePeer(ctx context.Context, cmd *cli.Command) error {
 
 // MinPeerVersion is the earliest scriptling version whose plugin protocol
 // this build of knot can serve. The fetcher contract (one scheme, no
-// manifest, bytes in/out) landed in 0.23.0.
-const MinPeerVersion = "0.23.0"
+// manifest, bytes in/out) landed in 0.23.0, and str.encode() returns bytes,
+// which the knot.files transport relies on, from 0.27.0.
+const MinPeerVersion = "0.27.0"
 
 // checkPeerVersion reports whether the scriptling version that spawned us
 // is one we can serve.
@@ -245,7 +246,30 @@ func registerAPIFunctions(server *plugin.Server, client rest.RESTClient) {
 			}
 			statusCode, apiErr = client.PutJSON(ctx, path, body, &result, 0)
 		case "DELETE":
-			statusCode, apiErr = client.Delete(ctx, path, nil, &result, 0)
+			// Extra request headers, such as If-Match for a conditional delete.
+			headers := map[string]string{}
+			if h := kwargs.Get("headers"); h != nil {
+				if d, ok := conversion.ToGo(h).(map[string]interface{}); ok {
+					for k, v := range d {
+						headers[k] = fmt.Sprint(v)
+					}
+				}
+			}
+			if len(headers) == 0 {
+				statusCode, apiErr = client.Delete(ctx, path, nil, &result, 0)
+				break
+			}
+			rc, ok := client.(rest.RawClient)
+			if !ok {
+				return &object.Error{Message: "API error: request headers are not supported by this client"}
+			}
+			resp, rerr := rc.DoRaw(ctx, http.MethodDelete, path, nil, 0, headers)
+			if rerr != nil {
+				return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+			}
+			defer resp.Body.Close()
+			statusCode = resp.StatusCode
+			apiErr = rest.DecodeResponse(resp, &result)
 		}
 
 		// HTTP 200 with an empty body yields io.EOF from the JSON decoder —
@@ -287,10 +311,10 @@ func registerAPIFunctions(server *plugin.Server, client rest.RESTClient) {
 	// Base64, capped as in the embedded knot.apiclient library.
 	const maxRawTransfer = 64 << 20
 
-	rawClient := func() (*rest.HTTPClient, object.Object) {
-		hc, ok := client.(*rest.HTTPClient)
+	rawClient := func() (rest.RawClient, object.Object) {
+		hc, ok := client.(rest.RawClient)
 		if !ok {
-			return nil, &object.Error{Message: "API error: raw transfers need an HTTP client"}
+			return nil, &object.Error{Message: "API error: raw transfers are not supported by this client"}
 		}
 		return hc, nil
 	}

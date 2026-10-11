@@ -62,6 +62,18 @@ user = "root"
 password = ""
 database = "knot"
 
+# PostgreSQL storage, uncomment to use in place of MySQL
+#[server.postgres]
+#enabled = true
+# PostgreSQL host if prefixed with srv+ then SRV+ lookup will be performed
+#host = "localhost"
+#port = 5432
+#user = "postgres"
+#password = ""
+#database = "knot"
+# One of disable, allow, prefer, require, verify-ca or verify-full
+#sslmode = "prefer"
+
 # BadgerDB storage
 [server.badgerdb]
 enabled = false

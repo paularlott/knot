@@ -29,7 +29,8 @@ def get(role_id):
     return {
         "id": response.get("role_id"),
         "name": response.get("name"),
-        "permissions": response.get("permissions", [])
+        "permissions": response.get("permissions", []),
+        "plugin_permissions": response.get("plugin_permissions", [])
     }
 
 

@@ -224,6 +224,36 @@ func (c *MuxClient) Delete(ctx context.Context, path string, request interface{}
 	return c.sendData(ctx, http.MethodDelete, path, request, response, successCode)
 }
 
+// DoRaw sends a request with a raw body and extra headers through the mux
+// and returns the response unread, so callers can move bytes rather than JSON.
+// It matches HTTPClient.DoRaw, letting raw transfers work in either client.
+func (c *MuxClient) DoRaw(ctx context.Context, method string, path string, body io.Reader, size int64, headers map[string]string) (*http.Response, error) {
+	req, err := newMuxRequest(method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(context.WithValue(ctx, "user", c.user))
+	if body != nil {
+		req.ContentLength = size
+	}
+
+	req.Header.Set("Accept", strings.Join(c.accept, ", "))
+	req.Header.Set("User-Agent", c.userAgent)
+	for key, value := range c.headers {
+		req.Header.Set(key, value)
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	rec := httptest.NewRecorder()
+	apiMux.ServeHTTP(rec, req)
+
+	resp := rec.Result()
+	resp.Request = req
+	return resp, nil
+}
+
 func (c *MuxClient) GetJSON(ctx context.Context, path string, response interface{}) (int, error) {
 	oldAccept := c.accept
 	c.accept = []string{ContentTypeJSON}

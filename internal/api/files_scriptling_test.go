@@ -15,11 +15,18 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/filestore"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 // filesEnv runs the real files handlers behind an HTTP server and returns a
 // scriptling environment, as a server-side script gets, acting as alice.
 func filesEnv(t *testing.T) (run func(script string) map[string]interface{}, store *filestore.Store) {
+	return filesEnvWith(t, false)
+}
+
+// filesEnvWith is filesEnv, with useMux calling the handlers in-process through
+// the mux client, as MCP tools and event sinks do, rather than over HTTP.
+func filesEnvWith(t *testing.T, useMux bool) (run func(script string) map[string]interface{}, store *filestore.Store) {
 	t.Helper()
 	prev := config.GetServerConfig()
 	config.SetServerConfig(&config.ServerConfig{
@@ -73,9 +80,16 @@ func filesEnv(t *testing.T) (run func(script string) map[string]interface{}, sto
 	}))
 	t.Cleanup(srv.Close)
 
-	client, err := apiclient.NewClient(srv.URL, "token", true)
-	if err != nil {
-		t.Fatal(err)
+	var client *apiclient.ApiClient
+	if useMux {
+		rest.SetAPIMux(mux)
+		t.Cleanup(func() { rest.SetAPIMux(http.NewServeMux()) })
+		client = apiclient.NewMuxClient(alice)
+	} else {
+		client, err = apiclient.NewClient(srv.URL, "token", true)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	env, _, cleanup, err := service.NewServerScriptlingEnv(client, service.ServerScriptlingOptions{User: alice})
 	if err != nil {
@@ -371,5 +385,49 @@ except Exception as e:
 	}
 	if !strings.Contains(fmt.Sprint(r["bad"]), "invalid change cursor") {
 		t.Errorf("bad cursor: %v", r["bad"])
+	}
+}
+
+// MCP tools and event sinks run scripts against the mux client, so the raw
+// transfers behind read_file and write_file, and the headers behind a
+// conditional delete, must work there too.
+func TestKnotFilesLibraryMuxClient(t *testing.T) {
+	run, _ := filesEnvWith(t, true)
+	r := run(`
+import knot.files as files
+
+result = {}
+files.create_bucket("mux")
+info = files.write_file("mux", "a.txt", "hello ü")
+result["text"] = files.read_text("mux", "a.txt")
+blob = b"\x00\x01\xffabc"
+files.write_file("mux", "b.bin", blob)
+result["blob_same"] = files.read_file("mux", "b.bin") == blob
+files.write_file("mux", "a.txt", "v2")
+try:
+    files.delete_file("mux", "a.txt", if_match=info["etag"])
+    result["stale_delete"] = ""
+except Exception as e:
+    result["stale_delete"] = str(e)
+try:
+    files.read_file("mux", "missing.txt")
+    result["missing"] = ""
+except Exception as e:
+    result["missing"] = str(e)
+cur = [f for f in files.list_files("mux")["files"] if f["key"] == "a.txt"][0]
+result["deleted"] = files.delete_file("mux", "a.txt", if_match=cur["etag"])
+result["gone"] = not files.file_exists("mux", "a.txt")
+`)
+	if r["text"] != "hello ü" || r["blob_same"] != true {
+		t.Errorf("round trip through the mux client: %q %v", r["text"], r["blob_same"])
+	}
+	if !strings.Contains(fmt.Sprint(r["stale_delete"]), "412") {
+		t.Errorf("stale conditional delete: %v", r["stale_delete"])
+	}
+	if !strings.Contains(strings.ToLower(fmt.Sprint(r["missing"])), "not found") {
+		t.Errorf("missing file: %v", r["missing"])
+	}
+	if r["deleted"] != true || r["gone"] != true {
+		t.Errorf("current conditional delete: %v %v", r["deleted"], r["gone"])
 	}
 }

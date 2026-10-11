@@ -45,8 +45,10 @@ def put(path, body=None):
     return _plugin.call_function("plugin.knot", "api_put", path, body=body)
 
 
-def delete(path):
-    """Make a DELETE request to the Knot API via the plugin."""
+def delete(path, headers=None):
+    """Make a DELETE request to the Knot API via the plugin, with any extra request headers."""
+    if headers:
+        return _plugin.call_function("plugin.knot", "api_delete", path, headers=headers)
     return _plugin.call_function("plugin.knot", "api_delete", path)
 
 

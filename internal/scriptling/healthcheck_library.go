@@ -41,29 +41,42 @@ func healthCheckExit(healthy bool) object.Object {
 	}
 }
 
+// healthCheckArg returns the argument at position i, or the keyword argument
+// name when it is passed by keyword instead, or nil when neither is given.
+func healthCheckArg(args []object.Object, kwargs object.Kwargs, i int, name string) object.Object {
+	if v := kwargs.Get(name); v != nil {
+		return v
+	}
+	if len(args) > i {
+		return args[i]
+	}
+	return nil
+}
+
 // GetHealthCheckLibrary returns the knot.healthcheck built-in library.
 func GetHealthCheckLibrary() *object.Library {
 	builder := object.NewLibraryBuilder("knot.healthcheck", "Health check functions for space monitoring")
 
 	builder.FunctionWithHelp("http_head", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		if len(args) < 1 {
+		urlArg := healthCheckArg(args, kwargs, 0, "url")
+		if urlArg == nil {
 			return errors.NewError("http_head: url argument required")
 		}
-		url, err := args[0].AsString()
+		url, err := urlArg.AsString()
 		if err != nil {
 			return errors.NewError("http_head: url must be a string")
 		}
 		skipSSL := false
 		timeout := 10
-		if len(args) >= 2 {
-			b, e := args[1].AsBool()
+		if v := healthCheckArg(args, kwargs, 1, "skip_ssl_verify"); v != nil {
+			b, e := v.AsBool()
 			if e != nil {
 				return errors.NewError("http_head: skip_ssl_verify must be a bool")
 			}
 			skipSSL = b
 		}
-		if len(args) >= 3 {
-			t, e := args[2].AsInt()
+		if v := healthCheckArg(args, kwargs, 2, "timeout"); v != nil {
+			t, e := v.AsInt()
 			if e != nil {
 				return errors.NewError("http_head: timeout must be an int")
 			}
@@ -86,16 +99,17 @@ func GetHealthCheckLibrary() *object.Library {
 	}, "http_head(url, skip_ssl_verify=False, timeout=10) - HTTP HEAD check, returns True if status 200")
 
 	builder.FunctionWithHelp("tcp_port", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		if len(args) < 1 {
+		portArg := healthCheckArg(args, kwargs, 0, "port")
+		if portArg == nil {
 			return errors.NewError("tcp_port: port argument required")
 		}
-		port, err := args[0].AsInt()
+		port, err := portArg.AsInt()
 		if err != nil {
 			return errors.NewError("tcp_port: port must be an int")
 		}
 		timeout := 10
-		if len(args) >= 2 {
-			t, e := args[1].AsInt()
+		if v := healthCheckArg(args, kwargs, 1, "timeout"); v != nil {
+			t, e := v.AsInt()
 			if e != nil {
 				return errors.NewError("tcp_port: timeout must be an int")
 			}
@@ -111,16 +125,17 @@ func GetHealthCheckLibrary() *object.Library {
 	}, "tcp_port(port, timeout=10) - TCP port check, returns True if port is open")
 
 	builder.FunctionWithHelp("program", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		if len(args) < 1 {
+		commandArg := healthCheckArg(args, kwargs, 0, "command")
+		if commandArg == nil {
 			return errors.NewError("program: command argument required")
 		}
-		command, err := args[0].AsString()
+		command, err := commandArg.AsString()
 		if err != nil {
 			return errors.NewError("program: command must be a string")
 		}
 		timeout := 10
-		if len(args) >= 2 {
-			t, e := args[1].AsInt()
+		if v := healthCheckArg(args, kwargs, 1, "timeout"); v != nil {
+			t, e := v.AsInt()
 			if e != nil {
 				return errors.NewError("program: timeout must be an int")
 			}

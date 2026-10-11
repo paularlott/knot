@@ -60,6 +60,12 @@ type RESTClient interface {
 	SetBaseUrl(baseURL string) (RESTClient, error)
 }
 
+// RawClient is a client that can send a raw request body with extra headers
+// and hand back the unread response. HTTPClient and MuxClient both are.
+type RawClient interface {
+	DoRaw(ctx context.Context, method string, path string, body io.Reader, size int64, headers map[string]string) (*http.Response, error)
+}
+
 type HTTPClient struct {
 	baseURL     *url.URL
 	token       string
