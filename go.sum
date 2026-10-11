@@ -83,8 +83,8 @@ github.com/paularlott/gossip v0.23.0 h1:/42R1sDvMRd0YjI3W6TFqiX5pbhYuc9lSoTG9Ymi
 github.com/paularlott/gossip v0.23.0/go.mod h1:afo9kpCNJKPKOA8aT/MOcjbNE6HJJZrzkgVeqUxHekI=
 github.com/paularlott/jsonrpc v0.2.0 h1:iR584f/oi5L7LbfH8oskAMalNoikNxzlW/ABEZUJCJY=
 github.com/paularlott/jsonrpc v0.2.0/go.mod h1:mXoOPTPQf87HF3wR064n23dmsAQs3/EICA3Cbha3Sk4=
-github.com/paularlott/lmchatkit v0.12.0 h1:TFr+5DXstZMjvgpkUtVkWQfKfgPk0ddQrznuTaynUJk=
-github.com/paularlott/lmchatkit v0.12.0/go.mod h1:DkMQEeC26LOaW23v84Lg77ujhZsgSnvYWVQzBfK4kNg=
+github.com/paularlott/lmchatkit v0.12.1 h1:lEhdTtHxO9+/ZVZPeRNrCKjbuDGaLZeGYCmVZ8AjVIU=
+github.com/paularlott/lmchatkit v0.12.1/go.mod h1:DkMQEeC26LOaW23v84Lg77ujhZsgSnvYWVQzBfK4kNg=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.32.3 h1:jj4QoMPKjlOJaXYWxiHtNahd4aRFsQpuaCzgnT0VxY0=
