@@ -4397,7 +4397,7 @@ paths:
   /api/base-images:
     get:
       summary: List Base Images
-      description: Return the active base image catalog used by the template spec wizard. Sources are the bundled manifest (default), an external manifest configured via `server.base_image.manifest` (re-read on every call), or a manifest fetched from `server.base_image.update_url` when `server.base_image.update_enabled` is on and newer than the bundled one.
+      description: Return the active base image catalog used by the template spec wizard. Sources are the bundled manifest (default), an external manifest configured via `server.base_image.manifest` (re-read on every call), or a manifest fetched from `server.base_image.update_url` when `server.base_image.update_enabled` is on, the URL is set, and the fetched copy is newer than the bundled one.
       operationId: listBaseImages
       tags:
         - Templates
@@ -4419,8 +4419,10 @@ paths:
       summary: Refresh the Base Image Manifest
       description: |
         Force this server to fetch the base image manifest from its configured
-        update URL (`server.base_image.update_url`, or the default URL when none
-        is set and no manifest file is configured) immediately.
+        update URL (`server.base_image.update_url`) immediately. There is no
+        default URL: the fetch only happens when both
+        `server.base_image.update_enabled` and `server.base_image.update_url`
+        are set.
 
         The fetched manifest is kept only when its `manifest_version`
         (yyyymmddbb) is newer than the active catalog; when newer it replaces
@@ -4431,10 +4433,10 @@ paths:
         Requires the `manage-templates` permission.
 
         Returns `409` when this server won't fetch: either
-        `server.base_image.update_enabled` is off, or a manifest file is in use
-        without an explicit `update_url`. With a file and an explicit
-        `update_url`, the file is treated as the baseline and the fetched copy
-        overlays it only when newer.
+        `server.base_image.update_enabled` is off, or no `update_url` is
+        configured. With a manifest file and an explicit `update_url`, the file
+        is treated as the baseline and the fetched copy overlays it only when
+        newer.
       operationId: refreshBaseImages
       tags:
         - Templates

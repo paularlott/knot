@@ -26,8 +26,9 @@
 # incompatibly.
 version = 1
 # Catalog revision (yyyymmddbb = date + same-day build counter). Used to tell
-# whether a manifest fetched from getknot.dev is newer than the one compiled
-# into this binary. Lexicographic compare == chronological compare.
+# whether a manifest fetched from a configured --base-images-update-url is
+# newer than the one compiled into this binary. Lexicographic compare ==
+# chronological compare.
 manifest_version = "2026101101"
 description = "Default knot base image catalog"
 

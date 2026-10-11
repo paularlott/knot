@@ -14,10 +14,6 @@ import (
 const (
 	fetchTimeout = 30 * time.Second
 
-	// DefaultUpdateURL is the fallback manifest URL used when no explicit
-	// --base-images-update-url is configured and no manifest file is in use.
-	DefaultUpdateURL = "https://getknot.dev/base-images.toml"
-
 	// Source tags recorded against a fetched manifest for diagnostics.
 	SourceStartup = "startup"
 	SourceAPI     = "api"
@@ -25,43 +21,37 @@ const (
 
 // FetchDecision decides whether a manifest fetch should happen and from what
 // URL, based on the server configuration. The startup fetch and the manual
-// refresh follow the SAME rule, governed by --base-images-update-enabled as a
-// master gate: when it is off, no fetch happens at all (neither startup nor
-// manual); when it is on, a fetch happens subject to the manifest/url rules.
+// refresh follow the SAME rule: knot never looks anywhere by default, so both
+// --base-images-update-enabled and --base-images-update-url must be set.
 //
 // Notation: M = base-images-manifest set, A = base-images-update-enabled on,
 // U = base-images-update-url set.
 //
-//	Fetch iff A && (!M || U)
+//	Fetch iff A && U
 //
-// URL: the configured --base-images-update-url when set (U); otherwise the
-// DefaultUpdateURL — but the default is only ever reached when no manifest file
-// is configured (M=false), because the only M-set case that fetches requires U.
+// URL: always the configured --base-images-update-url. With a manifest file
+// also configured (M), the file is the baseline and the fetched copy overlays
+// it only when newer.
 func FetchDecision(cfg *config.ServerConfig) (url string, ok bool) {
 	if cfg == nil {
 		return "", false
 	}
-	M := cfg.BaseImagesManifest != ""
-	A := cfg.BaseImagesUpdateEnabled
-	U := cfg.BaseImagesUpdateURL != ""
-
-	if !(A && (!M || U)) {
+	if !cfg.BaseImagesUpdateEnabled || cfg.BaseImagesUpdateURL == "" {
 		return "", false
 	}
-	if U {
-		return cfg.BaseImagesUpdateURL, true
-	}
-	return DefaultUpdateURL, true
+	return cfg.BaseImagesUpdateURL, true
 }
 
 // FetchDisabledReason returns a human-readable explanation of why FetchDecision
 // returned ok=false for the given config, for use in error messages.
 func FetchDisabledReason(cfg *config.ServerConfig) string {
 	if cfg == nil || !cfg.BaseImagesUpdateEnabled {
-		return "base image updates are disabled on this server (set --base-images-update-enabled to enable)"
+		return "base image updates are disabled on this server (set --base-images-update-enabled and --base-images-update-url to enable)"
 	}
-	// A is on, so the only remaining no-fetch case is M && !U.
-	return "a manifest file is in use; set --base-images-update-url to allow fetching a remote catalog"
+	if cfg.BaseImagesUpdateURL == "" {
+		return "no --base-images-update-url is configured; set one to enable fetching a remote catalog"
+	}
+	return ""
 }
 
 // FetchOnStartup fetches the manifest once, in the background, per the startup

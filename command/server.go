@@ -816,17 +816,16 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.BoolFlag{
 			Name:         "base-images-update-enabled",
-			Usage:        "Master gate for fetching the base image manifest from --base-images-update-url. When set, the server fetches once on startup (background) and the admin refresh command is permitted; when unset, no remote fetch happens and `knot admin refresh-base-images` will fail. With --base-images-manifest set, the file is the baseline and a fetched copy overlays it only when newer.",
+			Usage:        "Master gate for fetching the base image manifest from --base-images-update-url. When set together with --base-images-update-url, the server fetches once on startup (background) and the admin refresh command is permitted; otherwise no remote fetch happens and `knot admin refresh-base-images` will fail. With --base-images-manifest set, the file is the baseline and a fetched copy overlays it only when newer.",
 			ConfigPath:   []string{"server.base_image.update_enabled"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_ENABLED"},
 			DefaultValue: false,
 		},
 		&cli.StringFlag{
-			Name:        "base-images-update-url",
-			Usage:       "URL to fetch the base image manifest from. When unset, the default (" + specwizard.DefaultUpdateURL + ") is used unless a manifest file is configured.",
+			Name:       "base-images-update-url",
+			Usage:      "URL to fetch the base image manifest from. No default: a fetch only happens when this is set and --base-images-update-enabled is on. For example, point it at https://raw.githubusercontent.com/paularlott/knot/main/internal/specwizard/manifest.toml to track the catalog shipped with knot releases.",
 			ConfigPath:  []string{"server.base_image.update_url"},
 			EnvVars:     []string{config.CONFIG_ENV_PREFIX + "_BASE_IMAGES_UPDATE_URL"},
-			DefaultText: specwizard.DefaultUpdateURL,
 		},
 
 		// MCP flags
@@ -1535,9 +1534,8 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 
 	// Kick off a one-shot background fetch of the base image manifest from
 	// the update URL (no periodic loop; the catalog only changes on startup
-	// or via an explicit admin refresh). Does nothing unless
-	// --base-images-update-enabled is on and no external manifest file is
-	// configured.
+	// or via an explicit admin refresh). Does nothing unless both
+	// --base-images-update-enabled and --base-images-update-url are set.
 	specwizard.FetchOnStartup()
 
 	service.GetPoolService().StartSweep()
