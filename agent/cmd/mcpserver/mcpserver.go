@@ -96,8 +96,12 @@ func serveMCP(ctx context.Context, cmd *cli.Command) error {
 	err = client.Initialize(initCtx)
 	cancel()
 	if err != nil {
-		return fmt.Errorf("couldn't connect to the MCP endpoint at %s/mcp (check that MCP is enabled on the server, server.mcp.enabled, and that you can use it): %w", strings.TrimSuffix(cfg.HttpServer, "/"), err)
+		return fmt.Errorf("couldn't connect to the MCP endpoint at %s (check that MCP is enabled on the server, server.mcp.enabled, and that you can use it): %w", mcpEndpoint(cfg.HttpServer), err)
 	}
+
+	// Pass on the knot server's instructions, which tell the host how to
+	// use the on-demand tools.
+	server.SetInstructions(upstreamInstructions(client.Instructions()))
 
 	log.WithGroup("mcp").Info("serving MCP stdio proxy", "server", cfg.HttpServer)
 
@@ -133,13 +137,29 @@ func resolveMCPServerAddr(cmd *cli.Command) (*config.ServerAddr, error) {
 	return nil, fmt.Errorf("no server configured for alias %q (run 'knot connect' first, or set KNOT_SERVER and KNOT_TOKEN)", alias)
 }
 
+// discoveryHint is the paragraph the mcp library adds to a server's
+// instructions when it has discoverable tools.
+var discoveryHint = fmt.Sprintf("This server has additional tools not shown in the initial tool list - call %s to find them, then %s to invoke them.", mcp.ToolSearchName, mcp.ExecuteToolName)
+
+// upstreamInstructions returns the knot server's instructions without the
+// library's discovery hint, which this proxy's own server adds again.
+func upstreamInstructions(instructions string) string {
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(instructions), discoveryHint))
+}
+
+// mcpEndpoint returns the MCP endpoint of a knot server, given either the
+// server's address or the endpoint's own URL.
+func mcpEndpoint(server string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(server, "/"), "/mcp") + "/mcp"
+}
+
 // buildMCPServer composes the proxy: a local MCP server whose single remote is
 // the knot server's /mcp endpoint. An empty namespace keeps the remote's tool
 // names unchanged (no knot__ prefix), --show-all rides along as a request
 // header so the remote includes discoverable tools, and notifications are on so
 // upstream listChanged events reach the host.
 func buildMCPServer(cfg *config.ServerAddr, tlsSkipVerify, showAll bool) (*mcp.Server, *mcp.Client, error) {
-	url := strings.TrimSuffix(cfg.HttpServer, "/") + "/mcp"
+	url := mcpEndpoint(cfg.HttpServer)
 
 	var headers map[string]string
 	if showAll {

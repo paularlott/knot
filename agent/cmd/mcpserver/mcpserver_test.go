@@ -240,3 +240,30 @@ func TestMCPServerProxyWithoutShowAll(t *testing.T) {
 	stdinW.Close()
 	<-done
 }
+
+func TestMCPEndpoint(t *testing.T) {
+	for _, server := range []string{
+		"https://knot.example.com",
+		"https://knot.example.com/",
+		"https://knot.example.com/mcp",
+		"https://knot.example.com/mcp/",
+	} {
+		if got := mcpEndpoint(server); got != "https://knot.example.com/mcp" {
+			t.Errorf("mcpEndpoint(%q) = %q", server, got)
+		}
+	}
+}
+
+func TestUpstreamInstructions(t *testing.T) {
+	tests := map[string]string{
+		"About knot.\n\n" + discoveryHint: "About knot.",
+		"About knot.":                     "About knot.",
+		discoveryHint:                     "",
+		"":                                "",
+	}
+	for in, want := range tests {
+		if got := upstreamInstructions(in); got != want {
+			t.Errorf("upstreamInstructions(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

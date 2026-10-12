@@ -21,11 +21,16 @@ import (
 // unconditionally, per this library's own guidance for an HTTP, multi-tenant
 // server — purely so the server's declared capabilities accurately reflect
 // what it offers.
+// Instructions tells the model what knot is and how to find its on-demand
+// tools. The library follows it with its own tool_search/execute_tool hint
+// when the server has discoverable tools.
+const Instructions = `knot manages development environments, called spaces, along with the templates they are built from, stacks, pools, scripts, skills and the files inside spaces. Tools act with the permissions of the connected user.
+
+Only the most used tools are listed up front; many more, such as those for pools, stacks, templates and scripts, are found on demand. To find one, call tool_search with the task in a few plain words, such as "create pool", "stack definitions" or "edit file", or with no query to list every tool. Then call execute_tool with the exact tool name from the results and arguments that match its input schema. Search again with other words before concluding knot can't do something.`
+
 func newKnotMCPServer() *mcp.Server {
 	server := mcp.NewServer("knot-mcp-server", build.Version)
-	server.SetInstructions(`These tools manage spaces, templates, and other resources.
-
-All tools are directly callable on the /mcp endpoint.`)
+	server.SetInstructions(Instructions)
 	server.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
 		"mimeTypes": []string{mcp.UIAppMimeType},
 	})
