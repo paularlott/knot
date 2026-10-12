@@ -114,6 +114,11 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 	if template.IdleTimeoutUnit == "" {
 		template.IdleTimeoutUnit = "disabled"
 	}
+	// Likewise an omitted max uptime unit, as from a hand-written template
+	// YAML, means no limit.
+	if template.MaxUptimeUnit == "" {
+		template.MaxUptimeUnit = "disabled"
+	}
 
 	// Validate input
 	if err := s.validateTemplateInput(template.Name, template.Platform, template.Job, template.Volumes, int(template.ComputeUnits), int(template.StorageUnits), int(template.MaxUptime), template.MaxUptimeUnit, int(template.IdleTimeout), template.IdleTimeoutUnit, template.ScheduleEnabled, &template.Schedule, template.CustomFields); err != nil {
@@ -191,6 +196,11 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 	// Clients predating idle timeouts don't send a unit; that means disabled.
 	if template.IdleTimeoutUnit == "" {
 		template.IdleTimeoutUnit = "disabled"
+	}
+	// Likewise an omitted max uptime unit, as from a hand-written template
+	// YAML, means no limit.
+	if template.MaxUptimeUnit == "" {
+		template.MaxUptimeUnit = "disabled"
 	}
 
 	// Validate input

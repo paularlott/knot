@@ -1,10 +1,14 @@
 package agent_client
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"io"
 	"net"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
@@ -22,14 +26,7 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		return
 	}
 
-	// Always invoke via shell to support pipes/redirection.
-	// Combine command and args into a single shell command string
-	var parts []string
-	if runCmd.Command != "" {
-		parts = append(parts, runCmd.Command)
-	}
-	parts = append(parts, runCmd.Args...)
-	shellCmd := strings.Join(parts, " ")
+	shellCmd := buildShellCommand(runCmd.Command, runCmd.Args)
 
 	log.Debug("constructed shell command", "final_shell_command", shellCmd)
 
@@ -58,21 +55,32 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 
 	log.Debug("executing shell command", "shell", selectedShell, "shell_command", shellCmd, "workdir", runCmd.Workdir)
 
-	output, err := cmd.CombinedOutput()
+	var combined, stdout, stderr bytes.Buffer
+	combinedWriter := &lockedWriter{w: &combined}
+	cmd.Stdout = io.MultiWriter(combinedWriter, &stdout)
+	cmd.Stderr = io.MultiWriter(combinedWriter, &stderr)
+	err := cmd.Run()
+	output := combined.Bytes()
 
 	log.Debug("raw command output", "raw_output_bytes", len(output), "raw_output", string(output))
 	if err != nil {
 		log.WithError(err).Error("command execution error")
 	}
 
-	response := msg.RunCommandResponse{Output: output}
+	response := msg.RunCommandResponse{Output: output, Stdout: stdout.Bytes(), Stderr: stderr.Bytes()}
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			response.Success = false
+		response.Success = false
+		var exitErr *exec.ExitError
+		switch {
+		case ctx.Err() == context.DeadlineExceeded:
 			response.Error = "Command timed out"
-		} else {
-			response.Success = false
+			response.ExitCode = 124
+		case errors.As(err, &exitErr) && exitErr.ExitCode() > 0:
 			response.Error = err.Error()
+			response.ExitCode = exitErr.ExitCode()
+		default:
+			response.Error = err.Error()
+			response.ExitCode = 1
 		}
 	} else {
 		response.Success = true
@@ -86,4 +94,49 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 	}
 
 	log.Debug("response sent successfully")
+}
+
+// buildShellCommand makes the string the shell runs. The command goes in as
+// given, so a single command string can use pipes and redirection; each
+// argument is quoted so it reaches the program as one argument, unchanged.
+func buildShellCommand(command string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	if command != "" {
+		parts = append(parts, command)
+	}
+	for _, arg := range args {
+		parts = append(parts, shellQuote(arg))
+	}
+	return strings.Join(parts, " ")
+}
+
+// shellQuote quotes s for a POSIX shell, leaving plain words as they are.
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	plain := true
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("@%+=:,./_-", r)) {
+			plain = false
+			break
+		}
+	}
+	if plain {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// lockedWriter serialises writes from the stdout and stderr copiers into
+// the interleaved output.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }

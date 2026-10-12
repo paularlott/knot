@@ -20,9 +20,10 @@ type RunCommandRequest struct {
 }
 
 type RunCommandResponse struct {
-	Success bool   `json:"success" msgpack:"success"`
-	Output  string `json:"output,omitempty" msgpack:"output,omitempty"`
-	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
+	Success  bool   `json:"success" msgpack:"success"`
+	Output   string `json:"output,omitempty" msgpack:"output,omitempty"`
+	Error    string `json:"error,omitempty" msgpack:"error,omitempty"`
+	ExitCode int    `json:"exit_code" msgpack:"exit_code"`
 }
 
 func HandleRunCommand(w http.ResponseWriter, r *http.Request) {
@@ -95,14 +96,14 @@ func HandleRunCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A failed command's output is returned too: it usually says why
 	result := RunCommandResponse{
-		Success: response.Success,
+		Success:  response.Success,
+		Output:   string(response.Output),
+		ExitCode: response.ExitCode,
 	}
-
 	if !response.Success {
 		result.Error = response.Error
-	} else {
-		result.Output = string(response.Output)
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, result)

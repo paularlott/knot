@@ -1,4 +1,4 @@
-description = "Execute a command in a running space and capture its output."
+description = "Execute a command in a running space and capture its output. Returns output, success and exit_code, plus error when the command fails (its output is returned too)."
 keywords = ["run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output", "exec"]
 requires_approval = true
 
@@ -11,13 +11,13 @@ required = true
 [[parameters]]
 name = "command"
 type = "string"
-description = "Command to execute (e.g., 'ls', 'npm', 'python')"
+description = "Command to execute (e.g., 'ls', 'npm', 'python'). It runs through the shell, so a single string such as 'npm test | tail -20' works too"
 required = true
 
 [[parameters]]
 name = "arguments"
 type = "array:string"
-description = "Command arguments as an array (e.g., ['-la', '/tmp'])"
+description = "Command arguments as an array (e.g., ['-la', '/tmp']); each reaches the command unchanged, with no shell expansion"
 required = false
 
 [[parameters]]

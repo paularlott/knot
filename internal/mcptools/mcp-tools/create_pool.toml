@@ -1,5 +1,6 @@
 description = "Create a pool of identical spaces from a template. The pool keeps a target number of spaces running and can serve HTTP/TCP traffic under the pool name."
 keywords = ["create", "pool", "new", "scale", "replicas", "deploy"]
+discoverable = true
 requires_approval = true
 
 [[parameters]]

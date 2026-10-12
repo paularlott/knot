@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/paularlott/knot/apiclient"
@@ -115,19 +116,30 @@ func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 	// Wait for the command response or websocket close
 	select {
 	case response := <-responseChannel:
-		if response.Success {
-			// Send the command output
-			if len(response.Output) > 0 {
-				ws.WriteMessage(websocket.TextMessage, response.Output)
+		// Send the command output, which a failed command has too: stdout
+		// as text frames and stderr as binary frames, so the CLI can write
+		// each to its own stream. Agents that predate the split only send
+		// the interleaved output.
+		if len(response.Stdout) > 0 || len(response.Stderr) > 0 {
+			if len(response.Stdout) > 0 {
+				ws.WriteMessage(websocket.TextMessage, response.Stdout)
 			}
-		} else {
-			// Send the error message
-			errorMsg := "Error: " + response.Error + "\r\n"
-			ws.WriteMessage(websocket.TextMessage, []byte(errorMsg))
+			if len(response.Stderr) > 0 {
+				ws.WriteMessage(websocket.BinaryMessage, response.Stderr)
+			}
+		} else if len(response.Output) > 0 {
+			ws.WriteMessage(websocket.TextMessage, response.Output)
 		}
 
-		// Send end marker
-		ws.WriteMessage(websocket.TextMessage, []byte{0})
+		// Send the end marker; on failure it carries the status, so the
+		// client can report the error apart from the output and exit with
+		// the command's code
+		marker := []byte{0}
+		if !response.Success {
+			status, _ := json.Marshal(apiclient.RunCommandStatus{Error: response.Error, ExitCode: response.ExitCode})
+			marker = append(marker, status...)
+		}
+		ws.WriteMessage(websocket.TextMessage, marker)
 
 	case <-done:
 		// Websocket was closed

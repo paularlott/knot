@@ -24,12 +24,12 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/miekg/dns v1.1.73
-	github.com/paularlott/cli v0.10.0
+	github.com/paularlott/cli v0.10.1
 	github.com/paularlott/gossip v0.23.0
 	github.com/paularlott/jsonrpc v0.2.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.32.3
+	github.com/paularlott/mcp v0.32.4
 	github.com/paularlott/scriptling v0.30.2
 	github.com/pkg/sftp v1.13.11
 	github.com/shamaton/msgpack/v3 v3.2.3
@@ -63,7 +63,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.3 // indirect
-	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect
 	github.com/paularlott/snapshotkv v0.6.0 // indirect

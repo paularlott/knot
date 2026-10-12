@@ -60,8 +60,18 @@ With no flags, shows the pool's current custom field values.`,
 			return fmt.Errorf("couldn't get pool %q: %s", poolName, cmdutil.CleanAPIError(err))
 		}
 
+		// Masked fields (keys, tokens) are shown as set, never their value
+		masked := map[string]bool{}
+		if template, _, err := client.GetTemplate(context.Background(), pool.TemplateId); err == nil && template != nil {
+			for _, field := range template.CustomFields {
+				if field.Type == "masked" {
+					masked[field.Name] = true
+				}
+			}
+		}
+
 		if len(set) == 0 && len(unset) == 0 && !clearAll {
-			printPoolCustomFields(pool.CustomFields)
+			printPoolCustomFields(pool.CustomFields, masked)
 			return nil
 		}
 
@@ -87,12 +97,12 @@ With no flags, shows the pool's current custom field values.`,
 		}
 
 		fmt.Printf("Pool %q updated; members pick up the change when they are next created or started.\n", poolName)
-		printPoolCustomFields(fields)
+		printPoolCustomFields(fields, masked)
 		return nil
 	},
 }
 
-func printPoolCustomFields(fields []apiclient.CustomFieldValue) {
+func printPoolCustomFields(fields []apiclient.CustomFieldValue, masked map[string]bool) {
 	if len(fields) == 0 {
 		fmt.Println("No custom fields set; members get the template defaults.")
 		return
@@ -100,7 +110,11 @@ func printPoolCustomFields(fields []apiclient.CustomFieldValue) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "FIELD\tVALUE")
 	for _, field := range fields {
-		fmt.Fprintf(w, "%s\t%s\n", field.Name, field.Value)
+		value := field.Value
+		if masked[field.Name] && value != "" {
+			value = "(set)"
+		}
+		fmt.Fprintf(w, "%s\t%s\n", field.Name, value)
 	}
 	w.Flush()
 }

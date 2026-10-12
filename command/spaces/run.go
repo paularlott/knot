@@ -3,8 +3,10 @@ package command_spaces
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -16,7 +18,7 @@ import (
 var RunCmd = &cli.Command{
 	Name:        "run",
 	Usage:       "Run a command in a space",
-	Description: "Execute a command within a running space and stream the output.",
+	Description: "Execute a command within a running space and stream the output. Give knot's own flags before the space name; everything after the command is passed to it unchanged.",
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:         "timeout",
@@ -45,6 +47,9 @@ var RunCmd = &cli.Command{
 	},
 	MinArgs: cli.NoArgs,
 	MaxArgs: cli.UnlimitedArgs,
+	// Everything after the command belongs to it, flags included:
+	// knot space run box claude -p "..." passes -p to claude.
+	PassThrough: true,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		timeout := cmd.GetInt("timeout")
 		workdir := cmd.GetString("workdir")
@@ -116,7 +121,7 @@ var RunCmd = &cli.Command{
 
 		// Read and display the output
 		for {
-			_, message, err := ws.ReadMessage()
+			messageType, message, err := ws.ReadMessage()
 			if err != nil {
 				// Check if this is a normal close
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
@@ -125,12 +130,28 @@ var RunCmd = &cli.Command{
 				return fmt.Errorf("lost the connection to space %q while the command was running: %w", spaceName, err)
 			}
 
-			// Check for end of execution marker
-			if len(message) == 1 && message[0] == 0 {
-				break
+			// The end marker; a failed command's status follows it
+			if len(message) > 0 && message[0] == 0 {
+				if len(message) == 1 {
+					break
+				}
+				var status apiclient.RunCommandStatus
+				if err := json.Unmarshal(message[1:], &status); err != nil {
+					return fmt.Errorf("the command failed in space %q", spaceName)
+				}
+				code := status.ExitCode
+				if code <= 0 {
+					code = 1
+				}
+				return &cmdutil.ExitCodeError{Code: code, Err: fmt.Errorf("the command failed in space %q: %s", spaceName, status.Error)}
 			}
 
-			fmt.Print(string(message))
+			// Binary frames carry the command's stderr
+			if messageType == websocket.BinaryMessage {
+				os.Stderr.Write(message)
+			} else {
+				os.Stdout.Write(message)
+			}
 		}
 
 		return nil

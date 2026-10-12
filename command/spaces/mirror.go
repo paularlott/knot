@@ -166,7 +166,10 @@ var MirrorCmd = &cli.Command{
 			return err
 		}
 		if !opts.verify {
-			fmt.Fprintf(os.Stderr, "Done in %s\n", stats.String(time.Since(start)))
+			fmt.Fprintf(os.Stderr, "Done: %s\n", stats.String(time.Since(start)))
+		}
+		if failed := stats.failed.Load(); failed > 0 {
+			return fmt.Errorf("%d file(s) couldn't be mirrored to %s:%s", failed, spaceName, remoteDir)
 		}
 		return nil
 	},

@@ -1,5 +1,6 @@
 description = "Stop a running pool. Stops all member spaces without deleting them."
 keywords = ["stop", "pool", "shutdown", "halt", "deactivate"]
+discoverable = true
 requires_approval = true
 
 [[parameters]]

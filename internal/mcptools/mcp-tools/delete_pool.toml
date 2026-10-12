@@ -1,5 +1,6 @@
 description = "Delete a pool and all its member spaces. The pool must be stopped first."
 keywords = ["delete", "pool", "remove", "destroy"]
+discoverable = true
 requires_approval = true
 
 [[parameters]]

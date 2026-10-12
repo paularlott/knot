@@ -215,6 +215,13 @@ type SpaceUsageHistoryResponse struct {
 	Points     []SpaceUsagePoint `json:"points"`
 }
 
+// RunCommandStatus is how a failed command ended: the error and its exit
+// code (124 when it timed out).
+type RunCommandStatus struct {
+	Error    string `json:"error"`
+	ExitCode int    `json:"exit_code"`
+}
+
 type RunCommandRequest struct {
 	Command string   `json:"command"`
 	Args    []string `json:"args,omitempty"`

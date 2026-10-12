@@ -40,7 +40,7 @@ func (o *mirrorOptions) runWatch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "Done in %s\n", stats.String(time.Since(start)))
+	fmt.Fprintf(os.Stderr, "Done: %s\n", stats.String(time.Since(start)))
 	fmt.Fprintf(os.Stderr, "Watching for changes... (Ctrl+C to stop)\n")
 
 	// Cancel-on-signal so the event loop exits cleanly on Ctrl+C. The parent

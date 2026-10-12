@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -187,6 +188,10 @@ It offers both a user-friendly web interface and a command line interface to str
 		// stderr, not stdout: commands that emit structured output (e.g.
 		// --json modes) must keep stdout parseable on failure paths too.
 		fmt.Fprintln(os.Stderr, cmdutil.FormatError(err))
+		var exitErr *cmdutil.ExitCodeError
+		if errors.As(err, &exitErr) && exitErr.Code > 0 {
+			os.Exit(exitErr.Code)
+		}
 		os.Exit(1)
 	}
 

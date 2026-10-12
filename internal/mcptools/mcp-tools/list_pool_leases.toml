@@ -1,5 +1,6 @@
 description = "List the leases held on a pool's members, active and draining, with holder, expiry and extensions used."
 keywords = ["pool", "leases", "list", "held", "members", "expiry"]
+discoverable = true
 
 [[parameters]]
 name = "name"

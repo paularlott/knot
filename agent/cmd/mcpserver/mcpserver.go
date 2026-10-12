@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentlink"
@@ -89,7 +90,18 @@ func serveMCP(ctx context.Context, cmd *cli.Command) error {
 	}
 	defer client.Close()
 
+	// Connect up front: a server without MCP enabled (or a token without
+	// the mcp scope) would otherwise look like one with no tools.
+	initCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	err = client.Initialize(initCtx)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("couldn't connect to the MCP endpoint at %s/mcp (check that MCP is enabled on the server, server.mcp.enabled, and that you can use it): %w", strings.TrimSuffix(cfg.HttpServer, "/"), err)
+	}
+
 	log.WithGroup("mcp").Info("serving MCP stdio proxy", "server", cfg.HttpServer)
+
+	ctx = mcp.WithSkillProviders(ctx, remoteSkills{client})
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
@@ -159,10 +171,24 @@ func buildMCPServer(cfg *config.ServerAddr, tlsSkipVerify, showAll bool) (*mcp.S
 	server.DeclareExtension(mcp.UIAppsExtensionID, map[string]any{
 		"mimeTypes": []string{mcp.UIAppMimeType},
 	})
-	if err := server.RegisterRemoteServer(client); err != nil {
+	// Serve the knot server's skills (skills/list); reads of their skill://
+	// resources go through to the server like any other resource. The
+	// library's skills federation would rename them under a namespace,
+	// which this one-server proxy doesn't use.
+	server.DeclareExtension(mcp.SkillsExtensionID, map[string]any{})
+	// Remote search sends tool_search on to the knot server, which knows
+	// the discoverable tools; the proxy's own search only sees listed ones.
+	if err := server.RegisterRemoteServer(client, mcp.WithRemoteSearch()); err != nil {
 		client.Close()
 		return nil, nil, fmt.Errorf("registering knot server %s: %w", cfg.HttpServer, err)
 	}
 
 	return server, client, nil
+}
+
+// remoteSkills lists the knot server's skills unchanged.
+type remoteSkills struct{ client *mcp.Client }
+
+func (r remoteSkills) ListSkills(ctx context.Context) ([]mcp.Skill, error) {
+	return r.client.ListSkills(ctx)
 }

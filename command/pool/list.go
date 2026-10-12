@@ -35,6 +35,14 @@ var ListCmd = &cli.Command{
 			return nil
 		}
 
+		// Show template names rather than IDs where they can be looked up
+		templateNames := map[string]string{}
+		if templates, _, err := client.GetTemplates(context.Background()); err == nil && templates != nil {
+			for _, t := range templates.Templates {
+				templateNames[t.Id] = t.Name
+			}
+		}
+
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(w, "NAME\tSTATE\tALIVE/DESIRED\tTEMPLATE")
 		for _, p := range pools.Pools {
@@ -42,7 +50,11 @@ var ListCmd = &cli.Command{
 			if p.Active {
 				state = "active"
 			}
-			fmt.Fprintf(w, "%s\t%s\t%d/%d\t%s\n", p.Name, state, p.AliveMembers, p.DesiredCount, p.TemplateId)
+			template := p.TemplateId
+			if name, ok := templateNames[p.TemplateId]; ok {
+				template = name
+			}
+			fmt.Fprintf(w, "%s\t%s\t%d/%d\t%s\n", p.Name, state, p.AliveMembers, p.DesiredCount, template)
 		}
 		w.Flush()
 		return nil

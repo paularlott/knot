@@ -1,5 +1,6 @@
 description = "Start a stopped pool. Starts all member spaces and creates new ones if needed."
 keywords = ["start", "pool", "activate", "run"]
+discoverable = true
 requires_approval = true
 
 [[parameters]]
