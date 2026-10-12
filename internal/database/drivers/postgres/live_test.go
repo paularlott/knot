@@ -304,3 +304,44 @@ func TestLiveMiscFlow(t *testing.T) {
 		t.Fatalf("GetToken: %v %v", tk, err)
 	}
 }
+
+func TestLivePoolFlow(t *testing.T) {
+	db := newLiveDriver(t)
+
+	// The migrations ran on the fresh database too, and only once.
+	var applied int
+	if err := db.connection.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&applied); err != nil || applied != len(migrations) {
+		t.Fatalf("schema_migrations rows = %d (%v), want %d", applied, err, len(migrations))
+	}
+
+	pool := model.NewPoolDefinition("agents", "t1", "", 3, "u1")
+	pool.LeaseMaxTime = -1
+	pool.LeaseMaxExtensions = -1
+	pool.CustomFields = []model.SpaceCustomField{{Name: "anthropic_api_key", Value: "sk-test"}, {Name: "region", Value: "eu"}}
+	if err := db.SavePoolDefinition(pool, nil); err != nil {
+		t.Fatalf("SavePoolDefinition: %v", err)
+	}
+	got, err := db.GetPoolDefinition(pool.Id)
+	if err != nil || len(got.CustomFields) != 2 || got.CustomFields[1].Value != "eu" || got.LeaseMaxTime != -1 {
+		t.Fatalf("GetPoolDefinition: %+v %v", got, err)
+	}
+
+	// An update of just the custom fields, as SaveCustomFields does through
+	// savePool (all fields), then clearing them.
+	got.CustomFields = []model.SpaceCustomField{{Name: "region", Value: "us"}}
+	if err := db.SavePoolDefinition(got, nil); err != nil {
+		t.Fatalf("SavePoolDefinition update: %v", err)
+	}
+	byName, err := db.GetPoolDefinitionByName("u1", "agents")
+	if err != nil || len(byName.CustomFields) != 1 || byName.CustomFields[0].Value != "us" {
+		t.Fatalf("GetPoolDefinitionByName: %+v %v", byName, err)
+	}
+	byName.CustomFields = nil
+	if err := db.SavePoolDefinition(byName, []string{"CustomFields"}); err != nil {
+		t.Fatalf("SavePoolDefinition clear: %v", err)
+	}
+	pools, err := db.GetPoolDefinitions()
+	if err != nil || len(pools) != 1 || len(pools[0].CustomFields) != 0 {
+		t.Fatalf("GetPoolDefinitions: %+v %v", pools, err)
+	}
+}
