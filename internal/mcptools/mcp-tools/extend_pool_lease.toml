@@ -1,0 +1,15 @@
+description = "Extend the lease held on a pool member: the new deadline is now plus time. Limited by the pool's maximum number of extensions."
+keywords = ["pool", "extend", "lease", "renew", "member", "time"]
+discoverable = true
+
+[[parameters]]
+name = "space"
+type = "string"
+description = "Name or ID of the leased space"
+required = true
+
+[[parameters]]
+name = "time"
+type = "string"
+description = "New lease length from now: seconds or a duration like '5m' / '2h', 'none' to never expire (pools without a time limit only); omit for the pool's maximum"
+required = false

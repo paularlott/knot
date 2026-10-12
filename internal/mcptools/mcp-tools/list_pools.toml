@@ -1,0 +1,9 @@
+description = "List pools with their utilization, lease settings and members, or get one pool by name. Each member shows its state and lease_state (\"\" = free, \"active\" = leased, \"draining\")."
+keywords = ["pools", "list", "get", "members", "lease", "utilization", "free"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name or ID of a pool to get; omit to list all visible pools"
+required = false

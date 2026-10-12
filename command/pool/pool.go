@@ -42,6 +42,7 @@ var PoolCmd = &cli.Command{
 	},
 	Commands: []*cli.Command{
 		ListCmd,
+		CreateCmd,
 		StartCmd,
 		StopCmd,
 		DeleteCmd,

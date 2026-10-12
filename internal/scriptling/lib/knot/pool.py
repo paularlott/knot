@@ -72,11 +72,15 @@ def get(name):
     return _parse_pool(response)
 
 
-def create(name, template_name, startup_script_id="", desired_count=1, active=True):
+def create(name, template_name, startup_script_id="", desired_count=1, active=True,
+           lease_max_time=0, lease_max_extensions=0):
     """Create a pool with the given number of spaces and return its ID.
 
     Accepts a template name (resolved to ID internally).
     If active is True, spaces are started as they are created.
+    lease_max_time enables exclusive member leases: 0 = off, -1 = no
+    timeout, >0 = maximum lease length in seconds. lease_max_extensions:
+    0 = extending forbidden, -1 = unlimited, >0 = maximum extensions.
     Bridged KVM templates are rejected — their spaces need an IP address
     chosen at creation, which a pool can't provide; NAT KVM templates work.
     """
@@ -92,12 +96,14 @@ def create(name, template_name, startup_script_id="", desired_count=1, active=Tr
         "startup_script_id": startup_script_id,
         "desired_count": desired_count,
         "active": active,
+        "lease_max_time": lease_max_time,
+        "lease_max_extensions": lease_max_extensions,
     })
     return response.get("pool_id")
 
 
-def update(name, desired_count=None, active=None):
-    """Update the pool's desired count or active state.
+def update(name, desired_count=None, active=None, lease_max_time=None, lease_max_extensions=None):
+    """Update the pool's desired count, active state or lease settings.
 
     Pool name, template, and startup script are immutable after creation.
     """
@@ -110,6 +116,10 @@ def update(name, desired_count=None, active=None):
         body["desired_count"] = desired_count
     if active is not None:
         body["active"] = active
+    if lease_max_time is not None:
+        body["lease_max_time"] = lease_max_time
+    if lease_max_extensions is not None:
+        body["lease_max_extensions"] = lease_max_extensions
 
     api.put(f"/api/pools/{_enc(current.get('id'))}", body)
     return True

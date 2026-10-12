@@ -31,3 +31,15 @@ name = "active"
 type = "bool"
 description = "Start the pool immediately after creation"
 required = false
+
+[[parameters]]
+name = "lease_max_time"
+type = "int"
+description = "Enable exclusive member leases: -1 = lease until released, a positive number of seconds = maximum lease length, 0 = leases off (default)"
+required = false
+
+[[parameters]]
+name = "lease_max_extensions"
+type = "int"
+description = "Times a lease may be extended: -1 = unlimited, 0 = none (default)"
+required = false

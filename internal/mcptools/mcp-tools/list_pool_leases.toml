@@ -1,0 +1,8 @@
+description = "List the leases held on a pool's members, active and draining, with holder, expiry and extensions used."
+keywords = ["pool", "leases", "list", "held", "members", "expiry"]
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the pool"
+required = true

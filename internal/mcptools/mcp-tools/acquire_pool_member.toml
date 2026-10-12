@@ -1,0 +1,21 @@
+description = "Check out a member of a lease-enabled pool for exclusive use. Returns the lease; the held space is space_name / space_id, usable with run_command, read_file, write_file and the other space tools. Release it with release_pool_member when done."
+keywords = ["pool", "acquire", "lease", "checkout", "borrow", "member", "exclusive"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the pool to acquire a member from"
+required = true
+
+[[parameters]]
+name = "time"
+type = "string"
+description = "Lease length: seconds or a duration like '5m' / '2h', 'none' to never expire (pools without a time limit only); omit for the pool's maximum"
+required = false
+
+[[parameters]]
+name = "wait"
+type = "string"
+description = "Wait up to this long for a free member, as seconds or a duration like '30s' (server caps it at 5m); omit to fail at once when none is free"
+required = false

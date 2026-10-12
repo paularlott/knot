@@ -6,6 +6,8 @@ template_name = tool.get_string("template_name")
 desired_count = tool.get_int("desired_count", 1)
 startup_script_name = tool.get_string("startup_script_name", "")
 active = tool.get_bool("active", False)
+lease_max_time = tool.get_int("lease_max_time", 0)
+lease_max_extensions = tool.get_int("lease_max_extensions", 0)
 
 startup_script_id = ""
 if startup_script_name:
@@ -22,6 +24,8 @@ pool_id = knot.pool.create(
     startup_script_id=startup_script_id,
     desired_count=desired_count,
     active=active,
+    lease_max_time=lease_max_time,
+    lease_max_extensions=lease_max_extensions,
 )
 
 state = "started" if active else "created stopped"

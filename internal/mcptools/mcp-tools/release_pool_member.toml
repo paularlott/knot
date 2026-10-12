@@ -1,0 +1,16 @@
+description = "Release the lease held on a pool member. The member returns to the pool after in-flight work drains; with destroy it is deleted instead and a fresh replacement is created, so the next acquire gets a clean space."
+keywords = ["pool", "release", "lease", "return", "checkin", "destroy", "member"]
+requires_approval = true
+discoverable = true
+
+[[parameters]]
+name = "space"
+type = "string"
+description = "Name or ID of the leased space, as returned by acquire_pool_member"
+required = true
+
+[[parameters]]
+name = "destroy"
+type = "bool"
+description = "Delete the member and its data instead of returning it to the pool (default: false)"
+required = false

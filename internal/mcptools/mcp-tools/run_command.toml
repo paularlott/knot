@@ -23,7 +23,7 @@ required = false
 [[parameters]]
 name = "timeout"
 type = "int"
-description = "Timeout in seconds (default: 30)"
+description = "Timeout in seconds (default: 30); pass a longer one for builds, test runs and other long jobs"
 required = false
 
 [[parameters]]
