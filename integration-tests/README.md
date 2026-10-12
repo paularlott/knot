@@ -66,6 +66,9 @@ resources → events → ports → logs → clustering.
 | `TestTOTPSecondFactor` | full TOTP lifecycle on a dedicated `--enable-totp` server: first login reveals the secret, password alone and wrong codes are then refused, the correct code (computed locally with the same RFC 6238 algorithm) logs in, the ±30s window accepts the previous slice but not two ahead, and an admin clearing the secret resets the flow |
 | `TestAuthRateLimitAndFlush` | 8 bad passwords block even the correct one, then the admin flush API clears the blocks |
 | `TestServerRestartPreservesState` | a restart keeps users and tokens (badger) and the server comes back serving |
+| `TestOAuthMCPDiscovery` | an unauthenticated `/mcp` request gets a `WWW-Authenticate` challenge whose protected resource metadata leads to the authorization server metadata and its `/register` endpoint; GET and DELETE `/mcp` are authenticated; API tokens still reach `/mcp` |
+| `TestOAuthUnregisteredClient` | the OAuth2 flow for a client that never registered: browser login, authorize, grant, PKCE code exchange, the MCP-scoped token works on `/mcp` but not the API, codes are single use, refresh works, and a wrong verifier is refused |
+| `TestOAuthRegisteredClient` | dynamic client registration refuses non-https redirects, the registered client completes the same flow with its name on the grant page, and its codes can't be sent to another redirect URI through authorize or a forged approval, nor with a tampered client_id |
 
 ### Users, roles, groups, templates
 

@@ -100,7 +100,11 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 
 		// Apply authentication middleware - unified endpoint
 		// Use X-MCP-Show-All: true header for show-all mode
-		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(unifiedHandler.ServeHTTP)))
+		// GET opens the notification stream and DELETE ends a session.
+		authedHandler := middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(unifiedHandler.ServeHTTP))
+		routes.HandleFunc("POST /mcp", authedHandler)
+		routes.HandleFunc("GET /mcp", authedHandler)
+		routes.HandleFunc("DELETE /mcp", authedHandler)
 	}
 
 	// =========================================================================

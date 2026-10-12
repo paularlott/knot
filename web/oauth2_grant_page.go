@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/oauth2"
 )
 
 func HandleOAuth2GrantPage(w http.ResponseWriter, r *http.Request) {
@@ -24,6 +25,13 @@ func HandleOAuth2GrantPage(w http.ResponseWriter, r *http.Request) {
 	data["state"] = r.URL.Query().Get("state")
 	data["codeChallenge"] = r.URL.Query().Get("code_challenge")
 	data["codeChallengeMethod"] = r.URL.Query().Get("code_challenge_method")
+
+	clientName, err := oauth2.ValidateClient(r.URL.Query().Get("client_id"), r.URL.Query().Get("redirect_uri"))
+	if err != nil {
+		http.Error(w, "invalid_request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	data["clientName"] = clientName
 
 	if u, err := url.Parse(r.URL.Query().Get("redirect_uri")); err == nil {
 		data["redirectDomain"] = u.Hostname()

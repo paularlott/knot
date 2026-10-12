@@ -2485,6 +2485,51 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: []
 
+  /.well-known/oauth-protected-resource/mcp:
+    get:
+      tags:
+        - Authorization
+      summary: OAuth Protected Resource Metadata
+      description: |
+        Returns the RFC 9728 metadata for the MCP endpoint. Unauthenticated requests to `/mcp`
+        are answered with a `WWW-Authenticate` header pointing here. Also served at
+        `/.well-known/oauth-protected-resource`.
+      operationId: getProtectedResourceMetadata
+      responses:
+        "200":
+          description: Protected resource metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthProtectedResourceMetadata"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: []
+
+  /register:
+    post:
+      tags:
+        - Authorization
+      summary: OAuth2 Dynamic Client Registration
+      description: Registers a public OAuth2 client (RFC 7591), such as an MCP client.
+      operationId: oauth2RegisterClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthClientRegistration"
+      responses:
+        "201":
+          description: Client registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthClientRegistrationResponse"
+        "400":
+          description: Invalid client metadata or redirect URI.
+      security: []
+
   /authorize:
     get:
       tags:
@@ -2505,7 +2550,7 @@ paths:
         - name: client_id
           in: query
           required: true
-          description: The client identifier (any string is accepted)
+          description: The client identifier. A registered client must use one of its registered redirect URIs; any other string is accepted as an unregistered client
           schema:
             type: string
         - name: redirect_uri
@@ -7750,6 +7795,9 @@ components:
         token_endpoint:
           type: string
           description: URL of the OAuth 2.0 token endpoint.
+        registration_endpoint:
+          type: string
+          description: URL of the RFC 7591 dynamic client registration endpoint.
         response_types_supported:
           type: array
           items:
@@ -7765,6 +7813,68 @@ components:
           items:
             type: string
           description: Supported client authentication methods for the token endpoint.
+
+    OAuthProtectedResourceMetadata:
+      type: object
+      description: RFC 9728 OAuth 2.0 Protected Resource Metadata for the MCP endpoint.
+      properties:
+        resource:
+          type: string
+          description: URL of the MCP endpoint.
+        authorization_servers:
+          type: array
+          items:
+            type: string
+          description: Issuer URLs of the authorization servers for the resource.
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        bearer_methods_supported:
+          type: array
+          items:
+            type: string
+        resource_name:
+          type: string
+
+    OAuthClientRegistration:
+      type: object
+      description: RFC 7591 client metadata. Only public clients using the authorization code flow are supported.
+      required: [redirect_uris]
+      properties:
+        client_name:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+          description: Up to 10 https URIs, or http URIs on a loopback address.
+        grant_types:
+          type: array
+          items:
+            type: string
+            enum: [authorization_code, refresh_token]
+        response_types:
+          type: array
+          items:
+            type: string
+            enum: [code]
+        token_endpoint_auth_method:
+          type: string
+          enum: [none]
+        scope:
+          type: string
+
+    OAuthClientRegistrationResponse:
+      allOf:
+        - $ref: "#/components/schemas/OAuthClientRegistration"
+        - type: object
+          properties:
+            client_id:
+              type: string
+              description: The issued client identifier; the client may only use the redirect URIs it registered.
+            client_id_issued_at:
+              type: integer
 
     WebhookConfig:
       type: object

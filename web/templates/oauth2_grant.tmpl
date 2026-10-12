@@ -19,7 +19,11 @@
     <div class="text-center">
       <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Authorize Application</h2>
       <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        {{ if .clientName }}
+        <strong>{{ .clientName }}</strong> ({{ .redirectDomain }}) is requesting access to your account.
+        {{ else }}
         The application <strong>{{ .redirectURI }}</strong> is requesting access to your account.
+        {{ end }}
       </p>
     </div>
 

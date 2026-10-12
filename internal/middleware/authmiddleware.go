@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/oauth2"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/crypt"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -43,6 +44,13 @@ func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
 	// Clear any stale session cookies so a leftover host-only cookie (from
 	// before wildcard-domain widening) can't shadow a fresh login attempt.
 	DeleteSessionCookie(w, r)
+
+	// Tell MCP clients where to authorize (RFC 9728), so clients such as
+	// Claude's custom connectors can start the OAuth flow.
+	if r.URL.Path == "/mcp" {
+		w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+oauth2.ProtectedResourceMetadataURL(r)+`", scope="`+model.ScopeMCP+`"`)
+	}
+
 	rest.WriteResponse(http.StatusUnauthorized, w, r, struct {
 		Error string `json:"error"`
 	}{

@@ -271,9 +271,12 @@ func ApiRoutes(router *http.ServeMux) {
 	// OAuth2 routes
 	router.HandleFunc("GET /authorize", middleware.WebAuth(oauth2.HandleAuthorize))
 	router.HandleFunc("POST /token", oauth2.HandleToken)
+	router.HandleFunc("POST /register", oauth2.HandleRegister)
 
 	// OAuth2 Discovery
 	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)
+	router.HandleFunc("GET /.well-known/oauth-protected-resource", oauth2.HandleProtectedResourceMetadata)
+	router.HandleFunc("GET /.well-known/oauth-protected-resource/mcp", oauth2.HandleProtectedResourceMetadata)
 
 	// Start a cleanup job for the rate limiters
 	go authratelimit.StartCleanup(nil)

@@ -63,6 +63,13 @@ func HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A registered client may only use its own redirect URIs. This is
+	// checked before any redirect so a bad URI is never redirected to.
+	if _, err := ValidateClient(clientId, redirectURI); err != nil {
+		http.Error(w, "invalid_request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// PKCE (RFC 7636) with S256 is required for all clients. MCP clients
 	// implement PKCE per the MCP specification, so only non-conformant
 	// clients are excluded.
@@ -98,6 +105,12 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 	codeChallengeMethod := r.FormValue("code_challenge_method")
 
 	user := r.Context().Value("user").(*model.User)
+
+	// Re-check the client, as the grant form can be posted directly.
+	if _, err := ValidateClient(clientId, redirectURI); err != nil {
+		http.Error(w, "invalid_request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	if action == "approve" {
 		// Never issue a code that isn't PKCE-bound, even if the approve
@@ -322,6 +335,7 @@ type AuthorizationServerMetadata struct {
 	Issuer                            string   `json:"issuer"`
 	AuthorizationEndpoint             string   `json:"authorization_endpoint"`
 	TokenEndpoint                     string   `json:"token_endpoint"`
+	RegistrationEndpoint              string   `json:"registration_endpoint"`
 	ResponseTypesSupported            []string `json:"response_types_supported"`
 	GrantTypesSupported               []string `json:"grant_types_supported"`
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
@@ -329,24 +343,33 @@ type AuthorizationServerMetadata struct {
 	CodeChallengeMethodsSupported     []string `json:"code_challenge_methods_supported,omitempty"`
 }
 
-func HandleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
-	cfg := config.GetServerConfig()
-
-	// Build the base URL from the server configuration
-	baseURL := cfg.URL
-	if baseURL == "" {
-		// Fallback to constructing from request
-		scheme := "https"
-		if r.TLS == nil {
-			scheme = "http"
-		}
-		baseURL = scheme + "://" + r.Host
+// BaseURL returns the server's public URL, from the configuration or, when
+// that isn't set, from the request.
+func BaseURL(r *http.Request) string {
+	if baseURL := config.GetServerConfig().URL; baseURL != "" {
+		return strings.TrimSuffix(baseURL, "/")
 	}
+	scheme := "https"
+	if r.TLS == nil {
+		scheme = "http"
+	}
+	return scheme + "://" + r.Host
+}
+
+// ProtectedResourceMetadataURL returns the RFC 9728 metadata URL for the MCP
+// endpoint, given to clients in the WWW-Authenticate challenge.
+func ProtectedResourceMetadataURL(r *http.Request) string {
+	return BaseURL(r) + "/.well-known/oauth-protected-resource/mcp"
+}
+
+func HandleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
+	baseURL := BaseURL(r)
 
 	metadata := AuthorizationServerMetadata{
 		Issuer:                baseURL,
 		AuthorizationEndpoint: baseURL + "/authorize",
 		TokenEndpoint:         baseURL + "/token",
+		RegistrationEndpoint:  baseURL + "/register",
 		ResponseTypesSupported: []string{
 			"code",
 		},
@@ -367,6 +390,28 @@ func HandleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	rest.WriteResponse(http.StatusOK, w, r, metadata)
+}
+
+type ProtectedResourceMetadata struct {
+	Resource               string   `json:"resource"`
+	AuthorizationServers   []string `json:"authorization_servers"`
+	ScopesSupported        []string `json:"scopes_supported"`
+	BearerMethodsSupported []string `json:"bearer_methods_supported"`
+	ResourceName           string   `json:"resource_name,omitempty"`
+}
+
+// HandleProtectedResourceMetadata serves the RFC 9728 metadata for the MCP
+// endpoint, which tells MCP clients where to authorize.
+func HandleProtectedResourceMetadata(w http.ResponseWriter, r *http.Request) {
+	baseURL := BaseURL(r)
+
+	rest.WriteResponse(http.StatusOK, w, r, ProtectedResourceMetadata{
+		Resource:               baseURL + "/mcp",
+		AuthorizationServers:   []string{baseURL},
+		ScopesSupported:        []string{model.ScopeMCP},
+		BearerMethodsSupported: []string{"header"},
+		ResourceName:           "knot",
+	})
 }
 
 type OpenIDConfiguration struct {
