@@ -47,6 +47,7 @@ def _parse_pool(pool):
         "active": pool.get("active", False),
         "lease_max_time": pool.get("lease_max_time", 0),  # seconds; 0 off, -1 no timeout
         "lease_max_extensions": pool.get("lease_max_extensions", 0),  # 0 off, -1 unlimited
+        "custom_fields": pool.get("custom_fields") or [],  # given to every member
         "utilization": {
             "combined_rps": util.get("combined_rps", 0),
             "method_rps": util.get("method_rps", 0),
@@ -73,7 +74,7 @@ def get(name):
 
 
 def create(name, template_name, startup_script_id="", desired_count=1, active=True,
-           lease_max_time=0, lease_max_extensions=0):
+           lease_max_time=0, lease_max_extensions=0, custom_fields=None):
     """Create a pool with the given number of spaces and return its ID.
 
     Accepts a template name (resolved to ID internally).
@@ -81,6 +82,8 @@ def create(name, template_name, startup_script_id="", desired_count=1, active=Tr
     lease_max_time enables exclusive member leases: 0 = off, -1 = no
     timeout, >0 = maximum lease length in seconds. lease_max_extensions:
     0 = extending forbidden, -1 = unlimited, >0 = maximum extensions.
+    custom_fields: values given to every member, as {"name": ..., "value": ...};
+    fields left out get the template default.
     Bridged KVM templates are rejected — their spaces need an IP address
     chosen at creation, which a pool can't provide; NAT KVM templates work.
     """
@@ -98,12 +101,18 @@ def create(name, template_name, startup_script_id="", desired_count=1, active=Tr
         "active": active,
         "lease_max_time": lease_max_time,
         "lease_max_extensions": lease_max_extensions,
+        "custom_fields": custom_fields or [],
     })
     return response.get("pool_id")
 
 
-def update(name, desired_count=None, active=None, lease_max_time=None, lease_max_extensions=None):
-    """Update the pool's desired count, active state or lease settings.
+def update(name, desired_count=None, active=None, lease_max_time=None, lease_max_extensions=None,
+           custom_fields=None):
+    """Update the pool's desired count, active state, lease settings or
+    custom fields.
+
+    custom_fields replaces the values given to members ([] clears them);
+    members pick up the change when they are next created or started.
 
     Pool name, template, and startup script are immutable after creation.
     """
@@ -120,6 +129,8 @@ def update(name, desired_count=None, active=None, lease_max_time=None, lease_max
         body["lease_max_time"] = lease_max_time
     if lease_max_extensions is not None:
         body["lease_max_extensions"] = lease_max_extensions
+    if custom_fields is not None:
+        body["custom_fields"] = custom_fields
 
     api.put(f"/api/pools/{_enc(current.get('id'))}", body)
     return True

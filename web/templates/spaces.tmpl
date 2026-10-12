@@ -157,6 +157,46 @@
             <label for="pool-desired-count" class="form-label">Desired Count{{ template "req" }}</label>
             <input id="pool-desired-count" x-model.number="poolFormModal.desiredCount" class="form-field" type="number" min="1" required aria-required="true">
           </div>
+          <fieldset x-show="poolFormModal.customFieldDefs.length" x-cloak class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Custom Fields</legend>
+            <div class="space-y-4">
+              <p class="text-xs text-gray-500 dark:text-gray-400">Given to every member. Blank fields use the template default. <span x-show="poolFormModal.isEdit">Members pick up a change when they are next created or started; restart the pool to apply it to all of them.</span></p>
+              <template x-for="(field, cfi) in poolFormModal.customFieldDefs" :key="field.name">
+                <div>
+                  <template x-if="field.type !== 'bool'">
+                    <label class="form-label" :for="'pool-cf-' + cfi"><span x-text="(field.description || field.name) + ' (' + field.name + ')'"></span><template x-if="field.required && !field.default">{{ template "req" }}</template></label>
+                  </template>
+                  <template x-if="field.type === 'bool'">
+                    <label class="flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer" :checked="poolFormModal.customFieldValues[field.name] === 'true'" @change="poolFormModal.customFieldValues[field.name] = $event.target.checked ? 'true' : 'false'">
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="(field.description || field.name) + ' (' + field.name + ')'"></span>
+                    </label>
+                  </template>
+                  <template x-if="(field.type === 'select' || field.type === 'autocomplete') && (field.handler || (field.options && field.options.length))">
+                    <select x-data="fieldSelect(field.handler, field.options)" class="form-field" :id="'pool-cf-' + cfi" x-model="poolFormModal.customFieldValues[field.name]">
+                      <option value="" x-text="field.default ? 'Template default (' + field.default + ')' : 'Select an option…'"></option>
+                      <template x-for="(option, oi) in options" :key="oi">
+                        <option :value="optKey(option)" x-text="optText(option)" :selected="optKey(option) === poolFormModal.customFieldValues[field.name]"></option>
+                      </template>
+                    </select>
+                  </template>
+                  <template x-if="field.type === 'textarea'">
+                    <textarea class="form-field font-mono text-sm" rows="4" :id="'pool-cf-' + cfi" :placeholder="field.default || ''" x-model="poolFormModal.customFieldValues[field.name]" spellcheck="false"></textarea>
+                  </template>
+                  <template x-if="field.type === 'masked'">
+                    <input type="password" class="form-field" :id="'pool-cf-' + cfi" autocomplete="new-password" :placeholder="field.default ? 'Template default' : 'Field value'" x-model="poolFormModal.customFieldValues[field.name]">
+                  </template>
+                  <template x-if="field.type === 'number'">
+                    <input type="number" class="form-field" :id="'pool-cf-' + cfi" :placeholder="field.default || 'Field value'" x-model="poolFormModal.customFieldValues[field.name]">
+                  </template>
+                  <template x-if="!['bool', 'select', 'autocomplete', 'textarea', 'masked', 'number'].includes(field.type) || ((field.type === 'select' || field.type === 'autocomplete') && !field.handler && !(field.options && field.options.length))">
+                    <input type="text" class="form-field" :id="'pool-cf-' + cfi" :placeholder="field.default || 'Field value'" x-model="poolFormModal.customFieldValues[field.name]">
+                  </template>
+                </div>
+              </template>
+            </div>
+          </fieldset>
           <fieldset class="rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <legend class="text-sm font-medium text-gray-900 dark:text-white px-2">Exclusive Leases</legend>
             <div class="space-y-4">

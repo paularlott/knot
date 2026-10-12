@@ -3,36 +3,13 @@ package command_spaces
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 )
-
-func parseCustomFields(rawFields []string) ([]apiclient.CustomFieldValue, error) {
-	customFields := make([]apiclient.CustomFieldValue, 0, len(rawFields))
-
-	for _, rawField := range rawFields {
-		name, value, ok := strings.Cut(rawField, "=")
-		if !ok {
-			return nil, fmt.Errorf("invalid custom field %q, expected name=value", rawField)
-		}
-
-		name = strings.TrimSpace(name)
-		if name == "" {
-			return nil, fmt.Errorf("invalid custom field %q, name is required", rawField)
-		}
-
-		customFields = append(customFields, apiclient.CustomFieldValue{
-			Name:  name,
-			Value: value,
-		})
-	}
-
-	return customFields, nil
-}
 
 var CreateCmd = &cli.Command{
 	Name:        "create",
@@ -72,7 +49,7 @@ var CreateCmd = &cli.Command{
 			return fmt.Errorf("invalid shell %q: use bash, zsh, fish or sh", shell)
 		}
 
-		customFields, err := parseCustomFields(cmd.GetStringSlice("custom-field"))
+		customFields, err := cmdutil.ParseCustomFields(cmd.GetStringSlice("custom-field"))
 		if err != nil {
 			return err
 		}

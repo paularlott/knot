@@ -21,12 +21,16 @@ type PoolDefinition struct {
 	// disabled (the default), -1 = no timeout (leases run until released),
 	// >0 = maximum duration of one acquire/extend. LeaseMaxExtensions:
 	// 0 = extending forbidden, -1 = unlimited, >0 = max extensions per lease.
-	LeaseMaxTime       int           `json:"lease_max_time" db:"lease_max_time" msgpack:"lease_max_time"`
-	LeaseMaxExtensions int           `json:"lease_max_extensions" db:"lease_max_extensions" msgpack:"lease_max_extensions"`
-	CreatedUserId      string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
-	CreatedAt          time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
-	UpdatedUserId      string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
-	UpdatedAt          hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	LeaseMaxTime       int `json:"lease_max_time" db:"lease_max_time" msgpack:"lease_max_time"`
+	LeaseMaxExtensions int `json:"lease_max_extensions" db:"lease_max_extensions" msgpack:"lease_max_extensions"`
+	// Custom field values given to every member. Copied onto a member when
+	// it is created or started, so a change reaches running members on
+	// their next start.
+	CustomFields  []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
+	CreatedUserId string             `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string             `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 // LeaseDuration converts the pool's LeaseMaxTime into a time.Duration.

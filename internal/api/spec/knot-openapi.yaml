@@ -12268,6 +12268,11 @@ components:
           type: integer
           default: 0
           description: Max extensions per lease. 0 = extending forbidden (default), -1 = unlimited, >0 = max count.
+        custom_fields:
+          type: array
+          description: Custom field values given to every member. Names must be fields of the template; fields left out get the template default.
+          items:
+            $ref: "#/components/schemas/CustomFieldValue"
 
     PoolSetSizeRequest:
       type: object
@@ -12317,6 +12322,11 @@ components:
         lease_max_extensions:
           type: integer
           description: Max extensions per lease (0 forbidden, -1 unlimited). Omit to leave unchanged.
+        custom_fields:
+          type: array
+          description: Replaces the custom field values given to members; an empty array clears them. Members pick up the change when they are next created or started. Omit to leave unchanged.
+          items:
+            $ref: "#/components/schemas/CustomFieldValue"
 
     PoolUtilization:
       type: object
@@ -12420,6 +12430,11 @@ components:
         lease_max_extensions:
           type: integer
           description: Max extensions per lease (0 forbidden, -1 unlimited).
+        custom_fields:
+          type: array
+          description: Custom field values given to every member, as set on the pool (template defaults not included).
+          items:
+            $ref: "#/components/schemas/CustomFieldValue"
         utilization:
           $ref: "#/components/schemas/PoolUtilization"
         members:

@@ -44,6 +44,10 @@ var CreateCmd = &cli.Command{
 			Name:  "lease-extensions",
 			Usage: "How many times a lease may be extended: a number, or 'unlimited'. Defaults to 0 (no extensions).",
 		},
+		&cli.StringSliceFlag{
+			Name:  "custom-field",
+			Usage: "Custom field given to every member, as name=value (can be specified multiple times).",
+		},
 	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
@@ -75,6 +79,11 @@ var CreateCmd = &cli.Command{
 			return fmt.Errorf("--lease-extensions needs --lease-time to enable leases")
 		}
 
+		customFields, err := cmdutil.ParseCustomFields(cmd.GetStringSlice("custom-field"))
+		if err != nil {
+			return err
+		}
+
 		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return err
@@ -95,6 +104,7 @@ var CreateCmd = &cli.Command{
 			Active:             cmd.GetBool("start"),
 			LeaseMaxTime:       leaseTime,
 			LeaseMaxExtensions: leaseExtensions,
+			CustomFields:       customFields,
 		})
 		if err != nil {
 			return fmt.Errorf("couldn't create pool %q: %s", poolName, cmdutil.CleanAPIError(err))

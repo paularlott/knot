@@ -17,6 +17,9 @@ type PoolRequest struct {
 	// LeaseMaxExtensions: 0 = extending forbidden (default), -1 = unlimited,
 	// >0 = max extensions per lease.
 	LeaseMaxExtensions int `json:"lease_max_extensions"`
+	// CustomFields are given to every member; template defaults fill in
+	// fields left out.
+	CustomFields []CustomFieldValue `json:"custom_fields"`
 }
 
 type PoolSetSizeRequest struct {
@@ -35,6 +38,9 @@ type PoolUpdateRequest struct {
 	// "absent" — patch semantics treat absent as unchanged and 0 as
 	// "disable extending".
 	LeaseMaxExtensions *int `json:"lease_max_extensions,omitempty"`
+	// CustomFields, when present, replaces the pool's custom field values.
+	// Members pick them up when they are next created or started.
+	CustomFields *[]CustomFieldValue `json:"custom_fields,omitempty"`
 }
 
 type PoolLeaseAcquireRequest struct {
@@ -83,17 +89,18 @@ type PoolMemberInfo struct {
 }
 
 type PoolInfo struct {
-	Id                 string           `json:"pool_id"`
-	Name               string           `json:"name"`
-	TemplateId         string           `json:"template_id"`
-	StartupScriptId    string           `json:"startup_script_id"`
-	DesiredCount       int              `json:"desired_count"`
-	AliveMembers       int              `json:"alive_members"`
-	Active             bool             `json:"active"`
-	LeaseMaxTime       int              `json:"lease_max_time"`
-	LeaseMaxExtensions int              `json:"lease_max_extensions"`
-	Utilization        PoolUtilization  `json:"utilization"`
-	Members            []PoolMemberInfo `json:"members"`
+	Id                 string             `json:"pool_id"`
+	Name               string             `json:"name"`
+	TemplateId         string             `json:"template_id"`
+	StartupScriptId    string             `json:"startup_script_id"`
+	DesiredCount       int                `json:"desired_count"`
+	AliveMembers       int                `json:"alive_members"`
+	Active             bool               `json:"active"`
+	LeaseMaxTime       int                `json:"lease_max_time"`
+	LeaseMaxExtensions int                `json:"lease_max_extensions"`
+	CustomFields       []CustomFieldValue `json:"custom_fields"`
+	Utilization        PoolUtilization    `json:"utilization"`
+	Members            []PoolMemberInfo   `json:"members"`
 }
 
 type PoolList struct {

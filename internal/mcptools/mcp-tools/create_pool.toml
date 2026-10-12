@@ -43,3 +43,9 @@ name = "lease_max_extensions"
 type = "int"
 description = "Times a lease may be extended: -1 = unlimited, 0 = none (default)"
 required = false
+
+[[parameters]]
+name = "custom_fields"
+type = "array:string"
+description = "Optional custom field values given to every member, as name=value strings, for example [\"ENV=dev\", \"ROLE=api\"]; fields left out get the template default"
+required = false

@@ -17,6 +17,16 @@ const STATUS_RANK = {
 
 // Milliseconds since the epoch for an API time, or 0 when unset (the zero
 // time "0001-01-01T00:00:00Z" means the space has never started).
+// Custom field state of the pool form: the template's field definitions
+// and the pool's values keyed by field name.
+function poolCustomFieldFormDefaults() {
+  return {
+    customFieldDefs: [],
+    customFieldValues: {},
+    customFieldsLoaded: false,
+  };
+}
+
 function timeMs(value) {
   const ms = Date.parse(value || "");
   return Number.isFinite(ms) && ms > 0 ? ms : 0;
@@ -198,6 +208,7 @@ window.spacesListComponent = function (
       leaseNoLimit: false,
       leaseMaxExtensions: 0,
       leaseExtensionsUnlimited: false,
+      ...poolCustomFieldFormDefaults(),
       error: "",
       submitting: false,
     },
@@ -760,6 +771,7 @@ window.spacesListComponent = function (
         desiredCount: 1,
         active: true,
         ...this.poolLeaseFormDefaults(),
+        ...poolCustomFieldFormDefaults(),
         error: "",
         submitting: false,
       };
@@ -827,6 +839,7 @@ window.spacesListComponent = function (
             !template.searchHide &&
             !this.templateBlocked(template),
         )?.template_id || "";
+      this.loadPoolCustomFields(this.poolFormModal.templateId, []);
       this.$nextTick(() => {
         this.$refs.poolNameInput?.focus();
       });
@@ -869,13 +882,86 @@ window.spacesListComponent = function (
             ? current.lease_max_extensions
             : 0,
         leaseExtensionsUnlimited: current.lease_max_extensions < 0,
+        ...poolCustomFieldFormDefaults(),
         error: "",
         submitting: false,
       };
       this.poolNameValid = true;
+      this.loadPoolCustomFields(current.template_id, current.custom_fields);
       this.$nextTick(() => {
         this.$refs.poolNameInput?.focus();
       });
+    },
+    // Load the template's custom field definitions into the pool form. The
+    // form holds the pool's own values only; a field left blank (or a bool
+    // left at its default) is not stored, so members get the template
+    // default, including a later change to it.
+    async loadPoolCustomFields(templateId, stored) {
+      const modal = this.poolFormModal;
+      if (!templateId) {
+        return;
+      }
+      try {
+        const response = await fetch(
+          `/api/templates/${encodeURIComponent(templateId)}`,
+        );
+        if (!response.ok || this.poolFormModal !== modal) {
+          return;
+        }
+        const template = await response.json();
+        const values = {};
+        for (const field of stored || []) {
+          values[field.name] = field.value;
+        }
+        const defs = template.custom_fields || [];
+        modal.customFieldValues = Object.fromEntries(
+          defs.map((field) => [
+            field.name,
+            field.name in values
+              ? values[field.name]
+              : field.type === "bool"
+                ? field.default || "false"
+                : "",
+          ]),
+        );
+        modal.customFieldDefs = defs;
+        modal.customFieldsLoaded = true;
+      } catch (e) {
+        // Leave the fields unloaded; the pool's values are kept on save.
+      }
+    },
+    // The pool's custom field values as sent to the API, or undefined when
+    // the definitions did not load (an edit then leaves them unchanged).
+    poolCustomFieldsPayload() {
+      const modal = this.poolFormModal;
+      if (!modal.customFieldsLoaded) {
+        return undefined;
+      }
+      const fields = [];
+      for (const field of modal.customFieldDefs) {
+        const value = String(modal.customFieldValues[field.name] ?? "");
+        const keep =
+          field.type === "bool"
+            ? value !== (field.default || "false")
+            : value.trim() !== "";
+        if (keep) {
+          fields.push({ name: field.name, value });
+        }
+      }
+      return fields;
+    },
+    // Required fields the form leaves blank with no template default.
+    poolMissingCustomFields() {
+      const modal = this.poolFormModal;
+      return modal.customFieldDefs
+        .filter(
+          (field) =>
+            field.required &&
+            field.type !== "bool" &&
+            !field.default &&
+            !String(modal.customFieldValues[field.name] ?? "").trim(),
+        )
+        .map((field) => field.description || field.name);
     },
     async submitPoolForm() {
       const modal = this.poolFormModal;
@@ -897,6 +983,11 @@ window.spacesListComponent = function (
         modal.error = "Max lease time must be at least 1 minute";
         return;
       }
+      const missingFields = this.poolMissingCustomFields();
+      if (missingFields.length) {
+        modal.error = `Required: ${missingFields.join(", ")}`;
+        return;
+      }
       modal.submitting = true;
       try {
         const body = {
@@ -906,6 +997,7 @@ window.spacesListComponent = function (
           desired_count: Number.parseInt(modal.desiredCount, 10),
           active: modal.active === true,
           ...this.poolLeaseFormToSeconds(),
+          custom_fields: this.poolCustomFieldsPayload(),
         };
         const response = await fetch(
           modal.isEdit ? `/api/pools/${modal.poolId}` : "/api/pools",
@@ -2437,10 +2529,12 @@ window.spacesListComponent = function (
         desiredCount: 1,
         active: true,
         ...this.poolLeaseFormDefaults(),
+        ...poolCustomFieldFormDefaults(),
         error: "",
         submitting: false,
       };
       this.poolNameValid = true;
+      this.loadPoolCustomFields(templateId, []);
       this.$nextTick(() => {
         this.$refs.poolNameInput?.focus();
       });

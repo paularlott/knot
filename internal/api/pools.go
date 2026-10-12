@@ -1,11 +1,16 @@
 package api
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -51,6 +56,12 @@ func HandleCreatePool(w http.ResponseWriter, r *http.Request) {
 	pool.Active = request.Active
 	pool.LeaseMaxTime = request.LeaseMaxTime
 	pool.LeaseMaxExtensions = request.LeaseMaxExtensions
+	customFields, status, err := poolCustomFields(r, user, request.TemplateId, request.CustomFields, nil)
+	if err != nil {
+		rest.WriteResponse(status, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	pool.CustomFields = customFields
 	if err := service.GetPoolService().Create(pool, user); err != nil {
 		// Creation can partially succeed (definition saved, a member failed).
 		// Distinguish that from plain rejection — e.g. a bridged KVM
@@ -111,6 +122,20 @@ func HandleUpdatePool(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if request.CustomFields != nil {
+		customFields, status, err := poolCustomFields(r, user, pool.TemplateId, *request.CustomFields, pool.CustomFields)
+		if err != nil {
+			rest.WriteResponse(status, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+		if !slices.Equal(customFields, pool.CustomFields) {
+			if err := service.GetPoolService().SaveCustomFields(pool, customFields, user); err != nil {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+		}
+	}
+
 	leaseConfigChanged := false
 	if request.LeaseMaxTime != nil && *request.LeaseMaxTime != pool.LeaseMaxTime {
 		pool.LeaseMaxTime = *request.LeaseMaxTime
@@ -130,6 +155,65 @@ func HandleUpdatePool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// poolCustomFields validates the custom field values for a pool's members
+// against its template and returns them as stored on the pool: as given,
+// without template defaults, so a later change to a default reaches the
+// members. previous holds the pool's current values; select options are
+// not re-checked for values it already has.
+func poolCustomFields(r *http.Request, user *model.User, templateId string, values []apiclient.CustomFieldValue, previous []model.SpaceCustomField) ([]model.SpaceCustomField, int, error) {
+	template, err := database.GetInstance().GetTemplate(templateId)
+	if err != nil || template == nil {
+		return nil, http.StatusBadRequest, errors.New("template not found")
+	}
+	return validatePoolCustomFields(r.Context(), user, template, values, previous, pluginFieldOptionKeys)
+}
+
+func validatePoolCustomFields(ctx context.Context, user *model.User, template *model.Template, values []apiclient.CustomFieldValue, previous []model.SpaceCustomField, fetchKeys func(context.Context, *model.User, model.TemplateCustomField) ([]string, error)) ([]model.SpaceCustomField, int, error) {
+	known := make(map[string]bool, len(template.CustomFields))
+	for _, field := range template.CustomFields {
+		known[field.Name] = true
+	}
+	fields := []model.SpaceCustomField{}
+	index := make(map[string]int, len(values))
+	var unknown []string
+	for _, value := range values {
+		name := strings.TrimSpace(value.Name)
+		if name == "" {
+			continue
+		}
+		if !known[name] {
+			unknown = append(unknown, name)
+			continue
+		}
+		if i, ok := index[name]; ok {
+			fields[i].Value = value.Value
+			continue
+		}
+		index[name] = len(fields)
+		fields = append(fields, model.SpaceCustomField{Name: name, Value: value.Value})
+	}
+	if len(unknown) > 0 {
+		return nil, http.StatusBadRequest, fmt.Errorf("template has no custom field(s): %s", strings.Join(unknown, ", "))
+	}
+
+	// Validate what members will carry: the values plus template defaults.
+	withDefaults := model.ApplyCustomFieldDefaults(template, slices.Clone(fields))
+	if missing := model.MissingRequiredCustomFields(template, withDefaults); len(missing) > 0 {
+		missing = describeMissingRequired(ctx, user, template, missing, fetchKeys)
+		return nil, http.StatusBadRequest, errors.New("missing required custom field(s): " + strings.Join(missing, ", "))
+	}
+	previousValues := make(map[string]string, len(previous))
+	for _, field := range previous {
+		previousValues[field.Name] = field.Value
+	}
+	if invalid, err := invalidCustomFieldOptions(ctx, user, template, withDefaults, previousValues, fetchKeys); err != nil {
+		return nil, http.StatusInternalServerError, err
+	} else if len(invalid) > 0 {
+		return nil, http.StatusBadRequest, errors.New("invalid value for custom field(s): " + strings.Join(invalid, ", "))
+	}
+	return fields, http.StatusOK, nil
 }
 
 func HandleDeletePool(w http.ResponseWriter, r *http.Request) {

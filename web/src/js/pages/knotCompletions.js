@@ -985,14 +985,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, template_name, startup_script_id, desired_count, active)",
-        "description": "Create a pool with the given number of spaces",
+        "signature": "create(name, template_name, startup_script_id, desired_count, active, lease_max_time, lease_max_extensions, custom_fields)",
+        "description": "Create a pool with the given number of spaces and return its ID.\n\n    lease_max_time enables exclusive member leases: 0 = off (default), -1 = no timeout,\n    >0 = maximum lease length in seconds. lease_max_extensions: 0 = extending forbidden\n    (default), -1 = unlimited, >0 = maximum extensions. custom_fields: values given to\n    every member, as {\"name\": ..., \"value\": ...}; fields left out get the template default.",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(name, desired_count, active)",
-        "description": "Update pool desired count or active state. Name, template, and startup script are immutable.",
+        "signature": "update(name, desired_count, active, lease_max_time, lease_max_extensions, custom_fields)",
+        "description": "Update pool desired count, active state, lease settings or custom fields; omitted values are kept.\n\n    custom_fields replaces the values given to members ([] clears them); members pick them up\n    when next created or started. Name, template, and startup script are immutable.",
         "returns": "bool"
       },
       {

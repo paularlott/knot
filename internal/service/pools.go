@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,6 +57,7 @@ type PoolService struct {
 	drained          map[string]bool       // space ID -> currently drained by pool sweep
 	leases           map[string]*leaseView // space ID -> held (or draining) lease
 	rrCounters       map[string]int        // pool ID -> round-robin cursor
+	starting         map[string]bool       // space ID -> start running in the background
 	createMu         sync.Mutex            // serializes member ordinal allocation
 }
 
@@ -170,7 +172,11 @@ func (s *PoolService) Info(pool *model.PoolDefinition, user *model.User) (apicli
 		Active:             pool.Active,
 		LeaseMaxTime:       pool.LeaseMaxTime,
 		LeaseMaxExtensions: pool.LeaseMaxExtensions,
+		CustomFields:       make([]apiclient.CustomFieldValue, 0, len(pool.CustomFields)),
 		Members:            []apiclient.PoolMemberInfo{},
+	}
+	for _, field := range pool.CustomFields {
+		info.CustomFields = append(info.CustomFields, apiclient.CustomFieldValue{Name: field.Name, Value: field.Value})
 	}
 
 	var cpuTotal, memTotal float64
@@ -314,13 +320,17 @@ func (s *PoolService) Create(pool *model.PoolDefinition, user *model.User) error
 		transport.GossipPoolDefinition(pool)
 	}
 
-	created := 0
+	// Members are saved now so quota and naming errors reach the caller;
+	// their containers deploy in the background.
+	var toStart []*model.Space
 	for i := 0; i < requested; i++ {
-		if err := s.createPoolSpace(pool, user); err != nil {
+		space, err := s.newPoolSpace(pool, user)
+		if err != nil {
 			break
 		}
-		created++
+		toStart = append(toStart, space)
 	}
+	created := len(toStart)
 
 	pool.DesiredCount = created
 	pool.UpdatedUserId = user.Id
@@ -330,6 +340,10 @@ func (s *PoolService) Create(pool *model.PoolDefinition, user *model.User) error
 	}
 	if transport := GetTransport(); transport != nil {
 		transport.GossipPoolDefinition(pool)
+	}
+
+	if pool.Active {
+		s.startInBackground(pool, toStart)
 	}
 
 	if created < requested {
@@ -356,6 +370,42 @@ func (s *PoolService) savePool(pool *model.PoolDefinition) error {
 		transport.GossipPoolDefinition(pool)
 	}
 	return nil
+}
+
+// SaveCustomFields persists the custom field values given to pool members.
+// Running members keep their current values until they next start; new
+// members get them on creation.
+func (s *PoolService) SaveCustomFields(pool *model.PoolDefinition, fields []model.SpaceCustomField, user *model.User) error {
+	pool.CustomFields = fields
+	pool.UpdatedUserId = user.Id
+	pool.UpdatedAt = hlc.Now()
+	return s.savePool(pool)
+}
+
+// memberCustomFields returns the custom field values a member of the pool
+// carries: the pool's values plus template defaults for fields it leaves out.
+func memberCustomFields(pool *model.PoolDefinition, template *model.Template) []model.SpaceCustomField {
+	fields := make([]model.SpaceCustomField, len(pool.CustomFields))
+	copy(fields, pool.CustomFields)
+	return model.ApplyCustomFieldDefaults(template, fields)
+}
+
+// syncMemberCustomFields brings a member's custom fields in line with the
+// pool's before it starts.
+func (s *PoolService) syncMemberCustomFields(pool *model.PoolDefinition, template *model.Template, space *model.Space) {
+	fields := memberCustomFields(pool, template)
+	if slices.Equal(fields, space.CustomFields) {
+		return
+	}
+	space.CustomFields = fields
+	space.UpdatedAt = hlc.Now()
+	if err := database.GetInstance().SaveSpace(space, []string{"CustomFields", "UpdatedAt"}); err != nil {
+		return
+	}
+	if transport := GetTransport(); transport != nil {
+		transport.GossipSpace(space)
+	}
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 }
 
 // ---------------------------------------------------------------------------
@@ -820,10 +870,12 @@ func (s *PoolService) ReleaseAndDestroy(user *model.User, spaceIdOrName string) 
 	// follow-up acquire with a short wait finds a fresh space quickly.
 	owner, err := db.GetUser(pool.CreatedUserId)
 	if pool.Active && err == nil && owner != nil {
-		if createErr := s.createPoolSpace(pool, owner); createErr != nil {
+		if replacement, createErr := s.newPoolSpace(pool, owner); createErr != nil {
 			// The sweep retries creation; report it but don't fail the
 			// release, which already succeeded.
 			log.Warn("lease destroy: replacement member creation deferred to sweep", "pool", pool.Name, "error", createErr.Error())
+		} else {
+			s.startInBackground(pool, []*model.Space{replacement})
 		}
 	}
 
@@ -992,19 +1044,26 @@ func (s *PoolService) Start(pool *model.PoolDefinition, user *model.User) error 
 		s.undrain(sp.Id)
 		s.clearPending(sp.Id)
 	}
+	var toStart []*model.Space
 	for _, sp := range members[:keepCount] {
 		if !sp.IsDeleting && !sp.IsDeployed && !sp.IsPending {
-			_ = s.startPoolSpace(pool, sp)
+			toStart = append(toStart, sp)
 		}
 	}
 
 	// Create new spaces if still under DesiredCount
 	for keepCount < pool.DesiredCount {
-		if err := s.createPoolSpace(pool, user); err != nil {
+		space, err := s.newPoolSpace(pool, user)
+		if err != nil {
 			break
 		}
+		toStart = append(toStart, space)
 		keepCount++
 	}
+
+	// Deploying containers can take a while (image pulls); don't hold the
+	// caller while the members boot.
+	s.startInBackground(pool, toStart)
 	return nil
 }
 
@@ -1279,7 +1338,7 @@ func (s *PoolService) reconcileStoppedPool(pool *model.PoolDefinition, members [
 //     Start stopped spaces (undrain first). Create new if still under count.
 func (s *PoolService) reconcile(pool *model.PoolDefinition, members []*model.Space) {
 	for _, sp := range members {
-		if sp.IsPending {
+		if sp.IsPending || s.isStarting(sp.Id) {
 			return
 		}
 	}
@@ -1488,15 +1547,29 @@ func nextPoolOrdinal(poolName string, members []*model.Space) int {
 	return n
 }
 
+// createPoolSpace creates a member and, on an active pool, starts it before
+// returning. Used by the sweep, which runs in the background already.
 func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.User) error {
-	db := database.GetInstance()
-	template, err := db.GetTemplate(pool.TemplateId)
+	space, err := s.newPoolSpace(pool, user)
 	if err != nil {
 		return err
 	}
+	if pool.Active {
+		return s.startPoolSpace(pool, space)
+	}
+	return nil
+}
+
+// newPoolSpace saves a new member of the pool without starting it.
+func (s *PoolService) newPoolSpace(pool *model.PoolDefinition, user *model.User) (*model.Space, error) {
+	db := database.GetInstance()
+	template, err := db.GetTemplate(pool.TemplateId)
+	if err != nil {
+		return nil, err
+	}
 	nodeId, err := SelectNodeForSpace(template, "")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	shell := user.PreferredShell
 	if shell == "" {
@@ -1505,20 +1578,17 @@ func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.Us
 
 	// Allocate the lowest free ordinal and persist the new member atomically.
 	// createMu serializes allocation so a concurrent Create + sweep on the
-	// leader can't hand the same number to two spaces. The lock is released
-	// before the (potentially slow) StartSpace call — the ordinal is committed
-	// once the space row exists.
+	// leader can't hand the same number to two spaces. The ordinal is
+	// committed once the space row exists.
 	s.createMu.Lock()
 	spaces, err := db.GetSpaces()
 	if err != nil {
 		s.createMu.Unlock()
-		return err
+		return nil, err
 	}
 	ordinal := nextPoolOrdinal(pool.Name, poolMembers(pool, spaces))
 	name := pool.Name + "-" + strconv.Itoa(ordinal)
-	// Pool members are created without user input, so any template field
-	// defaults are exactly what the member should carry.
-	customFields := model.ApplyCustomFieldDefaults(template, nil)
+	customFields := memberCustomFields(pool, template)
 	space := model.NewSpace(name, "Pool member for "+pool.Name, user.Id, pool.TemplateId, shell, &[]model.AltNameEntry{}, "", "", customFields)
 	space.PoolId = pool.Id
 	space.StartupScriptId = pool.StartupScriptId
@@ -1526,13 +1596,47 @@ func (s *PoolService) createPoolSpace(pool *model.PoolDefinition, user *model.Us
 	err = GetSpaceService().CreateSpace(space, user)
 	s.createMu.Unlock()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return space, nil
+}
 
-	if pool.Active {
-		return GetContainerService().StartSpace(space, template, user)
+// startInBackground starts the members, each in its own goroutine. Until a
+// start has marked its space pending, the sweep treats it as starting so it
+// doesn't start the same member again.
+func (s *PoolService) startInBackground(pool *model.PoolDefinition, spaces []*model.Space) {
+	if len(spaces) == 0 {
+		return
 	}
-	return nil
+	snapshot := *pool
+	for _, space := range spaces {
+		s.setStarting(space.Id, true)
+		go func(space *model.Space) {
+			defer s.setStarting(space.Id, false)
+			if err := s.startPoolSpace(&snapshot, space); err != nil {
+				log.WithError(err).Warn("pool member start failed", "pool", snapshot.Name, "space", space.Name)
+			}
+		}(space)
+	}
+}
+
+func (s *PoolService) setStarting(spaceID string, starting bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !starting {
+		delete(s.starting, spaceID)
+		return
+	}
+	if s.starting == nil {
+		s.starting = make(map[string]bool)
+	}
+	s.starting[spaceID] = true
+}
+
+func (s *PoolService) isStarting(spaceID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.starting[spaceID]
 }
 
 func (s *PoolService) startPoolSpace(pool *model.PoolDefinition, space *model.Space) error {
@@ -1545,6 +1649,7 @@ func (s *PoolService) startPoolSpace(pool *model.PoolDefinition, space *model.Sp
 	if err != nil || template == nil {
 		return fmt.Errorf("template not found")
 	}
+	s.syncMemberCustomFields(pool, template, space)
 	return GetContainerService().StartSpace(space, template, user)
 }
 

@@ -47,6 +47,7 @@ var PoolCmd = &cli.Command{
 		StopCmd,
 		DeleteCmd,
 		SetSizeCmd,
+		UpdateCmd,
 		AcquireCmd,
 		ExtendCmd,
 		ReleaseCmd,

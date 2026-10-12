@@ -9,7 +9,10 @@ package driver_postgres
 // runs every migration too, so each entry must be safe on a schema that
 // already has its change: use ADD COLUMN IF NOT EXISTS, CREATE INDEX IF NOT
 // EXISTS and so on.
-var migrations = []string{}
+var migrations = []string{
+	// 1: custom field values given to pool members
+	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '[]'`,
+}
 
 func (db *PostgresDriver) runMigrations() error {
 	_, err := db.connection.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (

@@ -1,15 +1,15 @@
-package command_spaces
+package cmdutil
 
 import "testing"
 
 func TestParseCustomFields(t *testing.T) {
-	fields, err := parseCustomFields([]string{
+	fields, err := ParseCustomFields([]string{
 		"env=dev",
 		"token=a=b=c",
 		" owner =paul",
 	})
 	if err != nil {
-		t.Fatalf("parseCustomFields returned error: %v", err)
+		t.Fatalf("ParseCustomFields returned error: %v", err)
 	}
 
 	expected := map[string]string{
@@ -41,7 +41,7 @@ func TestParseCustomFieldsRejectsMalformedFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := parseCustomFields(tt.fields); err == nil {
+			if _, err := ParseCustomFields(tt.fields); err == nil {
 				t.Fatal("expected error")
 			}
 		})

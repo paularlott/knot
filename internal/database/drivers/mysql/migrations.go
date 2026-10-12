@@ -173,6 +173,8 @@ var migrations = []string{
 	// 86-87: maximum number of file storage buckets on users and groups
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_buckets INT UNSIGNED NOT NULL DEFAULT 0`,
 	"ALTER TABLE `groups` ADD COLUMN IF NOT EXISTS max_buckets INT UNSIGNED NOT NULL DEFAULT 0",
+	// 88: custom field values given to pool members
+	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS custom_fields JSON NOT NULL DEFAULT ('[]')`,
 }
 
 func (db *MySQLDriver) runMigrations() error {
