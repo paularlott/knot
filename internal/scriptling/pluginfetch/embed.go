@@ -9,3 +9,9 @@ import _ "embed"
 //
 //go:embed lib/knot/apiclient.py
 var apiclientPluginSource []byte
+
+// secretPluginSource is the plugin-transport variant of knot.secret.py: reads
+// go through the plugin process to the space's agent.
+//
+//go:embed lib/knot/secret.py
+var secretPluginSource []byte

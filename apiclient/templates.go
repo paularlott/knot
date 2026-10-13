@@ -58,6 +58,8 @@ type TemplateCreateRequest struct {
 	HealthCheckMaxFailures   uint32                   `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                     `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                     `json:"disable_user_activity"`
+	DisableFileStorage       bool                     `json:"disable_file_storage"`
+	DisableUserSecrets       bool                     `json:"disable_user_secrets"`
 	Ports                    []model.TemplatePort     `json:"ports"`
 	PortForwards             []model.PortForwardEntry `json:"port_forwards"`
 	Jobs                     []model.SpaceJob         `json:"jobs"`
@@ -100,6 +102,8 @@ type TemplateUpdateRequest struct {
 	HealthCheckMaxFailures   uint32                   `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                     `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                     `json:"disable_user_activity"`
+	DisableFileStorage       bool                     `json:"disable_file_storage"`
+	DisableUserSecrets       bool                     `json:"disable_user_secrets"`
 	Ports                    []model.TemplatePort     `json:"ports"`
 	PortForwards             []model.PortForwardEntry `json:"port_forwards"`
 	Jobs                     []model.SpaceJob         `json:"jobs"`
@@ -202,6 +206,8 @@ type TemplateDetails struct {
 	HealthCheckMaxFailures   uint32                   `json:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                     `json:"health_check_auto_restart"`
 	DisableUserActivity      bool                     `json:"disable_user_activity"`
+	DisableFileStorage       bool                     `json:"disable_file_storage"`
+	DisableUserSecrets       bool                     `json:"disable_user_secrets"`
 	Ports                    []model.TemplatePort     `json:"ports"`
 	PortForwards             []model.PortForwardEntry `json:"port_forwards"`
 	Jobs                     []model.SpaceJob         `json:"jobs"`

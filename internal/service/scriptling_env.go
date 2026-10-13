@@ -747,6 +747,9 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
 	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
+	// knot.secret reads personal secrets over the agent link; it shadows
+	// the embedded Python module, which refuses outside a space.
+	env.RegisterLibrary(knotscriptling.GetSecretLibrary())
 
 	cleanup := func() {}
 

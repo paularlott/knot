@@ -82,6 +82,8 @@ type Template struct {
 	HealthCheckMaxFailures   uint32                 `json:"health_check_max_failures" db:"health_check_max_failures"`
 	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
 	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
+	DisableFileStorage       bool                   `json:"disable_file_storage" db:"disable_file_storage"`
+	DisableUserSecrets       bool                   `json:"disable_user_secrets" db:"disable_user_secrets"`
 	Ports                    []TemplatePort         `json:"ports" db:"ports,json"`
 	// Port forwards seeded into every space created from this template, so
 	// client spaces connect to their services automatically when they start

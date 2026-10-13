@@ -29,6 +29,7 @@ type User struct {
 	ServicePassword       string                      `json:"service_password" db:"service_password" msgpack:"service_password"`
 	SSHPublicKey          string                      `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
 	SSHPrivateKey         string                      `json:"ssh_private_key" db:"ssh_private_key" msgpack:"ssh_private_key"`
+	OnePasswordToken      string                      `json:"onepassword_token" db:"onepassword_token" msgpack:"onepassword_token"` // encrypted 1Password service account token (Knot Pro user secrets)
 	GitHubUsername        string                      `json:"github_username" db:"github_username" msgpack:"github_username"`
 	ExternalAuthProviders map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
 	Roles                 []string                    `json:"roles" db:"roles,json" msgpack:"roles"`

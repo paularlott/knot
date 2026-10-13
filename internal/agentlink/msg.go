@@ -36,6 +36,7 @@ const (
 	CommandThrottlePort
 	CommandJobsList
 	CommandJobsRun
+	CommandResolveUserSecret
 )
 
 type CommandMsg struct {

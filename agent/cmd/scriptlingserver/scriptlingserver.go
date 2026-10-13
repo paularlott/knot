@@ -180,6 +180,7 @@ func serve(client *apiclient.ApiClient) error {
 	server.RegisterFetcher("knot", fetcherAdapter{fetcher})
 
 	registerAPIFunctions(server, client.GetRESTClient())
+	registerUserSecretFunction(server)
 
 	return server.Run()
 }
@@ -433,4 +434,31 @@ func extractQuery(kwargs object.Kwargs) string {
 		parts = append(parts, pair.Key.Inspect()+"="+pair.Value.Inspect())
 	}
 	return strings.Join(parts, "&")
+}
+
+// registerUserSecretFunction exposes personal secrets to the plugin variant
+// of knot.secret. Reads go through the space's agent, the only way personal
+// secrets are read; outside a space the call fails.
+func registerUserSecretFunction(server *plugin.Server) {
+	server.RegisterBuiltin("user_secret", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		if len(args) < 1 {
+			return &object.Error{Message: "user_secret: missing path argument"}
+		}
+		path, err := args[0].AsString()
+		if err != nil {
+			return &object.Error{Message: fmt.Sprintf("user_secret: path: %v", err)}
+		}
+		field := ""
+		if len(args) > 1 {
+			if field, err = args[1].AsString(); err != nil {
+				return &object.Error{Message: fmt.Sprintf("user_secret: field: %v", err)}
+			}
+		}
+
+		value, rerr := agentlink.ResolveUserSecret(path, field)
+		if rerr != nil {
+			return &object.Error{Message: rerr.Error()}
+		}
+		return object.NewString(value)
+	})
 }

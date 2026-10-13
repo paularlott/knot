@@ -290,3 +290,43 @@ func TestTemplateExportCustomFieldFlags(t *testing.T) {
 		t.Errorf("legacy export gained flags: %+v", f)
 	}
 }
+
+// The template switches for file storage and personal secrets survive an
+// export, the YAML, an import and a re-export.
+func TestTemplateExportFeatureSwitches(t *testing.T) {
+	exp := ExportFromDetails(&TemplateDetails{
+		Name:               "locked",
+		Platform:           "container",
+		DisableFileStorage: true,
+		DisableUserSecrets: true,
+	})
+	if !exp.DisableFileStorage || !exp.DisableUserSecrets {
+		t.Fatalf("ExportFromDetails dropped a switch: %+v", exp)
+	}
+
+	yamlText, err := exp.String()
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !contains(yamlText, "disable_file_storage: true") || !contains(yamlText, "disable_user_secrets: true") {
+		t.Fatalf("YAML missing a switch:\n%s", yamlText)
+	}
+
+	parsed, err := ParseTemplateExport([]byte(yamlText))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	req := parsed.ToCreateRequest()
+	if !req.DisableFileStorage || !req.DisableUserSecrets {
+		t.Fatalf("ToCreateRequest dropped a switch: %+v", req)
+	}
+
+	// Off is the default and stays out of the YAML.
+	plain, err := ExportFromDetails(&TemplateDetails{Name: "open", Platform: "container"}).String()
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if contains(plain, "disable_file_storage") || contains(plain, "disable_user_secrets") {
+		t.Fatalf("switches that are off should be omitted:\n%s", plain)
+	}
+}

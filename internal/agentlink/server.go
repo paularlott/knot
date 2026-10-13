@@ -113,6 +113,9 @@ func handleCommandConnection(conn net.Conn) {
 	case CommandSpaceGetField:
 		handleSpaceGetField(conn, msg)
 
+	case CommandResolveUserSecret:
+		handleResolveUserSecret(conn, msg)
+
 	case CommandSpaceStop:
 		handleSpaceStop(conn, msg)
 

@@ -98,6 +98,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
       with_ssh: false,
       with_run_command: false,
       with_vnc: false,
+      disable_file_storage: false,
       allow_node_migration: false,
       startup_script_id: "",
       shutdown_script_id: "",
@@ -295,6 +296,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           this.formData.allow_node_migration =
             template.allow_node_migration || false;
           this.formData.with_vnc = template.with_vnc || false;
+          this.formData.disable_file_storage = !!template.disable_file_storage;
           this.formData.compute_units = template.compute_units;
           this.formData.storage_units = template.storage_units;
           this.formData.active = template.active;
@@ -750,6 +752,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           ? this.formData.allow_node_migration
           : false,
         with_vnc: this.isKvm() ? this.formData.with_vnc : false,
+        disable_file_storage: this.formData.disable_file_storage,
         startup_script_id:
           this.formData.platform === "manual"
             ? ""

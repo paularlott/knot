@@ -81,6 +81,10 @@ const (
 	// equivalent and is not part of the Admin role: a new server gets a
 	// Backup User role carrying it, which its first user is given.
 	PermissionBackup // Can back up and restore the server
+	// PermissionUseUserSecrets is enforced only by Knot Pro (resolving the
+	// user's own 1Password secrets at runtime); the constant exists in both
+	// editions so the permission ids stay aligned.
+	PermissionUseUserSecrets // Can store a 1Password token and read own secrets
 )
 
 type PermissionName struct {
@@ -138,6 +142,7 @@ var permissionKeys = map[uint16]string{
 	PermissionTransferSpaces:            "transfer_spaces",
 	PermissionUseCodeServer:             "use_code_server",
 	PermissionUseLogSinks:               "use_log_sinks",
+	PermissionUseUserSecrets:            "use_user_secrets",
 	PermissionUseLogs:                   "use_logs",
 	PermissionUseMCPServer:              "use_mcp_server",
 	PermissionUseMethods:                "use_methods",

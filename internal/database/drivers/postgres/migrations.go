@@ -12,6 +12,11 @@ package driver_postgres
 var migrations = []string{
 	// 1: custom field values given to pool members
 	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '[]'`,
+	// 2: encrypted 1Password service account token on users
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS onepassword_token TEXT DEFAULT ''`,
+	// 3-4: switch off file storage and personal secrets for a template's spaces
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_file_storage BOOLEAN NOT NULL DEFAULT FALSE`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_user_secrets BOOLEAN NOT NULL DEFAULT FALSE`,
 }
 
 func (db *PostgresDriver) runMigrations() error {

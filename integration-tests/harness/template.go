@@ -28,6 +28,10 @@ type TemplateOptions struct {
 	// Jobs declares space jobs on the template; spaces created from it
 	// inherit them.
 	Jobs []model.SpaceJob
+	// DisableFileStorage and DisableUserSecrets switch those features off
+	// for spaces created from the template.
+	DisableFileStorage bool
+	DisableUserSecrets bool
 }
 
 // imageRef resolves the template image: an explicit override or the harness
@@ -99,6 +103,8 @@ func CreateTemplate(s *Server, client *apiclient.ApiClient, name string, opts Te
 		AllowNodeMigration:     opts.AllowMigration,
 		HealthCheckAutoRestart: opts.AllowMigration,
 		Jobs:                   opts.Jobs,
+		DisableFileStorage:     opts.DisableFileStorage,
+		DisableUserSecrets:     opts.DisableUserSecrets,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

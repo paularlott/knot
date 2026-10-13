@@ -26,6 +26,16 @@ type SpaceGetFieldResponse struct {
 	Value string `json:"value" msgpack:"value"`
 }
 
+type UserSecretRequest struct {
+	Path  string `json:"path" msgpack:"path"`
+	Field string `json:"field" msgpack:"field"`
+}
+
+type UserSecretResponse struct {
+	Value string `json:"value" msgpack:"value"`
+	Error string `json:"error" msgpack:"error"`
+}
+
 type RunCommandRequest struct {
 	Command string `json:"command" msgpack:"command"`
 	Timeout int    `json:"timeout" msgpack:"timeout"`

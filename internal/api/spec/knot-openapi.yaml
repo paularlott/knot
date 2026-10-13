@@ -9489,6 +9489,12 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        disable_file_storage:
+          type: boolean
+          description: Refuse file storage requests (knot files, the files API) from spaces made from this template.
+        disable_user_secrets:
+          type: boolean
+          description: Refuse personal secret reads (knot secret get, knot.secret.get) from spaces made from this template (Knot Pro).
         ports:
           type: array
           items:
@@ -9665,6 +9671,12 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        disable_file_storage:
+          type: boolean
+          description: Refuse file storage requests (knot files, the files API) from spaces made from this template.
+        disable_user_secrets:
+          type: boolean
+          description: Refuse personal secret reads (knot secret get, knot.secret.get) from spaces made from this template (Knot Pro).
         ports:
           type: array
           items:
@@ -9844,6 +9856,12 @@ components:
         disable_user_activity:
           type: boolean
           description: Disable filesystem-based user activity collection for spaces created from this template.
+        disable_file_storage:
+          type: boolean
+          description: Refuse file storage requests (knot files, the files API) from spaces made from this template.
+        disable_user_secrets:
+          type: boolean
+          description: Refuse personal secret reads (knot secret get, knot.secret.get) from spaces made from this template (Knot Pro).
         ports:
           type: array
           items:

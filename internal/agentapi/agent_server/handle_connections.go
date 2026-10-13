@@ -668,6 +668,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleEvent(stream, session)
 			return
 
+		case byte(msg.CmdResolveUserSecret):
+			handleResolveUserSecret(stream, session)
+			return
+
 		case byte(msg.CmdPeerRequestIntro):
 			var req msg.PeerRequestIntro
 			if err := msg.ReadMessage(stream, &req); err != nil {

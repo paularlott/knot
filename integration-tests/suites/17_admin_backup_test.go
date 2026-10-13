@@ -43,6 +43,8 @@ func TestAdminBackupRestore(t *testing.T) {
 		Jobs: []model.SpaceJob{
 			{Name: "tmpljob", Command: "knot run-script backup", Schedule: "0 3 * * *", Enabled: true},
 		},
+		DisableFileStorage: true,
+		DisableUserSecrets: true,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -216,6 +218,9 @@ func TestAdminBackupRestore(t *testing.T) {
 	}
 	if len(tpl.Jobs) != 1 || tpl.Jobs[0].Name != "tmpljob" || !tpl.Jobs[0].Enabled {
 		t.Fatalf("restored template jobs mismatch: %+v", tpl.Jobs)
+	}
+	if !tpl.DisableFileStorage || !tpl.DisableUserSecrets {
+		t.Fatalf("restored template lost a feature switch: disable_file_storage=%v disable_user_secrets=%v", tpl.DisableFileStorage, tpl.DisableUserSecrets)
 	}
 	defs, code, err := restored.Client.GetSpaceJobs(ctx, spaceId)
 	if err != nil {

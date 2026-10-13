@@ -160,6 +160,8 @@ func buildTemplateExportDetails(template *model.Template, db database.DbDriver) 
 		HealthCheckMaxFailures:   template.HealthCheckMaxFailures,
 		HealthCheckAutoRestart:   template.HealthCheckAutoRestart,
 		DisableUserActivity:      template.DisableUserActivity,
+		DisableFileStorage:       template.DisableFileStorage,
+		DisableUserSecrets:       template.DisableUserSecrets,
 		Ports:                    template.Ports,
 		PortForwards:             template.PortForwards,
 		Jobs:                     template.Jobs,

@@ -1168,6 +1168,18 @@ export const knotLibraries = [
     ]
   },
   {
+    "module": "knot.secret",
+    "description": "Read your own secrets from 1Password with the token on your profile (Knot Pro). Works only inside a knot space.",
+    "functions": [
+      {
+        "name": "get",
+        "signature": "get(path, field)",
+        "description": "Read a secret: path is vault/item (field defaults to password) or a full op:// reference; only inside a space",
+        "returns": "string"
+      }
+    ]
+  },
+  {
     "module": "knot.server",
     "description": "Server information.",
     "functions": [

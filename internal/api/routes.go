@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/internal/api/api_utils"
+
 	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
@@ -75,14 +77,14 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("DELETE /api/sessions/{session_id}", middleware.ApiAuth(HandleDeleteSessions))
 
 	// File storage — every handler answers 503 when storage is disabled
-	router.HandleFunc("GET /api/files/buckets", middleware.ApiAuth(rest.Gzip(HandleGetFileBuckets)))
-	router.HandleFunc("POST /api/files/buckets", middleware.ApiAuth(HandleCreateFileBucket))
-	router.HandleFunc("GET /api/files/buckets/{bucket}", middleware.ApiAuth(HandleGetFileBucket))
-	router.HandleFunc("DELETE /api/files/buckets/{bucket}", middleware.ApiAuth(HandleDeleteFileBucket))
-	router.HandleFunc("POST /api/files/buckets/{bucket}/share", middleware.ApiAuth(HandleShareFileBucket))
-	router.HandleFunc("POST /api/files/buckets/{bucket}/unshare", middleware.ApiAuth(HandleUnshareFileBucket))
-	router.HandleFunc("POST /api/files/buckets/{bucket}/transfer", middleware.ApiAuth(HandleTransferFileBucket))
-	router.HandleFunc("GET /api/files/usage", middleware.ApiAuth(HandleGetFileUsage))
+	router.HandleFunc("GET /api/files/buckets", middleware.ApiAuth(api_utils.FileStorageAllowed(rest.Gzip(HandleGetFileBuckets))))
+	router.HandleFunc("POST /api/files/buckets", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleCreateFileBucket)))
+	router.HandleFunc("GET /api/files/buckets/{bucket}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleGetFileBucket)))
+	router.HandleFunc("DELETE /api/files/buckets/{bucket}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleDeleteFileBucket)))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/share", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleShareFileBucket)))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/unshare", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleUnshareFileBucket)))
+	router.HandleFunc("POST /api/files/buckets/{bucket}/transfer", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleTransferFileBucket)))
+	router.HandleFunc("GET /api/files/usage", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleGetFileUsage)))
 	router.HandleFunc("GET /api/backup/info", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleGetBackupInfo)))
 	router.HandleFunc("GET /api/backup/content/{sha}", middleware.ApiAuth(middleware.ApiPermissionBackup(HandleBackupContent)))
 	router.HandleFunc("GET /api/backup/{kind}", middleware.ApiAuth(middleware.ApiPermissionBackup(rest.Gzip(HandleBackupKind))))
@@ -91,15 +93,15 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /api/restore/content/{sha}", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreContent)))
 	router.HandleFunc("POST /api/restore/complete", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreComplete)))
 	router.HandleFunc("POST /api/restore/{kind}", middleware.ApiAuth(middleware.ApiPermissionRestore(HandleRestoreKind)))
-	router.HandleFunc("POST /api/files/fsck", middleware.ApiAuth(HandleFilesFsck))
-	router.HandleFunc("GET /api/files/share-targets", middleware.ApiAuth(rest.Gzip(HandleGetFileShareTargets)))
-	router.HandleFunc("GET /api/files/list/{bucket}", middleware.ApiAuth(rest.Gzip(HandleListFileObjects)))
-	router.HandleFunc("GET /api/files/changes/{bucket}", middleware.ApiAuth(rest.Gzip(HandleListFileChanges)))
-	router.HandleFunc("GET /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleGetFileObject))
-	router.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandlePutFileObject))
-	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(HandleCopyFileObject))
-	router.HandleFunc("POST /api/files/move", middleware.ApiAuth(HandleMoveFileObjects))
-	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(HandleDeleteFileObject))
+	router.HandleFunc("POST /api/files/fsck", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleFilesFsck)))
+	router.HandleFunc("GET /api/files/share-targets", middleware.ApiAuth(api_utils.FileStorageAllowed(rest.Gzip(HandleGetFileShareTargets))))
+	router.HandleFunc("GET /api/files/list/{bucket}", middleware.ApiAuth(api_utils.FileStorageAllowed(rest.Gzip(HandleListFileObjects))))
+	router.HandleFunc("GET /api/files/changes/{bucket}", middleware.ApiAuth(api_utils.FileStorageAllowed(rest.Gzip(HandleListFileChanges))))
+	router.HandleFunc("GET /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleGetFileObject)))
+	router.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandlePutFileObject)))
+	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleCopyFileObject)))
+	router.HandleFunc("POST /api/files/move", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleMoveFileObjects)))
+	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleDeleteFileObject)))
 
 	// Tokens
 	router.HandleFunc("GET /api/tokens", middleware.ApiAuth(HandleGetTokens))

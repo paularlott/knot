@@ -65,6 +65,9 @@ func (f *Fetcher) Read(ctx context.Context, source, path string) ([]byte, error)
 		if module == "apiclient.py" {
 			return apiclientPluginSource, nil
 		}
+		if module == "secret.py" {
+			return secretPluginSource, nil
+		}
 		data, err := scriptling.EmbeddedLibs.ReadFile("lib/knot/" + module)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s", errNotFound, path)

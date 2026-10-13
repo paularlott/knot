@@ -243,6 +243,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
 	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 	template.DisableUserActivity = request.DisableUserActivity
+	template.DisableFileStorage = request.DisableFileStorage
+	template.DisableUserSecrets = request.DisableUserSecrets
 	template.Ports = request.Ports
 	template.PortForwards = request.PortForwards
 	template.Jobs = request.Jobs
@@ -388,6 +390,8 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.IdleTimeout = request.IdleTimeout
 	template.IdleTimeoutUnit = request.IdleTimeoutUnit
 	template.DisableUserActivity = request.DisableUserActivity
+	template.DisableFileStorage = request.DisableFileStorage
+	template.DisableUserSecrets = request.DisableUserSecrets
 	template.Ports = request.Ports
 	template.PortForwards = request.PortForwards
 	template.Jobs = request.Jobs

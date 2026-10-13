@@ -1,6 +1,7 @@
 package agentlink
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -38,4 +39,21 @@ func GetSpaceId() (string, error) {
 	}
 
 	return response.SpaceID, nil
+}
+
+// ResolveUserSecret reads one of the space owner's personal secrets through
+// the agent running in this space. It works only inside a space.
+func ResolveUserSecret(path, field string) (string, error) {
+	if !IsAgentRunning() {
+		return "", fmt.Errorf("personal secrets can only be read inside a knot space")
+	}
+
+	var response UserSecretResponse
+	if err := SendWithResponseMsg(CommandResolveUserSecret, &UserSecretRequest{Path: path, Field: field}, &response); err != nil {
+		return "", fmt.Errorf("failed to ask the space agent: %w", err)
+	}
+	if response.Error != "" {
+		return "", errors.New(response.Error)
+	}
+	return response.Value, nil
 }

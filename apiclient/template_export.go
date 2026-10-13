@@ -51,6 +51,8 @@ type TemplateExport struct {
 	HealthCheckAutoRestart   bool   `yaml:"health_check_auto_restart,omitempty"`
 
 	DisableUserActivity bool                     `yaml:"disable_user_activity,omitempty"`
+	DisableFileStorage  bool                     `yaml:"disable_file_storage,omitempty"`
+	DisableUserSecrets  bool                     `yaml:"disable_user_secrets,omitempty"`
 	Ports               []model.TemplatePort     `yaml:"ports,omitempty"`
 	PortForwards        []model.PortForwardEntry `yaml:"port_forwards,omitempty"`
 	Jobs                []model.SpaceJob         `yaml:"jobs,omitempty"`
@@ -161,6 +163,8 @@ func (e *TemplateExport) ToCreateRequest() *TemplateCreateRequest {
 		HealthCheckMaxFailures:   e.HealthCheckMaxFailures,
 		HealthCheckAutoRestart:   e.HealthCheckAutoRestart,
 		DisableUserActivity:      e.DisableUserActivity,
+		DisableFileStorage:       e.DisableFileStorage,
+		DisableUserSecrets:       e.DisableUserSecrets,
 		Ports:                    defaultPorts(e.Ports),
 		PortForwards:             e.PortForwards,
 		Jobs:                     defaultJobs(e.Jobs),
@@ -205,6 +209,8 @@ func ExportFromDetails(d *TemplateDetails) *TemplateExport {
 		HealthCheckMaxFailures:   d.HealthCheckMaxFailures,
 		HealthCheckAutoRestart:   d.HealthCheckAutoRestart,
 		DisableUserActivity:      d.DisableUserActivity,
+		DisableFileStorage:       d.DisableFileStorage,
+		DisableUserSecrets:       d.DisableUserSecrets,
 		Ports:                    d.Ports,
 		PortForwards:             d.PortForwards,
 		Jobs:                     d.Jobs,

@@ -175,6 +175,11 @@ var migrations = []string{
 	"ALTER TABLE `groups` ADD COLUMN IF NOT EXISTS max_buckets INT UNSIGNED NOT NULL DEFAULT 0",
 	// 88: custom field values given to pool members
 	`ALTER TABLE pools ADD COLUMN IF NOT EXISTS custom_fields JSON NOT NULL DEFAULT ('[]')`,
+	// 89: encrypted 1Password service account token on users
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS onepassword_token TEXT DEFAULT ('')`,
+	// 90-91: switch off file storage and personal secrets for a template's spaces
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_file_storage TINYINT(1) NOT NULL DEFAULT 0`,
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_user_secrets TINYINT(1) NOT NULL DEFAULT 0`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

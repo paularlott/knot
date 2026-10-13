@@ -4574,7 +4574,7 @@ const scriptlingLibraries = [
         name: "list",
         signature: "list(alias, path)",
         description: "List keys at a path through a host-configured provider alias.",
-        returns: "list[str] - List of key or item name strings",
+        returns: "list[str] - List of key, item or field name strings",
       },
     ],
   },

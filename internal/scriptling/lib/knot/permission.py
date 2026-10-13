@@ -89,6 +89,9 @@ MANAGE_OWN_SLASH_COMMANDS = 40
 # MCP Servers
 MANAGE_MCP_SERVERS = 41
 
+# Log Sinks (Pro)
+USE_LOG_SINKS = 42
+
 # Plugins
 VIEW_PLUGINS = 44
 
@@ -103,6 +106,9 @@ TRANSFER_BUCKETS = 49
 
 # System
 BACKUP_SERVER = 50
+
+# Personal Secrets (Pro)
+USE_USER_SECRETS = 51
 
 # Aliases for convenience
 SPACE_MANAGE = MANAGE_SPACES
