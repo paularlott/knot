@@ -8,14 +8,72 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
+// blockSuffix is the suffix on the markers of an alias's knot block.
+func blockSuffix(alias string) string {
+	if alias == "default" {
+		return ""
+	}
+	return " (" + alias + ")"
+}
+
+// ReadSSHConfigAgentForwarding reads the knot block for alias from
+// ~/.ssh/config and reports, for each host in it, whether agent forwarding is
+// on. A missing file or block gives an empty map.
+func ReadSSHConfigAgentForwarding(alias string) (map[string]bool, error) {
+	hosts := map[string]bool{}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return hosts, err
+	}
+
+	file, err := os.Open(home + "/.ssh/config")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return hosts, nil
+		}
+		return hosts, err
+	}
+	defer file.Close()
+
+	alias = blockSuffix(alias)
+	scanner := bufio.NewScanner(file)
+	inBlock := false
+	host := ""
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "#===KNOT-START"+alias+"===") {
+			inBlock = true
+			continue
+		} else if strings.Contains(line, "#===KNOT-END"+alias+"===") {
+			break
+		} else if !inBlock {
+			continue
+		}
+
+		// ssh_config allows "Key value" or "Key=value"
+		fields := strings.FieldsFunc(line, func(r rune) bool { return r == ' ' || r == '\t' || r == '=' })
+		if len(fields) < 2 {
+			continue
+		}
+		switch strings.ToLower(fields[0]) {
+		case "host":
+			host = fields[1]
+			hosts[host] = false
+		case "forwardagent":
+			if host != "" {
+				hosts[host] = strings.EqualFold(fields[1], "yes")
+			}
+		}
+	}
+
+	return hosts, scanner.Err()
+}
+
 func UpdateSSHConfig(sshConfig string, alias string) error {
 	var lines []string
 
-	if alias == "default" {
-		alias = ""
-	} else {
-		alias = " (" + alias + ")"
-	}
+	alias = blockSuffix(alias)
 
 	log.Debug("Start updating .ssh/config")
 

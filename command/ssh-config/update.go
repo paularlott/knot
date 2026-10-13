@@ -13,17 +13,23 @@ import (
 )
 
 var SshConfigUpdateCmd = &cli.Command{
-	Name:        "update",
-	Usage:       "Update the .ssh/config file",
-	Description: "Update the .ssh/config file with all spaces that expose SSH.",
-	MaxArgs:     cli.NoArgs,
+	Name:  "update",
+	Usage: "Update the .ssh/config file",
+	Description: `Update the .ssh/config file with all spaces that expose SSH.
+
+Spaces already in the file keep their agent forwarding setting, including changes made by hand. New spaces you own get agent forwarding as set by --agent-forwarding; spaces shared with you never get it. Use --reset to apply these defaults to every space again.`,
+	MaxArgs: cli.NoArgs,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:         "agent-forwarding",
-			Usage:        "Enable SSH Agent Forwarding.",
+			Usage:        "Enable SSH agent forwarding for new spaces you own.",
 			ConfigPath:   []string{"ssh.agent_forwarding"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SSH_AGENT_FORWARDING"},
 			DefaultValue: true,
+		},
+		&cli.BoolFlag{
+			Name:  "reset",
+			Usage: "Apply the agent forwarding defaults to spaces already in the file.",
 		},
 		&cli.StringFlag{
 			Name:         "binary",
@@ -60,6 +66,15 @@ var SshConfigUpdateCmd = &cli.Command{
 			configFile = " --config=" + absPath
 		}
 
+		// Spaces already in the file keep their agent forwarding setting
+		existing := map[string]bool{}
+		if !cmd.GetBool("reset") {
+			existing, err = util.ReadSSHConfigAgentForwarding(alias)
+			if err != nil {
+				return fmt.Errorf("couldn't read the SSH config file: %w", err)
+			}
+		}
+
 		// For all spaces query the service state and build a list of those that are deployed and have SSH exposed
 		sshConfig := ""
 		knotParams := ""
@@ -72,14 +87,21 @@ var SshConfigUpdateCmd = &cli.Command{
 		}
 		for _, space := range spaces.Spaces {
 			if space.TemplateHasSSH {
-				fmt.Println("Adding knot." + space.Name + machineAlias + " to .ssh/config")
+				host := "knot." + space.Name + machineAlias
+				fmt.Println("Adding " + host + " to .ssh/config")
 
-				sshConfig += "Host knot." + space.Name + machineAlias + "\n"
-				sshConfig += "  HostName knot." + space.Name + machineAlias + "\n"
+				// New spaces get forwarding only if they're our own
+				forward, ok := existing[host]
+				if !ok {
+					forward = space.UserId == user.Id && cmd.GetBool("agent-forwarding")
+				}
+
+				sshConfig += "Host " + host + "\n"
+				sshConfig += "  HostName " + host + "\n"
 				sshConfig += "  StrictHostKeyChecking=no\n"
 				sshConfig += "  LogLevel ERROR\n"
 				sshConfig += "  UserKnownHostsFile=/dev/null\n"
-				if cmd.GetBool("agent-forwarding") {
+				if forward {
 					sshConfig += "  ForwardAgent yes\n"
 				}
 				sshConfig += "  ProxyCommand " + cmd.GetString("binary") + " forward ssh " + knotParams + space.Name + configFile + "\n"
