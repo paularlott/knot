@@ -602,9 +602,9 @@
         </div>
       </div>
 
-      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" class="ui-modal-backdrop max-sm:items-center max-sm:pb-4" role="dialog" aria-modal="true" aria-labelledby="spaceDescTitle">
+      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceDescTitle">
         <!-- Modal Dialog -->
-        <div x-show="spaceDesc.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel max-h-[90dvh]">
+        <div x-show="spaceDesc.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
           <div class="ui-modal-header">
             <div class="ui-modal-icon-info mr-1">

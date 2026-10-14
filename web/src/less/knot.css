@@ -215,12 +215,15 @@
   @apply w-full rounded-xl bg-gradient-to-r from-blue-700 via-blue-800 to-cyan-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition-all duration-200 hover:brightness-105 focus:outline-hidden focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70 dark:focus:ring-blue-800;
 }
 
+/* Dialogs sit in the middle of the screen at every width. */
 @utility ui-modal-backdrop {
-  @apply fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8;
+  @apply fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm lg:p-8;
 }
 
+/* At most 90% of the screen's height (dvh, so a phone's browser bars don't
+   push it off-screen); the body scrolls inside it, see below. */
 @utility ui-modal-panel {
-  @apply flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/70 bg-white text-gray-700 shadow-2xl ring-1 ring-black/10 dark:border-white/10 dark:bg-gray-900 dark:text-gray-200 dark:ring-white/10;
+  @apply flex w-full max-w-lg max-h-[90dvh] flex-col overflow-hidden rounded-2xl border border-white/70 bg-white text-gray-700 shadow-2xl ring-1 ring-black/10 dark:border-white/10 dark:bg-gray-900 dark:text-gray-200 dark:ring-white/10;
 }
 
 @utility ui-modal-panel-wide {
@@ -236,7 +239,7 @@
 }
 
 @utility ui-modal-header {
-  @apply flex items-center gap-3 border-b border-gray-200 bg-slate-50/90 px-5 py-4 dark:border-gray-800 dark:bg-gray-900;
+  @apply flex shrink-0 items-center gap-3 border-b border-gray-200 bg-slate-50/90 px-5 py-4 dark:border-gray-800 dark:bg-gray-900;
 }
 
 @utility ui-modal-icon {
@@ -264,7 +267,21 @@
 }
 
 @utility ui-modal-footer {
-  @apply flex flex-col-reverse gap-3 border-t border-gray-200 bg-slate-50/80 px-5 py-4 dark:border-gray-800 dark:bg-gray-900/80 sm:flex-row sm:justify-end;
+  @apply flex shrink-0 flex-col-reverse gap-3 border-t border-gray-200 bg-slate-50/80 px-5 py-4 dark:border-gray-800 dark:bg-gray-900/80 sm:flex-row sm:justify-end;
+}
+
+/* A dialog's body scrolls when the dialog reaches its height limit, also
+   when a form wraps the body and footer. Panels marked overflow-visible
+   keep their body unclipped, for dropdowns that extend past the dialog. */
+:where([class*="ui-modal-panel"]) > form:not(.contents) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+:where([class*="ui-modal-panel"]:not(.overflow-visible)) > .ui-modal-body,
+:where([class*="ui-modal-panel"]:not(.overflow-visible)) > form > .ui-modal-body {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 @utility ui-button-primary {

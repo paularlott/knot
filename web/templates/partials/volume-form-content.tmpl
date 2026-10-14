@@ -11,7 +11,7 @@
     </div>
     <div class="mb-4">
       <span id="vol-platform-label" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</span>
-      <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit" role="group" aria-labelledby="vol-platform-label">
+      <div class="flex flex-wrap items-center gap-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit max-w-full" role="group" aria-labelledby="vol-platform-label">
         <label class="relative">
           <input type="radio" name="platform" id="platform-nomad-edit" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="volumeFormModal.isEdit" @change="showPlatformWarning = true; onPlatformChange()">
           <input type="radio" name="platform" id="platform-nomad-new" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="!volumeFormModal.isEdit" @change="onPlatformChange()">

@@ -432,7 +432,7 @@
 
           <fieldset class="mb-4">
             <legend class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Share With</legend>
-            <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+            <div class="flex flex-wrap items-center gap-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit max-w-full">
               <template x-for="opt in [{v:'user', l:'User'}, {v:'group', l:'Group'}, {v:'all', l:'All Users'}]" :key="opt.v">
                 <label class="relative">
                   <input type="radio" name="share-type" :value="opt.v" :checked="shareModal.form.type === opt.v" @change="setShareType(opt.v)" class="sr-only peer">
