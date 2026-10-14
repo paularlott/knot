@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spacejobs"
 
 	"github.com/hashicorp/yamux"
@@ -714,6 +715,8 @@ func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
 
 	return msg.SendUpdateJobs(conn, jobs, enabled)
 }
+
+func init() { service.PushRestrictionsHook = PushRestrictions }
 
 // PushRestrictions tells the space's agent, if it's connected to this
 // server, whether the space has locked its processes out of knot.

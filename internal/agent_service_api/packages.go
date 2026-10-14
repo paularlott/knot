@@ -83,7 +83,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request) {
 func unlessLocked(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if agentClient.SpaceLocked() {
-			http.Error(w, "this space is locked until it restarts", http.StatusForbidden)
+			http.Error(w, "this space is locked", http.StatusForbidden)
 			return
 		}
 		next(w, r)

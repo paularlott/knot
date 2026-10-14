@@ -288,7 +288,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			}
 			if fromCli, _ := ctx.Value("space_cli").(bool); fromCli && space.Restrictions.Locked && !spaceLockAllows(space, r.Method, r.URL.Path) {
 				rest.WriteResponse(http.StatusForbidden, w, r.WithContext(ctx), ErrorResponse{
-					Error: "this space is locked until it restarts",
+					Error: "this space is locked",
 				})
 				return
 			}

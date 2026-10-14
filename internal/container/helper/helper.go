@@ -158,13 +158,11 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 		return fmt.Errorf("space has no IP address set — edit the space to choose one from the template's network range before starting it")
 	}
 
-	// Mark the space as pending and save it. Starting clears the
-	// restrictions the space put on itself; its startup scripts, which run
-	// before anything else in the space, can apply them again.
+	// Mark the space as pending and save it. Its restrictions stay: they
+	// hold across restarts until lifted from outside the space.
 	space.IsPending = true
-	space.Restrictions = model.SpaceRestrictions{}
 	space.UpdatedAt = hlc.Now()
-	if err := db.SaveSpace(space, []string{"IsPending", "Restrictions", "UpdatedAt"}); err != nil {
+	if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 		log.WithError(err).Error("StartSpace")
 		return err
 	}

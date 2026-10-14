@@ -21,7 +21,8 @@ type SpaceBucketGrant struct {
 // SpaceRestrictions narrow what a space's own credential (its agent token)
 // may do, on top of what its template allows. They are applied from inside
 // the space or by its owner, can only ever be tightened from inside the
-// space, and are cleared when the space next starts.
+// space, and hold across restarts until lifted from outside the space, or
+// until a pool member goes back to its pool.
 //
 // Any restriction confines the space: its credential may then act only on
 // the space itself, the buckets it is allowed, tunnels and port forwards,

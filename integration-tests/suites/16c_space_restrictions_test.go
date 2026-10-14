@@ -14,7 +14,7 @@ import (
 // TestSpaceRestrictions proves a space can restrict its own credential from
 // inside: only the buckets it keeps are visible, read-only buckets refuse
 // writes, the restrictions only tighten from inside and confine the space,
-// its owner can lift them from outside, and restarting the space clears them.
+// its owner can lift them from outside, and they hold across a restart.
 func TestSpaceRestrictions(t *testing.T) {
 	harness.Feature(t, "files")
 	s, adminUser := bootDedicated(t, "restrict", "--files-path", t.TempDir())
@@ -43,9 +43,27 @@ func TestSpaceRestrictions(t *testing.T) {
 		return out
 	}
 
-	out := run("/usr/local/bin/knot restrict --bucket it-notes:ro --bucket it-scratch --no-secrets")
+	restrict := "/usr/local/bin/knot restrict --bucket it-notes:ro --bucket it-scratch"
+	if harness.ProBuild {
+		restrict += " --no-secrets"
+	}
+	out := run(restrict)
 	if !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "it-notes (read-only)") {
 		t.Fatalf("restrict from inside the space: got %q", out)
+	}
+
+	// Personal secrets are part of Pro: Core doesn't mention them.
+	if harness.ProBuild {
+		if !strings.Contains(out, "Secrets:     off") {
+			t.Fatalf("pro: want the secrets restriction shown, got %q", out)
+		}
+	} else {
+		if strings.Contains(strings.ToLower(out), "secret") {
+			t.Fatalf("core: the restrictions mention secrets: %q", out)
+		}
+		if help := run("/usr/local/bin/knot restrict --help"); strings.Contains(strings.ToLower(help), "secret") {
+			t.Fatalf("core: knot restrict --help mentions secrets: %q", help)
+		}
 	}
 
 	// Only the kept buckets are visible.
@@ -106,7 +124,7 @@ except Exception as e:
 	if err != nil {
 		t.Fatalf("get restrictions: %v", err)
 	}
-	if !res.Restricted || !res.NoSecrets || !res.LimitBuckets || len(res.Buckets) != 2 {
+	if !res.Restricted || res.NoSecrets != harness.ProBuild || res.SecretsAvailable != harness.ProBuild || !res.LimitBuckets || len(res.Buckets) != 2 {
 		t.Fatalf("restrictions seen from outside: %+v", res)
 	}
 	if res, _, err = adminUser.Client.ClearSpaceRestrictions(ctx, space); err != nil || res.Restricted {
@@ -116,24 +134,41 @@ except Exception as e:
 		t.Fatalf("after lifting: want every bucket, got %q", out)
 	}
 
-	// Restarting the space clears them.
+	// They hold across a restart, and still apply in the restarted space.
 	if out = run("/usr/local/bin/knot restrict --no-files"); !strings.Contains(out, "EXIT=0") {
 		t.Fatalf("restrict again: %q", out)
 	}
-	if _, err := adminUser.Client.RestartSpace(ctx, space); err != nil {
-		t.Fatalf("restart: %v", err)
-	}
-	deadline := time.Now().Add(3 * time.Minute)
-	for {
-		res, _, err := adminUser.Client.GetSpaceRestrictions(ctx, space)
-		if err == nil && !res.Restricted {
-			break
+	restartAndWait(t, adminUser.Client, space, func() {
+		if _, err := adminUser.Client.RestartSpace(ctx, space); err != nil {
+			t.Fatalf("restart: %v", err)
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("restrictions still in place after a restart: %+v, %v", res, err)
-		}
-		time.Sleep(2 * time.Second)
+	})
+	if res, _, err := adminUser.Client.GetSpaceRestrictions(ctx, space); err != nil || !res.Restricted || res.Files != "none" {
+		t.Fatalf("after a restart: want the restrictions kept, got %+v, %v", res, err)
 	}
+	waitFor(t, 60, func() bool {
+		out := run("/usr/local/bin/knot file bucket list")
+		return strings.Contains(out, "switched off") && !strings.Contains(out, "EXIT=0")
+	})
+}
+
+// restartAndWait runs restart and waits until the space has started again —
+// a new start time — with its agent connected.
+func restartAndWait(t *testing.T, client *apiclient.ApiClient, space string, restart func()) {
+	t.Helper()
+	ctx, cancel := testCtx(15)
+	before, _, err := client.GetSpace(ctx, space)
+	cancel()
+	if err != nil {
+		t.Fatalf("get space: %v", err)
+	}
+	restart()
+	waitFor(t, 180, func() bool {
+		ctx, cancel := testCtx(15)
+		defer cancel()
+		after, _, err := client.GetSpace(ctx, space)
+		return err == nil && after.StartedAt.After(before.StartedAt) && after.HasState && !after.IsPending
+	})
 }
 
 // TestSpaceLock proves knot restrict --lock locks a space's
@@ -179,7 +214,7 @@ func TestSpaceLock(t *testing.T) {
 	for _, cmd := range []string{
 		"/usr/local/bin/knot file bucket list",
 		"/usr/local/bin/knot agent set-field x y",
-		"/usr/local/bin/knot restrict --no-secrets",
+		"/usr/local/bin/knot restrict --no-files",
 		"/usr/local/bin/knot port forward 8023 it-nocli-target 2222",
 	} {
 		if out = run(cmd); strings.Contains(out, "EXIT=0") || !strings.Contains(out, "locked") {
@@ -212,14 +247,70 @@ print("LOCKED:" + str(knot.space.restrictions()["locked"]))
 		return strings.Contains(out, "SSH")
 	})
 
-	// Restarting from inside still works, and clears the restrictions.
-	if out = run("/usr/local/bin/knot agent restart"); !strings.Contains(out, "EXIT=0") {
-		t.Fatalf("restart from inside: got %q", out)
+	// Restarting from inside still works, and the space comes back locked.
+	restartAndWait(t, adminUser.Client, space, func() {
+		if out := run("/usr/local/bin/knot agent restart"); !strings.Contains(out, "EXIT=0") {
+			t.Fatalf("restart from inside: got %q", out)
+		}
+	})
+	waitFor(t, 60, func() bool {
+		out := run("/usr/local/bin/knot file bucket list")
+		return strings.Contains(out, "locked") && !strings.Contains(out, "EXIT=0")
+	})
+	if res, _, err := adminUser.Client.GetSpaceRestrictions(ctx, space); err != nil || !res.Locked {
+		t.Fatalf("after a restart: want it still locked, got %+v, %v", res, err)
 	}
-	waitFor(t, 180, func() bool {
+}
+
+// TestPoolLeaseClearsRestrictions proves a pool member's restrictions go
+// when its lease ends and it returns to the pool, so the next holder gets
+// an unrestricted space.
+func TestPoolLeaseClearsRestrictions(t *testing.T) {
+	harness.Feature(t, "pools")
+	ctx, cancel := testCtx(60)
+	defer cancel()
+
+	resp, code, err := admin.Client.CreatePool(ctx, &apiclient.PoolRequest{
+		Name:         uniqueName("it-lease-pool"),
+		TemplateId:   templateId,
+		DesiredCount: 1,
+		Active:       true,
+		LeaseMaxTime: 600,
+	})
+	if err != nil {
+		t.Fatalf("create pool: %v (status %d)", err, code)
+	}
+	poolId := resp.Id
+	t.Cleanup(func() {
+		ctx, cancel := testCtx(60)
+		admin.Client.DeletePool(ctx, poolId)
+		cancel()
+	})
+
+	var lease *apiclient.LeaseInfo
+	waitFor(t, int(harnessSpaceTimeout().Seconds()), func() bool {
+		ctx, cancel := testCtx(20)
+		defer cancel()
+		l, _, err := admin.Client.AcquirePoolLease(ctx, poolId, &apiclient.PoolLeaseAcquireRequest{DurationSeconds: 300, WaitSeconds: 10})
+		if err == nil && l != nil && l.SpaceId != "" {
+			lease = l
+			return true
+		}
+		return false
+	})
+
+	if _, _, err := admin.Client.RestrictSpace(ctx, lease.SpaceId, &apiclient.SpaceRestrictRequest{Files: "none"}); err != nil {
+		t.Fatalf("restrict the leased member: %v", err)
+	}
+	if _, _, err := admin.Client.ReleaseSpaceLease(ctx, lease.SpaceId, false); err != nil {
+		t.Fatalf("release the lease: %v", err)
+	}
+
+	// The pool sweep returns the member to the pool, without its restrictions.
+	waitFor(t, 120, func() bool {
 		ctx, cancel := testCtx(15)
 		defer cancel()
-		res, _, err := adminUser.Client.GetSpaceRestrictions(ctx, space)
+		res, _, err := admin.Client.GetSpaceRestrictions(ctx, lease.SpaceId)
 		return err == nil && !res.Restricted
 	})
 }

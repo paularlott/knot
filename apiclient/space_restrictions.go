@@ -39,6 +39,9 @@ type SpaceRestrictions struct {
 	Buckets           []SpaceRestrictBucket `json:"buckets" msgpack:"buckets"`
 	TemplateNoFiles   bool                  `json:"template_no_files" msgpack:"template_no_files"`
 	TemplateNoSecrets bool                  `json:"template_no_secrets" msgpack:"template_no_secrets"`
+	// SecretsAvailable is set when the server has personal secrets (Knot
+	// Pro); without them the secrets restriction doesn't apply.
+	SecretsAvailable bool `json:"secrets_available" msgpack:"secrets_available"`
 }
 
 // RestrictSpace adds restrictions to a space and returns them all.
@@ -62,7 +65,7 @@ func (c *ApiClient) GetSpaceRestrictions(ctx context.Context, spaceId string) (*
 }
 
 // ClearSpaceRestrictions lifts all of a space's restrictions. It is refused
-// from inside a space: there, only restarting the space lifts them.
+// from inside a space: they're lifted only from outside it.
 func (c *ApiClient) ClearSpaceRestrictions(ctx context.Context, spaceId string) (*SpaceRestrictions, int, error) {
 	response := &SpaceRestrictions{}
 	code, err := c.httpClient.Delete(ctx, "/api/spaces/"+url.PathEscape(spaceId)+"/restrictions", nil, response, 200)

@@ -42,7 +42,7 @@ const (
 
 // ErrSpaceLocked is returned for requests the agent refuses because the
 // space has locked its processes out of knot (knot restrict --lock).
-var ErrSpaceLocked = errors.New("this space is locked until it restarts")
+var ErrSpaceLocked = errors.New("this space is locked")
 
 type CommandMsg struct {
 	Command CommandType `msgpack:"c"`

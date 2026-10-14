@@ -20,6 +20,31 @@ const restrictDescription = "Any restriction also confines the space: it can the
 	"Repeat --bucket to keep only the buckets listed, adding :ro to make one read-only. " +
 	"--lock locks the space's processes out of knot entirely: only restarting or shutting the space down still works from inside, while port forwards and scripts started from outside the space keep working. "
 
+// secretsEnabled is set by Knot Pro, which has personal secrets; until then
+// the secrets restriction stays out of sight.
+var (
+	secretsEnabled bool
+	noSecretsFlags []*cli.BoolFlag
+)
+
+// EnableSecrets shows the --no-secrets flag. Knot Pro calls it.
+func EnableSecrets() {
+	secretsEnabled = true
+	for _, f := range noSecretsFlags {
+		f.Hidden = false
+	}
+}
+
+func noSecretsFlag() *cli.BoolFlag {
+	f := &cli.BoolFlag{
+		Name:   "no-secrets",
+		Usage:  "Switch personal secrets off.",
+		Hidden: !secretsEnabled,
+	}
+	noSecretsFlags = append(noSecretsFlags, f)
+	return f
+}
+
 // RestrictCmd restricts a space. With spaceArg the space can be named, and
 // defaults to the space it runs in; without, it's always that space.
 func RestrictCmd(spaceArg bool) *cli.Command {
@@ -39,10 +64,7 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 				Name:  "no-files",
 				Usage: "Switch file storage off, the same as --files none.",
 			},
-			&cli.BoolFlag{
-				Name:  "no-secrets",
-				Usage: "Switch personal secrets off.",
-			},
+			noSecretsFlag(),
 			&cli.BoolFlag{
 				Name:  "lock",
 				Usage: "Lock the space's processes out of knot, except restarting or shutting the space down.",
@@ -89,8 +111,8 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 
 	if spaceArg {
 		cmd.Usage = "Restrict what a space can reach"
-		cmd.Description = "Restrict what a space's own credential can do, until the space restarts. Run inside a space, it restricts that space; elsewhere, name the space. " +
-			"From inside a space restrictions only ever tighten, so a startup script can lock a space down before anything else in it runs. " +
+		cmd.Description = "Restrict what a space's own credential can do, until the restrictions are lifted. Run inside a space, it restricts that space; elsewhere, name the space. " +
+			"From inside a space restrictions only ever tighten, and they hold across restarts. " +
 			restrictDescription + "--clear lifts every restriction, and works only from outside the space."
 		cmd.Arguments = []cli.Argument{
 			&cli.StringArg{Name: "space", Usage: "The space to restrict, default the space this runs in"},
@@ -101,8 +123,8 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 		})
 	} else {
 		cmd.Usage = "Restrict what this space can reach"
-		cmd.Description = "Restrict what this space's own credential can do, until the space restarts. Restrictions only ever tighten, so a startup script can lock the space down before anything else in it runs. " +
-			restrictDescription + "Only restarting the space, or its owner from outside it, lifts them."
+		cmd.Description = "Restrict what this space's own credential can do. Restrictions only ever tighten from inside the space and hold across restarts. " +
+			restrictDescription + "They're lifted only from outside the space, in the web interface or with the knot command."
 	}
 	return cmd
 }
@@ -205,17 +227,19 @@ func printRestrictions(res *apiclient.SpaceRestrictions) {
 	if !res.Restricted {
 		fmt.Println("Restricted:  no")
 	} else {
-		fmt.Println("Restricted:  yes, until the space restarts")
+		fmt.Println("Restricted:  yes, until lifted from outside the space")
 	}
 
-	secrets := "allowed"
-	switch {
-	case res.TemplateNoSecrets:
-		secrets = "off (template)"
-	case res.NoSecrets:
-		secrets = "off"
+	if res.SecretsAvailable {
+		secrets := "allowed"
+		switch {
+		case res.TemplateNoSecrets:
+			secrets = "off (template)"
+		case res.NoSecrets:
+			secrets = "off"
+		}
+		fmt.Printf("Secrets:     %s\n", secrets)
 	}
-	fmt.Printf("Secrets:     %s\n", secrets)
 
 	files := "all buckets"
 	switch {

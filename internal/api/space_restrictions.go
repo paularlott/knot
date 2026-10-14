@@ -67,6 +67,8 @@ func restrictionsResponse(space *model.Space) *apiclient.SpaceRestrictions {
 		Files:        res.Files,
 		LimitBuckets: res.LimitBuckets,
 		Buckets:      []apiclient.SpaceRestrictBucket{},
+		// Personal secrets are part of Knot Pro, which installs the hook.
+		SecretsAvailable: agent_server.UserSecretResolveHook != nil,
 	}
 	if space.TemplateId != "" {
 		if template, err := database.GetInstance().GetTemplate(space.TemplateId); err == nil && template != nil {
@@ -124,6 +126,11 @@ func HandleRestrictSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.Files = strings.ToLower(strings.TrimSpace(request.Files))
+	// The secrets restriction only means something where there are
+	// personal secrets (Knot Pro, which installs the hook).
+	if agent_server.UserSecretResolveHook == nil {
+		request.NoSecrets = false
+	}
 	if !model.ValidSpaceFilesMode(request.Files) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("unknown file storage mode %q, use ro or none", request.Files)})
 		return
@@ -173,7 +180,7 @@ func HandleRestrictSpace(w http.ResponseWriter, r *http.Request) {
 // outside a space: a space can't lift its own, or any other space's.
 func HandleClearSpaceRestrictions(w http.ResponseWriter, r *http.Request) {
 	if fromSpace, _ := r.Context().Value("space_id").(string); fromSpace != "" {
-		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "restrictions can't be lifted from inside a space, restart the space to lift them"})
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "restrictions can't be lifted from inside a space, only from the web interface or the knot command outside it"})
 		return
 	}
 	space, user, ok := restrictionsSpace(w, r)

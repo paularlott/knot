@@ -557,10 +557,10 @@ def _this_space():
 
 
 def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False):
-    """Restrict what a space's own credential can do, until the space restarts.
+    """Restrict what a space's own credential can do.
 
-    From inside a space restrictions only ever tighten, so a startup script
-    can lock a space down before anything else in it runs. Any restriction
+    From inside a space restrictions only ever tighten, and they hold across
+    restarts until lifted from outside the space. Any restriction
     also confines the space: it can then act only on itself, the buckets it
     is allowed, tunnels and port forwards, and start or stop other spaces.
 
@@ -570,7 +570,7 @@ def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False):
             every other bucket is dropped. None keeps them all.
         files: "ro" to make every bucket read-only, "none" to switch file
             storage off, or "" to leave it
-        no_secrets: True to switch personal secrets off
+        no_secrets: True to switch personal secrets off (Knot Pro)
         lock: True to lock the space's processes out of knot, except
             restarting or shutting the space down. Scripts started from
             outside the space, such as startup scripts, keep working.
@@ -604,8 +604,9 @@ def restrictions(name=None):
 
     Returns:
         Dict with restricted, no_secrets, locked, files ("", "ro" or "none"),
-        limit_buckets, buckets (list of {name, read_only}),
-        template_no_files and template_no_secrets
+        limit_buckets, buckets (list of {name, read_only}), template_no_files,
+        template_no_secrets and secrets_available (personal secrets exist:
+        Knot Pro)
 
     Raises:
         Exception if not configured or on API error
@@ -616,8 +617,8 @@ def restrictions(name=None):
 
 
 def clear_restrictions(name):
-    """Lift all of a space's restrictions. Refused from inside a space, where
-    only restarting the space lifts them.
+    """Lift all of a space's restrictions. Refused from inside a space: they're
+    lifted only from outside it.
 
     Args:
         name: Space name or ID
