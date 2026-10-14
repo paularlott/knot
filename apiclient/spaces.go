@@ -186,7 +186,8 @@ type SpaceDefinition struct {
 }
 
 type SpaceResourceUsage struct {
-	CPUPercent       float64 `json:"cpu_percent"`
+	CPUPercent       float64 `json:"cpu_percent"`         // share of the CPU the space may use
+	CPUCores         float64 `json:"cpu_cores,omitempty"` // CPU in use, in cores; live readings only
 	MemoryUsedBytes  uint64  `json:"memory_used_bytes"`
 	MemoryLimitBytes uint64  `json:"memory_limit_bytes"`
 	DiskUsedBytes    uint64  `json:"disk_used_bytes"`

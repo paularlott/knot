@@ -237,6 +237,17 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
       return `${Number(value || 0).toFixed(1)}%`;
     },
 
+    // CPU as a share of what the space may use, with the cores in use when
+    // the agent reports them: "6.7% · 1.0 cores".
+    formatCpu(usage) {
+      const percent = this.formatPercent(usage?.cpu_percent || 0);
+      if (typeof usage?.cpu_cores !== "number") {
+        return percent;
+      }
+      const cores = usage.cpu_cores;
+      return `${percent} · ${cores >= 1 ? cores.toFixed(1) : cores.toFixed(2)} cores`;
+    },
+
     formatBytes(value) {
       if (!value) {
         return "0 B";

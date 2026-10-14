@@ -31,6 +31,7 @@ type Session struct {
 	HasVSCodeTunnel       bool
 	VSCodeTunnelName      string
 	CPUPercent            float64
+	CPUCores              float64
 	MemoryUsedBytes       uint64
 	MemoryLimitBytes      uint64
 	DiskUsedBytes         uint64

@@ -328,6 +328,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
 				session.CPUPercent = state.CPUPercent
+				session.CPUCores = state.CPUCores
 				session.MemoryUsedBytes = state.MemoryUsedBytes
 				session.MemoryLimitBytes = state.MemoryLimitBytes
 				session.DiskUsedBytes = state.DiskUsedBytes

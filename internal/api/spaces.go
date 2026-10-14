@@ -212,6 +212,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.VSCodeTunnel = state.VSCodeTunnelName
 			s.ResourceUsage = &apiclient.SpaceResourceUsage{
 				CPUPercent:       state.CPUPercent,
+				CPUCores:         state.CPUCores,
 				MemoryUsedBytes:  state.MemoryUsedBytes,
 				MemoryLimitBytes: state.MemoryLimitBytes,
 				DiskUsedBytes:    state.DiskUsedBytes,
