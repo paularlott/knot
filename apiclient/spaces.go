@@ -64,6 +64,7 @@ type SpaceInfo struct {
 	HasTerminal   bool     `json:"has_terminal"`
 	HasJobs       bool     `json:"has_jobs"`
 	JobsEnabled   bool     `json:"jobs_enabled"`
+	Restricted    bool     `json:"restricted"`
 	HasState      bool     `json:"has_state"`
 	IsDeployed    bool     `json:"is_deployed"`
 	IsPending     bool     `json:"is_pending"`
@@ -161,6 +162,7 @@ type SpaceDefinition struct {
 	HasTerminal        bool               `json:"has_terminal"`
 	HasJobs            bool               `json:"has_jobs"`
 	JobsEnabled        bool               `json:"jobs_enabled"`
+	Restricted         bool               `json:"restricted"`
 	HasHttpVNC         bool               `json:"has_http_vnc"`
 	HasState           bool               `json:"has_state"`
 	TcpPorts           map[string]string  `json:"tcp_ports"`
@@ -184,7 +186,8 @@ type SpaceDefinition struct {
 }
 
 type SpaceResourceUsage struct {
-	CPUPercent       float64 `json:"cpu_percent"`
+	CPUPercent       float64 `json:"cpu_percent"`         // share of the CPU the space may use
+	CPUCores         float64 `json:"cpu_cores,omitempty"` // CPU in use, in cores; live readings only
 	MemoryUsedBytes  uint64  `json:"memory_used_bytes"`
 	MemoryLimitBytes uint64  `json:"memory_limit_bytes"`
 	DiskUsedBytes    uint64  `json:"disk_used_bytes"`

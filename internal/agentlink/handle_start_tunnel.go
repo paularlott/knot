@@ -16,7 +16,7 @@ func handleStartTunnel(conn net.Conn, msg *CommandMsg) {
 		return
 	}
 
-	server, token, skipVerify, err := agenttunnel.Credentials(request.Server, request.Token, request.ServerTlsSkipVerify, agentClient.GetServerURL(), agentClient.GetAgentToken(), config.GetAgentConfig().TLS.SkipVerify)
+	server, token, skipVerify, err := agenttunnel.Credentials(request.Server, request.Token, request.ServerTlsSkipVerify, agentClient.GetServerURL(), agentClient.GetAgentCliToken(), config.GetAgentConfig().TLS.SkipVerify)
 	if err != nil {
 		log.Error("Failed to resolve tunnel server", "error", err)
 		sendMsg(conn, CommandNil, StartTunnelResponse{Success: false, Error: err.Error()})

@@ -31,6 +31,7 @@ func HandleGetSpaceUsageCurrent(w http.ResponseWriter, r *http.Request) {
 		if state := agent_server.GetSession(space.Id); state != nil {
 			resourceUsage = &apiclient.SpaceResourceUsage{
 				CPUPercent:       state.CPUPercent,
+				CPUCores:         state.CPUCores,
 				MemoryUsedBytes:  state.MemoryUsedBytes,
 				MemoryLimitBytes: state.MemoryLimitBytes,
 				DiskUsedBytes:    state.DiskUsedBytes,

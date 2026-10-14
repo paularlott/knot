@@ -1,6 +1,7 @@
 package command_spaces
 
 import (
+	command_restrict "github.com/paularlott/knot/command/restrict"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/paularlott/cli"
@@ -65,5 +66,7 @@ var SpacesCmd = &cli.Command{
 		JobsCmd,
 		SetFieldCmd,
 		GetFieldCmd,
+		command_restrict.RestrictCmd(true),
+		command_restrict.RestrictionsCmd(true),
 	},
 }

@@ -37,7 +37,12 @@ const (
 	CommandJobsList
 	CommandJobsRun
 	CommandResolveUserSecret
+	CommandLocked // the reply to a request refused because the space's command line is restricted
 )
+
+// ErrSpaceLocked is returned for requests the agent refuses because the
+// space has locked its processes out of knot (knot restrict --lock).
+var ErrSpaceLocked = errors.New("this space is locked")
 
 type CommandMsg struct {
 	Command CommandType `msgpack:"c"`
@@ -171,6 +176,12 @@ func IsAgentRunning() bool {
 }
 
 func SendWithResponseMsg(commandType CommandType, payload interface{}, response interface{}) error {
+	return SendWithResponseMsgTimeout(commandType, payload, response, 3*time.Second)
+}
+
+// SendWithResponseMsgTimeout is SendWithResponseMsg waiting up to timeout
+// for the reply, for requests the agent passes on to the server.
+func SendWithResponseMsgTimeout(commandType CommandType, payload interface{}, response interface{}, timeout time.Duration) error {
 	// Check socket path exists
 	socketPath := commandSocketFile()
 	if socketPath == "" {
@@ -193,15 +204,22 @@ func SendWithResponseMsg(commandType CommandType, payload interface{}, response 
 
 	if response != nil {
 		// Read response length
-		msgRec, err := receiveMsg(conn)
+		msgRec, err := receiveMsgTimeout(conn, timeout)
 		if err != nil {
 			return err
+		}
+		if msgRec.Command == CommandLocked {
+			return ErrSpaceLocked
 		}
 
 		err = msgRec.Unmarshal(response)
 		if err != nil {
 			return err
 		}
+	} else if msgRec, err := receiveMsgTimeout(conn, 30*time.Second); err == nil && msgRec.Command == CommandLocked {
+		// No reply is expected, but wait for the agent to finish, so a
+		// request it refused is reported rather than taken as done.
+		return ErrSpaceLocked
 	}
 
 	return nil

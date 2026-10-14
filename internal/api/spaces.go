@@ -212,6 +212,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.VSCodeTunnel = state.VSCodeTunnelName
 			s.ResourceUsage = &apiclient.SpaceResourceUsage{
 				CPUPercent:       state.CPUPercent,
+				CPUCores:         state.CPUCores,
 				MemoryUsedBytes:  state.MemoryUsedBytes,
 				MemoryLimitBytes: state.MemoryLimitBytes,
 				DiskUsedBytes:    state.DiskUsedBytes,
@@ -244,6 +245,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		// space is stopped — unlike the agent-reported state above.
 		s.HasJobs = len(space.Jobs) > 0
 		s.JobsEnabled = space.JobsEnabled && s.HasJobs
+		s.Restricted = space.Restrictions.Active
 
 		// Manual agents are started by hand, so their operator needs the
 		// registration key next to the space id. Only for the owner or

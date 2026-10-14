@@ -153,8 +153,12 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 
 					userId = space.UserId
 
-					// Add space ID to context
+					// Add space ID to context, and whether the token is the
+					// one the agent hands to processes in the space
 					ctx = context.WithValue(ctx, "space_id", spaceId)
+					if crypt.IsAgentCliToken(bearer) {
+						ctx = context.WithValue(ctx, "space_cli", true)
+					}
 				} else {
 					// Regular API token
 					token, err := db.GetToken(bearer)
@@ -269,6 +273,28 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			if !tokenScopeAllows(token.Scopes, r.URL.Path) {
 				rest.WriteResponse(http.StatusForbidden, w, r.WithContext(ctx), ErrorResponse{
 					Error: "token scopes do not permit this endpoint",
+				})
+				return
+			}
+		}
+
+		// Confine a restricted space's own credential, see space_confine.go.
+		// A space that can't be read now is refused rather than trusted.
+		if spaceId, _ := ctx.Value("space_id").(string); spaceId != "" {
+			space, err := database.GetInstance().GetSpace(spaceId)
+			if err != nil || space == nil {
+				rest.WriteResponse(http.StatusServiceUnavailable, w, r.WithContext(ctx), ErrorResponse{Error: "Authentication is temporarily unavailable"})
+				return
+			}
+			if fromCli, _ := ctx.Value("space_cli").(bool); fromCli && space.Restrictions.Locked && !spaceLockAllows(space, r.Method, r.URL.Path) {
+				rest.WriteResponse(http.StatusForbidden, w, r.WithContext(ctx), ErrorResponse{
+					Error: "this space is locked",
+				})
+				return
+			}
+			if space.Restrictions.Active && !spaceConfinementAllows(space, r.Method, r.URL.Path) {
+				rest.WriteResponse(http.StatusForbidden, w, r.WithContext(ctx), ErrorResponse{
+					Error: "this space is restricted and its credential can't be used for this",
 				})
 				return
 			}

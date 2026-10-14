@@ -56,6 +56,7 @@ const (
 	AuditEventSpaceTransfer  = "Space Transfer"
 	AuditEventSpaceShare     = "Space Shared"
 	AuditEventSpaceStopShare = "Space Stop Share"
+	AuditEventSpaceRestrict  = "Space Restrict"
 
 	// Templates
 	AuditEventTemplateCreate = "Template Create"

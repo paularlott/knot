@@ -11,8 +11,7 @@
 # Usage (inside a space):
 #   import knot.secret
 #
-#   password = knot.secret.get("vault/item")
-#   username = knot.secret.get("vault/item", "username")
+#   username = knot.secret.get("op://vault/item/username")
 #   api_key = knot.secret.get("op://vault/item/section/api key")
 
 
@@ -20,9 +19,8 @@ def get(path, field=""):
     """Read one of your own secrets from 1Password.
 
     Args:
-        path: vault/item, or a complete op://vault/item/field reference
-        field: Field name, or section/field (default: password). Must be
-            empty when path is an op:// reference.
+        path: The secret's 1Password reference, op://vault/item/field, or
+            op://vault/item/section/field for a field in a section
 
     Returns:
         The secret value as a string

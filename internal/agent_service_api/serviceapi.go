@@ -33,9 +33,9 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 		router.HandleFunc("POST /gelf", handleGelf)
 		router.HandleFunc("POST /loki/api/v1/push", handleLoki)
 		router.HandleFunc("POST /insert/jsonline", handleVictoriaLogs)
-		router.HandleFunc("POST /event", handleEvent)
+		router.HandleFunc("POST /event", unlessLocked(handleEvent))
 		router.HandleFunc("GET /packages/knot.zip", handlePackageKnotZip)
-		router.HandleFunc("GET /packages/libs.zip", handlePackageLibsZip)
+		router.HandleFunc("GET /packages/libs.zip", unlessLocked(handlePackageLibsZip))
 		router.HandleFunc("GET /connect", handleConnect)
 
 		// Run the http server

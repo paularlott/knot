@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spacejobs"
 
 	"github.com/hashicorp/yamux"
@@ -31,6 +32,7 @@ type Session struct {
 	HasVSCodeTunnel       bool
 	VSCodeTunnelName      string
 	CPUPercent            float64
+	CPUCores              float64
 	MemoryUsedBytes       uint64
 	MemoryLimitBytes      uint64
 	DiskUsedBytes         uint64
@@ -692,6 +694,18 @@ func (s *Session) SendJobsRun(name string) (*msg.JobsResponse, error) {
 // SendUpdateJobs pushes the space's persisted job definitions and runner
 // state to the agent. Fire-and-forget: if the agent is unreachable the push
 // is skipped and the definitions re-arrive in its next registration response.
+// SendUpdateRestrictions tells the agent whether the space has locked its
+// processes out of knot.
+func (s *Session) SendUpdateRestrictions(locked bool) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	return msg.SendUpdateRestrictions(conn, locked)
+}
+
 func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
 	conn, err := s.MuxSession.Open()
 	if err != nil {
@@ -700,4 +714,16 @@ func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
 	defer conn.Close()
 
 	return msg.SendUpdateJobs(conn, jobs, enabled)
+}
+
+func init() { service.PushRestrictionsHook = PushRestrictions }
+
+// PushRestrictions tells the space's agent, if it's connected to this
+// server, whether the space has locked its processes out of knot.
+func PushRestrictions(space *model.Space) {
+	if session := GetSession(space.Id); session != nil {
+		if err := session.SendUpdateRestrictions(space.Restrictions.Active && space.Restrictions.Locked); err != nil {
+			log.WithError(err).Warn("couldn't push the restrictions to the agent", "space_id", space.Id)
+		}
+	}
 }

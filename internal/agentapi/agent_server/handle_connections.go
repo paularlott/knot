@@ -184,6 +184,12 @@ func handleAgentConnection(conn net.Conn) {
 		return
 	}
 	response.AgentToken = agentToken
+	response.Locked = space.Restrictions.Active && space.Restrictions.Locked
+	if response.AgentCliToken, err = crypt.GenerateAgentCliToken(space.Id, user.Id, cfg.Zone, cfg.EncryptionKey); err != nil {
+		logger.WithError(err).Error("failed to generate agent cli token")
+		msg.WriteMessage(conn, &response)
+		return
+	}
 	response.ServerURL = cfg.URL
 	response.AgentEndpoint = cfg.AgentEndpoint
 	response.HealthCheckType = template.HealthCheckType
@@ -322,6 +328,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
 				session.CPUPercent = state.CPUPercent
+				session.CPUCores = state.CPUCores
 				session.MemoryUsedBytes = state.MemoryUsedBytes
 				session.MemoryLimitBytes = state.MemoryLimitBytes
 				session.DiskUsedBytes = state.DiskUsedBytes
@@ -668,10 +675,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleEvent(stream, session)
 			return
 
-		case byte(msg.CmdResolveUserSecret):
-			handleResolveUserSecret(stream, session)
-			return
-
 		case byte(msg.CmdPeerRequestIntro):
 			var req msg.PeerRequestIntro
 			if err := msg.ReadMessage(stream, &req); err != nil {
@@ -687,6 +690,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			}
 
 		default:
+			if handler := streamHandler(cmd); handler != nil {
+				handler(stream, session)
+				return
+			}
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
 		}

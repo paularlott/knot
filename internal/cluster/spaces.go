@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"github.com/paularlott/gossip"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/container/helper"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -179,6 +180,12 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 				// merged record — covers servers that missed a lease gossip
 				// push (e.g. joined after the grant).
 				service.GetPoolService().SyncSpaceLease(space)
+
+				// The space's agent may hold its connection to this server
+				// rather than the one the restriction was made on.
+				if (space.Restrictions.Active && space.Restrictions.Locked) != (localSpace.Restrictions.Active && localSpace.Restrictions.Locked) {
+					agent_server.PushRestrictions(space)
+				}
 
 				if shouldQueueCleanup {
 					c.EnqueueSpaceCleanup(cleanupSpace)

@@ -2,48 +2,51 @@ package agent_client
 
 import (
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/paularlott/knot/internal/log"
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-func (c *AgentClient) collectResourceUsage() (float64, uint64, uint64, uint64, uint64) {
-	cpuPercent := 0.0
-	if values, err := cpu.Percent(0, false); err == nil && len(values) > 0 {
-		cpuPercent = values[0]
-	}
+// collectResourceUsage returns the space's CPU use, as cores and as a
+// percentage of the CPU it may use, and its memory and disk use and limits.
+func (c *AgentClient) collectResourceUsage() (float64, float64, uint64, uint64, uint64, uint64) {
+	cpuCores, cpuPercent := spaceCPUUsage()
 
-	memoryUsed, memoryLimit := readMemoryUsage()
-	if memoryLimit == 0 {
+	// The space's own memory use, from its cgroup; with no memory limit,
+	// what the machine has is the limit. Where there's no cgroup to read,
+	// such as the root of a VM or a manual host, the machine is the space.
+	memoryUsed, memoryLimit, found := readMemoryUsage()
+	if !found || memoryLimit == 0 {
 		if vm, err := mem.VirtualMemory(); err == nil && vm != nil {
-			memoryUsed = vm.Used
+			if !found {
+				memoryUsed = vm.Used
+			}
 			memoryLimit = vm.Total
 		}
 	}
 
 	diskUsed, diskLimit := readDiskUsage()
 
-	return cpuPercent, memoryUsed, memoryLimit, diskUsed, diskLimit
+	return cpuCores, cpuPercent, memoryUsed, memoryLimit, diskUsed, diskLimit
 }
 
-func readMemoryUsage() (uint64, uint64) {
-	if used, limit, ok := readCgroupV2Memory(); ok {
-		return used, limit
+// readMemoryUsage reads the space's memory use and limit from its own
+// cgroup (see cgroupDirs).
+func readMemoryUsage() (used, limit uint64, found bool) {
+	dirs := cgroupDirs()
+	if used, limit, ok := readCgroupV2Memory(dirs); ok {
+		return used, limit, true
 	}
-	if used, limit, ok := readCgroupV1Memory(); ok {
-		return used, limit
+	if used, limit, ok := readCgroupV1Memory(dirs); ok {
+		return used, limit, true
 	}
-	return 0, 0
+	return 0, 0, false
 }
 
-func readCgroupV2Memory() (uint64, uint64, bool) {
-	usedBytes, errUsed := os.ReadFile("/sys/fs/cgroup/memory.current")
-	limitBytes, errLimit := os.ReadFile("/sys/fs/cgroup/memory.max")
+func readCgroupV2Memory(dirs map[string]string) (uint64, uint64, bool) {
+	usedBytes, errUsed := os.ReadFile(cgroupFile(dirs, "", "memory.current"))
+	limitBytes, errLimit := os.ReadFile(cgroupFile(dirs, "", "memory.max"))
 	if errUsed != nil || errLimit != nil {
 		return 0, 0, false
 	}
@@ -65,9 +68,9 @@ func readCgroupV2Memory() (uint64, uint64, bool) {
 	return used, limit, true
 }
 
-func readCgroupV1Memory() (uint64, uint64, bool) {
-	usedBytes, errUsed := os.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
-	limitBytes, errLimit := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+func readCgroupV1Memory(dirs map[string]string) (uint64, uint64, bool) {
+	usedBytes, errUsed := os.ReadFile(cgroupFile(dirs, "memory", "memory.usage_in_bytes"))
+	limitBytes, errLimit := os.ReadFile(cgroupFile(dirs, "memory", "memory.limit_in_bytes"))
 	if errUsed != nil || errLimit != nil {
 		return 0, 0, false
 	}
@@ -81,28 +84,9 @@ func readCgroupV1Memory() (uint64, uint64, bool) {
 	if err != nil {
 		return 0, 0, false
 	}
+	// No limit reads as the largest page-aligned value, about 8 EiB.
+	if limit >= 1<<62 {
+		limit = 0
+	}
 	return used, limit, true
-}
-
-func readDiskUsage() (uint64, uint64) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil || homeDir == "" {
-		homeDir = "/"
-	}
-
-	statPath := homeDir
-	for statPath != "/" {
-		if _, err := os.Stat(statPath); err == nil {
-			break
-		}
-		statPath = filepath.Dir(statPath)
-	}
-
-	usage, err := disk.Usage(statPath)
-	if err != nil || usage == nil {
-		log.WithError(err).Debug("failed to get disk usage for resource telemetry", "path", statPath)
-		return 0, 0
-	}
-
-	return usage.Used, usage.Total
 }

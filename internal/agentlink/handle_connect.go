@@ -6,13 +6,14 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
-// handleConnect returns the agent's stored authentication credentials.
-// These credentials (token, server URL, space ID) are received from the server
-// during agent registration and stored for the lifetime of the agent process.
+// handleConnect returns the credentials processes in the space use: the
+// server URL, the space ID and the token for processes, never the agent's
+// own token. They are received from the server during agent registration
+// and stored for the lifetime of the agent process.
 func handleConnect(conn net.Conn, msg *CommandMsg) error {
 	// Get connection info from agent client (stored during registration)
 	server := agentClient.GetServerURL()
-	token := agentClient.GetAgentToken()
+	token := agentClient.GetAgentCliToken()
 	spaceId := agentClient.GetSpaceId()
 
 	response := &ConnectResponse{

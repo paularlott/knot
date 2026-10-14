@@ -983,11 +983,18 @@ func (s *PoolService) reclaimLease(space *model.Space) {
 		return // extended since the sweep loaded its copy, or still draining
 	}
 
+	// The member goes back to the shared pool: the restrictions the lease
+	// holder's work put on it go too, so the next holder starts unrestricted.
 	fresh.LeaseClear()
+	hadRestrictions := fresh.Restrictions.Active
+	fresh.Restrictions = model.SpaceRestrictions{}
 	fresh.UpdatedAt = hlc.Now()
-	fields := []string{"LeaseId", "LeaseUserId", "LeaseExpiresAt", "LeaseExtensions", "UpdatedAt"}
+	fields := []string{"LeaseId", "LeaseUserId", "LeaseExpiresAt", "LeaseExtensions", "Restrictions", "UpdatedAt"}
 	if err := database.GetInstance().SaveSpace(fresh, fields); err != nil {
 		return
+	}
+	if hadRestrictions && PushRestrictionsHook != nil {
+		PushRestrictionsHook(fresh)
 	}
 	s.MarkLeaseCleared(fresh.Id)
 	if transport != nil {
@@ -996,6 +1003,10 @@ func (s *PoolService) reclaimLease(space *model.Space) {
 	}
 	sse.PublishSpaceChanged(fresh.Id, fresh.UserId)
 }
+
+// PushRestrictionsHook tells a space's agent its restrictions changed; the
+// agent server installs it (it imports this package, not the other way).
+var PushRestrictionsHook func(space *model.Space)
 
 // reconcileLeases reclaims ended leases: past expiry (or released early),
 // a member returns to the shared pool as soon as in-flight method work has

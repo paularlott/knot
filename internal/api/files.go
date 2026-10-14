@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/filestore"
@@ -37,7 +38,27 @@ func filesContext(w http.ResponseWriter, r *http.Request) (*filestore.Store, *mo
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Account is not active"})
 		return nil, nil, nil, false
 	}
+	limitToSpace(p, api_utils.RequestSpace(r))
 	return store, user, p, true
+}
+
+// limitToSpace caps p to the buckets a restricted space may still reach.
+func limitToSpace(p *filestore.Principal, space *model.Space) {
+	if space == nil || !space.Restrictions.Active {
+		return
+	}
+	restrictions := space.Restrictions
+	p.IsAdmin, p.CanShare, p.CanTransfer = false, false, false
+	p.Limit = func(bucketId string) int {
+		switch allowed, readOnly := restrictions.BucketAccess(bucketId); {
+		case !allowed:
+			return filestore.AccessNone
+		case readOnly:
+			return filestore.AccessRead
+		default:
+			return filestore.AccessWrite
+		}
+	}
 }
 
 func filesError(w http.ResponseWriter, r *http.Request, err error) {

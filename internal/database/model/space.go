@@ -150,6 +150,7 @@ type Space struct {
 	PortForwards     []PortForwardEntry `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
 	Jobs             []SpaceJob         `json:"jobs" db:"jobs,json" msgpack:"jobs"`
 	JobsEnabled      bool               `json:"jobs_enabled" db:"jobs_enabled" msgpack:"jobs_enabled"`
+	Restrictions     SpaceRestrictions  `json:"restrictions" db:"restrictions,json" msgpack:"restrictions"` // held until lifted from outside the space
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
 	CreatedAt        time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
 	UpdatedAt        hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`

@@ -12,8 +12,8 @@ def get(path, field=""):
     """Read one of your own secrets from 1Password.
 
     Args:
-        path: vault/item, or a complete op://vault/item/field reference
-        field: Field name, or section/field (default: password)
+        path: The secret's 1Password reference, op://vault/item/field, or
+            op://vault/item/section/field for a field in a section
 
     Returns:
         The secret value as a string

@@ -32,6 +32,9 @@ type BucketInfo struct {
 
 // CreateBucket creates a bucket owned by the principal.
 func (s *Store) CreateBucket(p *Principal, name string) (*Bucket, error) {
+	if p.Limit != nil {
+		return nil, ErrAccessDenied
+	}
 	if !p.mayOwn() {
 		return nil, ErrCannotOwn
 	}
@@ -147,7 +150,7 @@ func (s *Store) ListBuckets(p *Principal, all bool) []*BucketInfo {
 			continue
 		}
 		info := s.infoLocked(b, p)
-		if info.Granted == AccessNone && !(all && p.IsAdmin) {
+		if info.Granted == AccessNone && !(all && p.isAdmin()) {
 			continue
 		}
 		out = append(out, info)
@@ -421,7 +424,7 @@ func (s *Store) AccessibleBuckets(p *Principal) []BucketAccess {
 func (s *Store) HasAccessibleBucket(p *Principal) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if len(s.owned[p.UserId]) > 0 && p.CanOwn {
+	if len(s.owned[p.UserId]) > 0 && p.CanOwn && p.Limit == nil {
 		return true
 	}
 	for _, b := range s.buckets {
@@ -956,4 +959,16 @@ func (s *Store) ListObjects(p *Principal, bucket, prefix, delimiter, after strin
 		res.Next = ""
 	}
 	return res, nil
+}
+
+// BucketName returns the current name of a bucket by id, false when there
+// is no such bucket.
+func (s *Store) BucketName(id string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	b := s.buckets[id]
+	if !live(b) {
+		return "", false
+	}
+	return b.Name, true
 }

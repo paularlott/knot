@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -421,6 +422,17 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		userData.ServicePassword = ""
 		userData.SSHPublicKey = ""
 		userData.SSHPrivateKey = ""
+	}
+
+	// A space's own credential learns which space it is. A restricted space
+	// doesn't get its owner's credentials either: with them it could sign in
+	// to the owner's other spaces and step around its restrictions.
+	if space := api_utils.RequestSpace(r); space != nil {
+		userData.SpaceId = space.Id
+		if space.Restrictions.Active {
+			userData.ServicePassword = ""
+			userData.SSHPrivateKey = ""
+		}
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, &userData)

@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	agentTokenPrefix = "agt_"
+	agentTokenPrefix    = "agt_"
+	agentCliTokenPrefix = "agc_"
 )
 
 // GenerateAgentToken creates a deterministic authentication token for an agent
@@ -41,6 +42,24 @@ func GenerateAgentToken(spaceId, userId, zone, encryptionKey string) (string, er
 	return token, nil
 }
 
+// GenerateAgentCliToken creates the token the agent hands to processes in
+// its space, such as the knot command and scripts: agc_<spaceId>_<signature>.
+// It acts like the agent token, but the server can tell the two apart, so a
+// space can lock its processes out (knot restrict --lock) while the
+// agent keeps working for requests from outside the space.
+func GenerateAgentCliToken(spaceId, userId, zone, encryptionKey string) (string, error) {
+	if spaceId == "" || userId == "" || zone == "" || encryptionKey == "" {
+		return "", fmt.Errorf("all parameters are required for token generation")
+	}
+	return agentCliTokenPrefix + spaceId + "_" + cliSignature(spaceId, userId, zone, encryptionKey), nil
+}
+
+func cliSignature(spaceId, userId, zone, encryptionKey string) string {
+	h := hmac.New(sha256.New, []byte(encryptionKey))
+	h.Write([]byte(fmt.Sprintf("cli|%s|%s|%s", spaceId, userId, zone)))
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+}
+
 // ValidateAgentToken validates an agent token and extracts the space ID.
 // The caller must look up the space to get userId and zone for verification.
 //
@@ -53,6 +72,15 @@ func GenerateAgentToken(spaceId, userId, zone, encryptionKey string) (string, er
 //
 // Returns: true if the signature is valid
 func ValidateAgentToken(token, spaceId, userId, zone, encryptionKey string) bool {
+	// A token handed to the space's processes
+	if rest, ok := strings.CutPrefix(token, agentCliTokenPrefix); ok {
+		parts := strings.SplitN(rest, "_", 2)
+		if len(parts) != 2 || parts[0] != spaceId {
+			return false
+		}
+		return hmac.Equal([]byte(cliSignature(spaceId, userId, zone, encryptionKey)), []byte(parts[1]))
+	}
+
 	// Check prefix
 	if !strings.HasPrefix(token, agentTokenPrefix) {
 		return false
@@ -88,12 +116,12 @@ func ValidateAgentToken(token, spaceId, userId, zone, encryptionKey string) bool
 // Returns empty string if token format is invalid.
 func ExtractSpaceIdFromToken(token string) string {
 	// Check prefix
-	if !strings.HasPrefix(token, agentTokenPrefix) {
+	if !IsAgentToken(token) {
 		return ""
 	}
 
 	// Remove prefix
-	token = strings.TrimPrefix(token, agentTokenPrefix)
+	token = token[len(agentTokenPrefix):]
 
 	// Split and return spaceId
 	parts := strings.SplitN(token, "_", 2)
@@ -104,7 +132,14 @@ func ExtractSpaceIdFromToken(token string) string {
 	return parts[0]
 }
 
-// IsAgentToken checks if a token is an agent token (vs a regular API token)
+// IsAgentToken checks if a token is an agent token, the agent's own or the
+// one it hands to processes in its space (vs a regular API token)
 func IsAgentToken(token string) bool {
-	return strings.HasPrefix(token, agentTokenPrefix)
+	return strings.HasPrefix(token, agentTokenPrefix) || strings.HasPrefix(token, agentCliTokenPrefix)
+}
+
+// IsAgentCliToken checks if a token is the one an agent hands to processes
+// in its space.
+func IsAgentCliToken(token string) bool {
+	return strings.HasPrefix(token, agentCliTokenPrefix)
 }

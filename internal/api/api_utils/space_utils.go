@@ -240,6 +240,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		HasTerminal:        hasTerminal,
 		HasJobs:            hasJobs,
 		JobsEnabled:        jobsEnabled,
+		Restricted:         space.Restrictions.Active,
 		HasHttpVNC:         hasHttpVNC,
 		HasState:           hasState,
 		TcpPorts:           tcpPorts,
@@ -262,6 +263,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	if state != nil {
 		response.ResourceUsage = &apiclient.SpaceResourceUsage{
 			CPUPercent:       state.CPUPercent,
+			CPUCores:         state.CPUCores,
 			MemoryUsedBytes:  state.MemoryUsedBytes,
 			MemoryLimitBytes: state.MemoryLimitBytes,
 			DiskUsedBytes:    state.DiskUsedBytes,

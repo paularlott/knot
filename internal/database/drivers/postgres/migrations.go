@@ -17,6 +17,8 @@ var migrations = []string{
 	// 3-4: switch off file storage and personal secrets for a template's spaces
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_file_storage BOOLEAN NOT NULL DEFAULT FALSE`,
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_user_secrets BOOLEAN NOT NULL DEFAULT FALSE`,
+	// 5: restrictions a space has applied to its own credential
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS restrictions JSONB NOT NULL DEFAULT '{}'`,
 }
 
 func (db *PostgresDriver) runMigrations() error {

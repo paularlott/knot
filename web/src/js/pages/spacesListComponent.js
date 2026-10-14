@@ -117,6 +117,14 @@ window.spacesListComponent = function (
         note: "",
       },
     },
+    spaceRestrictions: {
+      show: false,
+      loading: false,
+      clearing: false,
+      spaceId: "",
+      spaceName: "",
+      data: null,
+    },
     spaceUsageModal: {
       show: false,
       spaceId: "",
@@ -1060,6 +1068,7 @@ window.spacesListComponent = function (
       target.has_terminal = space.has_terminal;
       target.has_jobs = space.has_jobs === true;
       target.jobs_enabled = space.jobs_enabled === true;
+      target.restricted = space.restricted === true;
       target.is_deployed = space.is_deployed;
       target.is_pending = space.is_pending;
       target.is_deleting = space.is_deleting;
@@ -1280,6 +1289,16 @@ window.spacesListComponent = function (
     formatPercent(value) {
       return `${Number(value || 0).toFixed(1)}%`;
     },
+    // CPU as a share of what the space may use, with the cores in use when
+    // the agent reports them: "6.7% · 1.0 cores".
+    formatCpu(usage) {
+      const percent = this.formatPercent(usage?.cpu_percent || 0);
+      if (typeof usage?.cpu_cores !== "number") {
+        return percent;
+      }
+      const cores = usage.cpu_cores;
+      return `${percent} · ${cores >= 1 ? cores.toFixed(1) : cores.toFixed(2)} cores`;
+    },
     formatBytes(value) {
       if (!value) {
         return "0 B";
@@ -1372,6 +1391,55 @@ window.spacesListComponent = function (
       } catch (error) {
         window.knotError(`stop ${name}`, error);
       } finally {
+        this.getSpaces();
+      }
+    },
+    async openRestrictions(s) {
+      const m = this.spaceRestrictions;
+      Object.assign(m, { show: true, loading: true, spaceId: s.space_id, spaceName: s.name, data: null });
+      try {
+        const response = await fetch(`/api/spaces/${s.space_id}/restrictions`);
+        if (response.status === 401) {
+          window.location.href = "/logout";
+        } else if (response.ok) {
+          m.data = await response.json();
+        } else {
+          m.show = false;
+          window.knotError(`get the restrictions on ${s.name}`, response);
+        }
+      } catch (error) {
+        m.show = false;
+        window.knotError(`get the restrictions on ${s.name}`, error);
+      } finally {
+        m.loading = false;
+      }
+    },
+    // What the space can reach in file storage, in words.
+    restrictionsFiles(r) {
+      if (!r) return "";
+      if (r.template_no_files) return "Off, by its template";
+      if (r.files === "none") return "Off";
+      let text = "All buckets";
+      if (r.limit_buckets) text = r.buckets.length ? "Only these buckets" : "No buckets";
+      return r.files === "ro" ? `${text}, read-only` : text;
+    },
+    async clearRestrictions() {
+      const m = this.spaceRestrictions;
+      m.clearing = true;
+      try {
+        const response = await fetch(`/api/spaces/${m.spaceId}/restrictions`, { method: "DELETE" });
+        if (response.status === 401) {
+          window.location.href = "/logout";
+        } else if (response.ok) {
+          m.show = false;
+          window.knotAnnounce?.(`Lifted the restrictions on ${m.spaceName}`);
+        } else {
+          window.knotError(`lift the restrictions on ${m.spaceName}`, response);
+        }
+      } catch (error) {
+        window.knotError(`lift the restrictions on ${m.spaceName}`, error);
+      } finally {
+        m.clearing = false;
         this.getSpaces();
       }
     },

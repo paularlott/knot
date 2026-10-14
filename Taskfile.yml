@@ -60,6 +60,9 @@ tasks:
       - go.sum
       - legal/license.txt
       - legal/notice.txt
+      # embedded in the binary, so a template or web asset change alone rebuilds it
+      - web/templates/**/*
+      - web/public_html/**/*
     generates:
       - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
@@ -87,6 +90,9 @@ tasks:
       - go.sum
       - legal/license.txt
       - legal/notice.txt
+      # embedded in the binary, so a template or web asset change alone rebuilds it
+      - web/templates/**/*
+      - web/public_html/**/*
     generates:
       - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
@@ -104,6 +110,9 @@ tasks:
       - go.sum
       - legal/license.txt
       - legal/notice.txt
+      # embedded in the binary, so a template or web asset change alone rebuilds it
+      - web/templates/**/*
+      - web/public_html/**/*
     generates:
       - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
