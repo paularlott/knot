@@ -4,14 +4,19 @@
 
 {{/* The space's state: icon + text (never colour alone), then the start-up
      elapsed time, uptime or when it last started. */}}
-{{ define "space-status" }}
-<div class="flex items-center gap-x-2 gap-y-1 flex-wrap">
-  <span class="inline-flex items-center gap-1 text-xs font-medium whitespace-nowrap" :class="statusClass(s)">
+{{/* The icon for a space's state, shown with its label in the status, and
+     on its own before the name on narrow screens. */}}
+{{ define "space-status-icon" }}
     <svg x-show="spaceStatus(s) === 'running'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" /></svg>
     <svg x-show="spaceStatus(s) === 'unhealthy'" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0" aria-hidden="true"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>
     <svg x-show="spaceStatus(s) === 'starting' || spaceStatus(s) === 'stopping'" x-cloak class="size-4 shrink-0 animate-spin motion-reduce:animate-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
     <svg x-show="spaceStatus(s) === 'deleting'" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4Z" clip-rule="evenodd" /></svg>
     <svg x-show="spaceStatus(s) === 'stopped'" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" /></svg>
+{{ end }}
+{{ define "space-status" }}
+<div class="flex items-center gap-x-2 gap-y-1 flex-wrap">
+  <span class="inline-flex items-center gap-1 text-xs font-medium whitespace-nowrap" :class="statusClass(s)">
+    {{ template "space-status-icon" . }}
     <span x-text="statusLabel(s)"></span>
   </span>
   <span x-show="spaceStatus(s) === 'starting' && s.pending_since" x-cloak class="text-xs text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap" x-text="startingElapsed(s)"></span>
@@ -150,23 +155,33 @@
 
 {{ define "space-row-cells" }}
                 <!-- Space -->
-                <td class="px-4 py-3">
+                <td class="px-3 py-2.5 md:px-4 md:py-3">
                   <div class="flex items-start gap-4">
                     <img x-show="s.icon_url.length && s.icon_url_exists" :src="s.icon_url" alt="" class="hidden sm:block size-8 mt-0.5" />
                     <div class="min-w-0">
                       <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="lg:hidden inline-flex shrink-0" :class="statusClass(s)" aria-hidden="true">{{ template "space-status-icon" . }}</span>
                         <div class="text-base font-semibold text-gray-900 dark:text-white break-all" x-text="s.name"></div>
                         <template x-if="s.lease_id">
                           <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="s.lease_expires_at && new Date(s.lease_expires_at) <= new Date() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'" :title="'Exclusively leased' + (s.lease_expires_at ? ' until ' + new Date(s.lease_expires_at).toLocaleString() : ' — no expiry')" x-text="s.lease_expires_at && new Date(s.lease_expires_at) <= new Date() ? 'Lease draining' : 'Leased'"></span>
                         </template>
+                        <!-- Narrow screens: the description is a tap away -->
+                        <button type="button" x-show="s.description || s.note" x-cloak @click="spaceDesc.show = true; spaceDesc.space = s" class="md:hidden shrink-0 cursor-pointer rounded p-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500" :aria-label="'Show the description of ' + s.name" title="Show description">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </button>
+                        <span x-show="s.is_local && s.update_available && !s.is_pending" x-cloak class="lg:hidden app-badge-purple whitespace-nowrap" title="The template has changed since this space started; restart it to use the new version">Update available</span>
                       </div>
+                      <!-- One line of details, holding what the hidden columns would show:
+                           status until lg, type and template until xl, then the host -->
+                      <div class="lg:hidden text-xs text-gray-500 dark:text-gray-400 line-clamp-1 break-all" :title="spaceMeta(s, { status: true, platform: true, template: true })" x-text="spaceMeta(s, { status: true, platform: true, template: true })"></div>
+                      <div class="hidden lg:block xl:hidden text-xs text-gray-500 dark:text-gray-400 line-clamp-1 break-all" :title="spaceMeta(s, { platform: true, template: true })" x-text="spaceMeta(s, { platform: true, template: true })"></div>
                       <template x-if="s.node_hostname">
-                        <div class="text-xs text-gray-500 dark:text-gray-400" x-text="'Host: ' + s.node_hostname"></div>
+                        <div class="hidden xl:block text-xs text-gray-500 dark:text-gray-400" x-text="'Host: ' + s.node_hostname"></div>
                       </template>
 
                       <!-- First 2 lines of the description and note; the button shows the rest -->
                       <template x-if="s.description || s.note">
-                        <div class="flex gap-2 mt-0.5">
+                        <div class="hidden md:flex gap-2 mt-0.5">
                           <button type="button" x-show="((s.description || '').split('\n').concat((s.note || '').split('\n')).filter(Boolean)).length >= 2"
                                   @click="spaceDesc.show = true; spaceDesc.space = s" :aria-label="'Show the full description of ' + s.name"
                                   class="text-gray-500 dark:text-gray-400 flex-shrink-0 cursor-pointer rounded" title="Show full description">
@@ -180,23 +195,18 @@
                         </div>
                       </template>
 
-                      <!-- Type and template (until their column shows at xl) -->
-                      <div class="xl:hidden mt-2 flex flex-wrap items-center gap-1 text-xs">
-                        <span :class="platformBadge(s).cls" x-text="platformBadge(s).label"></span>
-                        <span class="text-gray-500 dark:text-gray-400">Template: <span class="text-gray-700 dark:text-gray-300" x-text="s.template_name"></span></span>
-                      </div>
 
                       <div class="2xl:hidden">
                         <template x-if="hasShare(s)">
-                          <span class="mt-2 text-xs inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-300 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
+                          <span class="mt-1.5 text-xs inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md dark:bg-blue-500/15 dark:text-blue-300 whitespace-nowrap" :title="shareBadgeTitle(s)" x-text="shareBadgeText(s)"></span>
                         </template>
                       </div>
 
                       <template x-if="forUserId == ''">
-                        <div class="text-xs mt-2 text-gray-500 dark:text-gray-400">User: <span class="text-gray-700 dark:text-gray-300" x-text="s.username"></span></div>
+                        <div class="text-xs mt-1 text-gray-500 dark:text-gray-400">User: <span class="text-gray-700 dark:text-gray-300" x-text="s.username"></span></div>
                       </template>
                       <template x-if="s.is_local && s.platform == 'manual'">
-                        <div class="mt-2 text-xs">
+                        <div class="hidden md:block mt-2 text-xs">
                           <div class="flex flex-nowrap text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer w-full hover:bg-gray-200 dark:hover:bg-gray-800">
                             <div class="shrink-0 grow-0 py-1 pr-1">ID:</div>
                             <input type="text" aria-label="Space ID" class="shrink grow w-full p-0 text-xs bg-transparent cursor-pointer outline-0 border-0 focus:border-0 focus:ring-0" x-model="s.space_id" :title="s.space_id" readonly @click.debounce.750="copyToClipboard(s.space_id)" />
@@ -209,7 +219,7 @@
                         </div>
                       </template>
                       <template x-if="s.is_local && s.platform == 'manual' && s.registration_key">
-                        <div class="mt-1 text-xs">
+                        <div class="hidden md:block mt-1 text-xs">
                           <div class="flex flex-nowrap text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer w-full hover:bg-gray-200 dark:hover:bg-gray-800">
                             <div class="shrink-0 grow-0 py-1 pr-1">Key:</div>
                             <input type="text" aria-label="Agent registration key" class="shrink grow w-full p-0 text-xs bg-transparent cursor-pointer outline-0 border-0 focus:border-0 focus:ring-0" x-model="s.registration_key" readonly @click.debounce.750="copyToClipboard(s.registration_key)" />
@@ -222,12 +232,8 @@
                         </div>
                       </template>
 
-                      <!-- Status (until its column shows at lg) -->
-                      <div class="lg:hidden mt-2">
-                        {{ template "space-status" . }}
-                      </div>
 
-                      <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="mt-3 max-w-md grid grid-cols-2 gap-3 lg:hidden">
+                      <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="hidden md:grid lg:hidden mt-3 max-w-md grid-cols-2 gap-3">
                         <button type="button" class="min-w-0 w-full text-left cursor-pointer" @click="openSpaceUsage(s.space_id)" :aria-label="'CPU ' + formatPercent(s.resource_usage?.cpu_percent || 0) + ', show usage of ' + s.name">
                           <div class="flex items-center justify-between gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                             <span>CPU</span>
@@ -248,9 +254,29 @@
                         </button>
                       </div>
 
-                      <!-- Connect (until its column shows at md) -->
-                      <div class="md:hidden mt-2">
-                        {{ template "space-services" . }}
+                      <!-- Narrow screens: connect and usage share a line -->
+                      <div class="md:hidden mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <div class="shrink-0">{{ template "space-services" . }}</div>
+                        <div x-show="s.is_local && s.is_deployed && s.resource_usage" x-cloak class="min-w-[6.5rem] flex-1 grid grid-cols-2 gap-2">
+                          <button type="button" class="min-w-0 w-full text-left cursor-pointer" @click="openSpaceUsage(s.space_id)" :aria-label="'CPU ' + formatPercent(s.resource_usage?.cpu_percent || 0) + ', show usage of ' + s.name">
+                            <div class="flex items-center justify-between gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                              <span>CPU</span>
+                              <span class="min-w-0 truncate" x-text="formatPercent(s.resource_usage?.cpu_percent || 0)"></span>
+                            </div>
+                            <div class="mt-0.5 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                              <div class="h-full rounded-full bg-blue-500" :style="`width: ${usagePercent(s.resource_usage?.cpu_percent || 0, 100)}%`"></div>
+                            </div>
+                          </button>
+                          <button type="button" class="min-w-0 w-full text-left cursor-pointer" @click="openSpaceUsage(s.space_id)" :aria-label="'Memory ' + formatUsage(s.resource_usage?.memory_used_bytes || 0, s.resource_usage?.memory_limit_bytes || 0) + ', show usage of ' + s.name">
+                            <div class="flex items-center justify-between gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                              <span>Mem</span>
+                              <span class="min-w-0 truncate" x-text="formatPercent(usagePercent(s.resource_usage?.memory_used_bytes || 0, s.resource_usage?.memory_limit_bytes || 0))"></span>
+                            </div>
+                            <div class="mt-0.5 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                              <div class="h-full rounded-full bg-emerald-500" :style="`width: ${usagePercent(s.resource_usage?.memory_used_bytes || 0, s.resource_usage?.memory_limit_bytes || 0)}%`"></div>
+                            </div>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -306,18 +332,19 @@
 
                 <!-- Actions: the main one (Start, or Stop) as a labelled button
                      from md up; everything else in the ⋮ menu. -->
-                <td class="px-4 py-3 text-right">
-                  <div x-data x-show="s.is_local || hasSpaceAccessForCurrentUser(s)" x-cloak class="flex items-center justify-end gap-2">
-                    <div class="hidden md:flex items-center">
-                    <button x-show="canStartStop(s) && spaceStatus(s) === 'stopped'" @click="startSpace(s.space_id)" class="row-action-labelled row-action-success" type="button" :aria-label="'Start ' + s.name">
+                <td class="pl-1 pr-3 py-2.5 md:px-4 md:py-3 text-right align-top md:align-middle">
+                  <div x-data x-show="s.is_local || hasSpaceAccessForCurrentUser(s)" x-cloak class="flex items-center justify-end gap-1 md:gap-2">
+                    <!-- Start or Stop shows at every width; Restart is in the menu on narrow screens -->
+                    <div class="flex items-center">
+                    <button x-show="canStartStop(s) && spaceStatus(s) === 'stopped'" @click="startSpace(s.space_id)" class="row-action-labelled row-action-success max-md:px-2" type="button" :aria-label="'Start ' + s.name">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" /></svg>
-                      <span>Start</span>
+                      <span class="max-md:sr-only">Start</span>
                     </button>
-                    <button x-show="canStartStop(s) && (s.is_deployed || s.is_pending) && !s.is_deleting" :disabled="spaceStatus(s) === 'stopping'" @click="stopSpace(s.space_id)" class="row-action-labelled row-action-danger" type="button" :aria-label="(spaceStatus(s) === 'stopping' ? 'Stopping ' : 'Stop ') + s.name">
+                    <button x-show="canStartStop(s) && (s.is_deployed || s.is_pending) && !s.is_deleting" :disabled="spaceStatus(s) === 'stopping'" @click="stopSpace(s.space_id)" class="row-action-labelled row-action-danger max-md:px-2" type="button" :aria-label="(spaceStatus(s) === 'stopping' ? 'Stopping ' : 'Stop ') + s.name">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M5.25 3A2.25 2.25 0 0 0 3 5.25v9.5A2.25 2.25 0 0 0 5.25 17h9.5A2.25 2.25 0 0 0 17 14.75v-9.5A2.25 2.25 0 0 0 14.75 3h-9.5Z" /></svg>
-                      <span x-text="spaceStatus(s) === 'stopping' ? 'Stopping' : 'Stop'"></span>
+                      <span class="max-md:sr-only" x-text="spaceStatus(s) === 'stopping' ? 'Stopping' : 'Stop'"></span>
                     </button>
-                    <button x-show="canStartStop(s) && s.is_deployed && !s.is_pending" @click="restartSpace(s.space_id)" class="row-action-labelled ml-2" type="button" :aria-label="'Restart ' + s.name">
+                    <button x-show="canStartStop(s) && s.is_deployed && !s.is_pending" @click="restartSpace(s.space_id)" class="row-action-labelled ml-2 max-md:hidden" type="button" :aria-label="'Restart ' + s.name">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
                       <span>Restart</span>
                     </button>
@@ -330,13 +357,7 @@
                     </button>
 
                     <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap min-w-44" x-cloak>
-                      <!-- Start / Stop live in the row from md up -->
-                      <button x-show="canStartStop(s) && spaceStatus(s) === 'stopped'" @click="$refs.panel.close(); startSpace(s.space_id)" class="group nav-item text-sm px-4 w-full md:hidden" type="button">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" /></svg> Start
-                      </button>
-                      <button x-show="canStartStop(s) && (s.is_deployed || s.is_pending) && !s.is_deleting" :disabled="spaceStatus(s) === 'stopping'" @click="$refs.panel.close(); stopSpace(s.space_id)" class="group nav-item text-sm px-4 w-full md:hidden disabled:opacity-50" type="button">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path d="M5.25 3A2.25 2.25 0 0 0 3 5.25v9.5A2.25 2.25 0 0 0 5.25 17h9.5A2.25 2.25 0 0 0 17 14.75v-9.5A2.25 2.25 0 0 0 14.75 3h-9.5Z" /></svg> Stop
-                      </button>
+                      <!-- Restart lives in the row from md up -->
                       <button x-show="canStartStop(s) && s.is_deployed && !s.is_pending" @click="$refs.panel.close(); restartSpace(s.space_id)" class="group nav-item text-sm px-4 w-full md:hidden" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -346,6 +367,14 @@
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                         </svg> Edit
+                      </button>
+
+                      <!-- Narrow screens: the ID and key boxes are hidden, so copy from here -->
+                      <button x-show="s.is_local && s.platform == 'manual'" @click="$refs.panel.close(); copyToClipboard(s.space_id)" class="group nav-item text-sm px-4 w-full md:hidden" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg> Copy Space ID
+                      </button>
+                      <button x-show="s.is_local && s.platform == 'manual' && s.registration_key" @click="$refs.panel.close(); copyToClipboard(s.registration_key)" class="group nav-item text-sm px-4 w-full md:hidden" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" /></svg> Copy Agent Key
                       </button>
 
                       {{ if .permissionUseVSCodeTunnel }}

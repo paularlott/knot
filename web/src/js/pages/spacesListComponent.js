@@ -1196,6 +1196,24 @@ window.spacesListComponent = function (
         default: return s && s.platform === "manual" ? "Not connected" : "Stopped";
       }
     },
+    // One line of details under a space's name, holding what the columns
+    // hidden at its width would show: "Running, up 2h 14m · Docker ·
+    // node-dev · node-1". The host is always included.
+    spaceMeta(s, { status = false, platform = false, template = false } = {}) {
+      const parts = [];
+      if (status) {
+        const key = spaceStatusKey(s);
+        let text = this.statusLabel(s);
+        if (key === "starting" && s.pending_since) text += ` ${this.startingElapsed(s)}`;
+        else if ((key === "running" || key === "unhealthy") && s.uptime) text += `, up ${s.uptime}`;
+        else if (key === "stopped" && this.lastStartedText(s)) text += `, started ${this.lastStartedText(s)}`;
+        parts.push(text);
+      }
+      if (platform && this.platformBadge(s).label) parts.push(this.platformBadge(s).label);
+      if (template && s.template_name) parts.push(s.template_name);
+      if (s.node_hostname) parts.push(s.node_hostname);
+      return parts.join(" · ");
+    },
     // "1m 05s" since the current start began.
     startingElapsed(s) {
       if (!s || !s.pending_since) return "";
