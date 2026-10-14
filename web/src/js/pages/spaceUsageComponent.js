@@ -93,18 +93,24 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
       if (!this.history.length) {
         return `Usage history for ${range}: no data yet.`;
       }
+      const percent = (v) => `${v.toFixed(0)}%`;
+      const bytes = (v) => this.formatBytes(v);
+      const diskBytes = !this.diskHasLimit();
       const series = [
-        ["CPU", (p) => p.resource_usage?.cpu_percent || 0],
-        ["memory", (p) => this.usagePercent(p.resource_usage?.memory_used_bytes || 0, p.resource_usage?.memory_limit_bytes || 0)],
-        ["disk", (p) => this.usagePercent(p.resource_usage?.disk_used_bytes || 0, p.resource_usage?.disk_limit_bytes || 0)],
-      ].map(([name, fn]) => {
+        ["CPU", (p) => p.resource_usage?.cpu_percent || 0, percent],
+        ["memory", (p) => this.usagePercent(p.resource_usage?.memory_used_bytes || 0, p.resource_usage?.memory_limit_bytes || 0), percent],
+        diskBytes
+          ? ["disk used", (p) => p.resource_usage?.disk_used_bytes || 0, bytes]
+          : ["disk", (p) => this.usagePercent(p.resource_usage?.disk_used_bytes || 0, p.resource_usage?.disk_limit_bytes || 0), percent],
+      ].map(([name, fn, format]) => {
         const values = this.history.map(fn);
         const avg = values.reduce((a, b) => a + b, 0) / values.length;
         const max = Math.max(...values);
         const last = values[values.length - 1];
-        return `${name} averaged ${avg.toFixed(0)}%, peaked at ${max.toFixed(0)}%, latest ${last.toFixed(0)}%`;
+        return `${name} averaged ${format(avg)}, peaked at ${format(max)}, latest ${format(last)}`;
       });
-      return `Usage history for ${range}, ${this.history.length} points, as a percentage of each limit: ${series.join("; ")}.`;
+      const scale = diskBytes ? "CPU and memory as a percentage of each limit, disk as the space used" : "as a percentage of each limit";
+      return `Usage history for ${range}, ${this.history.length} points, ${scale}: ${series.join("; ")}.`;
     },
 
     renderChart() {
@@ -129,11 +135,17 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
           point.resource_usage?.memory_limit_bytes || 0,
         ),
       );
+      // With no disk limit — a space whose home is on the host's disk —
+      // there's nothing to take a percentage of, so disk is drawn as the
+      // space used, on its own axis.
+      const diskBytes = !this.diskHasLimit();
       const disk = this.history.map((point) =>
-        this.usagePercent(
-          point.resource_usage?.disk_used_bytes || 0,
-          point.resource_usage?.disk_limit_bytes || 0,
-        ),
+        diskBytes
+          ? point.resource_usage?.disk_used_bytes || 0
+          : this.usagePercent(
+              point.resource_usage?.disk_used_bytes || 0,
+              point.resource_usage?.disk_limit_bytes || 0,
+            ),
       );
 
       if (historyChart) {
@@ -171,8 +183,9 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
               pointRadius: markers,
             },
             {
-              label: "Disk %",
+              label: diskBytes ? "Disk used" : "Disk %",
               data: disk,
+              yAxisID: diskBytes ? "yDisk" : "y",
               borderColor: "#f59e0b",
               backgroundColor: "rgba(245, 158, 11, 0.15)",
               tension: 0.25,
@@ -211,8 +224,37 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
                 color: "rgba(148, 163, 184, 0.15)",
               },
             },
+            yDisk: {
+              display: diskBytes,
+              position: "right",
+              beginAtZero: true,
+              ticks: {
+                color: textColor,
+                callback: (value) => this.formatBytes(value),
+              },
+              grid: {
+                drawOnChartArea: false,
+              },
+            },
           },
           plugins: {
+            tooltip: {
+              callbacks: {
+                label: (item) => {
+                  const point = this.history[item.dataIndex]?.resource_usage || {};
+                  if (item.dataset.yAxisID === "yDisk") {
+                    return `Disk used: ${this.formatBytes(item.parsed.y)}`;
+                  }
+                  if (item.datasetIndex === 2) {
+                    return `Disk: ${item.parsed.y.toFixed(1)}% (${this.formatUsage(point.disk_used_bytes || 0, point.disk_limit_bytes || 0)})`;
+                  }
+                  if (item.datasetIndex === 1) {
+                    return `Memory: ${item.parsed.y.toFixed(1)}% (${this.formatUsage(point.memory_used_bytes || 0, point.memory_limit_bytes || 0)})`;
+                  }
+                  return `CPU: ${item.parsed.y.toFixed(1)}%`;
+                },
+              },
+            },
             legend: {
               labels: {
                 color: textColor,
@@ -223,6 +265,11 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
           },
         },
       });
+    },
+
+    // Whether the history has a disk limit to take a percentage of.
+    diskHasLimit() {
+      return this.history.some((point) => (point.resource_usage?.disk_limit_bytes || 0) > 0);
     },
 
     usagePercent(used, limit) {
