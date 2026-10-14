@@ -240,6 +240,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		HasTerminal:        hasTerminal,
 		HasJobs:            hasJobs,
 		JobsEnabled:        jobsEnabled,
+		Restricted:         space.Restrictions.Active,
 		HasHttpVNC:         hasHttpVNC,
 		HasState:           hasState,
 		TcpPorts:           tcpPorts,

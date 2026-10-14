@@ -548,6 +548,89 @@ def set_field(name, field, value):
     return True
 
 
+def _this_space():
+    """The id of the space this runs in, known only to the space's own credential."""
+    space_id = api.get("/api/users/whoami").get("space_id", "")
+    if not space_id:
+        raise Exception("not running inside a space, so name the space")
+    return space_id
+
+
+def restrict(name=None, buckets=None, files="", no_secrets=False, no_cli=False):
+    """Restrict what a space's own credential can do, until the space restarts.
+
+    From inside a space restrictions only ever tighten, so a startup script
+    can lock a space down before anything else in it runs. Any restriction
+    also confines the space: it can then act only on itself, the buckets it
+    is allowed, tunnels and port forwards, and start or stop other spaces.
+
+    Args:
+        name: Space name or ID, default the space this runs in
+        buckets: Bucket names to keep, each "name" or "name:ro" for read-only;
+            every other bucket is dropped. None keeps them all.
+        files: "ro" to make every bucket read-only, "none" to switch file
+            storage off, or "" to leave it
+        no_secrets: True to switch personal secrets off
+        no_cli: True to lock the space's processes out of knot, except
+            restarting or shutting the space down. Scripts started from
+            outside the space, such as startup scripts, keep working.
+
+    Returns:
+        The space's restrictions, as restrictions() returns them
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    body = {"no_secrets": bool(no_secrets), "no_cli": bool(no_cli), "files": files or ""}
+    if buckets is not None:
+        body["buckets"] = []
+        for b in buckets:
+            bucket_name, _, mode = str(b).partition(":")
+            if mode not in ("", "ro", "rw"):
+                raise Exception(f"bucket {b}: add :ro for read-only, or nothing")
+            body["buckets"].append({"name": bucket_name, "read_only": mode == "ro"})
+        if not body["buckets"]:
+            body["files"] = "none"
+    if name is None:
+        name = _this_space()
+    return api.post(f"/api/spaces/{_enc(name)}/restrict", body)
+
+
+def restrictions(name=None):
+    """Get a space's restrictions, including what its template switches off.
+
+    Args:
+        name: Space name or ID, default the space this runs in
+
+    Returns:
+        Dict with restricted, no_secrets, no_cli, files ("", "ro" or "none"),
+        limit_buckets, buckets (list of {name, read_only}),
+        template_no_files and template_no_secrets
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    if name is None:
+        name = _this_space()
+    return api.get(f"/api/spaces/{_enc(name)}/restrictions")
+
+
+def clear_restrictions(name):
+    """Lift all of a space's restrictions. Refused from inside a space, where
+    only restarting the space lifts them.
+
+    Args:
+        name: Space name or ID
+
+    Returns:
+        The space's restrictions, as restrictions() returns them
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    return api.delete(f"/api/spaces/{_enc(name)}/restrictions")
+
+
 def transfer(name, user_id):
     """Transfer a space to another user.
 

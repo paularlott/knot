@@ -16,6 +16,7 @@ type LinkedUserInfo struct {
 type UserResponse struct {
 	Id                         string           `json:"user_id"`
 	Username                   string           `json:"username"`
+	SpaceId                    string           `json:"space_id,omitempty"` // whoami from a space's own credential: that space
 	Email                      string           `json:"email"`
 	ServicePassword            string           `json:"service_password"`
 	Roles                      []string         `json:"roles"`

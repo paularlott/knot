@@ -71,8 +71,21 @@ func servePackage(w http.ResponseWriter, r *http.Request, name string, fetch fun
 
 // handleConnect hands in-space processes the server URL and token via the
 // local agent API — the HTTP equivalent of the agentlink socket connect. The
-// token acts as the space owner; the port only listens inside the space.
+// token, the one for processes, acts as the space owner; the port only
+// listens inside the space.
 func handleConnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"server":%q,"token":%q}`, agentClient.GetServerURL(), agentClient.GetAgentToken())
+	fmt.Fprintf(w, `{"server":%q,"token":%q}`, agentClient.GetServerURL(), agentClient.GetAgentCliToken())
+}
+
+// cliAllowed refuses a request from a process in a space that has locked
+// its processes out of knot (knot agent restrict --no-cli).
+func cliAllowed(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if agentClient.CliLocked() {
+			http.Error(w, "this space's command line is restricted until the space restarts", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
 }

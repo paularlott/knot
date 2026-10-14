@@ -124,13 +124,30 @@ type Principal struct {
 	CanShare    bool // holds the share-buckets permission
 	CanTransfer bool // holds the transfer-buckets permission
 	IsAdmin     bool // holds the manage-files permission
+
+	// Limit caps the access to each bucket, by bucket id, for a request
+	// from a restricted space: AccessNone hides the bucket and AccessRead
+	// makes it read-only. Nil means no cap. A limited principal never
+	// manages buckets — creating, sharing, transferring or deleting them —
+	// and has no file administrator powers.
+	Limit func(bucketId string) int
 }
 
 // A file administrator may do everything an owner may.
 
-func (p *Principal) mayOwn() bool      { return p.CanOwn || p.IsAdmin }
-func (p *Principal) mayShare() bool    { return p.CanShare || p.IsAdmin }
-func (p *Principal) mayTransfer() bool { return p.CanTransfer || p.IsAdmin }
+func (p *Principal) mayOwn() bool      { return p.Limit == nil && (p.CanOwn || p.IsAdmin) }
+func (p *Principal) mayShare() bool    { return p.Limit == nil && (p.CanShare || p.IsAdmin) }
+func (p *Principal) mayTransfer() bool { return p.Limit == nil && (p.CanTransfer || p.IsAdmin) }
+func (p *Principal) isAdmin() bool     { return p.Limit == nil && p.IsAdmin }
+
+// capped applies the principal's limit to an access level: owner access is
+// capped at write, as a limited principal never manages the bucket.
+func (p *Principal) capped(bucketId string, level int) int {
+	if p == nil || p.Limit == nil || level == AccessNone {
+		return level
+	}
+	return min(level, AccessWrite, p.Limit(bucketId))
+}
 
 var bucketNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
 
@@ -218,7 +235,7 @@ func ValidKey(key string) bool {
 // AccessFor returns the access level p has on bucket b: a file
 // administrator has owner access to every bucket.
 func (b *Bucket) AccessFor(p *Principal) int {
-	if p != nil && p.IsAdmin {
+	if p != nil && p.isAdmin() {
 		return AccessOwner
 	}
 	level, _, _ := b.AccessVia(p)
@@ -239,8 +256,20 @@ var viaRank = map[string]int{ViaUser: 3, ViaGroup: 2, ViaAll: 1}
 // AccessVia returns p's access to b, ignoring the file administrator's
 // blanket access, and how it is granted: as owner, by a grant to the user,
 // to one of their groups (with the group id) or to all users. The strongest
-// route wins; between equal ones a direct grant is preferred.
+// route wins; between equal ones a direct grant is preferred. A limited
+// principal's access is capped by its limit.
 func (b *Bucket) AccessVia(p *Principal) (level int, via string, groupId string) {
+	level, via, groupId = b.accessVia(p)
+	if capped := p.capped(b.Id, level); capped != level {
+		level = capped
+		if level == AccessNone {
+			via, groupId = "", ""
+		}
+	}
+	return level, via, groupId
+}
+
+func (b *Bucket) accessVia(p *Principal) (level int, via string, groupId string) {
 	if p == nil {
 		return AccessNone, "", ""
 	}

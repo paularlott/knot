@@ -29,6 +29,7 @@ type AgentClient struct {
 	defaultServerAddress   string // Default server address to connect to
 	spaceId                string // Space ID for the agent client
 	agentToken             string // Agent authentication token (same across all servers in zone)
+	agentCliToken          string // the token handed to processes in the space
 	serverURL              string // Server URL for API calls (any server in zone)
 	credentialsMutex       sync.RWMutex
 	serverListMutex        sync.RWMutex
@@ -325,6 +326,16 @@ func (c *AgentClient) GetAgentToken() string {
 	c.credentialsMutex.RLock()
 	defer c.credentialsMutex.RUnlock()
 	return c.agentToken
+}
+
+// GetAgentCliToken returns the token for processes in the space, such as
+// the knot command and scripts. The agent keeps its own token for the work
+// the server asks of it, so the space can lock its processes out without
+// stopping that.
+func (c *AgentClient) GetAgentCliToken() string {
+	c.credentialsMutex.RLock()
+	defer c.credentialsMutex.RUnlock()
+	return c.agentCliToken
 }
 
 func (c *AgentClient) GetServerURL() string {

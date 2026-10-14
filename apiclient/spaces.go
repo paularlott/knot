@@ -64,6 +64,7 @@ type SpaceInfo struct {
 	HasTerminal   bool     `json:"has_terminal"`
 	HasJobs       bool     `json:"has_jobs"`
 	JobsEnabled   bool     `json:"jobs_enabled"`
+	Restricted    bool     `json:"restricted"`
 	HasState      bool     `json:"has_state"`
 	IsDeployed    bool     `json:"is_deployed"`
 	IsPending     bool     `json:"is_pending"`
@@ -161,6 +162,7 @@ type SpaceDefinition struct {
 	HasTerminal        bool               `json:"has_terminal"`
 	HasJobs            bool               `json:"has_jobs"`
 	JobsEnabled        bool               `json:"jobs_enabled"`
+	Restricted         bool               `json:"restricted"`
 	HasHttpVNC         bool               `json:"has_http_vnc"`
 	HasState           bool               `json:"has_state"`
 	TcpPorts           map[string]string  `json:"tcp_ports"`

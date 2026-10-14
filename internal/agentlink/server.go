@@ -100,6 +100,18 @@ func handleCommandConnection(conn net.Conn) {
 		return
 	}
 
+	// A space that has locked its processes out of knot answers only what
+	// it still allows: restarting or shutting the space down, handing out the
+	// processes' token (good now only for reading the restrictions), and logs.
+	switch msg.Command {
+	case CommandConnect, CommandSpaceStop, CommandSpaceRestart, CommandLog:
+	default:
+		if agentClient.CliLocked() {
+			sendMsg(conn, CommandRestricted, nil)
+			return
+		}
+	}
+
 	switch msg.Command {
 	case CommandConnect:
 		handleConnect(conn, msg)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd/space"
+	command_restrict "github.com/paularlott/knot/command/restrict"
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
@@ -438,5 +439,7 @@ var AgentCmd = &cli.Command{
 		space.SpaceGetFieldCmd,
 		space.SpaceShutdownCmd,
 		space.SpaceRestartCmd,
+		command_restrict.RestrictCmd(false),
+		command_restrict.RestrictionsCmd(false),
 	},
 }

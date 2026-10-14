@@ -184,6 +184,11 @@ func handleAgentConnection(conn net.Conn) {
 		return
 	}
 	response.AgentToken = agentToken
+	if response.AgentCliToken, err = crypt.GenerateAgentCliToken(space.Id, user.Id, cfg.Zone, cfg.EncryptionKey); err != nil {
+		logger.WithError(err).Error("failed to generate agent cli token")
+		msg.WriteMessage(conn, &response)
+		return
+	}
 	response.ServerURL = cfg.URL
 	response.AgentEndpoint = cfg.AgentEndpoint
 	response.HealthCheckType = template.HealthCheckType

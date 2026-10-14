@@ -317,6 +317,7 @@ func (s *agentServer) ConnectAndServe() {
 			s.agentClient.credentialsMutex.Lock()
 			if s.agentClient.agentToken == "" {
 				s.agentClient.agentToken = response.AgentToken
+				s.agentClient.agentCliToken = response.AgentCliToken
 				s.agentClient.serverURL = response.ServerURL
 			}
 			s.agentClient.credentialsMutex.Unlock()

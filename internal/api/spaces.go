@@ -244,6 +244,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		// space is stopped — unlike the agent-reported state above.
 		s.HasJobs = len(space.Jobs) > 0
 		s.JobsEnabled = space.JobsEnabled && s.HasJobs
+		s.Restricted = space.Restrictions.Active
 
 		// Manual agents are started by hand, so their operator needs the
 		// registration key next to the space id. Only for the owner or
