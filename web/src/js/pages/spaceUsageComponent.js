@@ -147,6 +147,7 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
               point.resource_usage?.disk_limit_bytes || 0,
             ),
       );
+      const diskAxis = this.byteAxis(diskBytes ? Math.max(0, ...disk) : 0);
 
       if (historyChart) {
         historyChart.destroy();
@@ -228,9 +229,12 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
               display: diskBytes,
               position: "right",
               beginAtZero: true,
+              min: 0,
+              max: diskAxis.max,
               ticks: {
                 color: textColor,
-                callback: (value) => this.formatBytes(value),
+                stepSize: diskAxis.step,
+                callback: (value) => `${Number((value / diskAxis.divisor).toFixed(1))} ${diskAxis.unit}`,
               },
               grid: {
                 drawOnChartArea: false,
@@ -265,6 +269,25 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
           },
         },
       });
+    },
+
+    // A byte axis with round steps in a unit that suits the largest value:
+    // KB, MB, GB or TB, with a step of 1, 2, 2.5 or 5 times a power of ten
+    // of it, giving four to six steps, and the top rounded up to a step.
+    byteAxis(maxValue) {
+      const units = [["KB", 1024], ["MB", 1024 ** 2], ["GB", 1024 ** 3], ["TB", 1024 ** 4]];
+      let [unit, divisor] = units[1];
+      for (const [name, size] of units) {
+        if (maxValue >= size) {
+          [unit, divisor] = [name, size];
+        }
+      }
+      const top = Math.max(maxValue / divisor, 1);
+      const rough = top / 5;
+      const magnitude = 10 ** Math.floor(Math.log10(rough));
+      const factor = [1, 2, 2.5, 5, 10].find((f) => f * magnitude >= rough);
+      const step = factor * magnitude;
+      return { unit, divisor, step: step * divisor, max: Math.ceil(top / step) * step * divisor };
     },
 
     // Whether the history has a disk limit to take a percentage of.
