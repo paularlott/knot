@@ -1174,7 +1174,7 @@ export const knotLibraries = [
       {
         "name": "get",
         "signature": "get(path, field)",
-        "description": "Read a secret: path is a 1Password reference, op://vault/item/field (op://vault/item/section/field for a field in a section), or the shorthand vault/item with field as the second argument (default password); only inside a space",
+        "description": "Read a secret by its 1Password reference, op://vault/item/field (op://vault/item/section/field for a field in a section); only inside a space",
         "returns": "string"
       }
     ]
