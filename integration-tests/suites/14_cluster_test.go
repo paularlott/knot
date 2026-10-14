@@ -4,6 +4,7 @@ package suites
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/paularlott/knot/apiclient"
@@ -147,7 +148,37 @@ func TestClusterGossip(t *testing.T) {
 	}) {
 		t.Fatal("template created on node B never appeared on node A")
 	}
-	_ = tmplId
+
+	// A space running on A, locked with --no-cli through B: the change
+	// reaches its agent, which refuses the space's processes, and lifting
+	// it through B lets them back in.
+	space := harness.CreateSpace(t, adminA.Client, "it-cluster-nocli", tmplId, adminA.Id)
+	harness.DeleteSpaceAsync(t, adminA.Client, space)
+	harness.WaitForSpaceReady(t, nodeA, adminA.Client, space)
+	setField := func() string {
+		out, _ := harness.TryRunCommand(adminA.Client, space, 60, "sh", "-c", "/usr/local/bin/knot agent set-field x y 2>&1; echo EXIT=$?")
+		return out
+	}
+	ctx3, cancel3 := testCtx(60)
+	defer cancel3()
+	if !waitForCond(60, func() bool {
+		_, _, err := adminB.Client.GetSpaceRestrictions(ctx3, space)
+		return err == nil
+	}) {
+		t.Fatal("space created on node A never appeared on node B")
+	}
+	if _, _, err := adminB.Client.RestrictSpace(ctx3, space, &apiclient.SpaceRestrictRequest{NoCli: true}); err != nil {
+		t.Fatalf("restrict through node B: %v", err)
+	}
+	if !waitForCond(60, func() bool { return strings.Contains(setField(), "restricted") }) {
+		t.Fatalf("--no-cli set through node B never reached the space's agent: %q", setField())
+	}
+	if _, _, err := adminB.Client.ClearSpaceRestrictions(ctx3, space); err != nil {
+		t.Fatalf("lift through node B: %v", err)
+	}
+	if !waitForCond(60, func() bool { return strings.Contains(setField(), "EXIT=0") }) {
+		t.Fatalf("lifting --no-cli through node B never reached the space's agent: %q", setField())
+	}
 }
 
 func freePorts(t *testing.T, n int) (int, int) {

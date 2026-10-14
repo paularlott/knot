@@ -692,6 +692,18 @@ func (s *Session) SendJobsRun(name string) (*msg.JobsResponse, error) {
 // SendUpdateJobs pushes the space's persisted job definitions and runner
 // state to the agent. Fire-and-forget: if the agent is unreachable the push
 // is skipped and the definitions re-arrive in its next registration response.
+// SendUpdateRestrictions tells the agent whether the space has locked its
+// processes out of knot.
+func (s *Session) SendUpdateRestrictions(noCli bool) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	return msg.SendUpdateRestrictions(conn, noCli)
+}
+
 func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
 	conn, err := s.MuxSession.Open()
 	if err != nil {
@@ -700,4 +712,14 @@ func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
 	defer conn.Close()
 
 	return msg.SendUpdateJobs(conn, jobs, enabled)
+}
+
+// PushRestrictions tells the space's agent, if it's connected to this
+// server, whether the space has locked its processes out of knot.
+func PushRestrictions(space *model.Space) {
+	if session := GetSession(space.Id); session != nil {
+		if err := session.SendUpdateRestrictions(space.Restrictions.Active && space.Restrictions.NoCli); err != nil {
+			log.WithError(err).Warn("couldn't push the restrictions to the agent", "space_id", space.Id)
+		}
+	}
 }

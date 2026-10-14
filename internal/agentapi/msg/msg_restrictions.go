@@ -1,0 +1,32 @@
+package msg
+
+import (
+	"net"
+
+	"github.com/paularlott/knot/internal/log"
+)
+
+// UpdateRestrictionsMessage tells the agent what the space's restrictions
+// ask of it: NoCli locks the space's processes out of knot (knot agent
+// restrict --no-cli), so the agent refuses their requests other than
+// restarting or shutting the space down. Sent from the server to the agent
+// on every change; the registration response carries the same on
+// (re)connect.
+type UpdateRestrictionsMessage struct {
+	NoCli bool `json:"no_cli" msgpack:"no_cli"`
+}
+
+// SendUpdateRestrictions pushes the space's restrictions to the agent.
+// Fire-and-forget, like SendUpdateJobs.
+func SendUpdateRestrictions(conn net.Conn, noCli bool) error {
+	logger := log.WithGroup("agent")
+	if err := WriteCommand(conn, CmdUpdateRestrictions); err != nil {
+		logger.WithError(err).Error("writing update restrictions command")
+		return err
+	}
+	if err := WriteMessage(conn, &UpdateRestrictionsMessage{NoCli: noCli}); err != nil {
+		logger.WithError(err).Error("writing update restrictions message")
+		return err
+	}
+	return nil
+}

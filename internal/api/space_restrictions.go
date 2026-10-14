@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/filestore"
@@ -244,6 +245,7 @@ func resolveRestrictBuckets(space *model.Space, buckets []apiclient.SpaceRestric
 }
 
 func publishSpaceRestrictions(space *model.Space) {
+	agent_server.PushRestrictions(space)
 	if transport := service.GetTransport(); transport != nil {
 		transport.GossipSpace(space)
 	}

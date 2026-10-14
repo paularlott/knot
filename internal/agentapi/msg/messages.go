@@ -64,6 +64,7 @@ const (
 	CmdJobsRun
 	CmdUpdateJobs
 	CmdResolveUserSecret
+	CmdUpdateRestrictions
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {
