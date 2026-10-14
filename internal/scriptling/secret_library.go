@@ -47,7 +47,7 @@ func GetSecretLibrary() *object.Library {
 			return &object.Error{Message: rerr.Error()}
 		}
 		return object.NewString(value)
-	}, `get(path, field="") - Read one of your own secrets: path is vault/item (field defaults to password) or a complete op:// reference`)
+	}, `get(path, field="") - Read one of your own secrets: path is a 1Password reference, op://vault/item/field (op://vault/item/section/field for a field in a section), or the shorthand vault/item with field as the second argument (default password)`)
 
 	return builder.Build()
 }
