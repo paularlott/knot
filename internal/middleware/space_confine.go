@@ -117,11 +117,11 @@ func underPath(path, prefix string) bool {
 	return prefix[len(prefix)-1] == '/' || path[len(prefix)] == '/'
 }
 
-// spaceCliAllows reports whether processes in a space whose command line is
-// restricted (knot agent restrict --no-cli) may make the request with the
+// spaceLockAllows reports whether processes in a space whose command line is
+// restricted (knot restrict --lock) may make the request with the
 // token the agent hands them: only reading the space's own restrictions.
 // Restarting and shutting the space down go through the agent instead.
-func spaceCliAllows(space *model.Space, method, path string) bool {
+func spaceLockAllows(space *model.Space, method, path string) bool {
 	if method != http.MethodGet && method != http.MethodHead {
 		return false
 	}

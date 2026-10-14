@@ -63,7 +63,7 @@ func restrictionsResponse(space *model.Space) *apiclient.SpaceRestrictions {
 		SpaceName:    space.Name,
 		Restricted:   res.Active,
 		NoSecrets:    res.NoSecrets,
-		NoCli:        res.NoCli,
+		Locked:       res.Locked,
 		Files:        res.Files,
 		LimitBuckets: res.LimitBuckets,
 		Buckets:      []apiclient.SpaceRestrictBucket{},
@@ -145,7 +145,7 @@ func HandleRestrictSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	more := model.SpaceRestrictions{NoSecrets: request.NoSecrets, Files: request.Files, NoCli: request.NoCli}
+	more := model.SpaceRestrictions{NoSecrets: request.NoSecrets, Files: request.Files, Locked: request.Lock}
 	if len(request.Buckets) > 0 {
 		grants, err := resolveRestrictBuckets(space, request.Buckets)
 		if err != nil {
@@ -262,7 +262,7 @@ func auditRestrictions(r *http.Request, user *model.User, space *model.Space, de
 	}
 	if res != nil {
 		properties["no_secrets"] = res.NoSecrets
-		properties["no_cli"] = res.NoCli
+		properties["locked"] = res.Locked
 		properties["files"] = res.Files
 		if res.LimitBuckets {
 			names := make([]string, 0, len(res.Buckets))

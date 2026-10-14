@@ -556,7 +556,7 @@ def _this_space():
     return space_id
 
 
-def restrict(name=None, buckets=None, files="", no_secrets=False, no_cli=False):
+def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False):
     """Restrict what a space's own credential can do, until the space restarts.
 
     From inside a space restrictions only ever tighten, so a startup script
@@ -571,7 +571,7 @@ def restrict(name=None, buckets=None, files="", no_secrets=False, no_cli=False):
         files: "ro" to make every bucket read-only, "none" to switch file
             storage off, or "" to leave it
         no_secrets: True to switch personal secrets off
-        no_cli: True to lock the space's processes out of knot, except
+        lock: True to lock the space's processes out of knot, except
             restarting or shutting the space down. Scripts started from
             outside the space, such as startup scripts, keep working.
 
@@ -581,7 +581,7 @@ def restrict(name=None, buckets=None, files="", no_secrets=False, no_cli=False):
     Raises:
         Exception if not configured or on API error
     """
-    body = {"no_secrets": bool(no_secrets), "no_cli": bool(no_cli), "files": files or ""}
+    body = {"no_secrets": bool(no_secrets), "lock": bool(lock), "files": files or ""}
     if buckets is not None:
         body["buckets"] = []
         for b in buckets:
@@ -603,7 +603,7 @@ def restrictions(name=None):
         name: Space name or ID, default the space this runs in
 
     Returns:
-        Dict with restricted, no_secrets, no_cli, files ("", "ro" or "none"),
+        Dict with restricted, no_secrets, locked, files ("", "ro" or "none"),
         limit_buckets, buckets (list of {name, read_only}),
         template_no_files and template_no_secrets
 

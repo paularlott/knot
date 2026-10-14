@@ -17,6 +17,7 @@ import (
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	command_files "github.com/paularlott/knot/command/files"
+	command_restrict "github.com/paularlott/knot/command/restrict"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 
@@ -88,6 +89,8 @@ The agent connects environments to the knot server.`,
 			command_tunnel.TunnelCmd,
 			port.PortCmd,
 			command_runscript.RunScriptCmd,
+			command_restrict.RestrictCmd(false),
+			command_restrict.RestrictionsCmd(false),
 			cli.GenerateCompletionCommand(),
 		},
 		PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {

@@ -1,6 +1,6 @@
 // Package command_restrict holds the commands that restrict a space and
 // show its restrictions, shared by the knot command (knot space restrict)
-// and the agent inside a space (knot agent restrict).
+// and the agent inside a space (knot restrict).
 package command_restrict
 
 import (
@@ -18,7 +18,7 @@ import (
 
 const restrictDescription = "Any restriction also confines the space: it can then act only on itself, the buckets it's allowed, tunnels and port forwards, and start or stop other spaces. " +
 	"Repeat --bucket to keep only the buckets listed, adding :ro to make one read-only. " +
-	"--no-cli locks the space's processes out of knot entirely: only restarting or shutting the space down still works from inside, while port forwards and scripts started from outside the space keep working. "
+	"--lock locks the space's processes out of knot entirely: only restarting or shutting the space down still works from inside, while port forwards and scripts started from outside the space keep working. "
 
 // RestrictCmd restricts a space. With spaceArg the space can be named, and
 // defaults to the space it runs in; without, it's always that space.
@@ -44,7 +44,7 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 				Usage: "Switch personal secrets off.",
 			},
 			&cli.BoolFlag{
-				Name:  "no-cli",
+				Name:  "lock",
 				Usage: "Lock the space's processes out of knot, except restarting or shutting the space down.",
 			},
 			&cli.BoolFlag{Name: "json", Usage: "Print the restrictions as JSON"},
@@ -61,7 +61,7 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 
 			var res *apiclient.SpaceRestrictions
 			if spaceArg && cmd.GetBool("clear") {
-				if len(cmd.GetStringSlice("bucket")) > 0 || cmd.GetString("files") != "" || cmd.GetBool("no-files") || cmd.GetBool("no-secrets") || cmd.GetBool("no-cli") {
+				if len(cmd.GetStringSlice("bucket")) > 0 || cmd.GetString("files") != "" || cmd.GetBool("no-files") || cmd.GetBool("no-secrets") || cmd.GetBool("lock") {
 					return fmt.Errorf("--clear can't be used with other restrictions")
 				}
 				res, _, err = client.ClearSpaceRestrictions(ctx, space)
@@ -172,7 +172,7 @@ func targetSpace(cmd *cli.Command, spaceArg bool) (string, error) {
 func restrictRequest(cmd *cli.Command) (*apiclient.SpaceRestrictRequest, error) {
 	request := &apiclient.SpaceRestrictRequest{
 		NoSecrets: cmd.GetBool("no-secrets"),
-		NoCli:     cmd.GetBool("no-cli"),
+		Lock:      cmd.GetBool("lock"),
 		Files:     strings.ToLower(strings.TrimSpace(cmd.GetString("files"))),
 	}
 	switch request.Files {
@@ -216,9 +216,6 @@ func printRestrictions(res *apiclient.SpaceRestrictions) {
 		secrets = "off"
 	}
 	fmt.Printf("Secrets:     %s\n", secrets)
-	if res.NoCli {
-		fmt.Println("CLI:         restart and shut down only")
-	}
 
 	files := "all buckets"
 	switch {
@@ -244,6 +241,15 @@ func printRestrictions(res *apiclient.SpaceRestrictions) {
 				fmt.Printf("  %s\n", b.Name)
 			}
 		}
+	}
+
+	switch {
+	case res.Locked:
+		fmt.Println("Other:       locked, restart and shut down only")
+	case res.Restricted:
+		fmt.Println("Other:       confined to this space")
+	default:
+		fmt.Println("Other:       allowed")
 	}
 }
 

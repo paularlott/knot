@@ -78,12 +78,12 @@ func handleConnect(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"server":%q,"token":%q}`, agentClient.GetServerURL(), agentClient.GetAgentCliToken())
 }
 
-// cliAllowed refuses a request from a process in a space that has locked
-// its processes out of knot (knot agent restrict --no-cli).
-func cliAllowed(next http.HandlerFunc) http.HandlerFunc {
+// unlessLocked refuses a request from a process in a space that has locked
+// its processes out of knot (knot restrict --lock).
+func unlessLocked(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if agentClient.CliLocked() {
-			http.Error(w, "this space's command line is restricted until the space restarts", http.StatusForbidden)
+		if agentClient.SpaceLocked() {
+			http.Error(w, "this space is locked until it restarts", http.StatusForbidden)
 			return
 		}
 		next(w, r)

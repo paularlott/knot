@@ -32,12 +32,12 @@ type SpaceRestrictions struct {
 	Active    bool   `json:"active" msgpack:"active"`
 	NoSecrets bool   `json:"no_secrets" msgpack:"no_secrets"`
 	Files     string `json:"files" msgpack:"files"`
-	// NoCli locks the space's processes out of knot: the knot command and
+	// Locked locks the space's processes out of knot: the knot command and
 	// scripts in the space may then only restart or shut it down and show
 	// its restrictions. Requests from outside the space, which the agent
 	// carries out, such as port forwards and scripts run from the desktop,
 	// still work.
-	NoCli bool `json:"no_cli" msgpack:"no_cli"`
+	Locked bool `json:"locked" msgpack:"locked"`
 	// LimitBuckets makes Buckets an allowlist: buckets not in it are hidden.
 	LimitBuckets bool               `json:"limit_buckets" msgpack:"limit_buckets"`
 	Buckets      []SpaceBucketGrant `json:"buckets" msgpack:"buckets"`
@@ -82,7 +82,7 @@ func (r SpaceRestrictions) Narrow(more SpaceRestrictions) SpaceRestrictions {
 		Active:    true,
 		NoSecrets: r.NoSecrets || more.NoSecrets,
 		Files:     r.Files,
-		NoCli:     r.NoCli || more.NoCli,
+		Locked:    r.Locked || more.Locked,
 	}
 	if filesRank[more.Files] > filesRank[out.Files] {
 		out.Files = more.Files

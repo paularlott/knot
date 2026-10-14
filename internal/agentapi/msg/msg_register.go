@@ -54,5 +54,5 @@ type RegisterResponse struct {
 	DirectEnabled            bool   // if true, server supports direct agent-to-agent connections
 	PeerSecret               string // zone-wide shared secret for direct peer auth
 	AgentCliToken            string // handed to processes in the space instead of AgentToken
-	NoCli                    bool   // the space has locked its processes out of knot
+	Locked                   bool   // the space has locked its processes out of knot
 }

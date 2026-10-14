@@ -672,12 +672,8 @@
                       </ul>
                     </template>
                   </dd>
-                  <template x-if="spaceRestrictions.data.no_cli">
-                    <dt class="font-medium text-gray-900 dark:text-white">CLI</dt>
-                  </template>
-                  <template x-if="spaceRestrictions.data.no_cli">
-                    <dd>Restart and shut down only</dd>
-                  </template>
+                  <dt class="font-medium text-gray-900 dark:text-white">Other access</dt>
+                  <dd x-text="spaceRestrictions.data.locked ? 'Locked: restart and shut down only' : 'Confined to this space'"></dd>
                 </dl>
               </div>
             </template>

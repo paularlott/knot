@@ -30,7 +30,7 @@ type AgentClient struct {
 	spaceId                string      // Space ID for the agent client
 	agentToken             string      // Agent authentication token (same across all servers in zone)
 	agentCliToken          string      // the token handed to processes in the space
-	noCli                  atomic.Bool // the space has locked its processes out of knot
+	locked                 atomic.Bool // the space has locked its processes out of knot
 	serverURL              string      // Server URL for API calls (any server in zone)
 	credentialsMutex       sync.RWMutex
 	serverListMutex        sync.RWMutex
@@ -339,12 +339,12 @@ func (c *AgentClient) GetAgentCliToken() string {
 	return c.agentCliToken
 }
 
-// CliLocked reports whether the space has locked its processes out of knot
-// (knot agent restrict --no-cli). The agent then refuses their requests,
+// SpaceLocked reports whether the space has locked its processes out of knot
+// (knot restrict --lock). The agent then refuses their requests,
 // other than restarting or shutting the space down. The server says so in
 // each registration response and pushes every change over the agent link.
-func (c *AgentClient) CliLocked() bool {
-	return c.noCli.Load()
+func (c *AgentClient) SpaceLocked() bool {
+	return c.locked.Load()
 }
 
 func (c *AgentClient) GetServerURL() string {

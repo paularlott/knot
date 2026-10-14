@@ -37,12 +37,12 @@ const (
 	CommandJobsList
 	CommandJobsRun
 	CommandResolveUserSecret
-	CommandRestricted // the reply to a request refused because the space's command line is restricted
+	CommandLocked // the reply to a request refused because the space's command line is restricted
 )
 
-// ErrCliRestricted is returned for requests the agent refuses because the
-// space has locked its processes out of knot (knot agent restrict --no-cli).
-var ErrCliRestricted = errors.New("this space's command line is restricted until the space restarts")
+// ErrSpaceLocked is returned for requests the agent refuses because the
+// space has locked its processes out of knot (knot restrict --lock).
+var ErrSpaceLocked = errors.New("this space is locked until it restarts")
 
 type CommandMsg struct {
 	Command CommandType `msgpack:"c"`
@@ -202,18 +202,18 @@ func SendWithResponseMsg(commandType CommandType, payload interface{}, response 
 		if err != nil {
 			return err
 		}
-		if msgRec.Command == CommandRestricted {
-			return ErrCliRestricted
+		if msgRec.Command == CommandLocked {
+			return ErrSpaceLocked
 		}
 
 		err = msgRec.Unmarshal(response)
 		if err != nil {
 			return err
 		}
-	} else if msgRec, err := receiveMsgTimeout(conn, 30*time.Second); err == nil && msgRec.Command == CommandRestricted {
+	} else if msgRec, err := receiveMsgTimeout(conn, 30*time.Second); err == nil && msgRec.Command == CommandLocked {
 		// No reply is expected, but wait for the agent to finish, so a
 		// request it refused is reported rather than taken as done.
-		return ErrCliRestricted
+		return ErrSpaceLocked
 	}
 
 	return nil

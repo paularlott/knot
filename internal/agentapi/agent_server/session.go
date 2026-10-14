@@ -695,14 +695,14 @@ func (s *Session) SendJobsRun(name string) (*msg.JobsResponse, error) {
 // is skipped and the definitions re-arrive in its next registration response.
 // SendUpdateRestrictions tells the agent whether the space has locked its
 // processes out of knot.
-func (s *Session) SendUpdateRestrictions(noCli bool) error {
+func (s *Session) SendUpdateRestrictions(locked bool) error {
 	conn, err := s.MuxSession.Open()
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	return msg.SendUpdateRestrictions(conn, noCli)
+	return msg.SendUpdateRestrictions(conn, locked)
 }
 
 func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
@@ -719,7 +719,7 @@ func (s *Session) SendUpdateJobs(jobs []model.SpaceJob, enabled bool) error {
 // server, whether the space has locked its processes out of knot.
 func PushRestrictions(space *model.Space) {
 	if session := GetSession(space.Id); session != nil {
-		if err := session.SendUpdateRestrictions(space.Restrictions.Active && space.Restrictions.NoCli); err != nil {
+		if err := session.SendUpdateRestrictions(space.Restrictions.Active && space.Restrictions.Locked); err != nil {
 			log.WithError(err).Warn("couldn't push the restrictions to the agent", "space_id", space.Id)
 		}
 	}

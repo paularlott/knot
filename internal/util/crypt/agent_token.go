@@ -45,7 +45,7 @@ func GenerateAgentToken(spaceId, userId, zone, encryptionKey string) (string, er
 // GenerateAgentCliToken creates the token the agent hands to processes in
 // its space, such as the knot command and scripts: agc_<spaceId>_<signature>.
 // It acts like the agent token, but the server can tell the two apart, so a
-// space can lock its processes out (knot agent restrict --no-cli) while the
+// space can lock its processes out (knot restrict --lock) while the
 // agent keeps working for requests from outside the space.
 func GenerateAgentCliToken(spaceId, userId, zone, encryptionKey string) (string, error) {
 	if spaceId == "" || userId == "" || zone == "" || encryptionKey == "" {

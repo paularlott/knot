@@ -183,7 +183,7 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 
 				// The space's agent may hold its connection to this server
 				// rather than the one the restriction was made on.
-				if (space.Restrictions.Active && space.Restrictions.NoCli) != (localSpace.Restrictions.Active && localSpace.Restrictions.NoCli) {
+				if (space.Restrictions.Active && space.Restrictions.Locked) != (localSpace.Restrictions.Active && localSpace.Restrictions.Locked) {
 					agent_server.PushRestrictions(space)
 				}
 

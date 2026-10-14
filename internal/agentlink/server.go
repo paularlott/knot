@@ -106,8 +106,8 @@ func handleCommandConnection(conn net.Conn) {
 	switch msg.Command {
 	case CommandConnect, CommandSpaceStop, CommandSpaceRestart, CommandLog:
 	default:
-		if agentClient.CliLocked() {
-			sendMsg(conn, CommandRestricted, nil)
+		if agentClient.SpaceLocked() {
+			sendMsg(conn, CommandLocked, nil)
 			return
 		}
 	}

@@ -43,7 +43,7 @@ func TestSpaceRestrictions(t *testing.T) {
 		return out
 	}
 
-	out := run("/usr/local/bin/knot agent restrict --bucket it-notes:ro --bucket it-scratch --no-secrets")
+	out := run("/usr/local/bin/knot restrict --bucket it-notes:ro --bucket it-scratch --no-secrets")
 	if !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "it-notes (read-only)") {
 		t.Fatalf("restrict from inside the space: got %q", out)
 	}
@@ -69,10 +69,10 @@ func TestSpaceRestrictions(t *testing.T) {
 	}
 
 	// From inside, restrictions only tighten.
-	if out = run("/usr/local/bin/knot agent restrict --bucket it-private"); !strings.Contains(out, "no bucket named") {
+	if out = run("/usr/local/bin/knot restrict --bucket it-private"); !strings.Contains(out, "no bucket named") {
 		t.Fatalf("adding back a dropped bucket: want it unknown, got %q", out)
 	}
-	out = run("/usr/local/bin/knot agent restrict --bucket it-notes --bucket it-scratch")
+	out = run("/usr/local/bin/knot restrict --bucket it-notes --bucket it-scratch")
 	if !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "it-notes (read-only)") {
 		t.Fatalf("asking for read-write on a read-only bucket must keep it read-only, got %q", out)
 	}
@@ -117,7 +117,7 @@ except Exception as e:
 	}
 
 	// Restarting the space clears them.
-	if out = run("/usr/local/bin/knot agent restrict --no-files"); !strings.Contains(out, "EXIT=0") {
+	if out = run("/usr/local/bin/knot restrict --no-files"); !strings.Contains(out, "EXIT=0") {
 		t.Fatalf("restrict again: %q", out)
 	}
 	if _, err := adminUser.Client.RestartSpace(ctx, space); err != nil {
@@ -136,12 +136,12 @@ except Exception as e:
 	}
 }
 
-// TestSpaceNoCli proves knot agent restrict --no-cli locks a space's
+// TestSpaceLock proves knot restrict --lock locks a space's
 // processes out of knot — only showing the restrictions and restarting the
 // space still work from inside — while what's started from outside the
 // space keeps working: scripts run in it, with the knot API, and port
 // forwards added to it.
-func TestSpaceNoCli(t *testing.T) {
+func TestSpaceLock(t *testing.T) {
 	harness.Feature(t, "files")
 	s, adminUser := bootDedicated(t, "nocli", "--files-path", t.TempDir())
 
@@ -167,22 +167,22 @@ func TestSpaceNoCli(t *testing.T) {
 		return out
 	}
 
-	out := run("/usr/local/bin/knot agent restrict --no-cli")
+	out := run("/usr/local/bin/knot restrict --lock")
 	if !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "restart and shut down only") {
-		t.Fatalf("restrict --no-cli: got %q", out)
+		t.Fatalf("restrict --lock: got %q", out)
 	}
 
 	// Showing the restrictions still works; everything else is refused.
-	if out = run("/usr/local/bin/knot agent restrictions"); !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "restart and shut down only") {
-		t.Fatalf("restrictions after --no-cli: got %q", out)
+	if out = run("/usr/local/bin/knot restrictions"); !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "restart and shut down only") {
+		t.Fatalf("restrictions after --lock: got %q", out)
 	}
 	for _, cmd := range []string{
 		"/usr/local/bin/knot file bucket list",
 		"/usr/local/bin/knot agent set-field x y",
-		"/usr/local/bin/knot agent restrict --no-secrets",
+		"/usr/local/bin/knot restrict --no-secrets",
 		"/usr/local/bin/knot port forward 8023 it-nocli-target 2222",
 	} {
-		if out = run(cmd); strings.Contains(out, "EXIT=0") || !strings.Contains(out, "restricted") {
+		if out = run(cmd); strings.Contains(out, "EXIT=0") || !strings.Contains(out, "locked") {
 			t.Fatalf("%s: want it refused, got %q", cmd, out)
 		}
 	}
@@ -191,10 +191,10 @@ func TestSpaceNoCli(t *testing.T) {
 	probe := `import knot.space
 
 print("NAME:" + knot.space.get(knot.space._this_space())["name"])
-print("NOCLI:" + str(knot.space.restrictions()["no_cli"]))
+print("LOCKED:" + str(knot.space.restrictions()["locked"]))
 `
 	result, _, err := adminUser.Client.ExecuteScriptContent(ctx, space, probe, nil)
-	if err != nil || !strings.Contains(result, "NAME:it-nocli") || !strings.Contains(result, "NOCLI:True") {
+	if err != nil || !strings.Contains(result, "NAME:it-nocli") || !strings.Contains(result, "LOCKED:True") {
 		t.Fatalf("script run from outside: %q, %v", result, err)
 	}
 

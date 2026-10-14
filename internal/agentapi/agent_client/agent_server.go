@@ -314,7 +314,7 @@ func (s *agentServer) ConnectAndServe() {
 			// Store the agent token and server URL at AgentClient level
 			// Note: All servers in the zone generate identical tokens (deterministic HMAC)
 			// so we only need to store once, on first successful registration
-			s.agentClient.noCli.Store(response.NoCli)
+			s.agentClient.locked.Store(response.Locked)
 
 			s.agentClient.credentialsMutex.Lock()
 			if s.agentClient.agentToken == "" {
@@ -916,7 +916,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			log.WithError(err).Error("reading update restrictions message:")
 			return
 		}
-		s.agentClient.noCli.Store(updateMsg.NoCli)
+		s.agentClient.locked.Store(updateMsg.Locked)
 
 	case byte(msg.CmdUpdateJobs):
 		var updateMsg msg.UpdateJobsMessage

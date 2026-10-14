@@ -149,7 +149,7 @@ func TestClusterGossip(t *testing.T) {
 		t.Fatal("template created on node B never appeared on node A")
 	}
 
-	// A space running on A, locked with --no-cli through B: the change
+	// A space running on A, locked with --lock through B: the change
 	// reaches its agent, which refuses the space's processes, and lifting
 	// it through B lets them back in.
 	space := harness.CreateSpace(t, adminA.Client, "it-cluster-nocli", tmplId, adminA.Id)
@@ -167,17 +167,17 @@ func TestClusterGossip(t *testing.T) {
 	}) {
 		t.Fatal("space created on node A never appeared on node B")
 	}
-	if _, _, err := adminB.Client.RestrictSpace(ctx3, space, &apiclient.SpaceRestrictRequest{NoCli: true}); err != nil {
+	if _, _, err := adminB.Client.RestrictSpace(ctx3, space, &apiclient.SpaceRestrictRequest{Lock: true}); err != nil {
 		t.Fatalf("restrict through node B: %v", err)
 	}
-	if !waitForCond(60, func() bool { return strings.Contains(setField(), "restricted") }) {
-		t.Fatalf("--no-cli set through node B never reached the space's agent: %q", setField())
+	if !waitForCond(60, func() bool { return strings.Contains(setField(), "locked") }) {
+		t.Fatalf("--lock set through node B never reached the space's agent: %q", setField())
 	}
 	if _, _, err := adminB.Client.ClearSpaceRestrictions(ctx3, space); err != nil {
 		t.Fatalf("lift through node B: %v", err)
 	}
 	if !waitForCond(60, func() bool { return strings.Contains(setField(), "EXIT=0") }) {
-		t.Fatalf("lifting --no-cli through node B never reached the space's agent: %q", setField())
+		t.Fatalf("lifting --lock through node B never reached the space's agent: %q", setField())
 	}
 }
 

@@ -20,9 +20,9 @@ type SpaceRestrictRequest struct {
 	NoSecrets bool                  `json:"no_secrets" msgpack:"no_secrets"`
 	Files     string                `json:"files" msgpack:"files"` // "", "ro" or "none"
 	Buckets   []SpaceRestrictBucket `json:"buckets,omitempty" msgpack:"buckets,omitempty"`
-	// NoCli locks the space's processes out of knot, except restarting or
+	// Lock locks the space's processes out of knot, except restarting or
 	// shutting the space down.
-	NoCli bool `json:"no_cli" msgpack:"no_cli"`
+	Lock bool `json:"lock" msgpack:"lock"`
 }
 
 // SpaceRestrictions reports what a space's own credential is restricted
@@ -32,7 +32,7 @@ type SpaceRestrictions struct {
 	SpaceName  string `json:"space_name" msgpack:"space_name"`
 	Restricted bool   `json:"restricted" msgpack:"restricted"`
 	NoSecrets  bool   `json:"no_secrets" msgpack:"no_secrets"`
-	NoCli      bool   `json:"no_cli" msgpack:"no_cli"`
+	Locked     bool   `json:"locked" msgpack:"locked"`
 	Files      string `json:"files" msgpack:"files"` // "", "ro" or "none"
 	// LimitBuckets is set when only the listed buckets may be reached.
 	LimitBuckets      bool                  `json:"limit_buckets" msgpack:"limit_buckets"`

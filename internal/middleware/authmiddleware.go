@@ -286,9 +286,9 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				rest.WriteResponse(http.StatusServiceUnavailable, w, r.WithContext(ctx), ErrorResponse{Error: "Authentication is temporarily unavailable"})
 				return
 			}
-			if fromCli, _ := ctx.Value("space_cli").(bool); fromCli && space.Restrictions.NoCli && !spaceCliAllows(space, r.Method, r.URL.Path) {
+			if fromCli, _ := ctx.Value("space_cli").(bool); fromCli && space.Restrictions.Locked && !spaceLockAllows(space, r.Method, r.URL.Path) {
 				rest.WriteResponse(http.StatusForbidden, w, r.WithContext(ctx), ErrorResponse{
-					Error: "this space's command line is restricted until the space restarts",
+					Error: "this space is locked until it restarts",
 				})
 				return
 			}

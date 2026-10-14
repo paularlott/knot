@@ -41,9 +41,9 @@ func TestSpaceRestrictionsBucketAccess(t *testing.T) {
 }
 
 func TestSpaceRestrictionsNarrowOnlyTightens(t *testing.T) {
-	r := SpaceRestrictions{}.Narrow(SpaceRestrictions{NoSecrets: true, NoCli: true, Files: SpaceFilesNone})
+	r := SpaceRestrictions{}.Narrow(SpaceRestrictions{NoSecrets: true, Locked: true, Files: SpaceFilesNone})
 	r = r.Narrow(SpaceRestrictions{Files: SpaceFilesReadOnly})
-	if !r.Active || !r.NoSecrets || !r.NoCli || r.Files != SpaceFilesNone {
+	if !r.Active || !r.NoSecrets || !r.Locked || r.Files != SpaceFilesNone {
 		t.Fatalf("a later, looser restriction loosened them: %+v", r)
 	}
 

@@ -84,7 +84,7 @@ func TestSpaceCliAllows(t *testing.T) {
 		{"GET", "/tunnel/spaces/web/8080", false},
 	}
 	for _, c := range cases {
-		if got := spaceCliAllows(space, c.method, c.path); got != c.want {
+		if got := spaceLockAllows(space, c.method, c.path); got != c.want {
 			t.Errorf("%s %s: got %v, want %v", c.method, c.path, got, c.want)
 		}
 	}
