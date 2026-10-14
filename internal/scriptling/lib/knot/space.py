@@ -571,9 +571,11 @@ def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False):
         files: "ro" to make every bucket read-only, "none" to switch file
             storage off, or "" to leave it
         no_secrets: True to switch personal secrets off (Knot Pro)
-        lock: True to lock the space's processes out of knot, except
-            restarting or shutting the space down. Scripts started from
-            outside the space, such as startup scripts, keep working.
+        lock: True to lock the space's processes out of everything but file
+            storage and personal secrets, which their own restrictions
+            govern, and restarting or shutting the space down. Scripts
+            started from outside the space, such as startup scripts, keep
+            working.
 
     Returns:
         The space's restrictions, as restrictions() returns them

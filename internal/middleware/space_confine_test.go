@@ -75,10 +75,13 @@ func TestSpaceCliAllows(t *testing.T) {
 		{"GET", "/api/spaces/dev/restrictions", true},
 		{"GET", "/api/spaces/" + space.Id + "/restrictions", true},
 		{"DELETE", "/api/spaces/dev/restrictions", false},
-		{"POST", "/api/spaces/dev/restrict", false},
+		{"POST", "/api/spaces/dev/restrict", true}, // adding restrictions only tightens
+		{"POST", "/api/spaces/other/restrict", false},
 		{"GET", "/api/spaces/other/restrictions", false},
 		{"GET", "/api/spaces/dev", false},
-		{"GET", "/api/files/buckets", false},
+		{"GET", "/api/files/buckets", true}, // file storage: the bucket restrictions govern it
+		{"PUT", "/api/files/objects/notes/a.txt", true},
+		{"GET", "/api/filesystem", false},
 		{"GET", "/api/users/whoami", false},
 		{"POST", "/api/spaces/dev/restart", false},
 		{"GET", "/tunnel/spaces/web/8080", false},

@@ -117,18 +117,30 @@ func underPath(path, prefix string) bool {
 	return prefix[len(prefix)-1] == '/' || path[len(prefix)] == '/'
 }
 
-// spaceLockAllows reports whether processes in a space whose command line is
-// restricted (knot restrict --lock) may make the request with the
-// token the agent hands them: only reading the space's own restrictions.
-// Restarting and shutting the space down go through the agent instead.
+// spaceLockAllows reports whether processes in a locked space (knot
+// restrict --lock) may make the request with the token the agent hands
+// them. The lock covers everything except file storage, which the bucket
+// restrictions govern, reading the space's own restrictions, and adding to
+// them, which can only tighten; personal secrets aren't asked for over
+// HTTP. Restarting and shutting the space down go through the agent
+// instead.
 func spaceLockAllows(space *model.Space, method, path string) bool {
-	if method != http.MethodGet && method != http.MethodHead {
-		return false
+	if underPath(path, "/api/files") {
+		return true
 	}
 	rest, ok := strings.CutPrefix(path, "/api/spaces/")
 	if !ok {
 		return false
 	}
 	parts := strings.Split(rest, "/")
-	return len(parts) == 2 && (parts[0] == space.Id || parts[0] == space.Name) && parts[1] == "restrictions"
+	if len(parts) != 2 || (parts[0] != space.Id && parts[0] != space.Name) {
+		return false
+	}
+	switch {
+	case parts[1] == "restrictions":
+		return method == http.MethodGet || method == http.MethodHead
+	case parts[1] == "restrict":
+		return method == http.MethodPost
+	}
+	return false
 }

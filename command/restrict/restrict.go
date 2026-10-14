@@ -18,7 +18,7 @@ import (
 
 const restrictDescription = "Any restriction also confines the space: it can then act only on itself, the buckets it's allowed, tunnels and port forwards, and start or stop other spaces. " +
 	"Repeat --bucket to keep only the buckets listed, adding :ro to make one read-only. " +
-	"--lock locks the space's processes out of knot entirely: only restarting or shutting the space down still works from inside, while port forwards and scripts started from outside the space keep working. "
+	"--lock locks the space's processes out of everything else: beyond the files they're allowed, they can only restart or shut the space down, while port forwards and scripts started from outside the space keep working. "
 
 // secretsEnabled is set by Knot Pro, which has personal secrets; until then
 // the secrets restriction stays out of sight.
@@ -67,7 +67,7 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 			noSecretsFlag(),
 			&cli.BoolFlag{
 				Name:  "lock",
-				Usage: "Lock the space's processes out of knot, except restarting or shutting the space down.",
+				Usage: "Lock the space's processes out of everything but their files, and restarting or shutting the space down.",
 			},
 			&cli.BoolFlag{Name: "json", Usage: "Print the restrictions as JSON"},
 		},

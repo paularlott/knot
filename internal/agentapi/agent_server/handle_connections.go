@@ -675,10 +675,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleEvent(stream, session)
 			return
 
-		case byte(msg.CmdResolveUserSecret):
-			handleResolveUserSecret(stream, session)
-			return
-
 		case byte(msg.CmdPeerRequestIntro):
 			var req msg.PeerRequestIntro
 			if err := msg.ReadMessage(stream, &req); err != nil {
@@ -694,6 +690,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			}
 
 		default:
+			if handler := streamHandler(cmd); handler != nil {
+				handler(stream, session)
+				return
+			}
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
 		}

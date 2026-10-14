@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"sync"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 
@@ -100,11 +101,13 @@ func handleCommandConnection(conn net.Conn) {
 		return
 	}
 
-	// A space that has locked its processes out of knot answers only what
-	// it still allows: restarting or shutting the space down, handing out the
-	// processes' token (good now only for reading the restrictions), and logs.
+	// A locked space (knot restrict --lock) answers only what it still
+	// allows: restarting or shutting the space down, handing out the
+	// processes' token (good for file storage and reading the restrictions),
+	// logs, and personal secrets, which the server allows unless the space
+	// switched them off.
 	switch msg.Command {
-	case CommandConnect, CommandSpaceStop, CommandSpaceRestart, CommandLog:
+	case CommandConnect, CommandSpaceStop, CommandSpaceRestart, CommandLog, CommandResolveUserSecret:
 	default:
 		if agentClient.SpaceLocked() {
 			sendMsg(conn, CommandLocked, nil)
@@ -124,9 +127,6 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandSpaceGetField:
 		handleSpaceGetField(conn, msg)
-
-	case CommandResolveUserSecret:
-		handleResolveUserSecret(conn, msg)
 
 	case CommandSpaceStop:
 		handleSpaceStop(conn, msg)
@@ -175,5 +175,40 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandJobsRun:
 		handleJobsRun(conn, msg)
+
+	default:
+		if handler := registeredHandler(msg.Command); handler != nil {
+			handler(conn, msg)
+		}
 	}
+}
+
+// Commands from processes in the space that a registered handler answers
+// rather than one built in here, such as personal secrets in Knot Pro.
+var (
+	handlersMu sync.RWMutex
+	handlers   = map[CommandType]func(conn net.Conn, msg *CommandMsg){}
+)
+
+// RegisterHandler answers cmd from processes in the space with handler.
+func RegisterHandler(cmd CommandType, handler func(conn net.Conn, msg *CommandMsg)) {
+	handlersMu.Lock()
+	defer handlersMu.Unlock()
+	handlers[cmd] = handler
+}
+
+func registeredHandler(cmd CommandType) func(conn net.Conn, msg *CommandMsg) {
+	handlersMu.RLock()
+	defer handlersMu.RUnlock()
+	return handlers[cmd]
+}
+
+// Client is the agent the command socket serves, for registered handlers.
+func Client() *agent_client.AgentClient {
+	return agentClient
+}
+
+// Reply sends a registered handler's response to the process that asked.
+func Reply(conn net.Conn, response interface{}) error {
+	return sendMsg(conn, CommandNil, response)
 }

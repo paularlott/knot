@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/filestore"
@@ -67,8 +68,8 @@ func restrictionsResponse(space *model.Space) *apiclient.SpaceRestrictions {
 		Files:        res.Files,
 		LimitBuckets: res.LimitBuckets,
 		Buckets:      []apiclient.SpaceRestrictBucket{},
-		// Personal secrets are part of Knot Pro, which installs the hook.
-		SecretsAvailable: agent_server.UserSecretResolveHook != nil,
+		// Personal secrets are part of Knot Pro, which answers the request.
+		SecretsAvailable: agent_server.HasStreamHandler(byte(msg.CmdResolveUserSecret)),
 	}
 	if space.TemplateId != "" {
 		if template, err := database.GetInstance().GetTemplate(space.TemplateId); err == nil && template != nil {
@@ -127,8 +128,8 @@ func HandleRestrictSpace(w http.ResponseWriter, r *http.Request) {
 	}
 	request.Files = strings.ToLower(strings.TrimSpace(request.Files))
 	// The secrets restriction only means something where there are
-	// personal secrets (Knot Pro, which installs the hook).
-	if agent_server.UserSecretResolveHook == nil {
+	// personal secrets (Knot Pro, which answers the request).
+	if !agent_server.HasStreamHandler(byte(msg.CmdResolveUserSecret)) {
 		request.NoSecrets = false
 	}
 	if !model.ValidSpaceFilesMode(request.Files) {

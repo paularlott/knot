@@ -7,9 +7,9 @@ import (
 )
 
 // UpdateRestrictionsMessage tells the agent what the space's restrictions
-// ask of it: Locked locks the space's processes out of knot (knot agent
-// restrict --lock), so the agent refuses their requests other than
-// restarting or shutting the space down. Sent from the server to the agent
+// ask of it: Locked locks the space's processes out of everything but file
+// storage and personal secrets (knot restrict --lock), so the agent refuses
+// their other requests, apart from restarting or shutting the space down. Sent from the server to the agent
 // on every change; the registration response carries the same on
 // (re)connect.
 type UpdateRestrictionsMessage struct {

@@ -176,6 +176,12 @@ func IsAgentRunning() bool {
 }
 
 func SendWithResponseMsg(commandType CommandType, payload interface{}, response interface{}) error {
+	return SendWithResponseMsgTimeout(commandType, payload, response, 3*time.Second)
+}
+
+// SendWithResponseMsgTimeout is SendWithResponseMsg waiting up to timeout
+// for the reply, for requests the agent passes on to the server.
+func SendWithResponseMsgTimeout(commandType CommandType, payload interface{}, response interface{}, timeout time.Duration) error {
 	// Check socket path exists
 	socketPath := commandSocketFile()
 	if socketPath == "" {
@@ -198,7 +204,7 @@ func SendWithResponseMsg(commandType CommandType, payload interface{}, response 
 
 	if response != nil {
 		// Read response length
-		msgRec, err := receiveMsg(conn)
+		msgRec, err := receiveMsgTimeout(conn, timeout)
 		if err != nil {
 			return err
 		}

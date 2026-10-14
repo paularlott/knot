@@ -171,9 +171,10 @@ func restartAndWait(t *testing.T, client *apiclient.ApiClient, space string, res
 	})
 }
 
-// TestSpaceLock proves knot restrict --lock locks a space's
-// processes out of knot — only showing the restrictions and restarting the
-// space still work from inside — while what's started from outside the
+// TestSpaceLock proves knot restrict --lock locks a space's processes out
+// of everything but file storage, which the bucket restrictions govern —
+// otherwise only showing the restrictions and restarting the space still
+// work from inside — while what's started from outside the
 // space keeps working: scripts run in it, with the knot API, and port
 // forwards added to it.
 func TestSpaceLock(t *testing.T) {
@@ -207,19 +208,26 @@ func TestSpaceLock(t *testing.T) {
 		t.Fatalf("restrict --lock: got %q", out)
 	}
 
-	// Showing the restrictions still works; everything else is refused.
+	// Showing the restrictions and file storage still work — the bucket
+	// restrictions govern files — and everything else is refused.
 	if out = run("/usr/local/bin/knot restrictions"); !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "restart and shut down only") {
 		t.Fatalf("restrictions after --lock: got %q", out)
 	}
+	if out = run("/usr/local/bin/knot file bucket list"); !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "it-locked") {
+		t.Fatalf("file storage under --lock: want it allowed, got %q", out)
+	}
 	for _, cmd := range []string{
-		"/usr/local/bin/knot file bucket list",
 		"/usr/local/bin/knot agent set-field x y",
-		"/usr/local/bin/knot restrict --no-files",
 		"/usr/local/bin/knot port forward 8023 it-nocli-target 2222",
 	} {
 		if out = run(cmd); strings.Contains(out, "EXIT=0") || !strings.Contains(out, "locked") {
 			t.Fatalf("%s: want it refused, got %q", cmd, out)
 		}
+	}
+
+	// More restrictions can still be added, as they only tighten.
+	if out = run("/usr/local/bin/knot restrict --bucket it-locked"); !strings.Contains(out, "EXIT=0") || !strings.Contains(out, "it-locked") {
+		t.Fatalf("adding restrictions under --lock: want it allowed, got %q", out)
 	}
 
 	// A script run in the space from outside still uses the knot API.
@@ -254,7 +262,7 @@ print("LOCKED:" + str(knot.space.restrictions()["locked"]))
 		}
 	})
 	waitFor(t, 60, func() bool {
-		out := run("/usr/local/bin/knot file bucket list")
+		out := run("/usr/local/bin/knot agent set-field x y")
 		return strings.Contains(out, "locked") && !strings.Contains(out, "EXIT=0")
 	})
 	if res, _, err := adminUser.Client.GetSpaceRestrictions(ctx, space); err != nil || !res.Locked {

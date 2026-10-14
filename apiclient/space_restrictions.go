@@ -20,8 +20,9 @@ type SpaceRestrictRequest struct {
 	NoSecrets bool                  `json:"no_secrets" msgpack:"no_secrets"`
 	Files     string                `json:"files" msgpack:"files"` // "", "ro" or "none"
 	Buckets   []SpaceRestrictBucket `json:"buckets,omitempty" msgpack:"buckets,omitempty"`
-	// Lock locks the space's processes out of knot, except restarting or
-	// shutting the space down.
+	// Lock locks the space's processes out of everything but file storage
+	// and personal secrets, which their own restrictions govern, and
+	// restarting or shutting the space down.
 	Lock bool `json:"lock" msgpack:"lock"`
 }
 
