@@ -97,7 +97,7 @@
             <div x-show="!loading && skills.length === 0" x-cloak>
         {{ template "empty" (map "heading" "No skills yet" "text" "Skills are instructions and know-how that AI assistants in your spaces can load when they need them." "action" (or (and (or .isLeafNode .permissionManageOwnSkills) "New Personal Skill") (and .permissionManageSkills "New Global Skill")) "click" (or (and (or .isLeafNode .permissionManageOwnSkills) "createSkill(true)") "createSkill(false)")) }}
       </div>
-      <div x-show="!loading && skills.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+      <div x-show="!loading && skills.length > 0" x-cloak class="relative overflow-x-auto rounded-lg">
         <table aria-label="Skills" class="w-full text-sm text-left rtl:text-right">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>

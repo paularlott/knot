@@ -97,7 +97,7 @@
             <div x-show="!loading && commands.length === 0" x-cloak>
         {{ template "empty" (map "heading" "No slash commands yet" "text" "Slash commands are reusable prompts that AI assistants in your spaces can run by name, such as /review." "action" (or (and (or .isLeafNode .permissionManageOwnSlashCommands) "New Personal Command") (and .permissionManageSlashCommands "New Global Command")) "click" (or (and (or .isLeafNode .permissionManageOwnSlashCommands) "createCommand(true)") "createCommand(false)")) }}
       </div>
-      <div x-show="!loading && commands.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+      <div x-show="!loading && commands.length > 0" x-cloak class="relative overflow-x-auto rounded-lg">
         <table aria-label="Slash Commands" class="w-full text-sm text-left rtl:text-right">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>

@@ -75,7 +75,7 @@
             <p role="status" x-text="buckets.length > 0 && filteredBuckets.length === 0 ? 'No buckets match “' + searchTerm.trim() + '”.' : ''"></p>
             <button type="button" class="btn-secondary mt-3" @click="clearBucketSearch()">Clear search</button>
           </div>
-          <div x-show="!loading && filteredBuckets.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+          <div x-show="!loading && filteredBuckets.length > 0" x-cloak class="relative overflow-x-auto rounded-lg">
             <table aria-label="Buckets" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
               <caption class="sr-only">Buckets you own or that are shared with you</caption>
               <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
@@ -203,7 +203,7 @@
             This folder is empty.
           </div>
 
-          <div x-show="folders.length > 0 || files.length > 0" class="relative overflow-x-auto sm:rounded-lg">
+          <div x-show="folders.length > 0 || files.length > 0" class="relative overflow-x-auto rounded-lg">
             <table :aria-label="'Contents of ' + label(bucket) + (prefix ? '/' + prefix : '')" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
               <caption class="sr-only" x-text="'Contents of ' + label(bucket) + (prefix ? '/' + prefix : '')"></caption>
               <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">

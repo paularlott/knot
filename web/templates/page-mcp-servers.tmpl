@@ -35,7 +35,7 @@
             <div x-show="!loading && servers.length === 0" x-cloak>
         {{ template "empty" (map "heading" "No MCP servers yet" "text" "MCP servers give AI assistants in your spaces extra tools, such as access to other services." "action" "New MCP Server" "click" "createServer()") }}
       </div>
-      <div x-show="!loading && servers.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+      <div x-show="!loading && servers.length > 0" x-cloak class="relative overflow-x-auto rounded-lg">
         <table aria-label="MCP Servers" class="w-full text-sm text-left rtl:text-right">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>

@@ -77,7 +77,7 @@
             <div x-show="!loading && sinks.length === 0" x-cloak>
         {{ template "empty" (map "heading" "No event sinks yet" "text" "Event sinks send knot events, such as a space starting, to a webhook, script or JSON-RPC endpoint." "action" (or (and (or .isLeafNode .permissionManageEvents) "New Personal Event Sink") (and .permissionManageGlobalEvents "New Global Event Sink")) "click" (or (and (or .isLeafNode .permissionManageEvents) "createSink(false)") "createSink(true)")) }}
       </div>
-      <div x-show="!loading && sinks.length > 0" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+      <div x-show="!loading && sinks.length > 0" x-cloak class="relative overflow-x-auto rounded-lg">
         <table aria-label="Event Sinks" class="w-full text-sm text-left rtl:text-right">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
             <tr>
