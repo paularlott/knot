@@ -290,9 +290,13 @@ window.spaceUsageComponent = function (spaceId, initialSpaceName) {
       return { unit, divisor, step: step * divisor, max: Math.ceil(top / step) * step * divisor };
     },
 
-    // Whether the history has a disk limit to take a percentage of.
+    // Whether the space's disk has a limit to take a percentage of, going by
+    // the latest point: points from before a change, such as older agents
+    // that reported the host's disk as the limit, mustn't flatten the newer
+    // ones. Every point carries the bytes used, so all draw on a byte axis.
     diskHasLimit() {
-      return this.history.some((point) => (point.resource_usage?.disk_limit_bytes || 0) > 0);
+      const latest = this.history[this.history.length - 1];
+      return (latest?.resource_usage?.disk_limit_bytes || 0) > 0;
     },
 
     usagePercent(used, limit) {
