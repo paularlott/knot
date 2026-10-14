@@ -478,7 +478,28 @@ func (s *agentServer) Shutdown() {
 	s.teardownConnectionsLocked()
 }
 
+// logBacklogLimit is how many messages a server's log worker holds while it
+// has no connection to the server, such as while the agent first registers
+// or reconnects, so a space's start-up logs aren't lost. Past it the oldest
+// are dropped.
+const logBacklogLimit = 1000
+
+// logRetryInterval is how often a log worker with a backlog tries the
+// server again.
+const logRetryInterval = 250 * time.Millisecond
+
 func (s *agentServer) logWorker() {
+	var backlog []func(net.Conn) error
+	queue := func(send func(net.Conn) error) {
+		backlog = append(backlog, send)
+		if len(backlog) > logBacklogLimit {
+			backlog = backlog[len(backlog)-logBacklogLimit:]
+		}
+		backlog = s.flushLogBacklog(backlog)
+	}
+
+	retry := time.NewTicker(logRetryInterval)
+	defer retry.Stop()
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -487,14 +508,30 @@ func (s *agentServer) logWorker() {
 			if logMsg == nil {
 				continue
 			}
-			s.sendOnLogConn(func(conn net.Conn) error { return msg.SendLogMessage(conn, logMsg) })
+			queue(func(conn net.Conn) error { return msg.SendLogMessage(conn, logMsg) })
 		case authResult := <-s.authChannel:
 			if authResult == nil {
 				continue
 			}
-			s.sendOnLogConn(func(conn net.Conn) error { return msg.SendSSHAuthResult(conn, authResult) })
+			queue(func(conn net.Conn) error { return msg.SendSSHAuthResult(conn, authResult) })
+		case <-retry.C:
+			if len(backlog) > 0 {
+				backlog = s.flushLogBacklog(backlog)
+			}
 		}
 	}
+}
+
+// flushLogBacklog sends the queued messages in order and returns those it
+// couldn't send yet.
+func (s *agentServer) flushLogBacklog(backlog []func(net.Conn) error) []func(net.Conn) error {
+	for len(backlog) > 0 {
+		if !s.sendOnLogConn(backlog[0]) {
+			return backlog
+		}
+		backlog = backlog[1:]
+	}
+	return nil
 }
 
 // sendOnLogConn delivers a message on this server's log stream, opening the
@@ -502,12 +539,16 @@ func (s *agentServer) logWorker() {
 // muxSession/logConn are mutated by the connection goroutine under
 // serverListMutex, so they are read under the same lock to observe
 // reconnects and not race the teardown.
-func (s *agentServer) sendOnLogConn(send func(net.Conn) error) {
+//
+// It reports whether the message was sent; one that wasn't, because the
+// agent isn't connected to the server yet or the stream failed, is kept by
+// logWorker and sent once the connection is back.
+func (s *agentServer) sendOnLogConn(send func(net.Conn) error) bool {
 	s.agentClient.serverListMutex.RLock()
 	defer s.agentClient.serverListMutex.RUnlock()
 
 	if s.muxSession == nil || s.muxSession.IsClosed() {
-		return
+		return false
 	}
 	if s.logConn == nil {
 		log.Debug("opening logging connection to", "agent", s.address)
@@ -516,7 +557,7 @@ func (s *agentServer) sendOnLogConn(send func(net.Conn) error) {
 		s.logConn, err = s.muxSession.Open()
 		if err != nil {
 			log.Error("failed to open mux session for server", "server", s.address)
-			return
+			return false
 		}
 	}
 
@@ -524,7 +565,9 @@ func (s *agentServer) sendOnLogConn(send func(net.Conn) error) {
 		log.Error("failed to send message to server", "server", s.address)
 		s.logConn.Close()
 		s.logConn = nil
+		return false
 	}
+	return true
 }
 
 func (s *agentServer) handleAgentClientStream(stream net.Conn) {
