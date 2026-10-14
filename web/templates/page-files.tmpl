@@ -62,7 +62,7 @@
           </div>
         </div>
 
-        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+        <div class="p-3 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 sm:p-6 dark:bg-gray-800">
           {{ template "loading" . }}
           <div x-show="!loading && buckets.length === 0" x-cloak>
             {{ if .permissionUseFiles }}
@@ -91,7 +91,7 @@
               <tbody>
                 <template x-for="b in bucketSort.sorted(filteredBuckets)" :key="b.name">
                   <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
-                    <td class="px-4 py-3">
+                    <td class="align-middle px-3 py-2.5 md:px-4 md:py-3">
                       <a :href="locationHref(b.name)" @click="knotEditClick($event, () => openBucket(b.name))" class="table-name-link text-base font-semibold"><span class="sr-only">Open bucket </span><span x-text="label(b)"></span></a>
                       <div class="sm:hidden mt-1 flex flex-wrap gap-1 text-xs">
                         <span class="app-badge-neutral" x-text="b.owner_name"></span>
@@ -99,15 +99,15 @@
                         <span class="app-badge-neutral" x-text="formatBytes(b.size)"></span>
                       </div>
                     </td>
-                    <td class="px-4 py-3 hidden sm:table-cell" x-text="b.owner_name"></td>
-                    <td class="px-4 py-3 hidden md:table-cell">
+                    <td class="align-middle px-4 py-3 hidden sm:table-cell" x-text="b.owner_name"></td>
+                    <td class="align-middle px-4 py-3 hidden md:table-cell">
                       <span :class="yourAccessClass(b)" x-text="yourAccess(b)"></span>
                       <span x-show="b.grants && b.grants.length" class="ml-1 app-badge-neutral" x-text="'Shared (' + b.grants.length + ')'"></span>
                     </td>
-                    <td class="px-4 py-3 hidden md:table-cell" x-text="b.count"></td>
-                    <td class="px-4 py-3 hidden sm:table-cell" x-text="formatBytes(b.size)"></td>
-                    <td class="px-4 py-3">
-                      <div class="flex items-center justify-end gap-2">
+                    <td class="align-middle px-4 py-3 hidden md:table-cell" x-text="b.count"></td>
+                    <td class="align-middle px-4 py-3 hidden sm:table-cell" x-text="formatBytes(b.size)"></td>
+                    <td class="align-middle px-3 py-2.5 md:px-4 md:py-3">
+                      <div class="hidden md:flex items-center justify-end gap-2">
                         <button type="button" @click="openBucket(b.name)" class="row-action-button" :aria-label="'Browse files in ' + label(b)" title="Browse files">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
                         </button>
@@ -120,6 +120,18 @@
                         <button x-show="b.access === 'owner'" type="button" @click="confirmDeleteBucket(b)" class="row-action-button row-action-danger" :aria-label="'Delete bucket ' + label(b)" title="Delete">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                         </button>
+                      </div>
+                      <!-- Narrow screens: the actions are in a menu, leaving room for the name -->
+                      <div x-data class="md:hidden flex justify-end">
+                        <button @click="$refs.panel.toggle($event)" class="row-action-menu-trigger" type="button" aria-expanded="false" :aria-label="'Actions for ' + label(b)" :title="'Actions for ' + label(b)">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd"/></svg>
+                        </button>
+                        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap min-w-44" x-cloak>
+                          <button type="button" @click="$refs.panel.close(); openBucket(b.name)" class="group nav-item text-sm px-4 w-full" :aria-label="'Browse files in ' + label(b)"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg> <span>Browse files</span></button>
+                          <button x-show="canShareBucket(b)" type="button" @click="$refs.panel.close(); openShare(b)" class="group nav-item text-sm px-4 w-full" :aria-label="'Share bucket ' + label(b)"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg> <span>Share</span></button>
+                          <button x-show="canTransferBucket(b)" type="button" @click="$refs.panel.close(); openTransfer(b)" class="group nav-item text-sm px-4 w-full" :aria-label="'Transfer bucket ' + label(b)"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg> <span>Transfer</span></button>
+                          <button x-show="b.access === 'owner'" type="button" @click="$refs.panel.close(); confirmDeleteBucket(b)" class="group nav-item text-sm px-4 w-full text-red-700 dark:text-red-400" :aria-label="'Delete bucket ' + label(b)"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg> <span>Delete</span></button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -141,7 +153,7 @@
             <span :class="yourAccessClass(bucket)" x-text="yourAccess(bucket)"></span>
             <span class="text-gray-600 dark:text-gray-400" x-text="'Owner: ' + bucket.owner_name"></span>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="hidden md:flex flex-wrap items-center gap-2">
             <button x-show="canWrite" type="button" @click="openNewFile()" class="ui-button-secondary flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
               New file
@@ -154,9 +166,21 @@
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
               Upload files
             </button>
-            <input type="file" multiple class="hidden" x-ref="fileInput" @change="filesPicked($event)" aria-hidden="true" tabindex="-1">
-            <input type="file" multiple webkitdirectory class="hidden" x-ref="folderInput" @change="filesPicked($event)" aria-hidden="true" tabindex="-1">
+            </div>
+          <!-- Narrow screens: one Add menu instead of three buttons -->
+          <div x-show="canWrite" x-data class="md:hidden">
+            <button type="button" @click="$refs.panel.toggle($event)" aria-expanded="false" class="btn-primary flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true"><path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" /></svg>
+              Add
+            </button>
+            <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap min-w-44" x-cloak>
+              <button type="button" @click="$refs.panel.close(); chooseFiles()" class="group nav-item text-sm px-4 w-full"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg> Upload files</button>
+              <button type="button" @click="$refs.panel.close(); chooseFolder()" class="group nav-item text-sm px-4 w-full"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg> Upload folder</button>
+              <button type="button" @click="$refs.panel.close(); openNewFile()" class="group nav-item text-sm px-4 w-full"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg> New file</button>
+            </div>
           </div>
+          <input type="file" multiple class="hidden" x-ref="fileInput" @change="filesPicked($event)" aria-hidden="true" tabindex="-1">
+            <input type="file" multiple webkitdirectory class="hidden" x-ref="folderInput" @change="filesPicked($event)" aria-hidden="true" tabindex="-1">
         </div>
 
         <!-- Breadcrumb -->
@@ -193,10 +217,10 @@
           </ul>
         </div>
 
-        <div class="p-4 mb-4 bg-white border rounded-lg shadow-xs sm:p-6 dark:bg-gray-800 transition-colors"
+        <div class="p-3 mb-4 bg-white border rounded-lg shadow-xs sm:p-6 dark:bg-gray-800 transition-colors"
              :class="dragOver ? 'border-blue-500 border-dashed bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'"
              @dragover.prevent="if (canWrite && !isEntryDrag($event)) dragOver = true" @dragleave.prevent="dragOver = false" @drop.prevent="dropped($event)">
-          <p x-show="canWrite" class="text-xs text-gray-500 dark:text-gray-400 mb-3">Drop files or folders here to upload them to this folder. Drag a row onto a folder, or onto the path above, to move it.</p>
+          <p x-show="canWrite" class="hidden md:block text-xs text-gray-500 dark:text-gray-400 mb-3">Drop files or folders here to upload them to this folder. Drag a row onto a folder, or onto the path above, to move it.</p>
 
           <div x-show="listing && folders.length === 0 && files.length === 0" class="flex items-center p-2 text-base text-gray-900 dark:text-white" role="status">Loading &hellip;</div>
           <div x-show="!listing && folders.length === 0 && files.length === 0" x-cloak class="text-center text-gray-500 dark:text-gray-400 py-8" role="status">
@@ -220,17 +244,17 @@
                       :class="dropTarget === folder.prefix ? 'ring-2 ring-inset ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''"
                       :draggable="canWrite" @dragstart="dragEntry($event, folder, true)" @dragend="dropTarget = null"
                       @dragover.prevent="overFolder($event, folder.prefix)" @dragleave="dropTarget = null" @drop.prevent.stop="dropOnFolder($event, folder.prefix)">
-                    <td class="px-4 py-3">
-                      <a :href="locationHref(bucket && bucket.name, folder.prefix)" draggable="false" @click="knotEditClick($event, () => openPrefix(folder.prefix))" class="table-name-link inline-flex items-center gap-2 font-medium">
+                    <td class="align-middle px-3 py-2.5 md:px-4 md:py-3">
+                      <a :href="locationHref(bucket && bucket.name, folder.prefix)" draggable="false" @click="knotEditClick($event, () => openPrefix(folder.prefix))" class="table-name-link flex w-fit items-center gap-2 font-medium">
                         <span class="sr-only">Open folder </span>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
                         <span x-text="folder.name"></span>
                       </a>
                     </td>
-                    <td class="px-4 py-3 hidden sm:table-cell">Folder</td>
-                    <td class="px-4 py-3 hidden md:table-cell"></td>
-                    <td class="px-4 py-3">
-                      <div class="flex items-center justify-end gap-2">
+                    <td class="align-middle px-4 py-3 hidden sm:table-cell">Folder</td>
+                    <td class="align-middle px-4 py-3 hidden md:table-cell"></td>
+                    <td class="align-middle px-3 py-2.5 md:px-4 md:py-3">
+                      <div class="hidden md:flex items-center justify-end gap-2">
                         <button x-show="canWrite" type="button" @click="openRename(folder, true)" class="row-action-button" :aria-label="'Rename or move folder ' + folder.name" title="Rename or move folder">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
                         </button>
@@ -238,14 +262,24 @@
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                         </button>
                       </div>
+                      <!-- Narrow screens: the actions are in a menu, leaving room for the name -->
+                      <div x-data class="md:hidden flex justify-end">
+                        <button @click="$refs.panel.toggle($event)" class="row-action-menu-trigger" type="button" aria-expanded="false" :aria-label="'Actions for ' + folder.name" :title="'Actions for ' + folder.name">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd"/></svg>
+                        </button>
+                        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap min-w-44" x-cloak>
+                          <button x-show="canWrite" type="button" @click="$refs.panel.close(); openRename(folder, true)" class="group nav-item text-sm px-4 w-full" :aria-label="'Rename or move folder ' + folder.name"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg> <span>Rename or move folder</span></button>
+                          <button x-show="canWrite" type="button" @click="$refs.panel.close(); confirmDeleteFile(folder, true)" class="group nav-item text-sm px-4 w-full text-red-700 dark:text-red-400" :aria-label="'Delete folder ' + folder.name"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg> <span>Delete folder</span></button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 </template>
                 <template x-for="f in fileSort.sorted(files)" :key="'f:' + f.key">
                   <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10"
                       :draggable="canWrite" @dragstart="dragEntry($event, f, false)" @dragend="dropTarget = null">
-                    <td class="px-4 py-3">
-                      <div class="inline-flex items-center gap-2 text-gray-900 dark:text-white">
+                    <td class="align-middle px-3 py-2.5 md:px-4 md:py-3">
+                      <div class="flex items-center gap-2 text-gray-900 dark:text-white">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 shrink-0 text-gray-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                         <template x-if="isEditable(f)">
                           <button type="button" @click="openEditor(f)" class="table-name-link break-all text-left"><span class="sr-only" x-text="canWrite ? 'Edit ' : 'View '"></span><span x-text="f.name"></span></button>
@@ -256,10 +290,10 @@
                       </div>
                       <div class="sm:hidden mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="formatBytes(f.size) + ' · ' + formatDate(f.modified_at)"></div>
                     </td>
-                    <td class="px-4 py-3 hidden sm:table-cell whitespace-nowrap" x-text="formatBytes(f.size)"></td>
-                    <td class="px-4 py-3 hidden md:table-cell whitespace-nowrap" x-text="formatDate(f.modified_at)"></td>
-                    <td class="px-4 py-3">
-                      <div class="flex items-center justify-end gap-2">
+                    <td class="align-middle px-4 py-3 hidden sm:table-cell whitespace-nowrap" x-text="formatBytes(f.size)"></td>
+                    <td class="align-middle px-4 py-3 hidden md:table-cell whitespace-nowrap" x-text="formatDate(f.modified_at)"></td>
+                    <td class="align-middle px-3 py-2.5 md:px-4 md:py-3">
+                      <div class="hidden md:flex items-center justify-end gap-2">
                         <button x-show="isEditable(f)" type="button" @click="openEditor(f)" class="row-action-button" :aria-label="(canWrite ? 'Edit ' : 'View ') + f.name" :title="canWrite ? 'Edit' : 'View'">
                           <svg x-show="canWrite" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                           <svg x-show="!canWrite" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
@@ -273,6 +307,19 @@
                         <button x-show="canWrite" type="button" @click="confirmDeleteFile(f, false)" class="row-action-button row-action-danger" :aria-label="'Delete ' + f.name" title="Delete">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                         </button>
+                      </div>
+                      <!-- Narrow screens: the actions are in a menu, leaving room for the name -->
+                      <div x-data class="md:hidden flex justify-end">
+                        <button @click="$refs.panel.toggle($event)" class="row-action-menu-trigger" type="button" aria-expanded="false" :aria-label="'Actions for ' + f.name" :title="'Actions for ' + f.name">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd"/></svg>
+                        </button>
+                        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap min-w-44" x-cloak>
+                          <button x-show="isEditable(f)" type="button" @click="$refs.panel.close(); openEditor(f)" class="group nav-item text-sm px-4 w-full" :aria-label="(canWrite ? 'Edit ' : 'View ') + f.name"><svg x-show="canWrite" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                          <svg x-show="!canWrite" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg> <span x-text="canWrite ? 'Edit' : 'View'"></span></button>
+                          <a :href="downloadUrl(f)" :download="f.name" @click="$refs.panel.close()" class="group nav-item text-sm px-4 w-full" :aria-label="'Download ' + f.name"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg> <span>Download</span></a>
+                          <button x-show="canWrite" type="button" @click="$refs.panel.close(); openRename(f, false)" class="group nav-item text-sm px-4 w-full" :aria-label="'Rename or move ' + f.name"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg> <span>Rename or move</span></button>
+                          <button x-show="canWrite" type="button" @click="$refs.panel.close(); confirmDeleteFile(f, false)" class="group nav-item text-sm px-4 w-full text-red-700 dark:text-red-400" :aria-label="'Delete ' + f.name"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg> <span>Delete</span></button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -381,7 +428,7 @@
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
                   <tr>
                     <th scope="col" class="px-3 py-2">Shared With</th>
-                    <th scope="col" class="px-3 py-2">Type</th>
+                    <th scope="col" class="px-3 py-2 hidden sm:table-cell">Type</th>
                     <th scope="col" class="px-3 py-2">Access</th>
                     <th scope="col" class="px-3 py-2"><span class="sr-only">Actions</span></th>
                   </tr>
@@ -389,13 +436,16 @@
                 <tbody>
                   <template x-for="g in (shareModal.bucket?.grants || [])" :key="g.type + ':' + g.id">
                     <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                      <td class="px-3 py-2 text-gray-900 dark:text-white" x-text="grantLabel(g)"></td>
-                      <td class="px-3 py-2" x-text="grantTypeLabel(g)"></td>
+                      <td class="px-3 py-2 text-gray-900 dark:text-white">
+                        <div class="break-all" x-text="grantLabel(g)"></div>
+                        <div class="sm:hidden text-xs text-gray-500 dark:text-gray-400" x-text="grantTypeLabel(g)"></div>
+                      </td>
+                      <td class="px-3 py-2 hidden sm:table-cell" x-text="grantTypeLabel(g)"></td>
                       <td class="px-3 py-2">
                         <label class="inline-flex items-center cursor-pointer">
                           <input type="checkbox" class="sr-only peer" :checked="g.access === 'write'" @change="toggleGrantWrite(g)" :disabled="shareModal.saving" :aria-label="'Read and write access for ' + grantLabel(g)">
-                          <div class="relative w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-                          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="g.access === 'write' ? 'Read & Write' : 'Read Only'"></span>
+                          <div class="relative shrink-0 w-9 h-5 bg-gray-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 dark:peer-focus-visible:outline-blue-400 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                          <span class="ms-2 sm:ms-3 text-sm font-medium text-gray-900 dark:text-gray-300 whitespace-nowrap" aria-hidden="true"><span class="sm:hidden" x-text="g.access === 'write' ? 'Write' : 'Read'"></span><span class="hidden sm:inline" x-text="g.access === 'write' ? 'Read & Write' : 'Read Only'"></span></span>
                         </label>
                       </td>
                       <td class="px-3 py-2 text-right whitespace-nowrap">
@@ -509,7 +559,7 @@
         </div>
         <div class="ui-modal-body">
           <p x-show="transferModal.error" x-text="transferModal.error" role="alert" class="text-red-600 dark:text-red-400 text-sm mb-3 p-2 bg-red-50 dark:bg-red-900/20 rounded" x-cloak></p>
-          <p class="text-sm mb-3">The bucket moves into the new owner's namespace and is renamed <strong class="font-mono whitespace-nowrap" x-text="transferNewName"></strong>. Update any scripts, sync jobs or clients that use the current name. Shares are kept, and the content counts against the new owner's file storage quota. Only users with permission to use file storage can receive a bucket.</p>
+          <p class="text-sm mb-3">It's renamed <strong class="font-mono break-all" x-text="transferNewName"></strong>, so update anything that uses the current name. Shares are kept.</p>
           <div class="mb-4 relative">
             <label for="transfer-user" class="form-label">New Owner</label>
             <input id="transfer-user" type="text" role="combobox" aria-autocomplete="list" autocomplete="off" spellcheck="false" class="form-field" placeholder="Search users..."
@@ -595,7 +645,7 @@
         <div class="ui-modal-body">
           <label for="rename-name" class="form-label">New name or path</label>
           <input id="rename-name" type="text" class="form-field font-mono" x-model="renameModal.name" autocomplete="off" spellcheck="false" aria-describedby="rename-help rename-error" :aria-invalid="renameModal.error !== ''">
-          <p id="rename-help" class="description mt-1">The path of the new name in this bucket. Change just the name to rename it, or add folders to move it, such as <span class="font-mono">archive/2026/report.txt</span>; folders that don't exist are created. A folder moves with everything in it. You can also drag a row onto a folder, or onto the path above.</p>
+          <p id="rename-help" class="description mt-1">Include folders to move it, such as <span class="font-mono">archive/report.txt</span>; missing folders are created.</p>
           <p id="rename-error" x-show="renameModal.error" class="error-message" role="alert" x-text="renameModal.error"></p>
         </div>
         <div class="ui-modal-footer">
