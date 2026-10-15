@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/log"
 )
 
@@ -173,7 +174,7 @@ func (e *dirtyFile) info(name string) *fileInfo {
 	if e.gone {
 		return nil
 	}
-	return (&fileInfo{name: name, size: e.size, mode: modeFrom(e.meta), mtime: e.mtime, id: fileId(e.bucket, e.key)}).withIno(e.meta)
+	return (&fileInfo{name: name, size: e.size, mode: modeFrom(e.meta), mtime: e.mtime, id: fileId(e.bucket, e.key)}).withMeta(e.meta)
 }
 
 // readAt reads the staged content; ok is false once it is saved, when the
@@ -205,7 +206,7 @@ func (e *dirtyFile) writeAt(b []byte, off int64) (int, error) {
 	if end := off + int64(n); end > e.size {
 		e.size = end
 	}
-	e.changed()
+	e.modified()
 	return n, err
 }
 
@@ -215,31 +216,36 @@ func (e *dirtyFile) truncate(size int64) error {
 		return err
 	}
 	e.size = size
-	e.changed()
+	e.modified()
 	return nil
 }
 
 // setMeta records an attribute on the staged copy, false once it is saved.
-func (e *dirtyFile) setMeta(k, v string) bool {
+func (e *dirtyFile) setMeta(kv map[string]string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.gone {
 		return false
 	}
-	e.meta[k] = v
-	if k == metaMtime {
-		e.mtime = mtimeFrom(e.meta, e.mtime)
+	for k, v := range kv {
+		e.meta[k] = v
 	}
+	e.mtime = mtimeFrom(e.meta, e.mtime)
 	e.changed()
 	return true
+}
+
+// modified records a change to the content, which makes now the file's
+// modification time until one is set; e.mu is held.
+func (e *dirtyFile) modified() {
+	e.mtime = time.Now()
+	e.meta[metaMtime] = apiclient.FormatMtime(e.mtime)
+	e.changed()
 }
 
 // changed marks the copy changed and schedules saving it; e.mu is held.
 func (e *dirtyFile) changed() {
 	now := time.Now()
-	if _, ok := e.meta[metaMtime]; !ok {
-		e.mtime = now
-	}
 	if e.since.IsZero() {
 		e.since = now
 	}

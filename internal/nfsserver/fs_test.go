@@ -360,3 +360,139 @@ func TestCommitSavesNow(t *testing.T) {
 		t.Fatalf("commit with nothing staged: %v", err)
 	}
 }
+
+func TestAppleDoubleHidden(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	fsys.MkdirAll("data/d", 0755)
+	writeFile(t, fsys, "data/d/a.txt", "a")
+	writeFile(t, fsys, "data/d/._a.txt", "xattrs")
+	writeFile(t, fsys, "data/._d", "xattrs")
+	flushAll(t, fsys)
+
+	if got := names(t, fsys, "data/d"); len(got) != 1 || got[0] != "a.txt" {
+		t.Fatalf("listing shows AppleDouble files: %v", got)
+	}
+	if got := names(t, fsys, "data"); len(got) != 1 || got[0] != "d/" {
+		t.Fatalf("listing shows AppleDouble files: %v", got)
+	}
+	// Still there by name, for macOS.
+	if got := readFile(t, fsys, "data/d/._a.txt"); got != "xattrs" {
+		t.Fatalf("AppleDouble file by name = %q", got)
+	}
+
+	// Removing a file takes its AppleDouble file with it, and a folder
+	// holding only AppleDouble files is empty.
+	if err := fsys.Remove("data/d/a.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fsys.Stat("data/d/._a.txt"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("AppleDouble file left behind: %v", err)
+	}
+	writeFile(t, fsys, "data/d/._orphan", "x")
+	flushAll(t, fsys)
+	if err := fsys.Remove("data/d"); err != nil {
+		t.Fatalf("removing a folder holding only AppleDouble files: %v", err)
+	}
+	if _, err := fsys.Stat("data/._d"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("folder's AppleDouble file left behind: %v", err)
+	}
+}
+
+func TestOwnershipAndFolderAttributes(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	writeFile(t, fsys, "data/f", "f")
+	flushAll(t, fsys)
+	if err := fsys.Lchown("data/f", 501, 20); err != nil {
+		t.Fatal(err)
+	}
+	fi, _ := fsys.Stat("data/f")
+	if info := fi.(*fileInfo); info.uid != 501 || info.gid != 20 {
+		t.Fatalf("ownership = %d:%d", info.uid, info.gid)
+	}
+
+	// A folder with no marker gets one to keep its attributes, and a
+	// listing reports them as a lookup does.
+	writeFile(t, fsys, "data/implicit/x", "x")
+	flushAll(t, fsys)
+	h := newHandler(fsys)
+	before := h.ToHandle(fsys, []string{"data", "implicit"})
+	mt := time.Unix(1600000000, 0)
+	if err := fsys.Chmod("data/implicit", 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := fsys.Chtimes("data/implicit", mt, mt); err != nil {
+		t.Fatal(err)
+	}
+	if err := fsys.Lchown("data/implicit", 501, 20); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := h.FromHandle(before); err != nil {
+		t.Fatalf("handle went stale when the folder got a marker: %v", err)
+	}
+	check := func(fi os.FileInfo, from string) {
+		t.Helper()
+		info := fi.(*fileInfo)
+		if !fi.IsDir() || fi.Mode().Perm() != 0750 || !fi.ModTime().Equal(mt) || info.uid != 501 || info.gid != 20 {
+			t.Fatalf("%s: mode %v mtime %v owner %d:%d", from, fi.Mode(), fi.ModTime(), info.uid, info.gid)
+		}
+	}
+	fi, err := fsys.Stat("data/implicit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	check(fi, "lookup")
+	fsys.forget("data", "implicit", true)
+	infos, err := fsys.ReadDir("data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fi := range infos {
+		if fi.Name() == "implicit" {
+			check(fi, "listing")
+		}
+	}
+}
+
+func TestWritesAdvanceMtime(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	writeFile(t, fsys, "data/f", "one")
+	old := time.Unix(1500000000, 0)
+	if err := fsys.Chtimes("data/f", old, old); err != nil {
+		t.Fatal(err)
+	}
+	flushAll(t, fsys)
+	f, _ := fsys.OpenFile("data/f", os.O_RDWR, 0)
+	f.Write([]byte("two"))
+	f.Close()
+	flushAll(t, fsys)
+	fi, _ := fsys.Stat("data/f")
+	if !fi.ModTime().After(old.Add(time.Hour)) {
+		t.Fatalf("mtime after a write = %v", fi.ModTime())
+	}
+}
+
+func TestDefaultOwner(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	fsys.uid, fsys.gid = 501, 20
+	writeFile(t, fsys, "data/mine", "x")
+	writeFile(t, fsys, "data/theirs", "x")
+	flushAll(t, fsys)
+	if err := fsys.Lchown("data/theirs", 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]uint32{"data/mine": 501, "data/theirs": 0} {
+		fi, err := fsys.Stat(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info := fi.(*fileInfo); info.uid != want {
+			t.Fatalf("%s owned by %d, want %d", name, info.uid, want)
+		}
+	}
+	infos, _ := fsys.ReadDir("data")
+	for _, fi := range infos {
+		if fi.Name() == "mine" && fi.(*fileInfo).uid != 501 {
+			t.Fatalf("listing: mine owned by %d", fi.(*fileInfo).uid)
+		}
+	}
+}

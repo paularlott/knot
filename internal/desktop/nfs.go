@@ -49,6 +49,16 @@ Linux:
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NFS_LISTEN"},
 			DefaultValue: "127.0.0.1:2049",
 		},
+		&cli.IntFlag{
+			Name:         "uid",
+			Usage:        "The user id files without an owner of their own belong to (default the user running the server).",
+			DefaultValue: -1,
+		},
+		&cli.IntFlag{
+			Name:         "gid",
+			Usage:        "The group id files without a group of their own belong to (default the group running the server).",
+			DefaultValue: -1,
+		},
 		&cli.StringSliceFlag{
 			Name:    "nfs-allow",
 			Usage:   "Addresses or CIDRs allowed to connect (default loopback only). NFS has no authentication: anyone allowed can reach every file the user can.",
@@ -76,6 +86,8 @@ func runNFSServer(ctx context.Context, cmd *cli.Command) error {
 	srv, err := nfsserver.Start(nfsserver.NewAPIBackend(client), nfsserver.Config{
 		Listen: listen,
 		Allow:  cmd.GetStringSlice("nfs-allow"),
+		Uid:    ownerId(cmd.GetInt("uid"), os.Getuid()),
+		Gid:    ownerId(cmd.GetInt("gid"), os.Getgid()),
 	})
 	if err != nil {
 		return err
@@ -88,4 +100,16 @@ func runNFSServer(ctx context.Context, cmd *cli.Command) error {
 
 	// Save what clients have written but not yet committed.
 	return srv.Close()
+}
+
+// ownerId is the id given, else this process's, else root's where there is
+// no such thing (Windows).
+func ownerId(given, own int) uint32 {
+	switch {
+	case given >= 0:
+		return uint32(given)
+	case own >= 0:
+		return uint32(own)
+	}
+	return 0
 }

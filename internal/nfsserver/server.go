@@ -34,6 +34,7 @@ type Config struct {
 	FlushDelay  time.Duration // save a written file once writes stop for this long
 	MaxDirtyAge time.Duration // and at the latest this long after it changed
 	StagingDir  string        // where written files wait to be saved; a temp dir when empty
+	Uid, Gid    uint32        // owner of files with none stored
 }
 
 type Server struct {
@@ -68,6 +69,7 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 	}
 
 	fsys := newStoreFS(backend)
+	fsys.uid, fsys.gid = cfg.Uid, cfg.Gid
 	fsys.staging = newStaging(fsys, dir, cfg.FlushDelay, cfg.MaxDirtyAge)
 	srv.staging = fsys.staging
 
@@ -306,7 +308,10 @@ func (h *handler) FromHandle(fh []byte) (billy.Filesystem, []string, error) {
 		}
 		return nil, nil, err
 	}
-	if info, ok := fi.(*fileInfo); ok && info.ino != ino {
+	// A handle made before its file or folder had an inode number cannot
+	// tell it from another at the same path, so is taken as it is: a
+	// folder gets one when its attributes are first set.
+	if info, ok := fi.(*fileInfo); ok && ino != 0 && info.ino != ino {
 		return nil, nil, &nfs.NFSStatusError{NFSStatus: nfs.NFSStatusStale}
 	}
 

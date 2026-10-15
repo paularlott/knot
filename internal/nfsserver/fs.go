@@ -30,6 +30,8 @@ import (
 const (
 	metaMode  = "mode"
 	metaMtime = "mtime"
+	metaUid   = "uid"
+	metaGid   = "gid"
 
 	// metaIno is a file's inode number, given when it is created over NFS
 	// and kept when it is moved, so a file handle can tell a moved file
@@ -58,6 +60,12 @@ const (
 type storeFS struct {
 	backend Backend
 	staging *staging
+
+	// uid and gid own what has no owner stored, as a local filesystem's
+	// files belong to someone: root, for want of one, would leave the
+	// user mounting unable to write where the modes say only the owner
+	// may.
+	uid, gid uint32
 
 	mu      sync.Mutex
 	stats   map[string]cachedStat // by statKey
@@ -183,6 +191,11 @@ type fileInfo struct {
 	mtime time.Time
 	id    uint64 // the inode number reported
 	ino   uint64 // the stored inode number, 0 when there is none
+	uid   uint32
+	gid   uint32
+	// owned says uid and gid were stored; otherwise they are the default
+	// owner's, filled in by storeFS.view.
+	hasUid, hasGid bool
 }
 
 func (fi *fileInfo) Name() string       { return fi.name }
@@ -191,13 +204,20 @@ func (fi *fileInfo) Mode() os.FileMode  { return fi.mode }
 func (fi *fileInfo) ModTime() time.Time { return fi.mtime }
 func (fi *fileInfo) IsDir() bool        { return fi.mode.IsDir() }
 func (fi *fileInfo) Sys() any {
-	return nfsfile.FileInfo{Nlink: 1, Fileid: fi.id}
+	return nfsfile.FileInfo{Nlink: 1, UID: fi.uid, GID: fi.gid, Fileid: fi.id}
 }
 
-// named is the description under another name.
-func (fi *fileInfo) named(name string) *fileInfo {
+// view is the description given out: a copy, under name, owned by the
+// default owner unless it has one of its own.
+func (fs *storeFS) view(fi *fileInfo, name string) *fileInfo {
 	c := *fi
 	c.name = name
+	if !c.hasUid {
+		c.uid = fs.uid
+	}
+	if !c.hasGid {
+		c.gid = fs.gid
+	}
 	return &c
 }
 
@@ -214,12 +234,42 @@ func dirInfo(name, bucket, key string, mtime time.Time) *fileInfo {
 	return &fileInfo{name: name, mode: os.ModeDir | defaultDirMode, mtime: mtime, id: fileId(bucket, key)}
 }
 
-// withIno gives an entry its stored inode number, if it has one.
-func (fi *fileInfo) withIno(meta map[string]string) *fileInfo {
+// withMeta gives an entry the inode number and ownership stored on it.
+func (fi *fileInfo) withMeta(meta map[string]string) *fileInfo {
 	if v, err := strconv.ParseUint(meta[metaIno], 16, 64); err == nil && v != 0 {
 		fi.ino, fi.id = v, v
 	}
+	if v, err := strconv.ParseUint(meta[metaUid], 10, 32); err == nil {
+		fi.uid, fi.hasUid = uint32(v), true
+	}
+	if v, err := strconv.ParseUint(meta[metaGid], 10, 32); err == nil {
+		fi.gid, fi.hasGid = uint32(v), true
+	}
 	return fi
+}
+
+// withMarker gives a folder the attributes stored on its marker.
+func (fi *fileInfo) withMarker(marker *Object) *fileInfo {
+	if v, ok := marker.Meta[metaMode]; ok {
+		if m, err := strconv.ParseUint(v, 10, 32); err == nil {
+			fi.mode = os.ModeDir | os.FileMode(m)&os.ModePerm
+		}
+	}
+	fi.mtime = mtimeFrom(marker.Meta, marker.ModifiedAt)
+	return fi.withMeta(marker.Meta)
+}
+
+// isAppleDouble reports whether a name is a macOS AppleDouble file, ._name,
+// in which macOS keeps the extended attributes of name on a filesystem
+// without them. They are kept but left out of listings: listed, rsync
+// --delete and the like see files the source does not have, delete them, and
+// macOS writes them again.
+func isAppleDouble(name string) bool { return strings.HasPrefix(name, "._") }
+
+// appleDouble is the key of the AppleDouble file of key.
+func appleDouble(key string) string {
+	dir, base := path.Split(key)
+	return dir + "._" + base
 }
 
 // newIno is a new inode number for metaIno.
@@ -251,8 +301,11 @@ func modeFrom(meta map[string]string) os.FileMode {
 // stMode is the decimal st_mode stored in metaMode.
 func stMode(mode os.FileMode) string {
 	typ := uint32(syscall.S_IFREG)
-	if mode&os.ModeSymlink != 0 {
+	switch {
+	case mode&os.ModeSymlink != 0:
 		typ = syscall.S_IFLNK
+	case mode&os.ModeDir != 0:
+		typ = syscall.S_IFDIR
 	}
 	return strconv.FormatUint(uint64(typ|uint32(mode&os.ModePerm)), 10)
 }
@@ -273,7 +326,7 @@ func objectInfo(name, bucket string, o *Object) *fileInfo {
 		mode:  modeFrom(o.Meta),
 		mtime: mtimeFrom(o.Meta, o.ModifiedAt),
 		id:    fileId(bucket, o.Key),
-	}).withIno(o.Meta)
+	}).withMeta(o.Meta)
 }
 
 // ---------------------------------------------------------------------------
@@ -284,12 +337,12 @@ func (fs *storeFS) Stat(name string) (os.FileInfo, error) {
 	bucket, key := split(name)
 	base := path.Base("/" + name)
 	if bucket == "" {
-		return dirInfo("/", "", "", started), nil
+		return fs.view(dirInfo("/", "", "", started), "/"), nil
 	}
 	if key != "" {
 		if e := fs.staging.get(bucket, key); e != nil {
 			if fi := e.info(base); fi != nil {
-				return fi, nil
+				return fs.view(fi, base), nil
 			}
 		}
 	}
@@ -297,7 +350,7 @@ func (fs *storeFS) Stat(name string) (os.FileInfo, error) {
 		if fi == nil {
 			return nil, pathErr("stat", name, os.ErrNotExist)
 		}
-		return fi.named(base), nil
+		return fs.view(fi, base), nil
 	}
 	fi, err := fs.stat(bucket, key, base)
 	if errors.Is(err, os.ErrNotExist) {
@@ -307,7 +360,7 @@ func (fs *storeFS) Stat(name string) (os.FileInfo, error) {
 		return nil, pathErr("stat", name, err)
 	}
 	fs.remember(bucket, key, fi)
-	return fi, nil
+	return fs.view(fi, base), nil
 }
 
 func (fs *storeFS) stat(bucket, key, base string) (*fileInfo, error) {
@@ -347,8 +400,7 @@ func (fs *storeFS) stat(bucket, key, base string) (*fileInfo, error) {
 	}
 	fi := dirInfo(base, bucket, key+"/", started)
 	if marker != nil {
-		fi.mtime = marker.ModifiedAt
-		fi.withIno(marker.Meta)
+		fi.withMarker(marker)
 	}
 	return fi, nil
 }
@@ -382,7 +434,7 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 		}
 		out := make([]os.FileInfo, 0, len(buckets))
 		for _, b := range buckets {
-			out = append(out, dirInfo(b.Name, b.Name, "", b.CreatedAt))
+			out = append(out, fs.view(dirInfo(b.Name, b.Name, "", b.CreatedAt), b.Name))
 		}
 		sortInfos(out)
 		return out, nil
@@ -393,6 +445,7 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 		prefix = key + "/"
 	}
 	entries := map[string]os.FileInfo{}
+	var folders []string
 	after := ""
 	for {
 		res, err := fs.backend.List(ctx(), bucket, prefix, "/", after, 1000)
@@ -401,8 +454,8 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 		}
 		for _, o := range res.Objects {
 			n := o.Key[len(prefix):]
-			if n == "" {
-				continue // this folder's own marker
+			if n == "" || isAppleDouble(n) {
+				continue // this folder's own marker, or hidden
 			}
 			if _, ok := entries[n]; !ok {
 				fi := objectInfo(n, bucket, o)
@@ -419,12 +472,34 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 			}
 			// A folder wins over a file of the same name.
 			entries[n] = dirInfo(n, bucket, pfx, started)
+			folders = append(folders, n)
 		}
 		if !res.Truncated {
 			break
 		}
 		after = res.Next
 	}
+
+	// A folder's attributes are on its marker, which a listing rolls up
+	// into the folder's name: look each up, as clients take attributes
+	// from the listing.
+	var wg sync.WaitGroup
+	var emu sync.Mutex
+	sem := make(chan struct{}, 8)
+	for _, n := range folders {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(n string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if fi, err := fs.Stat(path.Join(name, n)); err == nil && fi.IsDir() {
+				emu.Lock()
+				entries[n] = fi
+				emu.Unlock()
+			}
+		}(n)
+	}
+	wg.Wait()
 	if prefix != "" && len(entries) == 0 {
 		// Not listing anything: make sure the folder exists at all.
 		if _, err := fs.Stat(name); err != nil {
@@ -440,8 +515,8 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 	}
 
 	out := make([]os.FileInfo, 0, len(entries))
-	for _, fi := range entries {
-		out = append(out, fi)
+	for n, fi := range entries {
+		out = append(out, fs.view(fi.(*fileInfo), n))
 	}
 	sortInfos(out)
 	return out, nil
@@ -528,6 +603,7 @@ func (fs *storeFS) Remove(name string) error {
 	staged := fs.staging.remove(bucket, key)
 	err := fs.backend.Delete(ctx(), bucket, key)
 	if err == nil || (staged && errors.Is(err, os.ErrNotExist)) {
+		fs.removeAppleDouble(bucket, key)
 		return nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -545,19 +621,54 @@ func (fs *storeFS) Remove(name string) error {
 	if fs.staging.hasUnder(bucket, key+"/") {
 		return pathErr("remove", name, syscall.ENOTEMPTY)
 	}
-	res, err := fs.backend.List(ctx(), bucket, key+"/", "", "", 2)
-	if err != nil {
-		return pathErr("remove", name, err)
-	}
-	for _, o := range res.Objects {
-		if o.Key != key+"/" {
+	// Empty but for AppleDouble files, which are not listed and so cannot
+	// be removed first: they go with the folder.
+	var hidden []string
+	after := ""
+	for {
+		res, err := fs.backend.List(ctx(), bucket, key+"/", "/", after, 1000)
+		if err != nil {
+			return pathErr("remove", name, err)
+		}
+		if len(res.Prefixes) > 0 {
 			return pathErr("remove", name, syscall.ENOTEMPTY)
 		}
+		for _, o := range res.Objects {
+			n := o.Key[len(key)+1:]
+			switch {
+			case n == "":
+			case isAppleDouble(n):
+				hidden = append(hidden, o.Key)
+			default:
+				return pathErr("remove", name, syscall.ENOTEMPTY)
+			}
+		}
+		if !res.Truncated {
+			break
+		}
+		after = res.Next
+	}
+	for _, k := range hidden {
+		fs.backend.Delete(ctx(), bucket, k)
 	}
 	if err := fs.backend.Delete(ctx(), bucket, key+"/"); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return pathErr("remove", name, err)
 	}
+	fs.removeAppleDouble(bucket, key)
 	return nil
+}
+
+// removeAppleDouble removes the AppleDouble file of a file or folder just
+// removed, which macOS removes itself but other clients leave behind.
+func (fs *storeFS) removeAppleDouble(bucket, key string) {
+	if isAppleDouble(path.Base(key)) {
+		return
+	}
+	ad := appleDouble(key)
+	fs.staging.remove(bucket, ad)
+	if err := fs.backend.Delete(ctx(), bucket, ad); err == nil {
+		fs.forget(bucket, ad, false)
+	}
 }
 
 func (fs *storeFS) Rename(from, to string) error {
@@ -689,49 +800,87 @@ func (fs *storeFS) Capabilities() billy.Capability {
 // ---------------------------------------------------------------------------
 
 func (fs *storeFS) Chmod(name string, mode os.FileMode) error {
-	if fi, err := fs.Lstat(name); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		return nil // a link's own mode is meaningless
+	fi, err := fs.Lstat(name)
+	if err != nil {
+		return err
 	}
-	return fs.setMeta(name, metaMode, stMode(mode))
+	switch {
+	case fi.Mode()&os.ModeSymlink != 0:
+		return nil // a link's own mode is meaningless
+	case fi.IsDir():
+		mode |= os.ModeDir
+	}
+	return fs.setMeta(name, map[string]string{metaMode: stMode(mode)})
 }
 
 func (fs *storeFS) Chtimes(name string, atime, mtime time.Time) error {
-	return fs.setMeta(name, metaMtime, apiclient.FormatMtime(mtime))
+	return fs.setMeta(name, map[string]string{metaMtime: apiclient.FormatMtime(mtime)})
 }
 
-// Ownership is not stored: every file belongs to whoever mounts.
-func (fs *storeFS) Lchown(name string, uid, gid int) error { return nil }
-func (fs *storeFS) Chown(name string, uid, gid int) error  { return nil }
+// Ownership is stored, as s3fs stores it, though not enforced: what a client
+// may do is decided by the user the server acts as. A negative id is left as
+// it is.
+func (fs *storeFS) Lchown(name string, uid, gid int) error {
+	kv := map[string]string{}
+	if uid >= 0 {
+		kv[metaUid] = strconv.Itoa(uid)
+	}
+	if gid >= 0 {
+		kv[metaGid] = strconv.Itoa(gid)
+	}
+	return fs.setMeta(name, kv)
+}
 
-// setMeta records an attribute on a file: on its staged copy when it has
-// one, else by rewriting its metadata in place (content is not copied).
-// Folders keep no attributes.
-func (fs *storeFS) setMeta(name, k, v string) error {
+func (fs *storeFS) Chown(name string, uid, gid int) error { return fs.Lchown(name, uid, gid) }
+
+// setMeta records attributes on a file: on its staged copy when it has one,
+// else by rewriting its metadata in place (content is not copied). A
+// folder's are kept on its marker, made for it if it has none. A bucket
+// keeps none.
+func (fs *storeFS) setMeta(name string, kv map[string]string) error {
 	bucket, key := split(name)
-	if key == "" {
+	if key == "" || len(kv) == 0 {
 		return nil
 	}
-	if e := fs.staging.get(bucket, key); e != nil && e.setMeta(k, v) {
+	if e := fs.staging.get(bucket, key); e != nil && e.setMeta(kv) {
 		return nil
 	}
 	o, err := fs.backend.Head(ctx(), bucket, key)
 	if errors.Is(err, os.ErrNotExist) {
-		if ok, _, _ := fs.isDir(bucket, key); ok {
-			return nil
+		ok, marker, derr := fs.isDir(bucket, key)
+		if derr != nil {
+			return pathErr("chattr", name, derr)
 		}
+		if !ok {
+			return pathErr("chattr", name, err)
+		}
+		defer fs.forget(bucket, key, false)
+		if marker == nil {
+			meta := map[string]string{metaIno: newIno()}
+			for k, v := range kv {
+				meta[k] = v
+			}
+			return pathErr("chattr", name, fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", meta))
+		}
+		key, o, err = key+"/", marker, nil
 	}
 	if err != nil {
 		return pathErr("chattr", name, err)
 	}
-	if o.Meta[k] == v {
+
+	meta := make(map[string]string, len(o.Meta)+len(kv))
+	for k, v := range o.Meta {
+		meta[k] = v
+	}
+	same := true
+	for k, v := range kv {
+		same = same && meta[k] == v
+		meta[k] = v
+	}
+	if same {
 		return nil
 	}
-	meta := make(map[string]string, len(o.Meta)+1)
-	for mk, mv := range o.Meta {
-		meta[mk] = mv
-	}
-	meta[k] = v
-	defer fs.forget(bucket, key, false)
+	defer fs.forget(bucket, strings.TrimSuffix(key, "/"), false)
 	return pathErr("chattr", name, fs.backend.SetMeta(ctx(), bucket, key, meta, o.ETag))
 }
 
