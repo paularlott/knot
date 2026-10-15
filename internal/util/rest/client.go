@@ -722,7 +722,15 @@ func (c *HTTPClient) DoRaw(ctx context.Context, method string, path string, body
 	}
 
 	client := &http.Client{Transport: c.HTTPClient.Transport}
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil || c.responseCheck == nil {
+		return resp, err
+	}
+	if err := c.responseCheck(resp); err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+	return resp, nil
 }
 
 // DecodeResponse turns a non-2xx response into an error carrying the server's

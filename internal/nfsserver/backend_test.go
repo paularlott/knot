@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/paularlott/knot/build"
 	"io"
 	"math/rand"
 	"net/http"
@@ -22,6 +23,7 @@ func rangeServer(t *testing.T, content []byte) (*apiBackend, *atomic.Int32) {
 	t.Helper()
 	var requests atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(build.VersionHeader, build.Version)
 		if r.URL.Path != "/api/files/objects/b/k" {
 			http.NotFound(w, r)
 			return

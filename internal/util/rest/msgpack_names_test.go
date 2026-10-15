@@ -209,6 +209,9 @@ func TestResponseCheck(t *testing.T) {
 	if _, err := c.Post(context.Background(), "/refuse", map[string]string{}, &out, 200); err != errRefused {
 		t.Errorf("refused post: err = %v", err)
 	}
+	if _, err := c.DoRaw(context.Background(), "GET", "/refuse", nil, 0, nil); err != errRefused {
+		t.Errorf("refused raw: err = %v", err)
+	}
 }
 
 var errRefused = errors.New("refused")
