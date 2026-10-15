@@ -53,7 +53,7 @@ type JobStatus struct {
 	Running    bool       `json:"running" msgpack:"running"`
 	NextRun    *time.Time `json:"next_run,omitempty" msgpack:"next_run,omitempty"`
 	LastRun    *RunRecord `json:"last_run,omitempty" msgpack:"last_run,omitempty"`
-	Error      string     `json:"error,omitempty"`
+	Error      string     `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 // JobsSnapshot is the full view returned by list commands and the API.

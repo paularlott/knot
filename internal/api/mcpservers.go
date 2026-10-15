@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -349,7 +348,7 @@ func HandleToggleMCPServerTool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	request := apiclient.MCPServerToggleToolRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := rest.DecodeRequestBody(w, r, &request); err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid request body"})
 		return
 	}

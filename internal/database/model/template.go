@@ -39,112 +39,112 @@ const (
 
 // Template object
 type Template struct {
-	Id               string   `json:"template_id" db:"template_id,pk"`
-	Name             string   `json:"name" db:"name"`
-	Description      string   `json:"description" db:"description"`
-	Hash             string   `json:"hash" db:"hash"`
-	Platform         string   `json:"platform" db:"platform"`
-	IconURL          string   `json:"icon_url" db:"icon_url"`
-	Job              string   `json:"job" db:"job"`
-	Volumes          string   `json:"volumes" db:"volumes"`
-	Groups           []string `json:"groups" db:"groups,json"`
-	Active           bool     `json:"active" db:"active"`
-	WithTerminal     bool     `json:"with_terminal" db:"with_terminal"`
-	WithVSCodeTunnel bool     `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
-	WithCodeServer   bool     `json:"with_code_server" db:"with_code_server"`
-	WithSSH          bool     `json:"with_ssh" db:"with_ssh"`
-	WithRunCommand   bool     `json:"with_run_command" db:"with_run_command"`
+	Id               string   `json:"template_id" db:"template_id,pk" msgpack:"template_id"`
+	Name             string   `json:"name" db:"name" msgpack:"name"`
+	Description      string   `json:"description" db:"description" msgpack:"description"`
+	Hash             string   `json:"hash" db:"hash" msgpack:"hash"`
+	Platform         string   `json:"platform" db:"platform" msgpack:"platform"`
+	IconURL          string   `json:"icon_url" db:"icon_url" msgpack:"icon_url"`
+	Job              string   `json:"job" db:"job" msgpack:"job"`
+	Volumes          string   `json:"volumes" db:"volumes" msgpack:"volumes"`
+	Groups           []string `json:"groups" db:"groups,json" msgpack:"groups"`
+	Active           bool     `json:"active" db:"active" msgpack:"active"`
+	WithTerminal     bool     `json:"with_terminal" db:"with_terminal" msgpack:"with_terminal"`
+	WithVSCodeTunnel bool     `json:"with_vscode_tunnel" db:"with_vscode_tunnel" msgpack:"with_vscode_tunnel"`
+	WithCodeServer   bool     `json:"with_code_server" db:"with_code_server" msgpack:"with_code_server"`
+	WithSSH          bool     `json:"with_ssh" db:"with_ssh" msgpack:"with_ssh"`
+	WithRunCommand   bool     `json:"with_run_command" db:"with_run_command" msgpack:"with_run_command"`
 	// WithVNC exposes the VM's built-in QEMU VNC display (the framebuffer
 	// QEMU itself renders — bootloader, console, desktop) in the browser via
 	// knot's websocket bridge. KVM-only; nothing is installed in the guest.
-	WithVNC                  bool                   `json:"with_vnc" db:"with_vnc"`
-	AllowNodeMigration       bool                   `json:"allow_node_migration" db:"allow_node_migration"`
-	StartupScriptId          string                 `json:"startup_script_id" db:"startup_script_id"`
-	ShutdownScriptId         string                 `json:"shutdown_script_id" db:"shutdown_script_id"`
-	ComputeUnits             uint32                 `json:"compute_units" db:"compute_units"`
-	StorageUnits             uint32                 `json:"storage_units" db:"storage_units"`
-	ScheduleEnabled          bool                   `json:"schedule_enabled" db:"schedule_enabled"`
-	AutoStart                bool                   `json:"auto_start" db:"auto_start"`
-	IsDeleted                bool                   `json:"is_deleted" db:"is_deleted"`
-	IsManaged                bool                   `json:"is_managed" db:"is_managed"`
-	Schedule                 []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
-	Zones                    []string               `json:"zones" db:"zones,json"`
-	CustomFields             []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json"`
-	MaxUptime                uint32                 `json:"max_uptime" db:"max_uptime"`
-	MaxUptimeUnit            string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
-	IdleTimeout              uint32                 `json:"idle_timeout" db:"idle_timeout"`
-	IdleTimeoutUnit          string                 `json:"idle_timeout_unit" db:"idle_timeout_unit"`
-	HealthCheckType          string                 `json:"health_check_type" db:"health_check_type"`
-	HealthCheckConfig        string                 `json:"health_check_config" db:"health_check_config"`
-	HealthCheckSkipSSLVerify bool                   `json:"health_check_skip_ssl_verify" db:"health_check_skip_ssl_verify"`
-	HealthCheckTimeout       uint32                 `json:"health_check_timeout" db:"health_check_timeout"`
-	HealthCheckInterval      uint32                 `json:"health_check_interval" db:"health_check_interval"`
-	HealthCheckMaxFailures   uint32                 `json:"health_check_max_failures" db:"health_check_max_failures"`
-	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
-	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity"`
-	DisableFileStorage       bool                   `json:"disable_file_storage" db:"disable_file_storage"`
-	DisableUserSecrets       bool                   `json:"disable_user_secrets" db:"disable_user_secrets"`
-	Ports                    []TemplatePort         `json:"ports" db:"ports,json"`
+	WithVNC                  bool                   `json:"with_vnc" db:"with_vnc" msgpack:"with_vnc"`
+	AllowNodeMigration       bool                   `json:"allow_node_migration" db:"allow_node_migration" msgpack:"allow_node_migration"`
+	StartupScriptId          string                 `json:"startup_script_id" db:"startup_script_id" msgpack:"startup_script_id"`
+	ShutdownScriptId         string                 `json:"shutdown_script_id" db:"shutdown_script_id" msgpack:"shutdown_script_id"`
+	ComputeUnits             uint32                 `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
+	StorageUnits             uint32                 `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
+	ScheduleEnabled          bool                   `json:"schedule_enabled" db:"schedule_enabled" msgpack:"schedule_enabled"`
+	AutoStart                bool                   `json:"auto_start" db:"auto_start" msgpack:"auto_start"`
+	IsDeleted                bool                   `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	IsManaged                bool                   `json:"is_managed" db:"is_managed" msgpack:"is_managed"`
+	Schedule                 []TemplateScheduleDays `json:"schedule" db:"schedule,json" msgpack:"schedule"`
+	Zones                    []string               `json:"zones" db:"zones,json" msgpack:"zones"`
+	CustomFields             []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
+	MaxUptime                uint32                 `json:"max_uptime" db:"max_uptime" msgpack:"max_uptime"`
+	MaxUptimeUnit            string                 `json:"max_uptime_unit" db:"max_uptime_unit" msgpack:"max_uptime_unit"`
+	IdleTimeout              uint32                 `json:"idle_timeout" db:"idle_timeout" msgpack:"idle_timeout"`
+	IdleTimeoutUnit          string                 `json:"idle_timeout_unit" db:"idle_timeout_unit" msgpack:"idle_timeout_unit"`
+	HealthCheckType          string                 `json:"health_check_type" db:"health_check_type" msgpack:"health_check_type"`
+	HealthCheckConfig        string                 `json:"health_check_config" db:"health_check_config" msgpack:"health_check_config"`
+	HealthCheckSkipSSLVerify bool                   `json:"health_check_skip_ssl_verify" db:"health_check_skip_ssl_verify" msgpack:"health_check_skip_ssl_verify"`
+	HealthCheckTimeout       uint32                 `json:"health_check_timeout" db:"health_check_timeout" msgpack:"health_check_timeout"`
+	HealthCheckInterval      uint32                 `json:"health_check_interval" db:"health_check_interval" msgpack:"health_check_interval"`
+	HealthCheckMaxFailures   uint32                 `json:"health_check_max_failures" db:"health_check_max_failures" msgpack:"health_check_max_failures"`
+	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart" msgpack:"health_check_auto_restart"`
+	DisableUserActivity      bool                   `json:"disable_user_activity" db:"disable_user_activity" msgpack:"disable_user_activity"`
+	DisableFileStorage       bool                   `json:"disable_file_storage" db:"disable_file_storage" msgpack:"disable_file_storage"`
+	DisableUserSecrets       bool                   `json:"disable_user_secrets" db:"disable_user_secrets" msgpack:"disable_user_secrets"`
+	Ports                    []TemplatePort         `json:"ports" db:"ports,json" msgpack:"ports"`
 	// Port forwards seeded into every space created from this template, so
 	// client spaces connect to their services automatically when they start
 	// (the same restore-on-start replay as manually persisted forwards).
 	// Entries use target references — bare name, user--name — resolved and
 	// authorized per connection. Pro ships the template editor for this;
 	// the API accepts it everywhere.
-	PortForwards []PortForwardEntry `json:"port_forwards" db:"port_forwards,json"`
-	Jobs         []SpaceJob         `json:"jobs" db:"jobs,json"`
+	PortForwards []PortForwardEntry `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
+	Jobs         []SpaceJob         `json:"jobs" db:"jobs,json" msgpack:"jobs"`
 	// KVM network configuration, derived from the job spec's network:
 	// block. Bridged mode attaches VMs to a host bridge (or libvirt
 	// network) and gives each space a static IP chosen from the
 	// kvm_ip_range at create time; NAT mode attaches to a libvirt NAT
 	// network (named by the bridge field, default "default") and the VM
 	// DHCPs — no addresses to manage.
-	KvmNetworkMode  string        `json:"kvm_network_mode,omitempty" db:"kvm_network_mode"`
-	KvmNetworkCidr  string        `json:"kvm_network_cidr,omitempty" db:"kvm_network_cidr"`
-	KvmIPRangeStart string        `json:"kvm_ip_range_start,omitempty" db:"kvm_ip_range_start"`
-	KvmIPRangeEnd   string        `json:"kvm_ip_range_end,omitempty" db:"kvm_ip_range_end"`
-	KvmGateway      string        `json:"kvm_gateway,omitempty" db:"kvm_gateway"`
-	KvmBridge       string        `json:"kvm_bridge,omitempty" db:"kvm_bridge"`
-	CreatedUserId   string        `json:"created_user_id" db:"created_user_id"`
-	CreatedAt       time.Time     `json:"created_at" db:"created_at"`
-	UpdatedUserId   string        `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt       hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	KvmNetworkMode  string        `json:"kvm_network_mode,omitempty" db:"kvm_network_mode" msgpack:"kvm_network_mode,omitempty"`
+	KvmNetworkCidr  string        `json:"kvm_network_cidr,omitempty" db:"kvm_network_cidr" msgpack:"kvm_network_cidr,omitempty"`
+	KvmIPRangeStart string        `json:"kvm_ip_range_start,omitempty" db:"kvm_ip_range_start" msgpack:"kvm_ip_range_start,omitempty"`
+	KvmIPRangeEnd   string        `json:"kvm_ip_range_end,omitempty" db:"kvm_ip_range_end" msgpack:"kvm_ip_range_end,omitempty"`
+	KvmGateway      string        `json:"kvm_gateway,omitempty" db:"kvm_gateway" msgpack:"kvm_gateway,omitempty"`
+	KvmBridge       string        `json:"kvm_bridge,omitempty" db:"kvm_bridge" msgpack:"kvm_bridge,omitempty"`
+	CreatedUserId   string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt       time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId   string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt       hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 type TemplateScheduleDays struct {
-	Enabled bool   `json:"enabled"`
-	From    string `json:"from"`
-	To      string `json:"to"`
+	Enabled bool   `json:"enabled" msgpack:"enabled"`
+	From    string `json:"from" msgpack:"from"`
+	To      string `json:"to" msgpack:"to"`
 }
 
 type TemplateCustomField struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name" msgpack:"name"`
+	Description string `json:"description" msgpack:"description"`
 	// Type controls how the space form renders the field: text (default)
 	// or autocomplete. Autocomplete requires Handler - a plugin field
 	// handler id (plugin.<name>.<id>) that serves the suggestions.
-	Type    string `json:"type,omitempty"`
-	Handler string `json:"handler,omitempty"`
+	Type    string `json:"type,omitempty" msgpack:"type,omitempty"`
+	Handler string `json:"handler,omitempty" msgpack:"handler,omitempty"`
 	// Language selects the ace mode/completions for textarea fields:
 	// yaml, toml, json, markdown, shell or scriptling ("" is plain text).
-	Language string `json:"language,omitempty"`
+	Language string `json:"language,omitempty" msgpack:"language,omitempty"`
 	// Default is the value a space starts with for this field. It is
 	// presence-based: applied only when the create request omits the
 	// field entirely, never when the field arrives with an empty value —
 	// clearing a prefilled default is an intentional blank.
-	Default string `json:"default,omitempty"`
+	Default string `json:"default,omitempty" msgpack:"default,omitempty"`
 	// Required marks a field the space form refuses to leave blank (and
 	// the space create/update API rejects): absent, empty or
 	// whitespace-only values fail. A bool field is never blank.
-	Required bool `json:"required,omitempty"`
+	Required bool `json:"required,omitempty" msgpack:"required,omitempty"`
 	// Options is a select field's manual option list — the alternative to
 	// Handler. Values are stored verbatim.
-	Options []string `json:"options,omitempty"`
+	Options []string `json:"options,omitempty" msgpack:"options,omitempty"`
 	// ShowOnCreate shows an optional field on the create-space form with the
 	// required ones, instead of behind its "optional fields" toggle. It only
 	// changes how the form is laid out, so it is left out of the template
 	// hash. Absent (older templates) means false.
-	ShowOnCreate bool `json:"show_on_create,omitempty"`
+	ShowOnCreate bool `json:"show_on_create,omitempty" msgpack:"show_on_create,omitempty"`
 }
 
 // hashCustomField is the part of a custom field that feeds the template
@@ -221,9 +221,9 @@ func MissingRequiredCustomFields(template *Template, provided []SpaceCustomField
 }
 
 type TemplatePort struct {
-	Name     string `json:"name"`
-	Port     uint16 `json:"port"`
-	Protocol string `json:"protocol"`
+	Name     string `json:"name" msgpack:"name"`
+	Port     uint16 `json:"port" msgpack:"port"`
+	Protocol string `json:"protocol" msgpack:"protocol"`
 }
 
 // IsPortShared reports whether the template declares the given port shared:

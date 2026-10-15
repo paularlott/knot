@@ -9,43 +9,43 @@ import (
 )
 
 type StackComponent struct {
-	Name            string             `json:"name" db:"name"`
-	TemplateId      string             `json:"template_id" db:"template_id"`
-	Description     string             `json:"description" db:"description"`
-	Shell           string             `json:"shell" db:"shell"`
-	StartupScriptId string             `json:"startup_script_id" db:"startup_script_id"`
-	DependsOn       []string           `json:"depends_on" db:"depends_on,json"`
-	CustomFields    []StackCustomField `json:"custom_fields" db:"custom_fields,json"`
-	PortForwards    []StackPortForward `json:"port_forwards" db:"port_forwards,json"`
+	Name            string             `json:"name" db:"name" msgpack:"name"`
+	TemplateId      string             `json:"template_id" db:"template_id" msgpack:"template_id"`
+	Description     string             `json:"description" db:"description" msgpack:"description"`
+	Shell           string             `json:"shell" db:"shell" msgpack:"shell"`
+	StartupScriptId string             `json:"startup_script_id" db:"startup_script_id" msgpack:"startup_script_id"`
+	DependsOn       []string           `json:"depends_on" db:"depends_on,json" msgpack:"depends_on"`
+	CustomFields    []StackCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
+	PortForwards    []StackPortForward `json:"port_forwards" db:"port_forwards,json" msgpack:"port_forwards"`
 }
 
 type StackCustomField struct {
-	Name  string `json:"name" db:"name"`
-	Value string `json:"value" db:"value"`
+	Name  string `json:"name" db:"name" msgpack:"name"`
+	Value string `json:"value" db:"value" msgpack:"value"`
 }
 
 type StackPortForward struct {
-	ToSpace    string `json:"to_space" db:"to_space"`
-	LocalPort  int    `json:"local_port" db:"local_port"`
-	RemotePort int    `json:"remote_port" db:"remote_port"`
+	ToSpace    string `json:"to_space" db:"to_space" msgpack:"to_space"`
+	LocalPort  int    `json:"local_port" db:"local_port" msgpack:"local_port"`
+	RemotePort int    `json:"remote_port" db:"remote_port" msgpack:"remote_port"`
 }
 
 type StackDefinition struct {
-	Id            string           `json:"stack_definition_id" db:"stack_definition_id,pk"`
-	UserId        string           `json:"user_id" db:"user_id"`
-	Name          string           `json:"name" db:"name"`
-	Description   string           `json:"description" db:"description"`
-	IconURL       string           `json:"icon_url" db:"icon_url"`
-	Groups        []string         `json:"groups" db:"groups,json"`
-	Zones         []string         `json:"zones" db:"zones,json"`
-	Active        bool             `json:"active" db:"active"`
-	IsDeleted     bool             `json:"is_deleted" db:"is_deleted"`
-	IsManaged     bool             `json:"is_managed" db:"is_managed"`
-	Components    []StackComponent `json:"components" db:"components,json"`
-	CreatedUserId string           `json:"created_user_id" db:"created_user_id"`
-	CreatedAt     time.Time        `json:"created_at" db:"created_at"`
-	UpdatedUserId string           `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt     hlc.Timestamp    `json:"updated_at" db:"updated_at"`
+	Id            string           `json:"stack_definition_id" db:"stack_definition_id,pk" msgpack:"stack_definition_id"`
+	UserId        string           `json:"user_id" db:"user_id" msgpack:"user_id"`
+	Name          string           `json:"name" db:"name" msgpack:"name"`
+	Description   string           `json:"description" db:"description" msgpack:"description"`
+	IconURL       string           `json:"icon_url" db:"icon_url" msgpack:"icon_url"`
+	Groups        []string         `json:"groups" db:"groups,json" msgpack:"groups"`
+	Zones         []string         `json:"zones" db:"zones,json" msgpack:"zones"`
+	Active        bool             `json:"active" db:"active" msgpack:"active"`
+	IsDeleted     bool             `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	IsManaged     bool             `json:"is_managed" db:"is_managed" msgpack:"is_managed"`
+	Components    []StackComponent `json:"components" db:"components,json" msgpack:"components"`
+	CreatedUserId string           `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time        `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string           `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp    `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 func NewStackDefinition(

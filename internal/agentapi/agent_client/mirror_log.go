@@ -148,11 +148,11 @@ func encodeMirrorVL(batch *msg.MirrorLogMessage) []byte {
 // their own stream instead of overwriting each other's service label.
 func encodeMirrorLoki(batch *msg.MirrorLogMessage) []byte {
 	type lokiStream struct {
-		Stream map[string]string `json:"stream"`
-		Values [][2]string       `json:"values"`
+		Stream map[string]string `json:"stream" msgpack:"stream"`
+		Values [][2]string       `json:"values" msgpack:"values"`
 	}
 	type lokiPayload struct {
-		Streams []lokiStream `json:"streams"`
+		Streams []lokiStream `json:"streams" msgpack:"streams"`
 	}
 
 	streams := map[string]*lokiStream{}

@@ -37,18 +37,18 @@ var FileCmd = &cli.Command{
 // backupBucket and backupObject are the parts of the records the file
 // commands use.
 type backupBucket struct {
-	Id      string `json:"id"`
-	Name    string `json:"name"`
-	OwnerId string `json:"owner_id"`
+	Id      string `json:"id" msgpack:"id"`
+	Name    string `json:"name" msgpack:"name"`
+	OwnerId string `json:"owner_id" msgpack:"owner_id"`
 }
 
 type backupObject struct {
-	BucketId    string    `json:"bucket_id"`
-	Key         string    `json:"key"`
-	Size        int64     `json:"size"`
-	SHA256      string    `json:"sha256"`
-	ContentType string    `json:"content_type"`
-	ModifiedAt  time.Time `json:"modified_at"`
+	BucketId    string    `json:"bucket_id" msgpack:"bucket_id"`
+	Key         string    `json:"key" msgpack:"key"`
+	Size        int64     `json:"size" msgpack:"size"`
+	SHA256      string    `json:"sha256" msgpack:"sha256"`
+	ContentType string    `json:"content_type" msgpack:"content_type"`
+	ModifiedAt  time.Time `json:"modified_at" msgpack:"modified_at"`
 }
 
 var encryptKeyFlag = &cli.StringFlag{

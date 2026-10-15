@@ -68,12 +68,20 @@ var ReadFileCmd = &cli.Command{
 			return fmt.Errorf("space %q not found", spaceName)
 		}
 
-		content, totalLines, err := client.ReadSpaceFileRange(context.Background(), spaceId, filePath, offset, limit)
+		// A whole file comes back byte for byte, so binary files can be
+		// redirected to disk; a line range is text.
+		var content string
+		var totalLines int
+		if offset > 0 || limit > 0 {
+			content, totalLines, err = client.ReadSpaceFileRange(context.Background(), spaceId, filePath, offset, limit)
+		} else {
+			content, err = client.ReadSpaceFile(context.Background(), spaceId, filePath)
+		}
 		if err != nil {
 			return fmt.Errorf("couldn't read %s in space %q: %w", filePath, spaceName, err)
 		}
 
-		fmt.Print(content)
+		os.Stdout.WriteString(content)
 		if offset > 0 || limit > 0 {
 			fmt.Fprintf(os.Stderr, "%d lines (of %d total)\n", strings.Count(content, "\n")+1, totalLines)
 		}

@@ -51,9 +51,9 @@ func cleanAPIError(err error) string {
 // leaseErrorJSON is the structured failure emitted in --json mode so pipes
 // can branch on it: {"state":"error","error":"…","code":400}.
 type leaseErrorJSON struct {
-	State string `json:"state"`
-	Error string `json:"error"`
-	Code  int    `json:"code,omitempty"`
+	State string `json:"state" msgpack:"state"`
+	Error string `json:"error" msgpack:"error"`
+	Code  int    `json:"code,omitempty" msgpack:"code,omitempty"`
 }
 
 // handleLeaseError reports a failed lease command. In --json mode it writes

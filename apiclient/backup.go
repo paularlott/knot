@@ -23,10 +23,10 @@ var BackupKinds = []string{
 
 // BackupInfo describes what a server can back up.
 type BackupInfo struct {
-	Version string    `json:"version"`
-	Time    time.Time `json:"time"`
-	Kinds   []string  `json:"kinds"`
-	Files   bool      `json:"files"` // the server has file storage
+	Version string    `json:"version" msgpack:"version"`
+	Time    time.Time `json:"time" msgpack:"time"`
+	Kinds   []string  `json:"kinds" msgpack:"kinds"`
+	Files   bool      `json:"files" msgpack:"files"` // the server has file storage
 }
 
 // BackupEndKey names the last line of a backup stream, which holds the number
@@ -36,15 +36,15 @@ const BackupEndKey = "_end"
 // BackupSummary is what a backup or restore reports at its end, for the
 // audit log.
 type BackupSummary struct {
-	Counts   map[string]int `json:"counts"`
-	Warnings int            `json:"warnings"`
+	Counts   map[string]int `json:"counts" msgpack:"counts"`
+	Warnings int            `json:"warnings" msgpack:"warnings"`
 }
 
 // RestoreResult is what the server did with a stream of records.
 type RestoreResult struct {
-	Restored int      `json:"restored"`
-	Skipped  int      `json:"skipped"`
-	Errors   []string `json:"errors,omitempty"`
+	Restored int      `json:"restored" msgpack:"restored"`
+	Skipped  int      `json:"skipped" msgpack:"skipped"`
+	Errors   []string `json:"errors,omitempty" msgpack:"errors,omitempty"`
 }
 
 // GetBackupInfo asks what the server can back up, and records the start of a
@@ -150,10 +150,10 @@ func (c *ApiClient) RestoreStream(ctx context.Context, kind string, body io.Read
 // hold the content of.
 func (c *ApiClient) RestoreMissingContent(ctx context.Context, shas []string) ([]string, error) {
 	req := struct {
-		Shas []string `json:"shas"`
+		Shas []string `json:"shas" msgpack:"shas"`
 	}{shas}
 	resp := struct {
-		Missing []string `json:"missing"`
+		Missing []string `json:"missing" msgpack:"missing"`
 	}{}
 	if _, err := c.httpClient.Post(ctx, "/api/restore/content/missing", &req, &resp, 200); err != nil {
 		return nil, err

@@ -11,31 +11,31 @@ import (
 //
 
 type CSIVolumeMountOptions struct {
-	FsType     string   `yaml:"fs_type" json:"FsType"`
-	MountFlags []string `yaml:"mount_flags" json:"MountFlags"`
+	FsType     string   `yaml:"fs_type" json:"FsType" msgpack:"FsType"`
+	MountFlags []string `yaml:"mount_flags" json:"MountFlags" msgpack:"MountFlags"`
 }
 
 type CSIVolumeCapability struct {
-	AccessMode     string `yaml:"access_mode" json:"AccessMode"`
-	AttachmentMode string `yaml:"attachment_mode" json:"AttachmentMode"`
+	AccessMode     string `yaml:"access_mode" json:"AccessMode" msgpack:"AccessMode"`
+	AttachmentMode string `yaml:"attachment_mode" json:"AttachmentMode" msgpack:"AttachmentMode"`
 }
 
 type CSIVolume struct {
-	Id           string                `yaml:"id" json:"ID"`
-	Name         string                `yaml:"name" json:"Name"`
-	Namespace    string                `yaml:"namespace" json:"Namespace"`
-	PuluginId    string                `yaml:"plugin_id" json:"PluginID"`
-	Type         string                `yaml:"type" json:"Type"`
-	MountOptions CSIVolumeMountOptions `yaml:"mount_options" json:"MountOptions"`
-	CapacityMin  interface{}           `yaml:"capacity_min,omitempty" json:"RequestedCapacityMin,omitempty"`
-	CapacityMax  interface{}           `yaml:"capacity_max,omitempty" json:"RequestedCapacityMax,omitempty"`
-	Capabilities []CSIVolumeCapability `yaml:"capabilities,omitempty" json:"RequestedCapabilities,omitempty"`
-	Secrets      map[string]string     `yaml:"secrets,omitempty" json:"Secrets,omitempty"`
-	Parameters   map[string]string     `yaml:"parameters,omitempty" json:"Parameters,omitempty"`
+	Id           string                `yaml:"id" json:"ID" msgpack:"ID"`
+	Name         string                `yaml:"name" json:"Name" msgpack:"Name"`
+	Namespace    string                `yaml:"namespace" json:"Namespace" msgpack:"Namespace"`
+	PuluginId    string                `yaml:"plugin_id" json:"PluginID" msgpack:"PluginID"`
+	Type         string                `yaml:"type" json:"Type" msgpack:"Type"`
+	MountOptions CSIVolumeMountOptions `yaml:"mount_options" json:"MountOptions" msgpack:"MountOptions"`
+	CapacityMin  interface{}           `yaml:"capacity_min,omitempty" json:"RequestedCapacityMin,omitempty" msgpack:"RequestedCapacityMin,omitempty"`
+	CapacityMax  interface{}           `yaml:"capacity_max,omitempty" json:"RequestedCapacityMax,omitempty" msgpack:"RequestedCapacityMax,omitempty"`
+	Capabilities []CSIVolumeCapability `yaml:"capabilities,omitempty" json:"RequestedCapabilities,omitempty" msgpack:"RequestedCapabilities,omitempty"`
+	Secrets      map[string]string     `yaml:"secrets,omitempty" json:"Secrets,omitempty" msgpack:"Secrets,omitempty"`
+	Parameters   map[string]string     `yaml:"parameters,omitempty" json:"Parameters,omitempty" msgpack:"Parameters,omitempty"`
 }
 
 type CSIVolumes struct {
-	Volumes []CSIVolume `yaml:"volumes" json:"Volumes"`
+	Volumes []CSIVolume `yaml:"volumes" json:"Volumes" msgpack:"Volumes"`
 }
 
 func LoadVolumesFromYaml(yamlData string, t *Template, space *Space, user *User, variables map[string]interface{}) (*CSIVolumes, error) {

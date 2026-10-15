@@ -20,16 +20,16 @@ import (
 )
 
 type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
-	Scope        string `json:"scope"`
+	AccessToken  string `json:"access_token" msgpack:"access_token"`
+	TokenType    string `json:"token_type" msgpack:"token_type"`
+	ExpiresIn    int    `json:"expires_in" msgpack:"expires_in"`
+	RefreshToken string `json:"refresh_token" msgpack:"refresh_token"`
+	Scope        string `json:"scope" msgpack:"scope"`
 }
 
 type ErrorResponse struct {
-	Error            string `json:"error"`
-	ErrorDescription string `json:"error_description,omitempty"`
+	Error            string `json:"error" msgpack:"error"`
+	ErrorDescription string `json:"error_description,omitempty" msgpack:"error_description,omitempty"`
 }
 
 // HandleAuthorize handles the OAuth2 authorization endpoint
@@ -332,15 +332,15 @@ func handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request) {
 }
 
 type AuthorizationServerMetadata struct {
-	Issuer                            string   `json:"issuer"`
-	AuthorizationEndpoint             string   `json:"authorization_endpoint"`
-	TokenEndpoint                     string   `json:"token_endpoint"`
-	RegistrationEndpoint              string   `json:"registration_endpoint"`
-	ResponseTypesSupported            []string `json:"response_types_supported"`
-	GrantTypesSupported               []string `json:"grant_types_supported"`
-	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
-	ScopesSupported                   []string `json:"scopes_supported,omitempty"`
-	CodeChallengeMethodsSupported     []string `json:"code_challenge_methods_supported,omitempty"`
+	Issuer                            string   `json:"issuer" msgpack:"issuer"`
+	AuthorizationEndpoint             string   `json:"authorization_endpoint" msgpack:"authorization_endpoint"`
+	TokenEndpoint                     string   `json:"token_endpoint" msgpack:"token_endpoint"`
+	RegistrationEndpoint              string   `json:"registration_endpoint" msgpack:"registration_endpoint"`
+	ResponseTypesSupported            []string `json:"response_types_supported" msgpack:"response_types_supported"`
+	GrantTypesSupported               []string `json:"grant_types_supported" msgpack:"grant_types_supported"`
+	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported" msgpack:"token_endpoint_auth_methods_supported"`
+	ScopesSupported                   []string `json:"scopes_supported,omitempty" msgpack:"scopes_supported,omitempty"`
+	CodeChallengeMethodsSupported     []string `json:"code_challenge_methods_supported,omitempty" msgpack:"code_challenge_methods_supported,omitempty"`
 }
 
 // BaseURL returns the server's public URL, from the configuration or, when
@@ -393,11 +393,11 @@ func HandleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 type ProtectedResourceMetadata struct {
-	Resource               string   `json:"resource"`
-	AuthorizationServers   []string `json:"authorization_servers"`
-	ScopesSupported        []string `json:"scopes_supported"`
-	BearerMethodsSupported []string `json:"bearer_methods_supported"`
-	ResourceName           string   `json:"resource_name,omitempty"`
+	Resource               string   `json:"resource" msgpack:"resource"`
+	AuthorizationServers   []string `json:"authorization_servers" msgpack:"authorization_servers"`
+	ScopesSupported        []string `json:"scopes_supported" msgpack:"scopes_supported"`
+	BearerMethodsSupported []string `json:"bearer_methods_supported" msgpack:"bearer_methods_supported"`
+	ResourceName           string   `json:"resource_name,omitempty" msgpack:"resource_name,omitempty"`
 }
 
 // HandleProtectedResourceMetadata serves the RFC 9728 metadata for the MCP
@@ -415,17 +415,17 @@ func HandleProtectedResourceMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 type OpenIDConfiguration struct {
-	Issuer                            string   `json:"issuer"`
-	AuthorizationEndpoint             string   `json:"authorization_endpoint"`
-	TokenEndpoint                     string   `json:"token_endpoint"`
-	UserinfoEndpoint                  string   `json:"userinfo_endpoint"`
-	JwksURI                           string   `json:"jwks_uri"`
-	ResponseTypesSupported            []string `json:"response_types_supported"`
-	SubjectTypesSupported             []string `json:"subject_types_supported"`
-	IDTokenSigningAlgValuesSupported  []string `json:"id_token_signing_alg_values_supported"`
-	ScopesSupported                   []string `json:"scopes_supported"`
-	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
-	ClaimsSupported                   []string `json:"claims_supported"`
+	Issuer                            string   `json:"issuer" msgpack:"issuer"`
+	AuthorizationEndpoint             string   `json:"authorization_endpoint" msgpack:"authorization_endpoint"`
+	TokenEndpoint                     string   `json:"token_endpoint" msgpack:"token_endpoint"`
+	UserinfoEndpoint                  string   `json:"userinfo_endpoint" msgpack:"userinfo_endpoint"`
+	JwksURI                           string   `json:"jwks_uri" msgpack:"jwks_uri"`
+	ResponseTypesSupported            []string `json:"response_types_supported" msgpack:"response_types_supported"`
+	SubjectTypesSupported             []string `json:"subject_types_supported" msgpack:"subject_types_supported"`
+	IDTokenSigningAlgValuesSupported  []string `json:"id_token_signing_alg_values_supported" msgpack:"id_token_signing_alg_values_supported"`
+	ScopesSupported                   []string `json:"scopes_supported" msgpack:"scopes_supported"`
+	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported" msgpack:"token_endpoint_auth_methods_supported"`
+	ClaimsSupported                   []string `json:"claims_supported" msgpack:"claims_supported"`
 }
 
 // validatePKCEChallenge checks the code_challenge and code_challenge_method

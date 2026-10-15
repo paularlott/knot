@@ -13,10 +13,10 @@ import (
 
 // ExternalProvider holds the identity and token for a linked OAuth provider.
 type ExternalProvider struct {
-	ProviderUID  string `json:"provider_uid"`            // provider's own stable user ID (e.g. GitHub integer ID)
-	Username     string `json:"username"`                // human-readable handle, may change
-	Token        string `json:"token"`                   // encrypted access token
-	RefreshToken string `json:"refresh_token,omitempty"` // encrypted refresh token
+	ProviderUID  string `json:"provider_uid" msgpack:"provider_uid"`                       // provider's own stable user ID (e.g. GitHub integer ID)
+	Username     string `json:"username" msgpack:"username"`                               // human-readable handle, may change
+	Token        string `json:"token" msgpack:"token"`                                     // encrypted access token
+	RefreshToken string `json:"refresh_token,omitempty" msgpack:"refresh_token,omitempty"` // encrypted refresh token
 }
 
 // User object

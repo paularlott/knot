@@ -3,23 +3,23 @@ package apiclient
 import "context"
 
 type AuthLoginRequest struct {
-	Password string `json:"password"`
-	Email    string `json:"email"`
-	TOTPCode string `json:"totp_code"`
+	Password string `json:"password" msgpack:"password"`
+	Email    string `json:"email" msgpack:"email"`
+	TOTPCode string `json:"totp_code" msgpack:"totp_code"`
 }
 
 type AuthLoginResponse struct {
-	Status     bool   `json:"status"`
-	Token      string `json:"token"`
-	TOTPSecret string `json:"totp_secret"`
+	Status     bool   `json:"status" msgpack:"status"`
+	Token      string `json:"token" msgpack:"token"`
+	TOTPSecret string `json:"totp_secret" msgpack:"totp_secret"`
 }
 
 type AuthLogoutResponse struct {
-	Status bool `json:"status"`
+	Status bool `json:"status" msgpack:"status"`
 }
 
 type UsingTOTPResponse struct {
-	UsingTOTP bool `json:"using_totp"`
+	UsingTOTP bool `json:"using_totp" msgpack:"using_totp"`
 }
 
 func (c *ApiClient) Login(ctx context.Context, email string, password string, totpCode string) (*AuthLoginResponse, int, error) {

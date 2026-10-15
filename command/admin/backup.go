@@ -152,7 +152,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 			case "file-buckets":
 				keep = func(line []byte) bool {
 					var b struct {
-						Id string `json:"id"`
+						Id string `json:"id" msgpack:"id"`
 					}
 					if json.Unmarshal(line, &b) != nil {
 						return false
@@ -165,7 +165,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 				// at their own moment.
 				keep = func(line []byte) bool {
 					var o struct {
-						BucketId string `json:"bucket_id"`
+						BucketId string `json:"bucket_id" msgpack:"bucket_id"`
 					}
 					return json.Unmarshal(line, &o) == nil && bucketIds[o.BucketId]
 				}
@@ -400,8 +400,8 @@ func backupContent(ctx context.Context, client *apiclient.ApiClient, dir, key st
 	queued := map[string]struct{}{}
 	_ = r.Each(func(line []byte) error {
 		var o struct {
-			SHA256 string `json:"sha256"`
-			Size   int64  `json:"size"`
+			SHA256 string `json:"sha256" msgpack:"sha256"`
+			Size   int64  `json:"size" msgpack:"size"`
 		}
 		if json.Unmarshal(line, &o) != nil || len(o.SHA256) != 64 {
 			return nil
@@ -440,7 +440,7 @@ func pruneContent(dir, key string) (int, int64, error) {
 	}
 	err = r.Each(func(line []byte) error {
 		var o struct {
-			SHA256 string `json:"sha256"`
+			SHA256 string `json:"sha256" msgpack:"sha256"`
 		}
 		if json.Unmarshal(line, &o) == nil && len(o.SHA256) == 64 {
 			wanted[o.SHA256] = struct{}{}

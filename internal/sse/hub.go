@@ -62,24 +62,24 @@ const (
 
 // Event represents an SSE event to be sent to clients
 type Event struct {
-	Type    EventType   `json:"type"`
-	Payload interface{} `json:"payload,omitempty"`
+	Type    EventType   `json:"type" msgpack:"type"`
+	Payload interface{} `json:"payload,omitempty" msgpack:"payload,omitempty"`
 
 	toUser string // set for an event for one user's clients only
 }
 
 // ResourcePayload contains data for resource-specific events
 type ResourcePayload struct {
-	Id                string   `json:"id"`
-	UserId            string   `json:"user_id,omitempty"`
-	SharedWithUserIds []string `json:"shared_with_user_ids,omitempty"`
-	PreviousUserIds   []string `json:"previous_user_ids,omitempty"`
+	Id                string   `json:"id" msgpack:"id"`
+	UserId            string   `json:"user_id,omitempty" msgpack:"user_id,omitempty"`
+	SharedWithUserIds []string `json:"shared_with_user_ids,omitempty" msgpack:"shared_with_user_ids,omitempty"`
+	PreviousUserIds   []string `json:"previous_user_ids,omitempty" msgpack:"previous_user_ids,omitempty"`
 }
 
 // FilesPayload names the buckets whose files or settings changed. It is
 // empty when too many changed to name, meaning any of them might have.
 type FilesPayload struct {
-	BucketIds []string `json:"bucket_ids,omitempty"`
+	BucketIds []string `json:"bucket_ids,omitempty" msgpack:"bucket_ids,omitempty"`
 }
 
 // Client represents a connected SSE client

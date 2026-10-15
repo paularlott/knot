@@ -16,10 +16,10 @@ import (
 )
 
 type AvailableNode struct {
-	NodeId        string `json:"node_id"`
-	Hostname      string `json:"hostname"`
-	RunningSpaces int    `json:"running_spaces"`
-	TotalSpaces   int    `json:"total_spaces"`
+	NodeId        string `json:"node_id" msgpack:"node_id"`
+	Hostname      string `json:"hostname" msgpack:"hostname"`
+	RunningSpaces int    `json:"running_spaces" msgpack:"running_spaces"`
+	TotalSpaces   int    `json:"total_spaces" msgpack:"total_spaces"`
 }
 
 func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {

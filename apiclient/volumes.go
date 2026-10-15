@@ -5,68 +5,68 @@ import (
 )
 
 type VolumeInfo struct {
-	Id           string `json:"volume_id"`
-	Name         string `json:"name"`
-	Active       bool   `json:"active"`
-	Zone         string `json:"zone"`
-	NodeId       string `json:"node_id"`
-	NodeHostname string `json:"node_hostname"`
-	Platform     string `json:"platform"`
+	Id           string `json:"volume_id" msgpack:"volume_id"`
+	Name         string `json:"name" msgpack:"name"`
+	Active       bool   `json:"active" msgpack:"active"`
+	Zone         string `json:"zone" msgpack:"zone"`
+	NodeId       string `json:"node_id" msgpack:"node_id"`
+	NodeHostname string `json:"node_hostname" msgpack:"node_hostname"`
+	Platform     string `json:"platform" msgpack:"platform"`
 }
 
 type VolumeInfoList struct {
-	Count   int          `json:"count"`
-	Volumes []VolumeInfo `json:"volumes"`
+	Count   int          `json:"count" msgpack:"count"`
+	Volumes []VolumeInfo `json:"volumes" msgpack:"volumes"`
 }
 
 type VolumeDefinition struct {
-	VolumeId     string `json:"volume_id"`
-	Name         string `json:"name"`
-	Definition   string `json:"definition"`
-	Zone         string `json:"zone"`
-	NodeId       string `json:"node_id"`
-	NodeHostname string `json:"node_hostname"`
-	Active       bool   `json:"active"`
-	Platform     string `json:"platform"`
+	VolumeId     string `json:"volume_id" msgpack:"volume_id"`
+	Name         string `json:"name" msgpack:"name"`
+	Definition   string `json:"definition" msgpack:"definition"`
+	Zone         string `json:"zone" msgpack:"zone"`
+	NodeId       string `json:"node_id" msgpack:"node_id"`
+	NodeHostname string `json:"node_hostname" msgpack:"node_hostname"`
+	Active       bool   `json:"active" msgpack:"active"`
+	Platform     string `json:"platform" msgpack:"platform"`
 }
 
 type VolumeUpdateRequest struct {
-	Name       string `json:"name"`
-	Definition string `json:"definition"`
-	Platform   string `json:"platform"`
-	NodeId     string `json:"node_id"`
+	Name       string `json:"name" msgpack:"name"`
+	Definition string `json:"definition" msgpack:"definition"`
+	Platform   string `json:"platform" msgpack:"platform"`
+	NodeId     string `json:"node_id" msgpack:"node_id"`
 }
 
 type VolumeCreateRequest struct {
-	Name       string `json:"name"`
-	Definition string `json:"definition"`
-	Platform   string `json:"platform"`
-	NodeId     string `json:"node_id"`
+	Name       string `json:"name" msgpack:"name"`
+	Definition string `json:"definition" msgpack:"definition"`
+	Platform   string `json:"platform" msgpack:"platform"`
+	NodeId     string `json:"node_id" msgpack:"node_id"`
 }
 
 type VolumeCreateResponse struct {
-	Status   bool   `json:"status"`
-	VolumeId string `json:"volume_id"`
+	Status   bool   `json:"status" msgpack:"status"`
+	VolumeId string `json:"volume_id" msgpack:"volume_id"`
 }
 
 type VolumeStartStopRequest struct {
-	Zone string `json:"zone"`
+	Zone string `json:"zone" msgpack:"zone"`
 }
 type VolumeStartRequest = VolumeStartStopRequest
 type VolumeStopRequest = VolumeStartStopRequest
 
 type VolumeStartStopResponse struct {
-	Name       string                 `json:"name"`
-	Definition string                 `json:"definition"`
-	Zone       string                 `json:"zone"`
-	Variables  map[string]interface{} `json:"variables"`
+	Name       string                 `json:"name" msgpack:"name"`
+	Definition string                 `json:"definition" msgpack:"definition"`
+	Zone       string                 `json:"zone" msgpack:"zone"`
+	Variables  map[string]interface{} `json:"variables" msgpack:"variables"`
 }
 type VolumeStartResponse = VolumeStartStopResponse
 type VolumeStopResponse = VolumeStartStopResponse
 
 type StartVolumeResponse struct {
-	Status bool   `json:"status"`
-	Zone   string `json:"zone"`
+	Status bool   `json:"status" msgpack:"status"`
+	Zone   string `json:"zone" msgpack:"zone"`
 }
 
 func (c *ApiClient) GetVolumes(ctx context.Context) (*VolumeInfoList, int, error) {
@@ -111,8 +111,8 @@ func (c *ApiClient) GetVolume(ctx context.Context, volumeId string) (*VolumeDefi
 }
 
 type VolumeNode struct {
-	NodeId   string `json:"node_id"`
-	Hostname string `json:"hostname"`
+	NodeId   string `json:"node_id" msgpack:"node_id"`
+	Hostname string `json:"hostname" msgpack:"hostname"`
 }
 
 func (c *ApiClient) GetVolumeNodes(ctx context.Context, platform string) ([]VolumeNode, int, error) {

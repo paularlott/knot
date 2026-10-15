@@ -14,13 +14,13 @@ import (
 )
 
 type SpaceCustomField struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name  string `json:"name" msgpack:"name"`
+	Value string `json:"value" msgpack:"value"`
 }
 
 type AltNameEntry struct {
-	Name string `json:"name"`
-	Port uint16 `json:"port"`
+	Name string `json:"name" msgpack:"name"`
+	Port uint16 `json:"port" msgpack:"port"`
 }
 
 // Value implements the driver.Valuer interface.
@@ -38,9 +38,9 @@ func (a *AltNameEntry) Scan(value interface{}) error {
 }
 
 type PortForwardEntry struct {
-	LocalPort  uint16 `json:"local_port" yaml:"local_port"`
-	Space      string `json:"space" yaml:"space"`
-	RemotePort uint16 `json:"remote_port" yaml:"remote_port"`
+	LocalPort  uint16 `json:"local_port" yaml:"local_port" msgpack:"local_port"`
+	Space      string `json:"space" yaml:"space" msgpack:"space"`
+	RemotePort uint16 `json:"remote_port" yaml:"remote_port" msgpack:"remote_port"`
 }
 
 // Value implements the driver.Valuer interface.
@@ -58,9 +58,9 @@ func (pf *PortForwardEntry) Scan(value interface{}) error {
 }
 
 type SpaceVolume struct {
-	Id        string `json:"id"`
-	Namespace string `json:"Namespace"`
-	Type      string `json:"type,omitempty"`
+	Id        string `json:"id" msgpack:"id"`
+	Namespace string `json:"Namespace" msgpack:"Namespace"`
+	Type      string `json:"type,omitempty" msgpack:"type,omitempty"`
 }
 
 // Value implements the driver.Valuer interface.

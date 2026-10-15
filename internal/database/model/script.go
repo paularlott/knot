@@ -9,24 +9,24 @@ import (
 )
 
 type Script struct {
-	Id                 string        `json:"script_id" db:"script_id,pk"`
-	UserId             string        `json:"user_id" db:"user_id"`
-	Name               string        `json:"name" db:"name"`
-	Description        string        `json:"description" db:"description"`
-	Content            string        `json:"content" db:"content"`
-	Groups             []string      `json:"groups" db:"groups,json"`
-	Zones              []string      `json:"zones" db:"zones,json"`
-	Active             bool          `json:"active" db:"active"`
-	ScriptType         string        `json:"script_type" db:"script_type"`
-	MCPInputSchemaToml string        `json:"mcp_input_schema_toml" db:"mcp_input_schema_toml"`
-	MCPKeywords        []string      `json:"mcp_keywords" db:"mcp_keywords,json"`
-	Discoverable       bool          `json:"discoverable" db:"discoverable"`
-	IsDeleted          bool          `json:"is_deleted" db:"is_deleted"`
-	IsManaged          bool          `json:"is_managed" db:"is_managed"`
-	CreatedUserId      string        `json:"created_user_id" db:"created_user_id"`
-	CreatedAt          time.Time     `json:"created_at" db:"created_at"`
-	UpdatedUserId      string        `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt          hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	Id                 string        `json:"script_id" db:"script_id,pk" msgpack:"script_id"`
+	UserId             string        `json:"user_id" db:"user_id" msgpack:"user_id"`
+	Name               string        `json:"name" db:"name" msgpack:"name"`
+	Description        string        `json:"description" db:"description" msgpack:"description"`
+	Content            string        `json:"content" db:"content" msgpack:"content"`
+	Groups             []string      `json:"groups" db:"groups,json" msgpack:"groups"`
+	Zones              []string      `json:"zones" db:"zones,json" msgpack:"zones"`
+	Active             bool          `json:"active" db:"active" msgpack:"active"`
+	ScriptType         string        `json:"script_type" db:"script_type" msgpack:"script_type"`
+	MCPInputSchemaToml string        `json:"mcp_input_schema_toml" db:"mcp_input_schema_toml" msgpack:"mcp_input_schema_toml"`
+	MCPKeywords        []string      `json:"mcp_keywords" db:"mcp_keywords,json" msgpack:"mcp_keywords"`
+	Discoverable       bool          `json:"discoverable" db:"discoverable" msgpack:"discoverable"`
+	IsDeleted          bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	IsManaged          bool          `json:"is_managed" db:"is_managed" msgpack:"is_managed"`
+	CreatedUserId      string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt          time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId      string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt          hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 func NewScript(

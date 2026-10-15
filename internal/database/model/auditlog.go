@@ -166,14 +166,14 @@ type AuditLogFilter struct {
 }
 
 type AuditLogEntry struct {
-	Id         int64                  `json:"audit_log_id" db:"audit_log_id,pk"`
-	Zone       string                 `json:"zone" db:"zone"`
-	Actor      string                 `json:"actor" db:"actor"`
-	ActorType  string                 `json:"actor_type" db:"actor_type"`
-	Event      string                 `json:"event" db:"event"`
-	When       time.Time              `json:"created_at" db:"created_at"`
-	Details    string                 `json:"details" db:"details"`
-	Properties map[string]interface{} `json:"properties" db:"properties,json"`
+	Id         int64                  `json:"audit_log_id" db:"audit_log_id,pk" msgpack:"audit_log_id"`
+	Zone       string                 `json:"zone" db:"zone" msgpack:"zone"`
+	Actor      string                 `json:"actor" db:"actor" msgpack:"actor"`
+	ActorType  string                 `json:"actor_type" db:"actor_type" msgpack:"actor_type"`
+	Event      string                 `json:"event" db:"event" msgpack:"event"`
+	When       time.Time              `json:"created_at" db:"created_at" msgpack:"created_at"`
+	Details    string                 `json:"details" db:"details" msgpack:"details"`
+	Properties map[string]interface{} `json:"properties" db:"properties,json" msgpack:"properties"`
 }
 
 // AuditHook, when set, is invoked synchronously for every audit event — once

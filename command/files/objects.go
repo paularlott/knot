@@ -13,10 +13,10 @@ import (
 
 // listing is what ls shows for a bucket path.
 type listing struct {
-	Bucket   string                     `json:"bucket"`
-	Prefix   string                     `json:"prefix"`
-	Prefixes []string                   `json:"prefixes"`
-	Objects  []apiclient.FileObjectInfo `json:"objects"`
+	Bucket   string                     `json:"bucket" msgpack:"bucket"`
+	Prefix   string                     `json:"prefix" msgpack:"prefix"`
+	Prefixes []string                   `json:"prefixes" msgpack:"prefixes"`
+	Objects  []apiclient.FileObjectInfo `json:"objects" msgpack:"objects"`
 }
 
 var lsCmd = &cli.Command{

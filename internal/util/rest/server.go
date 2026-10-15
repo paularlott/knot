@@ -59,12 +59,11 @@ func WriteResponse(status int, w http.ResponseWriter, r *http.Request, v interfa
 		return errInvalidStatusCode
 	}
 
-	// Prefer msgpack only when the client lists it first (or lists it
-	// alone). Matching it anywhere in Accept broke clients advertising
+	// Answer in the first type the client lists that we know. Matching
+	// msgpack anywhere in Accept broke clients advertising
 	// "application/json, application/msgpack" — they asked for JSON first
 	// but received msgpack.
-	accept := r.Header.Get("Accept")
-	if prefersMsgPack(accept) {
+	if preferredType(r.Header.Get("Accept")) == ContentTypeMsgPack {
 		w.Header().Set("Content-Type", "application/msgpack")
 		w.WriteHeader(status)
 		return EncodeMsgPack(w, v)
@@ -75,19 +74,16 @@ func WriteResponse(status int, w http.ResponseWriter, r *http.Request, v interfa
 	return json.NewEncoder(w).Encode(v)
 }
 
-// prefersMsgPack reports whether the Accept header's first recognised
-// content type is msgpack.
-func prefersMsgPack(accept string) bool {
+// preferredType returns the first type in an Accept header the server can
+// answer in, JSON when it names none.
+func preferredType(accept string) string {
 	for _, part := range strings.Split(accept, ",") {
-		mt := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
-		switch mt {
-		case "application/msgpack":
-			return true
-		case "application/json":
-			return false
+		switch mt := strings.TrimSpace(strings.SplitN(part, ";", 2)[0]); mt {
+		case ContentTypeMsgPack, ContentTypeJSON:
+			return mt
 		}
 	}
-	return false
+	return ContentTypeJSON
 }
 
 // StreamWriter writes chunks using Server-Sent Events

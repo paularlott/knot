@@ -20,10 +20,21 @@ type CopyFileMessage struct {
 	MtimeNs       int64  `msgpack:"mtime_ns,omitempty"`       // to_space only: unix nanoseconds; agent Chtimes after write
 	FilePerm      uint32 `msgpack:"file_perm,omitempty"`      // to_space only: os.FileMode bits; agent Chmod after write
 	SymlinkTarget string `msgpack:"symlink_target,omitempty"` // to_space only: when set, create symlink instead of writing content
+	// from_space only: read ByteLength bytes from ByteOffset rather than the
+	// whole file, so large files come back in pieces. ByteLength 0 reads
+	// the whole file.
+	ByteOffset int64 `msgpack:"byte_offset,omitempty"`
+	ByteLength int64 `msgpack:"byte_length,omitempty"`
 }
 
 type CopyFileResponse struct {
 	Success bool   `msgpack:"success"`
 	Error   string `msgpack:"error"`
 	Content []byte `msgpack:"content,omitempty"`
+	// Ranged answers a from_space read with a ByteLength: Content is that
+	// range, and the file's size, mtime and permission bits come with it.
+	Ranged   bool   `msgpack:"ranged,omitempty"`
+	FileSize int64  `msgpack:"file_size,omitempty"`
+	MtimeNs  int64  `msgpack:"mtime_ns,omitempty"`
+	FilePerm uint32 `msgpack:"file_perm,omitempty"`
 }

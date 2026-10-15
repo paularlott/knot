@@ -88,10 +88,10 @@ const (
 )
 
 type PermissionName struct {
-	Id          int    `json:"id"`
-	Group       string `json:"group"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Id          int    `json:"id" msgpack:"id"`
+	Group       string `json:"group" msgpack:"group"`
+	Name        string `json:"name" msgpack:"name"`
+	Description string `json:"description" msgpack:"description"`
 }
 
 // permissionKeys maps each built-in permission constant to its stable
