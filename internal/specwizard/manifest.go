@@ -92,7 +92,7 @@ type Manifest struct {
 	// RegistryAuth is set by the API handler (not parsed from TOML) to tell
 	// the wizard whether server.base_image.registry_user/password are
 	// configured, so it can inject an auth block when picking an image.
-	RegistryAuth bool `toml:"-" json:"registry_auth" msgpack:"-"`
+	RegistryAuth bool `toml:"-" json:"registry_auth" msgpack:"registry_auth"`
 }
 
 var (

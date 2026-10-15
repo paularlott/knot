@@ -18,18 +18,18 @@ const (
 
 // Session object
 type Session struct {
-	Id string `json:"session_id" db:"session_id,pk"`
-	Ip string `json:"ip" db:"ip"`
+	Id string `json:"session_id" db:"session_id,pk" msgpack:"session_id"`
+	Ip string `json:"ip" db:"ip" msgpack:"ip"`
 	// UserId is the account the session currently runs as. Switching user
 	// rewrites it; OriginalUserId keeps the account that actually
 	// authenticated so the session can always flick back — fast user
 	// switching, with no reverse link granted.
-	UserId         string        `json:"user_id" db:"user_id"`
-	OriginalUserId string        `json:"original_user_id" db:"original_user_id"`
-	UserAgent      string        `json:"user_agent" db:"user_agent"`
-	ExpiresAfter   time.Time     `json:"expires_after" db:"expires_after"`
-	UpdatedAt      hlc.Timestamp `json:"updated_at" db:"updated_at"`
-	IsDeleted      bool          `json:"is_deleted" db:"is_deleted"`
+	UserId         string        `json:"user_id" db:"user_id" msgpack:"user_id"`
+	OriginalUserId string        `json:"original_user_id" db:"original_user_id" msgpack:"original_user_id"`
+	UserAgent      string        `json:"user_agent" db:"user_agent" msgpack:"user_agent"`
+	ExpiresAfter   time.Time     `json:"expires_after" db:"expires_after" msgpack:"expires_after"`
+	UpdatedAt      hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	IsDeleted      bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 }
 
 func NewSession(r *http.Request, userId string) *Session {

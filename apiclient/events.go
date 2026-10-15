@@ -16,14 +16,14 @@ import (
 // Event is one message from the server's event stream, such as
 // "files:changed" or "space:changed".
 type Event struct {
-	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload,omitempty"`
+	Type    string          `json:"type" msgpack:"type"`
+	Payload json.RawMessage `json:"payload,omitempty" msgpack:"payload,omitempty"`
 }
 
 // FilesChangedPayload is the payload of a "files:changed" event: the ids of
 // the buckets that changed, none meaning any bucket.
 type FilesChangedPayload struct {
-	BucketIds []string `json:"bucket_ids,omitempty"`
+	BucketIds []string `json:"bucket_ids,omitempty" msgpack:"bucket_ids,omitempty"`
 }
 
 // ErrEventsRefused is returned by FollowEvents when the server refuses the

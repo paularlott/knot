@@ -50,19 +50,19 @@ func IsKnownTokenScope(s string) bool {
 
 // Session object
 type Token struct {
-	Id           string        `json:"token_id" db:"token_id,pk"`
-	UserId       string        `json:"user_id" db:"user_id"`
-	Name         string        `json:"name" db:"name"`
-	ExpiresAfter time.Time     `json:"expires_after" db:"expires_after"`
-	UpdatedAt    hlc.Timestamp `json:"updated_at" db:"updated_at"`
-	IsDeleted    bool          `json:"is_deleted" db:"is_deleted"`
+	Id           string        `json:"token_id" db:"token_id,pk" msgpack:"token_id"`
+	UserId       string        `json:"user_id" db:"user_id" msgpack:"user_id"`
+	Name         string        `json:"name" db:"name" msgpack:"name"`
+	ExpiresAfter time.Time     `json:"expires_after" db:"expires_after" msgpack:"expires_after"`
+	UpdatedAt    hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	IsDeleted    bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	// Scopes restricts which endpoint groups this token can reach.
 	// nil/empty = unrestricted (backward compatible with pre-scopes tokens).
 	// Non-empty = token may only reach endpoints covered by the listed scopes.
-	Scopes []string `json:"scopes,omitempty" db:"scopes,json"`
+	Scopes []string `json:"scopes,omitempty" db:"scopes,json" msgpack:"scopes,omitempty"`
 	// RefreshToken marks tokens issued via the OAuth2 authorization-code
 	// flow; only these may be extended through the /token refresh grant.
-	RefreshToken bool `json:"refresh_token,omitempty" db:"refresh_token"`
+	RefreshToken bool `json:"refresh_token,omitempty" db:"refresh_token" msgpack:"refresh_token,omitempty"`
 }
 
 // TokenPrefix starts every API token, so a token is recognisable and never

@@ -249,12 +249,12 @@ func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
 
 // TOTPVerifyRequest is the body of POST /api/auth/totp/verify.
 type TOTPVerifyRequest struct {
-	Code string `json:"code"`
+	Code string `json:"code" msgpack:"code"`
 }
 
 // TOTPVerifyResponse reports a successful TOTP check.
 type TOTPVerifyResponse struct {
-	Valid bool `json:"valid"`
+	Valid bool `json:"valid" msgpack:"valid"`
 }
 
 // HandleVerifyTOTP checks a code against the signed-in user's stored TOTP
@@ -340,7 +340,7 @@ func HandleClearAuthBlocks(w http.ResponseWriter, r *http.Request) {
 	)
 
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Status bool `json:"status"`
+		Status bool `json:"status" msgpack:"status"`
 	}{
 		Status: true,
 	})

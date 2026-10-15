@@ -206,10 +206,10 @@ var bucketPermissionsCmd = &cli.Command{
 				grants = []apiclient.FileGrant{}
 			}
 			return printJSON(struct {
-				Bucket string                `json:"bucket"`
-				Owner  string                `json:"owner"`
-				Access string                `json:"access"`
-				Grants []apiclient.FileGrant `json:"grants"`
+				Bucket string                `json:"bucket" msgpack:"bucket"`
+				Owner  string                `json:"owner" msgpack:"owner"`
+				Access string                `json:"access" msgpack:"access"`
+				Grants []apiclient.FileGrant `json:"grants" msgpack:"grants"`
 			}{b.Name, b.OwnerName, b.Access, grants})
 		}
 

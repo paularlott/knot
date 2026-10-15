@@ -1,6 +1,7 @@
 package agent_client
 
 import (
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -161,6 +162,10 @@ func handleCopyFromSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 		sourcePath = filepath.Join(copyCmd.Workdir, sourcePath)
 	}
 
+	if copyCmd.ByteLength > 0 {
+		return readFileRange(sourcePath, copyCmd.ByteOffset, copyCmd.ByteLength)
+	}
+
 	// Read file content
 	content, err := os.ReadFile(sourcePath)
 	if err != nil {
@@ -177,4 +182,53 @@ func handleCopyFromSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 	}
 
 	return msg.CopyFileResponse{Success: true, Content: content}
+}
+
+// maxReadRange caps one ranged read, keeping the reply well inside the
+// agent link's frame limit.
+const maxReadRange = 8 * 1024 * 1024
+
+// readFileRange reads length bytes from offset, with the file's size, mtime
+// and permission bits, for callers that fetch a large file in pieces.
+func readFileRange(sourcePath string, offset, length int64) msg.CopyFileResponse {
+	if offset < 0 {
+		return msg.CopyFileResponse{Success: false, Error: "Invalid byte offset"}
+	}
+	length = min(length, maxReadRange)
+
+	f, err := os.Open(sourcePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return msg.CopyFileResponse{Success: false, Error: "File not found: " + sourcePath}
+		}
+		return msg.CopyFileResponse{Success: false, Error: "Failed to read file: " + err.Error()}
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return msg.CopyFileResponse{Success: false, Error: "Failed to read file: " + err.Error()}
+	}
+	if !info.Mode().IsRegular() {
+		return msg.CopyFileResponse{Success: false, Error: "Not a regular file: " + sourcePath}
+	}
+
+	content := []byte{}
+	if offset < info.Size() {
+		content = make([]byte, min(length, info.Size()-offset))
+		n, err := f.ReadAt(content, offset)
+		if err != nil && err != io.EOF {
+			return msg.CopyFileResponse{Success: false, Error: "Failed to read file: " + err.Error()}
+		}
+		content = content[:n]
+	}
+
+	return msg.CopyFileResponse{
+		Success:  true,
+		Content:  content,
+		Ranged:   true,
+		FileSize: info.Size(),
+		MtimeNs:  info.ModTime().UnixNano(),
+		FilePerm: uint32(info.Mode().Perm()),
+	}
 }

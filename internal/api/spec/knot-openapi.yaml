@@ -13,6 +13,14 @@ info:
   description: |
     # Introduction
     The REST API is used for the CLI, Web interface and 3rd party integrations.
+
+    # Encodings
+    Requests and replies are JSON by default. Send `Content-Type: application/msgpack` and
+    list it first in `Accept` to use msgpack instead, with the same field names as the
+    JSON. Byte fields, such as file content read in pieces, are base64 in JSON and raw in
+    msgpack. Every reply carries the server's version in the `X-Knot-Version` header, and
+    the server refuses a knot command (`User-Agent: knot vX.Y.Z`) from another major.minor
+    version.
 tags:
   - name: Authorization
     description: |
@@ -3846,6 +3854,20 @@ paths:
                   default: 0
                   description: Maximum number of lines to return. 0 or omitted = no limit (whole file).
                   example: 20
+                byte_offset:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: With byte_length, the byte to start reading at.
+                byte_length:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: >
+                    Read this many bytes from byte_offset (at most 8 MB) rather than the
+                    whole file, returning them in data along with the file's size, mtime
+                    and permission bits. offset and limit don't apply.
+                  example: 4194304
       responses:
         "200":
           description: File read successfully
@@ -3872,6 +3894,24 @@ paths:
                   limit:
                     type: integer
                     description: Applied limit (only present when offset/limit used).
+                  ranged:
+                    type: boolean
+                    description: True when the server read a byte range. A server older than knot 0.41 leaves it out and returns the whole file in content.
+                  data:
+                    type: string
+                    format: byte
+                    description: The bytes read, base64-encoded (only present for a byte_length read).
+                  file_size:
+                    type: integer
+                    format: int64
+                    description: The whole file's size in bytes (only present for a byte_length read).
+                  mtime_ns:
+                    type: integer
+                    format: int64
+                    description: The file's modification time in Unix nanoseconds (only present for a byte_length read).
+                  file_perm:
+                    type: integer
+                    description: The file's permission bits (only present for a byte_length read).
                   error:
                     type: string
                     description: Error message if operation failed.

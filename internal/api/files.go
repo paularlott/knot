@@ -296,7 +296,7 @@ func HandleDeleteFileBucket(w http.ResponseWriter, r *http.Request) {
 	}
 	auditBucket(r, user, model.AuditEventBucketDelete, fmt.Sprintf("Deleted bucket %s", name), name, map[string]interface{}{"force": force})
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Status bool `json:"status"`
+		Status bool `json:"status" msgpack:"status"`
 	}{true})
 }
 
@@ -749,7 +749,7 @@ func HandleDeleteFileObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Status bool `json:"status"`
+		Status bool `json:"status" msgpack:"status"`
 	}{true})
 }
 

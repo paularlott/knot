@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/paularlott/knot/internal/middleware"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -75,9 +76,9 @@ func filesEnvWith(t *testing.T, useMux bool) (run func(script string) map[string
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", HandlePutFileObject)
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", HandleDeleteFileObject)
 	mux.HandleFunc("POST /api/files/copy", HandleCopyFileObject)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(middleware.KnotVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), "user", alice)))
-	}))
+	})))
 	t.Cleanup(srv.Close)
 
 	var client *apiclient.ApiClient

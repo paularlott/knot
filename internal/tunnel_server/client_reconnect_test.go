@@ -3,6 +3,7 @@ package tunnel_server
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/paularlott/knot/internal/middleware"
 	"io"
 	"net"
 	"net/http"
@@ -63,7 +64,7 @@ func (f *fakeTunnelServer) handler() http.Handler {
 		}()
 	})
 
-	return mux
+	return middleware.KnotVersion(mux)
 }
 
 // dropConnections closes every websocket the server accepted, as a crash

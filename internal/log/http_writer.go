@@ -342,11 +342,11 @@ func (w *httpWriter) encodeNDJSON(lines [][]byte) ([]byte, string) {
 // encodeLoki produces a Loki push payload.
 func (w *httpWriter) encodeLoki(lines [][]byte) ([]byte, string) {
 	type lokiStream struct {
-		Stream map[string]string `json:"stream"`
-		Values [][2]string       `json:"values"`
+		Stream map[string]string `json:"stream" msgpack:"stream"`
+		Values [][2]string       `json:"values" msgpack:"values"`
 	}
 	type lokiPayload struct {
-		Streams []lokiStream `json:"streams"`
+		Streams []lokiStream `json:"streams" msgpack:"streams"`
 	}
 
 	// Group lines by stream label so each gets its own Loki stream entry.

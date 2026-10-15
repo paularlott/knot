@@ -9,13 +9,13 @@ import (
 
 // ClusterNodeInfo represents basic node information returned from queries
 type ClusterNodeInfo struct {
-	NodeId          string   `json:"node_id"`
-	Hostname        string   `json:"hostname"`
-	Zone            string   `json:"zone"`
-	ApiEndpoint     string   `json:"api_endpoint"`
-	AllocatedSpaces int      `json:"allocated_spaces"`
-	RunningSpaces   int      `json:"running_spaces"`
-	Runtimes        []string `json:"runtimes"`
+	NodeId          string   `json:"node_id" msgpack:"node_id"`
+	Hostname        string   `json:"hostname" msgpack:"hostname"`
+	Zone            string   `json:"zone" msgpack:"zone"`
+	ApiEndpoint     string   `json:"api_endpoint" msgpack:"api_endpoint"`
+	AllocatedSpaces int      `json:"allocated_spaces" msgpack:"allocated_spaces"`
+	RunningSpaces   int      `json:"running_spaces" msgpack:"running_spaces"`
+	Runtimes        []string `json:"runtimes" msgpack:"runtimes"`
 }
 
 // QueryNodeInfo queries a remote node for its information including runtimes

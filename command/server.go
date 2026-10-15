@@ -1387,6 +1387,10 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		router = appRoutes
 	}
 
+	// Every reply says which version answered, and a knot command from
+	// another minor version is turned away.
+	router = middleware.KnotVersion(router)
+
 	var tlsConfig *tls.Config = nil
 
 	// If server should use TLS

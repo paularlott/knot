@@ -54,7 +54,7 @@ func fetchCodeServer() error {
 
 	// Decode the JSON response and get latest version from the tag_name field
 	type GitHubRelease struct {
-		TagName string `json:"tag_name"`
+		TagName string `json:"tag_name" msgpack:"tag_name"`
 	}
 
 	var release GitHubRelease

@@ -58,58 +58,58 @@ type jobSpec struct {
 // ---- Docker REST API request/response types ----
 
 type portBinding struct {
-	HostIP   string `json:"HostIp"`
-	HostPort string `json:"HostPort"`
+	HostIP   string `json:"HostIp" msgpack:"HostIp"`
+	HostPort string `json:"HostPort" msgpack:"HostPort"`
 }
 
 type deviceMapping struct {
-	PathOnHost        string `json:"PathOnHost"`
-	PathInContainer   string `json:"PathInContainer"`
-	CgroupPermissions string `json:"CgroupPermissions"`
+	PathOnHost        string `json:"PathOnHost" msgpack:"PathOnHost"`
+	PathInContainer   string `json:"PathInContainer" msgpack:"PathInContainer"`
+	CgroupPermissions string `json:"CgroupPermissions" msgpack:"CgroupPermissions"`
 }
 
 type restartPolicy struct {
-	Name string `json:"Name"`
+	Name string `json:"Name" msgpack:"Name"`
 }
 
 type containerHostConfig struct {
-	Binds         []string                 `json:"Binds,omitempty"`
-	PortBindings  map[string][]portBinding `json:"PortBindings,omitempty"`
-	Privileged    bool                     `json:"Privileged,omitempty"`
-	NetworkMode   string                   `json:"NetworkMode,omitempty"`
-	CapAdd        []string                 `json:"CapAdd,omitempty"`
-	CapDrop       []string                 `json:"CapDrop,omitempty"`
-	Devices       []deviceMapping          `json:"Devices,omitempty"`
-	DNS           []string                 `json:"Dns,omitempty"`
-	ExtraHosts    []string                 `json:"ExtraHosts,omitempty"`
-	DNSSearch     []string                 `json:"DnsSearch,omitempty"`
-	Memory        int64                    `json:"Memory,omitempty"`
-	NanoCPUs      int64                    `json:"NanoCpus,omitempty"`
-	RestartPolicy restartPolicy            `json:"RestartPolicy"`
+	Binds         []string                 `json:"Binds,omitempty" msgpack:"Binds,omitempty"`
+	PortBindings  map[string][]portBinding `json:"PortBindings,omitempty" msgpack:"PortBindings,omitempty"`
+	Privileged    bool                     `json:"Privileged,omitempty" msgpack:"Privileged,omitempty"`
+	NetworkMode   string                   `json:"NetworkMode,omitempty" msgpack:"NetworkMode,omitempty"`
+	CapAdd        []string                 `json:"CapAdd,omitempty" msgpack:"CapAdd,omitempty"`
+	CapDrop       []string                 `json:"CapDrop,omitempty" msgpack:"CapDrop,omitempty"`
+	Devices       []deviceMapping          `json:"Devices,omitempty" msgpack:"Devices,omitempty"`
+	DNS           []string                 `json:"Dns,omitempty" msgpack:"Dns,omitempty"`
+	ExtraHosts    []string                 `json:"ExtraHosts,omitempty" msgpack:"ExtraHosts,omitempty"`
+	DNSSearch     []string                 `json:"DnsSearch,omitempty" msgpack:"DnsSearch,omitempty"`
+	Memory        int64                    `json:"Memory,omitempty" msgpack:"Memory,omitempty"`
+	NanoCPUs      int64                    `json:"NanoCpus,omitempty" msgpack:"NanoCpus,omitempty"`
+	RestartPolicy restartPolicy            `json:"RestartPolicy" msgpack:"RestartPolicy"`
 }
 
 type containerCreateRequest struct {
-	Image        string              `json:"Image"`
-	Hostname     string              `json:"Hostname"`
-	Env          []string            `json:"Env,omitempty"`
-	Cmd          []string            `json:"Cmd,omitempty"`
-	ExposedPorts map[string]struct{} `json:"ExposedPorts,omitempty"`
-	HostConfig   containerHostConfig `json:"HostConfig"`
+	Image        string              `json:"Image" msgpack:"Image"`
+	Hostname     string              `json:"Hostname" msgpack:"Hostname"`
+	Env          []string            `json:"Env,omitempty" msgpack:"Env,omitempty"`
+	Cmd          []string            `json:"Cmd,omitempty" msgpack:"Cmd,omitempty"`
+	ExposedPorts map[string]struct{} `json:"ExposedPorts,omitempty" msgpack:"ExposedPorts,omitempty"`
+	HostConfig   containerHostConfig `json:"HostConfig" msgpack:"HostConfig"`
 }
 
 type containerCreateResponse struct {
-	ID string `json:"Id"`
+	ID string `json:"Id" msgpack:"Id"`
 }
 
 type containerInspectResponse struct {
 	State *struct {
-		Running bool `json:"Running"`
-	} `json:"State"`
+		Running bool `json:"Running" msgpack:"Running"`
+	} `json:"State" msgpack:"State"`
 }
 
 type containerListResponse struct {
-	ID    string   `json:"Id"`
-	Names []string `json:"Names"`
+	ID    string   `json:"Id" msgpack:"Id"`
+	Names []string `json:"Names" msgpack:"Names"`
 }
 
 // ---- helpers ----
@@ -235,7 +235,7 @@ func (c *DockerClient) imagePull(ctx context.Context, image string, authHeader s
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		var obj struct {
-			Error string `json:"error"`
+			Error string `json:"error" msgpack:"error"`
 		}
 		if json.Unmarshal(scanner.Bytes(), &obj) == nil && obj.Error != "" {
 			return fmt.Errorf("image pull error: %s", obj.Error)

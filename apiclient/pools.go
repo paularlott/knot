@@ -6,131 +6,131 @@ import (
 )
 
 type PoolRequest struct {
-	Name            string `json:"name"`
-	TemplateId      string `json:"template_id"`
-	StartupScriptId string `json:"startup_script_id"`
-	DesiredCount    int    `json:"desired_count"`
-	Active          bool   `json:"active"`
+	Name            string `json:"name" msgpack:"name"`
+	TemplateId      string `json:"template_id" msgpack:"template_id"`
+	StartupScriptId string `json:"startup_script_id" msgpack:"startup_script_id"`
+	DesiredCount    int    `json:"desired_count" msgpack:"desired_count"`
+	Active          bool   `json:"active" msgpack:"active"`
 	// LeaseMaxTime is in seconds: 0 = leases disabled (default), -1 = no
 	// timeout, >0 = max duration of one acquire/extend.
-	LeaseMaxTime int `json:"lease_max_time"`
+	LeaseMaxTime int `json:"lease_max_time" msgpack:"lease_max_time"`
 	// LeaseMaxExtensions: 0 = extending forbidden (default), -1 = unlimited,
 	// >0 = max extensions per lease.
-	LeaseMaxExtensions int `json:"lease_max_extensions"`
+	LeaseMaxExtensions int `json:"lease_max_extensions" msgpack:"lease_max_extensions"`
 	// CustomFields are given to every member; template defaults fill in
 	// fields left out.
-	CustomFields []CustomFieldValue `json:"custom_fields"`
+	CustomFields []CustomFieldValue `json:"custom_fields" msgpack:"custom_fields"`
 }
 
 type PoolSetSizeRequest struct {
-	DesiredCount int `json:"desired_count"`
+	DesiredCount int `json:"desired_count" msgpack:"desired_count"`
 }
 
 type PoolUpdateRequest struct {
-	Name            *string `json:"name,omitempty"`
-	TemplateId      *string `json:"template_id,omitempty"`
-	StartupScriptId *string `json:"startup_script_id,omitempty"`
-	DesiredCount    *int    `json:"desired_count,omitempty"`
-	Active          *bool   `json:"active,omitempty"`
-	LeaseMaxTime    *int    `json:"lease_max_time,omitempty"`
+	Name            *string `json:"name,omitempty" msgpack:"name,omitempty"`
+	TemplateId      *string `json:"template_id,omitempty" msgpack:"template_id,omitempty"`
+	StartupScriptId *string `json:"startup_script_id,omitempty" msgpack:"startup_script_id,omitempty"`
+	DesiredCount    *int    `json:"desired_count,omitempty" msgpack:"desired_count,omitempty"`
+	Active          *bool   `json:"active,omitempty" msgpack:"active,omitempty"`
+	LeaseMaxTime    *int    `json:"lease_max_time,omitempty" msgpack:"lease_max_time,omitempty"`
 	// LeaseMaxExtensions: 0 = extending forbidden, -1 = unlimited, >0 = max
 	// extensions per lease. The pointer cannot distinguish "set to 0" from
 	// "absent" — patch semantics treat absent as unchanged and 0 as
 	// "disable extending".
-	LeaseMaxExtensions *int `json:"lease_max_extensions,omitempty"`
+	LeaseMaxExtensions *int `json:"lease_max_extensions,omitempty" msgpack:"lease_max_extensions,omitempty"`
 	// CustomFields, when present, replaces the pool's custom field values.
 	// Members pick them up when they are next created or started.
-	CustomFields *[]CustomFieldValue `json:"custom_fields,omitempty"`
+	CustomFields *[]CustomFieldValue `json:"custom_fields,omitempty" msgpack:"custom_fields,omitempty"`
 }
 
 type PoolLeaseAcquireRequest struct {
 	// DurationSeconds: 0 = the pool's maximum (-1 pool: never expires),
 	// -1 = never-expiring lease (unlimited pools only), >0 = bounded by the
 	// pool maximum.
-	DurationSeconds int `json:"duration_seconds"`
+	DurationSeconds int `json:"duration_seconds" msgpack:"duration_seconds"`
 	// WaitSeconds optionally long-polls for a free member (max 300).
-	WaitSeconds int `json:"wait_seconds"`
+	WaitSeconds int `json:"wait_seconds" msgpack:"wait_seconds"`
 }
 
 type PoolLeaseExtendRequest struct {
-	DurationSeconds int `json:"duration_seconds"`
+	DurationSeconds int `json:"duration_seconds" msgpack:"duration_seconds"`
 }
 
 type PoolUtilization struct {
-	CombinedRPS      float64 `json:"combined_rps"`
-	MethodRPS        float64 `json:"method_rps"`
-	HTTPRPS          float64 `json:"http_rps"`
-	TCPRPS           float64 `json:"tcp_rps"`
-	MethodInflight   int     `json:"method_inflight"`
-	AvgCPUPercent    float64 `json:"avg_cpu_percent"`
-	AvgMemoryPercent float64 `json:"avg_memory_percent"`
+	CombinedRPS      float64 `json:"combined_rps" msgpack:"combined_rps"`
+	MethodRPS        float64 `json:"method_rps" msgpack:"method_rps"`
+	HTTPRPS          float64 `json:"http_rps" msgpack:"http_rps"`
+	TCPRPS           float64 `json:"tcp_rps" msgpack:"tcp_rps"`
+	MethodInflight   int     `json:"method_inflight" msgpack:"method_inflight"`
+	AvgCPUPercent    float64 `json:"avg_cpu_percent" msgpack:"avg_cpu_percent"`
+	AvgMemoryPercent float64 `json:"avg_memory_percent" msgpack:"avg_memory_percent"`
 }
 
 type PoolMemberInfo struct {
-	Id             string  `json:"space_id"`
-	Name           string  `json:"name"`
-	State          string  `json:"state"`
-	CombinedRPS    float64 `json:"combined_rps"`
-	MethodRPS      float64 `json:"method_rps"`
-	HTTPRPS        float64 `json:"http_rps"`
-	TCPRPS         float64 `json:"tcprps"`
-	MethodInflight int     `json:"method_inflight"`
-	CPUPercent     float64 `json:"cpu_percent"`
-	MemoryPercent  float64 `json:"memory_percent"`
-	Healthy        bool    `json:"healthy"`
-	IsPending      bool    `json:"is_pending"`
-	IsDeleting     bool    `json:"is_deleting"`
-	IsDeployed     bool    `json:"is_deployed"`
+	Id             string  `json:"space_id" msgpack:"space_id"`
+	Name           string  `json:"name" msgpack:"name"`
+	State          string  `json:"state" msgpack:"state"`
+	CombinedRPS    float64 `json:"combined_rps" msgpack:"combined_rps"`
+	MethodRPS      float64 `json:"method_rps" msgpack:"method_rps"`
+	HTTPRPS        float64 `json:"http_rps" msgpack:"http_rps"`
+	TCPRPS         float64 `json:"tcprps" msgpack:"tcprps"`
+	MethodInflight int     `json:"method_inflight" msgpack:"method_inflight"`
+	CPUPercent     float64 `json:"cpu_percent" msgpack:"cpu_percent"`
+	MemoryPercent  float64 `json:"memory_percent" msgpack:"memory_percent"`
+	Healthy        bool    `json:"healthy" msgpack:"healthy"`
+	IsPending      bool    `json:"is_pending" msgpack:"is_pending"`
+	IsDeleting     bool    `json:"is_deleting" msgpack:"is_deleting"`
+	IsDeployed     bool    `json:"is_deployed" msgpack:"is_deployed"`
 	// Lease state: "" = free, "active" = exclusively leased,
 	// "draining" = lease ended, waiting for in-flight work to finish.
-	LeaseState     string     `json:"lease_state,omitempty"`
-	LeaseHolder    string     `json:"lease_holder,omitempty"`
-	LeaseExpiresAt *time.Time `json:"lease_expires_at,omitempty"` // null = never expires
+	LeaseState     string     `json:"lease_state,omitempty" msgpack:"lease_state,omitempty"`
+	LeaseHolder    string     `json:"lease_holder,omitempty" msgpack:"lease_holder,omitempty"`
+	LeaseExpiresAt *time.Time `json:"lease_expires_at,omitempty" msgpack:"lease_expires_at,omitempty"` // null = never expires
 }
 
 type PoolInfo struct {
-	Id                 string             `json:"pool_id"`
-	Name               string             `json:"name"`
-	TemplateId         string             `json:"template_id"`
-	StartupScriptId    string             `json:"startup_script_id"`
-	DesiredCount       int                `json:"desired_count"`
-	AliveMembers       int                `json:"alive_members"`
-	Active             bool               `json:"active"`
-	LeaseMaxTime       int                `json:"lease_max_time"`
-	LeaseMaxExtensions int                `json:"lease_max_extensions"`
-	CustomFields       []CustomFieldValue `json:"custom_fields"`
-	Utilization        PoolUtilization    `json:"utilization"`
-	Members            []PoolMemberInfo   `json:"members"`
+	Id                 string             `json:"pool_id" msgpack:"pool_id"`
+	Name               string             `json:"name" msgpack:"name"`
+	TemplateId         string             `json:"template_id" msgpack:"template_id"`
+	StartupScriptId    string             `json:"startup_script_id" msgpack:"startup_script_id"`
+	DesiredCount       int                `json:"desired_count" msgpack:"desired_count"`
+	AliveMembers       int                `json:"alive_members" msgpack:"alive_members"`
+	Active             bool               `json:"active" msgpack:"active"`
+	LeaseMaxTime       int                `json:"lease_max_time" msgpack:"lease_max_time"`
+	LeaseMaxExtensions int                `json:"lease_max_extensions" msgpack:"lease_max_extensions"`
+	CustomFields       []CustomFieldValue `json:"custom_fields" msgpack:"custom_fields"`
+	Utilization        PoolUtilization    `json:"utilization" msgpack:"utilization"`
+	Members            []PoolMemberInfo   `json:"members" msgpack:"members"`
 }
 
 type PoolList struct {
-	Count int        `json:"count"`
-	Pools []PoolInfo `json:"pools"`
+	Count int        `json:"count" msgpack:"count"`
+	Pools []PoolInfo `json:"pools" msgpack:"pools"`
 }
 
 // LeaseInfo describes one exclusive member lease. ExpiresAt is null for a
 // never-expiring lease; MaxExtensions is -1 for unlimited. The space is the
 // lease's identity — the id and name the holder works with.
 type LeaseInfo struct {
-	PoolName       string     `json:"pool_name"`
-	SpaceId        string     `json:"space_id"`
-	SpaceName      string     `json:"space_name"`
-	Username       string     `json:"username"`
-	ExpiresAt      *time.Time `json:"expires_at"`
-	ExtensionsUsed int        `json:"extensions_used"`
-	MaxExtensions  int        `json:"max_extensions"`
-	State          string     `json:"state"` // active | draining | destroying
+	PoolName       string     `json:"pool_name" msgpack:"pool_name"`
+	SpaceId        string     `json:"space_id" msgpack:"space_id"`
+	SpaceName      string     `json:"space_name" msgpack:"space_name"`
+	Username       string     `json:"username" msgpack:"username"`
+	ExpiresAt      *time.Time `json:"expires_at" msgpack:"expires_at"`
+	ExtensionsUsed int        `json:"extensions_used" msgpack:"extensions_used"`
+	MaxExtensions  int        `json:"max_extensions" msgpack:"max_extensions"`
+	State          string     `json:"state" msgpack:"state"` // active | draining | destroying
 }
 
 type PoolLeaseList struct {
-	Count  int         `json:"count"`
-	Leases []LeaseInfo `json:"leases"`
+	Count  int         `json:"count" msgpack:"count"`
+	Leases []LeaseInfo `json:"leases" msgpack:"leases"`
 }
 
 type PoolCreateResponse struct {
-	Status  bool   `json:"status"`
-	Id      string `json:"pool_id"`
-	Message string `json:"message,omitempty"`
+	Status  bool   `json:"status" msgpack:"status"`
+	Id      string `json:"pool_id" msgpack:"pool_id"`
+	Message string `json:"message,omitempty" msgpack:"message,omitempty"`
 }
 
 func (c *ApiClient) GetPool(ctx context.Context, idOrName string) (*PoolInfo, int, error) {

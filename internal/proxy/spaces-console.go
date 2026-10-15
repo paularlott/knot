@@ -190,8 +190,8 @@ func HandleSpacesConsoleProxy(w http.ResponseWriter, r *http.Request) {
 
 			if mt == websocket.BinaryMessage && len(data) > 0 && data[0] == 1 {
 				var size struct {
-					Cols uint16 `json:"cols"`
-					Rows uint16 `json:"rows"`
+					Cols uint16 `json:"cols" msgpack:"cols"`
+					Rows uint16 `json:"rows" msgpack:"rows"`
 				}
 				if err := json.Unmarshal(data[1:], &size); err == nil && size.Cols > 0 && size.Rows > 0 {
 					_ = pty.Setsize(ptmx, &pty.Winsize{Rows: size.Rows, Cols: size.Cols})

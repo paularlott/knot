@@ -3,88 +3,88 @@ package apiclient
 import "context"
 
 type MCPServerInfo struct {
-	Id             string   `json:"mcp_server_id"`
-	UserId         string   `json:"user_id"`
-	Namespace      string   `json:"namespace"`
-	URL            string   `json:"url"`
-	Command        string   `json:"command"`
-	Args           []string `json:"args"`
-	Env            []string `json:"env"`
-	Enabled        bool     `json:"enabled"`
-	ToolVisibility string   `json:"tool_visibility"`
-	DisabledTools  []string `json:"disabled_tools"`
-	RemoteSearch   bool     `json:"remote_search"`
+	Id             string   `json:"mcp_server_id" msgpack:"mcp_server_id"`
+	UserId         string   `json:"user_id" msgpack:"user_id"`
+	Namespace      string   `json:"namespace" msgpack:"namespace"`
+	URL            string   `json:"url" msgpack:"url"`
+	Command        string   `json:"command" msgpack:"command"`
+	Args           []string `json:"args" msgpack:"args"`
+	Env            []string `json:"env" msgpack:"env"`
+	Enabled        bool     `json:"enabled" msgpack:"enabled"`
+	ToolVisibility string   `json:"tool_visibility" msgpack:"tool_visibility"`
+	DisabledTools  []string `json:"disabled_tools" msgpack:"disabled_tools"`
+	RemoteSearch   bool     `json:"remote_search" msgpack:"remote_search"`
 }
 
 type MCPServerDetails struct {
-	Id                string   `json:"mcp_server_id"`
-	UserId            string   `json:"user_id"`
-	Namespace         string   `json:"namespace"`
-	URL               string   `json:"url"`
-	Command           string   `json:"command"`
-	Args              []string `json:"args"`
-	Env               []string `json:"env"`
-	AuthType          string   `json:"auth_type"`
-	Token             string   `json:"token"`
-	OAuthClientID     string   `json:"oauth_client_id"`
-	OAuthTokenURL     string   `json:"oauth_token_url"`
-	OAuthAccessToken  string   `json:"oauth_access_token"`
-	OAuthRefreshToken string   `json:"oauth_refresh_token"`
-	Enabled           bool     `json:"enabled"`
-	ToolVisibility    string   `json:"tool_visibility"`
-	DisabledTools     []string `json:"disabled_tools"`
-	RemoteSearch      bool     `json:"remote_search"`
+	Id                string   `json:"mcp_server_id" msgpack:"mcp_server_id"`
+	UserId            string   `json:"user_id" msgpack:"user_id"`
+	Namespace         string   `json:"namespace" msgpack:"namespace"`
+	URL               string   `json:"url" msgpack:"url"`
+	Command           string   `json:"command" msgpack:"command"`
+	Args              []string `json:"args" msgpack:"args"`
+	Env               []string `json:"env" msgpack:"env"`
+	AuthType          string   `json:"auth_type" msgpack:"auth_type"`
+	Token             string   `json:"token" msgpack:"token"`
+	OAuthClientID     string   `json:"oauth_client_id" msgpack:"oauth_client_id"`
+	OAuthTokenURL     string   `json:"oauth_token_url" msgpack:"oauth_token_url"`
+	OAuthAccessToken  string   `json:"oauth_access_token" msgpack:"oauth_access_token"`
+	OAuthRefreshToken string   `json:"oauth_refresh_token" msgpack:"oauth_refresh_token"`
+	Enabled           bool     `json:"enabled" msgpack:"enabled"`
+	ToolVisibility    string   `json:"tool_visibility" msgpack:"tool_visibility"`
+	DisabledTools     []string `json:"disabled_tools" msgpack:"disabled_tools"`
+	RemoteSearch      bool     `json:"remote_search" msgpack:"remote_search"`
 }
 
 type MCPServerList struct {
-	Count   int             `json:"count"`
-	Servers []MCPServerInfo `json:"servers"`
+	Count   int             `json:"count" msgpack:"count"`
+	Servers []MCPServerInfo `json:"servers" msgpack:"servers"`
 }
 
 type MCPServerCreateRequest struct {
-	Namespace         string   `json:"namespace"`
-	URL               string   `json:"url"`
-	Command           string   `json:"command"`
-	Args              []string `json:"args"`
-	Env               []string `json:"env"`
-	AuthType          string   `json:"auth_type"`
-	Token             string   `json:"token"`
-	OAuthClientID     string   `json:"oauth_client_id"`
-	OAuthTokenURL     string   `json:"oauth_token_url"`
-	OAuthAccessToken  string   `json:"oauth_access_token"`
-	OAuthRefreshToken string   `json:"oauth_refresh_token"`
-	Enabled           bool     `json:"enabled"`
-	ToolVisibility    string   `json:"tool_visibility"`
-	DisabledTools     []string `json:"disabled_tools"`
-	RemoteSearch      bool     `json:"remote_search"`
+	Namespace         string   `json:"namespace" msgpack:"namespace"`
+	URL               string   `json:"url" msgpack:"url"`
+	Command           string   `json:"command" msgpack:"command"`
+	Args              []string `json:"args" msgpack:"args"`
+	Env               []string `json:"env" msgpack:"env"`
+	AuthType          string   `json:"auth_type" msgpack:"auth_type"`
+	Token             string   `json:"token" msgpack:"token"`
+	OAuthClientID     string   `json:"oauth_client_id" msgpack:"oauth_client_id"`
+	OAuthTokenURL     string   `json:"oauth_token_url" msgpack:"oauth_token_url"`
+	OAuthAccessToken  string   `json:"oauth_access_token" msgpack:"oauth_access_token"`
+	OAuthRefreshToken string   `json:"oauth_refresh_token" msgpack:"oauth_refresh_token"`
+	Enabled           bool     `json:"enabled" msgpack:"enabled"`
+	ToolVisibility    string   `json:"tool_visibility" msgpack:"tool_visibility"`
+	DisabledTools     []string `json:"disabled_tools" msgpack:"disabled_tools"`
+	RemoteSearch      bool     `json:"remote_search" msgpack:"remote_search"`
 }
 
 type MCPServerUpdateRequest struct {
-	Namespace         string   `json:"namespace"`
-	URL               string   `json:"url"`
-	Command           string   `json:"command"`
-	Args              []string `json:"args"`
-	Env               []string `json:"env"`
-	AuthType          string   `json:"auth_type"`
-	Token             string   `json:"token"`
-	OAuthClientID     string   `json:"oauth_client_id"`
-	OAuthTokenURL     string   `json:"oauth_token_url"`
-	OAuthAccessToken  string   `json:"oauth_access_token"`
-	OAuthRefreshToken string   `json:"oauth_refresh_token"`
-	Enabled           bool     `json:"enabled"`
-	ToolVisibility    string   `json:"tool_visibility"`
-	DisabledTools     []string `json:"disabled_tools"`
-	RemoteSearch      bool     `json:"remote_search"`
+	Namespace         string   `json:"namespace" msgpack:"namespace"`
+	URL               string   `json:"url" msgpack:"url"`
+	Command           string   `json:"command" msgpack:"command"`
+	Args              []string `json:"args" msgpack:"args"`
+	Env               []string `json:"env" msgpack:"env"`
+	AuthType          string   `json:"auth_type" msgpack:"auth_type"`
+	Token             string   `json:"token" msgpack:"token"`
+	OAuthClientID     string   `json:"oauth_client_id" msgpack:"oauth_client_id"`
+	OAuthTokenURL     string   `json:"oauth_token_url" msgpack:"oauth_token_url"`
+	OAuthAccessToken  string   `json:"oauth_access_token" msgpack:"oauth_access_token"`
+	OAuthRefreshToken string   `json:"oauth_refresh_token" msgpack:"oauth_refresh_token"`
+	Enabled           bool     `json:"enabled" msgpack:"enabled"`
+	ToolVisibility    string   `json:"tool_visibility" msgpack:"tool_visibility"`
+	DisabledTools     []string `json:"disabled_tools" msgpack:"disabled_tools"`
+	RemoteSearch      bool     `json:"remote_search" msgpack:"remote_search"`
 }
 
 type MCPServerCreateResponse struct {
-	Status bool   `json:"status"`
-	Id     string `json:"mcp_server_id"`
+	Status bool   `json:"status" msgpack:"status"`
+	Id     string `json:"mcp_server_id" msgpack:"mcp_server_id"`
 }
 
 type MCPServerToggleToolRequest struct {
-	ToolName string `json:"tool_name"`
-	Enabled  bool   `json:"enabled"`
+	ToolName string `json:"tool_name" msgpack:"tool_name"`
+	Enabled  bool   `json:"enabled" msgpack:"enabled"`
 }
 
 func (c *ApiClient) GetMCPServers(ctx context.Context, userId string) (*MCPServerList, error) {

@@ -35,6 +35,6 @@ func HandleForwardTargetCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Status bool `json:"status"`
+		Status bool `json:"status" msgpack:"status"`
 	}{Status: true})
 }

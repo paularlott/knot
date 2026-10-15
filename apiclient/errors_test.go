@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/paularlott/knot/build"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -51,6 +52,7 @@ func TestIsPreconditionFailed(t *testing.T) {
 func TestPingTypedError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(build.VersionHeader, build.Version)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`{"error":"authentication required"}`))
 	}))

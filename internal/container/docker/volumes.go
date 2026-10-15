@@ -10,11 +10,11 @@ import (
 )
 
 type volumeCreateRequest struct {
-	Name string `json:"Name"`
+	Name string `json:"Name" msgpack:"Name"`
 }
 
 type volumeCreateResponse struct {
-	Name string `json:"Name"`
+	Name string `json:"Name" msgpack:"Name"`
 }
 
 func (c *DockerClient) volumeCreate(ctx context.Context, name string) (string, error) {

@@ -7,9 +7,9 @@ import (
 
 // Status holds the in-memory health status for a space.
 type Status struct {
-	Healthy             bool      `json:"healthy"`
-	LastCheckedAt       time.Time `json:"last_checked_at"`
-	ConsecutiveFailures uint32    `json:"consecutive_failures"`
+	Healthy             bool      `json:"healthy" msgpack:"healthy"`
+	LastCheckedAt       time.Time `json:"last_checked_at" msgpack:"last_checked_at"`
+	ConsecutiveFailures uint32    `json:"consecutive_failures" msgpack:"consecutive_failures"`
 }
 
 var (

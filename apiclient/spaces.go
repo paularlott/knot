@@ -3,6 +3,7 @@ package apiclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,327 +12,327 @@ import (
 )
 
 type SpaceRequest struct {
-	Name            string               `json:"name"`
-	Description     string               `json:"description"`
-	TemplateId      string               `json:"template_id"`
-	Shell           string               `json:"shell"`
-	UserId          string               `json:"user_id"`
-	AltNames        []model.AltNameEntry `json:"alt_names"`
-	IconURL         string               `json:"icon_url"`
-	CustomFields    []CustomFieldValue   `json:"custom_fields"`
-	SelectedNodeId  string               `json:"selected_node_id,omitempty"`
-	StartupScriptId string               `json:"startup_script_id,omitempty"`
-	DependsOn       []string             `json:"depends_on"`
-	Stack           string               `json:"stack"`
-	StackPrefix     string               `json:"stack_prefix"`
+	Name            string               `json:"name" msgpack:"name"`
+	Description     string               `json:"description" msgpack:"description"`
+	TemplateId      string               `json:"template_id" msgpack:"template_id"`
+	Shell           string               `json:"shell" msgpack:"shell"`
+	UserId          string               `json:"user_id" msgpack:"user_id"`
+	AltNames        []model.AltNameEntry `json:"alt_names" msgpack:"alt_names"`
+	IconURL         string               `json:"icon_url" msgpack:"icon_url"`
+	CustomFields    []CustomFieldValue   `json:"custom_fields" msgpack:"custom_fields"`
+	SelectedNodeId  string               `json:"selected_node_id,omitempty" msgpack:"selected_node_id,omitempty"`
+	StartupScriptId string               `json:"startup_script_id,omitempty" msgpack:"startup_script_id,omitempty"`
+	DependsOn       []string             `json:"depends_on" msgpack:"depends_on"`
+	Stack           string               `json:"stack" msgpack:"stack"`
+	StackPrefix     string               `json:"stack_prefix" msgpack:"stack_prefix"`
 	// IPAddress is the KVM space's static IP, chosen from the template's
 	// network range at create time. Ignored for other platforms; immutable
 	// once the space exists.
-	IPAddress string `json:"ip_address,omitempty"`
+	IPAddress string `json:"ip_address,omitempty" msgpack:"ip_address,omitempty"`
 }
 
 type CreateSpaceResponse struct {
-	Status  bool   `json:"status"`
-	SpaceID string `json:"space_id"`
+	Status  bool   `json:"status" msgpack:"status"`
+	SpaceID string `json:"space_id" msgpack:"space_id"`
 }
 
 type SpaceTransferRequest struct {
-	UserId string `json:"user_id"`
+	UserId string `json:"user_id" msgpack:"user_id"`
 }
 
 type SpaceShareUpdateRequest struct {
-	Shares []string `json:"shares,omitempty"`
+	Shares []string `json:"shares,omitempty" msgpack:"shares,omitempty"`
 }
 
 type SpaceInfo struct {
-	Id            string   `json:"space_id"`
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
-	Note          string   `json:"note"`
-	TemplateName  string   `json:"template_name"`
-	TemplateId    string   `json:"template_id"`
-	PoolId        string   `json:"pool_id"`
-	PoolName      string   `json:"pool_name"`
-	Zone          string   `json:"zone"`
-	Username      string   `json:"username"`
-	UserId        string   `json:"user_id"`
-	Platform      string   `json:"platform"`
-	Shares        []string `json:"shares"`
-	DependsOn     []string `json:"depends_on"`
-	HasCodeServer bool     `json:"has_code_server"`
-	HasSSH        bool     `json:"has_ssh"`
-	HasHttpVNC    bool     `json:"has_http_vnc"`
-	HasTerminal   bool     `json:"has_terminal"`
-	HasJobs       bool     `json:"has_jobs"`
-	JobsEnabled   bool     `json:"jobs_enabled"`
-	Restricted    bool     `json:"restricted"`
-	HasState      bool     `json:"has_state"`
-	IsDeployed    bool     `json:"is_deployed"`
-	IsPending     bool     `json:"is_pending"`
-	IsDeleting    bool     `json:"is_deleting"`
+	Id            string   `json:"space_id" msgpack:"space_id"`
+	Name          string   `json:"name" msgpack:"name"`
+	Description   string   `json:"description" msgpack:"description"`
+	Note          string   `json:"note" msgpack:"note"`
+	TemplateName  string   `json:"template_name" msgpack:"template_name"`
+	TemplateId    string   `json:"template_id" msgpack:"template_id"`
+	PoolId        string   `json:"pool_id" msgpack:"pool_id"`
+	PoolName      string   `json:"pool_name" msgpack:"pool_name"`
+	Zone          string   `json:"zone" msgpack:"zone"`
+	Username      string   `json:"username" msgpack:"username"`
+	UserId        string   `json:"user_id" msgpack:"user_id"`
+	Platform      string   `json:"platform" msgpack:"platform"`
+	Shares        []string `json:"shares" msgpack:"shares"`
+	DependsOn     []string `json:"depends_on" msgpack:"depends_on"`
+	HasCodeServer bool     `json:"has_code_server" msgpack:"has_code_server"`
+	HasSSH        bool     `json:"has_ssh" msgpack:"has_ssh"`
+	HasHttpVNC    bool     `json:"has_http_vnc" msgpack:"has_http_vnc"`
+	HasTerminal   bool     `json:"has_terminal" msgpack:"has_terminal"`
+	HasJobs       bool     `json:"has_jobs" msgpack:"has_jobs"`
+	JobsEnabled   bool     `json:"jobs_enabled" msgpack:"jobs_enabled"`
+	Restricted    bool     `json:"restricted" msgpack:"restricted"`
+	HasState      bool     `json:"has_state" msgpack:"has_state"`
+	IsDeployed    bool     `json:"is_deployed" msgpack:"is_deployed"`
+	IsPending     bool     `json:"is_pending" msgpack:"is_pending"`
+	IsDeleting    bool     `json:"is_deleting" msgpack:"is_deleting"`
 	// Manual-agent registration key, only present for manual spaces the
 	// caller owns or manages: its holder can run the space's agent.
-	RegistrationKey string            `json:"registration_key,omitempty"`
-	TcpPorts        map[string]string `json:"tcp_ports"`
-	HttpPorts       map[string]string `json:"http_ports"`
+	RegistrationKey string            `json:"registration_key,omitempty" msgpack:"registration_key,omitempty"`
+	TcpPorts        map[string]string `json:"tcp_ports" msgpack:"tcp_ports"`
+	HttpPorts       map[string]string `json:"http_ports" msgpack:"http_ports"`
 	// Template-declared shared ports ("public ports"), the only ports users
 	// other than the space's owner may forward to. Keyed by port number as
 	// a string, like TcpPorts. Nil when the template declares none.
-	SharedPorts     map[string]string `json:"shared_ports,omitempty"`
-	UpdateAvailable bool              `json:"update_available"`
-	IsRemote        bool              `json:"is_remote"`
-	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
-	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
-	StartedAt       time.Time         `json:"started_at"`
-	IconURL         string            `json:"icon_url"`
-	Healthy         bool              `json:"healthy"`
-	HealthKnown     bool              `json:"health_known"`
-	NodeHostname    string            `json:"node_hostname"`
-	IPAddress       string            `json:"ip_address,omitempty"`
+	SharedPorts     map[string]string `json:"shared_ports,omitempty" msgpack:"shared_ports,omitempty"`
+	UpdateAvailable bool              `json:"update_available" msgpack:"update_available"`
+	IsRemote        bool              `json:"is_remote" msgpack:"is_remote"`
+	HasVSCodeTunnel bool              `json:"has_vscode_tunnel" msgpack:"has_vscode_tunnel"`
+	VSCodeTunnel    string            `json:"vscode_tunnel_name" msgpack:"vscode_tunnel_name"`
+	StartedAt       time.Time         `json:"started_at" msgpack:"started_at"`
+	IconURL         string            `json:"icon_url" msgpack:"icon_url"`
+	Healthy         bool              `json:"healthy" msgpack:"healthy"`
+	HealthKnown     bool              `json:"health_known" msgpack:"health_known"`
+	NodeHostname    string            `json:"node_hostname" msgpack:"node_hostname"`
+	IPAddress       string            `json:"ip_address,omitempty" msgpack:"ip_address,omitempty"`
 	// Exclusive pool-member lease, set while the member is held (or its
 	// lease has ended but in-flight work is still draining).
-	LeaseId                 string               `json:"lease_id,omitempty"`
-	LeaseExpiresAt          *time.Time           `json:"lease_expires_at,omitempty"`
-	Stack                   string               `json:"stack"`
-	StackPrefix             string               `json:"stack_prefix"`
-	ResourceUsage           *SpaceResourceUsage  `json:"resource_usage,omitempty"`
-	AltNames                []model.AltNameEntry `json:"alt_names"`
-	CustomFields            []CustomFieldValue   `json:"custom_fields"`
-	TemplateHasSSH          bool                 `json:"template_has_ssh"`
-	TemplateHasTerminal     bool                 `json:"template_has_terminal"`
-	TemplateHasCodeServer   bool                 `json:"template_has_code_server"`
-	TemplateHasVSCodeTunnel bool                 `json:"template_has_vscode_tunnel"`
-	TemplateHasVNC          bool                 `json:"template_has_vnc"`
+	LeaseId                 string               `json:"lease_id,omitempty" msgpack:"lease_id,omitempty"`
+	LeaseExpiresAt          *time.Time           `json:"lease_expires_at,omitempty" msgpack:"lease_expires_at,omitempty"`
+	Stack                   string               `json:"stack" msgpack:"stack"`
+	StackPrefix             string               `json:"stack_prefix" msgpack:"stack_prefix"`
+	ResourceUsage           *SpaceResourceUsage  `json:"resource_usage,omitempty" msgpack:"resource_usage,omitempty"`
+	AltNames                []model.AltNameEntry `json:"alt_names" msgpack:"alt_names"`
+	CustomFields            []CustomFieldValue   `json:"custom_fields" msgpack:"custom_fields"`
+	TemplateHasSSH          bool                 `json:"template_has_ssh" msgpack:"template_has_ssh"`
+	TemplateHasTerminal     bool                 `json:"template_has_terminal" msgpack:"template_has_terminal"`
+	TemplateHasCodeServer   bool                 `json:"template_has_code_server" msgpack:"template_has_code_server"`
+	TemplateHasVSCodeTunnel bool                 `json:"template_has_vscode_tunnel" msgpack:"template_has_vscode_tunnel"`
+	TemplateHasVNC          bool                 `json:"template_has_vnc" msgpack:"template_has_vnc"`
 }
 
 type SpaceInfoList struct {
-	Count  int         `json:"count"`
-	Spaces []SpaceInfo `json:"spaces"`
+	Count  int         `json:"count" msgpack:"count"`
+	Spaces []SpaceInfo `json:"spaces" msgpack:"spaces"`
 }
 
 type CustomFieldValue struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name  string `json:"name" msgpack:"name"`
+	Value string `json:"value" msgpack:"value"`
 }
 
 type SetCustomFieldRequest struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name  string `json:"name" msgpack:"name"`
+	Value string `json:"value" msgpack:"value"`
 }
 
 type GetCustomFieldResponse struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name  string `json:"name" msgpack:"name"`
+	Value string `json:"value" msgpack:"value"`
 }
 
 type SpaceDefinition struct {
-	SpaceId    string   `json:"space_id"`
-	UserId     string   `json:"user_id"`
-	TemplateId string   `json:"template_id"`
-	Shares     []string `json:"shares"`
-	DependsOn  []string `json:"depends_on"`
+	SpaceId    string   `json:"space_id" msgpack:"space_id"`
+	UserId     string   `json:"user_id" msgpack:"user_id"`
+	TemplateId string   `json:"template_id" msgpack:"template_id"`
+	Shares     []string `json:"shares" msgpack:"shares"`
+	DependsOn  []string `json:"depends_on" msgpack:"depends_on"`
 	// Agent registration credentials, only returned to the space owner or
 	// users with manage permission: the key lets its holder run the space's
 	// agent, the fingerprint verifies the zone's agent TLS certificate.
-	RegistrationKey string                       `json:"registration_key,omitempty"`
-	CertFingerprint string                       `json:"agent_cert_fingerprint,omitempty"`
-	Name            string                       `json:"name"`
-	Description     string                       `json:"description"`
-	Note            string                       `json:"note"`
-	TemplateName    string                       `json:"template_name"`
-	PoolId          string                       `json:"pool_id"`
-	PoolName        string                       `json:"pool_name"`
-	Username        string                       `json:"username"`
-	Platform        string                       `json:"platform"`
-	Shell           string                       `json:"shell"`
-	Zone            string                       `json:"zone"`
-	AltNames        []model.AltNameEntry         `json:"alt_names"`
-	IsDeployed      bool                         `json:"is_deployed"`
-	IsPending       bool                         `json:"is_pending"`
-	IsDeleting      bool                         `json:"is_deleting"`
-	HasEverStarted  bool                         `json:"has_ever_started"`
-	VolumeData      map[string]model.SpaceVolume `json:"volume_data"`
-	StartedAt       time.Time                    `json:"started_at"`
-	CreatedAt       time.Time                    `json:"created_at"`
-	CreatedAtFormatted string                    `json:"created_at_formatted"`
-	IconURL            string             `json:"icon_url"`
-	CustomFields       []CustomFieldValue `json:"custom_fields"`
-	StartupScriptId    string             `json:"startup_script_id"`
-	HasCodeServer      bool               `json:"has_code_server"`
-	HasSSH             bool               `json:"has_ssh"`
-	HasTerminal        bool               `json:"has_terminal"`
-	HasJobs            bool               `json:"has_jobs"`
-	JobsEnabled        bool               `json:"jobs_enabled"`
-	Restricted         bool               `json:"restricted"`
-	HasHttpVNC         bool               `json:"has_http_vnc"`
-	HasState           bool               `json:"has_state"`
-	TcpPorts           map[string]string  `json:"tcp_ports"`
-	HttpPorts          map[string]string  `json:"http_ports"`
-	UpdateAvailable    bool               `json:"update_available"`
-	HasVSCodeTunnel    bool               `json:"has_vscode_tunnel"`
-	VSCodeTunnel       string             `json:"vscode_tunnel_name"`
-	Healthy            bool               `json:"healthy"`
-	HealthKnown        bool               `json:"health_known"`
-	IsRemote           bool               `json:"is_remote"`
+	RegistrationKey    string                       `json:"registration_key,omitempty" msgpack:"registration_key,omitempty"`
+	CertFingerprint    string                       `json:"agent_cert_fingerprint,omitempty" msgpack:"agent_cert_fingerprint,omitempty"`
+	Name               string                       `json:"name" msgpack:"name"`
+	Description        string                       `json:"description" msgpack:"description"`
+	Note               string                       `json:"note" msgpack:"note"`
+	TemplateName       string                       `json:"template_name" msgpack:"template_name"`
+	PoolId             string                       `json:"pool_id" msgpack:"pool_id"`
+	PoolName           string                       `json:"pool_name" msgpack:"pool_name"`
+	Username           string                       `json:"username" msgpack:"username"`
+	Platform           string                       `json:"platform" msgpack:"platform"`
+	Shell              string                       `json:"shell" msgpack:"shell"`
+	Zone               string                       `json:"zone" msgpack:"zone"`
+	AltNames           []model.AltNameEntry         `json:"alt_names" msgpack:"alt_names"`
+	IsDeployed         bool                         `json:"is_deployed" msgpack:"is_deployed"`
+	IsPending          bool                         `json:"is_pending" msgpack:"is_pending"`
+	IsDeleting         bool                         `json:"is_deleting" msgpack:"is_deleting"`
+	HasEverStarted     bool                         `json:"has_ever_started" msgpack:"has_ever_started"`
+	VolumeData         map[string]model.SpaceVolume `json:"volume_data" msgpack:"volume_data"`
+	StartedAt          time.Time                    `json:"started_at" msgpack:"started_at"`
+	CreatedAt          time.Time                    `json:"created_at" msgpack:"created_at"`
+	CreatedAtFormatted string                       `json:"created_at_formatted" msgpack:"created_at_formatted"`
+	IconURL            string                       `json:"icon_url" msgpack:"icon_url"`
+	CustomFields       []CustomFieldValue           `json:"custom_fields" msgpack:"custom_fields"`
+	StartupScriptId    string                       `json:"startup_script_id" msgpack:"startup_script_id"`
+	HasCodeServer      bool                         `json:"has_code_server" msgpack:"has_code_server"`
+	HasSSH             bool                         `json:"has_ssh" msgpack:"has_ssh"`
+	HasTerminal        bool                         `json:"has_terminal" msgpack:"has_terminal"`
+	HasJobs            bool                         `json:"has_jobs" msgpack:"has_jobs"`
+	JobsEnabled        bool                         `json:"jobs_enabled" msgpack:"jobs_enabled"`
+	Restricted         bool                         `json:"restricted" msgpack:"restricted"`
+	HasHttpVNC         bool                         `json:"has_http_vnc" msgpack:"has_http_vnc"`
+	HasState           bool                         `json:"has_state" msgpack:"has_state"`
+	TcpPorts           map[string]string            `json:"tcp_ports" msgpack:"tcp_ports"`
+	HttpPorts          map[string]string            `json:"http_ports" msgpack:"http_ports"`
+	UpdateAvailable    bool                         `json:"update_available" msgpack:"update_available"`
+	HasVSCodeTunnel    bool                         `json:"has_vscode_tunnel" msgpack:"has_vscode_tunnel"`
+	VSCodeTunnel       string                       `json:"vscode_tunnel_name" msgpack:"vscode_tunnel_name"`
+	Healthy            bool                         `json:"healthy" msgpack:"healthy"`
+	HealthKnown        bool                         `json:"health_known" msgpack:"health_known"`
+	IsRemote           bool                         `json:"is_remote" msgpack:"is_remote"`
 	// Exclusive pool-member lease, set while the member is held (or its
 	// lease has ended but in-flight work is still draining).
-	LeaseId        string              `json:"lease_id,omitempty"`
-	LeaseExpiresAt *time.Time          `json:"lease_expires_at,omitempty"`
-	NodeId         string              `json:"node_id"`
-	NodeHostname   string              `json:"node_hostname"`
-	IPAddress      string              `json:"ip_address,omitempty"` // KVM spaces: the VM's static IP
-	Stack          string              `json:"stack"`
-	StackPrefix    string              `json:"stack_prefix"`
-	ResourceUsage  *SpaceResourceUsage `json:"resource_usage,omitempty"`
+	LeaseId        string              `json:"lease_id,omitempty" msgpack:"lease_id,omitempty"`
+	LeaseExpiresAt *time.Time          `json:"lease_expires_at,omitempty" msgpack:"lease_expires_at,omitempty"`
+	NodeId         string              `json:"node_id" msgpack:"node_id"`
+	NodeHostname   string              `json:"node_hostname" msgpack:"node_hostname"`
+	IPAddress      string              `json:"ip_address,omitempty" msgpack:"ip_address,omitempty"` // KVM spaces: the VM's static IP
+	Stack          string              `json:"stack" msgpack:"stack"`
+	StackPrefix    string              `json:"stack_prefix" msgpack:"stack_prefix"`
+	ResourceUsage  *SpaceResourceUsage `json:"resource_usage,omitempty" msgpack:"resource_usage,omitempty"`
 }
 
 type SpaceResourceUsage struct {
-	CPUPercent       float64 `json:"cpu_percent"`         // share of the CPU the space may use
-	CPUCores         float64 `json:"cpu_cores,omitempty"` // CPU in use, in cores; live readings only
-	MemoryUsedBytes  uint64  `json:"memory_used_bytes"`
-	MemoryLimitBytes uint64  `json:"memory_limit_bytes"`
-	DiskUsedBytes    uint64  `json:"disk_used_bytes"`
-	DiskLimitBytes   uint64  `json:"disk_limit_bytes"`
+	CPUPercent       float64 `json:"cpu_percent" msgpack:"cpu_percent"`                 // share of the CPU the space may use
+	CPUCores         float64 `json:"cpu_cores,omitempty" msgpack:"cpu_cores,omitempty"` // CPU in use, in cores; live readings only
+	MemoryUsedBytes  uint64  `json:"memory_used_bytes" msgpack:"memory_used_bytes"`
+	MemoryLimitBytes uint64  `json:"memory_limit_bytes" msgpack:"memory_limit_bytes"`
+	DiskUsedBytes    uint64  `json:"disk_used_bytes" msgpack:"disk_used_bytes"`
+	DiskLimitBytes   uint64  `json:"disk_limit_bytes" msgpack:"disk_limit_bytes"`
 }
 
 type SpaceActivityUsage struct {
-	WriteCount     uint32     `json:"write_count"`
-	CreateCount    uint32     `json:"create_count"`
-	DeleteCount    uint32     `json:"delete_count"`
-	RenameCount    uint32     `json:"rename_count"`
-	DistinctPaths  uint32     `json:"distinct_paths"`
-	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+	WriteCount     uint32     `json:"write_count" msgpack:"write_count"`
+	CreateCount    uint32     `json:"create_count" msgpack:"create_count"`
+	DeleteCount    uint32     `json:"delete_count" msgpack:"delete_count"`
+	RenameCount    uint32     `json:"rename_count" msgpack:"rename_count"`
+	DistinctPaths  uint32     `json:"distinct_paths" msgpack:"distinct_paths"`
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty" msgpack:"last_activity_at,omitempty"`
 }
 
 type SpaceUsagePoint struct {
-	BucketStart   time.Time           `json:"bucket_start"`
-	BucketKind    string              `json:"bucket_kind,omitempty"`
-	IsLive        bool                `json:"is_live,omitempty"`
-	ResourceUsage *SpaceResourceUsage `json:"resource_usage,omitempty"`
-	ActivityUsage *SpaceActivityUsage `json:"activity_usage,omitempty"`
+	BucketStart   time.Time           `json:"bucket_start" msgpack:"bucket_start"`
+	BucketKind    string              `json:"bucket_kind,omitempty" msgpack:"bucket_kind,omitempty"`
+	IsLive        bool                `json:"is_live,omitempty" msgpack:"is_live,omitempty"`
+	ResourceUsage *SpaceResourceUsage `json:"resource_usage,omitempty" msgpack:"resource_usage,omitempty"`
+	ActivityUsage *SpaceActivityUsage `json:"activity_usage,omitempty" msgpack:"activity_usage,omitempty"`
 }
 
 type SpaceUsageHistoryResponse struct {
-	SpaceId    string            `json:"space_id"`
-	Range      string            `json:"range,omitempty"`
-	BucketKind string            `json:"bucket_kind,omitempty"`
-	Points     []SpaceUsagePoint `json:"points"`
+	SpaceId    string            `json:"space_id" msgpack:"space_id"`
+	Range      string            `json:"range,omitempty" msgpack:"range,omitempty"`
+	BucketKind string            `json:"bucket_kind,omitempty" msgpack:"bucket_kind,omitempty"`
+	Points     []SpaceUsagePoint `json:"points" msgpack:"points"`
 }
 
 // RunCommandStatus is how a failed command ended: the error and its exit
 // code (124 when it timed out).
 type RunCommandStatus struct {
-	Error    string `json:"error"`
-	ExitCode int    `json:"exit_code"`
+	Error    string `json:"error" msgpack:"error"`
+	ExitCode int    `json:"exit_code" msgpack:"exit_code"`
 }
 
 type RunCommandRequest struct {
-	Command string   `json:"command"`
-	Args    []string `json:"args,omitempty"`
-	Timeout int      `json:"timeout"`
-	Workdir string   `json:"workdir,omitempty"`
+	Command string   `json:"command" msgpack:"command"`
+	Args    []string `json:"args,omitempty" msgpack:"args,omitempty"`
+	Timeout int      `json:"timeout" msgpack:"timeout"`
+	Workdir string   `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
 }
 
 type CopyFileRequest struct {
-	SourcePath string `json:"source_path"`
-	DestPath   string `json:"dest_path"`
-	Content    []byte `json:"content,omitempty"`
-	Direction  string `json:"direction"` // "to_space" or "from_space"
-	Workdir    string `json:"workdir,omitempty"`
+	SourcePath string `json:"source_path" msgpack:"source_path"`
+	DestPath   string `json:"dest_path" msgpack:"dest_path"`
+	Content    []byte `json:"content,omitempty" msgpack:"content,omitempty"`
+	Direction  string `json:"direction" msgpack:"direction"` // "to_space" or "from_space"
+	Workdir    string `json:"workdir,omitempty" msgpack:"workdir,omitempty"`
 }
 
 type PortForwardRequest struct {
-	LocalPort  uint16 `json:"local_port"`
-	Space      string `json:"space"`
-	RemotePort uint16 `json:"remote_port"`
-	Persistent bool   `json:"persistent"`
-	Force      bool   `json:"force"`
+	LocalPort  uint16 `json:"local_port" msgpack:"local_port"`
+	Space      string `json:"space" msgpack:"space"`
+	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
+	Persistent bool   `json:"persistent" msgpack:"persistent"`
+	Force      bool   `json:"force" msgpack:"force"`
 }
 
 type PortListResponse struct {
-	Forwards []PortForwardInfo `json:"forwards"`
+	Forwards []PortForwardInfo `json:"forwards" msgpack:"forwards"`
 }
 
 type PortForwardInfo struct {
-	LocalPort   uint16 `json:"local_port"`
-	Space       string `json:"space"`
-	RemotePort  uint16 `json:"remote_port"`
-	Persistent  bool   `json:"persistent"`
-	Mode        string `json:"mode"` // "—", "direct" or "relay"; "—" = no connection yet, mode unknown
-	LatencyMs   int    `json:"latency_ms"`
-	JitterMs    int    `json:"jitter_ms"`
-	BandwidthKB int    `json:"bandwidth_kb"`
-	TimeoutMs   int    `json:"timeout_ms"`
-	Down        bool   `json:"down"`
+	LocalPort   uint16 `json:"local_port" msgpack:"local_port"`
+	Space       string `json:"space" msgpack:"space"`
+	RemotePort  uint16 `json:"remote_port" msgpack:"remote_port"`
+	Persistent  bool   `json:"persistent" msgpack:"persistent"`
+	Mode        string `json:"mode" msgpack:"mode"` // "—", "direct" or "relay"; "—" = no connection yet, mode unknown
+	LatencyMs   int    `json:"latency_ms" msgpack:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms" msgpack:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb" msgpack:"bandwidth_kb"`
+	TimeoutMs   int    `json:"timeout_ms" msgpack:"timeout_ms"`
+	Down        bool   `json:"down" msgpack:"down"`
 }
 
 type PortStopRequest struct {
-	LocalPort uint16 `json:"local_port"`
+	LocalPort uint16 `json:"local_port" msgpack:"local_port"`
 }
 
 type PortThrottleRequest struct {
-	LocalPort   uint16 `json:"local_port"`
-	LatencyMs   int    `json:"latency_ms"`
-	JitterMs    int    `json:"jitter_ms"`
-	BandwidthKB int    `json:"bandwidth_kb"`
-	TimeoutMs   int    `json:"timeout_ms"`
-	Down        bool   `json:"down"`
-	Reset       bool   `json:"reset"`
+	LocalPort   uint16 `json:"local_port" msgpack:"local_port"`
+	LatencyMs   int    `json:"latency_ms" msgpack:"latency_ms"`
+	JitterMs    int    `json:"jitter_ms" msgpack:"jitter_ms"`
+	BandwidthKB int    `json:"bandwidth_kb" msgpack:"bandwidth_kb"`
+	TimeoutMs   int    `json:"timeout_ms" msgpack:"timeout_ms"`
+	Down        bool   `json:"down" msgpack:"down"`
+	Reset       bool   `json:"reset" msgpack:"reset"`
 }
 
 type PortApplyRequest struct {
-	Forwards []PortForwardRequest `json:"forwards"`
+	Forwards []PortForwardRequest `json:"forwards" msgpack:"forwards"`
 }
 
 type PortApplyResponse struct {
-	Applied []PortForwardInfo `json:"applied"`
-	Stopped []PortForwardInfo `json:"stopped"`
-	Errors  []string          `json:"errors,omitempty"`
+	Applied []PortForwardInfo `json:"applied" msgpack:"applied"`
+	Stopped []PortForwardInfo `json:"stopped" msgpack:"stopped"`
+	Errors  []string          `json:"errors,omitempty" msgpack:"errors,omitempty"`
 }
 
 type JobRunRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 // SpaceJobsRequest replaces the space's job definitions and runner state.
 type SpaceJobsRequest struct {
-	Jobs    []model.SpaceJob `json:"jobs"`
-	Enabled bool             `json:"enabled"`
+	Jobs    []model.SpaceJob `json:"jobs" msgpack:"jobs"`
+	Enabled bool             `json:"enabled" msgpack:"enabled"`
 }
 
 type SpaceJobsResponse struct {
-	Jobs    []model.SpaceJob `json:"jobs"`
-	Enabled bool             `json:"enabled"`
+	Jobs    []model.SpaceJob `json:"jobs" msgpack:"jobs"`
+	Enabled bool             `json:"enabled" msgpack:"enabled"`
 }
 
 type JobsListResponse struct {
-	Enabled bool      `json:"enabled"`
-	Jobs    []JobInfo `json:"jobs"`
+	Enabled bool      `json:"enabled" msgpack:"enabled"`
+	Jobs    []JobInfo `json:"jobs" msgpack:"jobs"`
 }
 type JobInfo struct {
-	Name       string        `json:"name"`
-	Command    string        `json:"command"`
-	Schedule   string        `json:"schedule,omitempty"`
-	ManualOnly bool          `json:"manual_only"`
-	Enabled    bool          `json:"enabled"`
-	Running    bool          `json:"running"`
-	NextRun    *time.Time    `json:"next_run,omitempty"`
-	LastRun    *JobRunRecord `json:"last_run,omitempty"`
-	Error      string        `json:"error,omitempty"`
+	Name       string        `json:"name" msgpack:"name"`
+	Command    string        `json:"command" msgpack:"command"`
+	Schedule   string        `json:"schedule,omitempty" msgpack:"schedule,omitempty"`
+	ManualOnly bool          `json:"manual_only" msgpack:"manual_only"`
+	Enabled    bool          `json:"enabled" msgpack:"enabled"`
+	Running    bool          `json:"running" msgpack:"running"`
+	NextRun    *time.Time    `json:"next_run,omitempty" msgpack:"next_run,omitempty"`
+	LastRun    *JobRunRecord `json:"last_run,omitempty" msgpack:"last_run,omitempty"`
+	Error      string        `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 type JobRunRecord struct {
-	StartedAt  time.Time `json:"started_at"`
-	FinishedAt time.Time `json:"finished_at"`
-	DurationMs int64     `json:"duration_ms"`
-	Status     string    `json:"status"`
-	Trigger    string    `json:"trigger"`
-	Error      string    `json:"error,omitempty"`
+	StartedAt  time.Time `json:"started_at" msgpack:"started_at"`
+	FinishedAt time.Time `json:"finished_at" msgpack:"finished_at"`
+	DurationMs int64     `json:"duration_ms" msgpack:"duration_ms"`
+	Status     string    `json:"status" msgpack:"status"`
+	Trigger    string    `json:"trigger" msgpack:"trigger"`
+	Error      string    `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 type JobsResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
+	Success bool   `json:"success" msgpack:"success"`
+	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string, allZones bool) (*SpaceInfoList, int, error) {
@@ -364,7 +365,7 @@ func (c *ApiClient) GetSpace(ctx context.Context, spaceId string) (*SpaceDefinit
 // authenticated user (i.e. at least one non-deleted space has that Stack).
 func (c *ApiClient) StackExists(ctx context.Context, stackName string) (bool, error) {
 	var response struct {
-		Exists bool `json:"exists"`
+		Exists bool `json:"exists" msgpack:"exists"`
 	}
 	code, err := c.httpClient.Get(ctx, "/api/stacks/"+stackName+"/exists", &response)
 	if err != nil {
@@ -447,7 +448,7 @@ func stackAction(c *ApiClient, ctx context.Context, stackName, action string) (i
 	if err != nil {
 		if idx := strings.Index(err.Error(), "{"); idx != -1 {
 			var body struct {
-				Error string `json:"error"`
+				Error string `json:"error" msgpack:"error"`
 			}
 			if jsonErr := json.Unmarshal([]byte(err.Error()[idx:]), &body); jsonErr == nil && body.Error != "" {
 				return code, fmt.Errorf("%s", body.Error)
@@ -483,7 +484,7 @@ func (c *ApiClient) DeleteStack(ctx context.Context, stackName string) (int, err
 	if err != nil {
 		if idx := strings.Index(err.Error(), "{"); idx != -1 {
 			var body struct {
-				Error string `json:"error"`
+				Error string `json:"error" msgpack:"error"`
 			}
 			if jsonErr := json.Unmarshal([]byte(err.Error()[idx:]), &body); jsonErr == nil && body.Error != "" {
 				return code, fmt.Errorf("%s", body.Error)
@@ -595,9 +596,9 @@ func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*Spac
 
 func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *RunCommandRequest) (string, error) {
 	var response struct {
-		Output  string `json:"output"`
-		Success bool   `json:"success"`
-		Error   string `json:"error"`
+		Output  string `json:"output" msgpack:"output"`
+		Success bool   `json:"success" msgpack:"success"`
+		Error   string `json:"error" msgpack:"error"`
 	}
 
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/run-command", request, &response, 200)
@@ -612,9 +613,37 @@ func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *Run
 	return response.Output, nil
 }
 
+// readPieceSize is how much of a file ReadSpaceFile asks for at a time.
+const readPieceSize = 4 * 1024 * 1024
+
+// ReadSpaceFile reads a whole file from a space, byte for byte, binary or
+// text. It reads in pieces, so large files never travel in one reply; a
+// server too old to read in pieces sends the whole file as text.
 func (c *ApiClient) ReadSpaceFile(ctx context.Context, spaceId string, filePath string) (string, error) {
-	content, _, err := c.ReadSpaceFileRange(ctx, spaceId, filePath, 0, 0)
-	return content, err
+	var content []byte
+	for offset, size := int64(0), int64(-1); size < 0 || offset < size; {
+		part, err := c.ReadSpaceFileBytes(ctx, spaceId, filePath, offset, readPieceSize)
+		if errors.Is(err, ErrRangedReadUnsupported) {
+			text, _, err := c.ReadSpaceFileRange(ctx, spaceId, filePath, 0, 0)
+			return text, err
+		}
+		if err != nil {
+			return "", err
+		}
+		if size < 0 {
+			size = part.FileSize
+			content = make([]byte, 0, size)
+		}
+		if len(part.Content) == 0 {
+			if offset < size {
+				return "", fmt.Errorf("%s changed while it was being read", filePath)
+			}
+			break
+		}
+		content = append(content, part.Content...)
+		offset += int64(len(part.Content))
+	}
+	return string(content), nil
 }
 
 // ReadSpaceFileRange reads a file or a 1-based line range from a space. offset
@@ -623,20 +652,20 @@ func (c *ApiClient) ReadSpaceFile(ctx context.Context, spaceId string, filePath 
 // number of lines in the file, and any error.
 func (c *ApiClient) ReadSpaceFileRange(ctx context.Context, spaceId string, filePath string, offset, limit int) (string, int, error) {
 	var request struct {
-		Path   string `json:"path"`
-		Offset int    `json:"offset,omitempty"`
-		Limit  int    `json:"limit,omitempty"`
+		Path   string `json:"path" msgpack:"path"`
+		Offset int    `json:"offset,omitempty" msgpack:"offset,omitempty"`
+		Limit  int    `json:"limit,omitempty" msgpack:"limit,omitempty"`
 	}
 	request.Path = filePath
 	request.Offset = offset
 	request.Limit = limit
 
 	var response struct {
-		Success    bool   `json:"success"`
-		Content    string `json:"content"`
-		Size       int    `json:"size"`
-		TotalLines int    `json:"total_lines"`
-		Error      string `json:"error"`
+		Success    bool   `json:"success" msgpack:"success"`
+		Content    string `json:"content" msgpack:"content"`
+		Size       int    `json:"size" msgpack:"size"`
+		TotalLines int    `json:"total_lines" msgpack:"total_lines"`
+		Error      string `json:"error" msgpack:"error"`
 	}
 
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/read", request, &response, 200)
@@ -649,6 +678,55 @@ func (c *ApiClient) ReadSpaceFileRange(ctx context.Context, spaceId string, file
 	}
 
 	return response.Content, response.TotalLines, nil
+}
+
+// ErrRangedReadUnsupported is returned by ReadSpaceFileBytes when the
+// server is too old to read part of a file.
+var ErrRangedReadUnsupported = errors.New("the server can't read part of a file; update it to knot 0.41 or later")
+
+// SpaceFileRange is part of a file read from a space, with the file's own
+// size, mtime and permission bits.
+type SpaceFileRange struct {
+	Content  []byte
+	FileSize int64
+	MtimeNs  int64
+	FilePerm uint32
+}
+
+// ReadSpaceFileBytes reads up to length bytes of a file from offset (the
+// space returns at most 8 MB at a time).
+func (c *ApiClient) ReadSpaceFileBytes(ctx context.Context, spaceId string, filePath string, offset, length int64) (*SpaceFileRange, error) {
+	request := struct {
+		Path       string `json:"path" msgpack:"path"`
+		ByteOffset int64  `json:"byte_offset" msgpack:"byte_offset"`
+		ByteLength int64  `json:"byte_length" msgpack:"byte_length"`
+	}{filePath, offset, length}
+
+	var response struct {
+		Success  bool   `json:"success" msgpack:"success"`
+		Ranged   bool   `json:"ranged" msgpack:"ranged"`
+		Data     []byte `json:"data" msgpack:"data"`
+		FileSize int64  `json:"file_size" msgpack:"file_size"`
+		MtimeNs  int64  `json:"mtime_ns" msgpack:"mtime_ns"`
+		FilePerm uint32 `json:"file_perm" msgpack:"file_perm"`
+		Error    string `json:"error" msgpack:"error"`
+	}
+
+	if _, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/read", request, &response, 200); err != nil {
+		return nil, err
+	}
+	if !response.Success {
+		return nil, fmt.Errorf("%s", response.Error)
+	}
+	if !response.Ranged {
+		return nil, ErrRangedReadUnsupported
+	}
+	return &SpaceFileRange{
+		Content:  response.Data,
+		FileSize: response.FileSize,
+		MtimeNs:  response.MtimeNs,
+		FilePerm: response.FilePerm,
+	}, nil
 }
 
 func (c *ApiClient) WriteSpaceFile(ctx context.Context, spaceId string, filePath string, content string) error {

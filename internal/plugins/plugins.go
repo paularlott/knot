@@ -50,12 +50,12 @@ import (
 // inner markup, rendered inline with the site's icon styling so a
 // currentColor-stroked SVG themes like every built-in icon.
 type Menu struct {
-	PluginName string `json:"plugin,omitempty"`
-	Label      string `json:"label"`
-	URL        string `json:"url"`
-	Permission string `json:"permission,omitempty"`
-	Icon       string `json:"icon,omitempty"`
-	IconSVG    string `json:"-"`
+	PluginName string `json:"plugin,omitempty" msgpack:"plugin,omitempty"`
+	Label      string `json:"label" msgpack:"label"`
+	URL        string `json:"url" msgpack:"url"`
+	Permission string `json:"permission,omitempty" msgpack:"permission,omitempty"`
+	Icon       string `json:"icon,omitempty" msgpack:"icon,omitempty"`
+	IconSVG    string `json:"-" msgpack:"-"`
 }
 
 // Page is one declared page: an internal URL under /plugins/<name> whose
@@ -71,22 +71,22 @@ type FieldHandler struct {
 	// Permission is an optional additive gate on the options endpoint:
 	// UseSpaces (space forms drive the fetches) always applies, and a
 	// declared gate narrows who may invoke the handler further.
-	Permission string `json:"permission,omitempty"` // qualified grant
+	Permission string `json:"permission,omitempty" msgpack:"permission,omitempty"` // qualified grant
 }
 
 type Page struct {
-	PluginName string `json:"plugin,omitempty"`
-	Path       string `json:"path"`                 // "/dashboard" — served at /plugins/<name>/dashboard
-	Handler    string `json:"handler"`              // function in the entry file ("module.fn" allowed)
-	Label      string `json:"label,omitempty"`      // page title
-	MenuLabel  string `json:"menu_label,omitempty"` // set: the page also appears in the sidebar under this label
-	Permission string `json:"permission,omitempty"` // qualified grant, as Menu
-	Icon       string `json:"icon,omitempty"`
-	IconSVG    string `json:"-"`
+	PluginName string `json:"plugin,omitempty" msgpack:"plugin,omitempty"`
+	Path       string `json:"path" msgpack:"path"`                                 // "/dashboard" — served at /plugins/<name>/dashboard
+	Handler    string `json:"handler" msgpack:"handler"`                           // function in the entry file ("module.fn" allowed)
+	Label      string `json:"label,omitempty" msgpack:"label,omitempty"`           // page title
+	MenuLabel  string `json:"menu_label,omitempty" msgpack:"menu_label,omitempty"` // set: the page also appears in the sidebar under this label
+	Permission string `json:"permission,omitempty" msgpack:"permission,omitempty"` // qualified grant, as Menu
+	Icon       string `json:"icon,omitempty" msgpack:"icon,omitempty"`
+	IconSVG    string `json:"-" msgpack:"-"`
 	// Default marks the page as the post-login landing page. At most one
 	// takes effect (first plugin by name, then declaration order) — see
 	// DefaultPageURL.
-	Default bool `json:"default,omitempty"`
+	Default bool `json:"default,omitempty" msgpack:"default,omitempty"`
 }
 
 // URL is the served location of the page.
@@ -101,8 +101,8 @@ func (pg Page) URL() string {
 // (/plugins/<name>/<handler>): undeclared handlers inherit the calling
 // page's gate and are only reachable through a page path.
 type Handler struct {
-	Handler    string `json:"handler"`              // function name or module.function
-	Permission string `json:"permission,omitempty"` // qualified grant, as Page; empty: any logged-in user
+	Handler    string `json:"handler" msgpack:"handler"`                           // function name or module.function
+	Permission string `json:"permission,omitempty" msgpack:"permission,omitempty"` // qualified grant, as Page; empty: any logged-in user
 }
 
 // HandlerDecl returns the declared gate for a handler name, or nil when the
@@ -118,81 +118,81 @@ func (p *Plugin) HandlerDecl(name string) *Handler {
 
 // PermissionDecl is one declared permission, qualified to plugin.<name>.<id>.
 type PermissionDecl struct {
-	Id    string `json:"id"`    // fully qualified, e.g. plugin.metrics.read
-	Label string `json:"label"` // derived display name, e.g. "read"
+	Id    string `json:"id" msgpack:"id"`       // fully qualified, e.g. plugin.metrics.read
+	Label string `json:"label" msgpack:"label"` // derived display name, e.g. "read"
 }
 
 // Plugin is a successfully loaded plugin: its inert registration data.
 type Plugin struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
+	Name        string `json:"name" msgpack:"name"`
+	Version     string `json:"version" msgpack:"version"`
+	Description string `json:"description" msgpack:"description"`
 	// APIVersion is the plugin system generation this plugin targets
 	// ([tool.knot] api; absent = 1, the only generation today). Breaking
 	// changes to the plugin contract — the [tool.knot] shape, the handler
 	// request/response contract, the block document — happen only behind a
 	// new generation, and a knot that doesn't know a generation rejects the
 	// plugin loudly at load rather than mis-parsing it.
-	APIVersion int    `json:"api,omitempty"`
-	Dir        string `json:"-"`                    // the plugin folder
-	EntryFile  string `json:"-"`                    // main.py
-	LogoLight  string `json:"logo_light,omitempty"` // relative paths
-	LogoDark   string `json:"logo_dark,omitempty"`
+	APIVersion int    `json:"api,omitempty" msgpack:"api,omitempty"`
+	Dir        string `json:"-" msgpack:"-"`                                       // the plugin folder
+	EntryFile  string `json:"-" msgpack:"-"`                                       // main.py
+	LogoLight  string `json:"logo_light,omitempty" msgpack:"logo_light,omitempty"` // relative paths
+	LogoDark   string `json:"logo_dark,omitempty" msgpack:"logo_dark,omitempty"`
 	// SiteLogo reports that the plugin's logo pair claims the main page
 	// logo (login included) — a declared pair is the claim. At most one
 	// plugin's claim takes effect — see SiteLogoURLs.
-	SiteLogo      bool             `json:"site_logo,omitempty"`
-	Permissions   []PermissionDecl `json:"permissions"`
-	Menus         []Menu           `json:"menus"`
-	Pages         []Page           `json:"pages"`
-	Handlers      []Handler        `json:"handlers"`
-	MCPTools      []MCPTool        `json:"mcp_tools"`
-	FieldHandlers []FieldHandler   `json:"field_handlers"`
-	Libs          []ScriptLib      `json:"libs,omitempty"`
+	SiteLogo      bool             `json:"site_logo,omitempty" msgpack:"site_logo,omitempty"`
+	Permissions   []PermissionDecl `json:"permissions" msgpack:"permissions"`
+	Menus         []Menu           `json:"menus" msgpack:"menus"`
+	Pages         []Page           `json:"pages" msgpack:"pages"`
+	Handlers      []Handler        `json:"handlers" msgpack:"handlers"`
+	MCPTools      []MCPTool        `json:"mcp_tools" msgpack:"mcp_tools"`
+	FieldHandlers []FieldHandler   `json:"field_handlers" msgpack:"field_handlers"`
+	Libs          []ScriptLib      `json:"libs,omitempty" msgpack:"libs,omitempty"`
 
 	// ActionIcons maps declared icon asset paths to their sanitized inner
 	// SVG markup ([tool.knot] icons). Menus and pages carry their icons
 	// statically; row actions are data-driven, so their icons are declared
 	// once here, sanitized at load like every other plugin asset, and
 	// addressable by path from a handler's action JSON at runtime.
-	ActionIcons map[string]string `json:"icons,omitempty"`
+	ActionIcons map[string]string `json:"icons,omitempty" msgpack:"icons,omitempty"`
 
 	// Assets holds the declared assets a peer served from its own fetcher
 	// (an embedded-assets binary plugin), fetched once at load and served
 	// from memory. Empty when every asset came from the plugin folder on
 	// disk — those keep streaming from disk as before.
-	Assets map[string][]byte `json:"-"`
+	Assets map[string][]byte `json:"-" msgpack:"-"`
 
 	// RequiredConfig lists the config keys this plugin requires in the
 	// server's [plugins.<name>] table, declared as [tool.knot] config — a
 	// list of key names. Presence is validated at load: a missing key
 	// fails the plugin with a reason on the admin page rather than a
 	// handler failing at first use.
-	RequiredConfig []string `json:"required_config,omitempty"`
+	RequiredConfig []string `json:"required_config,omitempty" msgpack:"required_config,omitempty"`
 
 	// Config is the plugin's [plugins.<name>] table from the server
 	// configuration, attached at load and injected into every handler
 	// request as request["config"] (an empty table when unconfigured).
-	Config map[string]any `json:"-"`
+	Config map[string]any `json:"-" msgpack:"-"`
 
 	// Exports are the modules declared in [tool.knot] export: scriptling
 	// modules materialized in user tool environments as
 	// plugin.<name>.<stem> — client SDKs wrapping knot.plugin.call. The
 	// first declared module is also aliased as plugin.<name> itself. Each
 	// source is read and linted once at load.
-	Exports []ScriptExport `json:"exports,omitempty"`
+	Exports []ScriptExport `json:"exports,omitempty" msgpack:"exports,omitempty"`
 
 	// EntrySource is the entry file's source, read once at load so request
 	// dispatch does not touch the filesystem. Empty for a peer plugin with
 	// no main.py.
-	EntrySource string `json:"-"`
+	EntrySource string `json:"-" msgpack:"-"`
 
 	// ScriptNamespace is the plugin.<x> library name a pure-script plugin's
 	// main.py is registered and addressed under: the folder name sanitized
 	// to a scriptling identifier (ScriptNamespace). Empty for a peer plugin
 	// with no main.py. This is the "<name>" a bare handler declaration
 	// (handler = "status") resolves against.
-	ScriptNamespace string `json:"-"`
+	ScriptNamespace string `json:"-" msgpack:"-"`
 
 	// Namespaces are the plugin.<x> library names this plugin's declared
 	// handlers resolve under, in the order they must be imported to
@@ -201,7 +201,7 @@ type Plugin struct {
 	// plugin.<folder>); a peer plugin contributes each peer's handshake
 	// name (the peer registers plugin.<peer>). A plugin with both
 	// contributes both.
-	Namespaces []string `json:"-"`
+	Namespaces []string `json:"-" msgpack:"-"`
 
 	scope *plugin.Manager // owns this plugin's bin/ peers, nil when none
 }
@@ -209,8 +209,8 @@ type Plugin struct {
 // ScriptExport is one module declared in [tool.knot] export: its path as
 // declared and its source, read and linted once at plugin load.
 type ScriptExport struct {
-	Path   string `json:"path"`
-	Source string `json:"-"`
+	Path   string `json:"path" msgpack:"path"`
+	Source string `json:"-" msgpack:"-"`
 }
 
 // Scope returns the manager owning this plugin's binary peers (which the
@@ -235,19 +235,19 @@ func (p *Plugin) DefaultNamespace() string {
 
 // Peer reports one loaded binary peer's handshake identity.
 type Peer struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	Healthy bool   `json:"healthy"`
-	Error   string `json:"error,omitempty"`
+	Name    string `json:"name" msgpack:"name"`
+	Version string `json:"version" msgpack:"version"`
+	Healthy bool   `json:"healthy" msgpack:"healthy"`
+	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
 }
 
 // FailedPlugin records a plugin whose folder/file was present but which
 // failed validation or requirements; its data (when storage exists) is
 // retained and it is surfaced on the admin plugins page.
 type FailedPlugin struct {
-	Name   string `json:"name"`
-	Path   string `json:"path"`
-	Reason string `json:"reason"`
+	Name   string `json:"name" msgpack:"name"`
+	Path   string `json:"path" msgpack:"path"`
+	Reason string `json:"reason" msgpack:"reason"`
 }
 
 // Registry is the in-memory result of one boot-time scan. Replace-on-boot,
@@ -452,11 +452,11 @@ func (r *Registry) SiteLogoURLs() (light, dark string) {
 // parameters arrive in the handler's params dict and the MCP schema is an
 // empty object.
 type MCPTool struct {
-	Name        string             `json:"name"`                 // MCP tool name; defaults to the handler name
-	Description string             `json:"description"`          // shown to MCP clients
-	Handler     string             `json:"handler"`              // function in the entry file
-	Permission  string             `json:"permission,omitempty"` // qualified grant, as Handler
-	Parameters  []MCPToolParameter `json:"parameters,omitempty"` // optional: the tool's input schema
+	Name        string             `json:"name" msgpack:"name"`                                 // MCP tool name; defaults to the handler name
+	Description string             `json:"description" msgpack:"description"`                   // shown to MCP clients
+	Handler     string             `json:"handler" msgpack:"handler"`                           // function in the entry file
+	Permission  string             `json:"permission,omitempty" msgpack:"permission,omitempty"` // qualified grant, as Handler
+	Parameters  []MCPToolParameter `json:"parameters,omitempty" msgpack:"parameters,omitempty"` // optional: the tool's input schema
 }
 
 // MCPToolParameter is one declared tool parameter: what MCP clients (and
@@ -464,11 +464,11 @@ type MCPTool struct {
 // handler's params dict untyped — the declaration is documentation and
 // client ergonomics, not coercion.
 type MCPToolParameter struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"` // string, int, float, bool, list
-	Description string `json:"description,omitempty"`
-	Default     any    `json:"default,omitempty"`
-	Required    bool   `json:"required,omitempty"`
+	Name        string `json:"name" msgpack:"name"`
+	Type        string `json:"type" msgpack:"type"` // string, int, float, bool, list
+	Description string `json:"description,omitempty" msgpack:"description,omitempty"`
+	Default     any    `json:"default,omitempty" msgpack:"default,omitempty"`
+	Required    bool   `json:"required,omitempty" msgpack:"required,omitempty"`
 }
 
 // MCPToolParamSchemaType maps a declared parameter type to its JSON
@@ -489,9 +489,9 @@ func MCPToolParamSchemaType(declared string) string {
 // plugin's dependency declaration ("plugin.<lib> via <lib> >= x")
 // validates against it the same way Go peer handshakes do.
 type ScriptLib struct {
-	Name    string `json:"name"`    // from the filename, e.g. libs/calc.py -> "calc"
-	Version string `json:"version"` // [tool.knot.lib] version, default "1.0"
-	Source  string `json:"-"`
+	Name    string `json:"name" msgpack:"name"`       // from the filename, e.g. libs/calc.py -> "calc"
+	Version string `json:"version" msgpack:"version"` // [tool.knot.lib] version, default "1.0"
+	Source  string `json:"-" msgpack:"-"`
 }
 
 // FieldHandlers lists every declared field handler across plugins.

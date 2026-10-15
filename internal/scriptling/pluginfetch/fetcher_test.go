@@ -3,6 +3,7 @@ package pluginfetch
 import (
 	"context"
 	"encoding/json"
+	"github.com/paularlott/knot/build"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,7 @@ import (
 func mockAPIServer(t *testing.T, handlers map[string]func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(build.VersionHeader, build.Version)
 		key := r.Method + " " + r.URL.Path
 		if handler, ok := handlers[key]; ok {
 			if r.Header.Get("Authorization") != "Bearer test-token" {

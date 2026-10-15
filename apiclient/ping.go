@@ -5,9 +5,9 @@ import (
 )
 
 type PingResponse struct {
-	Status  bool   `json:"status"`
-	Version string `json:"version"`
-	Zone    string `json:"zone"`
+	Status  bool   `json:"status" msgpack:"status"`
+	Version string `json:"version" msgpack:"version"`
+	Zone    string `json:"zone" msgpack:"zone"`
 }
 
 func (c *ApiClient) Ping(ctx context.Context) (*PingResponse, error) {

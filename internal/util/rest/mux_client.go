@@ -3,7 +3,6 @@ package rest
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/shamaton/msgpack/v3"
 )
 
 var apiMux *http.ServeMux
@@ -84,6 +82,11 @@ func (c *MuxClient) SetAccept(accept ...string) RESTClient {
 	return c
 }
 
+// SetResponseCheck is a no-op: a MuxClient calls its own server.
+func (c *MuxClient) SetResponseCheck(check func(*http.Response) error) RESTClient {
+	return c
+}
+
 func (c *MuxClient) SetUserAgent(userAgent string) RESTClient {
 	c.userAgent = userAgent
 	return c
@@ -127,14 +130,8 @@ func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) 
 	apiMux.ServeHTTP(rec, req)
 
 	if response != nil {
-		contentType := rec.Header().Get("Content-Type")
-		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err := DecodeMsgPack(rec.Body, response)
-			return rec.Code, err
-		} else {
-			err := decodeJSON(rec.Body, response)
-			return rec.Code, err
-		}
+		err := decodeBody(rec.Header().Get("Content-Type"), rec.Body, response)
+		return rec.Code, err
 	}
 	return rec.Code, nil
 }
@@ -143,11 +140,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 	var data []byte
 	var err error
 
-	if c.contentType == ContentTypeMsgPack {
-		data, err = msgpack.Marshal(request)
-	} else {
-		data, err = json.Marshal(request)
-	}
+	data, err = encodeBody(c.contentType, request)
 	if err != nil {
 		return 0, err
 	}
@@ -175,12 +168,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 	}
 
 	if response != nil {
-		contentType := rec.Header().Get("Content-Type")
-		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = DecodeMsgPack(rec.Body, response)
-		} else {
-			err = decodeJSON(rec.Body, response)
-		}
+		err = decodeBody(rec.Header().Get("Content-Type"), rec.Body, response)
 		if err != nil {
 			return rec.Code, err
 		}

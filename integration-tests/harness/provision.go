@@ -31,11 +31,10 @@ type ProvisionedServer struct {
 	Admin  *User
 }
 
-// NewClient builds a JSON-content apiclient against the server. Accept is
-// pinned to application/json: the server's content negotiation matches
-// msgpack anywhere in the Accept header (not by q-order), and the default
-// client Accept lists both — which would return msgpack that the json-tagged
-// apiclient structs silently decode to zero values.
+// NewClient builds an apiclient against the server that talks JSON both
+// ways, as the web interface does. The knot command talks msgpack named
+// like the JSON (apiclient's default); keeping the suite on JSON covers the
+// other encoding, and TestRepliesMatchAcrossFormats checks the two agree.
 func NewClient(s *Server, token string) *apiclient.ApiClient {
 	c, err := apiclient.NewClient(s.BaseURL, token, true)
 	if err != nil {
@@ -91,7 +90,7 @@ func ProvisionAdmin(s *Server, username, password string) (*User, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
 		var e struct {
-			Error string `json:"error"`
+			Error string `json:"error" msgpack:"error"`
 		}
 		json.NewDecoder(resp.Body).Decode(&e)
 		return nil, fmt.Errorf("first-run create admin: status %d: %s\nserver log tail:\n%s", resp.StatusCode, e.Error, s.LogTail(30))

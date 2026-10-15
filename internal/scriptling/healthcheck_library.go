@@ -17,7 +17,7 @@ import (
 
 // HealthCheckResult holds the result of a health check execution.
 type HealthCheckResult struct {
-	Healthy bool `json:"healthy"`
+	Healthy bool `json:"healthy" msgpack:"healthy"`
 }
 
 // ParseHealthCheckResult extracts a HealthCheckResult from a script exception message.

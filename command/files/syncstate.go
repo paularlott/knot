@@ -18,20 +18,20 @@ import (
 const baseVersion = 1
 
 type baseEntry struct {
-	Key        string `json:"key"`         // the file's key in the bucket
-	SHA        string `json:"sha256"`      // the content both sides held
-	Size       int64  `json:"size"`        // its size
-	LocalSize  int64  `json:"local_size"`  // the local file's size then
-	LocalMtime int64  `json:"local_mtime"` // and its modification time, unix nanoseconds
+	Key        string `json:"key" msgpack:"key"`                 // the file's key in the bucket
+	SHA        string `json:"sha256" msgpack:"sha256"`           // the content both sides held
+	Size       int64  `json:"size" msgpack:"size"`               // its size
+	LocalSize  int64  `json:"local_size" msgpack:"local_size"`   // the local file's size then
+	LocalMtime int64  `json:"local_mtime" msgpack:"local_mtime"` // and its modification time, unix nanoseconds
 }
 
 type baseFile struct {
-	Version int                   `json:"version"`
-	Server  string                `json:"server"`
-	Bucket  string                `json:"bucket"`
-	Prefix  string                `json:"prefix"`
-	Dir     string                `json:"dir"`
-	Files   map[string]*baseEntry `json:"files"` // by identity
+	Version int                   `json:"version" msgpack:"version"`
+	Server  string                `json:"server" msgpack:"server"`
+	Bucket  string                `json:"bucket" msgpack:"bucket"`
+	Prefix  string                `json:"prefix" msgpack:"prefix"`
+	Dir     string                `json:"dir" msgpack:"dir"`
+	Files   map[string]*baseEntry `json:"files" msgpack:"files"` // by identity
 }
 
 // defaultStatePath is where the state of a two-way sync of a bucket folder

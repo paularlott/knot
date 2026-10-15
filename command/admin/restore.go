@@ -202,7 +202,7 @@ func restoreContent(ctx context.Context, client *apiclient.ApiClient, dir, key s
 	}
 	_ = r.Each(func(line []byte) error {
 		var o struct {
-			SHA256 string `json:"sha256"`
+			SHA256 string `json:"sha256" msgpack:"sha256"`
 		}
 		if json.Unmarshal(line, &o) == nil && len(o.SHA256) == 64 {
 			batch[o.SHA256] = true

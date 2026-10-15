@@ -1,6 +1,7 @@
 package scriptlingserver
 
 import (
+	"github.com/paularlott/knot/internal/middleware"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -46,7 +47,7 @@ func mockKnotAPI(t *testing.T) *httptest.Server {
 		w.Write([]byte(`{"count":1,"users":[{"id":"u1","email":"test@example.com"}]}`))
 	})
 
-	return httptest.NewServer(mux)
+	return httptest.NewServer(middleware.KnotVersion(mux))
 }
 
 // TestPluginProtocolCycle drives the knot plugin server over in-process
@@ -342,14 +343,14 @@ var _ rest.RESTClient = (rest.RESTClient)(nil)
 // with an empty body (what the knot API returns for start/stop/etc.) the
 // same way the embedded apiclient does: as a successful null result.
 func TestAPIFunctionToleratesEmptyBody(t *testing.T) {
-	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	api := httptest.NewServer(middleware.KnotVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/spaces/testspace/start" {
 			// HTTP 200 with empty body, no Content-Type header.
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-	}))
+	})))
 	defer api.Close()
 
 	client := newTestAPIClient(t, api.URL)
@@ -393,7 +394,7 @@ func TestAPIFunctionToleratesEmptyBody(t *testing.T) {
 func TestWaitForStart(t *testing.T) {
 	var running, agentState atomic.Bool
 
-	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	api := httptest.NewServer(middleware.KnotVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test-token" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -411,7 +412,7 @@ func TestWaitForStart(t *testing.T) {
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
-	}))
+	})))
 	defer api.Close()
 
 	client := newTestAPIClient(t, api.URL)
@@ -606,7 +607,7 @@ func mockFilesAPI(t *testing.T) (*httptest.Server, *filesStore) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	return httptest.NewServer(mux), store
+	return httptest.NewServer(middleware.KnotVersion(mux)), store
 }
 
 // TestPluginRawTransfers covers the raw byte transfers knot.files needs on

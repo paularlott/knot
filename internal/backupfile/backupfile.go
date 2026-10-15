@@ -44,12 +44,12 @@ var ErrWrongKey = errors.New("cannot decrypt the backup: wrong key, or the file 
 // Manifest says what a backup holds. It is written when the backup is
 // complete, so a folder without one is unfinished.
 type Manifest struct {
-	Version   int            `json:"version"`
-	Created   time.Time      `json:"created"`
-	Server    string         `json:"server"` // the knot version that made it
-	Encrypted bool           `json:"encrypted"`
-	Counts    map[string]int `json:"counts"`
-	Content   bool           `json:"content"` // file content was copied
+	Version   int            `json:"version" msgpack:"version"`
+	Created   time.Time      `json:"created" msgpack:"created"`
+	Server    string         `json:"server" msgpack:"server"` // the knot version that made it
+	Encrypted bool           `json:"encrypted" msgpack:"encrypted"`
+	Counts    map[string]int `json:"counts" msgpack:"counts"`
+	Content   bool           `json:"content" msgpack:"content"` // file content was copied
 }
 
 // WriteManifest writes the manifest into dir.
@@ -122,9 +122,9 @@ func ReadManifest(dir string) (*Manifest, error) {
 func RecordPath(dir, kind string) string { return filepath.Join(dir, kind+".jsonl") }
 
 type header struct {
-	Knot      int    `json:"knot_backup"`
-	Kind      string `json:"kind"`
-	Encrypted bool   `json:"encrypted"`
+	Knot      int    `json:"knot_backup" msgpack:"knot_backup"`
+	Kind      string `json:"kind" msgpack:"kind"`
+	Encrypted bool   `json:"encrypted" msgpack:"encrypted"`
 }
 
 func newGCM(key string) (cipher.AEAD, error) {

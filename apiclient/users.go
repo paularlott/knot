@@ -9,152 +9,152 @@ import (
 )
 
 type LinkedUserInfo struct {
-	Id       string `json:"user_id"`
-	Username string `json:"username"`
+	Id       string `json:"user_id" msgpack:"user_id"`
+	Username string `json:"username" msgpack:"username"`
 }
 
 type UserResponse struct {
-	Id                         string           `json:"user_id"`
-	Username                   string           `json:"username"`
-	SpaceId                    string           `json:"space_id,omitempty"` // whoami from a space's own credential: that space
-	Email                      string           `json:"email"`
-	ServicePassword            string           `json:"service_password"`
-	Roles                      []string         `json:"roles"`
-	Groups                     []string         `json:"groups"`
-	LinkedUsers                []LinkedUserInfo `json:"linked_users"`
-	Active                     bool             `json:"active"`
-	MaxSpaces                  uint32           `json:"max_spaces"`
-	ComputeUnits               uint32           `json:"compute_units"`
-	StorageUnits               uint32           `json:"storage_units"`
-	MaxTunnels                 uint32           `json:"max_tunnels"`
-	FileStorageMB              uint32           `json:"file_storage_mb"`
-	MaxBuckets                 uint32           `json:"max_buckets"`
-	SSHPublicKey               string           `json:"ssh_public_key"`
-	SSHPrivateKey              string           `json:"ssh_private_key"`
-	GitHubUsername             string           `json:"github_username"`
-	PreferredShell             string           `json:"preferred_shell"`
-	Timezone                   string           `json:"timezone"`
-	Current                    bool             `json:"current"`
-	LastLoginAt                *time.Time       `json:"last_login_at"`
-	CreatedAt                  time.Time        `json:"created_at"`
-	UpdatedAt                  time.Time        `json:"updated_at"`
-	TOTPSecret                 string           `json:"totp_secret"`
-	NumberSpaces               int              `json:"number_spaces"`
-	NumberSpacesDeployed       int              `json:"number_spaces_deployed"`
-	NumberSpacesDeployedInZone int              `json:"number_spaces_deployed_in_zone"`
-	UsedComputeUnits           uint32           `json:"used_compute_units"`
-	UsedStorageUnits           uint32           `json:"used_storage_units"`
-	UsedTunnels                uint32           `json:"used_tunnels"`
+	Id                         string           `json:"user_id" msgpack:"user_id"`
+	Username                   string           `json:"username" msgpack:"username"`
+	SpaceId                    string           `json:"space_id,omitempty" msgpack:"space_id,omitempty"` // whoami from a space's own credential: that space
+	Email                      string           `json:"email" msgpack:"email"`
+	ServicePassword            string           `json:"service_password" msgpack:"service_password"`
+	Roles                      []string         `json:"roles" msgpack:"roles"`
+	Groups                     []string         `json:"groups" msgpack:"groups"`
+	LinkedUsers                []LinkedUserInfo `json:"linked_users" msgpack:"linked_users"`
+	Active                     bool             `json:"active" msgpack:"active"`
+	MaxSpaces                  uint32           `json:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits               uint32           `json:"compute_units" msgpack:"compute_units"`
+	StorageUnits               uint32           `json:"storage_units" msgpack:"storage_units"`
+	MaxTunnels                 uint32           `json:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB              uint32           `json:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets                 uint32           `json:"max_buckets" msgpack:"max_buckets"`
+	SSHPublicKey               string           `json:"ssh_public_key" msgpack:"ssh_public_key"`
+	SSHPrivateKey              string           `json:"ssh_private_key" msgpack:"ssh_private_key"`
+	GitHubUsername             string           `json:"github_username" msgpack:"github_username"`
+	PreferredShell             string           `json:"preferred_shell" msgpack:"preferred_shell"`
+	Timezone                   string           `json:"timezone" msgpack:"timezone"`
+	Current                    bool             `json:"current" msgpack:"current"`
+	LastLoginAt                *time.Time       `json:"last_login_at" msgpack:"last_login_at"`
+	CreatedAt                  time.Time        `json:"created_at" msgpack:"created_at"`
+	UpdatedAt                  time.Time        `json:"updated_at" msgpack:"updated_at"`
+	TOTPSecret                 string           `json:"totp_secret" msgpack:"totp_secret"`
+	NumberSpaces               int              `json:"number_spaces" msgpack:"number_spaces"`
+	NumberSpacesDeployed       int              `json:"number_spaces_deployed" msgpack:"number_spaces_deployed"`
+	NumberSpacesDeployedInZone int              `json:"number_spaces_deployed_in_zone" msgpack:"number_spaces_deployed_in_zone"`
+	UsedComputeUnits           uint32           `json:"used_compute_units" msgpack:"used_compute_units"`
+	UsedStorageUnits           uint32           `json:"used_storage_units" msgpack:"used_storage_units"`
+	UsedTunnels                uint32           `json:"used_tunnels" msgpack:"used_tunnels"`
 }
 
 type CreateUserRequest struct {
-	Username       string   `json:"username"`
-	Password       string   `json:"password"`
-	Email          string   `json:"email"`
-	Roles          []string `json:"roles"`
-	Groups         []string `json:"groups"`
-	Active         bool     `json:"active"`
-	MaxSpaces      uint32   `json:"max_spaces"`
-	ComputeUnits   uint32   `json:"compute_units"`
-	StorageUnits   uint32   `json:"storage_units"`
-	MaxTunnels     uint32   `json:"max_tunnels"`
-	FileStorageMB  uint32   `json:"file_storage_mb"`
-	MaxBuckets     uint32   `json:"max_buckets"`
-	SSHPublicKey   string   `json:"ssh_public_key"`
-	GitHubUsername string   `json:"github_username"`
-	PreferredShell string   `json:"preferred_shell"`
-	Timezone       string   `json:"timezone"`
-	TOTPSecret     string   `json:"totp_secret"`
+	Username       string   `json:"username" msgpack:"username"`
+	Password       string   `json:"password" msgpack:"password"`
+	Email          string   `json:"email" msgpack:"email"`
+	Roles          []string `json:"roles" msgpack:"roles"`
+	Groups         []string `json:"groups" msgpack:"groups"`
+	Active         bool     `json:"active" msgpack:"active"`
+	MaxSpaces      uint32   `json:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits   uint32   `json:"compute_units" msgpack:"compute_units"`
+	StorageUnits   uint32   `json:"storage_units" msgpack:"storage_units"`
+	MaxTunnels     uint32   `json:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB  uint32   `json:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets     uint32   `json:"max_buckets" msgpack:"max_buckets"`
+	SSHPublicKey   string   `json:"ssh_public_key" msgpack:"ssh_public_key"`
+	GitHubUsername string   `json:"github_username" msgpack:"github_username"`
+	PreferredShell string   `json:"preferred_shell" msgpack:"preferred_shell"`
+	Timezone       string   `json:"timezone" msgpack:"timezone"`
+	TOTPSecret     string   `json:"totp_secret" msgpack:"totp_secret"`
 }
 
 type UpdateUserRequest struct {
-	Username        string   `json:"username"`
-	Password        string   `json:"password"`
-	ServicePassword string   `json:"service_password"`
-	Email           string   `json:"email"`
-	Roles           []string `json:"roles"`
-	Groups          []string `json:"groups"`
-	Active          bool     `json:"active"`
-	MaxSpaces       uint32   `json:"max_spaces"`
-	ComputeUnits    uint32   `json:"compute_units"`
-	StorageUnits    uint32   `json:"storage_units"`
-	MaxTunnels      uint32   `json:"max_tunnels"`
-	FileStorageMB   uint32   `json:"file_storage_mb"`
-	MaxBuckets      uint32   `json:"max_buckets"`
-	SSHPublicKey    string   `json:"ssh_public_key"`
-	GitHubUsername  string   `json:"github_username"`
-	PreferredShell  string   `json:"preferred_shell"`
-	Timezone        string   `json:"timezone"`
-	TOTPSecret      string   `json:"totp_secret"`
+	Username        string   `json:"username" msgpack:"username"`
+	Password        string   `json:"password" msgpack:"password"`
+	ServicePassword string   `json:"service_password" msgpack:"service_password"`
+	Email           string   `json:"email" msgpack:"email"`
+	Roles           []string `json:"roles" msgpack:"roles"`
+	Groups          []string `json:"groups" msgpack:"groups"`
+	Active          bool     `json:"active" msgpack:"active"`
+	MaxSpaces       uint32   `json:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits    uint32   `json:"compute_units" msgpack:"compute_units"`
+	StorageUnits    uint32   `json:"storage_units" msgpack:"storage_units"`
+	MaxTunnels      uint32   `json:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB   uint32   `json:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets      uint32   `json:"max_buckets" msgpack:"max_buckets"`
+	SSHPublicKey    string   `json:"ssh_public_key" msgpack:"ssh_public_key"`
+	GitHubUsername  string   `json:"github_username" msgpack:"github_username"`
+	PreferredShell  string   `json:"preferred_shell" msgpack:"preferred_shell"`
+	Timezone        string   `json:"timezone" msgpack:"timezone"`
+	TOTPSecret      string   `json:"totp_secret" msgpack:"totp_secret"`
 }
 
 type CreateUserResponse struct {
-	Status bool   `json:"status"`
-	UserId string `json:"user_id"`
+	Status bool   `json:"status" msgpack:"status"`
+	UserId string `json:"user_id" msgpack:"user_id"`
 }
 
 type UserInfo struct {
-	Id                         string     `json:"user_id"`
-	Username                   string     `json:"username"`
-	Email                      string     `json:"email"`
-	Roles                      []string   `json:"roles"`
-	Groups                     []string   `json:"groups"`
-	Active                     bool       `json:"active"`
-	MaxSpaces                  uint32     `json:"max_spaces"`
-	ComputeUnits               uint32     `json:"compute_units"`
-	StorageUnits               uint32     `json:"storage_units"`
-	MaxTunnels                 uint32     `json:"max_tunnels"`
-	FileStorageMB              uint32     `json:"file_storage_mb"`
-	MaxBuckets                 uint32     `json:"max_buckets"`
-	Current                    bool       `json:"current"`
-	HasLinkedUsers             bool       `json:"has_linked_users"`
-	LastLoginAt                *time.Time `json:"last_login_at"`
-	NumberSpaces               int        `json:"number_spaces"`
-	NumberSpacesDeployed       int        `json:"number_spaces_deployed"`
-	NumberSpacesDeployedInZone int        `json:"number_spaces_deployed_in_zone"`
-	UsedComputeUnits           uint32     `json:"used_compute_units"`
-	UsedStorageUnits           uint32     `json:"used_storage_units"`
-	UsedTunnels                uint32     `json:"used_tunnels"`
-	UsedFileStorageMB          float64    `json:"used_file_storage_mb"`
-	UsedBuckets                int        `json:"used_buckets"`
+	Id                         string     `json:"user_id" msgpack:"user_id"`
+	Username                   string     `json:"username" msgpack:"username"`
+	Email                      string     `json:"email" msgpack:"email"`
+	Roles                      []string   `json:"roles" msgpack:"roles"`
+	Groups                     []string   `json:"groups" msgpack:"groups"`
+	Active                     bool       `json:"active" msgpack:"active"`
+	MaxSpaces                  uint32     `json:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits               uint32     `json:"compute_units" msgpack:"compute_units"`
+	StorageUnits               uint32     `json:"storage_units" msgpack:"storage_units"`
+	MaxTunnels                 uint32     `json:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB              uint32     `json:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets                 uint32     `json:"max_buckets" msgpack:"max_buckets"`
+	Current                    bool       `json:"current" msgpack:"current"`
+	HasLinkedUsers             bool       `json:"has_linked_users" msgpack:"has_linked_users"`
+	LastLoginAt                *time.Time `json:"last_login_at" msgpack:"last_login_at"`
+	NumberSpaces               int        `json:"number_spaces" msgpack:"number_spaces"`
+	NumberSpacesDeployed       int        `json:"number_spaces_deployed" msgpack:"number_spaces_deployed"`
+	NumberSpacesDeployedInZone int        `json:"number_spaces_deployed_in_zone" msgpack:"number_spaces_deployed_in_zone"`
+	UsedComputeUnits           uint32     `json:"used_compute_units" msgpack:"used_compute_units"`
+	UsedStorageUnits           uint32     `json:"used_storage_units" msgpack:"used_storage_units"`
+	UsedTunnels                uint32     `json:"used_tunnels" msgpack:"used_tunnels"`
+	UsedFileStorageMB          float64    `json:"used_file_storage_mb" msgpack:"used_file_storage_mb"`
+	UsedBuckets                int        `json:"used_buckets" msgpack:"used_buckets"`
 }
 type UserInfoList struct {
-	Count int        `json:"count"`
-	Users []UserInfo `json:"users"`
+	Count int        `json:"count" msgpack:"count"`
+	Users []UserInfo `json:"users" msgpack:"users"`
 }
 
 type UserQuota struct {
-	MaxSpaces            uint32  `json:"max_spaces"`
-	ComputeUnits         uint32  `json:"compute_units"`
-	StorageUnits         uint32  `json:"storage_units"`
-	MaxTunnels           uint32  `json:"max_tunnels"`
-	FileStorageMB        uint32  `json:"file_storage_mb"`
-	MaxBuckets           uint32  `json:"max_buckets"`
-	NumberSpaces         int     `json:"number_spaces"`
-	NumberSpacesDeployed int     `json:"number_spaces_deployed"`
-	UsedComputeUnits     uint32  `json:"used_compute_units"`
-	UsedStorageUnits     uint32  `json:"used_storage_units"`
-	UsedTunnels          uint32  `json:"used_tunnels"`
-	UsedFileStorageMB    float64 `json:"used_file_storage_mb"`
-	UsedBuckets          int     `json:"used_buckets"`
+	MaxSpaces            uint32  `json:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits         uint32  `json:"compute_units" msgpack:"compute_units"`
+	StorageUnits         uint32  `json:"storage_units" msgpack:"storage_units"`
+	MaxTunnels           uint32  `json:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB        uint32  `json:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets           uint32  `json:"max_buckets" msgpack:"max_buckets"`
+	NumberSpaces         int     `json:"number_spaces" msgpack:"number_spaces"`
+	NumberSpacesDeployed int     `json:"number_spaces_deployed" msgpack:"number_spaces_deployed"`
+	UsedComputeUnits     uint32  `json:"used_compute_units" msgpack:"used_compute_units"`
+	UsedStorageUnits     uint32  `json:"used_storage_units" msgpack:"used_storage_units"`
+	UsedTunnels          uint32  `json:"used_tunnels" msgpack:"used_tunnels"`
+	UsedFileStorageMB    float64 `json:"used_file_storage_mb" msgpack:"used_file_storage_mb"`
+	UsedBuckets          int     `json:"used_buckets" msgpack:"used_buckets"`
 }
 
 type UserPermissions struct {
-	Permissions       []uint16 `json:"permissions"`
-	PluginPermissions []string `json:"plugin_permissions,omitempty"`
+	Permissions       []uint16 `json:"permissions" msgpack:"permissions"`
+	PluginPermissions []string `json:"plugin_permissions,omitempty" msgpack:"plugin_permissions,omitempty"`
 }
 
 type UserHasPermission struct {
-	HasPermission bool `json:"has_permission"`
+	HasPermission bool `json:"has_permission" msgpack:"has_permission"`
 }
 
 type UpdateOwnSSHPublicKeyRequest struct {
-	SSHPublicKey   string `json:"ssh_public_key"`
-	GitHubUsername string `json:"github_username"`
+	SSHPublicKey   string `json:"ssh_public_key" msgpack:"ssh_public_key"`
+	GitHubUsername string `json:"github_username" msgpack:"github_username"`
 }
 
 type UpdateOwnSSHPrivateKeyRequest struct {
-	SSHPrivateKey string `json:"ssh_private_key"`
+	SSHPrivateKey string `json:"ssh_private_key" msgpack:"ssh_private_key"`
 }
 
 // ValidNavURLs is the set of core sidebar URLs that may be pinned to the top
@@ -176,12 +176,12 @@ var ValidNavURLs = map[string]bool{
 // stored order may differ from the request. An empty slice clears the
 // preference and returns the sidebar to its default layout.
 type UpdateOwnNavPreferencesRequest struct {
-	Starred []string `json:"starred"`
+	Starred []string `json:"starred" msgpack:"starred"`
 }
 
 // NavPreferences is the pinned-sidebar state for the current user.
 type NavPreferences struct {
-	Starred []string `json:"starred"`
+	Starred []string `json:"starred" msgpack:"starred"`
 }
 
 func (c *ApiClient) CreateUser(ctx context.Context, request *CreateUserRequest) (string, int, error) {

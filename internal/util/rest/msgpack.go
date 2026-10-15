@@ -1,7 +1,9 @@
 package rest
 
 import (
+	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/shamaton/msgpack/v3"
 )
@@ -35,4 +37,20 @@ func EncodeMsgPack(w io.Writer, v any) error {
 		data = data[n:]
 	}
 	return nil
+}
+
+// decodeBody decodes a reply by its Content-Type: msgpack, or else JSON.
+func decodeBody(contentType string, r io.Reader, v any) error {
+	if strings.Contains(contentType, ContentTypeMsgPack) {
+		return DecodeMsgPack(r, v)
+	}
+	return decodeJSON(r, v)
+}
+
+// encodeBody encodes a request body in the given Content-Type.
+func encodeBody(contentType string, v any) ([]byte, error) {
+	if contentType == ContentTypeMsgPack {
+		return msgpack.Marshal(v)
+	}
+	return json.Marshal(v)
 }

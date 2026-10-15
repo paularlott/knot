@@ -35,7 +35,7 @@ type RedisDbDriver struct {
 
 type legacySpaceRecord struct {
 	model.Space
-	SharedWithUserId string `json:"shared_with_user_id"`
+	SharedWithUserId string `json:"shared_with_user_id" msgpack:"shared_with_user_id"`
 }
 
 func (db *RedisDbDriver) keyExists(key string) (bool, error) {

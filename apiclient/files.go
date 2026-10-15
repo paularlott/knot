@@ -16,72 +16,72 @@ import (
 )
 
 type FileGrant struct {
-	Type   string `json:"type"`
-	Id     string `json:"id,omitempty"`
-	Name   string `json:"name,omitempty"`
-	Access string `json:"access"`
+	Type   string `json:"type" msgpack:"type"`
+	Id     string `json:"id,omitempty" msgpack:"id,omitempty"`
+	Name   string `json:"name,omitempty" msgpack:"name,omitempty"`
+	Access string `json:"access" msgpack:"access"`
 }
 
 type FileBucketInfo struct {
-	Id        string      `json:"id"`           // fixed for the life of the bucket, whatever its name
-	Name      string      `json:"name"`         // full name, "<owner>--<name>"
-	Display   string      `json:"display_name"` // the short name for the caller's own buckets, else the full name
-	OwnerId   string      `json:"owner_id"`
-	OwnerName string      `json:"owner_name"`
-	Grants    []FileGrant `json:"grants"`
-	Size      int64       `json:"size"`
-	Count     int         `json:"count"`
-	Access    string      `json:"access"` // effective: owner, write or read
+	Id        string      `json:"id" msgpack:"id"`                     // fixed for the life of the bucket, whatever its name
+	Name      string      `json:"name" msgpack:"name"`                 // full name, "<owner>--<name>"
+	Display   string      `json:"display_name" msgpack:"display_name"` // the short name for the caller's own buckets, else the full name
+	OwnerId   string      `json:"owner_id" msgpack:"owner_id"`
+	OwnerName string      `json:"owner_name" msgpack:"owner_name"`
+	Grants    []FileGrant `json:"grants" msgpack:"grants"`
+	Size      int64       `json:"size" msgpack:"size"`
+	Count     int         `json:"count" msgpack:"count"`
+	Access    string      `json:"access" msgpack:"access"` // effective: owner, write or read
 	// Granted is the access held in the caller's own right and Via how it is
 	// held (owner, user, group, all); Via is empty when the caller reaches the
 	// bucket only as a file storage manager.
-	Granted   string    `json:"granted"`
-	Via       string    `json:"via"`
-	CreatedAt time.Time `json:"created_at"`
+	Granted   string    `json:"granted" msgpack:"granted"`
+	Via       string    `json:"via" msgpack:"via"`
+	CreatedAt time.Time `json:"created_at" msgpack:"created_at"`
 }
 
 type FileBucketList struct {
-	Buckets []FileBucketInfo `json:"buckets"`
+	Buckets []FileBucketInfo `json:"buckets" msgpack:"buckets"`
 }
 
 type FileBucketCreateRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 // FileShareRequest shares a bucket. Type is user, group or all; Name is the
 // username (or email) or group name, unused for all.
 type FileShareRequest struct {
-	Type   string `json:"type"`
-	Name   string `json:"name"`
-	Access string `json:"access"`
+	Type   string `json:"type" msgpack:"type"`
+	Name   string `json:"name" msgpack:"name"`
+	Access string `json:"access" msgpack:"access"`
 }
 
 type FileUnshareRequest struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
+	Type string `json:"type" msgpack:"type"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 // FileTransferRequest moves a bucket to another user; Force allows the move
 // even when it takes the new owner over their quota.
 type FileTransferRequest struct {
-	User  string `json:"user"`
-	Force bool   `json:"force"`
+	User  string `json:"user" msgpack:"user"`
+	Force bool   `json:"force" msgpack:"force"`
 }
 
 type FileObjectInfo struct {
-	Key         string    `json:"key"`
-	Size        int64     `json:"size"`
-	ETag        string    `json:"etag"`
-	SHA256      string    `json:"sha256"`
-	ContentType string    `json:"content_type"`
-	ModifiedAt  time.Time `json:"modified_at"`
+	Key         string    `json:"key" msgpack:"key"`
+	Size        int64     `json:"size" msgpack:"size"`
+	ETag        string    `json:"etag" msgpack:"etag"`
+	SHA256      string    `json:"sha256" msgpack:"sha256"`
+	ContentType string    `json:"content_type" msgpack:"content_type"`
+	ModifiedAt  time.Time `json:"modified_at" msgpack:"modified_at"`
 }
 
 // FileChange is one entry of a bucket's change feed: a file as it is now, or
 // one that was deleted.
 type FileChange struct {
 	FileObjectInfo
-	Deleted bool `json:"deleted,omitempty"`
+	Deleted bool `json:"deleted,omitempty" msgpack:"deleted,omitempty"`
 }
 
 // FileChangeList is a page of a bucket's change feed. Cursor continues it;
@@ -90,72 +90,72 @@ type FileChange struct {
 // another server, or deletions it had not seen were forgotten): start again
 // without a cursor, which returns every file.
 type FileChangeList struct {
-	Changes []FileChange `json:"changes"`
-	Cursor  string       `json:"cursor"`
-	More    bool         `json:"more"`
-	Reset   bool         `json:"reset"`
+	Changes []FileChange `json:"changes" msgpack:"changes"`
+	Cursor  string       `json:"cursor" msgpack:"cursor"`
+	More    bool         `json:"more" msgpack:"more"`
+	Reset   bool         `json:"reset" msgpack:"reset"`
 }
 
 type FileObjectList struct {
-	Objects     []FileObjectInfo `json:"objects"`
-	Prefixes    []string         `json:"prefixes"`
-	IsTruncated bool             `json:"is_truncated"`
-	Next        string           `json:"next"`
+	Objects     []FileObjectInfo `json:"objects" msgpack:"objects"`
+	Prefixes    []string         `json:"prefixes" msgpack:"prefixes"`
+	IsTruncated bool             `json:"is_truncated" msgpack:"is_truncated"`
+	Next        string           `json:"next" msgpack:"next"`
 }
 
 // FileCopyRequest copies one file to another place, in the same bucket or
 // another, on the server: the content is never transferred. The source and
 // destination buckets may be named in short form, like the other endpoints.
 type FileCopyRequest struct {
-	SourceBucket string `json:"source_bucket"`
-	SourceKey    string `json:"source_key"`
-	DestBucket   string `json:"dest_bucket"`
-	DestKey      string `json:"dest_key"`
+	SourceBucket string `json:"source_bucket" msgpack:"source_bucket"`
+	SourceKey    string `json:"source_key" msgpack:"source_key"`
+	DestBucket   string `json:"dest_bucket" msgpack:"dest_bucket"`
+	DestKey      string `json:"dest_key" msgpack:"dest_key"`
 	// IfMatch copies only if the destination file has this ETag;
 	// IfNoneMatch only if there is no file there. Either refusal is a 412.
-	IfMatch     string `json:"if_match,omitempty"`
-	IfNoneMatch bool   `json:"if_none_match,omitempty"`
+	IfMatch     string `json:"if_match,omitempty" msgpack:"if_match,omitempty"`
+	IfNoneMatch bool   `json:"if_none_match,omitempty" msgpack:"if_none_match,omitempty"`
 }
 
 // FileMoveRequest renames a file, or a folder and everything under it, within
 // a bucket, on the server. A folder is given with or without a trailing slash.
 // Without Overwrite the move is refused if the destination holds a file.
 type FileMoveRequest struct {
-	Bucket    string `json:"bucket"`
-	From      string `json:"from"`
-	To        string `json:"to"`
-	Overwrite bool   `json:"overwrite,omitempty"`
+	Bucket    string `json:"bucket" msgpack:"bucket"`
+	From      string `json:"from" msgpack:"from"`
+	To        string `json:"to" msgpack:"to"`
+	Overwrite bool   `json:"overwrite,omitempty" msgpack:"overwrite,omitempty"`
 }
 
 // FileMoveResponse says how many files were moved.
 type FileMoveResponse struct {
-	Moved int `json:"moved"`
+	Moved int `json:"moved" msgpack:"moved"`
 }
 
 // FileShareTargets lists who a bucket can be shared with.
 type FileShareTargets struct {
-	Users  []FileShareUser  `json:"users"`
-	Groups []FileShareGroup `json:"groups"`
+	Users  []FileShareUser  `json:"users" msgpack:"users"`
+	Groups []FileShareGroup `json:"groups" msgpack:"groups"`
 }
 
 type FileShareUser struct {
-	Id       string `json:"user_id"`
-	Username string `json:"username"`
-	CanOwn   bool   `json:"can_own"` // may own buckets, so may receive a transfer
-	Self     bool   `json:"self"`    // the caller
+	Id       string `json:"user_id" msgpack:"user_id"`
+	Username string `json:"username" msgpack:"username"`
+	CanOwn   bool   `json:"can_own" msgpack:"can_own"` // may own buckets, so may receive a transfer
+	Self     bool   `json:"self" msgpack:"self"`       // the caller
 }
 
 type FileShareGroup struct {
-	Id   string `json:"group_id"`
-	Name string `json:"name"`
+	Id   string `json:"group_id" msgpack:"group_id"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 type FileUsage struct {
-	UsedBytes  int64 `json:"used_bytes"`
-	Objects    int   `json:"objects"`
-	Buckets    int   `json:"buckets"`
-	QuotaBytes int64 `json:"quota_bytes"`
-	MaxBuckets int   `json:"max_buckets"` // 0 for no limit
+	UsedBytes  int64 `json:"used_bytes" msgpack:"used_bytes"`
+	Objects    int   `json:"objects" msgpack:"objects"`
+	Buckets    int   `json:"buckets" msgpack:"buckets"`
+	QuotaBytes int64 `json:"quota_bytes" msgpack:"quota_bytes"`
+	MaxBuckets int   `json:"max_buckets" msgpack:"max_buckets"` // 0 for no limit
 }
 
 // FileMtimeHeader carries an object's modification time as fractional unix
