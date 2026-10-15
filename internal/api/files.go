@@ -510,6 +510,7 @@ func objectResponse(o *filestore.Object) apiclient.FileObjectInfo {
 		SHA256:      o.SHA256,
 		ContentType: o.ContentType,
 		ModifiedAt:  modified,
+		Meta:        o.Meta,
 	}
 }
 
@@ -560,6 +561,9 @@ func setObjectHeaders(w http.ResponseWriter, o *filestore.Object) {
 		h.Set(apiclient.FileMtimeHeader, mtime)
 	} else {
 		h.Set(apiclient.FileMtimeHeader, apiclient.FormatMtime(o.ModifiedAt))
+	}
+	for k, v := range o.Meta {
+		h.Set(apiclient.FileMetaHeaderPrefix+k, v)
 	}
 }
 
@@ -621,11 +625,22 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		IfMatch:     r.Header.Get("If-Match"),
 		IfNoneMatch: r.Header.Get("If-None-Match") == "*",
 	}
+	for k, v := range r.Header {
+		if len(v) > 0 && len(k) > len(apiclient.FileMetaHeaderPrefix) && strings.EqualFold(k[:len(apiclient.FileMetaHeaderPrefix)], apiclient.FileMetaHeaderPrefix) {
+			if opts.Meta == nil {
+				opts.Meta = map[string]string{}
+			}
+			opts.Meta[strings.ToLower(k[len(apiclient.FileMetaHeaderPrefix):])] = v[0]
+		}
+	}
 	if mtime := r.Header.Get(apiclient.FileMtimeHeader); mtime != "" {
 		// Kept as metadata, as S3 clients do, so Last-Modified stays the
 		// upload time and rclone sees the same modification time.
 		if t, ok := apiclient.ParseMtime(mtime); ok {
-			opts.Meta = map[string]string{"mtime": apiclient.FormatMtime(t)}
+			if opts.Meta == nil {
+				opts.Meta = map[string]string{}
+			}
+			opts.Meta["mtime"] = apiclient.FormatMtime(t)
 		}
 	}
 
@@ -682,7 +697,7 @@ func HandleListFileChanges(w http.ResponseWriter, r *http.Request) {
 // access to the destination, and the destination bucket's owner is charged
 // for the new file.
 func HandleCopyFileObject(w http.ResponseWriter, r *http.Request) {
-	store, _, p, ok := filesContext(w, r)
+	store, user, p, ok := filesContext(w, r)
 	if !ok {
 		return
 	}
@@ -698,12 +713,17 @@ func HandleCopyFileObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	src, dst := filestore.ResolveName(p, req.SourceBucket), filestore.ResolveName(p, req.DestBucket)
-	if src == dst && req.SourceKey == req.DestKey {
+	if src == dst && req.SourceKey == req.DestKey && req.Meta == nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "source and destination are the same file"})
 		return
 	}
 
-	o, err := store.CopyObjectIf(p, src, req.SourceKey, dst, req.DestKey, nil, filestore.PutOptions{IfMatch: req.IfMatch, IfNoneMatch: req.IfNoneMatch})
+	// New metadata replaces the copy's, as S3's REPLACE directive.
+	var opts *filestore.PutOptions
+	if req.Meta != nil {
+		opts = &filestore.PutOptions{Meta: req.Meta, ModifiedBy: user.Id}
+	}
+	o, err := store.CopyObjectIf(p, src, req.SourceKey, dst, req.DestKey, opts, filestore.PutOptions{IfMatch: req.IfMatch, IfNoneMatch: req.IfNoneMatch})
 	if err != nil {
 		filesError(w, r, err)
 		return

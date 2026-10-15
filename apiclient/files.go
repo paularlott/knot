@@ -75,6 +75,9 @@ type FileObjectInfo struct {
 	SHA256      string    `json:"sha256"`
 	ContentType string    `json:"content_type"`
 	ModifiedAt  time.Time `json:"modified_at"`
+	// Meta is the file's user metadata, as S3 x-amz-meta-*: its mtime and,
+	// for a file written over NFS, its mode and inode number.
+	Meta map[string]string `json:"meta,omitempty"`
 }
 
 // FileChange is one entry of a bucket's change feed: a file as it is now, or
@@ -115,6 +118,9 @@ type FileCopyRequest struct {
 	// IfNoneMatch only if there is no file there. Either refusal is a 412.
 	IfMatch     string `json:"if_match,omitempty"`
 	IfNoneMatch bool   `json:"if_none_match,omitempty"`
+	// Meta, when set, replaces the copy's metadata. With it, a file may be
+	// copied onto itself to change only its metadata.
+	Meta map[string]string `json:"meta,omitempty"`
 }
 
 // FileMoveRequest renames a file, or a folder and everything under it, within
@@ -161,6 +167,10 @@ type FileUsage struct {
 // FileMtimeHeader carries an object's modification time as fractional unix
 // seconds, the same form rclone stores in x-amz-meta-mtime.
 const FileMtimeHeader = "X-Knot-Mtime"
+
+// FileMetaHeaderPrefix starts the headers carrying an object's user metadata
+// on GET, HEAD and PUT, one header per key (cf. S3's x-amz-meta-).
+const FileMetaHeaderPrefix = "X-Knot-Meta-"
 
 // FileReuseHeader on an upload with no body names the SHA-256 of content the
 // bucket held until recently (a file deleted or replaced within the hour):
@@ -388,7 +398,7 @@ func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string
 // PutFileObjectIfMatch uploads content only if the file still has the ETag
 // etag: otherwise it fails with an error IsPreconditionFailed recognises.
 func (c *ApiClient) PutFileObjectIfMatch(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, etag string) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, false, etag)
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, false, etag, nil)
 }
 
 // PutFileObject uploads content of the given size (-1 if unknown).
@@ -409,16 +419,24 @@ func IsPreconditionFailed(err error) bool {
 }
 
 func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, ifAbsent, "")
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, ifAbsent, "", nil)
 }
 
-func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool, ifMatch string) (*FileObjectInfo, error) {
+// PutFileObjectMeta uploads an object with user metadata (FileObjectInfo.Meta).
+func (c *ApiClient) PutFileObjectMeta(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, meta map[string]string) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, time.Time{}, false, "", meta)
+}
+
+func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool, ifMatch string, meta map[string]string) (*FileObjectInfo, error) {
 	hc, err := c.rawClient()
 	if err != nil {
 		return nil, err
 	}
 
 	headers := map[string]string{"Content-Type": contentType}
+	for k, v := range meta {
+		headers[FileMetaHeaderPrefix+k] = v
+	}
 	if contentType == "" {
 		headers["Content-Type"] = "application/octet-stream"
 	}
@@ -443,6 +461,72 @@ func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, b
 		return nil, err
 	}
 	return info, nil
+}
+
+// HeadFileObject describes an object without downloading it.
+func (c *ApiClient) HeadFileObject(ctx context.Context, bucket, key string) (*FileObjectInfo, error) {
+	hc, err := c.rawClient()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := hc.DoRaw(ctx, http.MethodHead, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, rest.DecodeResponse(resp, nil)
+	}
+	return ObjectInfoFromHeaders(key, resp.Header, resp.ContentLength), nil
+}
+
+// ObjectInfoFromHeaders reads the description of an object from the headers
+// of a GET or HEAD of it.
+func ObjectInfoFromHeaders(key string, h http.Header, size int64) *FileObjectInfo {
+	info := &FileObjectInfo{
+		Key:         key,
+		Size:        size,
+		ETag:        strings.Trim(h.Get("ETag"), `"`),
+		SHA256:      h.Get("X-Knot-Sha256"),
+		ContentType: h.Get("Content-Type"),
+	}
+	if t, ok := ParseMtime(h.Get(FileMtimeHeader)); ok {
+		info.ModifiedAt = t
+	} else if t, err := http.ParseTime(h.Get("Last-Modified")); err == nil {
+		info.ModifiedAt = t
+	}
+	for k, v := range h {
+		if len(v) > 0 && len(k) > len(FileMetaHeaderPrefix) && strings.EqualFold(k[:len(FileMetaHeaderPrefix)], FileMetaHeaderPrefix) {
+			if info.Meta == nil {
+				info.Meta = map[string]string{}
+			}
+			info.Meta[strings.ToLower(k[len(FileMetaHeaderPrefix):])] = v[0]
+		}
+	}
+	return info
+}
+
+// GetFileObjectRange downloads length bytes of an object from offset; the
+// caller closes the body.
+func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, offset, length int64) (*http.Response, error) {
+	hc, err := c.rawClient()
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", offset, offset+length-1)}
+	resp, err := hc.DoRaw(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
+		resp.Body.Close()
+		return nil, io.EOF
+	}
+	if resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		return nil, rest.DecodeResponse(resp, nil)
+	}
+	return resp, nil
 }
 
 // GetFileObject downloads an object; the caller closes the body.

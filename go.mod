@@ -17,6 +17,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gliderlabs/ssh v0.3.8
+	github.com/go-git/go-billy/v5 v5.6.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/gogpu/systray v0.3.0
 	github.com/google/uuid v1.6.0
@@ -35,6 +36,7 @@ require (
 	github.com/shamaton/msgpack/v3 v3.2.3
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valkey-io/valkey-go v1.0.78
+	github.com/willscott/go-nfs v0.0.4
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.6
@@ -69,9 +71,11 @@ require (
 	github.com/paularlott/snapshotkv v0.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
+	github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93 // indirect
 	github.com/shoenig/go-m1cpu v0.2.4 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
+	github.com/willscott/go-nfs-client v0.0.0-20240104095149-b44639837b00 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
@@ -86,3 +90,5 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+replace github.com/willscott/go-nfs => ./third_party/go-nfs

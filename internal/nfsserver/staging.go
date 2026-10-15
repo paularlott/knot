@@ -1,0 +1,391 @@
+package nfsserver
+
+import (
+	"errors"
+	"io"
+	"os"
+	"path"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/paularlott/knot/internal/log"
+)
+
+// File storage only takes whole files, but NFS writes a file a piece at a
+// time, so writes go to a local copy of the file, answered as not yet stable.
+// The copy is saved as the file when the client commits it, which clients do
+// when the file is closed or synced; a client that never commits has it saved
+// once writes stop for flushDelay, or at the latest maxDirtyAge after it first
+// changed. Until then reads, listings and attributes come from the copy.
+
+// flushRetries is how many times saving a file is attempted before its
+// writes are dropped.
+const flushRetries = 5
+
+type staging struct {
+	fs          *storeFS
+	dir         string
+	flushDelay  time.Duration
+	maxDirtyAge time.Duration
+
+	mu     sync.Mutex
+	files  map[string]*dirtyFile // by bucketKey
+	closed bool
+}
+
+// dirtyFile is the local copy of a file with writes not yet saved. Its
+// mutex is held while it is written, read or saved; never take staging.mu
+// while holding it except in drop.
+type dirtyFile struct {
+	s           *staging
+	bucket, key string
+
+	mu          sync.Mutex
+	f           *os.File
+	size        int64
+	mtime       time.Time
+	contentType string
+	meta        map[string]string
+	since       time.Time // when it changed first since last saved
+	timer       *time.Timer
+	failures    int
+	gone        bool // saved or removed; a new copy must be made
+}
+
+func bucketKey(bucket, key string) string { return bucket + "\x00" + key }
+
+func newStaging(fs *storeFS, dir string, flushDelay, maxDirtyAge time.Duration) *staging {
+	return &staging{fs: fs, dir: dir, flushDelay: flushDelay, maxDirtyAge: maxDirtyAge, files: map[string]*dirtyFile{}}
+}
+
+// get returns the staged copy of a file, nil when it has none.
+func (s *staging) get(bucket, key string) *dirtyFile {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.files[bucketKey(bucket, key)]
+}
+
+// What a new staged copy starts from.
+type loadMode int
+
+const (
+	loadNew     loadMode = iota // nothing: the file is known not to exist
+	loadAttrs                   // the saved file's attributes, not its content
+	loadContent                 // the saved file
+)
+
+// open returns the staged copy of a file, locked, making one when there is
+// none from what load says.
+func (s *staging) open(bucket, key string, load loadMode) (*dirtyFile, error) {
+	k := bucketKey(bucket, key)
+	for {
+		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			return nil, os.ErrClosed
+		}
+		e := s.files[k]
+		if e == nil {
+			e = &dirtyFile{s: s, bucket: bucket, key: key, meta: map[string]string{}}
+			e.mu.Lock()
+			s.files[k] = e
+			s.mu.Unlock()
+			if err := e.load(load); err != nil {
+				e.gone = true
+				if e.f != nil {
+					e.f.Close()
+					os.Remove(e.f.Name())
+				}
+				e.mu.Unlock()
+				s.mu.Lock()
+				if s.files[k] == e {
+					delete(s.files, k)
+				}
+				s.mu.Unlock()
+				return nil, err
+			}
+			return e, nil
+		}
+		s.mu.Unlock()
+
+		e.mu.Lock()
+		if !e.gone {
+			return e, nil
+		}
+		e.mu.Unlock() // saved meanwhile: make a new copy
+	}
+}
+
+// load fills a new copy.
+func (e *dirtyFile) load(load loadMode) error {
+	f, err := os.CreateTemp(e.s.dir, "stage-*")
+	if err != nil {
+		return err
+	}
+	e.f = f
+	e.mtime = time.Now()
+
+	switch load {
+	case loadNew:
+		e.meta[metaIno] = newIno()
+		return nil
+	case loadAttrs:
+		if o, err := e.s.fs.backend.Head(ctx(), e.bucket, e.key); err == nil {
+			e.keepAttrs(o)
+		} else if errors.Is(err, os.ErrNotExist) {
+			e.meta[metaIno] = newIno() // a new file
+		} else {
+			return err
+		}
+		return nil
+	}
+	c, o, err := e.s.fs.backend.Get(ctx(), e.bucket, e.key)
+	if errors.Is(err, os.ErrNotExist) {
+		e.meta[metaIno] = newIno()
+		return nil
+	} else if err != nil {
+		return err
+	}
+	defer c.Close()
+	n, err := io.Copy(f, c)
+	if err != nil {
+		return err
+	}
+	e.size = n
+	e.keepAttrs(o)
+	return nil
+}
+
+func (e *dirtyFile) keepAttrs(o *Object) {
+	e.contentType = o.ContentType
+	for k, v := range o.Meta {
+		e.meta[k] = v
+	}
+	e.mtime = mtimeFrom(o.Meta, o.ModifiedAt)
+}
+
+// info describes the staged file, nil once it is saved.
+func (e *dirtyFile) info(name string) *fileInfo {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.gone {
+		return nil
+	}
+	return (&fileInfo{name: name, size: e.size, mode: modeFrom(e.meta), mtime: e.mtime, id: fileId(e.bucket, e.key)}).withIno(e.meta)
+}
+
+// readAt reads the staged content; ok is false once it is saved, when the
+// saved file must be read instead.
+func (e *dirtyFile) readAt(b []byte, off int64) (n int, err error, ok bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.gone {
+		return 0, nil, false
+	}
+	if off >= e.size {
+		return 0, io.EOF, true
+	}
+	if max := e.size - off; int64(len(b)) > max {
+		b = b[:max]
+		n, err = e.f.ReadAt(b, off)
+		if err == nil {
+			err = io.EOF
+		}
+		return n, err, true
+	}
+	n, err = e.f.ReadAt(b, off)
+	return n, err, true
+}
+
+// writeAt writes to the staged copy; e.mu is held.
+func (e *dirtyFile) writeAt(b []byte, off int64) (int, error) {
+	n, err := e.f.WriteAt(b, off)
+	if end := off + int64(n); end > e.size {
+		e.size = end
+	}
+	e.changed()
+	return n, err
+}
+
+// truncate sets the staged copy's size; e.mu is held.
+func (e *dirtyFile) truncate(size int64) error {
+	if err := e.f.Truncate(size); err != nil {
+		return err
+	}
+	e.size = size
+	e.changed()
+	return nil
+}
+
+// setMeta records an attribute on the staged copy, false once it is saved.
+func (e *dirtyFile) setMeta(k, v string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.gone {
+		return false
+	}
+	e.meta[k] = v
+	if k == metaMtime {
+		e.mtime = mtimeFrom(e.meta, e.mtime)
+	}
+	e.changed()
+	return true
+}
+
+// changed marks the copy changed and schedules saving it; e.mu is held.
+func (e *dirtyFile) changed() {
+	now := time.Now()
+	if _, ok := e.meta[metaMtime]; !ok {
+		e.mtime = now
+	}
+	if e.since.IsZero() {
+		e.since = now
+	}
+	e.schedule(e.s.flushDelay)
+}
+
+func (e *dirtyFile) schedule(d time.Duration) {
+	if rem := e.s.maxDirtyAge - time.Since(e.since); rem < d {
+		d = max(rem, 0)
+	}
+	if e.timer == nil {
+		e.timer = time.AfterFunc(d, func() { e.s.flush(e) })
+	} else {
+		e.timer.Reset(d)
+	}
+}
+
+// flush saves a staged copy as the file and drops it.
+func (s *staging) flush(e *dirtyFile) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.gone {
+		return nil
+	}
+
+	err := e.save()
+	if err == nil {
+		s.drop(e)
+		return nil
+	}
+
+	e.failures++
+	logger := log.WithGroup("nfs")
+	if e.failures >= flushRetries || errors.Is(err, syscall.EDQUOT) ||
+		errors.Is(err, os.ErrPermission) || errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.EINVAL) {
+		logger.Error("dropping unsaved writes", "bucket", e.bucket, "key", e.key, "error", err)
+		s.drop(e)
+		return err
+	}
+	logger.Warn("saving file failed, will retry", "bucket", e.bucket, "key", e.key, "error", err)
+	e.since = time.Now()
+	e.schedule(10 * time.Second)
+	return err
+}
+
+// save writes the staged copy to file storage; e.mu is held.
+func (e *dirtyFile) save() error {
+	err := e.s.fs.backend.Put(ctx(), e.bucket, e.key, io.NewSectionReader(e.f, 0, e.size), e.size, e.contentType, e.meta)
+	e.s.fs.forget(e.bucket, e.key, false)
+	return err
+}
+
+// drop forgets a staged copy; e.mu is held.
+func (s *staging) drop(e *dirtyFile) {
+	e.gone = true
+	if e.timer != nil {
+		e.timer.Stop()
+	}
+	if e.f != nil {
+		e.f.Close()
+		os.Remove(e.f.Name())
+	}
+	s.mu.Lock()
+	if k := bucketKey(e.bucket, e.key); s.files[k] == e {
+		delete(s.files, k)
+	}
+	s.mu.Unlock()
+}
+
+// remove discards a file's staged copy, reporting whether it had one.
+func (s *staging) remove(bucket, key string) bool {
+	e := s.get(bucket, key)
+	if e == nil {
+		return false
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.gone {
+		return false
+	}
+	s.drop(e)
+	return true
+}
+
+// matching returns the staged copies whose bucketKey is k or starts with
+// prefix.
+func (s *staging) matching(k, prefix string) []*dirtyFile {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []*dirtyFile
+	for fk, e := range s.files {
+		if fk == k || (prefix != "" && strings.HasPrefix(fk, prefix)) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// flushUnder saves now the staged file with bucketKey k and those below
+// prefix.
+func (s *staging) flushUnder(k, prefix string) error {
+	for _, e := range s.matching(k, prefix) {
+		if err := s.flush(e); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// hasUnder reports whether any file below prefix in bucket is staged.
+func (s *staging) hasUnder(bucket, prefix string) bool {
+	return len(s.matching("", bucketKey(bucket, prefix))) > 0
+}
+
+// list describes the staged entries directly in the folder prefix of
+// bucket: files staged there and folders holding staged files.
+func (s *staging) list(bucket, prefix string) map[string]os.FileInfo {
+	out := map[string]os.FileInfo{}
+	for _, e := range s.matching("", bucketKey(bucket, prefix)) {
+		rest := e.key[len(prefix):]
+		if d, _, ok := strings.Cut(rest, "/"); ok {
+			out[d] = dirInfo(d, bucket, prefix+d+"/", time.Now())
+		} else if fi := e.info(path.Base(rest)); fi != nil {
+			out[rest] = fi
+		}
+	}
+	return out
+}
+
+// close saves every staged file and refuses new writes.
+func (s *staging) close() {
+	s.mu.Lock()
+	s.closed = true
+	files := make([]*dirtyFile, 0, len(s.files))
+	for _, e := range s.files {
+		files = append(files, e)
+	}
+	s.mu.Unlock()
+	for _, e := range files {
+		if s.flush(e) != nil {
+			e.mu.Lock()
+			if !e.gone {
+				log.WithGroup("nfs").Error("dropping unsaved writes at shutdown", "bucket", e.bucket, "key", e.key)
+				s.drop(e)
+			}
+			e.mu.Unlock()
+		}
+	}
+}
