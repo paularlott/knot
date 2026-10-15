@@ -8,7 +8,7 @@
 import scriptling.plugin as _plugin
 
 
-def get(path, field=""):
+def get(path):
     """Read one of your own secrets from 1Password.
 
     Args:
@@ -18,4 +18,4 @@ def get(path, field=""):
     Returns:
         The secret value as a string
     """
-    return _plugin.call_function("plugin.knot", "user_secret", path, field)
+    return _plugin.call_function("plugin.knot", "user_secret", path)

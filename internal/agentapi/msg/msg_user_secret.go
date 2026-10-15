@@ -4,8 +4,7 @@ package msg
 // secrets (Knot Pro). Personal secrets are only ever read over the agent
 // link, so the server knows the space asking and can apply its template.
 type UserSecretRequest struct {
-	Path  string // vault/item, or a complete op:// reference
-	Field string // defaults to password; may be section/field
+	Path string // a complete reference, such as op://vault/item/field
 }
 
 // UserSecretResponse carries the value, or the reason it can't be read.

@@ -1,6 +1,9 @@
 package model
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 // File storage modes of a restricted space.
 const (
@@ -43,6 +46,14 @@ type SpaceRestrictions struct {
 	// LimitBuckets makes Buckets an allowlist: buckets not in it are hidden.
 	LimitBuckets bool               `json:"limit_buckets" msgpack:"limit_buckets"`
 	Buckets      []SpaceBucketGrant `json:"buckets" msgpack:"buckets"`
+	// Personal secret references (Knot Pro), as prefixes that carry their
+	// source's scheme, such as op://vault/. LimitSecrets makes SecretsAllow
+	// an allowlist: only references under one of its prefixes may be read.
+	// SecretsDeny refuses references under any of its prefixes, allowed or
+	// not.
+	LimitSecrets bool     `json:"limit_secrets" msgpack:"limit_secrets"`
+	SecretsAllow []string `json:"secrets_allow" msgpack:"secrets_allow"`
+	SecretsDeny  []string `json:"secrets_deny" msgpack:"secrets_deny"`
 }
 
 // filesRank orders the file modes from least to most strict.
@@ -74,11 +85,69 @@ func (r *SpaceRestrictions) BucketAccess(bucketId string) (allowed, readOnly boo
 	return true, readOnly
 }
 
+// ValidSecretPrefix reports whether p can restrict secret references: it
+// names its source's scheme, such as op://, and something after it.
+func ValidSecretPrefix(p string) bool {
+	scheme, rest, ok := strings.Cut(strings.TrimSpace(p), "://")
+	return ok && scheme != "" && !strings.ContainsAny(scheme, "/ ") && rest != ""
+}
+
+// SecretAllowed reports whether a restricted space may read the secret
+// reference: not when secrets are switched off or it's under a denied
+// prefix, and, with an allowlist, only under an allowed one. Prefixes match
+// without regard to case, as 1Password names don't.
+func (r *SpaceRestrictions) SecretAllowed(reference string) bool {
+	if r == nil || !r.Active {
+		return true
+	}
+	if r.NoSecrets {
+		return false
+	}
+	if hasSecretPrefix(reference, r.SecretsDeny) {
+		return false
+	}
+	return !r.LimitSecrets || hasSecretPrefix(reference, r.SecretsAllow)
+}
+
+func hasSecretPrefix(reference string, prefixes []string) bool {
+	reference = strings.ToLower(reference)
+	for _, p := range prefixes {
+		if strings.HasPrefix(reference, strings.ToLower(p)) {
+			return true
+		}
+	}
+	return false
+}
+
+// narrowSecretsAllow keeps what's allowed by both lists: for each pair of
+// prefixes where one contains the other, the narrower one.
+func narrowSecretsAllow(a, b []string) []string {
+	out := []string{}
+	add := func(p string) {
+		if !slices.ContainsFunc(out, func(o string) bool { return strings.EqualFold(o, p) }) {
+			out = append(out, p)
+		}
+	}
+	for _, x := range a {
+		for _, y := range b {
+			lx, ly := strings.ToLower(x), strings.ToLower(y)
+			switch {
+			case strings.HasPrefix(lx, ly):
+				add(x)
+			case strings.HasPrefix(ly, lx):
+				add(y)
+			}
+		}
+	}
+	return out
+}
+
 // Narrow returns the restrictions with more applied on top. The result is
 // never less strict than r in any way: secrets stay blocked once blocked,
 // the file mode only gets stricter, and a bucket allowlist only shrinks —
 // a bucket missing from either side is dropped, and one read-only on either
-// side stays read-only.
+// side stays read-only. Denied secret prefixes add up, and an allowlist of
+// them only narrows: what's left is what both allow.
 func (r SpaceRestrictions) Narrow(more SpaceRestrictions) SpaceRestrictions {
 	out := SpaceRestrictions{
 		Active:    true,
@@ -108,6 +177,24 @@ func (r SpaceRestrictions) Narrow(more SpaceRestrictions) SpaceRestrictions {
 	}
 	if out.LimitBuckets && out.Buckets == nil {
 		out.Buckets = []SpaceBucketGrant{}
+	}
+
+	out.SecretsDeny = slices.Clone(r.SecretsDeny)
+	for _, p := range more.SecretsDeny {
+		if !slices.ContainsFunc(out.SecretsDeny, func(o string) bool { return strings.EqualFold(o, p) }) {
+			out.SecretsDeny = append(out.SecretsDeny, p)
+		}
+	}
+	switch {
+	case r.LimitSecrets && more.LimitSecrets:
+		out.LimitSecrets, out.SecretsAllow = true, narrowSecretsAllow(r.SecretsAllow, more.SecretsAllow)
+	case r.LimitSecrets:
+		out.LimitSecrets, out.SecretsAllow = true, slices.Clone(r.SecretsAllow)
+	case more.LimitSecrets:
+		out.LimitSecrets, out.SecretsAllow = true, slices.Clone(more.SecretsAllow)
+	}
+	if out.LimitSecrets && out.SecretsAllow == nil {
+		out.SecretsAllow = []string{}
 	}
 	return out
 }

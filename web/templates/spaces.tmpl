@@ -656,12 +656,6 @@
               <div>
                 <p class="mb-4 text-gray-600 dark:text-gray-300">This space has these restrictions, until they're lifted:</p>
                 <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-                  <template x-if="spaceRestrictions.data.secrets_available">
-                    <dt class="font-medium text-gray-900 dark:text-white">Secrets</dt>
-                  </template>
-                  <template x-if="spaceRestrictions.data.secrets_available">
-                    <dd x-text="spaceRestrictions.data.template_no_secrets ? 'Off, by its template' : (spaceRestrictions.data.no_secrets ? 'Off' : 'Allowed')"></dd>
-                  </template>
                   <dt class="font-medium text-gray-900 dark:text-white">Files</dt>
                   <dd>
                     <span x-text="restrictionsFiles(spaceRestrictions.data)"></span>

@@ -27,8 +27,7 @@ type SpaceGetFieldResponse struct {
 }
 
 type UserSecretRequest struct {
-	Path  string `json:"path" msgpack:"path"`
-	Field string `json:"field" msgpack:"field"`
+	Path string `json:"path" msgpack:"path"`
 }
 
 type UserSecretResponse struct {

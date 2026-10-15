@@ -64,12 +64,13 @@ func restrictionsResponse(space *model.Space) *apiclient.SpaceRestrictions {
 		SpaceName:    space.Name,
 		Restricted:   res.Active,
 		NoSecrets:    res.NoSecrets,
+		LimitSecrets: res.LimitSecrets,
+		SecretsAllow: nonNil(res.SecretsAllow),
+		SecretsDeny:  nonNil(res.SecretsDeny),
 		Locked:       res.Locked,
 		Files:        res.Files,
 		LimitBuckets: res.LimitBuckets,
 		Buckets:      []apiclient.SpaceRestrictBucket{},
-		// Personal secrets are part of Knot Pro, which answers the request.
-		SecretsAvailable: agent_server.HasStreamHandler(byte(msg.CmdResolveUserSecret)),
 	}
 	if space.TemplateId != "" {
 		if template, err := database.GetInstance().GetTemplate(space.TemplateId); err == nil && template != nil {
@@ -131,6 +132,17 @@ func HandleRestrictSpace(w http.ResponseWriter, r *http.Request) {
 	// personal secrets (Knot Pro, which answers the request).
 	if !agent_server.HasStreamHandler(byte(msg.CmdResolveUserSecret)) {
 		request.NoSecrets = false
+		request.SecretsAllow, request.SecretsDeny = nil, nil
+	}
+	for _, list := range []*[]string{&request.SecretsAllow, &request.SecretsDeny} {
+		for i := range *list {
+			p := strings.TrimSpace((*list)[i])
+			(*list)[i] = p
+			if !model.ValidSecretPrefix(p) {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("secret prefix %q needs its source's scheme, such as op://vault/", p)})
+				return
+			}
+		}
 	}
 	if !model.ValidSpaceFilesMode(request.Files) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("unknown file storage mode %q, use ro or none", request.Files)})
@@ -153,7 +165,14 @@ func HandleRestrictSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	more := model.SpaceRestrictions{NoSecrets: request.NoSecrets, Files: request.Files, Locked: request.Lock}
+	more := model.SpaceRestrictions{
+		NoSecrets:    request.NoSecrets,
+		Files:        request.Files,
+		Locked:       request.Lock,
+		LimitSecrets: len(request.SecretsAllow) > 0,
+		SecretsAllow: request.SecretsAllow,
+		SecretsDeny:  request.SecretsDeny,
+	}
 	if len(request.Buckets) > 0 {
 		grants, err := resolveRestrictBuckets(space, request.Buckets)
 		if err != nil {
@@ -271,6 +290,12 @@ func auditRestrictions(r *http.Request, user *model.User, space *model.Space, de
 	if res != nil {
 		properties["no_secrets"] = res.NoSecrets
 		properties["locked"] = res.Locked
+		if res.LimitSecrets {
+			properties["secrets_allow"] = strings.Join(res.SecretsAllow, ", ")
+		}
+		if len(res.SecretsDeny) > 0 {
+			properties["secrets_deny"] = strings.Join(res.SecretsDeny, ", ")
+		}
 		properties["files"] = res.Files
 		if res.LimitBuckets {
 			names := make([]string, 0, len(res.Buckets))
@@ -285,4 +310,11 @@ func auditRestrictions(r *http.Request, user *model.User, space *model.Space, de
 		}
 	}
 	audit.LogWithRequest(r, user.Username, model.AuditActorTypeUser, model.AuditEventSpaceRestrict, details, &properties)
+}
+
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }

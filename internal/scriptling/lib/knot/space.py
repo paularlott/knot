@@ -556,7 +556,8 @@ def _this_space():
     return space_id
 
 
-def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False):
+def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False,
+             secrets_allow=None, secrets_deny=None):
     """Restrict what a space's own credential can do.
 
     From inside a space restrictions only ever tighten, and they hold across
@@ -576,6 +577,10 @@ def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False):
             govern, and restarting or shutting the space down. Scripts
             started from outside the space, such as startup scripts, keep
             working.
+        secrets_allow: Prefixes, such as "op://vault/", under which alone
+            personal secrets may be read (Knot Pro). None leaves them all.
+        secrets_deny: Prefixes under which personal secrets are refused
+            (Knot Pro)
 
     Returns:
         The space's restrictions, as restrictions() returns them
@@ -584,6 +589,10 @@ def restrict(name=None, buckets=None, files="", no_secrets=False, lock=False):
         Exception if not configured or on API error
     """
     body = {"no_secrets": bool(no_secrets), "lock": bool(lock), "files": files or ""}
+    if secrets_allow:
+        body["secrets_allow"] = [str(p) for p in secrets_allow]
+    if secrets_deny:
+        body["secrets_deny"] = [str(p) for p in secrets_deny]
     if buckets is not None:
         body["buckets"] = []
         for b in buckets:
@@ -606,9 +615,9 @@ def restrictions(name=None):
 
     Returns:
         Dict with restricted, no_secrets, locked, files ("", "ro" or "none"),
-        limit_buckets, buckets (list of {name, read_only}), template_no_files,
-        template_no_secrets and secrets_available (personal secrets exist:
-        Knot Pro)
+        limit_buckets, buckets (list of {name, read_only}), limit_secrets,
+        secrets_allow and secrets_deny (lists of prefixes),
+        template_no_files and template_no_secrets
 
     Raises:
         Exception if not configured or on API error

@@ -24,6 +24,12 @@ type SpaceRestrictRequest struct {
 	// and personal secrets, which their own restrictions govern, and
 	// restarting or shutting the space down.
 	Lock bool `json:"lock" msgpack:"lock"`
+	// SecretsAllow, when given, lets the space read only personal secret
+	// references under these prefixes; SecretsDeny refuses those under
+	// these. Each prefix carries its source's scheme, such as op://vault/.
+	// Knot Pro.
+	SecretsAllow []string `json:"secrets_allow,omitempty" msgpack:"secrets_allow,omitempty"`
+	SecretsDeny  []string `json:"secrets_deny,omitempty" msgpack:"secrets_deny,omitempty"`
 }
 
 // SpaceRestrictions reports what a space's own credential is restricted
@@ -40,9 +46,11 @@ type SpaceRestrictions struct {
 	Buckets           []SpaceRestrictBucket `json:"buckets" msgpack:"buckets"`
 	TemplateNoFiles   bool                  `json:"template_no_files" msgpack:"template_no_files"`
 	TemplateNoSecrets bool                  `json:"template_no_secrets" msgpack:"template_no_secrets"`
-	// SecretsAvailable is set when the server has personal secrets (Knot
-	// Pro); without them the secrets restriction doesn't apply.
-	SecretsAvailable bool `json:"secrets_available" msgpack:"secrets_available"`
+	// LimitSecrets is set when only references under SecretsAllow may be
+	// read; references under SecretsDeny never may.
+	LimitSecrets bool     `json:"limit_secrets" msgpack:"limit_secrets"`
+	SecretsAllow []string `json:"secrets_allow" msgpack:"secrets_allow"`
+	SecretsDeny  []string `json:"secrets_deny" msgpack:"secrets_deny"`
 }
 
 // RestrictSpace adds restrictions to a space and returns them all.

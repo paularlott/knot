@@ -15,7 +15,7 @@
 #   api_key = knot.secret.get("op://vault/item/section/api key")
 
 
-def get(path, field=""):
+def get(path):
     """Read one of your own secrets from 1Password.
 
     Args:

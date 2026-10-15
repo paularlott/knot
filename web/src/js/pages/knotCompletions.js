@@ -1173,7 +1173,7 @@ export const knotLibraries = [
     "functions": [
       {
         "name": "get",
-        "signature": "get(path, field)",
+        "signature": "get(path)",
         "description": "Read a secret by its 1Password reference, op://vault/item/field (op://vault/item/section/field for a field in a section); only inside a space",
         "returns": "string"
       }
@@ -1410,6 +1410,24 @@ export const knotLibraries = [
         "signature": "set_field(name, field, value)",
         "description": "Set custom field value on space",
         "returns": "bool"
+      },
+      {
+        "name": "restrict",
+        "signature": "restrict(name, buckets, files, no_secrets, lock, secrets_allow, secrets_deny)",
+        "description": "Restrict what a space can reach, default the space this runs in; restrictions only tighten from inside it. buckets keeps only \"name\" or \"name:ro\"; files is \"ro\" or \"none\"; lock locks its processes out of everything but files and secrets; secrets_allow and secrets_deny take prefixes such as \"op://vault/\" (Knot Pro)",
+        "returns": "dict"
+      },
+      {
+        "name": "restrictions",
+        "signature": "restrictions(name)",
+        "description": "Get a space's restrictions, including what its template switches off, default the space this runs in",
+        "returns": "dict"
+      },
+      {
+        "name": "clear_restrictions",
+        "signature": "clear_restrictions(name)",
+        "description": "Lift every restriction on a space; refused from inside the space",
+        "returns": "dict"
       },
       {
         "name": "transfer",

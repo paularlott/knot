@@ -87,3 +87,80 @@ func TestSpaceRestrictionsNarrowDoesNotAlias(t *testing.T) {
 		t.Fatal("Narrow kept a reference to the caller's buckets")
 	}
 }
+
+func TestValidSecretPrefix(t *testing.T) {
+	for p, want := range map[string]bool{
+		"op://Knot/": true, "op://Knot/Stripe/": true, "vault://kv/app/": true,
+		"op://": false, "Knot/": false, "://Knot/": false, "o p://x/": false, "": false,
+	} {
+		if got := ValidSecretPrefix(p); got != want {
+			t.Errorf("ValidSecretPrefix(%q) = %v, want %v", p, got, want)
+		}
+	}
+}
+
+func TestSecretAllowed(t *testing.T) {
+	var none SpaceRestrictions
+	if !none.SecretAllowed("op://Knot/Db/password") {
+		t.Fatal("inactive restrictions must allow every secret")
+	}
+
+	deny := SpaceRestrictions{}.Narrow(SpaceRestrictions{SecretsDeny: []string{"op://Knot/Stripe/"}})
+	for ref, want := range map[string]bool{
+		"op://Knot/Db/password":          true,
+		"op://Knot/Stripe/secret key":    false,
+		"op://knot/stripe/secret key":    false, // not case-sensitive
+		"op://Software/CleanShot X/user": true,
+	} {
+		if got := deny.SecretAllowed(ref); got != want {
+			t.Errorf("deny only, %s: got %v, want %v", ref, got, want)
+		}
+	}
+
+	allow := SpaceRestrictions{}.Narrow(SpaceRestrictions{LimitSecrets: true, SecretsAllow: []string{"op://Knot/"}, SecretsDeny: []string{"op://Knot/Stripe/"}})
+	for ref, want := range map[string]bool{
+		"op://Knot/Db/password":       true,
+		"op://Knot/Stripe/secret key": false, // denied within what's allowed
+		"op://Software/App/password":  false, // outside the allowlist
+		"vault://Knot/Db/password":    false, // another source's scheme
+	} {
+		if got := allow.SecretAllowed(ref); got != want {
+			t.Errorf("allow and deny, %s: got %v, want %v", ref, got, want)
+		}
+	}
+
+	off := allow.Narrow(SpaceRestrictions{NoSecrets: true})
+	if off.SecretAllowed("op://Knot/Db/password") {
+		t.Fatal("no_secrets must refuse everything")
+	}
+}
+
+func TestNarrowSecrets(t *testing.T) {
+	// A later, narrower allow keeps only the narrower prefix.
+	r := SpaceRestrictions{}.Narrow(SpaceRestrictions{LimitSecrets: true, SecretsAllow: []string{"op://Knot/", "op://Software/"}})
+	r = r.Narrow(SpaceRestrictions{LimitSecrets: true, SecretsAllow: []string{"op://Knot/Stripe/", "op://Other/"}})
+	if len(r.SecretsAllow) != 1 || r.SecretsAllow[0] != "op://Knot/Stripe/" {
+		t.Fatalf("allow narrowed to %v, want [op://Knot/Stripe/]", r.SecretsAllow)
+	}
+	// A wider allow later doesn't widen it.
+	r = r.Narrow(SpaceRestrictions{LimitSecrets: true, SecretsAllow: []string{"op://"}})
+	if len(r.SecretsAllow) != 1 || r.SecretsAllow[0] != "op://Knot/Stripe/" {
+		t.Fatalf("a wider allow widened it to %v", r.SecretsAllow)
+	}
+	// Disjoint allows leave nothing allowed, not everything.
+	r = r.Narrow(SpaceRestrictions{LimitSecrets: true, SecretsAllow: []string{"op://Elsewhere/"}})
+	if !r.LimitSecrets || len(r.SecretsAllow) != 0 || r.SecretAllowed("op://Knot/Stripe/key") {
+		t.Fatalf("disjoint allows: %+v", r)
+	}
+	// Denies add up, without repeats.
+	r = SpaceRestrictions{}.Narrow(SpaceRestrictions{SecretsDeny: []string{"op://A/"}})
+	r = r.Narrow(SpaceRestrictions{SecretsDeny: []string{"op://a/", "op://B/"}})
+	if len(r.SecretsDeny) != 2 {
+		t.Fatalf("deny = %v, want op://A/ and op://B/", r.SecretsDeny)
+	}
+	// Something unrelated keeps both lists.
+	r = r.Narrow(SpaceRestrictions{Locked: true})
+	if len(r.SecretsDeny) != 2 {
+		t.Fatalf("an unrelated restriction dropped the deny list: %v", r.SecretsDeny)
+	}
+}
