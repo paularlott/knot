@@ -11,12 +11,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ExternalProvider holds the identity and token for a linked OAuth provider.
+// ExternalProvider holds the identity of a linked OAuth provider.
 type ExternalProvider struct {
-	ProviderUID  string `json:"provider_uid" msgpack:"provider_uid"`                       // provider's own stable user ID (e.g. GitHub integer ID)
-	Username     string `json:"username" msgpack:"username"`                               // human-readable handle, may change
-	Token        string `json:"token" msgpack:"token"`                                     // encrypted access token
-	RefreshToken string `json:"refresh_token,omitempty" msgpack:"refresh_token,omitempty"` // encrypted refresh token
+	ProviderUID string `json:"provider_uid" msgpack:"provider_uid"` // provider's own stable user ID (e.g. GitHub integer ID)
+	Username    string `json:"username" msgpack:"username"`         // human-readable handle, may change
 }
 
 // User object
@@ -249,60 +247,12 @@ func (u *User) IsAdmin() bool {
 	return false
 }
 
-// SetOAuthTokens stores encrypted OAuth tokens for the given provider.
-// Refresh tokens are preserved when the provider omits them on a later login.
-func (u *User) SetOAuthTokens(providerID, token, refreshToken, encryptionKey string) {
-	if u.ExternalAuthProviders == nil {
-		return
-	}
-	if ep, ok := u.ExternalAuthProviders[providerID]; ok {
-		ep.Token = crypt.EncryptB64(encryptionKey, token)
-		if refreshToken != "" {
-			ep.RefreshToken = crypt.EncryptB64(encryptionKey, refreshToken)
-		}
-		u.ExternalAuthProviders[providerID] = ep
-	}
-}
-
-// GetOAuthToken returns the decrypted OAuth access token for the given provider, or empty string.
-func (u *User) GetOAuthToken(providerID, encryptionKey string) string {
-	if u.ExternalAuthProviders == nil {
-		return ""
-	}
-	ep, ok := u.ExternalAuthProviders[providerID]
-	if !ok || ep.Token == "" {
-		return ""
-	}
-	return crypt.DecryptB64(encryptionKey, ep.Token)
-}
-
-// GetOAuthRefreshToken returns the decrypted OAuth refresh token for the given provider, or empty string.
-func (u *User) GetOAuthRefreshToken(providerID, encryptionKey string) string {
-	if u.ExternalAuthProviders == nil {
-		return ""
-	}
-	ep, ok := u.ExternalAuthProviders[providerID]
-	if !ok || ep.RefreshToken == "" {
-		return ""
-	}
-	return crypt.DecryptB64(encryptionKey, ep.RefreshToken)
-}
-
-// ClearOAuthTokens removes the stored tokens for the given provider.
 func (u *User) SetSSHPrivateKeyEncrypted(privateKey string, encryptionKey string) {
 	u.SSHPrivateKey = crypt.EncryptB64Safe(encryptionKey, privateKey)
 }
 
 func (u *User) GetSSHPrivateKeyDecrypted(encryptionKey string) string {
 	return crypt.DecryptB64Safe(encryptionKey, u.SSHPrivateKey)
-}
-
-func (u *User) ClearOAuthTokens(providerID string) {
-	if ep, ok := u.ExternalAuthProviders[providerID]; ok {
-		ep.Token = ""
-		ep.RefreshToken = ""
-		u.ExternalAuthProviders[providerID] = ep
-	}
 }
 
 // Preference keys stored under User.Preferences.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -370,5 +371,52 @@ func TestLiveSessionKeepsDeletion(t *testing.T) {
 	got, err := db.GetSession("sess-del")
 	if err != nil || got == nil || !got.IsDeleted {
 		t.Fatalf("session after a late refresh = %+v, %v, want it still deleted", got, err)
+	}
+}
+
+// The refresh_token column goes, and provider tokens earlier versions kept
+// in a user's external_auth_providers go when the user is saved again, as
+// the drop_provider_tokens data migration does.
+func TestLiveDropProviderTokens(t *testing.T) {
+	db := newLiveDriver(t)
+
+	// A database from before: the column is back, with a token in it.
+	if _, err := db.connection.Exec(`ALTER TABLE user_providers ADD COLUMN refresh_token TEXT`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.connection.Exec(migrations[5]); err != nil {
+		t.Fatalf("migration 6: %v", err)
+	}
+	var cols int
+	if err := db.connection.QueryRow(`SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'user_providers' AND column_name = 'refresh_token'`).Scan(&cols); err != nil || cols != 0 {
+		t.Fatalf("refresh_token column still there: %d, %v", cols, err)
+	}
+
+	user := &model.User{Id: "u-tok", Username: "owner", Email: "owner@example.com", Active: true, UpdatedAt: hlc.Now(),
+		ExternalAuthProviders: map[string]model.ExternalProvider{"google": {ProviderUID: "g1", Username: "o"}}}
+	if err := db.SaveUser(user, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.connection.Exec(`UPDATE users SET external_auth_providers = ? WHERE user_id = ?`,
+		`{"google":{"provider_uid":"g1","username":"o","token":"enc-access","refresh_token":"enc-refresh"}}`, user.Id); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := db.GetUser(user.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveUser(loaded, []string{"ExternalAuthProviders"}); err != nil {
+		t.Fatal(err)
+	}
+	var stored string
+	if err := db.connection.QueryRow(`SELECT external_auth_providers::text FROM users WHERE user_id = ?`, user.Id).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stored, "enc-") || !strings.Contains(stored, `"g1"`) {
+		t.Errorf("external_auth_providers after rewrite = %s", stored)
+	}
+	if u, err := db.GetUserByProviderUID("google", "g1"); err != nil || u == nil || u.Id != user.Id {
+		t.Errorf("provider lookup after rewrite: %v, %v", u, err)
 	}
 }

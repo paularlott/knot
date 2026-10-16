@@ -182,6 +182,8 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_user_secrets TINYINT(1) NOT NULL DEFAULT 0`,
 	// 92: restrictions a space has applied to its own credential
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS restrictions JSON NOT NULL DEFAULT ('{}')`,
+	// 93: providers' refresh tokens are no longer stored
+	`ALTER TABLE user_providers DROP COLUMN IF EXISTS refresh_token`,
 }
 
 func (db *MySQLDriver) runMigrations() error {
