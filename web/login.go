@@ -2,8 +2,8 @@ package web
 
 import (
 	"fmt"
+	"github.com/paularlott/knot/internal/util"
 	"net/http"
-	"net/url"
 	"slices"
 	"time"
 
@@ -54,21 +54,11 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Parse the URL to redirect to to get just the path
-		var redirect string
-		redirectParam := r.URL.Query().Get("redirect")
-		u, _ := url.Parse(redirectParam)
-		if u.Path == "" || u.Path == "/logout" {
+		// Keep only a path on this server, with its query for OAuth
+		// redirects.
+		redirect := util.LocalRedirect(r.URL.Query().Get("redirect"))
+		if redirect == "" {
 			redirect = defaultLoginPage()
-		} else if u.Path[0:1] != "/" {
-			redirect = "/" + u.Path
-		} else {
-			// Preserve both path and query parameters for OAuth redirects
-			if u.RawQuery != "" {
-				redirect = u.Path + "?" + u.RawQuery
-			} else {
-				redirect = u.Path
-			}
 		}
 
 		pluginLogoLight, pluginLogoDark := pluginLogoURLs(cfg)

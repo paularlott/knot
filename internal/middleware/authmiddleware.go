@@ -41,8 +41,8 @@ func Initialize() {
 }
 
 func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
-	// Clear any stale session cookies so a leftover host-only cookie (from
-	// before wildcard-domain widening) can't shadow a fresh login attempt.
+	// Clear any stale session cookies so a leftover domain-wide cookie (from
+	// an earlier version) can't shadow a fresh login attempt.
 	DeleteSessionCookie(w, r)
 
 	// Tell MCP clients where to authorize (RFC 9728), so clients such as

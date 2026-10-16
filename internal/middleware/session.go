@@ -10,7 +10,7 @@ import (
 
 func GetSessionFromCookie(r *http.Request) (*model.Session, error) {
 	// Get the cookie value
-	cookie, err := r.Cookie(model.WebSessionCookie)
+	cookie, err := GetCookie(r, model.WebSessionCookie)
 	if err == nil {
 		db := database.GetSessionStorage()
 		session, err := db.GetSession(cookie.Value)
@@ -34,26 +34,21 @@ func CookieSecure(r *http.Request, cfg *config.ServerConfig) bool {
 }
 
 func DeleteSessionCookie(w http.ResponseWriter, r *http.Request) {
-	cfg := config.GetServerConfig()
-	// Clear both cookie scopes so a stale cookie from before a domain change
-	// (or a host-only cookie left over from before wildcard widening) can't
-	// shadow a freshly issued session. The host-only deletion always runs; the
-	// domain-scoped deletion only runs when the session cookie is widened.
-	expireSessionCookie(w, r, "", cfg)
-	if domain := cfg.SessionCookieDomain(); domain != "" {
-		expireSessionCookie(w, r, domain, cfg)
-	}
-}
+	ExpireCookie(w, r, model.WebSessionCookie)
 
-func expireSessionCookie(w http.ResponseWriter, r *http.Request, domain string, cfg *config.ServerConfig) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     model.WebSessionCookie,
-		Value:    "",
-		Path:     "/",
-		Domain:   domain,
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   CookieSecure(r, cfg),
-		SameSite: http.SameSiteLaxMode,
-	})
+	// Earlier versions shared the cookie with wildcard subdomains; delete
+	// one left from then so it can't shadow a fresh session or outlive a
+	// logout.
+	cfg := config.GetServerConfig()
+	if domain := cfg.LegacySessionCookieDomain(); domain != "" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     model.WebSessionCookie,
+			Path:     "/",
+			Domain:   domain,
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   CookieSecure(r, cfg),
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
 }

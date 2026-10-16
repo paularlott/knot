@@ -121,7 +121,9 @@ resources → events → ports → logs → clustering.
 | Test | What it proves |
 |---|---|
 | `TestChatOpenAIEndpoint` | a chat-enabled server streams a reply from a fake OpenAI-compatible endpoint |
-| `TestSpaceTunnels` | an http tunnel declared by a template port publishes and proxies a space web port |
+| `TestSpaceTunnels` | an http tunnel publishes a space web port and proxies real requests to it, and the service behind it never receives knot's own cookies (plain or `__Host-`), only its own |
+| `TestWebVNCSignIn` | the session cookie is host-only; a web VNC host signs in through a single-use handoff bound to that host and gets its own host-only cookie; a code can't be replayed or used on another host; signing out ends VNC access |
+| `TestHostCookiesBehindTLSProxy` | with an https `server.url` but plain-http requests (a load balancer ending TLS), cookies take the `__Host-` prefix and Secure; a session cookie planted under the plain name is ignored |
 | `TestAgentRegistrationRequiresProof` | a peer with no registration key — or a forged proof — cannot register as a space, gets no secrets, and cannot disturb the live agent session |
 | `TestSpaceRestrictions` | a space restricts itself to chosen buckets (read-only refuses writes), can only tighten its restrictions from inside, is confined, and its owner lifts them from outside; a restart clears them |
 

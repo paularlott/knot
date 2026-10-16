@@ -89,13 +89,14 @@ type ServerConfig struct {
 	BaseImagesUpdateURL       string
 }
 
-// SessionCookieDomain returns the domain to set on the web session cookie so
-// that it is shared with wildcard subdomains (e.g. the "<owner>--<space>--vnc"
-// subdomain used by web VNC). It is derived from WildcardDomain with any leading
-// "*" (and optional ".") stripped. Returns "" when no wildcard domain is
-// configured or when the server URL does not live under that domain (in which
-// case the browser would reject the cookie), leaving the cookie host-only.
-func (cfg *ServerConfig) SessionCookieDomain() string {
+// LegacySessionCookieDomain returns the domain earlier versions set on the
+// web session cookie to share it with wildcard subdomains, so a cookie left
+// from then can be deleted. The session cookie is now host-only: wildcard
+// hosts serve users' own code, and web VNC signs in with its own cookie.
+// It is derived from WildcardDomain with any leading "*" (and optional ".")
+// stripped, and is "" when no wildcard domain is configured or the server
+// URL does not live under it.
+func (cfg *ServerConfig) LegacySessionCookieDomain() string {
 	if cfg.WildcardDomain == "" {
 		return ""
 	}
