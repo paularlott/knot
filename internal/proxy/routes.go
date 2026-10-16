@@ -14,6 +14,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /proxy/spaces/{space_id}/terminal/{shell}", middleware.ApiAuth(HandleSpacesTerminalProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_id}/console", middleware.ApiAuth(HandleSpacesConsoleProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_id}/vnc", middleware.ApiAuth(HandleSpacesVNCProxy))
+	router.HandleFunc("GET /proxy/vnc-login", middleware.WebAuth(HandleVNCLogin))
 
 	router.HandleFunc("GET /proxy/spaces/{space_name}/port/{port}", middleware.ApiAuth(HandleSpacesPortProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_name}/ssh/", middleware.ApiAuth(HandleSpacesSSHProxy))
@@ -26,9 +27,10 @@ func PortRoutes() *http.ServeMux {
 	router := http.NewServeMux()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// VNC subdomains require an authenticated session (same as the SSH and
-		// terminal proxies). Regular web ports remain reachable by URL.
+		// terminal proxies), carried by their own cookie. Regular web ports
+		// remain reachable by URL.
 		if isVNCSubdomain(r.Host) {
-			middleware.ApiAuth(HandleSpacesWebPortProxy)(w, r)
+			handleVNCHost(w, r)
 			return
 		}
 		HandleSpacesWebPortProxy(w, r)

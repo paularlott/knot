@@ -59,8 +59,10 @@ func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
 // UseSessionCookie authenticates subsequent calls with the web session as a
 // real Cookie header. Cookies survive every proxy and are read by servers
 // both older and newer than the custom-header scheme briefly used in between.
+// The session goes under both names a server may read it by: an https
+// server reads only the __Host- one, others the plain one.
 func (c *ApiClient) UseSessionCookie(useCookie bool) *ApiClient {
-	c.httpClient.SetTokenKey("Cookie").SetTokenFormat(model.WebSessionCookie + "=%s")
+	c.httpClient.SetTokenKey("Cookie").SetTokenFormat("__Host-" + model.WebSessionCookie + "=%[1]s; " + model.WebSessionCookie + "=%[1]s")
 	return c
 }
 

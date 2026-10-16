@@ -57,6 +57,7 @@ var featureCatalog = []string{
 	"jobs",
 	"run-script-paths",
 	"scriptling-packages",
+	"vnc-auth",
 	// Pro areas (exercised only in the pro fork build):
 	"pro:detection",
 	"pro:log-spool",
@@ -324,6 +325,7 @@ var featureDescriptions = map[string]string{
 	"jobs":                     "Scheduled & manual space jobs",
 	"run-script-paths":         "Agent run-script eval + server-dispatched execution",
 	"scriptling-packages":      "In-space Scriptling packages via the agent",
+	"vnc-auth":                 "Web VNC sign-in handoff, host-only session cookie",
 	"pro:detection":            "Pro: anomaly detection on audit events",
 	"pro:log-spool":            "Pro: log spool & replay via VictoriaLogs",
 	"pro:space-log-forwarding": "Pro: space logs forwarded to log output",
