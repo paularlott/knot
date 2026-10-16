@@ -25,21 +25,21 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/miekg/dns v1.1.73
 	github.com/paularlott/cli v0.10.1
-	github.com/paularlott/gossip v0.23.0
+	github.com/paularlott/gossip v0.23.2
 	github.com/paularlott/jsonrpc v0.2.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.32.4
 	github.com/paularlott/scriptling v0.30.4
 	github.com/pkg/sftp v1.13.11
-	github.com/shamaton/msgpack/v3 v3.2.3
+	github.com/shamaton/msgpack/v3 v3.2.4
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/valkey-io/valkey-go v1.0.78
+	github.com/valkey-io/valkey-go v1.0.79
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.6
 	golang.org/x/crypto v0.58.0
-	golang.org/x/exp v0.0.0-20261011100332-faecfb24eb49
+	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e
 	golang.org/x/net v0.61.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/term v0.47.0
@@ -56,8 +56,8 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-webgpu/goffi v0.6.4 // indirect
-	github.com/godbus/dbus/v5 v5.2.3 // indirect
+	github.com/go-webgpu/goffi v0.6.5 // indirect
+	github.com/godbus/dbus/v5 v5.2.4 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
