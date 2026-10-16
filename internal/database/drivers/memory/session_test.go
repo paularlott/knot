@@ -69,3 +69,32 @@ func mustSessionsForUser(t *testing.T, db *MemoryDbDriver, userId string) []*mod
 	}
 	return sessions
 }
+
+// A deleted session stays deleted: a request that read it before a logout,
+// or a gossiped refresh, saving a live copy afterwards must not revive it.
+func TestSaveSessionKeepsDeletion(t *testing.T) {
+	db := &MemoryDbDriver{}
+	db.Connect()
+
+	live := model.Session{Id: "s1", UserId: "a", ExpiresAfter: time.Now().Add(time.Hour).UTC()}
+	if err := db.SaveSession(&model.Session{Id: live.Id, UserId: live.UserId, ExpiresAfter: live.ExpiresAfter}); err != nil {
+		t.Fatal(err)
+	}
+
+	deleted := live
+	deleted.IsDeleted = true
+	if err := db.SaveSession(&deleted); err != nil {
+		t.Fatal(err)
+	}
+
+	late := live // read before the logout, refreshed after it
+	late.ExpiresAfter = time.Now().Add(2 * time.Hour).UTC()
+	if err := db.SaveSession(&late); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := db.GetSession("s1")
+	if got == nil || !got.IsDeleted {
+		t.Fatalf("session after a late refresh = %+v, want it still deleted", got)
+	}
+}

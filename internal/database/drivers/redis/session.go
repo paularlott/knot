@@ -4,10 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/valkey-io/valkey-go"
 )
+
+// saveSessionScript stores a session unless the stored copy is deleted and
+// this one isn't, atomically: a deleted session stays deleted, so a request
+// that read it before a logout on another server can't save it back to
+// life. It returns 1 when it stored the session.
+var saveSessionScript = valkey.NewLuaScript(`
+local current = redis.call('GET', KEYS[1])
+if current then
+  local ok, stored = pcall(cjson.decode, current)
+  if ok and stored.is_deleted == true then
+    local ok2, incoming = pcall(cjson.decode, ARGV[1])
+    if not (ok2 and incoming.is_deleted == true) then
+      return 0
+    end
+  end
+end
+redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
+return 1
+`)
 
 func (db *RedisDbDriver) SaveSession(session *model.Session) error {
 	// A switch rewrites UserId; drop the by-user index left under the
@@ -28,9 +49,15 @@ func (db *RedisDbDriver) SaveSession(session *model.Session) error {
 		return err
 	}
 
-	err = db.set(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id), data, model.SessionExpiryDuration)
+	saved, err := saveSessionScript.Exec(context.Background(), db.connection,
+		[]string{fmt.Sprintf("%sSessions:%s", db.prefix, session.Id)},
+		[]string{string(data), strconv.FormatInt(model.SessionExpiryDuration.Milliseconds(), 10)},
+	).AsInt64()
 	if err != nil {
 		return err
+	}
+	if saved == 0 {
+		return nil // already deleted, and stays so
 	}
 
 	err = db.set(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id), session.Id, model.SessionExpiryDuration)

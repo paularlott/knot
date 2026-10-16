@@ -10,6 +10,9 @@ import (
 // sessions without Redis. Expired rows are hidden from reads and removed by
 // the garbage collector.
 
+// SaveSession never clears is_deleted: a deleted session stays deleted, in
+// one statement, so a request that read the session before a logout on
+// another server can't save it back to life.
 func (db *PostgresDriver) SaveSession(session *model.Session) error {
 	_, err := db.connection.Exec(`
 		INSERT INTO sessions (session_id, ip, user_id, original_user_id, user_agent, expires_after, updated_at, is_deleted)
@@ -21,7 +24,7 @@ func (db *PostgresDriver) SaveSession(session *model.Session) error {
 			user_agent = EXCLUDED.user_agent,
 			expires_after = EXCLUDED.expires_after,
 			updated_at = EXCLUDED.updated_at,
-			is_deleted = EXCLUDED.is_deleted`,
+			is_deleted = sessions.is_deleted OR EXCLUDED.is_deleted`,
 		session.Id, session.Ip, session.UserId, session.OriginalUserId, session.UserAgent, session.ExpiresAfter.UTC(), session.UpdatedAt, session.IsDeleted)
 	return err
 }

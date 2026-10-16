@@ -345,3 +345,30 @@ func TestLivePoolFlow(t *testing.T) {
 		t.Fatalf("GetPoolDefinitions: %+v %v", pools, err)
 	}
 }
+
+// A deleted session stays deleted: a server that read it before a logout
+// elsewhere saving a live copy afterwards must not revive it.
+func TestLiveSessionKeepsDeletion(t *testing.T) {
+	db := newLiveDriver(t)
+
+	live := model.Session{Id: "sess-del", UserId: "u1", ExpiresAfter: time.Now().Add(time.Hour), UpdatedAt: hlc.Now()}
+	if err := db.SaveSession(&live); err != nil {
+		t.Fatal(err)
+	}
+	deleted := live
+	deleted.IsDeleted = true
+	deleted.UpdatedAt = hlc.Now()
+	if err := db.SaveSession(&deleted); err != nil {
+		t.Fatal(err)
+	}
+	late := live
+	late.ExpiresAfter = time.Now().Add(2 * time.Hour)
+	late.UpdatedAt = hlc.Now()
+	if err := db.SaveSession(&late); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.GetSession("sess-del")
+	if err != nil || got == nil || !got.IsDeleted {
+		t.Fatalf("session after a late refresh = %+v, %v, want it still deleted", got, err)
+	}
+}
