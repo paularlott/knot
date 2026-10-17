@@ -19,6 +19,8 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_user_secrets BOOLEAN NOT NULL DEFAULT FALSE`,
 	// 5: restrictions a space has applied to its own credential
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS restrictions JSONB NOT NULL DEFAULT '{}'`,
+	// 6: providers' refresh tokens are no longer stored
+	`ALTER TABLE user_providers DROP COLUMN IF EXISTS refresh_token`,
 }
 
 func (db *PostgresDriver) runMigrations() error {

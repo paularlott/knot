@@ -427,7 +427,6 @@ updated_at BIGINT DEFAULT 0
 provider_id VARCHAR(64) NOT NULL,
 provider_uid VARCHAR(255) NOT NULL,
 user_id VARCHAR(36) NOT NULL,
-refresh_token TEXT,
 PRIMARY KEY (provider_id, provider_uid)
 )`,
 	`CREATE INDEX IF NOT EXISTS user_providers_user_id ON user_providers (user_id)`,

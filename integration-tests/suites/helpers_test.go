@@ -95,10 +95,13 @@ func statusOf(u *harness.User, path string) int {
 	return resp.StatusCode
 }
 
-// waitFor polls cond every ~2s until it returns true or the timeout elapses.
+// waitFor polls cond every ~2s until it returns true, and fails the test,
+// at the caller's line, if it hasn't within the timeout.
 func waitFor(t *testing.T, seconds int, cond func() bool) {
 	t.Helper()
-	waitForCond(seconds, cond)
+	if !waitForCond(seconds, cond) {
+		t.Fatalf("condition not met within %ds", seconds)
+	}
 }
 
 // waitForCond is waitFor without the testing.T.

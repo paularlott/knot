@@ -15,6 +15,12 @@ func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
 	// left this node's copy frozen at its original expiry, so once it lapsed any
 	// request routed here returned 401 / redirected to login — random logouts.
 	if existing, ok := db.sessions[session.Id]; ok {
+		// A deleted session stays deleted: a request that read it before
+		// the logout, or a gossiped refresh, must not bring it back.
+		if existing.IsDeleted && !session.IsDeleted {
+			return nil
+		}
+
 		// A switch rewrites UserId; the by-user index must follow or the
 		// session lingers under a user it no longer runs as.
 		if existing.UserId != session.UserId {

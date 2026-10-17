@@ -139,8 +139,16 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 	// Merge the sessions
 	for _, session := range sessions {
 		if localSession, ok := localSessionsMap[session.Id]; ok {
-			// If the remote session is newer than the local session then use it's data
-			if session.UpdatedAt.After(localSession.UpdatedAt) {
+			// A deletion always wins, whatever the timestamps: a server that
+			// refreshed the session before hearing of its logout gossips a
+			// newer, live copy, which must neither bring it back here nor
+			// make this server ignore the older deletion.
+			if localSession.IsDeleted && !session.IsDeleted {
+				continue
+			}
+			// If the remote session is newer than the local session then use
+			// its data; a deletion is taken whenever it arrives.
+			if session.UpdatedAt.After(localSession.UpdatedAt) || (session.IsDeleted && !localSession.IsDeleted) {
 				if err := db.SaveSession(session); err != nil {
 					c.logger.Error("Failed to update session", "error", err, "id", session.Id)
 				}
