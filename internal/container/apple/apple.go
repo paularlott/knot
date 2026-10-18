@@ -522,6 +522,9 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 
 		if _, ok := space.VolumeData[volName]; !ok {
 			c.logger.Debug("creating volume", "volname", volName)
+			if spec.HasDriver() {
+				return fmt.Errorf("volume %q: driver and driver_opts are only supported on Docker and Podman", volName)
+			}
 
 			args := []string{"volume", "create"}
 			if spec.Size != "" {
@@ -891,6 +894,9 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 
 	for volName, spec := range volInfo.Volumes {
 		c.logger.Debug("creating volume:", "volname", volName)
+		if spec.HasDriver() {
+			return fmt.Errorf("volume %q: driver and driver_opts are only supported on Docker and Podman", volName)
+		}
 
 		args := []string{"volume", "create"}
 		if spec.Size != "" {

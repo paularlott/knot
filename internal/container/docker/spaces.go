@@ -736,11 +736,11 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		}
 	}()
 
-	for volName := range vi.Volumes {
+	for volName, spec := range vi.Volumes {
 		c.Logger.Debug("checking volume", "name", volName)
 		if _, ok := space.VolumeData[volName]; !ok {
 			c.Logger.Debug("creating volume", "name", volName)
-			name, err := c.volumeCreate(context.Background(), volName)
+			name, err := c.volumeCreate(context.Background(), volName, spec)
 			if err != nil {
 				return err
 			}

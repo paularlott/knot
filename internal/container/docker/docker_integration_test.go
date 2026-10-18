@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/util/rest"
+
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 // candidateSockets lists socket paths to probe in order.
@@ -52,7 +54,7 @@ func TestIntegration_VolumeCreateRemove(t *testing.T) {
 	_ = c.volumeRemove(ctx, volName)
 
 	// Create
-	name, err := c.volumeCreate(ctx, volName)
+	name, err := c.volumeCreate(ctx, volName, model.LocalVolumeEntry{})
 	if err != nil {
 		t.Fatalf("volumeCreate: %v", err)
 	}
@@ -61,7 +63,7 @@ func TestIntegration_VolumeCreateRemove(t *testing.T) {
 	}
 
 	// Idempotent create (Docker returns 201 for existing volume with same name)
-	_, err = c.volumeCreate(ctx, volName)
+	_, err = c.volumeCreate(ctx, volName, model.LocalVolumeEntry{})
 	if err != nil {
 		t.Errorf("volumeCreate (idempotent) unexpected error: %v", err)
 	}
@@ -74,6 +76,37 @@ func TestIntegration_VolumeCreateRemove(t *testing.T) {
 	// Remove again — should be silent (not-found ignored)
 	if err := c.volumeRemove(ctx, volName); err != nil {
 		t.Errorf("volumeRemove (not-found) unexpected error: %v", err)
+	}
+}
+
+// A volume with a driver and options, as an NFS volume is defined, is made
+// with them: Docker mounts it only when a container uses it.
+func TestIntegration_VolumeCreateNFS(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	const volName = "knot-test-volume-nfs"
+	_ = c.volumeRemove(ctx, volName)
+	defer c.volumeRemove(ctx, volName)
+
+	spec := model.LocalVolumeEntry{DriverOpts: map[string]string{
+		"type":   "nfs",
+		"o":      "addr=127.0.0.1,port=2049,vers=4.0",
+		"device": ":/mybucket",
+	}}
+	if _, err := c.volumeCreate(ctx, volName, spec); err != nil {
+		t.Fatalf("volumeCreate: %v", err)
+	}
+
+	var got struct {
+		Driver  string
+		Options map[string]string
+	}
+	if _, err := c.httpClient.Get(ctx, "/v1.41/volumes/"+volName, &got); err != nil {
+		t.Fatalf("volume inspect: %v", err)
+	}
+	if got.Driver != "local" || got.Options["type"] != "nfs" || got.Options["device"] != ":/mybucket" || got.Options["o"] != spec.DriverOpts["o"] {
+		t.Fatalf("volume made with driver %q options %v", got.Driver, got.Options)
 	}
 }
 

@@ -9,6 +9,18 @@ import (
 
 type LocalVolumeEntry struct {
 	Size string `yaml:"size,omitempty"`
+
+	// Driver and DriverOpts make the volume with a volume driver, as
+	// `docker volume create --driver --opt` and Compose's driver_opts do:
+	// the local driver's type nfs mounts an NFS export, such as a bucket
+	// served by `knot nfs-server`. Docker and Podman only.
+	Driver     string            `yaml:"driver,omitempty"`
+	DriverOpts map[string]string `yaml:"driver_opts,omitempty"`
+}
+
+// HasDriver reports whether the volume is made with a volume driver.
+func (v LocalVolumeEntry) HasDriver() bool {
+	return v.Driver != "" || len(v.DriverOpts) > 0
 }
 
 type PathList []string

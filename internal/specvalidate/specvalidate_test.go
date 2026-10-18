@@ -365,3 +365,33 @@ func TestValidateDeviceStillRejectsThirdField(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+const nfsVolumes = `
+volumes:
+  knot-files:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=host.docker.internal,port=2049,vers=4.0
+      device: ":/"
+`
+
+func TestNFSVolumeDefinitions(t *testing.T) {
+	job := "container_name: x\nimage: alpine\n"
+	if issues := ValidateTemplateSpec(model.PlatformDocker, job, nfsVolumes); len(issues) != 0 {
+		t.Errorf("docker template with an nfs volume: %v", issues)
+	}
+	if issues := ValidateVolumeSpec(model.PlatformPodman, nfsVolumes); len(issues) != 0 {
+		t.Errorf("podman nfs volume: %v", issues)
+	}
+	if issues := ValidateVolumeSpec(model.PlatformApple, nfsVolumes); !containsIssue(issues, 0, "only supported on Docker and Podman") {
+		t.Errorf("apple nfs volume accepted: %v", issues)
+	}
+	noDevice := "volumes:\n  v:\n    driver_opts:\n      type: nfs\n      o: addr=127.0.0.1\n"
+	if issues := ValidateVolumeSpec(model.PlatformDocker, noDevice); !containsIssue(issues, 0, "needs driver_opts device") {
+		t.Errorf("nfs volume without a device accepted: %v", issues)
+	}
+	if issues := ValidateVolumeSpec(model.PlatformDocker, "volumes:\n  v:\n    driver_options: {}\n"); len(issues) == 0 {
+		t.Error("a misspelt field accepted")
+	}
+}

@@ -32,7 +32,7 @@ func ValidateTemplateSpecWithNomadParser(platform, job, volumes string, parseNom
 		return nil
 	case model.PlatformDocker, model.PlatformPodman, model.PlatformApple, model.PlatformContainer:
 		issues := validateLocalContainerJob(job)
-		issues = append(issues, validateLocalVolumeDefinitions("volumes", volumes, false)...)
+		issues = append(issues, validateLocalVolumeDefinitions(platform, "volumes", volumes, false)...)
 		return issues
 	case model.PlatformNomad:
 		issues := validateNomadJob(job, parseNomadJob)
@@ -50,7 +50,7 @@ func ValidateTemplateSpecWithNomadParser(platform, job, volumes string, parseNom
 func ValidateVolumeSpec(platform, definition string) []Issue {
 	switch platform {
 	case model.PlatformDocker, model.PlatformPodman, model.PlatformApple, model.PlatformContainer:
-		return validateLocalVolumeDefinitions("definition", definition, true)
+		return validateLocalVolumeDefinitions(platform, "definition", definition, true)
 	case model.PlatformNomad:
 		return validateNomadVolumes("definition", definition, true)
 	default:
@@ -416,7 +416,7 @@ func validateKvmVolumes(field, volumes string) []Issue {
 	return []Issue{{Field: field, Message: "KVM templates cannot define volumes"}}
 }
 
-func validateLocalVolumeDefinitions(field, volumes string, requireSingle bool) []Issue {
+func validateLocalVolumeDefinitions(platform, field, volumes string, requireSingle bool) []Issue {
 	if strings.TrimSpace(volumes) == "" {
 		if requireSingle {
 			return []Issue{{Field: field, Message: "volume definition is required"}}
@@ -442,7 +442,23 @@ func validateLocalVolumeDefinitions(field, volumes string, requireSingle bool) [
 		return []Issue{{Field: field, Message: "definition must contain at least 1 volume or path"}}
 	}
 
-	return nil
+	// A volume driver (driver, driver_opts), as for an NFS volume, is
+	// Docker's and Podman's; Apple has none. A "container" template may run
+	// on either, so it is checked when the volume is made.
+	var issues []Issue
+	for name, v := range spec.Volumes {
+		if !v.HasDriver() {
+			continue
+		}
+		if platform == model.PlatformApple {
+			issues = append(issues, Issue{Field: field, Message: fmt.Sprintf("volume %q: driver and driver_opts are only supported on Docker and Podman", name)})
+			continue
+		}
+		if v.DriverOpts["type"] == "nfs" && v.DriverOpts["device"] == "" {
+			issues = append(issues, Issue{Field: field, Message: fmt.Sprintf("volume %q: an nfs volume needs driver_opts device, the export, e.g. \":/\" or \":/mybucket\"", name)})
+		}
+	}
+	return issues
 }
 
 func validateNomadVolumes(field, volumes string, requireSingle bool) []Issue {
