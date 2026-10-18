@@ -120,7 +120,11 @@ var (
 		nfs4AttrTimeModifySet,
 		nfs4AttrMountedOnFileID,
 	)
-	nfs4WritableAttrs = nfs4BitmapOf(nfs4AttrSize, nfs4AttrMode, nfs4AttrTimeAccessSet, nfs4AttrTimeModifySet)
+	// knot: owner, owner_group, hidden and system too. They are listed as
+	// supported, so a client may set them: macOS sets hidden on everything
+	// it creates, which upstream refused, failing every create.
+	nfs4WritableAttrs = nfs4BitmapOf(nfs4AttrSize, nfs4AttrMode, nfs4AttrTimeAccessSet, nfs4AttrTimeModifySet,
+		nfs4AttrOwner, nfs4AttrOwnerGroup, nfs4AttrHidden, nfs4AttrSystem)
 )
 
 // nfs4Bitmap is a bitmap4 of attribute numbers.
@@ -325,6 +329,27 @@ func nfs4DecodeSetAttrs(fattr nfs4FAttr) (nfs4SetAttrs, nfs4Status) {
 				attrs.attrs.SetAtime = &tm
 			} else {
 				attrs.attrs.SetMtime = &tm
+			}
+		case nfs4AttrOwner, nfs4AttrOwnerGroup:
+			// knot: owners are given as they are reported, by number; a
+			// name, which there is no mapping for here, leaves it as is.
+			var who string
+			if err := xdr.Read(vals, &who); err != nil {
+				return nfs4SetAttrs{}, nfs4ErrBadXDR
+			}
+			if n, err := strconv.ParseUint(who, 10, 32); err == nil {
+				id32 := uint32(n)
+				if id == nfs4AttrOwner {
+					attrs.attrs.SetUID = &id32
+				} else {
+					attrs.attrs.SetGID = &id32
+				}
+			}
+		case nfs4AttrHidden, nfs4AttrSystem:
+			// knot: always false here; setting either changes nothing.
+			var flag uint32
+			if err := xdr.Read(vals, &flag); err != nil {
+				return nfs4SetAttrs{}, nfs4ErrBadXDR
 			}
 		}
 	}

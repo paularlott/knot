@@ -98,7 +98,8 @@ var errBadPatch = errors.New("invalid patch")
 //
 // The body is a sequence of ranges, in order and not overlapping, each an
 // 8-byte big-endian offset, an 8-byte big-endian length, then that many
-// bytes. Bytes past the stored file's end that no range writes are zeros.
+// bytes. Everything past the stored file's end must be sent: the server
+// fills nothing in, so a small request cannot make it write a large file.
 func HandlePatchFileObject(w http.ResponseWriter, r *http.Request) {
 	store, user, p, ok := filesContext(w, r)
 	if !ok {
@@ -228,10 +229,8 @@ func (pr *patchReader) Read(p []byte) (int, error) {
 			}
 			return n, nil
 		}
-		n := int(min(int64(len(p)), limit))
-		clear(p[:n])
-		pr.pos += int64(n)
-		return n, nil
+		// Past the stored file, with no range here: not filled in.
+		return 0, fmt.Errorf("%w: bytes past the end of the stored file must be sent", errBadPatch)
 	}
 }
 

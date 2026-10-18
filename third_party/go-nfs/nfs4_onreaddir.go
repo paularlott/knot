@@ -3,7 +3,6 @@ package nfs
 import (
 	"bytes"
 	"io"
-	"sort"
 
 	"github.com/willscott/go-nfs-client/nfs/xdr"
 )
@@ -47,31 +46,22 @@ func nfs4OnReadDir(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	if status := current.ensureDir(); status != nfs4OK {
 		return status
 	}
-	contents, verifier, nfsErr := getDirListingWithVerifier(c.handler, current.handle, req.CookieVerf)
+	// knot: cookies are a hash of the entry's name, in whose order the
+	// listing is (see cookieFor), so a client resumes after the entry it
+	// last had, however the folder changed meanwhile; no verifier is needed.
+	contents, nfsErr := getDirListing(c.handler, current.handle)
 	if nfsErr != nil {
 		return nfs4StatusFromErr(nfsErr)
 	}
-	if req.Cookie > 0 && req.CookieVerf > 0 && req.CookieVerf != verifier {
-		return nfs4ErrBadCookie
-	}
-	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].Name() < contents[j].Name()
-	})
-
-	// Cookies 1 and 2 stand for "." and "..", which NFSv4 does not list,
-	// so entry i has cookie i+2.
-	start := 0
-	if req.Cookie > 1 {
-		if req.Cookie > uint64(len(contents))+1 {
-			return nfs4ErrBadCookie
-		}
-		start = int(req.Cookie - 1)
-	}
+	verifier := uint64(0)
 
 	var entries bytes.Buffer
 	eof := true
-	for i := start; i < len(contents); i++ {
-		info := contents[i]
+	for _, info := range contents {
+		cookie := cookieFor(info.Name())
+		if cookie <= req.Cookie {
+			continue
+		}
 		entryPath := current.child(info.Name())
 		entry := &nfs4FileHandle{handle: c.handler.ToHandle(current.fs, entryPath), fs: current.fs, path: entryPath}
 		attrs, status := nfs4BuildAttrs(c.ctx, c.handler, entry, info, req.AttrRequest)
@@ -80,7 +70,7 @@ func nfs4OnReadDir(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 		}
 
 		var one bytes.Buffer
-		if err := xdr.Write(&one, nfs4DirEntry{Follows: true, Cookie: uint64(i + 2), Name: info.Name(), Attrs: attrs}); err != nil {
+		if err := xdr.Write(&one, nfs4DirEntry{Follows: true, Cookie: cookie, Name: info.Name(), Attrs: attrs}); err != nil {
 			return nfs4ErrServerFault
 		}
 		// 16 bytes for the verifier and the list's end.

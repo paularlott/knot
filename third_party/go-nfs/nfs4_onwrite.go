@@ -61,5 +61,14 @@ func nfs4OnWrite(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	if err := file.Close(); err != nil {
 		return nfs4StatusFromErr(err)
 	}
-	return nfs4Encode(res, nfs4WriteRes{Count: uint32(n), Committed: uint32(fileSync), Verf: c.w.Server.ID})
+	// knot: as NFSv3's WRITE, see Committer.
+	committed := fileSync
+	if cm, ok := current.fs.(Committer); ok {
+		if req.Stable == uint32(unstable) {
+			committed = unstable
+		} else if err := cm.Commit(current.fullPath()); err != nil {
+			return nfs4StatusFromErr(err)
+		}
+	}
+	return nfs4Encode(res, nfs4WriteRes{Count: uint32(n), Committed: uint32(committed), Verf: c.w.Server.ID})
 }

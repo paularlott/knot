@@ -206,7 +206,9 @@ func (s *SetFileAttributes) Apply(changer billy.Change, fs billy.Filesystem, fil
 	} else if errors.Is(err, os.ErrPermission) {
 		return &NFSStatusError{NFSStatusAccess, os.ErrPermission}
 	} else if err != nil {
-		return nil
+		// knot: the file could not be looked at (its server unreachable,
+		// say), so nothing was set; upstream answered as if all had been.
+		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 	curr := ToFileAttribute(curOS, file)
 

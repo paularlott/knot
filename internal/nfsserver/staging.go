@@ -26,9 +26,20 @@ import (
 // the rest is read from the saved file, and saving sends only what was
 // written, so a change to a large file costs what the change does.
 
-// flushRetries is how many times saving a file is attempted before its
-// writes are dropped.
-const flushRetries = 5
+// A save that fails for a reason that may pass (the server unreachable or
+// failing) is retried for as long as it takes, waiting a little longer each
+// time up to retryMax; one the server refuses (quota, permission, a bucket
+// gone, a bad name) is dropped, as retrying cannot help.
+const (
+	retryMin = 5 * time.Second
+	retryMax = time.Minute
+)
+
+// permanent reports whether a save failed for good.
+func permanent(err error) bool {
+	return errors.Is(err, syscall.EDQUOT) || errors.Is(err, os.ErrPermission) ||
+		errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.EINVAL)
+}
 
 // sparseMin is the size above which a file is changed in place.
 const sparseMin = 8 << 20
@@ -42,6 +53,36 @@ type staging struct {
 	mu     sync.Mutex
 	files  map[string]*dirtyFile // by bucketKey
 	closed bool
+
+	// failed holds why a file's writes were dropped, refused by the server,
+	// until the client is told: its next WRITE or COMMIT fails with it,
+	// rather than a COMMIT finding nothing to save and answering that all
+	// is well, or a new copy of the saved file taking the dropped writes'
+	// place unseen.
+	failed map[string]error
+}
+
+// fail records that a file's writes were dropped for err.
+func (s *staging) fail(k string, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.failed == nil {
+		s.failed = map[string]error{}
+	}
+	s.failed[k] = err
+}
+
+// failure is why a file's writes were dropped, if they were; with clear,
+// it is forgotten, the client having now been told.
+func (s *staging) failure(bucket, key string, clear bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k := bucketKey(bucket, key)
+	err := s.failed[k]
+	if clear {
+		delete(s.failed, k)
+	}
+	return err
 }
 
 // dirtyFile is the local copy of a file with writes not yet saved. Its
@@ -57,6 +98,7 @@ type dirtyFile struct {
 	base        *Object // the saved file the copy was made from, nil for a new one
 	sparse      bool    // the copy holds only the spans written, see sparseMin
 	written     spans   // what was written, for a sparse copy
+	keep        int64   // how much of the saved file still holds, for a sparse copy: cut short, the rest is zeros
 	mtime       time.Time
 	contentType string
 	meta        map[string]string
@@ -92,6 +134,16 @@ const (
 // none from what load says.
 func (s *staging) open(bucket, key string, load loadMode) (*dirtyFile, error) {
 	k := bucketKey(bucket, key)
+	// Writes on top of ones dropped would hide that they were: fail until
+	// the client has been told (see failed), unless it starts the file
+	// afresh.
+	if load == loadContent {
+		if err := s.failure(bucket, key, false); err != nil {
+			return nil, err
+		}
+	} else {
+		s.failure(bucket, key, true)
+	}
 	for {
 		s.mu.Lock()
 		if s.closed {
@@ -163,7 +215,7 @@ func (e *dirtyFile) load(load loadMode) error {
 	e.base = o
 	e.keepAttrs(o)
 	if o.Size > sparseMin {
-		e.sparse, e.size = true, o.Size
+		e.sparse, e.size, e.keep = true, o.Size, o.Size
 		return nil
 	}
 
@@ -241,8 +293,8 @@ func (e *dirtyFile) readSparse(b []byte, off int64) (int, error) {
 			if _, err := e.f.ReadAt(b[n:n+int(chunk)], pos); err != nil && !errors.Is(err, io.EOF) {
 				return n, err
 			}
-		case pos < e.base.Size:
-			chunk = min(chunk, e.base.Size-pos)
+		case pos < e.keep:
+			chunk = min(chunk, e.keep-pos)
 			got, err := e.s.fs.readSaved(e.bucket, e.key, e.base.SHA256, e.base.Size, b[n:n+int(chunk)], pos)
 			if err != nil && !errors.Is(err, io.EOF) {
 				return n, err
@@ -278,10 +330,9 @@ func (e *dirtyFile) truncate(size int64) error {
 	}
 	if e.sparse {
 		e.written.trim(size)
-		// Grown back over what was cut: zeros now, not the saved bytes.
-		if size > e.size && e.size < e.base.Size {
-			e.written.add(e.size, min(size, e.base.Size))
-		}
+		// What is cut is gone: grown back, by a truncate or by a write past
+		// it, it is zeros, not the saved bytes.
+		e.keep = min(e.keep, size)
 	}
 	e.size = size
 	e.modified()
@@ -347,15 +398,16 @@ func (s *staging) flush(e *dirtyFile) error {
 
 	e.failures++
 	logger := log.WithGroup("nfs")
-	if e.failures >= flushRetries || errors.Is(err, syscall.EDQUOT) ||
-		errors.Is(err, os.ErrPermission) || errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.EINVAL) {
-		logger.Error("dropping unsaved writes", "bucket", e.bucket, "key", e.key, "error", err)
+	if permanent(err) {
+		logger.Error("dropping unsaved writes the server refused", "bucket", e.bucket, "key", e.key, "error", err)
 		s.drop(e)
+		s.fail(bucketKey(e.bucket, e.key), err)
 		return err
 	}
-	logger.Warn("saving file failed, will retry", "bucket", e.bucket, "key", e.key, "error", err)
+	wait := min(retryMin<<min(e.failures-1, 8), retryMax)
+	logger.Warn("saving file failed, will retry", "bucket", e.bucket, "key", e.key, "error", err, "attempt", e.failures, "in", wait)
 	e.since = time.Now()
-	e.schedule(10 * time.Second)
+	e.schedule(wait)
 	return err
 }
 
@@ -369,12 +421,18 @@ func (e *dirtyFile) save() error {
 		e.s.fs.forget(e.bucket, e.key, false)
 		if saved != nil {
 			e.s.fs.remember(e.bucket, e.key, objectInfo(path.Base(e.key), e.bucket, saved))
+			e.s.fs.noteExists(e.bucket, e.key)
 		}
 	}()
 	if e.sparse {
+		// What was written, and everything past what still holds of the
+		// saved file: the server fills nothing in (zeros where the file was
+		// cut short, or grew with nothing written, are sent as such).
+		send := append(spans(nil), e.written...)
+		send.add(e.keep, e.size)
 		patch := func(ifMatch string) error {
-			ranges := make([]Range, 0, len(e.written))
-			for _, sp := range e.written {
+			ranges := make([]Range, 0, len(send))
+			for _, sp := range send {
 				ranges = append(ranges, Range{Offset: sp.off, Length: sp.end - sp.off, Data: io.NewSectionReader(e.f, sp.off, sp.end-sp.off)})
 			}
 			o, err := e.s.fs.backend.Patch(ctx(), e.bucket, e.key, ranges, e.size, ifMatch, e.contentType, e.meta)

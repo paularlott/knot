@@ -76,17 +76,27 @@ func TestPatchReaderMatchesReference(t *testing.T) {
 		case 1:
 			size += int64(rng.Intn(5000))
 		}
+		// Ranges here and there over the stored file; everything past it
+		// is sent, as the server fills nothing in.
 		var ranges []testRange
-		for pos := int64(0); pos < size; {
+		stored := min(int64(len(base)), size)
+		pos, end := int64(0), int64(0)
+		for pos < stored {
 			pos += int64(rng.Intn(3000))
-			if pos >= size {
+			if pos >= stored {
 				break
 			}
-			n := min(int64(rng.Intn(2000)), size-pos)
+			n := min(int64(rng.Intn(2000)), stored-pos)
 			data := make([]byte, n)
 			rng.Read(data)
 			ranges = append(ranges, testRange{pos, data})
 			pos += n
+			end = pos
+		}
+		if tail := max(end, stored); tail < size {
+			data := make([]byte, size-tail)
+			rng.Read(data)
+			ranges = append(ranges, testRange{tail, data})
 		}
 		got, err := runPatch(base, encodePatch(ranges), size)
 		if err != nil {
@@ -109,6 +119,8 @@ func TestPatchReaderRefusesBadPatches(t *testing.T) {
 		"past size":    {encodePatch([]testRange{{8, []byte("abc")}}), 10},
 		"cut short":    {encodePatch([]testRange{{1, []byte("abcdef")}})[:20], 10},
 		"stray bytes":  {append(encodePatch([]testRange{{1, []byte("a")}}), 1, 2, 3), 10},
+		"grown unsent": {encodePatch([]testRange{{1, []byte("a")}}), 1 << 40},
+		"gap past end": {encodePatch([]testRange{{20, []byte("a")}}), 21},
 	} {
 		if _, err := runPatch(base, c.body, c.size); !errors.Is(err, errBadPatch) {
 			t.Errorf("%s: got %v", name, err)

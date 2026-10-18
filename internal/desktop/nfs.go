@@ -30,23 +30,28 @@ import (
 var NFSServerCmd = &cli.Command{
 	Name:  "nfs-server",
 	Usage: "Serve file storage over NFS, to mount buckets as local folders",
-	Description: `Serve the buckets of a knot server over NFSv3, acting as the user of the API token it connects with (--server and --token, or --alias), so they can be mounted without FUSE. The top level of the export holds the buckets; mkdir there makes a new bucket. Mount it whole at /, or a single bucket or folder by its path.
+	Description: `Serve the buckets of a knot server over NFS (NFSv4.0 and NFSv3), acting as the user of the API token it connects with (--server and --token, or --alias), so they can be mounted without FUSE. The top level of the export holds the buckets; mkdir there makes a new bucket. Mount it whole at /, or a single bucket or folder by its path.
 
 NFS has no authentication: anyone who can connect reaches every file the user can, so only loopback clients are accepted unless --nfs-allow says otherwise.
+
+NFSv4.0 and NFSv3 are both served, on the one port. NFSv4 needs no separate mount port and its locks work across clients of this server; NFSv3 suits older clients.
 
 Docker or Podman volume (from a Docker Desktop or OrbStack VM, use host.docker.internal as the address):
 
   docker volume create --driver local --opt type=nfs \
-    --opt o=addr=127.0.0.1,port=2049,mountport=2049,nfsvers=3,tcp,nolock \
-    --opt device=:/ knot-files
+    --opt o=addr=127.0.0.1,port=2049,vers=4.0 --opt device=:/ knot-files
 
 macOS:
 
-  mount_nfs -o vers=3,tcp,port=2049,mountport=2049,nolocks,noresvport,locallocks 127.0.0.1:/mybucket ~/mnt
+  mount_nfs -o vers=4,tcp,port=2049 127.0.0.1:/ ~/mnt
 
 Linux:
 
-  mount -t nfs -o vers=3,tcp,port=2049,mountport=2049,nolock 127.0.0.1:/ /mnt/knot`,
+  mount -t nfs4 -o vers=4.0,port=2049 127.0.0.1:/ /mnt/knot
+
+NFSv3, for a single bucket or folder by its path:
+
+  mount -t nfs -o vers=3,tcp,port=2049,mountport=2049,nolock 127.0.0.1:/mybucket /mnt/knot`,
 	MaxArgs: cli.NoArgs,
 	Flags: append(cmdutil.ClientFlags(false),
 		&cli.StringFlag{
@@ -57,12 +62,12 @@ Linux:
 		},
 		&cli.IntFlag{
 			Name:         "uid",
-			Usage:        "The user id files without an owner of their own belong to (default the user running the server).",
+			Usage:        "Show every file as owned by this user id, e.g. 0 for containers running as root. Without it, files show the owner stored on them, else the user running the server.",
 			DefaultValue: -1,
 		},
 		&cli.IntFlag{
 			Name:         "gid",
-			Usage:        "The group id files without a group of their own belong to (default the group running the server).",
+			Usage:        "Show every file as in this group id. Without it, files show the group stored on them, else the group running the server.",
 			DefaultValue: -1,
 		},
 		&cli.StringFlag{
@@ -114,6 +119,8 @@ func runNFSServer(ctx context.Context, cmd *cli.Command) error {
 		Allow:     cmd.GetStringSlice("nfs-allow"),
 		Uid:       ownerId(cmd.GetInt("uid"), os.Getuid()),
 		Gid:       ownerId(cmd.GetInt("gid"), os.Getgid()),
+		ForceUid:  cmd.GetInt("uid") >= 0,
+		ForceGid:  cmd.GetInt("gid") >= 0,
 		CacheDir:  cmd.GetString("cache-dir"),
 		CacheSize: cacheSize,
 		Writer:    writer,

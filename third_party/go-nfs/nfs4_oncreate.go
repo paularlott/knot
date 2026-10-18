@@ -1,6 +1,10 @@
 package nfs
 
-import "io"
+import (
+	"io"
+
+	"github.com/go-git/go-billy/v5"
+)
 
 // nfs4CreateArgs is a CREATE4args. nfs_ftype4 numbers file types as
 // ftype3 does, so the FileType constants name them; the union cases are
@@ -31,7 +35,13 @@ func nfs4OnCreate(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	}
 	switch req.Type {
 	case FileTypeDirectory:
-	case FileTypeLink, FileTypeBlock, FileTypeCharacter, FileTypeSocket, FileTypeFIFO:
+	case FileTypeLink:
+		// knot: symbolic links, where the filesystem has them, as NFSv3's
+		// SYMLINK makes; upstream refused them.
+		if _, ok := parent.fs.(billy.Symlink); !ok {
+			return nfs4ErrNotSupp
+		}
+	case FileTypeBlock, FileTypeCharacter, FileTypeSocket, FileTypeFIFO:
 		return nfs4ErrNotSupp
 	default:
 		return nfs4ErrBadType
@@ -52,7 +62,14 @@ func nfs4OnCreate(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 
 	childPath := parent.child(req.Name)
 	before := parent.changeID()
-	if err := parent.fs.MkdirAll(nfs4Join(parent.fs, childPath), attrs.attrs.Mode(0777)); err != nil {
+	if req.Type == FileTypeLink {
+		if req.LinkData == "" || len(req.LinkData) > nfs4OpaqueLimit {
+			return nfs4ErrInval
+		}
+		if err := parent.fs.(billy.Symlink).Symlink(req.LinkData, nfs4Join(parent.fs, childPath)); err != nil {
+			return nfs4StatusFromErr(err)
+		}
+	} else if err := parent.fs.MkdirAll(nfs4Join(parent.fs, childPath), attrs.attrs.Mode(0777)); err != nil {
 		return nfs4StatusFromErr(err)
 	}
 	after := parent.changeID()

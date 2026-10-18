@@ -129,10 +129,10 @@ func nfs4OnOpen(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	fullPath := nfs4Join(parent.fs, childPath)
 	before := parent.changeID()
 	if req.OpenType == nfs4OpenCreate {
-		if req.How.Mode != nfs4CreateUnchecked {
-			if _, err := parent.fs.Lstat(fullPath); err == nil {
-				return nfs4ErrExist
-			}
+		_, statErr := parent.fs.Lstat(fullPath)
+		existed := statErr == nil
+		if req.How.Mode != nfs4CreateUnchecked && existed {
+			return nfs4ErrExist
 		}
 		flags := os.O_RDWR | os.O_CREATE
 		if size := createAttrs.attrs.SetSize; size != nil && *size == 0 {
@@ -144,6 +144,17 @@ func nfs4OnOpen(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 		}
 		if err := file.Close(); err != nil {
 			return nfs4StatusFromErr(err)
+		}
+		// knot: an UNCHECKED create of a file that exists opens it as it
+		// is, as Linux's server and NFSv3 here do: only a size given (an
+		// open with O_TRUNC) applies. Upstream applied every attribute, so
+		// `>> script.sh` reset the mode of an existing script to 0644.
+		if existed {
+			createAttrs.attrs = SetFileAttributes{SetSize: createAttrs.attrs.SetSize}
+			createAttrs.mask = nfs4Bitmap{}
+			if createAttrs.attrs.SetSize != nil {
+				createAttrs.mask = nfs4BitmapOf(nfs4AttrSize)
+			}
 		}
 		if err := createAttrs.attrs.Apply(c.handler.Change(parent.fs), parent.fs, fullPath); err != nil {
 			return nfs4StatusFromErr(err)

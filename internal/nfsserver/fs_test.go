@@ -496,3 +496,30 @@ func TestDefaultOwner(t *testing.T) {
 		}
 	}
 }
+
+func TestForcedOwner(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	writeFile(t, fsys, "data/f", "x")
+	flushAll(t, fsys)
+	if err := fsys.Lchown("data/f", 501, 20); err != nil {
+		t.Fatal(err)
+	}
+
+	// Forced, every file shows the owner given, stored owner or not.
+	fsys.uid, fsys.gid, fsys.forceUid, fsys.forceGid = 0, 0, true, true
+	fi, _ := fsys.Stat("data/f")
+	if info := fi.(*fileInfo); info.uid != 0 || info.gid != 0 {
+		t.Fatalf("forced owner shows %d:%d", info.uid, info.gid)
+	}
+	infos, _ := fsys.ReadDir("data")
+	if info := infos[0].(*fileInfo); info.uid != 0 {
+		t.Fatalf("listing shows %d", info.uid)
+	}
+
+	// The owner set is still stored, and shown once no longer forced.
+	fsys.forceUid, fsys.forceGid = false, false
+	fi, _ = fsys.Stat("data/f")
+	if info := fi.(*fileInfo); info.uid != 501 || info.gid != 20 {
+		t.Fatalf("stored owner lost: %d:%d", info.uid, info.gid)
+	}
+}

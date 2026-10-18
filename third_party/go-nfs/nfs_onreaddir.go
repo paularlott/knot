@@ -161,17 +161,18 @@ func getDirListing(userHandle Handler, fsHandle []byte) ([]fs.FileInfo, error) {
 }
 
 // cookieFor is the READDIR cookie of an entry: a hash of its name, so it
-// stays valid while other entries come and go. 0 and 1 are "." and "..".
+// stays valid while other entries come and go. 0 starts a listing, and 1 and
+// 2 are "." and ".." (NFSv3) or reserved (NFSv4).
 //
 // knot: upstream used the entry's index in the listing, which a Linux client
 // deleting entries between calls (rm -rf) resumes at the wrong place.
 func cookieFor(name string) uint64 {
 	h := fnv.New64a()
 	h.Write([]byte(name))
-	if c := h.Sum64(); c > 1 {
+	if c := h.Sum64(); c > 2 {
 		return c
 	}
-	return 2
+	return 3
 }
 
 func getDirListingWithVerifier(userHandle Handler, fsHandle []byte, verifier uint64) ([]fs.FileInfo, uint64, error) {

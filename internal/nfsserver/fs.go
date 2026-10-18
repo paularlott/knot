@@ -68,8 +68,10 @@ type storeFS struct {
 	// uid and gid own what has no owner stored, as a local filesystem's
 	// files belong to someone: root, for want of one, would leave the
 	// user mounting unable to write where the modes say only the owner
-	// may.
-	uid, gid uint32
+	// may. With forceUid or forceGid, they own everything, whatever owner
+	// is stored.
+	uid, gid           uint32
+	forceUid, forceGid bool
 
 	cache *diskCache // nil for none
 
@@ -79,9 +81,30 @@ type storeFS struct {
 
 	mu        sync.Mutex
 	stats     map[string]cachedStat // by statKey
+	dirs      map[string]*dirNames  // folders' entries, by statKey of the folder
 	buckets   map[string]cachedBucket
 	bucketIds map[string]string // bucket names by id, for change events
-	live      bool              // the server tells of changes
+
+	// When folders' entries last changed, so a folder's modification time
+	// moves as a local one's does: clients judge by it, and by the NFSv4
+	// change attribute made from it, whether a listing they hold is still
+	// good. By statKey of the folder. Only changes known to be to a
+	// folder's entries count: an event that cannot say what changed (on
+	// reconnecting, or too much changed to name) moves no folder's time,
+	// which would have every folder's time move, and rsync set them all
+	// again, for nothing.
+	dirChanged map[string]time.Time
+	// When a folder's time was last set (touch, rsync): the time set holds
+	// until its entries change again.
+	dirTimeSet map[string]time.Time
+	live       bool // the server tells of changes
+
+	// epochs move on every change to what is kept of a bucket (epochAll,
+	// of every bucket), so a lookup or listing answered from before a
+	// change, finishing after it, is used but not kept: kept, it could
+	// stand in for the change for as long as a description is kept.
+	epochs   map[string]uint64
+	epochAll uint64
 }
 
 // cachedStat is a lookup's result: a description, or nil for nothing there.
@@ -90,13 +113,23 @@ type cachedStat struct {
 	at time.Time
 }
 
+// dirNames is every name in a folder, as listed or made here: a name not in
+// it is known not to be there, without asking the server. Hidden names
+// (AppleDouble files) are in it too.
+type dirNames struct {
+	names map[string]bool
+	at    time.Time
+}
+
 type cachedBucket struct {
 	b  *Bucket
 	at time.Time
 }
 
 func newStoreFS(backend Backend) *storeFS {
-	return &storeFS{backend: backend, stats: map[string]cachedStat{}, buckets: map[string]cachedBucket{}, bucketIds: map[string]string{}}
+	return &storeFS{backend: backend, stats: map[string]cachedStat{}, dirs: map[string]*dirNames{}, buckets: map[string]cachedBucket{}, bucketIds: map[string]string{},
+		dirChanged: map[string]time.Time{}, dirTimeSet: map[string]time.Time{},
+		epochs: map[string]uint64{}}
 }
 
 var (
@@ -131,10 +164,42 @@ func (fs *storeFS) cached(bucket, key string) (fi *fileInfo, ok bool) {
 func (fs *storeFS) remember(bucket, key string, fi *fileInfo) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+	fs.rememberLocked(bucket, key, fi)
+}
+
+func (fs *storeFS) rememberLocked(bucket, key string, fi *fileInfo) {
 	if len(fs.stats) > 100000 {
 		fs.stats = map[string]cachedStat{}
 	}
 	fs.stats[statKey(bucket, key)] = cachedStat{fi: fi, at: time.Now()}
+}
+
+// epoch is where a bucket's changes stand, see epochs.
+type epoch struct{ bucket, all uint64 }
+
+func (fs *storeFS) epochOf(bucket string) epoch {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return epoch{fs.epochs[bucket], fs.epochAll}
+}
+
+// bumpLocked records a change to what is kept of a bucket; fs.mu is held.
+func (fs *storeFS) bumpLocked(bucket string) {
+	if len(fs.epochs) > 100000 {
+		clear(fs.epochs)
+		fs.epochAll++
+	}
+	fs.epochs[bucket]++
+}
+
+// rememberAt records a lookup's result made at ep, unless the bucket has
+// changed since.
+func (fs *storeFS) rememberAt(bucket, key string, fi *fileInfo, ep epoch) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if (epoch{fs.epochs[bucket], fs.epochAll}) == ep {
+		fs.rememberLocked(bucket, key, fi)
+	}
 }
 
 // forget drops what is remembered about a path and the folders above it,
@@ -143,6 +208,7 @@ func (fs *storeFS) remember(bucket, key string, fi *fileInfo) {
 func (fs *storeFS) forget(bucket, key string, below bool) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+	fs.bumpLocked(bucket)
 	delete(fs.stats, statKey(bucket, key))
 	for k := key; k != ""; {
 		k = path.Dir(k)
@@ -167,6 +233,116 @@ func (fs *storeFS) forget(bucket, key string, below bool) {
 	}
 	if key == "" {
 		delete(fs.buckets, bucket)
+		if below {
+			fs.dropDirsLocked(bucket, "", true)
+		}
+	}
+}
+
+// parentOf is the folder holding key, and its name there.
+func parentOf(key string) (dir, base string) {
+	dir, base = path.Split(key)
+	return strings.TrimSuffix(dir, "/"), base
+}
+
+// knownAbsent reports whether a recent listing of key's folder shows it is
+// not there, so a lookup need not ask.
+func (fs *storeFS) knownAbsent(bucket, key string) bool {
+	if key == "" {
+		return false
+	}
+	dir, base := parentOf(key)
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	d, ok := fs.dirs[statKey(bucket, dir)]
+	return ok && time.Since(d.at) < fs.ttlLocked() && !d.names[base]
+}
+
+// listed records the names a listing of a folder found, made at ep, unless
+// the bucket has changed since.
+func (fs *storeFS) listed(bucket, dir string, names map[string]bool, ep epoch) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if (epoch{fs.epochs[bucket], fs.epochAll}) != ep {
+		return
+	}
+	fs.listedLocked(bucket, dir, names)
+}
+
+func (fs *storeFS) listedLocked(bucket, dir string, names map[string]bool) {
+	if len(fs.dirs) > 10000 {
+		fs.dirs = map[string]*dirNames{}
+	}
+	fs.dirs[statKey(bucket, dir)] = &dirNames{names: names, at: time.Now()}
+}
+
+// dirTouchedLocked records that a folder's entries changed now; fs.mu is
+// held.
+func (fs *storeFS) dirTouchedLocked(bucket, dir string) {
+	if len(fs.dirChanged) > 100000 {
+		// Too many to keep: forget the oldest half, roughly.
+		for k := range fs.dirChanged {
+			delete(fs.dirChanged, k)
+			if len(fs.dirChanged) <= 50000 {
+				break
+			}
+		}
+	}
+	fs.dirChanged[statKey(bucket, dir)] = time.Now()
+}
+
+// dirMtime is a folder's modification time: when its entries last changed,
+// unless its time was set since, or it was not seen to change.
+func (fs *storeFS) dirMtime(bucket, dir string, stored time.Time) time.Time {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	k := statKey(bucket, dir)
+	changed := fs.dirChanged[k]
+	if changed.IsZero() || !changed.After(fs.dirTimeSet[k]) || !changed.After(stored) {
+		return stored
+	}
+	return changed
+}
+
+// noteExists records that this server made key: a name now in its folder.
+func (fs *storeFS) noteExists(bucket, key string) {
+	dir, base := parentOf(key)
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if d, ok := fs.dirs[statKey(bucket, dir)]; ok {
+		d.names[base] = true
+	}
+	fs.dirTouchedLocked(bucket, dir)
+	fs.bumpLocked(bucket)
+}
+
+// noteGone records that this server removed key, and what was below it.
+func (fs *storeFS) noteGone(bucket, key string) {
+	dir, base := parentOf(key)
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if d, ok := fs.dirs[statKey(bucket, dir)]; ok {
+		delete(d.names, base)
+	}
+	fs.dropDirsLocked(bucket, key, true)
+	fs.dirTouchedLocked(bucket, dir)
+	fs.bumpLocked(bucket)
+}
+
+// dropDirsLocked forgets the names known of a folder and, with below, of the
+// folders under it; fs.mu is held.
+func (fs *storeFS) dropDirsLocked(bucket, key string, below bool) {
+	delete(fs.dirs, statKey(bucket, key))
+	if below {
+		prefix := statKey(bucket, key)
+		if key != "" {
+			prefix += "/"
+		}
+		for k := range fs.dirs {
+			if strings.HasPrefix(k, prefix) {
+				delete(fs.dirs, k)
+			}
+		}
 	}
 }
 
@@ -242,7 +418,9 @@ func (fs *storeFS) Changed(bucketIds []string, files []FileChanged) {
 	}
 	if all {
 		clear(fs.stats)
+		clear(fs.dirs)
 		clear(fs.buckets)
+		fs.epochAll++
 	}
 	names := make(map[string]string, len(named))
 	for id := range named {
@@ -281,13 +459,18 @@ func (fs *storeFS) forgetChanged(bucket, key string) {
 	key = strings.TrimSuffix(key, "/")
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+	fs.bumpLocked(bucket)
 	delete(fs.stats, statKey(bucket, key))
+	fs.dropDirsLocked(bucket, key, folder)
+	dir, _ := parentOf(key)
+	fs.dirTouchedLocked(bucket, dir)
 	for k := key; k != ""; {
 		k = path.Dir(k)
 		if k == "." {
 			k = ""
 		}
 		delete(fs.stats, statKey(bucket, k))
+		delete(fs.dirs, statKey(bucket, k))
 	}
 	if folder {
 		prefix := statKey(bucket, key) + "/"
@@ -320,6 +503,8 @@ type fileInfo struct {
 	// owned says uid and gid were stored; otherwise they are the default
 	// owner's, filled in by storeFS.view.
 	hasUid, hasGid bool
+	// A folder's bucket and key, for its modification time (storeFS.dirMtime).
+	dirBucket, dirKey string
 }
 
 func (fi *fileInfo) Name() string       { return fi.name }
@@ -332,14 +517,17 @@ func (fi *fileInfo) Sys() any {
 }
 
 // view is the description given out: a copy, under name, owned by the
-// default owner unless it has one of its own.
+// default owner unless it has one of its own, or by the owner forced.
 func (fs *storeFS) view(fi *fileInfo, name string) *fileInfo {
 	c := *fi
 	c.name = name
-	if !c.hasUid {
+	if c.IsDir() && c.dirBucket != "" {
+		c.mtime = fs.dirMtime(c.dirBucket, c.dirKey, c.mtime)
+	}
+	if !c.hasUid || fs.forceUid {
 		c.uid = fs.uid
 	}
-	if !c.hasGid {
+	if !c.hasGid || fs.forceGid {
 		c.gid = fs.gid
 	}
 	return &c
@@ -355,7 +543,8 @@ func fileId(bucket, key string) uint64 {
 }
 
 func dirInfo(name, bucket, key string, mtime time.Time) *fileInfo {
-	return &fileInfo{name: name, mode: os.ModeDir | defaultDirMode, mtime: mtime, id: fileId(bucket, key)}
+	return &fileInfo{name: name, mode: os.ModeDir | defaultDirMode, mtime: mtime, id: fileId(bucket, key),
+		dirBucket: bucket, dirKey: strings.TrimSuffix(key, "/")}
 }
 
 // withMeta gives an entry the inode number and ownership stored on it.
@@ -477,14 +666,18 @@ func (fs *storeFS) Stat(name string) (os.FileInfo, error) {
 		}
 		return fs.view(fi, base), nil
 	}
+	if fs.knownAbsent(bucket, key) {
+		return nil, pathErr("stat", name, os.ErrNotExist)
+	}
+	ep := fs.epochOf(bucket)
 	fi, err := fs.stat(bucket, key, base)
 	if errors.Is(err, os.ErrNotExist) {
-		fs.remember(bucket, key, nil)
+		fs.rememberAt(bucket, key, nil, ep)
 	}
 	if err != nil {
 		return nil, pathErr("stat", name, err)
 	}
-	fs.remember(bucket, key, fi)
+	fs.rememberAt(bucket, key, fi, ep)
 	return fs.view(fi, base), nil
 }
 
@@ -576,7 +769,9 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 	if key != "" {
 		prefix = key + "/"
 	}
+	ep := fs.epochOf(bucket)
 	entries := map[string]os.FileInfo{}
+	names := map[string]bool{} // every name, hidden ones too
 	after := ""
 	for {
 		res, err := fs.backend.List(ctx(), bucket, prefix, "/", after, 1000)
@@ -585,6 +780,9 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 		}
 		for _, o := range res.Objects {
 			n := o.Key[len(prefix):]
+			if n != "" {
+				names[n] = true
+			}
 			if n == "" || isAppleDouble(n) {
 				continue // this folder's own marker, or hidden
 			}
@@ -593,7 +791,7 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 				entries[n] = fi
 				// The listing describes each file as a lookup would, so
 				// the lookups that follow a listing need not ask again.
-				fs.remember(bucket, o.Key, fi)
+				fs.rememberAt(bucket, o.Key, fi, ep)
 			}
 		}
 		for _, pfx := range res.Prefixes {
@@ -601,12 +799,13 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 			if n == "" {
 				continue
 			}
+			names[n] = true
 			// A folder wins over a file of the same name, with the
 			// attributes on its marker.
 			fi := dirInfo(n, bucket, pfx, started)
 			if m := res.Markers[pfx]; m != nil {
 				fi.withMarker(m)
-				fs.remember(bucket, strings.TrimSuffix(pfx, "/"), fi)
+				fs.rememberAt(bucket, strings.TrimSuffix(pfx, "/"), fi, ep)
 			}
 			entries[n] = fi
 		}
@@ -622,6 +821,7 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 			return nil, err
 		}
 	}
+	fs.listed(bucket, key, names, ep)
 
 	// Files written but not yet saved, which may be new or changed.
 	for n, fi := range fs.staging.list(bucket, prefix) {
@@ -701,6 +901,13 @@ func (fs *storeFS) OpenFile(name string, flag int, perm os.FileMode) (billy.File
 		if err != nil {
 			return nil, pathErr("open", name, err)
 		}
+		if !exists {
+			// A new entry in its folder, as the client sees at once.
+			dir, _ := parentOf(key)
+			fs.mu.Lock()
+			fs.dirTouchedLocked(bucket, dir)
+			fs.mu.Unlock()
+		}
 	}
 
 	return &file{fs: fs, name: name, bucket: bucket, key: key}, nil
@@ -720,6 +927,7 @@ func (fs *storeFS) Remove(name string) error {
 	err := fs.backend.Delete(ctx(), bucket, key)
 	if err == nil || (staged && errors.Is(err, os.ErrNotExist)) {
 		fs.removeAppleDouble(bucket, key)
+		fs.noteGone(bucket, key)
 		return nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -771,6 +979,7 @@ func (fs *storeFS) Remove(name string) error {
 		return pathErr("remove", name, err)
 	}
 	fs.removeAppleDouble(bucket, key)
+	fs.noteGone(bucket, key)
 	return nil
 }
 
@@ -781,9 +990,21 @@ func (fs *storeFS) removeAppleDouble(bucket, key string) {
 		return
 	}
 	ad := appleDouble(key)
-	fs.staging.remove(bucket, ad)
-	if err := fs.backend.Delete(ctx(), bucket, ad); err == nil {
+	staged := fs.staging.remove(bucket, ad)
+	if !staged && fs.knownAbsent(bucket, ad) {
+		return // a listing shows it has none: no need to ask
+	}
+	err := fs.backend.Delete(ctx(), bucket, ad)
+	switch {
+	case err == nil, errors.Is(err, os.ErrNotExist):
 		fs.forget(bucket, ad, false)
+		fs.noteGone(bucket, ad)
+	default:
+		// Not known whether it is still there: ask again.
+		fs.mu.Lock()
+		dir, _ := parentOf(ad)
+		fs.dropDirsLocked(bucket, dir, false)
+		fs.mu.Unlock()
 	}
 }
 
@@ -828,7 +1049,21 @@ func (fs *storeFS) Rename(from, to string) error {
 
 	defer fs.forget(fb, fk, true)
 	defer fs.forget(tb, tk, true)
-	return pathErr("rename", from, fs.backend.Move(ctx(), fb, fk, tk))
+	if err := fs.backend.Move(ctx(), fb, fk, tk); err != nil {
+		// What moved, if anything, is not known: ask again of both
+		// folders, rather than take the source to be gone.
+		fs.mu.Lock()
+		fdir, _ := parentOf(fk)
+		tdir, _ := parentOf(tk)
+		fs.dropDirsLocked(fb, fdir, false)
+		fs.dropDirsLocked(tb, tdir, false)
+		fs.bumpLocked(fb)
+		fs.mu.Unlock()
+		return pathErr("rename", from, err)
+	}
+	fs.noteGone(fb, fk)
+	fs.noteExists(tb, tk)
+	return nil
 }
 
 func (fs *storeFS) MkdirAll(name string, perm os.FileMode) error {
@@ -843,12 +1078,22 @@ func (fs *storeFS) MkdirAll(name string, perm os.FileMode) error {
 		return pathErr("mkdir", name, os.ErrExist)
 	}
 	defer fs.forget(bucket, key, false)
+	var err error
 	if key == "" {
 		// A new top level folder is a new bucket of the user's own.
-		return pathErr("mkdir", name, fs.backend.CreateBucket(ctx(), bucket))
+		err = fs.backend.CreateBucket(ctx(), bucket)
+	} else {
+		_, err = fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: newIno()})
 	}
-	_, err := fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: newIno()})
-	return pathErr("mkdir", name, err)
+	if err != nil {
+		return pathErr("mkdir", name, err)
+	}
+	// A folder just made holds nothing yet.
+	fs.noteExists(bucket, key)
+	fs.mu.Lock()
+	fs.listedLocked(bucket, key, map[string]bool{})
+	fs.mu.Unlock()
+	return nil
 }
 
 func (fs *storeFS) Join(elem ...string) string { return path.Join(elem...) }
@@ -860,7 +1105,14 @@ func (fs *storeFS) Commit(name string) error {
 	if key == "" {
 		return nil
 	}
-	return pathErr("commit", name, fs.staging.flushUnder(bucketKey(bucket, key), ""))
+	err := fs.staging.flushUnder(bucketKey(bucket, key), "")
+	// Writes dropped since the last commit, refused by the server, are
+	// reported now, once; by this commit's error, if it is why.
+	dropped := fs.staging.failure(bucket, key, true)
+	if err == nil {
+		err = dropped
+	}
+	return pathErr("commit", name, err)
 }
 
 func (fs *storeFS) TempFile(dir, prefix string) (billy.File, error) {
@@ -880,6 +1132,9 @@ func (fs *storeFS) Symlink(target, link string) error {
 	defer fs.forget(bucket, key, false)
 	_, err := fs.backend.Put(ctx(), bucket, key, strings.NewReader(target), int64(len(target)), "",
 		map[string]string{metaMode: stMode(os.ModeSymlink | 0777), metaIno: newIno()})
+	if err == nil {
+		fs.noteExists(bucket, key)
+	}
 	return pathErr("symlink", link, err)
 }
 
@@ -930,7 +1185,21 @@ func (fs *storeFS) Chmod(name string, mode os.FileMode) error {
 }
 
 func (fs *storeFS) Chtimes(name string, atime, mtime time.Time) error {
-	return fs.setMeta(name, map[string]string{metaMtime: apiclient.FormatMtime(mtime)})
+	if err := fs.setMeta(name, map[string]string{metaMtime: apiclient.FormatMtime(mtime)}); err != nil {
+		return err
+	}
+	// A folder's time set holds over the changes to its entries made
+	// before it was set (as rsync sets it once the folder is filled).
+	if fi, err := fs.Lstat(name); err == nil && fi.IsDir() {
+		bucket, key := split(name)
+		fs.mu.Lock()
+		if len(fs.dirTimeSet) > 100000 {
+			clear(fs.dirTimeSet)
+		}
+		fs.dirTimeSet[statKey(bucket, key)] = time.Now()
+		fs.mu.Unlock()
+	}
+	return nil
 }
 
 // Ownership is stored, as s3fs stores it, though not enforced: what a client

@@ -19,14 +19,16 @@ import (
 // one in nfs_on<proc>.go.
 
 const (
-	nfs4Version       = 4
-	nfs4ProcNull      = 0
-	nfs4ProcCompound  = 1
-	nfs4FhSize        = 128
-	nfs4OtherSize     = 12
-	nfs4OpaqueLimit   = 1024
-	nfs4MaxRead       = MaxRead
-	nfs4MaxWrite      = MaxRead
+	nfs4Version      = 4
+	nfs4ProcNull     = 0
+	nfs4ProcCompound = 1
+	nfs4FhSize       = 128
+	nfs4OtherSize    = 12
+	nfs4OpaqueLimit  = 1024
+	// knot: 1MB, as NFSv3 offers (maxTransfer): upstream's 16MB, with the
+	// request around it, is more than a request may be (maxRequestFragmentBytes).
+	nfs4MaxRead       = maxTransfer
+	nfs4MaxWrite      = maxTransfer
 	nfs4LeaseTimeSecs = 90
 
 	// nfs4ArgLimit bounds any variable-length item in operation arguments
@@ -50,7 +52,10 @@ const (
 	nfs4ErrFBig              nfs4Status = 27
 	nfs4ErrNoSpc             nfs4Status = 28
 	nfs4ErrROFS              nfs4Status = 30
+	nfs4ErrXDev              nfs4Status = 18 // knot: as NFSv3
+	nfs4ErrNameTooLong       nfs4Status = 63 // knot
 	nfs4ErrNotEmpty          nfs4Status = 66
+	nfs4ErrDQuot             nfs4Status = 69 // knot
 	nfs4ErrStale             nfs4Status = 70
 	nfs4ErrBadHandle         nfs4Status = 10001
 	nfs4ErrBadCookie         nfs4Status = 10003
@@ -404,6 +409,11 @@ func nfs4StatusFromErr(err error) nfs4Status {
 	if errors.As(err, &nfsErr) {
 		return nfs4StatusFromNFS3(nfsErr.NFSStatus)
 	}
+	// knot: the errors the NFSv3 handlers map (statusFromError) map here
+	// too, rather than being reported as IO.
+	if status := statusFromError(err, NFSStatusIO); status != NFSStatusIO {
+		return nfs4StatusFromNFS3(status)
+	}
 	if errors.Is(err, os.ErrNotExist) {
 		return nfs4ErrNoEnt
 	}
@@ -448,6 +458,12 @@ func nfs4StatusFromNFS3(status NFSStatus) nfs4Status {
 		return nfs4ErrNoSpc
 	case NFSStatusROFS:
 		return nfs4ErrROFS
+	case NFSStatusXDev:
+		return nfs4ErrXDev
+	case NFSStatusNameTooLong:
+		return nfs4ErrNameTooLong
+	case NFSStatusDQuot:
+		return nfs4ErrDQuot
 	case NFSStatusNotEmpty:
 		return nfs4ErrNotEmpty
 	case NFSStatusStale:

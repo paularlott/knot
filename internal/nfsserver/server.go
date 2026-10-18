@@ -1,4 +1,4 @@
-// Package nfsserver serves knot's file storage over NFSv3, so buckets can be
+// Package nfsserver serves knot's file storage over NFSv4.0 and NFSv3, so buckets can be
 // mounted by the operating system (the macOS Finder or mount_nfs) and by
 // Docker and Podman as volumes with the local driver's nfs type, without
 // FUSE. It is a client of a knot server's files API, acting as the user whose
@@ -35,6 +35,11 @@ type Config struct {
 	MaxDirtyAge time.Duration // and at the latest this long after it changed
 	StagingDir  string        // where written files wait to be saved; a temp dir when empty
 	Uid, Gid    uint32        // owner of files with none stored
+
+	// ForceUid and ForceGid make Uid and Gid the owner of every file,
+	// whatever owner is stored, so files look the mounting user's own
+	// (a container's root, say). An owner set is still stored.
+	ForceUid, ForceGid bool
 
 	// CacheDir keeps files read and written on local disk, up to CacheSize
 	// bytes, so they need not be fetched again; none when empty.
@@ -93,6 +98,7 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 
 	fsys := newStoreFS(backend)
 	fsys.uid, fsys.gid = cfg.Uid, cfg.Gid
+	fsys.forceUid, fsys.forceGid = cfg.ForceUid, cfg.ForceGid
 	fsys.cache = cache
 	fsys.writer = cfg.Writer
 	srv.fs = fsys
@@ -115,9 +121,8 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 			// once on one connection; each is a round trip to the knot
 			// server, so they are handled together.
 			ConcurrentHandlers: 32,
-			// NFSv3 only: go-nfs's NFSv4 has not had the fixes its v3 has
-			// here (see third_party/go-nfs/README.knot.md).
-			EnabledNFSVersions: []uint32{3},
+			// NFSv3 and NFSv4.0, on the one port: macOS prefers NFSv4.
+			EnabledNFSVersions: []uint32{3, 4},
 		}
 		err := ns.Serve(srv.listener)
 		if err != nil && !errors.Is(err, net.ErrClosed) {
@@ -356,7 +361,10 @@ func (h *handler) FromHandle(fh []byte) (billy.Filesystem, []string, error) {
 	// A handle made before its file or folder had an inode number cannot
 	// tell it from another at the same path, so is taken as it is: a
 	// folder gets one when its attributes are first set.
-	if info, ok := fi.(*fileInfo); ok && ino != 0 && info.ino != ino {
+	// So is a file whose number is gone: written whole by another client
+	// (the web UI, the CLI, S3), which keeps no metadata it is not given.
+	// That is the same file changed, as a local overwrite keeps the inode.
+	if info, ok := fi.(*fileInfo); ok && ino != 0 && info.ino != 0 && info.ino != ino {
 		return nil, nil, &nfs.NFSStatusError{NFSStatus: nfs.NFSStatusStale}
 	}
 

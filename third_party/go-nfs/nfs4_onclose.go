@@ -12,8 +12,16 @@ func nfs4OnClose(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	if status := nfs4Decode(args, &req); status != nfs4OK {
 		return status
 	}
-	if _, status := c.requireCurrent(); status != nfs4OK {
+	current, status := c.requireCurrent()
+	if status != nfs4OK {
 		return status
+	}
+	// knot: a file closed is finished with: what was written goes to the
+	// Committer now, without waiting for a COMMIT.
+	if cm, ok := current.fs.(Committer); ok {
+		if err := cm.Commit(current.fullPath()); err != nil {
+			return nfs4StatusFromErr(err)
+		}
 	}
 	id, status := c.w.Server.nfs4State().close(req.StateID)
 	if status != nfs4OK {

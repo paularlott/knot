@@ -52,6 +52,14 @@ func (s spans) at(off int64) (inside bool, until int64) {
 	return false, s[i].off
 }
 
+// lastEnd is where the last span ends, 0 for none.
+func lastEnd(s spans) int64 {
+	if len(s) == 0 {
+		return 0
+	}
+	return s[len(s)-1].end
+}
+
 // size is how many bytes the set holds.
 func (s spans) size() int64 {
 	var n int64
