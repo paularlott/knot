@@ -78,6 +78,7 @@ func onRename(ctx context.Context, w *response, userHandle Handler) error {
 
 	err = fs.Rename(fromLoc, toLoc)
 	if err != nil {
+		// knot: cross-device, folder over file and the like, not IO.
 		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 

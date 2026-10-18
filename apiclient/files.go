@@ -3,6 +3,7 @@ package apiclient
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -99,11 +100,29 @@ type FileChangeList struct {
 	Reset   bool         `json:"reset" msgpack:"reset"`
 }
 
+// FileStat says what a path in a bucket is: a file, or a folder, with its
+// marker (the object that keeps an empty folder) when it has one.
+type FileStat struct {
+	File   *FileObjectInfo `json:"file,omitempty" msgpack:"file,omitempty"`
+	Folder bool            `json:"folder,omitempty" msgpack:"folder,omitempty"`
+	Marker *FileObjectInfo `json:"marker,omitempty" msgpack:"marker,omitempty"`
+}
+
+// FileRange is part of a file to write, for PatchFileObject.
+type FileRange struct {
+	Offset int64
+	Length int64
+	Data   io.Reader // Length bytes
+}
+
 type FileObjectList struct {
 	Objects     []FileObjectInfo `json:"objects" msgpack:"objects"`
 	Prefixes    []string         `json:"prefixes" msgpack:"prefixes"`
 	IsTruncated bool             `json:"is_truncated" msgpack:"is_truncated"`
 	Next        string           `json:"next" msgpack:"next"`
+	// Markers, when asked for, are the markers of the folders in Prefixes
+	// that have one, by prefix.
+	Markers map[string]FileObjectInfo `json:"markers,omitempty" msgpack:"markers,omitempty"`
 }
 
 // FileCopyRequest copies one file to another place, in the same bucket or
@@ -171,6 +190,24 @@ const FileMtimeHeader = "X-Knot-Mtime"
 // FileMetaHeaderPrefix starts the headers carrying an object's user metadata
 // on GET, HEAD and PUT, one header per key (cf. S3's x-amz-meta-).
 const FileMetaHeaderPrefix = "X-Knot-Meta-"
+
+// FileWriterHeader names the client making a change, so change events can
+// say who made each (see SetWriter).
+const FileWriterHeader = "X-Knot-Writer"
+
+// SetWriter names this client in the changes it makes, so in the change
+// events (FilesChangedPayload) it can tell its own changes from others'.
+func (c *ApiClient) SetWriter(id string) {
+	if hc, ok := c.httpClient.(*rest.HTTPClient); ok {
+		hc.SetHeader(FileWriterHeader, id)
+	}
+}
+
+// FileSizeHeader gives a patched file's new size.
+const FileSizeHeader = "X-Knot-Size"
+
+// FilePatchContentType is the body of a patch (see PatchFileObject).
+const FilePatchContentType = "application/x-knot-patch"
 
 // FileReuseHeader on an upload with no body names the SHA-256 of content the
 // bucket held until recently (a file deleted or replaced within the hour):
@@ -244,7 +281,14 @@ func (c *ApiClient) GetFileUsage(ctx context.Context) (*FileUsage, error) {
 // ListFileObjects lists one page of a bucket. With delimiter "/" keys below
 // the next "/" are rolled up into prefixes.
 func (c *ApiClient) ListFileObjects(ctx context.Context, bucket, prefix, delimiter, after string, limit int) (*FileObjectList, error) {
+	return c.listFileObjects(ctx, bucket, prefix, delimiter, after, limit, false)
+}
+
+func (c *ApiClient) listFileObjects(ctx context.Context, bucket, prefix, delimiter, after string, limit int, markers bool) (*FileObjectList, error) {
 	q := url.Values{}
+	if markers {
+		q.Set("markers", "1")
+	}
 	if prefix != "" {
 		q.Set("prefix", prefix)
 	}
@@ -456,6 +500,66 @@ func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, b
 	}
 	defer resp.Body.Close()
 
+	info := &FileObjectInfo{}
+	if err := rest.DecodeResponse(resp, info); err != nil {
+		return nil, err
+	}
+	return info, nil
+}
+
+// StatFileObject says what a path in a bucket is, in one request; a path
+// that is neither a file nor a folder is an error, as a missing object is.
+func (c *ApiClient) StatFileObject(ctx context.Context, bucket, key string) (*FileStat, error) {
+	out := &FileStat{}
+	_, err := c.httpClient.Get(ctx, "/api/files/stat/"+url.PathEscape(bucket)+"/"+escapeKey(key), out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListFileObjectsMarkers lists as ListFileObjects does, with the marker of
+// each folder rolled up into a prefix (FileObjectList.Markers).
+func (c *ApiClient) ListFileObjectsMarkers(ctx context.Context, bucket, prefix, delimiter, after string, limit int) (*FileObjectList, error) {
+	return c.listFileObjects(ctx, bucket, prefix, delimiter, after, limit, true)
+}
+
+// PatchFileObject changes part of an object: the ranges, in order and not
+// overlapping, are written over it and it is cut or zero-filled to size, on
+// the server, so only what changed is sent. With ifMatch, only if the object
+// still has that ETag.
+func (c *ApiClient) PatchFileObject(ctx context.Context, bucket, key string, ranges []FileRange, size int64, ifMatch, contentType string, meta map[string]string) (*FileObjectInfo, error) {
+	hc, err := c.rawClient()
+	if err != nil {
+		return nil, err
+	}
+	var parts []io.Reader
+	var length int64
+	for _, rg := range ranges {
+		var hdr [16]byte
+		binary.BigEndian.PutUint64(hdr[:8], uint64(rg.Offset))
+		binary.BigEndian.PutUint64(hdr[8:], uint64(rg.Length))
+		parts = append(parts, bytes.NewReader(hdr[:]), io.LimitReader(rg.Data, rg.Length))
+		length += 16 + rg.Length
+	}
+	headers := map[string]string{
+		"Content-Type": FilePatchContentType,
+		FileSizeHeader: strconv.FormatInt(size, 10),
+	}
+	if contentType != "" {
+		headers["Content-Type"] = contentType
+	}
+	if ifMatch != "" {
+		headers["If-Match"] = `"` + ifMatch + `"`
+	}
+	for k, v := range meta {
+		headers[FileMetaHeaderPrefix+k] = v
+	}
+	resp, err := hc.DoRaw(ctx, http.MethodPatch, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), io.MultiReader(parts...), length, headers)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 	info := &FileObjectInfo{}
 	if err := rest.DecodeResponse(resp, info); err != nil {
 		return nil, err

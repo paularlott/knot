@@ -19,10 +19,10 @@ const (
 	FSInfoPropertyCanSetTime = 0x0010
 )
 
-// maxTransfer is the largest READ or WRITE offered, within maxRequest.
+// maxTransfer is the largest READ or WRITE offered.
 //
-// knot: upstream offered 1GB, which a request read whole (see conn.serve)
-// could not be allowed to be.
+// knot: upstream offers 1GB, though it refuses a request over 16MB
+// (maxRequestFragmentBytes); Linux takes 1MB at most anyway.
 const maxTransfer = 1 << 20
 
 func onFSInfo(ctx context.Context, w *response, userHandle Handler) error {

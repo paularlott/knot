@@ -61,6 +61,7 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 
 	newFile := append(path, string(obj.Filename))
 	newFilePath := fs.Join(newFile...)
+	exists := false
 	if s, err := fs.Stat(newFilePath); err == nil {
 		if s.IsDir() {
 			return &NFSStatusError{NFSStatusExist, nil}
@@ -68,6 +69,13 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 		if how == createModeGuarded {
 			return &NFSStatusError{NFSStatusExist, os.ErrPermission}
 		}
+		// knot: an UNCHECKED create of a file that exists opens it as it
+		// is, as Linux's server does: only a size given (an open with
+		// O_TRUNC) applies. Upstream created it again, emptying it, so an
+		// open with O_CREAT by a client without the file cached (dd
+		// conv=notrunc, >> in a shell) lost its content.
+		exists = true
+		attrs = &SetFileAttributes{SetSize: attrs.SetSize}
 	} else {
 		if s, err := fs.Stat(fs.Join(path...)); err != nil {
 			return &NFSStatusError{NFSStatusAccess, err}
@@ -76,14 +84,16 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 		}
 	}
 
-	file, err := fs.Create(newFilePath)
-	if err != nil {
-		Log.Errorf("Error Creating: %v", err)
-		return &NFSStatusError{statusFromError(err, NFSStatusAccess), err}
-	}
-	if err := file.Close(); err != nil {
-		Log.Errorf("Error Creating: %v", err)
-		return &NFSStatusError{NFSStatusAccess, err}
+	if !exists {
+		file, err := fs.Create(newFilePath)
+		if err != nil {
+			Log.Errorf("Error Creating: %v", err)
+			return &NFSStatusError{statusFromError(err, NFSStatusAccess), err}
+		}
+		if err := file.Close(); err != nil {
+			Log.Errorf("Error Creating: %v", err)
+			return &NFSStatusError{NFSStatusAccess, err}
+		}
 	}
 
 	fp := userHandle.ToHandle(fs, newFile)
@@ -105,7 +115,7 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 	if err := xdr.Write(writer, fp); err != nil {
 		return &NFSStatusError{NFSStatusServerFault, err}
 	}
-	if err := WritePostOpAttrs(writer, tryStat(fs, []string{file.Name()})); err != nil {
+	if err := WritePostOpAttrs(writer, tryStat(fs, newFile)); err != nil {
 		return &NFSStatusError{NFSStatusServerFault, err}
 	}
 

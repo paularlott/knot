@@ -1,11 +1,14 @@
 package nfsserver
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/paularlott/knot/internal/filestore"
@@ -79,8 +82,68 @@ func (b *storeBackend) DeleteBucket(_ context.Context, name string) error {
 }
 
 func toObject(o *filestore.Object) *Object {
-	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, ContentType: o.ContentType, ModifiedAt: o.ModifiedAt, Meta: o.Meta}
+	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, SHA256: o.SHA256, ContentType: o.ContentType, ModifiedAt: o.ModifiedAt, Meta: o.Meta}
 }
+
+// patches counts the patches made, so tests can tell a file was changed in
+// place rather than sent whole.
+var patches atomic.Int32
+
+func (b *storeBackend) Stat(_ context.Context, bucket, key string) (*Stat, error) {
+	key = strings.TrimSuffix(key, "/")
+	if key != "" {
+		if o, err := b.store.HeadObject(b.p, b.bucket(bucket), key); err == nil {
+			return &Stat{File: toObject(o)}, nil
+		} else if !errors.Is(err, filestore.ErrNoSuchKey) {
+			return nil, storeErr(err)
+		}
+	}
+	prefix := ""
+	if key != "" {
+		prefix = key + "/"
+	}
+	res, err := b.store.ListObjects(b.p, b.bucket(bucket), prefix, "", "", 1)
+	if err != nil {
+		return nil, storeErr(err)
+	}
+	if len(res.Objects) == 0 && key != "" {
+		return nil, os.ErrNotExist
+	}
+	st := &Stat{Folder: true}
+	if len(res.Objects) > 0 && res.Objects[0].Key == prefix && prefix != "" {
+		st.Marker = toObject(res.Objects[0])
+	}
+	return st, nil
+}
+
+func (b *storeBackend) Patch(ctx context.Context, bucket, key string, ranges []Range, size int64, ifMatch, contentType string, meta map[string]string) (*Object, error) {
+	patches.Add(1)
+	o, c, err := b.store.OpenObject(ctx, b.p, b.bucket(bucket), key)
+	if err != nil {
+		return nil, storeErr(err)
+	}
+	base, err := io.ReadAll(c)
+	c.Close()
+	if err != nil {
+		return nil, err
+	}
+	if ifMatch != "" && ifMatch != o.ETag {
+		return nil, errPrecondition
+	}
+	out := make([]byte, size)
+	copy(out, base)
+	for _, r := range ranges {
+		if _, err := io.ReadFull(r.Data, out[r.Offset:r.Offset+r.Length]); err != nil {
+			return nil, err
+		}
+	}
+	if contentType == "" {
+		contentType = o.ContentType
+	}
+	return b.Put(ctx, bucket, key, bytes.NewReader(out), size, contentType, meta)
+}
+
+func (b *storeBackend) Forget(string, string) {}
 
 func (b *storeBackend) Head(_ context.Context, bucket, key string) (*Object, error) {
 	o, err := b.store.HeadObject(b.p, b.bucket(bucket), key)
@@ -98,6 +161,14 @@ func (b *storeBackend) List(_ context.Context, bucket, prefix, delimiter, after 
 	out := &Listing{Prefixes: res.Prefixes, Truncated: res.IsTruncated, Next: res.Next}
 	for _, o := range res.Objects {
 		out.Objects = append(out.Objects, toObject(o))
+	}
+	for _, pfx := range res.Prefixes {
+		if m, err := b.store.HeadObject(b.p, b.bucket(bucket), pfx); err == nil {
+			if out.Markers == nil {
+				out.Markers = map[string]*Object{}
+			}
+			out.Markers[pfx] = toObject(m)
+		}
 	}
 	return out, nil
 }
@@ -126,9 +197,12 @@ func (b *storeBackend) Get(ctx context.Context, bucket, key string) (io.ReadClos
 	return c, toObject(o), nil
 }
 
-func (b *storeBackend) Put(_ context.Context, bucket, key string, r io.Reader, size int64, contentType string, meta map[string]string) error {
-	_, err := b.store.PutObject(b.p, b.bucket(bucket), key, r, filestore.PutOptions{Size: size, ContentType: contentType, Meta: meta, ModifiedBy: b.p.UserId})
-	return storeErr(err)
+func (b *storeBackend) Put(_ context.Context, bucket, key string, r io.Reader, size int64, contentType string, meta map[string]string) (*Object, error) {
+	o, err := b.store.PutObject(b.p, b.bucket(bucket), key, r, filestore.PutOptions{Size: size, ContentType: contentType, Meta: meta, ModifiedBy: b.p.UserId})
+	if err != nil {
+		return nil, storeErr(err)
+	}
+	return toObject(o), nil
 }
 
 func (b *storeBackend) Delete(_ context.Context, bucket, key string) error {
@@ -145,3 +219,5 @@ func (b *storeBackend) Move(_ context.Context, bucket, from, to string) error {
 	_, err := b.store.MoveObjects(b.p, b.bucket(bucket), from, to, true)
 	return storeErr(err)
 }
+
+func putOpts(size int64) filestore.PutOptions { return filestore.PutOptions{Size: size} }

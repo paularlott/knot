@@ -99,6 +99,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/files/changes/{bucket}", middleware.ApiAuth(api_utils.FileStorageAllowed(rest.Gzip(HandleListFileChanges))))
 	router.HandleFunc("GET /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleGetFileObject)))
 	router.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandlePutFileObject)))
+	router.HandleFunc("PATCH /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandlePatchFileObject)))
+	router.HandleFunc("GET /api/files/stat/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleStatFileObject)))
 	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleCopyFileObject)))
 	router.HandleFunc("POST /api/files/move", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleMoveFileObjects)))
 	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleDeleteFileObject)))

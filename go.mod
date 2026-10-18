@@ -36,7 +36,8 @@ require (
 	github.com/shamaton/msgpack/v3 v3.2.4
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valkey-io/valkey-go v1.0.79
-	github.com/willscott/go-nfs v0.0.4
+	github.com/willscott/go-nfs v0.0.5-0.20260926204150-6274d051a57f
+	github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.6
@@ -75,7 +76,6 @@ require (
 	github.com/shoenig/go-m1cpu v0.2.4 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
-	github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

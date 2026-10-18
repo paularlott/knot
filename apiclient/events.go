@@ -22,8 +22,20 @@ type Event struct {
 
 // FilesChangedPayload is the payload of a "files:changed" event: the ids of
 // the buckets that changed, none meaning any bucket.
+//
+// Changes names the files that changed in the buckets where they can be
+// named, with the writer that changed each when it said (SetWriter); a bucket
+// in BucketIds without changes here changed as a whole.
 type FilesChangedPayload struct {
-	BucketIds []string `json:"bucket_ids,omitempty" msgpack:"bucket_ids,omitempty"`
+	BucketIds []string      `json:"bucket_ids,omitempty" msgpack:"bucket_ids,omitempty"`
+	Changes   []FileChanged `json:"changes,omitempty" msgpack:"changes,omitempty"`
+}
+
+// FileChanged is a file named in a "files:changed" event.
+type FileChanged struct {
+	BucketId string `json:"bucket_id" msgpack:"bucket_id"`
+	Key      string `json:"key" msgpack:"key"`
+	Writer   string `json:"writer,omitempty" msgpack:"writer,omitempty"`
 }
 
 // ErrEventsRefused is returned by FollowEvents when the server refuses the

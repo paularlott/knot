@@ -39,6 +39,7 @@ func filesContext(w http.ResponseWriter, r *http.Request) (*filestore.Store, *mo
 		return nil, nil, nil, false
 	}
 	limitToSpace(p, api_utils.RequestSpace(r))
+	p.Writer = r.Header.Get(apiclient.FileWriterHeader)
 	return store, user, p, true
 }
 
@@ -540,6 +541,19 @@ func HandleListFileObjects(w http.ResponseWriter, r *http.Request) {
 	for _, o := range res.Objects {
 		list.Objects = append(list.Objects, objectResponse(o))
 	}
+	// With markers, each folder rolled up into a prefix comes with its
+	// marker, the object that keeps it when empty and holds its
+	// attributes, so a client need not ask for each.
+	if q.Get("markers") != "" {
+		for _, pfx := range res.Prefixes {
+			if o, err := store.HeadObject(p, filestore.ResolveName(p, r.PathValue("bucket")), pfx); err == nil {
+				if list.Markers == nil {
+					list.Markers = map[string]apiclient.FileObjectInfo{}
+				}
+				list.Markers[pfx] = objectResponse(o)
+			}
+		}
+	}
 	rest.WriteResponse(http.StatusOK, w, r, list)
 }
 
@@ -624,24 +638,7 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		Size:        r.ContentLength,
 		IfMatch:     r.Header.Get("If-Match"),
 		IfNoneMatch: r.Header.Get("If-None-Match") == "*",
-	}
-	for k, v := range r.Header {
-		if len(v) > 0 && len(k) > len(apiclient.FileMetaHeaderPrefix) && strings.EqualFold(k[:len(apiclient.FileMetaHeaderPrefix)], apiclient.FileMetaHeaderPrefix) {
-			if opts.Meta == nil {
-				opts.Meta = map[string]string{}
-			}
-			opts.Meta[strings.ToLower(k[len(apiclient.FileMetaHeaderPrefix):])] = v[0]
-		}
-	}
-	if mtime := r.Header.Get(apiclient.FileMtimeHeader); mtime != "" {
-		// Kept as metadata, as S3 clients do, so Last-Modified stays the
-		// upload time and rclone sees the same modification time.
-		if t, ok := apiclient.ParseMtime(mtime); ok {
-			if opts.Meta == nil {
-				opts.Meta = map[string]string{}
-			}
-			opts.Meta["mtime"] = apiclient.FormatMtime(t)
-		}
+		Meta:        metaFromRequest(r),
 	}
 
 	var o *filestore.Object

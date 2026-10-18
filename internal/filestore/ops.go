@@ -585,6 +585,7 @@ func (s *Store) commitContent(p *Principal, bucket, key string, st *staged, etag
 	}
 
 	o := s.newObjectLocked(b, key, sha, etag, st.size, opts)
+	o.Writer = p.Writer
 	changed, err := s.applyObjects([]objectOp{{
 		obj: o,
 		pre: func(txn *badger.Txn, cur *Object) error {
@@ -691,6 +692,7 @@ func (s *Store) CopyObjectIf(p *Principal, srcBucket, srcKey, dstBucket, dstKey 
 	defer release()
 
 	o := src.clone()
+	o.Writer = p.Writer
 	o.BucketId = b.Id
 	o.Key = dstKey
 	o.UpdatedAt = hlc.Now()
@@ -832,6 +834,7 @@ func (s *Store) DeleteObjectIf(p *Principal, bucket, key, ifMatch string) error 
 		SourceNode: s.nodeId,
 		UpdatedAt:  hlc.Now(),
 		IsDeleted:  true,
+		Writer:     p.Writer,
 	}
 	changed, err := s.applyObjects([]objectOp{{
 		obj: o,

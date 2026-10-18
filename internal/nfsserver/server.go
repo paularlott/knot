@@ -35,9 +35,19 @@ type Config struct {
 	MaxDirtyAge time.Duration // and at the latest this long after it changed
 	StagingDir  string        // where written files wait to be saved; a temp dir when empty
 	Uid, Gid    uint32        // owner of files with none stored
+
+	// CacheDir keeps files read and written on local disk, up to CacheSize
+	// bytes, so they need not be fetched again; none when empty.
+	CacheDir  string
+	CacheSize int64
+
+	// Writer is the name this server's backend gives the changes it makes
+	// (apiclient.ApiClient.SetWriter), so it can pass over its own.
+	Writer string
 }
 
 type Server struct {
+	fs       *storeFS
 	listener net.Listener
 	staging  *staging
 	ownDir   string
@@ -58,6 +68,19 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 	}
 
 	srv := &Server{done: make(chan struct{})}
+	var cache *diskCache
+	if cfg.CacheDir != "" {
+		if cfg.CacheSize <= 0 {
+			cfg.CacheSize = 1 << 30
+		}
+		if cache, err = openDiskCache(cfg.CacheDir, cfg.CacheSize); err != nil {
+			return nil, fmt.Errorf("nfs cache: %w", err)
+		}
+		// Staged files go beside the cache, which takes them once saved.
+		// What a previous run left there was never committed.
+		cfg.StagingDir = cache.stagingDir()
+		os.RemoveAll(cfg.StagingDir)
+	}
 	dir := cfg.StagingDir
 	if dir == "" {
 		if dir, err = os.MkdirTemp("", "knot-nfs-"); err != nil {
@@ -70,6 +93,9 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 
 	fsys := newStoreFS(backend)
 	fsys.uid, fsys.gid = cfg.Uid, cfg.Gid
+	fsys.cache = cache
+	fsys.writer = cfg.Writer
+	srv.fs = fsys
 	fsys.staging = newStaging(fsys, dir, cfg.FlushDelay, cfg.MaxDirtyAge)
 	srv.staging = fsys.staging
 
@@ -83,13 +109,32 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 	h := newHandler(fsys)
 	go func() {
 		defer close(srv.done)
-		err := nfs.Serve(srv.listener, h)
+		ns := &nfs.Server{
+			Handler: h,
+			// Clients read ahead and write behind with many requests at
+			// once on one connection; each is a round trip to the knot
+			// server, so they are handled together.
+			ConcurrentHandlers: 32,
+			// NFSv3 only: go-nfs's NFSv4 has not had the fixes its v3 has
+			// here (see third_party/go-nfs/README.knot.md).
+			EnabledNFSVersions: []uint32{3},
+		}
+		err := ns.Serve(srv.listener)
 		if err != nil && !errors.Is(err, net.ErrClosed) {
 			log.WithGroup("nfs").Error("nfs server stopped", "error", err)
 		}
 	}()
 	return srv, nil
 }
+
+// Live says whether the knot server is telling of file changes through
+// Changed; while it is, what is known of files is kept for longer.
+func (s *Server) Live(live bool) { s.fs.Live(live) }
+
+// Changed tells of changes to the buckets with these ids, made through this
+// server or anywhere else, naming the files where it can; no buckets means
+// any bucket.
+func (s *Server) Changed(bucketIds []string, files []FileChanged) { s.fs.Changed(bucketIds, files) }
 
 // Addr is the address the server listens on.
 func (s *Server) Addr() net.Addr { return s.listener.Addr() }

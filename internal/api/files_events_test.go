@@ -65,7 +65,7 @@ func TestNotifyFilesChangedPerUser(t *testing.T) {
 		drain(c)
 	}
 
-	NotifyFilesChanged([]string{mine.Id, shared.Id})
+	NotifyFilesChanged([]filestore.BucketChanges{{BucketId: mine.Id}, {BucketId: shared.Id}})
 	if ids := got(alice); len(ids) != 2 {
 		t.Errorf("alice heard of %v", ids)
 	}
@@ -80,7 +80,7 @@ func TestNotifyFilesChangedPerUser(t *testing.T) {
 	if _, err := store.RemoveGrant(pa, "scriptalice--shared", filestore.GrantUser, "fs-bob"); err != nil {
 		t.Fatal(err)
 	}
-	NotifyFilesChanged([]string{shared.Id})
+	NotifyFilesChanged([]filestore.BucketChanges{{BucketId: shared.Id}})
 	if ids := got(bob); len(ids) != 1 {
 		t.Errorf("bob not told of the unshare: %v", ids)
 	}

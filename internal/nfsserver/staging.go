@@ -14,16 +14,24 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
-// File storage only takes whole files, but NFS writes a file a piece at a
-// time, so writes go to a local copy of the file, answered as not yet stable.
-// The copy is saved as the file when the client commits it, which clients do
-// when the file is closed or synced; a client that never commits has it saved
-// once writes stop for flushDelay, or at the latest maxDirtyAge after it first
-// changed. Until then reads, listings and attributes come from the copy.
+// NFS writes a file a piece at a time, so writes go to a local copy of the
+// file, answered as not yet stable. The copy is saved as the file when the
+// client commits it, which clients do when the file is closed or synced; a
+// client that never commits has it saved once writes stop for flushDelay, or
+// at the latest maxDirtyAge after it first changed. Until then reads,
+// listings and attributes come from the copy.
+//
+// A small file's copy is the whole file, and is saved whole. A file larger
+// than sparseMin is changed in place: its copy holds only what was written,
+// the rest is read from the saved file, and saving sends only what was
+// written, so a change to a large file costs what the change does.
 
 // flushRetries is how many times saving a file is attempted before its
 // writes are dropped.
 const flushRetries = 5
+
+// sparseMin is the size above which a file is changed in place.
+const sparseMin = 8 << 20
 
 type staging struct {
 	fs          *storeFS
@@ -46,6 +54,9 @@ type dirtyFile struct {
 	mu          sync.Mutex
 	f           *os.File
 	size        int64
+	base        *Object // the saved file the copy was made from, nil for a new one
+	sparse      bool    // the copy holds only the spans written, see sparseMin
+	written     spans   // what was written, for a sparse copy
 	mtime       time.Time
 	contentType string
 	meta        map[string]string
@@ -142,11 +153,25 @@ func (e *dirtyFile) load(load loadMode) error {
 		}
 		return nil
 	}
-	c, o, err := e.s.fs.backend.Get(ctx(), e.bucket, e.key)
+	o, err := e.s.fs.backend.Head(ctx(), e.bucket, e.key)
 	if errors.Is(err, os.ErrNotExist) {
 		e.meta[metaIno] = newIno()
 		return nil
 	} else if err != nil {
+		return err
+	}
+	e.base = o
+	e.keepAttrs(o)
+	if o.Size > sparseMin {
+		e.sparse, e.size = true, o.Size
+		return nil
+	}
+
+	// A small file is copied whole: from the cache when it is there.
+	var c io.ReadCloser
+	if cf := e.s.fs.cache.open(o.SHA256); cf != nil {
+		c = cf
+	} else if c, o, err = e.s.fs.backend.Get(ctx(), e.bucket, e.key); err != nil {
 		return err
 	}
 	defer c.Close()
@@ -155,7 +180,7 @@ func (e *dirtyFile) load(load loadMode) error {
 		return err
 	}
 	e.size = n
-	e.keepAttrs(o)
+	e.base = o
 	return nil
 }
 
@@ -188,16 +213,49 @@ func (e *dirtyFile) readAt(b []byte, off int64) (n int, err error, ok bool) {
 	if off >= e.size {
 		return 0, io.EOF, true
 	}
-	if max := e.size - off; int64(len(b)) > max {
-		b = b[:max]
-		n, err = e.f.ReadAt(b, off)
-		if err == nil {
-			err = io.EOF
-		}
-		return n, err, true
+	end := false
+	if max := e.size - off; int64(len(b)) >= max {
+		b, end = b[:max], true
 	}
-	n, err = e.f.ReadAt(b, off)
+	if e.sparse {
+		n, err = e.readSparse(b, off)
+	} else {
+		n, err = e.f.ReadAt(b, off)
+	}
+	if end && (err == nil || errors.Is(err, io.EOF)) {
+		err = io.EOF
+	}
 	return n, err, true
+}
+
+// readSparse reads a sparse copy: what was written from the copy, the rest
+// from the saved file, and zeros past its end; e.mu is held.
+func (e *dirtyFile) readSparse(b []byte, off int64) (int, error) {
+	n := 0
+	for n < len(b) {
+		pos := off + int64(n)
+		inside, until := e.written.at(pos)
+		chunk := min(int64(len(b)-n), until-pos)
+		switch {
+		case inside:
+			if _, err := e.f.ReadAt(b[n:n+int(chunk)], pos); err != nil && !errors.Is(err, io.EOF) {
+				return n, err
+			}
+		case pos < e.base.Size:
+			chunk = min(chunk, e.base.Size-pos)
+			got, err := e.s.fs.readSaved(e.bucket, e.key, e.base.SHA256, e.base.Size, b[n:n+int(chunk)], pos)
+			if err != nil && !errors.Is(err, io.EOF) {
+				return n, err
+			}
+			if int64(got) < chunk {
+				clear(b[n+got : n+int(chunk)])
+			}
+		default:
+			clear(b[n : n+int(chunk)])
+		}
+		n += int(chunk)
+	}
+	return n, nil
 }
 
 // writeAt writes to the staged copy; e.mu is held.
@@ -205,6 +263,9 @@ func (e *dirtyFile) writeAt(b []byte, off int64) (int, error) {
 	n, err := e.f.WriteAt(b, off)
 	if end := off + int64(n); end > e.size {
 		e.size = end
+	}
+	if e.sparse {
+		e.written.add(off, off+int64(n))
 	}
 	e.modified()
 	return n, err
@@ -214,6 +275,13 @@ func (e *dirtyFile) writeAt(b []byte, off int64) (int, error) {
 func (e *dirtyFile) truncate(size int64) error {
 	if err := e.f.Truncate(size); err != nil {
 		return err
+	}
+	if e.sparse {
+		e.written.trim(size)
+		// Grown back over what was cut: zeros now, not the saved bytes.
+		if size > e.size && e.size < e.base.Size {
+			e.written.add(e.size, min(size, e.base.Size))
+		}
 	}
 	e.size = size
 	e.modified()
@@ -291,10 +359,46 @@ func (s *staging) flush(e *dirtyFile) error {
 	return err
 }
 
-// save writes the staged copy to file storage; e.mu is held.
+// save writes the staged copy to file storage: a sparse copy as a patch of
+// what was written, any other whole; e.mu is held.
 func (e *dirtyFile) save() error {
-	err := e.s.fs.backend.Put(ctx(), e.bucket, e.key, io.NewSectionReader(e.f, 0, e.size), e.size, e.contentType, e.meta)
-	e.s.fs.forget(e.bucket, e.key, false)
+	// The file as saved is what the server answers: kept, so the lookups
+	// that follow a save need not ask again.
+	var saved *Object
+	defer func() {
+		e.s.fs.forget(e.bucket, e.key, false)
+		if saved != nil {
+			e.s.fs.remember(e.bucket, e.key, objectInfo(path.Base(e.key), e.bucket, saved))
+		}
+	}()
+	if e.sparse {
+		patch := func(ifMatch string) error {
+			ranges := make([]Range, 0, len(e.written))
+			for _, sp := range e.written {
+				ranges = append(ranges, Range{Offset: sp.off, Length: sp.end - sp.off, Data: io.NewSectionReader(e.f, sp.off, sp.end-sp.off)})
+			}
+			o, err := e.s.fs.backend.Patch(ctx(), e.bucket, e.key, ranges, e.size, ifMatch, e.contentType, e.meta)
+			saved = o
+			return err
+		}
+		err := patch(e.base.ETag)
+		if errors.Is(err, errPrecondition) {
+			// Changed elsewhere since: what was written here goes over
+			// that, rather than being lost.
+			log.WithGroup("nfs").Info("file changed while being written, applying the writes over the newer version", "bucket", e.bucket, "key", e.key)
+			err = patch("")
+		}
+		return err
+	}
+
+	o, err := e.s.fs.backend.Put(ctx(), e.bucket, e.key, io.NewSectionReader(e.f, 0, e.size), e.size, e.contentType, e.meta)
+	saved = o
+	if err == nil && e.s.fs.cache.keeps(e.size) {
+		// The copy is the file now saved: keep it.
+		e.f.Close()
+		e.s.fs.cache.adopt(e.f.Name(), o.SHA256, e.size)
+		e.f = nil
+	}
 	return err
 }
 

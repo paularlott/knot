@@ -50,6 +50,10 @@ const (
 	// looks up its file handle, so without it each would cost a request to
 	// the server; NFS clients cache attributes for longer than this anyway.
 	statTTL = 2 * time.Second
+
+	// liveStatTTL is how long while the server tells of changes (see
+	// storeFS.Changed), which make a description stale at once.
+	liveStatTTL = time.Minute
 )
 
 // storeFS presents file storage as one filesystem: the top level holds the
@@ -67,9 +71,17 @@ type storeFS struct {
 	// may.
 	uid, gid uint32
 
-	mu      sync.Mutex
-	stats   map[string]cachedStat // by statKey
-	buckets map[string]cachedBucket
+	cache *diskCache // nil for none
+
+	// writer names this server in the changes it makes (Config.Writer),
+	// so it can pass over its own in change events.
+	writer string
+
+	mu        sync.Mutex
+	stats     map[string]cachedStat // by statKey
+	buckets   map[string]cachedBucket
+	bucketIds map[string]string // bucket names by id, for change events
+	live      bool              // the server tells of changes
 }
 
 // cachedStat is a lookup's result: a description, or nil for nothing there.
@@ -84,7 +96,7 @@ type cachedBucket struct {
 }
 
 func newStoreFS(backend Backend) *storeFS {
-	return &storeFS{backend: backend, stats: map[string]cachedStat{}, buckets: map[string]cachedBucket{}}
+	return &storeFS{backend: backend, stats: map[string]cachedStat{}, buckets: map[string]cachedBucket{}, bucketIds: map[string]string{}}
 }
 
 var (
@@ -109,7 +121,7 @@ func statKey(bucket, key string) string { return bucket + "/" + key }
 func (fs *storeFS) cached(bucket, key string) (fi *fileInfo, ok bool) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	if c, found := fs.stats[statKey(bucket, key)]; found && time.Since(c.at) < statTTL {
+	if c, found := fs.stats[statKey(bucket, key)]; found && time.Since(c.at) < fs.ttlLocked() {
 		return c.fi, true
 	}
 	return nil, false
@@ -163,7 +175,7 @@ func (fs *storeFS) bucket(name string) (*Bucket, error) {
 	fs.mu.Lock()
 	c, ok := fs.buckets[name]
 	fs.mu.Unlock()
-	if ok && time.Since(c.at) < 5*statTTL {
+	if ok && time.Since(c.at) < 5*fs.ttl() {
 		return c.b, nil
 	}
 	b, err := fs.backend.Bucket(ctx(), name)
@@ -172,8 +184,119 @@ func (fs *storeFS) bucket(name string) (*Bucket, error) {
 	}
 	fs.mu.Lock()
 	fs.buckets[name] = cachedBucket{b: b, at: time.Now()}
+	fs.bucketIds[b.Id] = name
 	fs.mu.Unlock()
 	return b, nil
+}
+
+func (fs *storeFS) ttl() time.Duration {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.ttlLocked()
+}
+
+func (fs *storeFS) ttlLocked() time.Duration {
+	if fs.live {
+		return liveStatTTL
+	}
+	return statTTL
+}
+
+// Live says whether the server is telling of changes, through Changed. A
+// description is kept longer while it is, and everything kept is dropped
+// when it starts, as changes may have been missed.
+func (fs *storeFS) Live(live bool) {
+	fs.mu.Lock()
+	fs.live = live
+	fs.mu.Unlock()
+	if live {
+		fs.Changed(nil, nil)
+	}
+}
+
+// Changed drops what is kept of the buckets with these ids, which have
+// changed; none means any bucket may have.
+//
+// Where files names the files that changed in a bucket, only they are
+// dropped, and those changed by this server itself (writer) are passed
+// over: it changed what it keeps as it made them. A bucket without files
+// named changed as a whole.
+func (fs *storeFS) Changed(bucketIds []string, files []FileChanged) {
+	named := map[string][]FileChanged{}
+	for _, f := range files {
+		named[f.BucketId] = append(named[f.BucketId], f)
+	}
+
+	fs.mu.Lock()
+	all := len(bucketIds) == 0
+	var whole []string
+	for _, id := range bucketIds {
+		if _, ok := fs.bucketIds[id]; !ok {
+			// A bucket not yet seen by id may still have files kept.
+			all = true
+			break
+		}
+		if len(named[id]) == 0 {
+			whole = append(whole, fs.bucketIds[id])
+		}
+	}
+	if all {
+		clear(fs.stats)
+		clear(fs.buckets)
+	}
+	names := make(map[string]string, len(named))
+	for id := range named {
+		names[id] = fs.bucketIds[id]
+	}
+	fs.mu.Unlock()
+	if all {
+		fs.backend.Forget("", "")
+		return
+	}
+
+	for _, name := range whole {
+		fs.forget(name, "", true)
+		fs.backend.Forget(name, "")
+	}
+	for id, fl := range named {
+		name := names[id]
+		if name == "" {
+			continue
+		}
+		for _, f := range fl {
+			if fs.writer != "" && f.Writer == fs.writer {
+				continue
+			}
+			fs.forgetChanged(name, f.Key)
+			fs.backend.Forget(name, f.Key)
+		}
+	}
+}
+
+// forgetChanged drops what is kept of a file changed elsewhere: the file,
+// every folder above it, which a change there can make or unmake, and for a
+// folder's marker, what is below it.
+func (fs *storeFS) forgetChanged(bucket, key string) {
+	folder := strings.HasSuffix(key, "/")
+	key = strings.TrimSuffix(key, "/")
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	delete(fs.stats, statKey(bucket, key))
+	for k := key; k != ""; {
+		k = path.Dir(k)
+		if k == "." {
+			k = ""
+		}
+		delete(fs.stats, statKey(bucket, k))
+	}
+	if folder {
+		prefix := statKey(bucket, key) + "/"
+		for k := range fs.stats {
+			if strings.HasPrefix(k, prefix) {
+				delete(fs.stats, k)
+			}
+		}
+	}
 }
 
 func pathErr(op, name string, err error) error {
@@ -191,6 +314,7 @@ type fileInfo struct {
 	mtime time.Time
 	id    uint64 // the inode number reported
 	ino   uint64 // the stored inode number, 0 when there is none
+	sha   string // a file's content, as sha256 hex, when saved
 	uid   uint32
 	gid   uint32
 	// owned says uid and gid were stored; otherwise they are the default
@@ -326,6 +450,7 @@ func objectInfo(name, bucket string, o *Object) *fileInfo {
 		mode:  modeFrom(o.Meta),
 		mtime: mtimeFrom(o.Meta, o.ModifiedAt),
 		id:    fileId(bucket, o.Key),
+		sha:   o.SHA256,
 	}).withMeta(o.Meta)
 }
 
@@ -371,36 +496,20 @@ func (fs *storeFS) stat(bucket, key, base string) (*fileInfo, error) {
 		}
 		return dirInfo(base, bucket, "", b.CreatedAt), nil
 	}
-	// A file or a folder: ask both at once, as each is a round trip to
-	// the server.
-	type dirResult struct {
-		ok     bool
-		marker *Object
-		err    error
+	st, err := fs.backend.Stat(ctx(), bucket, key)
+	if errors.Is(err, os.ErrNotExist) && fs.staging.hasUnder(bucket, key+"/") {
+		// A folder holding only files not yet saved.
+		return dirInfo(base, bucket, key+"/", started), nil
 	}
-	dirCh := make(chan dirResult, 1)
-	go func() {
-		ok, marker, err := fs.isDir(bucket, key)
-		dirCh <- dirResult{ok, marker, err}
-	}()
-	o, err := fs.backend.Head(ctx(), bucket, key)
-	if err == nil {
-		return objectInfo(base, bucket, o), nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	d := <-dirCh
-	ok, marker, err := d.ok, d.marker, d.err
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		return nil, os.ErrNotExist
+	if st.File != nil {
+		return objectInfo(base, bucket, st.File), nil
 	}
 	fi := dirInfo(base, bucket, key+"/", started)
-	if marker != nil {
-		fi.withMarker(marker)
+	if st.Marker != nil {
+		fi.withMarker(st.Marker)
 	}
 	return fi, nil
 }
@@ -409,17 +518,35 @@ func (fs *storeFS) stat(bucket, key, base string) (*fileInfo, error) {
 // which it returns, or any file below it, saved or staged. The marker's key
 // is the folder's prefix itself, so a listing of the prefix starts with it.
 func (fs *storeFS) isDir(bucket, key string) (bool, *Object, error) {
-	res, err := fs.backend.List(ctx(), bucket, key+"/", "", "", 1)
+	st, err := fs.backend.Stat(ctx(), bucket, key+"/")
+	if errors.Is(err, os.ErrNotExist) {
+		return fs.staging.hasUnder(bucket, key+"/"), nil, nil
+	}
 	if err != nil {
 		return false, nil, err
 	}
-	if len(res.Objects) > 0 {
-		if o := res.Objects[0]; o.Key == key+"/" {
-			return true, o, nil
+	return st.Folder, st.Marker, nil
+}
+
+// readSaved reads part of a saved file whose content is sha: from the disk
+// cache when it holds it, else from the server, filling the cache meanwhile
+// so the next read need not.
+func (fs *storeFS) readSaved(bucket, key, sha string, size int64, b []byte, off int64) (int, error) {
+	if f := fs.cache.open(sha); f != nil {
+		defer f.Close()
+		n, err := f.ReadAt(b, off)
+		if err == nil && off+int64(n) >= size {
+			err = io.EOF
 		}
-		return true, nil, nil
+		return n, err
 	}
-	return fs.staging.hasUnder(bucket, key+"/"), nil, nil
+	if fs.cache.keeps(size) && sha != "" {
+		go fs.cache.fill(sha, size, func() (io.ReadCloser, error) {
+			r, _, err := fs.backend.Get(ctx(), bucket, key)
+			return r, err
+		})
+	}
+	return fs.backend.ReadAt(ctx(), bucket, key, b, off)
 }
 
 func (fs *storeFS) Lstat(name string) (os.FileInfo, error) { return fs.Stat(name) }
@@ -433,6 +560,11 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 			return nil, pathErr("readdir", name, err)
 		}
 		out := make([]os.FileInfo, 0, len(buckets))
+		fs.mu.Lock()
+		for _, b := range buckets {
+			fs.bucketIds[b.Id] = b.Name
+		}
+		fs.mu.Unlock()
 		for _, b := range buckets {
 			out = append(out, fs.view(dirInfo(b.Name, b.Name, "", b.CreatedAt), b.Name))
 		}
@@ -445,7 +577,6 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 		prefix = key + "/"
 	}
 	entries := map[string]os.FileInfo{}
-	var folders []string
 	after := ""
 	for {
 		res, err := fs.backend.List(ctx(), bucket, prefix, "/", after, 1000)
@@ -470,9 +601,14 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 			if n == "" {
 				continue
 			}
-			// A folder wins over a file of the same name.
-			entries[n] = dirInfo(n, bucket, pfx, started)
-			folders = append(folders, n)
+			// A folder wins over a file of the same name, with the
+			// attributes on its marker.
+			fi := dirInfo(n, bucket, pfx, started)
+			if m := res.Markers[pfx]; m != nil {
+				fi.withMarker(m)
+				fs.remember(bucket, strings.TrimSuffix(pfx, "/"), fi)
+			}
+			entries[n] = fi
 		}
 		if !res.Truncated {
 			break
@@ -480,26 +616,6 @@ func (fs *storeFS) ReadDir(name string) ([]os.FileInfo, error) {
 		after = res.Next
 	}
 
-	// A folder's attributes are on its marker, which a listing rolls up
-	// into the folder's name: look each up, as clients take attributes
-	// from the listing.
-	var wg sync.WaitGroup
-	var emu sync.Mutex
-	sem := make(chan struct{}, 8)
-	for _, n := range folders {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(n string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			if fi, err := fs.Stat(path.Join(name, n)); err == nil && fi.IsDir() {
-				emu.Lock()
-				entries[n] = fi
-				emu.Unlock()
-			}
-		}(n)
-	}
-	wg.Wait()
 	if prefix != "" && len(entries) == 0 {
 		// Not listing anything: make sure the folder exists at all.
 		if _, err := fs.Stat(name); err != nil {
@@ -731,7 +847,7 @@ func (fs *storeFS) MkdirAll(name string, perm os.FileMode) error {
 		// A new top level folder is a new bucket of the user's own.
 		return pathErr("mkdir", name, fs.backend.CreateBucket(ctx(), bucket))
 	}
-	err := fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: newIno()})
+	_, err := fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: newIno()})
 	return pathErr("mkdir", name, err)
 }
 
@@ -762,7 +878,7 @@ func (fs *storeFS) Symlink(target, link string) error {
 		return pathErr("symlink", link, os.ErrExist)
 	}
 	defer fs.forget(bucket, key, false)
-	err := fs.backend.Put(ctx(), bucket, key, strings.NewReader(target), int64(len(target)), "",
+	_, err := fs.backend.Put(ctx(), bucket, key, strings.NewReader(target), int64(len(target)), "",
 		map[string]string{metaMode: stMode(os.ModeSymlink | 0777), metaIno: newIno()})
 	return pathErr("symlink", link, err)
 }
@@ -860,7 +976,8 @@ func (fs *storeFS) setMeta(name string, kv map[string]string) error {
 			for k, v := range kv {
 				meta[k] = v
 			}
-			return pathErr("chattr", name, fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", meta))
+			_, err := fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", meta)
+			return pathErr("chattr", name, err)
 		}
 		key, o, err = key+"/", marker, nil
 	}
@@ -905,7 +1022,11 @@ func (f *file) ReadAt(b []byte, off int64) (int, error) {
 			return n, err
 		}
 	}
-	n, err := f.fs.backend.ReadAt(ctx(), f.bucket, f.key, b, off)
+	sha, size := "", int64(-1)
+	if fi, err := f.fs.Stat(f.name); err == nil {
+		sha, size = fi.(*fileInfo).sha, fi.Size()
+	}
+	n, err := f.fs.readSaved(f.bucket, f.key, sha, size, b, off)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return n, pathErr("read", f.name, err)
 	}

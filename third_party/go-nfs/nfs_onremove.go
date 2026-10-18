@@ -10,6 +10,10 @@ import (
 )
 
 func onRemove(ctx context.Context, w *response, userHandle Handler) error {
+	return onRemoveObj(ctx, w, userHandle, false)
+}
+
+func onRemoveObj(ctx context.Context, w *response, userHandle Handler, directory bool) error {
 	w.errorFmt = wccDataErrorFormatter
 	obj := DirOpArg{}
 	if err := xdr.Read(w.req.Body, &obj); err != nil {
@@ -45,10 +49,41 @@ func onRemove(ctx context.Context, w *response, userHandle Handler) error {
 	preCacheData := ToFileAttribute(dirInfo, fullPath).AsCache()
 
 	toDelete := fs.Join(append(path, string(obj.Filename))...)
+	toRemoveStat, err := fs.Stat(toDelete)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &NFSStatusError{NFSStatusNoEnt, err}
+		}
+		if os.IsPermission(err) {
+			return &NFSStatusError{NFSStatusAccess, err}
+		}
+		return &NFSStatusError{NFSStatusIO, err}
+
+	}
+
+	if directory && !toRemoveStat.IsDir() {
+		return &NFSStatusError{NFSStatusNotDir, nil}
+	} else if !directory && toRemoveStat.IsDir() {
+		return &NFSStatusError{NFSStatusIsDir, nil}
+	}
+
+	if directory {
+		contents, err := fs.ReadDir(toDelete)
+		if err != nil {
+			if os.IsPermission(err) {
+				return &NFSStatusError{NFSStatusAccess, err}
+			}
+			return &NFSStatusError{NFSStatusIO, err}
+		}
+		if len(contents) > 0 {
+			return &NFSStatusError{NFSStatusNotEmpty, nil}
+		}
+	}
 	toDeleteHandle := userHandle.ToHandle(fs, append(path, string(obj.Filename)))
 
 	err = fs.Remove(toDelete)
 	if err != nil {
+		// knot: e.g. a folder found not empty only now, not IO.
 		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 

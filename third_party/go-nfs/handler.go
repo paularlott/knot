@@ -38,7 +38,7 @@ type Handler interface {
 // UNSTABLE, and Commit is called on COMMIT, or before answering a write sent
 // FILE_SYNC or DATA_SYNC. Without it, every write is answered as stable.
 //
-// knot: added; upstream answered every write FILE_SYNC and COMMIT did nothing.
+// knot: added; upstream answers every write FILE_SYNC and COMMIT does nothing.
 type Committer interface {
 	Commit(path string) error
 }

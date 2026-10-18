@@ -111,6 +111,11 @@ type Object struct {
 	SourceNode  string            `json:"source_node,omitempty" msgpack:"source_node"`
 	UpdatedAt   hlc.Timestamp     `json:"updated_at" msgpack:"updated_at"`
 	IsDeleted   bool              `json:"is_deleted" msgpack:"is_deleted"`
+
+	// Writer is the client that made this change here, from
+	// Principal.Writer, so a change report can say who made it. It is
+	// never stored or replicated: a change from another server has none.
+	Writer string `json:"-" msgpack:"-"`
 }
 
 // Principal is the identity a request acts as. Every user can reach the
@@ -124,6 +129,11 @@ type Principal struct {
 	CanShare    bool // holds the share-buckets permission
 	CanTransfer bool // holds the transfer-buckets permission
 	IsAdmin     bool // holds the manage-files permission
+
+	// Writer, when set, names the client acting, for change reports (see
+	// Object.Writer): a client that caches what it has seen can then pass
+	// over its own changes.
+	Writer string
 
 	// Limit caps the access to each bucket, by bucket id, for a request
 	// from a restricted space: AccessNone hides the bucket and AccessRead

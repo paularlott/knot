@@ -29,19 +29,51 @@ type Backend interface {
 	DeleteBucket(ctx context.Context, name string) error
 
 	Head(ctx context.Context, bucket, key string) (*Object, error)
+	// Stat says what a path is in one request: a file, or a folder, with
+	// its marker (the object keeping an empty folder) when it has one. A
+	// path that is neither is os.ErrNotExist.
+	Stat(ctx context.Context, bucket, key string) (*Stat, error)
+	// List lists a folder; with a delimiter, Listing.Markers holds the
+	// markers of the folders rolled up into Prefixes.
 	List(ctx context.Context, bucket, prefix, delimiter, after string, max int) (*Listing, error)
 	// ReadAt reads part of a file, returning io.EOF with what there is at
 	// its end.
 	ReadAt(ctx context.Context, bucket, key string, p []byte, off int64) (int, error)
 	// Get reads a whole file.
 	Get(ctx context.Context, bucket, key string) (io.ReadCloser, *Object, error)
-	Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string, meta map[string]string) error
+	Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string, meta map[string]string) (*Object, error)
+	// Patch changes part of a file, sending only the ranges: they are
+	// written over it, in order and not overlapping, and it is cut or
+	// zero-filled to size. With ifMatch, only if it still has that ETag.
+	Patch(ctx context.Context, bucket, key string, ranges []Range, size int64, ifMatch, contentType string, meta map[string]string) (*Object, error)
 	Delete(ctx context.Context, bucket, key string) error
 	// SetMeta replaces a file's metadata, if it still has the ETag ifMatch.
 	SetMeta(ctx context.Context, bucket, key string, meta map[string]string, ifMatch string) error
 	// Move renames a file, or a folder and everything under it, replacing
 	// what is at the destination.
 	Move(ctx context.Context, bucket, from, to string) error
+	// Forget drops anything kept of a file changed elsewhere; an empty key
+	// means every file in the bucket, and an empty bucket every bucket.
+	Forget(bucket, key string)
+}
+
+// FileChanged is a file named in a change event, and the writer that
+// changed it, when it said.
+type FileChanged struct {
+	BucketId, Key, Writer string
+}
+
+// Range is part of a file to write.
+type Range struct {
+	Offset, Length int64
+	Data           io.Reader
+}
+
+// Stat is what a path is.
+type Stat struct {
+	File   *Object
+	Folder bool
+	Marker *Object
 }
 
 type Bucket struct {
@@ -55,6 +87,7 @@ type Object struct {
 	Key         string
 	Size        int64
 	ETag        string
+	SHA256      string
 	ContentType string
 	ModifiedAt  time.Time
 	Meta        map[string]string
@@ -63,6 +96,7 @@ type Object struct {
 type Listing struct {
 	Objects   []*Object
 	Prefixes  []string
+	Markers   map[string]*Object // by prefix
 	Truncated bool
 	Next      string
 }
@@ -151,7 +185,7 @@ func bucketFrom(b *apiclient.FileBucketInfo) *Bucket {
 }
 
 func objectFrom(o *apiclient.FileObjectInfo) *Object {
-	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, ContentType: o.ContentType, ModifiedAt: o.ModifiedAt, Meta: o.Meta}
+	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, SHA256: o.SHA256, ContentType: o.ContentType, ModifiedAt: o.ModifiedAt, Meta: o.Meta}
 }
 
 func (b *apiBackend) Buckets(ctx context.Context) ([]Bucket, error) {
@@ -191,14 +225,39 @@ func (b *apiBackend) Head(ctx context.Context, bucket, key string) (*Object, err
 	return objectFrom(o), nil
 }
 
+func (b *apiBackend) Stat(ctx context.Context, bucket, key string) (*Stat, error) {
+	st, err := b.client.StatFileObject(ctx, bucket, key)
+	if err != nil {
+		return nil, apiErr(err)
+	}
+	out := &Stat{Folder: st.Folder}
+	if st.File != nil {
+		out.File = objectFrom(st.File)
+	}
+	if st.Marker != nil {
+		out.Marker = objectFrom(st.Marker)
+	}
+	return out, nil
+}
+
 func (b *apiBackend) List(ctx context.Context, bucket, prefix, delimiter, after string, max int) (*Listing, error) {
-	res, err := b.client.ListFileObjects(ctx, bucket, prefix, delimiter, after, max)
+	list := b.client.ListFileObjects
+	if delimiter != "" {
+		list = b.client.ListFileObjectsMarkers
+	}
+	res, err := list(ctx, bucket, prefix, delimiter, after, max)
 	if err != nil {
 		return nil, apiErr(err)
 	}
 	out := &Listing{Prefixes: res.Prefixes, Truncated: res.IsTruncated, Next: res.Next}
 	for i := range res.Objects {
 		out.Objects = append(out.Objects, objectFrom(&res.Objects[i]))
+	}
+	if len(res.Markers) > 0 {
+		out.Markers = make(map[string]*Object, len(res.Markers))
+		for pfx, m := range res.Markers {
+			out.Markers[pfx] = objectFrom(&m)
+		}
 	}
 	return out, nil
 }
@@ -270,16 +329,20 @@ func (b *apiBackend) block(ctx context.Context, k blockKey) (*block, error) {
 	return blk, err
 }
 
-// forgetBlocks drops the blocks kept of a file, or of every file when key is
-// empty.
+// forgetBlocks drops the blocks kept of a file, of every file in a bucket
+// when key is empty, and of every file when both are.
 func (b *apiBackend) forgetBlocks(bucket, key string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for k := range b.blocks {
-		if key == "" || (k.bucket == bucket && k.key == key) {
+		if (bucket == "" || k.bucket == bucket) && (key == "" || k.key == key) {
 			delete(b.blocks, k)
 		}
 	}
+}
+
+func (b *apiBackend) Forget(bucket, key string) {
+	b.forgetBlocks(bucket, strings.TrimSuffix(key, "/"))
 }
 
 // readRange reads part of a file with one request, io.EOF with what there
@@ -323,10 +386,26 @@ func (b *apiBackend) Get(ctx context.Context, bucket, key string) (io.ReadCloser
 	return resp.Body, objectFrom(apiclient.ObjectInfoFromHeaders(key, resp.Header, resp.ContentLength)), nil
 }
 
-func (b *apiBackend) Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string, meta map[string]string) error {
+func (b *apiBackend) Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string, meta map[string]string) (*Object, error) {
 	defer b.forgetBlocks(bucket, key)
-	_, err := b.client.PutFileObjectMeta(ctx, bucket, key, r, size, contentType, meta)
-	return apiErr(err)
+	o, err := b.client.PutFileObjectMeta(ctx, bucket, key, r, size, contentType, meta)
+	if err != nil {
+		return nil, apiErr(err)
+	}
+	return objectFrom(o), nil
+}
+
+func (b *apiBackend) Patch(ctx context.Context, bucket, key string, ranges []Range, size int64, ifMatch, contentType string, meta map[string]string) (*Object, error) {
+	defer b.forgetBlocks(bucket, key)
+	rs := make([]apiclient.FileRange, len(ranges))
+	for i, r := range ranges {
+		rs[i] = apiclient.FileRange{Offset: r.Offset, Length: r.Length, Data: r.Data}
+	}
+	o, err := b.client.PatchFileObject(ctx, bucket, key, rs, size, ifMatch, contentType, meta)
+	if err != nil {
+		return nil, apiErr(err)
+	}
+	return objectFrom(o), nil
 }
 
 func (b *apiBackend) Delete(ctx context.Context, bucket, key string) error {
@@ -346,7 +425,7 @@ func (b *apiBackend) SetMeta(ctx context.Context, bucket, key string, meta map[s
 }
 
 func (b *apiBackend) Move(ctx context.Context, bucket, from, to string) error {
-	defer b.forgetBlocks("", "")
+	defer b.forgetBlocks(bucket, "")
 	_, err := b.client.MoveFileObjects(ctx, apiclient.FileMoveRequest{Bucket: bucket, From: from, To: to, Overwrite: true})
 	return apiErr(err)
 }
