@@ -321,7 +321,13 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
     },
     handleKeydown(event) {
       if (!this.showList) return;
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') this.schedulePositioning();
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        this.schedulePositioning();
+        this.$nextTick(() => {
+          const item = this.$root.querySelectorAll('[role="option"]')[this.selectedIndex];
+          if (item) item.scrollIntoView({ block: 'nearest' });
+        });
+      }
       const filtered = this.filteredOptions;
       if (event.key === 'ArrowDown') {
         event.preventDefault();
