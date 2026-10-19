@@ -709,6 +709,9 @@ window.autocompleterTemplatePicker = function () {
     },
     handleKeydown(e) {
       if (!this.showList) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        this.$nextTick(() => document.getElementById(this.activeDescendant)?.scrollIntoView({ block: 'nearest' }));
+      }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         this.selectedIndex = this.selectedIndex < this.filteredTemplates.length - 1 ? this.selectedIndex + 1 : 0;
@@ -784,6 +787,9 @@ window.autocompleterScriptPicker = function () {
     },
     handleKeydown(e) {
       if (!this.showList) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        this.$nextTick(() => document.getElementById(this.activeDescendant)?.scrollIntoView({ block: 'nearest' }));
+      }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         this.selectedIndex = this.selectedIndex < this.filteredScripts.length - 1 ? this.selectedIndex + 1 : 0;

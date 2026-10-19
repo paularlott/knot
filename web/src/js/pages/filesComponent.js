@@ -532,6 +532,13 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
 
     // Shared keyboard handling for both comboboxes.
     comboKeydown(event, state, options, select) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const listbox = document.getElementById(event.target.getAttribute('aria-controls'));
+        this.$nextTick(() => {
+          const item = listbox && listbox.querySelectorAll('[role="option"]')[state.active];
+          if (item) item.scrollIntoView({ block: 'nearest' });
+        });
+      }
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         state.open = true;
