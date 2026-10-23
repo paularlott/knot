@@ -188,7 +188,7 @@
 }
 
 @utility auth-form-panel {
-  @apply rounded-2xl border border-white/70 bg-white/75 p-5 shadow-lg ring-1 ring-black/5 backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/35 dark:ring-white/10 sm:p-6;
+  @apply rounded-2xl border border-gray-200/80 bg-gray-50/80 p-5 shadow-lg ring-1 ring-black/5 backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/35 dark:ring-white/10 sm:p-6;
 }
 
 @utility auth-form-heading {
