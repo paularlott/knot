@@ -1,0 +1,93 @@
+/* Knot skin for the API reference (/api-docs/): Redoc 3 themes through CSS variables. Redoc injects its own :root and
+   :root.dark rules at run time, after this file, so these use html:root to win on specificity. The colours follow the
+   app: Tailwind blue accents and the Nunito typeface (its @font-face is /assets/css/nunito.css, linked by the page). */
+
+html:root {
+  --font-family-base: 'Nunito', sans-serif;
+
+  /* Redoc derives every primary colour (buttons, active menu items, tabs, highlights) from this scale */
+  --color-brand-1: #eff6ff;
+  --color-brand-2: #dbeafe;
+  --color-brand-3: #bfdbfe;
+  --color-brand-4: #93c5fd;
+  --color-brand-5: #3b82f6;
+  --color-brand-6: #1d4ed8; /* the app's primary button text: white text 6.7:1 */
+  --color-brand-7: #1e40af;
+  --color-brand-8: #1e40af;
+  --color-brand-9: #1e3a8a;
+
+  --link-color-primary: #1d4ed8;
+  --link-color-primary-hover: #1e40af;
+  --link-color-primary-pressed: #1e3a8a;
+  --link-color-visited: #6d28d9;
+}
+
+html:root.dark {
+  /* light enough to be text too: Redoc uses the base colour for link-style buttons and schema names */
+  --color-brand-1: #172554;
+  --color-brand-2: #1e3a8a;
+  --color-brand-3: #1e40af;
+  --color-brand-4: #1d4ed8;
+  --color-brand-5: #60a5fa;
+  --color-brand-6: #93c5fd;
+  --color-brand-7: #bfdbfe;
+  --color-brand-8: #60a5fa; /* the app's dark primary text */
+  --color-brand-9: #dbeafe;
+
+  --link-color-primary: #60a5fa;
+  --link-color-primary-hover: #93c5fd;
+  --link-color-primary-pressed: #bfdbfe;
+  --link-color-visited: #c4b5fd;
+
+  /* filled buttons keep white text, so they keep a solid blue rather than the light base colour */
+  --button-bg-color-primary: #2563eb;
+  --button-bg-color-primary-hover: #1d4ed8;
+  --button-bg-color-primary-pressed: #1e40af;
+}
+
+/* Contrast fixes for Redoc's own colours (WCAG 2.2 AA, 4.5:1): the search hint and, in the light theme, the HTTP
+   method tags and boolean code tokens. Redoc's dark values already pass. */
+html:root {
+  --search-trigger-color: var(--text-color-secondary);
+}
+html:root:not(.dark) {
+  --code-block-tokens-boolean-color: #15803d;
+}
+/* Redoc colours nested property names by depth from a fixed palette, most of which fails 4.5:1 on one theme or the
+   other; the indentation already shows the depth. */
+html:root .schema-name {
+  color: var(--color-primary-text);
+}
+/* The expand/collapse toggles in JSON samples are 18px: grow them to the 24px target size (WCAG 2.5.8), with
+   negative margins so the text around them does not move. */
+html:root pre button[aria-label="collapse"],
+html:root pre button[aria-label="expand"] {
+  width: 24px;
+  height: 24px;
+  margin: -3px;
+}
+html:root pre:has(button[aria-label="collapse"], button[aria-label="expand"]) {
+  line-height: 24px; /* toggles on consecutive lines must not overlap */
+}
+html:root:not(.dark) .tag-get { --tag-color: #166534; }
+html:root:not(.dark) .tag-post { --tag-color: #1d4ed8; }
+html:root:not(.dark) .tag-put { --tag-color: #9a3412; }
+html:root:not(.dark) .tag-patch { --tag-color: #854d0e; }
+html:root:not(.dark) .tag-delete { --tag-color: #b91c1c; }
+
+/* No "API docs by Redocly" badge: the reference is part of Knot, and its link leads off the network. */
+span:has(> a[href^="https://redocly.com/redoc"]) {
+  display: none;
+}
+
+/* Each page's Copy button stays (it copies the page as Markdown); its menu does not: besides copying, it offers
+   "Open in Claude" and "Open in ChatGPT", which send the page to those services. */
+[data-testid="page-actions"] [data-testid="dropdown"] {
+  display: none;
+}
+html:root [data-testid="page-actions"] [data-component-name="Button/ButtonGroup"] > .button {
+  /* now a plain button rather than the left half of a split button */
+  border-radius: var(--button-border-radius);
+  border-right-style: solid;
+  border-right-width: 1px;
+}
