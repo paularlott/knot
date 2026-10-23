@@ -1,9 +1,8 @@
+# Redocly CLI configuration: lints the API description (task apidocs) and bundles it to /assets/openapi.json
+# (vite.config.js). The rendered reference at /api-docs/ is Redoc 3, bundled by Vite (web/src/js/api-docs.js).
 apis:
   knot@v1:
     root: ./internal/api/spec/knot-openapi.yaml
-    theme:
-      openapi:
-        hideLogo: true
 extends:
   - recommended
 rules:
@@ -16,11 +15,5 @@ rules:
   # or WebSocket-style and have no meaningful 4xx response to document.
   operation-4xx-response: off
 
-openapi:
-  htmlTemplate: ./web/redocly-template/index.html
-  schemaExpansionLevel: 2
-  theme:
-    typography:
-      fontFamily: "'Nunito', sans-serif"
-      headings:
-        fontFamily: "'Nunito', sans-serif"
+# No usage reports to Redocly: builds may run on machines without internet access.
+telemetry: off

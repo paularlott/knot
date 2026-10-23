@@ -325,21 +325,14 @@ tasks:
     method: checksum # Re-run only if NOTICE.txt changes
 
   apidocs:
-    desc: Generate the API documentation
+    desc: Lint the OpenAPI description (the reference at /api-docs/ is Redoc 3, bundled by webassets)
     cmds:
-      - npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
-      - sed -i.bak 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html && rm ./web/public_html/api-docs/index.html.bak
+      - npx redocly lint --config ./redocly-config.yaml --format=stylish
+    env:
+      REDOCLY_SUPPRESS_UPDATE_NOTICE: "true"
     sources:
       - internal/api/spec/knot-openapi.yaml
-      - internal/api/spec/chat.yaml
       - redocly-config.yaml
-    generates:
-      - ./web/public_html/api-docs/index.html
-
-  apidocs-preview:
-    desc: Run a preview server for the API documentation
-    cmds:
-      - npx @redocly/cli preview-docs internal/api/spec/knot-openapi.yaml
 
   scriptling-completions:
     desc: Regenerate all completions (scriptling + knot) from the vscode stubs
@@ -365,6 +358,7 @@ tasks:
     sources:
       - vite.config.js # Or relevant config
       - src/**/* # Assuming source files are here
+      - internal/api/spec/knot-openapi.yaml # bundled to /assets/openapi.json for /api-docs/
       - ../scriptling-vscode/stubs/**/*.pyi
     generates:
       - web/public_html/css/*
@@ -398,7 +392,6 @@ tasks:
       - rm -f legal/license.txt
       - rm -f legal/notice.txt
       - rm -f THIRD_PARTY_LICENSES.txt
-      - rm -rf web/public_html/api-docs/index.html
       - rm -rf web/public_html/css/*
       - rm -rf web/public_html/js/*
 
