@@ -276,6 +276,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// OAuth2 routes
 	router.HandleFunc("GET /authorize", middleware.WebAuth(oauth2.HandleAuthorize))
 	router.HandleFunc("POST /token", oauth2.HandleToken)
+	router.HandleFunc("POST /device_authorization", oauth2.HandleDeviceAuthorization)
 	router.HandleFunc("POST /register", oauth2.HandleRegister)
 
 	// OAuth2 Discovery

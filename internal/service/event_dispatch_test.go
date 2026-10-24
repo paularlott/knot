@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/devicegrant"
 )
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,7 @@ func (f *fakeTransport) GossipVolume(*model.Volume)                     {}
 func (f *fakeTransport) GossipSpaceUsageSample(*model.SpaceUsageSample) {}
 func (f *fakeTransport) GossipAuditLog(*model.AuditLogEntry)            {}
 func (f *fakeTransport) GossipAuthFailure(*authratelimit.Event)         {}
+func (f *fakeTransport) GossipDeviceGrant(*devicegrant.Grant)           {}
 func (f *fakeTransport) GossipSession(*model.Session)                   {}
 func (f *fakeTransport) GossipScript(*model.Script)                     {}
 func (f *fakeTransport) GossipSkill(*model.Skill)                       {}

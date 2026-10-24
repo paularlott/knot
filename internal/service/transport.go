@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/devicegrant"
 )
 
 type Transport interface {
@@ -20,6 +21,7 @@ type Transport interface {
 	GossipSpaceUsageSample(sample *model.SpaceUsageSample)
 	GossipAuditLog(entry *model.AuditLogEntry)
 	GossipAuthFailure(evt *authratelimit.Event)
+	GossipDeviceGrant(grant *devicegrant.Grant)
 	GossipSession(session *model.Session)
 	GossipScript(script *model.Script)
 	GossipSkill(skill *model.Skill)

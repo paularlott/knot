@@ -1,0 +1,79 @@
+{{ template "layout-login.tmpl" . }}
+
+{{ define "pageTitle" }}Connect a Device{{ end }}
+
+{{ define "mainContent" }}
+<div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800">
+  <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+    {{ if .logoURL }}
+    <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="">
+    {{ else if .pluginLogoLight }}
+    <img src="{{ .pluginLogoLight }}" alt="" class="h-11 dark:hidden">
+    <img src="{{ .pluginLogoDark }}" alt="" class="h-11 hidden dark:block">
+    {{ else }}
+    <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Connect a Device
+    {{ end }}
+  </div>
+
+  <div class="space-y-6">
+    {{ if eq .done "approved" }}
+    <div class="text-center">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Device connected</h2>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">knot connect will finish in a few seconds. You can close this page.</p>
+    </div>
+    {{ else if eq .done "denied" }}
+    <div class="text-center">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Device not connected</h2>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">The sign-in was denied. You can close this page.</p>
+    </div>
+    {{ else if .confirm }}
+    <div class="text-center">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Connect knot client?</h2>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        Approving signs in the device showing <strong>{{ .userCode }}</strong> as you, with an API token named <strong>{{ .tokenName }}</strong>.
+      </p>
+    </div>
+
+    <div class="border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300">
+      Only approve if you ran <code>knot connect</code> yourself just now and it shows this code. If someone sent you this code or link, deny it: approving would give them access to your account.
+    </div>
+
+    <form method="POST" action="/device" class="space-y-4">
+      <input type="hidden" name="user_code" value="{{ .userCode }}">
+      <div class="flex space-x-4">
+        <button type="submit" name="action" value="approve" class="flex-1 btn-primary">
+          Approve
+        </button>
+        <button type="submit" name="action" value="deny" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white">
+          Deny
+        </button>
+      </div>
+    </form>
+    {{ else }}
+    <div class="text-center">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Enter the code from knot connect</h2>
+    </div>
+
+    {{ if .error }}
+    <div class="text-sm text-red-600 dark:text-red-400">{{ .error }}</div>
+    {{ end }}
+
+    <form method="GET" action="/device" class="space-y-4">
+      <div>
+        <label for="user_code" class="form-label">Code</label>
+        <input type="text" name="user_code" id="user_code" class="form-field uppercase" placeholder="WDJB-MJHT" value="{{ .userCode }}" autocomplete="off" autocapitalize="characters" spellcheck="false" required autofocus>
+      </div>
+      <button type="submit" class="w-full btn-primary">Continue</button>
+    </form>
+    {{ end }}
+  </div>
+
+  {{ if .logoURL }}
+  <div class="flex justify-end items-center mt-4">
+    <span class="text-xs text-gray-700 dark:text-gray-200 mr-2">Powered by knot</span>
+    <img src="images/logo.svg" alt="knot logo" class="h-6 opacity-80">
+  </div>
+  {{ end }}
+</div>
+
+{{ end }}
