@@ -190,6 +190,8 @@ func HandleToken(w http.ResponseWriter, r *http.Request) {
 		handleAuthorizationCodeGrant(w, r)
 	case "refresh_token":
 		handleRefreshTokenGrant(w, r)
+	case GrantTypeDeviceCode:
+		handleDeviceCodeGrant(w, r)
 	default:
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
 			Error: "unsupported_grant_type",
@@ -336,6 +338,7 @@ type AuthorizationServerMetadata struct {
 	AuthorizationEndpoint             string   `json:"authorization_endpoint" msgpack:"authorization_endpoint"`
 	TokenEndpoint                     string   `json:"token_endpoint" msgpack:"token_endpoint"`
 	RegistrationEndpoint              string   `json:"registration_endpoint" msgpack:"registration_endpoint"`
+	DeviceAuthorizationEndpoint       string   `json:"device_authorization_endpoint" msgpack:"device_authorization_endpoint"`
 	ResponseTypesSupported            []string `json:"response_types_supported" msgpack:"response_types_supported"`
 	GrantTypesSupported               []string `json:"grant_types_supported" msgpack:"grant_types_supported"`
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported" msgpack:"token_endpoint_auth_methods_supported"`
@@ -366,16 +369,18 @@ func HandleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
 	baseURL := BaseURL(r)
 
 	metadata := AuthorizationServerMetadata{
-		Issuer:                baseURL,
-		AuthorizationEndpoint: baseURL + "/authorize",
-		TokenEndpoint:         baseURL + "/token",
-		RegistrationEndpoint:  baseURL + "/register",
+		Issuer:                      baseURL,
+		AuthorizationEndpoint:       baseURL + "/authorize",
+		TokenEndpoint:               baseURL + "/token",
+		RegistrationEndpoint:        baseURL + "/register",
+		DeviceAuthorizationEndpoint: baseURL + "/device_authorization",
 		ResponseTypesSupported: []string{
 			"code",
 		},
 		GrantTypesSupported: []string{
 			"authorization_code",
 			"refresh_token",
+			GrantTypeDeviceCode,
 		},
 		TokenEndpointAuthMethodsSupported: []string{
 			"none", // For public clients
