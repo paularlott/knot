@@ -10,14 +10,17 @@ import (
 
 // Group object
 type Group struct {
-	Id            string        `json:"group_id" db:"group_id,pk" msgpack:"group_id"`
-	Name          string        `json:"name" db:"name" msgpack:"name"`
-	MaxSpaces     uint32        `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
-	ComputeUnits  uint32        `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
-	StorageUnits  uint32        `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
-	MaxTunnels    uint32        `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
-	FileStorageMB uint32        `json:"file_storage_mb" db:"file_storage_mb" msgpack:"file_storage_mb"`
-	MaxBuckets    uint32        `json:"max_buckets" db:"max_buckets" msgpack:"max_buckets"`
+	Id            string `json:"group_id" db:"group_id,pk" msgpack:"group_id"`
+	Name          string `json:"name" db:"name" msgpack:"name"`
+	MaxSpaces     uint32 `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits  uint32 `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
+	StorageUnits  uint32 `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
+	MaxTunnels    uint32 `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
+	FileStorageMB uint32 `json:"file_storage_mb" db:"file_storage_mb" msgpack:"file_storage_mb"`
+	MaxBuckets    uint32 `json:"max_buckets" db:"max_buckets" msgpack:"max_buckets"`
+	// ExternalName is the name an identity provider gives the group, if
+	// it assigns it.
+	ExternalName  string        `json:"external_name" db:"external_name" msgpack:"external_name"`
 	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
 	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`

@@ -63,6 +63,22 @@ type Token struct {
 	// RefreshToken marks tokens issued via the OAuth2 authorization-code
 	// flow; only these may be extended through the /token refresh grant.
 	RefreshToken bool `json:"refresh_token,omitempty" db:"refresh_token" msgpack:"refresh_token,omitempty"`
+	// Source says what issued the token, see the TokenSource constants.
+	Source string `json:"source,omitempty" db:"source" msgpack:"source,omitempty"`
+}
+
+// Token sources. Tokens made before sources were recorded have none; those
+// with RefreshToken set came from the OAuth server.
+const (
+	TokenSourceUser   = ""       // created by the user
+	TokenSourceOAuth  = "oauth"  // issued to an OAuth client, such as an MCP client
+	TokenSourceDevice = "device" // issued through device sign-in, such as knot connect
+)
+
+// IsIssued reports whether the token was issued to a client through a
+// sign-in flow, rather than created by the user.
+func (t *Token) IsIssued() bool {
+	return t.RefreshToken || t.Source == TokenSourceOAuth || t.Source == TokenSourceDevice
 }
 
 // TokenPrefix starts every API token, so a token is recognisable and never

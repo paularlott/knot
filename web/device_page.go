@@ -67,6 +67,7 @@ func HandleDeviceDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := model.NewToken(grant.TokenName, user.Id)
+	token.Source = model.TokenSourceDevice
 	if err := database.GetInstance().SaveToken(token); err != nil {
 		log.WithError(err).Error("failed to save device sign-in token")
 		w.WriteHeader(http.StatusInternalServerError)
