@@ -257,7 +257,6 @@ func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
 	token := model.NewToken(tokenName, authCode.UserId)
 	token.Scopes = grantedScopes(authCode.Scope)
 	token.RefreshToken = true
-	token.Source = model.TokenSourceOAuth
 
 	db := database.GetInstance()
 	err := db.SaveToken(token)

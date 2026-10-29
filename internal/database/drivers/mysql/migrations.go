@@ -184,9 +184,7 @@ var migrations = []string{
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS restrictions JSON NOT NULL DEFAULT ('{}')`,
 	// 93: providers' refresh tokens are no longer stored
 	`ALTER TABLE user_providers DROP COLUMN IF EXISTS refresh_token`,
-	// 94: what issued each token
-	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS source VARCHAR(16) NOT NULL DEFAULT ''`,
-	// 95-96: the names an identity provider gives roles and groups
+	// 94-95: the names an identity provider gives roles and groups
 	`ALTER TABLE roles ADD COLUMN IF NOT EXISTS external_name VARCHAR(255) NOT NULL DEFAULT ''`,
 	"ALTER TABLE `groups` ADD COLUMN IF NOT EXISTS external_name VARCHAR(255) NOT NULL DEFAULT ''",
 }
