@@ -468,7 +468,10 @@ original_user_id VARCHAR(36) NOT NULL DEFAULT '',
 user_agent TEXT DEFAULT '',
 expires_after TIMESTAMPTZ NOT NULL,
 updated_at BIGINT DEFAULT 0,
-is_deleted BOOLEAN NOT NULL DEFAULT FALSE
+is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+auth_provider VARCHAR(255) NOT NULL DEFAULT '',
+provider_token TEXT NOT NULL DEFAULT '',
+provider_token_at BIGINT NOT NULL DEFAULT 0
 )`,
 	`CREATE INDEX IF NOT EXISTS sessions_user_id ON sessions (user_id)`,
 	`CREATE INDEX IF NOT EXISTS sessions_expires_after ON sessions (expires_after)`,

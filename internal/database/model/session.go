@@ -30,6 +30,25 @@ type Session struct {
 	ExpiresAfter   time.Time     `json:"expires_after" db:"expires_after" msgpack:"expires_after"`
 	UpdatedAt      hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 	IsDeleted      bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	// AuthProvider is the sign-in provider that authenticated the session,
+	// and ProviderToken the grant it gave, encrypted, so knot can check
+	// the sign-in is still good (Pro). ProviderTokenAt orders copies of the
+	// grant apart from the rest of the session: the provider may replace
+	// it on each check, and a request saving an older copy of the session
+	// mustn't bring the replaced grant back.
+	AuthProvider    string        `json:"auth_provider,omitempty" db:"auth_provider" msgpack:"auth_provider,omitempty"`
+	ProviderToken   string        `json:"provider_token,omitempty" db:"provider_token" msgpack:"provider_token,omitempty"`
+	ProviderTokenAt hlc.Timestamp `json:"provider_token_at,omitempty" db:"provider_token_at" msgpack:"provider_token_at,omitempty"`
+}
+
+// KeepNewerProviderToken carries stored's provider grant into s when
+// stored's is newer, for saving s over stored.
+func (s *Session) KeepNewerProviderToken(stored *Session) {
+	if stored != nil && stored.ProviderTokenAt.After(s.ProviderTokenAt) {
+		s.AuthProvider = stored.AuthProvider
+		s.ProviderToken = stored.ProviderToken
+		s.ProviderTokenAt = stored.ProviderTokenAt
+	}
 }
 
 func NewSession(r *http.Request, userId string) *Session {

@@ -27,7 +27,9 @@ func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
 			db.removeFromUserIndex(existing.UserId, existing.Id)
 			db.sessionsByUserId[session.UserId] = append(db.sessionsByUserId[session.UserId], existing)
 		}
-		*existing = *session
+		next := *session
+		next.KeepNewerProviderToken(existing)
+		*existing = next
 	} else {
 		db.sessionsByUserId[session.UserId] = append(db.sessionsByUserId[session.UserId], session)
 		db.sessions[session.Id] = session
