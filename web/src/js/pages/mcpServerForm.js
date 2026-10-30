@@ -30,6 +30,8 @@ window.mcpServerForm = function (isEdit, serverId) {
     },
 
     async initData() {
+      focus.Element('#namespace');
+
       if (this.isEdit && this.serverId) {
         await fetch(`/api/mcp-servers/${this.serverId}`, {
           headers: { "Content-Type": "application/json" },
