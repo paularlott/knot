@@ -229,15 +229,18 @@ var PermissionNames = []PermissionName{
 
 // Role
 type Role struct {
-	Id                string        `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
-	Name              string        `json:"name" db:"name" msgpack:"name"`
-	Permissions       []uint16      `json:"permissions" db:"permissions,json" msgpack:"permissions"`
-	PluginPermissions []string      `json:"plugin_permissions" db:"plugin_permissions,json" msgpack:"plugin_permissions"`
-	IsDeleted         bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	CreatedUserId     string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
-	CreatedAt         time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
-	UpdatedUserId     string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
-	UpdatedAt         hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	Id                string   `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
+	Name              string   `json:"name" db:"name" msgpack:"name"`
+	Permissions       []uint16 `json:"permissions" db:"permissions,json" msgpack:"permissions"`
+	PluginPermissions []string `json:"plugin_permissions" db:"plugin_permissions,json" msgpack:"plugin_permissions"`
+	// ExternalName is the name an identity provider gives the role, if
+	// it assigns it.
+	ExternalName  string        `json:"external_name" db:"external_name" msgpack:"external_name"`
+	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 // Roles

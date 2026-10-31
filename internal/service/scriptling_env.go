@@ -30,6 +30,7 @@ import (
 	"github.com/paularlott/scriptling/extlibs/messaging/slack"
 	"github.com/paularlott/scriptling/extlibs/messaging/telegram"
 	"github.com/paularlott/scriptling/extlibs/netsecurity"
+	scriptlingoauth "github.com/paularlott/scriptling/extlibs/oauth"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
@@ -248,6 +249,10 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	scriptlingmcp.Register(env, netPolicy)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+
+	// scriptling.oauth — sign scripts in to an identity provider (device sign-in, client credentials) and verify
+	// access tokens; requests to the IdP go through knot's resolver configuration like requests'.
+	scriptlingoauth.Register(env, netPolicy)
 
 	// Agent-side scriptling plugins (--plugin / --plugin-dir), loaded once at
 	// agent startup. This is how the agent reaches heavyweight drivers (e.g.

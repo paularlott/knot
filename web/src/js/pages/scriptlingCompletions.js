@@ -4003,6 +4003,180 @@ const scriptlingLibraries = [
     ],
   },
   {
+    module: "scriptling.oauth",
+    description: "Scriptling OAuth Library - Type stubs for IntelliSense support.",
+    functions: [
+      {
+        name: "Client",
+        signature: "Client(issuer, client_id, client_secret=\"\", verify=True, timeout=10)",
+        description: "A client at an identity provider. Its endpoints are read from the issuer's discovery document on first use, which must name the issuer.",
+        returns: "\"OAuthClient\" - OAuthClient",
+      },
+    ],
+    classes: [
+      {
+        name: "OAuthClient",
+        description: "A client at an identity provider. Obtain one with oauth.Client().",
+        methods: [
+          {
+            name: "metadata",
+            signature: "metadata()",
+            description: "The IdP's discovery document (endpoints and what it supports), read once an hour.",
+            returns: "dict",
+          },
+          {
+            name: "device_start",
+            signature: "device_start(scope=None, resource=None)",
+            description: "Start a device sign-in (RFC 8628). The person opens verification_uri on any device, enters user_code and approves; wait() for it (a CLI) or poll() on each page load (a web page). No browser is opened.",
+            returns: "\"DeviceFlow\" - DeviceFlow",
+          },
+          {
+            name: "device_resume",
+            signature: "device_resume(flow)",
+            description: "Pick up a device sign-in from DeviceFlow.to_dict(), e.g. on a later web request.",
+            returns: "\"DeviceFlow\"",
+          },
+          {
+            name: "client_credentials",
+            signature: "client_credentials(scope=None, resource=None)",
+            description: "A token for the client itself, with no person. Needs client_secret.",
+            returns: "\"Token\"",
+          },
+          {
+            name: "token_from_dict",
+            signature: "token_from_dict(token)",
+            description: "A token saved with Token.to_dict(), able to refresh itself with this client.",
+            returns: "\"Token\"",
+          },
+          {
+            name: "verify",
+            signature: "verify(token, audience, typ=None, leeway=60)",
+            description: "Check an access token sent to an API this script serves and return its claims: the signature against the issuer's published keys, iss, aud containing audience, exp and nbf (within leeway seconds), no key binding (cnf), and the JWT type when typ is given (\"at+jwt\" for RFC 9068 access tokens). Raises on any failure; the error never contains the token.",
+            returns: "dict - dict: The claims (sub, scope, client_id, ...)",
+          },
+        ],
+        properties: [
+        {
+          name: "issuer",
+          description: "str",
+        },
+        {
+          name: "client_id",
+          description: "str",
+        },
+        ],
+      },
+      {
+        name: "DeviceFlow",
+        description: "A device sign-in waiting for the person to approve it.",
+        methods: [
+          {
+            name: "poll",
+            signature: "poll()",
+            description: "Check once whether the sign-in was approved: the Token once it is, None while waiting. Asks the IdP no sooner than its interval allows. Raises if the sign-in was denied or the code expired.",
+            returns: "\"Token\"",
+          },
+          {
+            name: "wait",
+            signature: "wait(timeout=None)",
+            description: "Wait, polling at the IdP's interval, until the sign-in is approved. Raises if it is denied, the code expires or timeout seconds pass.",
+            returns: "\"Token\"",
+          },
+          {
+            name: "to_dict",
+            signature: "to_dict()",
+            description: "The flow as a dict, for OAuthClient.device_resume(). It holds the device code: keep it server side, never in a page, URL or cookie.",
+            returns: "dict",
+          },
+        ],
+        properties: [
+        {
+          name: "user_code",
+          description: "str",
+        },
+        {
+          name: "verification_uri",
+          description: "str",
+        },
+        {
+          name: "verification_uri_complete",
+          description: "Optional[str]",
+        },
+        {
+          name: "expires_at",
+          description: "int",
+        },
+        {
+          name: "interval",
+          description: "int",
+        },
+        ],
+      },
+      {
+        name: "Token",
+        description: "An access token and what came with it. Refreshes itself when it can.",
+        methods: [
+          {
+            name: "headers",
+            signature: "headers()",
+            description: "{\"Authorization\": \"Bearer <access token>\"}, for requests. Refreshes the token first when it is about to expire and has a refresh token.",
+            returns: "dict[str, str]",
+          },
+          {
+            name: "is_expired",
+            signature: "is_expired(margin=30)",
+            description: "Whether the access token expires within margin seconds (False when unknown).",
+            returns: "bool",
+          },
+          {
+            name: "refresh",
+            signature: "refresh(scope=None)",
+            description: "Get a new access token with the refresh token, in place.",
+            returns: "None",
+          },
+          {
+            name: "to_dict",
+            signature: "to_dict()",
+            description: "The token as a dict (access_token, token_type, expires_at, expires_in, refresh_token, scope, id_token), to save between runs if the script chooses to. It holds the tokens: store it where only the script can read it.",
+            returns: "dict[str, Any]",
+          },
+          {
+            name: "claims",
+            signature: "claims()",
+            description: "What a JWT access token says, NOT verified: for showing or debugging only.",
+            returns: "dict",
+          },
+        ],
+        properties: [
+        {
+          name: "access_token",
+          description: "str",
+        },
+        {
+          name: "token_type",
+          description: "str",
+        },
+        {
+          name: "expires_at",
+          description: "Optional[int]",
+        },
+        {
+          name: "refresh_token",
+          description: "Optional[str]",
+        },
+        {
+          name: "scope",
+          description: "Optional[str]",
+        },
+        {
+          name: "id_token",
+          description: "Optional[str]",
+        },
+        ],
+      },
+    ],
+  },
+  {
     module: "scriptling.package",
     description: "Scriptling Package Library - Type stubs for IntelliSense support.",
     functions: [

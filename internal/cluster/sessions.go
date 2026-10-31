@@ -163,6 +163,13 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 				} else {
 					sse.PublishSessionsChanged(session.Id)
 				}
+			} else if session.ProviderTokenAt.After(localSession.ProviderTokenAt) {
+				// The provider grant is ordered on its own: an older copy
+				// of the session can still carry the newer grant.
+				localSession.KeepNewerProviderToken(session)
+				if err := db.SaveSession(localSession); err != nil {
+					c.logger.Error("Failed to update session", "error", err, "id", session.Id)
+				}
 			}
 		} else if session.ExpiresAfter.After(time.Now().UTC()) {
 			// If the session doesn't exist locally and hasn't expired, create it (even if deleted) to prevent resurrection

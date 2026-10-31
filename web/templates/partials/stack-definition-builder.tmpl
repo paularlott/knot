@@ -31,7 +31,7 @@
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Stack Template</h4>
                 <div>
                   <label for="sdb-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name{{ template "req" }}</label>
-                  <input id="sdb-name" type="text" class="form-field w-full" x-model="editor.form.name" @input="markDirty()" placeholder="My Stack" aria-required="true" />
+                  <input id="sdb-name" type="text" class="form-field w-full" x-model="editor.form.name" @input="markDirty()" placeholder="My Stack" aria-required="true" autofocus />
                 </div>
                 <div>
                   <label for="sdb-description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
@@ -179,7 +179,7 @@
               <!-- Name -->
               <div>
                 <label for="sdb-comp-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name{{ template "req" }}</label>
-                <input id="sdb-comp-name" type="text" class="form-field w-full" aria-required="true" x-model="componentEditor.form.name" @input="markDirty()" placeholder="e.g. db" />
+                <input id="sdb-comp-name" type="text" class="form-field w-full" aria-required="true" autofocus x-model="componentEditor.form.name" @input="markDirty()" placeholder="e.g. db" />
               </div>
 
               <!-- Template -->

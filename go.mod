@@ -23,27 +23,27 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/miekg/dns v1.1.73
 	github.com/paularlott/cli v0.10.2
-	github.com/paularlott/gossip v0.28.0
+	github.com/paularlott/gossip v0.30.3
 	github.com/paularlott/jsonrpc v0.3.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.4.0
 	github.com/paularlott/mcp v0.33.1
-	github.com/paularlott/scriptling v0.33.0
+	github.com/paularlott/scriptling v0.33.1
 	github.com/pkg/sftp v1.13.12
-	github.com/shamaton/msgpack/v3 v3.2.5
+	github.com/shamaton/msgpack/v3 v3.2.6
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valkey-io/valkey-go v1.0.79
 	github.com/willscott/go-nfs v0.0.5-0.20260926204150-6274d051a57f
 	github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
-	github.com/yuin/goldmark v1.8.6
+	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.58.0
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/term v0.47.0
 	gopkg.in/yaml.v3 v3.0.1

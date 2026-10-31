@@ -1,4 +1,5 @@
 import Alpine from "alpinejs";
+import { focus } from "../focus.js";
 
 function tomlStr(val) {
   if (val == null) return '""';
@@ -139,6 +140,7 @@ window.stackDefinitionBuilder = function () {
     // ---- Editor lifecycle ----
     createDefinition(isPersonal) {
       this.editor.active = true;
+      focus.Element('#sdb-name');
       this.editor.defId = null;
       this.editor.dirty = false;
       this.editor.valid = true;
@@ -199,6 +201,7 @@ window.stackDefinitionBuilder = function () {
       this.editor.zoneValid = (def.zones || []).map(() => true);
 
       this.editor.active = true;
+      focus.Element('#sdb-name');
       this.loadReferenceData();
     },
 
@@ -361,6 +364,7 @@ window.stackDefinitionBuilder = function () {
         _targetOptions: targetOptions,
       };
       this.componentEditor.show = true;
+      focus.Element('#sdb-comp-name');
       this.$nextTick(() => { this.$dispatch('sync-comp-pickers'); });
     },
 

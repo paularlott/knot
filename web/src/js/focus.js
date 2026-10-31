@@ -1,11 +1,20 @@
 export const focus = {
+  // Focus the first visible match once the modal has settled. Forms stay
+  // hidden behind their loading state until their data arrives, so keep
+  // trying for a few seconds, but never pull focus from a field the user
+  // has already moved to.
   Element(selector) {
-    setTimeout(() => {
-      const el = document.querySelector(selector);
+    let tries = 0;
+    const attempt = () => {
+      const el = Array.from(document.querySelectorAll(selector)).find((node) => node.getClientRects().length > 0);
       if (el) {
-        el.focus();
+        const active = document.activeElement;
+        if (tries === 0 || !active || !active.matches('input, select, textarea, [contenteditable="true"]')) el.focus();
+        return;
       }
-    }, 350);
+      if (++tries < 20) setTimeout(attempt, 150);
+    };
+    setTimeout(attempt, 350);
   },
 
   // Move focus to the first field marked aria-invalid="true" inside root
@@ -27,6 +36,18 @@ export const focus = {
 document.addEventListener('DOMContentLoaded', () => {
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
+      // A modal opened over another one was hidden by the first modal's
+      // x-trap.inert while it was closed; once it shows it must be reachable
+      // again, or its fields stay out of the tab order and the trap can't focus it
+      if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+        const target = mutation.target;
+        if (target.style.display === 'none') return;
+        if (!target.matches('[aria-modal="true"]') && !target.querySelector(':scope > [aria-modal="true"]')) return;
+        for (let el = target; el && el !== document.body; el = el.parentElement) {
+          if (el.getAttribute('aria-hidden') === 'true') el.removeAttribute('aria-hidden');
+        }
+        return;
+      }
       if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
         const target = mutation.target;
         if (target.getAttribute('aria-hidden') === 'true') {
@@ -50,6 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
-  observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['aria-hidden'] });
+  observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['aria-hidden', 'style'] });
 });
 

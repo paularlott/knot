@@ -86,3 +86,37 @@ func TestSaveUserDropsLegacyProviderTokens(t *testing.T) {
 		t.Errorf("stored user after rewrite = %s", v)
 	}
 }
+
+// A request saving the copy of a session it read before the provider grant
+// was replaced must not bring the replaced grant back.
+func TestSaveSessionKeepsNewerProviderToken(t *testing.T) {
+	db := newLiveDriver(t)
+
+	read := model.Session{Id: "s-grant", UserId: "a", ExpiresAfter: time.Now().Add(time.Hour).UTC(), UpdatedAt: hlc.Now(),
+		AuthProvider: "corp", ProviderToken: "old", ProviderTokenAt: hlc.Now()}
+	if err := db.SaveSession(&read); err != nil {
+		t.Fatal(err)
+	}
+	replaced := read
+	replaced.ProviderToken = "new"
+	replaced.ProviderTokenAt = hlc.Now()
+	if err := db.SaveSession(&replaced); err != nil {
+		t.Fatal(err)
+	}
+	late := read
+	late.ExpiresAfter = time.Now().Add(2 * time.Hour).UTC()
+	late.UpdatedAt = hlc.Now()
+	if err := db.SaveSession(&late); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.GetSession("s-grant")
+	if err != nil || got == nil {
+		t.Fatalf("session: %v, %v", got, err)
+	}
+	if got.ProviderToken != "new" {
+		t.Errorf("provider token = %q, want the newer grant kept", got.ProviderToken)
+	}
+	if got.UpdatedAt != late.UpdatedAt {
+		t.Errorf("updated_at = %v, want the late refresh's %v", got.UpdatedAt, late.UpdatedAt)
+	}
+}

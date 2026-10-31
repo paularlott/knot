@@ -101,6 +101,7 @@ Add your skill documentation here in markdown format.
             vScrollBarAlwaysVisible: true,
             customScrollbar: true,
           });
+          focus.Element("#content .ace_text-input");
         }
 
         window.addEventListener("theme-change", (e) => {
