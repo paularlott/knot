@@ -39,19 +39,19 @@ export const knotLibraries = [
       },
       {
         "name": "get",
-        "signature": "get(path)",
+        "signature": "get(path, params)",
         "description": "GET request to the Knot API. params is an optional dict of query parameters",
         "returns": "dict"
       },
       {
         "name": "post",
-        "signature": "post(path, body, expect)",
+        "signature": "post(path, body)",
         "description": "POST request to the Knot API. body is a dict",
         "returns": "dict"
       },
       {
         "name": "put",
-        "signature": "put(path, body, expect)",
+        "signature": "put(path, body)",
         "description": "PUT request to the Knot API. body is a dict",
         "returns": "dict"
       },
@@ -99,7 +99,7 @@ export const knotLibraries = [
     "functions": [
       {
         "name": "emit",
-        "signature": "emit(type, payload)",
+        "signature": "emit(event_type, payload)",
         "description": "Emit a custom event from this space. The 'custom.' prefix is added automatically.",
         "returns": "bool"
       },
@@ -985,14 +985,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, template_name, startup_script_id, desired_count, active)",
-        "description": "Create a pool with the given number of spaces",
+        "signature": "create(name, template_name, startup_script_id, desired_count, active, lease_max_time, lease_max_extensions, custom_fields)",
+        "description": "Create a pool with the given number of spaces and return its ID.\n\n    lease_max_time enables exclusive member leases: 0 = off (default), -1 = no timeout,\n    >0 = maximum lease length in seconds. lease_max_extensions: 0 = extending forbidden\n    (default), -1 = unlimited, >0 = maximum extensions. custom_fields: values given to\n    every member, as {\"name\": ..., \"value\": ...}; fields left out get the template default.",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(name, desired_count, active)",
-        "description": "Update pool desired count or active state. Name, template, and startup script are immutable.",
+        "signature": "update(name, desired_count, active, lease_max_time, lease_max_extensions, custom_fields)",
+        "description": "Update pool desired count, active state, lease settings or custom fields; omitted values are kept.\n\n    custom_fields replaces the values given to members ([] clears them); members pick them up\n    when next created or started. Name, template, and startup script are immutable.",
         "returns": "bool"
       },
       {
@@ -1164,6 +1164,18 @@ export const knotLibraries = [
         "signature": "execute_content(space_name, content, args)",
         "description": "Execute inline script content in a running space",
         "returns": "dict"
+      }
+    ]
+  },
+  {
+    "module": "knot.secret",
+    "description": "Read your own secrets from 1Password with the token on your profile (Knot Pro). Works only inside a knot space.",
+    "functions": [
+      {
+        "name": "get",
+        "signature": "get(path)",
+        "description": "Read a secret by its 1Password reference, op://vault/item/field (op://vault/item/section/field for a field in a section); only inside a space",
+        "returns": "string"
       }
     ]
   },
@@ -1400,6 +1412,24 @@ export const knotLibraries = [
         "returns": "bool"
       },
       {
+        "name": "restrict",
+        "signature": "restrict(name, buckets, files, no_secrets, lock, secrets_allow, secrets_deny)",
+        "description": "Restrict what a space's own credential can do; from inside a space restrictions only tighten. name defaults to the space this runs in. buckets keeps only the named buckets, each \"name\" or \"name:ro\"; files is \"ro\", \"none\" or \"\"; no_secrets switches personal secrets off and secrets_allow / secrets_deny limit them by prefix such as \"op://vault/\" (Knot Pro); lock locks the space's processes out of everything but file storage and personal secrets. Returns the restrictions, as restrictions() does.",
+        "returns": "dict"
+      },
+      {
+        "name": "restrictions",
+        "signature": "restrictions(name)",
+        "description": "Get a space's restrictions (name defaults to the space this runs in): restricted, no_secrets, locked, files, limit_buckets, buckets ({name, read_only}), limit_secrets, secrets_allow, secrets_deny, template_no_files and template_no_secrets.",
+        "returns": "dict"
+      },
+      {
+        "name": "clear_restrictions",
+        "signature": "clear_restrictions(name)",
+        "description": "Lift all of a space's restrictions. Refused from inside a space.",
+        "returns": "dict"
+      },
+      {
         "name": "transfer",
         "signature": "transfer(name, user_id)",
         "description": "Transfer space to another user (user_id can be username, email, or UUID)",
@@ -1587,9 +1617,9 @@ export const knotLibraries = [
       },
       {
         "name": "add_component",
-        "signature": "add_component(stack_definition, template, name, description, shell, **kwargs: Any)",
-        "description": "Add a component (template binding) to an existing stack definition. Resolves template name to ID and rejects duplicate component names.",
-        "returns": "dict"
+        "signature": "add_component(stack_definition, template, name, description, shell, startup_script, depends_on)",
+        "description": "Add a component (template binding) to an existing stack definition. Resolves template name to ID and rejects duplicate component names. startup_script is a startup script ID; depends_on lists other component names this one depends on.",
+        "returns": "bool"
       },
       {
         "name": "remove_component",
@@ -1677,14 +1707,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, job, description, platform, volumes, active, custom_fields, **kwargs: Any)",
-        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects, protocol one of \"http\", \"https\", \"tcp\" or \"shared\" (a shared port is reachable by every user in the same zone through a port forward as user--space, not just the space's owner; http/https get dev URLs, tcp is published on the host); port_forwards is a list of {local_port, space, remote_port} dicts seeded into spaces created from the template and connected when they start (space: a space or pool name, or user--name for another user's shared port); jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields. max_uptime / max_uptime_unit and idle_timeout / idle_timeout_unit control the max-runtime and idle auto-stops (unit one of \"minute\", \"hour\", \"day\"; \"disabled\" or a 0 value turns the stop off).\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement — and show_on_create\n    (bool): an optional field shown on the create-space form without opening\n    its optional fields toggle. The list order is the order the form shows\n    the fields in.",
+        "signature": "create(name, job, description, platform, volumes, active, custom_fields, disable_user_activity, disable_file_storage, disable_user_secrets, **kwargs: Any)",
+        "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects, protocol one of \"http\", \"https\", \"tcp\" or \"shared\" (a shared port is reachable by every user in the same zone through a port forward as user--space, not just the space's owner; http/https get dev URLs, tcp is published on the host); port_forwards is a list of {local_port, space, remote_port} dicts seeded into spaces created from the template and connected when they start (space: a space or pool name, or user--name for another user's shared port); jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields. max_uptime / max_uptime_unit and idle_timeout / idle_timeout_unit control the max-runtime and idle auto-stops (unit one of \"minute\", \"hour\", \"day\"; \"disabled\" or a 0 value turns the stop off). disable_file_storage refuses file storage (knot file, the files API) from the template's spaces; disable_user_secrets refuses personal secrets (knot secret get, knot.secret.get()) from them (Knot Pro); disable_user_activity stops filesystem user activity collection (Knot Pro).\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement — and show_on_create\n    (bool): an optional field shown on the create-space form without opening\n    its optional fields toggle. The list order is the order the form shows\n    the fields in.",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(template_id, name, job, description, platform, custom_fields, **kwargs: Any)",
-        "description": "Update template properties, including health_check_type, health_check_auto_restart, max_uptime, idle_timeout, ports, jobs and port_forwards. Omitted properties are left unchanged. max_uptime / idle_timeout units are one of \"minute\", \"hour\", \"day\"; \"disabled\" (or a 0 value for idle) turns the stop off. custom_fields, when given, replaces the template's custom fields (same shape as create); omitted leaves them unchanged.",
+        "signature": "update(template_id, name, job, description, platform, volumes, active, custom_fields, disable_user_activity, disable_file_storage, disable_user_secrets, **kwargs: Any)",
+        "description": "Update template properties, including health_check_type, health_check_auto_restart, max_uptime, idle_timeout, ports, jobs and port_forwards. Omitted properties are left unchanged. disable_file_storage and disable_user_secrets switch file storage and personal secrets (Knot Pro) off for the template's spaces; disable_user_activity stops user activity collection (Knot Pro). max_uptime / idle_timeout units are one of \"minute\", \"hour\", \"day\"; \"disabled\" (or a 0 value for idle) turns the stop off. custom_fields, when given, replaces the template's custom fields (same shape as create); omitted leaves them unchanged.",
         "returns": "bool"
       },
       {
