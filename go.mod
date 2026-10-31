@@ -22,7 +22,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/miekg/dns v1.1.73
 	github.com/paularlott/cli v0.10.2
 	github.com/paularlott/gossip v0.30.3
