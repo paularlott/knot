@@ -31,6 +31,7 @@ import './pages/templateListComponent.js';
 import './pages/templateForm.js';
 import './pages/userListComponent.js';
 import './pages/userForm.js';
+import './pages/userPasskeys.js';
 import './pages/templateVarListComponent.js';
 import './pages/variableForm.js';
 import './pages/volumeListComponent.js';

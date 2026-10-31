@@ -254,6 +254,8 @@
         </div>
         {{ end }}
 
+        {{ template "partials/user-passkeys.tmpl" . }}
+
         <div x-show="isEdit" x-cloak class="text-xs text-gray-500 dark:text-gray-400">
           Last login <span x-text="last_login_at"></span>
         </div>

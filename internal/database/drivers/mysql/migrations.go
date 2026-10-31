@@ -187,6 +187,8 @@ var migrations = []string{
 	// 94-95: the names an identity provider gives roles and groups
 	`ALTER TABLE roles ADD COLUMN IF NOT EXISTS external_name VARCHAR(255) NOT NULL DEFAULT ''`,
 	"ALTER TABLE `groups` ADD COLUMN IF NOT EXISTS external_name VARCHAR(255) NOT NULL DEFAULT ''",
+	// 96: users' passkeys
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS passkeys JSON DEFAULT NULL`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

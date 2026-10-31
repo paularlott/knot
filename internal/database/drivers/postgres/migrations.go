@@ -28,6 +28,8 @@ var migrations = []string{
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(255) NOT NULL DEFAULT ''`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS provider_token TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS provider_token_at BIGINT NOT NULL DEFAULT 0`,
+	// 12: users' passkeys
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS passkeys JSONB DEFAULT NULL`,
 }
 
 func (db *PostgresDriver) runMigrations() error {

@@ -17,6 +17,23 @@ type ExternalProvider struct {
 	Username    string `json:"username" msgpack:"username"`         // human-readable handle, may change
 }
 
+// Passkey is a WebAuthn credential that signs its user in on its own. It is
+// stored on the user so it travels with the user record through gossip.
+type Passkey struct {
+	Id             string     `json:"id" msgpack:"id"`
+	Name           string     `json:"name" msgpack:"name"`
+	CredentialID   []byte     `json:"credential_id" msgpack:"credential_id"`
+	PublicKey      []byte     `json:"public_key" msgpack:"public_key"`
+	AAGUID         []byte     `json:"aaguid" msgpack:"aaguid"`
+	AttestationFmt string     `json:"attestation_fmt" msgpack:"attestation_fmt"`
+	SignCount      uint32     `json:"sign_count" msgpack:"sign_count"`
+	Transports     []string   `json:"transports" msgpack:"transports"`
+	BackupEligible bool       `json:"backup_eligible" msgpack:"backup_eligible"`
+	BackupState    bool       `json:"backup_state" msgpack:"backup_state"`
+	CreatedAt      time.Time  `json:"created_at" msgpack:"created_at"`
+	LastUsedAt     *time.Time `json:"last_used_at" msgpack:"last_used_at"`
+}
+
 // User object
 type User struct {
 	Id                    string                      `json:"user_id" db:"user_id,pk" msgpack:"user_id"`
@@ -30,6 +47,7 @@ type User struct {
 	OnePasswordToken      string                      `json:"onepassword_token" db:"onepassword_token" msgpack:"onepassword_token"` // encrypted 1Password service account token (Knot Pro user secrets)
 	GitHubUsername        string                      `json:"github_username" db:"github_username" msgpack:"github_username"`
 	ExternalAuthProviders map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
+	Passkeys              []Passkey                   `json:"passkeys" db:"passkeys,json" msgpack:"passkeys"`
 	Roles                 []string                    `json:"roles" db:"roles,json" msgpack:"roles"`
 	Groups                []string                    `json:"groups" db:"groups,json" msgpack:"groups"`
 	// LinkedUsers holds the accounts this user may become — fast user

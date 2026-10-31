@@ -76,6 +76,8 @@ const (
 	AuditEventUserUnlink       = "User Unlink"
 	AuditEventUserSwitch       = "User Switch"
 	AuditEventUserSwitchDenied = "User Switch Denied"
+	AuditEventPasskeyAdd       = "Passkey Add"
+	AuditEventPasskeyDelete    = "Passkey Delete"
 
 	// Volumes
 	AuditEventVolumeCreate = "Volume Create"

@@ -17,6 +17,18 @@
     {{ end }}
   </h1>
 
+  {{/* Other ways to sign in, above the email form: the passkey button,
+       last in the list. */}}
+  {{ if .passkeysEnabled }}
+  <div class="grid gap-2" x-show="passkeySupported" x-cloak>
+    <h2 class="sr-only">Sign in with a passkey</h2>
+    {{ template "partials/login-passkey.tmpl" . }}
+  </div>
+  {{ if .passwordAuthEnabled }}
+  <div class="auth-divider" aria-hidden="true" x-show="passkeySupported" x-cloak>or sign in with email</div>
+  {{ end }}
+  {{ end }}
+
   {{ if .passwordAuthEnabled }}
   <form class="auth-form-panel space-y-5" method="POST" @submit.prevent="submitData" aria-labelledby="login-email-heading">
     <h2 id="login-email-heading" class="sr-only">Sign in with email</h2>

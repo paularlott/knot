@@ -1,5 +1,6 @@
 import { validate } from '../validators.js';
 import { focus } from '../focus.js';
+import { passkeyOriginProblem, passkeysSupported, signInWithPasskey } from '../webauthn.js';
 
 window.loginUserForm = function(redirect) {
   sessionStorage.clear();
@@ -22,8 +23,25 @@ window.loginUserForm = function(redirect) {
     confirmCodeValid: true,
     confirmCodeError: "",
     verifying: false,
+    passkeySupported: false,
+    passkeyBusy: false,
     init() {
+      const passkey = this.$root.querySelector('[data-passkey-origin]');
+      this.passkeySupported = !!passkey && passkeysSupported() && !passkeyOriginProblem(passkey.dataset.passkeyOrigin);
       focus.Element('input[name="email"]');
+    },
+    // Sign in with a passkey: the browser offers the passkeys it holds for
+    // this server and the server starts a session for the chosen one.
+    async passkeyLogin() {
+      if (this.passkeyBusy) return;
+      this.passkeyBusy = true;
+      try {
+        await signInWithPasskey();
+        window.location.href = this.redirect;
+      } catch (e) {
+        if (!e.cancelled) window.knotToast(e.message, 'error');
+        this.passkeyBusy = false;
+      }
     },
     checkEmail() {
       this.emailValid = validate.email(this.formData.email);

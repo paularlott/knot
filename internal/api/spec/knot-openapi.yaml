@@ -865,6 +865,94 @@ paths:
           $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
+  /api/users/{user_id}/passkeys:
+    get:
+      tags:
+        - Users
+      summary: List User Passkeys
+      description: List a user's passkeys, without their key material. Passkeys are added from the user's profile in the web interface.
+      operationId: getUserPasskeys
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The user's passkeys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  passkeys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        passkey_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        backup_eligible:
+                          type: boolean
+                          description: True for a synced passkey, false for one bound to its device.
+                        backup_state:
+                          type: boolean
+                        created_at:
+                          type: string
+                          format: date-time
+                        last_used_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/passkeys/{passkey_id}:
+    delete:
+      tags:
+        - Users
+      summary: Remove User Passkey
+      description: Remove one of a user's passkeys; it can no longer sign in.
+      operationId: deleteUserPasskey
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user.
+          schema:
+            type: string
+            format: uuid
+        - name: passkey_id
+          in: path
+          required: true
+          description: The ID of the passkey.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Passkey removed
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
   /api/users/{user_id}/linked-users/{linked_user_id}:
     put:
       tags:

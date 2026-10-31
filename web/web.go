@@ -27,6 +27,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
+	"github.com/paularlott/knot/internal/passkey"
 	"github.com/paularlott/knot/internal/plugins"
 
 	"github.com/paularlott/knot/internal/log"
@@ -713,6 +714,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"timezone":                            cfg.Timezone,
 		"disableSpaceCreate":                  cfg.DisableSpaceCreate,
 		"totpEnabled":                         cfg.TOTP.Enabled,
+		"passkeysEnabled":                     passkey.Enabled(),
+		"passkeyOrigin":                       passkey.Origin(),
 		"clusterMode":                         cfg.Cluster.AdvertiseAddr != "",
 		"isLeafNode":                          cfg.LeafNode,
 		"logoURL":                             cfg.UI.LogoURL,

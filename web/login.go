@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/passkey"
 	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
@@ -72,6 +73,8 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 			"pluginLogoLight":     pluginLogoLight,
 			"pluginLogoDark":      pluginLogoDark,
 			"passwordAuthEnabled": true,
+			"passkeysEnabled":     passkey.Enabled(),
+			"passkeyOrigin":       passkey.Origin(),
 		}
 
 		err = tmpl.Execute(w, data)

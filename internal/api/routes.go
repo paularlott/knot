@@ -34,6 +34,10 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/users/{user_id}/quota", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserQuota)))
 	router.HandleFunc("GET /api/users/{user_id}/permissions", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserPermissions)))
 	router.HandleFunc("GET /api/users/{user_id}/has-permission", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserHasPermission)))
+	router.HandleFunc("GET /api/users/{user_id}/passkeys", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserPasskeys)))
+	router.HandleFunc("DELETE /api/users/{user_id}/passkeys/{passkey_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleDeleteUserPasskey)))
+	router.HandleFunc("POST /api/users/whoami/passkeys/begin", middleware.ApiAuth(HandlePasskeyRegisterBegin))
+	router.HandleFunc("POST /api/users/whoami/passkeys/finish", middleware.ApiAuth(HandlePasskeyRegisterFinish))
 	router.HandleFunc("PUT /api/users/{user_id}/linked-users/{linked_user_id}", middleware.ApiAuth(middleware.ApiPermissionLinkUsers(HandleLinkUser)))
 	router.HandleFunc("DELETE /api/users/{user_id}/linked-users/{linked_user_id}", middleware.ApiAuth(middleware.ApiPermissionLinkUsers(HandleUnlinkUser)))
 
@@ -272,6 +276,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)
 	router.HandleFunc("GET /api/auth/using-totp", HandleUsingTotp)
+	router.HandleFunc("POST /api/auth/passkey/begin", HandlePasskeyLoginBegin)
+	router.HandleFunc("POST /api/auth/passkey/finish", HandlePasskeyLoginFinish)
 	router.HandleFunc("POST /api/auth/totp/verify", middleware.ApiAuth(HandleVerifyTOTP))
 	router.HandleFunc("DELETE /api/auth/blocked", middleware.ApiAuth(middleware.ApiPermissionManageUsers(HandleClearAuthBlocks)))
 
