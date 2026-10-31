@@ -21,6 +21,7 @@ func onSymlink(ctx context.Context, w *response, userHandle Handler) error {
 		return &NFSStatusError{NFSStatusInval, err}
 	}
 
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	target, err := readOpaque(w.req.Body)
 	if err != nil {
 		return &NFSStatusError{NFSStatusInval, err}
@@ -50,6 +51,7 @@ func onSymlink(ctx context.Context, w *response, userHandle Handler) error {
 
 	err = fs.Symlink(string(target), newFilePath)
 	if err != nil {
+		// knot: mapped by statusFromError, not always ACCESS.
 		return &NFSStatusError{statusFromError(err, NFSStatusAccess), err}
 	}
 

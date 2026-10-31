@@ -56,6 +56,7 @@ func onMkdir(ctx context.Context, w *response, userHandle Handler) error {
 	}
 
 	if err := fs.MkdirAll(newFolderPath, attrs.Mode(mkdirDefaultMode)); err != nil {
+		// knot: mapped by statusFromError, not always ACCESS.
 		return &NFSStatusError{statusFromError(err, NFSStatusAccess), err}
 	}
 

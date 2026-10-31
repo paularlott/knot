@@ -129,6 +129,7 @@ func nfs4OnOpen(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	fullPath := nfs4Join(parent.fs, childPath)
 	before := parent.changeID()
 	if req.OpenType == nfs4OpenCreate {
+		// knot: whether it existed is kept for the UNCHECKED case below.
 		_, statErr := parent.fs.Lstat(fullPath)
 		existed := statErr == nil
 		if req.How.Mode != nfs4CreateUnchecked && existed {

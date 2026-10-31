@@ -87,6 +87,8 @@ func onWrite(ctx context.Context, w *response, userHandle Handler) error {
 		return &NFSStatusError{statusFromWriteError(err), err}
 	}
 
+	// knot: a Committer gets UNSTABLE writes, and a FILE_SYNC or DATA_SYNC
+	// write is committed before it is answered; see Committer.
 	stability := fileSync
 	if c, ok := fs.(Committer); ok {
 		if req.How == uint32(unstable) {

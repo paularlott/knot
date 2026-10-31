@@ -88,6 +88,7 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 		file, err := fs.Create(newFilePath)
 		if err != nil {
 			Log.Errorf("Error Creating: %v", err)
+			// knot: mapped by statusFromError, not always ACCESS.
 			return &NFSStatusError{statusFromError(err, NFSStatusAccess), err}
 		}
 		if err := file.Close(); err != nil {
@@ -115,6 +116,7 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 	if err := xdr.Write(writer, fp); err != nil {
 		return &NFSStatusError{NFSStatusServerFault, err}
 	}
+	// knot: file is only opened when it was created.
 	if err := WritePostOpAttrs(writer, tryStat(fs, newFile)); err != nil {
 		return &NFSStatusError{NFSStatusServerFault, err}
 	}

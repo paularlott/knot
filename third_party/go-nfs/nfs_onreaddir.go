@@ -138,6 +138,9 @@ func onReadDir(ctx context.Context, w *response, userHandle Handler) error {
 }
 
 // getDirListing reads a directory in cookie order.
+//
+// knot: added, in place of getDirListingWithVerifier for READDIR and
+// READDIRPLUS (NFSv3 and NFSv4).
 func getDirListing(userHandle Handler, fsHandle []byte) ([]fs.FileInfo, error) {
 	fs, p, err := userHandle.FromHandle(fsHandle)
 	if err != nil {

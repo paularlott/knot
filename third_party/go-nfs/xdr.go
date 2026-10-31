@@ -1,3 +1,5 @@
+// knot: this file is knot's; see README.knot.md.
+
 package nfs
 
 import (

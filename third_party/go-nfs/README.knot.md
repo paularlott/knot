@@ -7,7 +7,14 @@ Only the library sources are kept: no upstream tests, examples or helpers.
 
 knot serves NFSv3 and NFSv4.0 (`Server.EnabledNFSVersions`), and uses
 upstream's concurrent request handling (`Server.ConcurrentHandlers`). The
-changes below are each marked `knot:` in the code.
+changes below are each marked `knot:` in the code. Upstream master was
+checked again on 31 October 2026 and had not moved.
+
+Both versions:
+
+- A panic in a request's handler is recovered and answered with a system
+  error, logged with its stack (`conn.callHandler`), as upstream's open
+  PR #151 proposes; upstream let it end the process.
 
 NFSv3:
 
@@ -30,6 +37,9 @@ NFSv3:
   their NFS status (`statusFromError`): cross-device, is/not a directory,
   quota, invalid name and so on, where upstream reports IO or ACCESS.
   (Upstream's RMDIR now finds a directory not empty itself.)
+- SETATTR of a file that can't be looked at (its server unreachable, say)
+  reports the error (`SetFileAttributes.Apply`); upstream answered OK
+  though nothing was set.
 - READ and WRITE sizes offered are 1MB (`maxTransfer`), within the 16MB a
   request may be; upstream offers 1GB.
 

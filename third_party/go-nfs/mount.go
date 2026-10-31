@@ -23,6 +23,7 @@ func onMountNull(ctx context.Context, w *response, userHandle Handler) error {
 
 func onMount(ctx context.Context, w *response, userHandle Handler) error {
 	// TODO: auth check.
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	dirpath, err := readOpaque(w.req.Body)
 	if err != nil {
 		return err
@@ -49,6 +50,7 @@ func onMount(ctx context.Context, w *response, userHandle Handler) error {
 }
 
 func onUMount(ctx context.Context, w *response, userHandle Handler) error {
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	_, err := readOpaque(w.req.Body)
 	if err != nil {
 		return err

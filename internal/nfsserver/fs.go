@@ -512,8 +512,16 @@ func (fi *fileInfo) Size() int64        { return fi.size }
 func (fi *fileInfo) Mode() os.FileMode  { return fi.mode }
 func (fi *fileInfo) ModTime() time.Time { return fi.mtime }
 func (fi *fileInfo) IsDir() bool        { return fi.mode.IsDir() }
+
+// Sys gives the attributes go-nfs reports. A folder has two links, as POSIX
+// has it (its entry and its "."): macOS takes one link to mean no entries and
+// skips listing it.
 func (fi *fileInfo) Sys() any {
-	return nfsfile.FileInfo{Nlink: 1, UID: fi.uid, GID: fi.gid, Fileid: fi.id}
+	nlink := uint32(1)
+	if fi.IsDir() {
+		nlink = 2
+	}
+	return nfsfile.FileInfo{Nlink: nlink, UID: fi.uid, GID: fi.gid, Fileid: fi.id}
 }
 
 // view is the description given out: a copy, under name, owned by the

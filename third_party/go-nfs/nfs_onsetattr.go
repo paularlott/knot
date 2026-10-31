@@ -11,6 +11,7 @@ import (
 
 func onSetAttr(ctx context.Context, w *response, userHandle Handler) error {
 	w.errorFmt = wccDataErrorFormatter
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	handle, err := readOpaque(w.req.Body)
 	if err != nil {
 		return &NFSStatusError{NFSStatusInval, err}

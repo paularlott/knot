@@ -22,6 +22,7 @@ func onLink(ctx context.Context, w *response, userHandle Handler) error {
 		return &NFSStatusError{NFSStatusInval, err}
 	}
 
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	target, err := readOpaque(w.req.Body)
 	if err != nil {
 		return &NFSStatusError{NFSStatusInval, err}

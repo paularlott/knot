@@ -9,10 +9,11 @@ import (
 	"github.com/willscott/go-nfs-client/nfs/xdr"
 )
 
-// onCommit makes written data stable when the filesystem is a Committer
-// (knot); for any other, writes already went to the backing store.
+// onCommit makes written data stable when the filesystem is a Committer;
+// for any other, writes already went to the backing store.
 func onCommit(ctx context.Context, w *response, userHandle Handler) error {
 	w.errorFmt = wccDataErrorFormatter
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	handle, err := readOpaque(w.req.Body)
 	if err != nil {
 		return &NFSStatusError{NFSStatusInval, err}
@@ -27,6 +28,7 @@ func onCommit(ctx context.Context, w *response, userHandle Handler) error {
 		return &NFSStatusError{NFSStatusServerFault, os.ErrPermission}
 	}
 
+	// knot: see Committer.
 	if c, ok := fs.(Committer); ok {
 		if err := c.Commit(fs.Join(path...)); err != nil {
 			return &NFSStatusError{statusFromWriteError(err), err}

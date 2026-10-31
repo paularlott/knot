@@ -26,6 +26,7 @@ const (
 const maxTransfer = 1 << 20
 
 func onFSInfo(ctx context.Context, w *response, userHandle Handler) error {
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	roothandle, err := readOpaque(w.req.Body)
 	if err != nil {
 		return &NFSStatusError{NFSStatusInval, err}
@@ -57,6 +58,7 @@ func onFSInfo(ctx context.Context, w *response, userHandle Handler) error {
 	}
 
 	res := fsinfores{
+		// knot: maxTransfer, not 1GB.
 		Rtmax:       maxTransfer,
 		Rtpref:      maxTransfer,
 		Rtmult:      4096,

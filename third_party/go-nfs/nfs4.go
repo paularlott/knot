@@ -458,6 +458,7 @@ func nfs4StatusFromNFS3(status NFSStatus) nfs4Status {
 		return nfs4ErrNoSpc
 	case NFSStatusROFS:
 		return nfs4ErrROFS
+	// knot: the statuses statusFromError adds.
 	case NFSStatusXDev:
 		return nfs4ErrXDev
 	case NFSStatusNameTooLong:

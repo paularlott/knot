@@ -9,6 +9,7 @@ import (
 )
 
 func onFSStat(ctx context.Context, w *response, userHandle Handler) error {
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	roothandle, err := readOpaque(w.req.Body)
 	if err != nil {
 		return &NFSStatusError{NFSStatusInval, err}

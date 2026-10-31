@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/filestore"
+	nfsfile "github.com/willscott/go-nfs/file"
 )
 
 func newTestFS(t *testing.T) (*storeFS, *filestore.Principal) {
@@ -187,6 +188,26 @@ func TestFolders(t *testing.T) {
 	}
 	if _, err := fsys.Stat("data/docs"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("folder still there: %v", err)
+	}
+}
+
+// Buckets and folders have two links, files one: macOS skips listing a
+// folder with one.
+func TestLinkCounts(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	if err := fsys.MkdirAll("data/docs", 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, fsys, "data/docs/a.txt", "a")
+	flushAll(t, fsys)
+	for path, want := range map[string]uint32{"data": 2, "data/docs": 2, "data/docs/a.txt": 1} {
+		fi, err := fsys.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fi.Sys().(nfsfile.FileInfo).Nlink; got != want {
+			t.Errorf("%s: nlink %d, want %d", path, got, want)
+		}
 	}
 }
 

@@ -62,6 +62,7 @@ func nfs4OnCreate(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 
 	childPath := parent.child(req.Name)
 	before := parent.changeID()
+	// knot: a symbolic link is made, not a folder.
 	if req.Type == FileTypeLink {
 		if req.LinkData == "" || len(req.LinkData) > nfs4OpaqueLimit {
 			return nfs4ErrInval

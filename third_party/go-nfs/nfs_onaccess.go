@@ -10,6 +10,7 @@ import (
 
 func onAccess(ctx context.Context, w *response, userHandle Handler) error {
 	w.errorFmt = opAttrErrorFormatter
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
 	roothandle, err := readOpaque(w.req.Body)
 	if err != nil {
 		return &NFSStatusError{NFSStatusInval, err}

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime/debug"
 	"sync"
 
 	xdr2 "github.com/rasky/go-xdr/xdr2"
@@ -195,7 +196,7 @@ func (c *conn) handle(ctx context.Context, w *response) error {
 		}
 		return c.err(ctx, w, rpcErr)
 	}
-	appError := handler(ctx, w, c.Server.Handler)
+	appError := c.callHandler(ctx, w, handler)
 	if drainErr := w.drain(ctx); drainErr != nil {
 		return drainErr
 	}
@@ -211,6 +212,21 @@ func (c *conn) handle(ctx context.Context, w *response) error {
 		}
 	}
 	return nil
+}
+
+// callHandler runs a request's handler, answering a panic in it with a system
+// error, logged with its stack, as net/http does.
+//
+// knot: added; upstream let a panic in a handler end the process, taking
+// every mount with it.
+func (c *conn) callHandler(ctx context.Context, w *response, handler HandleFunc) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			Log.Errorf("panic handling %v: %v\n%s", w.req, r, debug.Stack())
+			err = &ResponseCodeSystemError{}
+		}
+	}()
+	return handler(ctx, w, c.Server.Handler)
 }
 
 func (c *conn) err(ctx context.Context, w *response, err error) error {

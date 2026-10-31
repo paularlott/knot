@@ -2,7 +2,9 @@ package nfs
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"errors"
 	"os"
 	"syscall"
 	"testing"
@@ -56,5 +58,17 @@ func TestCookiesAreStable(t *testing.T) {
 		if c := cookieFor(n); c <= 1 || c != cookieFor(n) {
 			t.Fatalf("cookie for %q = %d", n, c)
 		}
+	}
+}
+
+func TestHandlerPanicAnswered(t *testing.T) {
+	c := &conn{Server: &Server{}}
+	w := &response{req: &request{}}
+	err := c.callHandler(context.Background(), w, func(context.Context, *response, Handler) error {
+		panic("boom")
+	})
+	var sysErr *ResponseCodeSystemError
+	if !errors.As(err, &sysErr) {
+		t.Fatalf("panic answered with %v", err)
 	}
 }
