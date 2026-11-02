@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -40,18 +41,11 @@ func newBlobStore(dir, tmpDir string, noSync bool) (*blobStore, error) {
 // ValidSHA reports whether sha is a content checksum: 64 lowercase hex digits.
 func ValidSHA(sha string) bool { return validSHA(sha) }
 
-func validSHA(sha string) bool {
-	if len(sha) != 64 {
-		return false
-	}
-	for i := 0; i < len(sha); i++ {
-		c := sha[i]
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
-			return false
-		}
-	}
-	return true
-}
+// shaPattern is checked with a regexp rather than a byte loop so static
+// analysis sees blob paths built from a sha as sanitized.
+var shaPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+func validSHA(sha string) bool { return shaPattern.MatchString(sha) }
 
 func (bs *blobStore) path(sha string) string {
 	return filepath.Join(bs.dir, sha[0:2], sha[2:4], sha)

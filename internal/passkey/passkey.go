@@ -184,9 +184,9 @@ func toCredential(p *model.Passkey) webauthn.Credential {
 // Ceremony state
 
 type ceremony struct {
-	Session webauthn.SessionData `json:"s"`
+	Session webauthn.SessionData `json:"s" msgpack:"s"`
 	// UserId binds a registration to the user who began it.
-	UserId string `json:"u,omitempty"`
+	UserId string `json:"u,omitempty" msgpack:"u,omitempty"`
 }
 
 func sign(data []byte) []byte {

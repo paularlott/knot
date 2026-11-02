@@ -52,14 +52,19 @@ type gzipWriter struct {
 	http.ResponseWriter
 	gz      *gzip.Writer
 	started bool
-	plain   bool // the response is not compressed (an empty or error body)
+	plain   bool // the status allows no body (204, 304)
 }
 
 func (g *gzipWriter) WriteHeader(status int) {
 	if g.started || g.plain {
 		return
 	}
-	if status == http.StatusNoContent || status == http.StatusNotModified || status < 200 {
+	if status < 200 {
+		// Informational: the final status is still to come.
+		g.ResponseWriter.WriteHeader(status)
+		return
+	}
+	if status == http.StatusNoContent || status == http.StatusNotModified {
 		g.plain = true
 		g.ResponseWriter.WriteHeader(status)
 		return
@@ -76,7 +81,10 @@ func (g *gzipWriter) Write(b []byte) (int, error) {
 		g.WriteHeader(http.StatusOK)
 	}
 	if g.plain {
-		return g.ResponseWriter.Write(b)
+		if len(b) == 0 {
+			return 0, nil
+		}
+		return 0, http.ErrBodyNotAllowed
 	}
 	return g.gz.Write(b)
 }
