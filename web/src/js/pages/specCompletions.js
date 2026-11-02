@@ -253,6 +253,31 @@ export const localVolumeSpecCompletions = [
     score: 890,
     docHTML: docs("size", "Volume size (Apple Containers only), e.g. 10G, 512M."),
   },
+  {
+    caption: "driver",
+    value: "driver: local",
+    meta: "volume",
+    score: 880,
+    docHTML: docs("driver", "Volume driver (Docker and Podman only); defaults to local when driver_opts is given."),
+  },
+  {
+    caption: "driver_opts",
+    value: "driver_opts:\n  type: nfs\n  o: addr=host.docker.internal,port=2049,vers=4.0\n  device: \":/\"\n",
+    meta: "volume",
+    score: 870,
+    docHTML: docs("driver_opts", "Volume driver options (Docker and Podman only), as Compose's driver_opts; type nfs mounts an NFS export."),
+  },
+  {
+    caption: "nfs volume",
+    value:
+      'files:\n  driver: local\n  driver_opts:\n    type: nfs\n    o: addr=host.docker.internal,port=2049,vers=4.0\n    device: ":/"\n',
+    meta: "volume",
+    score: 860,
+    docHTML: docs(
+      "NFS volume",
+      "A volume mounting file storage from <code>knot nfs-server</code> (Docker and Podman only). device is the export: \":/\" for every bucket, \":/bucket\" for one.",
+    ),
+  },
 ];
 
 export const nomadJobCompletions = [

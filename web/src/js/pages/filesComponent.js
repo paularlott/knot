@@ -532,6 +532,13 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
 
     // Shared keyboard handling for both comboboxes.
     comboKeydown(event, state, options, select) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const listbox = document.getElementById(event.target.getAttribute('aria-controls'));
+        this.$nextTick(() => {
+          const item = listbox && listbox.querySelectorAll('[role="option"]')[state.active];
+          if (item) item.scrollIntoView({ block: 'nearest' });
+        });
+      }
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         state.open = true;
@@ -708,7 +715,11 @@ window.filesComponent = function (canOwn, isAdmin, canShare, canTransfer) {
       }
       const data = await response.json();
       const folders = (data.prefixes || []).map(p => ({ prefix: p, name: p.slice(this.prefix.length).replace(/\/$/, '') }));
-      const files = (data.objects || []).map(o => ({ ...o, name: o.key.slice(this.prefix.length) }));
+      // The folder's own marker, the object that keeps an empty folder (as
+      // NFS clients, rclone and S3 tools make), is the folder, not a file in it.
+      const files = (data.objects || [])
+        .filter(o => o.key !== this.prefix)
+        .map(o => ({ ...o, name: o.key.slice(this.prefix.length) }));
       this.folders = more ? this.folders.concat(folders) : folders;
       this.files = more ? this.files.concat(files) : files;
       this.next = data.next || '';

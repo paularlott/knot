@@ -2,6 +2,7 @@ package command_files
 
 import (
 	"context"
+	"github.com/paularlott/knot/internal/middleware"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -64,9 +65,9 @@ func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", api.HandleGetFileObject)
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", api.HandlePutFileObject)
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", api.HandleDeleteFileObject)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(middleware.KnotVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), "user", user)))
-	}))
+	})))
 	t.Cleanup(srv.Close)
 
 	p, _ := filestore.PrincipalFor(user)

@@ -168,21 +168,11 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	// Only create the cookie for web auth
 	if r.URL.Path == "/api/auth/web" {
-		cfg := config.GetServerConfig()
-		// Drop any stale cookies first (e.g. a host-only cookie from before
-		// wildcard-domain widening) so they can't shadow the fresh session.
+		// Drop any stale cookies first (e.g. a domain-wide one from an
+		// earlier version) so they can't shadow the fresh session. The
+		// cookie is host-only: wildcard hosts serve users' own code.
 		middleware.DeleteSessionCookie(w, r)
-		cookie := &http.Cookie{
-			Name:     model.WebSessionCookie,
-			Value:    session.Id,
-			Path:     "/",
-			Domain:   cfg.SessionCookieDomain(),
-			HttpOnly: true,
-			Secure:   middleware.CookieSecure(r, cfg),
-			SameSite: http.SameSiteLaxMode,
-		}
-
-		http.SetCookie(w, cookie)
+		middleware.SetCookie(w, r, model.WebSessionCookie, session.Id, 0)
 	}
 
 	audit.LogWithRequest(r,
@@ -249,12 +239,12 @@ func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
 
 // TOTPVerifyRequest is the body of POST /api/auth/totp/verify.
 type TOTPVerifyRequest struct {
-	Code string `json:"code"`
+	Code string `json:"code" msgpack:"code"`
 }
 
 // TOTPVerifyResponse reports a successful TOTP check.
 type TOTPVerifyResponse struct {
-	Valid bool `json:"valid"`
+	Valid bool `json:"valid" msgpack:"valid"`
 }
 
 // HandleVerifyTOTP checks a code against the signed-in user's stored TOTP
@@ -340,7 +330,7 @@ func HandleClearAuthBlocks(w http.ResponseWriter, r *http.Request) {
 	)
 
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Status bool `json:"status"`
+		Status bool `json:"status" msgpack:"status"`
 	}{
 		Status: true,
 	})

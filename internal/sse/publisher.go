@@ -317,9 +317,9 @@ func PublishPortForwardChanged(spaceId, userId string) {
 // PublishFilesChanged tells one user that files or buckets they can see
 // changed in file storage. Clients refetch what they show; an empty list
 // means any bucket. Who may hear of which bucket is decided by the caller.
-func PublishFilesChanged(userId string, bucketIds []string) {
+func PublishFilesChanged(userId string, bucketIds []string, changes []FileChange) {
 	GetHub().SendToUser(userId, &Event{
 		Type:    EventFilesChanged,
-		Payload: FilesPayload{BucketIds: bucketIds},
+		Payload: FilesPayload{BucketIds: bucketIds, Changes: changes},
 	})
 }

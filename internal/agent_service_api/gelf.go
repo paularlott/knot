@@ -11,15 +11,15 @@ import (
 )
 
 type gelfMessage struct {
-	Version      string  `json:"version"`
-	Host         string  `json:"host"`
-	ShortMessage string  `json:"short_message"`
-	FullMessage  string  `json:"full_message"`
-	Timestamp    float64 `json:"timestamp"`
-	Level        int     `json:"level"`
-	Facility     string  `json:"facility"`
-	Line         int     `json:"line"`
-	File         string  `json:"file"`
+	Version      string  `json:"version" msgpack:"version"`
+	Host         string  `json:"host" msgpack:"host"`
+	ShortMessage string  `json:"short_message" msgpack:"short_message"`
+	FullMessage  string  `json:"full_message" msgpack:"full_message"`
+	Timestamp    float64 `json:"timestamp" msgpack:"timestamp"`
+	Level        int     `json:"level" msgpack:"level"`
+	Facility     string  `json:"facility" msgpack:"facility"`
+	Line         int     `json:"line" msgpack:"line"`
+	File         string  `json:"file" msgpack:"file"`
 }
 
 // gelfMessageFromMap reads the standard GELF fields out of a decoded map.

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/build"
 )
 
 // A backup stream is complete only if it ends with its end line giving the
@@ -27,6 +28,7 @@ func TestBackupKindNeedsEndLine(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set(build.VersionHeader, build.Version)
 				w.Write([]byte(tc.body))
 			}))
 			defer srv.Close()

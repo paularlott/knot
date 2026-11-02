@@ -12,6 +12,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/util"
 )
 
 // TunnelRequestLogHook is called after each request proxied through a web
@@ -133,6 +134,7 @@ func reverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
+		util.StripKnotCookies(req.Header)
 		req.Header.Set("X-Proxy", "knot "+build.Version)
 		req.URL.Scheme = "http" // Force http as the agent will upgrade the connection to https
 

@@ -12,12 +12,12 @@ import (
 )
 
 type lokiPushRequest struct {
-	Streams []stream `json:"streams"`
+	Streams []stream `json:"streams" msgpack:"streams"`
 }
 
 type stream struct {
-	Stream map[string]string `json:"stream"`
-	Values [][]string        `json:"values"`
+	Stream map[string]string `json:"stream" msgpack:"stream"`
+	Values [][]string        `json:"values" msgpack:"values"`
 }
 
 // lokiLine extracts structured data from a Loki log line: when the line is

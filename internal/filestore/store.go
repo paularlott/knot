@@ -78,11 +78,11 @@ type Config struct {
 	// been deleted, and remove them.
 	OwnerState OwnerFunc
 
-	// Changed, when set, is told which buckets had files or settings change,
-	// whether by this server or another, so a page showing them can update.
-	// Changes are gathered for a moment and reported together; a nil list
-	// means too many buckets changed to name.
-	Changed func(bucketIds []string)
+	// Changed, when set, is told what changed, whether by this server or
+	// another, so a page showing it can update and a client caching it can
+	// drop what is stale. Changes are gathered for a moment and reported
+	// together; a nil list means too much changed to name.
+	Changed func(changes []BucketChanges)
 
 	// NoSync skips the fsync of writes, so a crash or power loss can lose the
 	// last moments of writes. It is for tests and tools; a server always
@@ -178,9 +178,10 @@ type Store struct {
 	replMu sync.RWMutex
 	repl   Replicator
 
-	onChanged func(bucketIds []string)
+	onChanged func(changes []BucketChanges)
 	chMu      sync.Mutex
-	chIds     map[string]struct{}
+	chBuckets map[string]map[string]string // changed keys, to writer, by bucket id; nil keys for the whole bucket
+	chKeys    int
 	chTimer   *time.Timer
 
 	bcMu      sync.Mutex
@@ -360,7 +361,24 @@ const (
 	changeDebounce = 300 * time.Millisecond
 	// changeMaxIds is how many buckets are named in one report.
 	changeMaxIds = 100
+	// changeMaxKeys is how many files are named in one report; past it,
+	// buckets are reported as changed as a whole.
+	changeMaxKeys = 1000
 )
+
+// BucketChanges is what changed in a bucket: the files that changed, or nil
+// when the bucket itself, or more of it than can be named, changed.
+type BucketChanges struct {
+	BucketId string
+	Files    []FileChange
+}
+
+// FileChange is a file that changed, and the client that changed it when it
+// was changed here by one that said (Principal.Writer).
+type FileChange struct {
+	Key    string
+	Writer string
+}
 
 // noteChanged records that buckets or files changed, to be reported to
 // Config.Changed once the changes have settled. It costs nothing without one.
@@ -373,14 +391,34 @@ func (s *Store) noteChanged(buckets []*Bucket, objects []*Object) {
 	if s.onChanged == nil {
 		return
 	}
-	if s.chIds == nil {
-		s.chIds = map[string]struct{}{}
+	if s.chBuckets == nil {
+		s.chBuckets = map[string]map[string]string{}
 	}
 	for _, b := range buckets {
-		s.chIds[b.Id] = struct{}{}
+		s.chBuckets[b.Id] = nil
 	}
 	for _, o := range objects {
-		s.chIds[o.BucketId] = struct{}{}
+		keys, seen := s.chBuckets[o.BucketId]
+		switch {
+		case seen && keys == nil:
+			continue // the whole bucket already
+		case !seen:
+			keys = map[string]string{}
+			s.chBuckets[o.BucketId] = keys
+		}
+		if w, ok := keys[o.Key]; ok {
+			if w != o.Writer {
+				keys[o.Key] = "" // more than one writer: no one's alone
+			}
+			continue
+		}
+		keys[o.Key] = o.Writer
+		s.chKeys++
+	}
+	if s.chKeys > changeMaxKeys {
+		for id := range s.chBuckets {
+			s.chBuckets[id] = nil
+		}
 	}
 	if s.chTimer == nil {
 		s.chTimer = time.AfterFunc(changeDebounce, s.reportChanged)
@@ -390,19 +428,27 @@ func (s *Store) noteChanged(buckets []*Bucket, objects []*Object) {
 func (s *Store) reportChanged() {
 	s.chMu.Lock()
 	fn := s.onChanged
-	ids := make([]string, 0, len(s.chIds))
-	for id := range s.chIds {
-		ids = append(ids, id)
+	changes := make([]BucketChanges, 0, len(s.chBuckets))
+	for id, keys := range s.chBuckets {
+		bc := BucketChanges{BucketId: id}
+		if keys != nil {
+			bc.Files = make([]FileChange, 0, len(keys))
+			for k, w := range keys {
+				bc.Files = append(bc.Files, FileChange{Key: k, Writer: w})
+			}
+			sort.Slice(bc.Files, func(i, j int) bool { return bc.Files[i].Key < bc.Files[j].Key })
+		}
+		changes = append(changes, bc)
 	}
-	s.chIds, s.chTimer = nil, nil
+	s.chBuckets, s.chKeys, s.chTimer = nil, 0, nil
 	s.chMu.Unlock()
 	if fn == nil {
 		return
 	}
-	if len(ids) > changeMaxIds {
-		ids = nil
+	if len(changes) > changeMaxIds {
+		changes = nil
 	}
-	fn(ids)
+	fn(changes)
 }
 
 // broadcast queues changed records to be gossiped by the broadcaster.

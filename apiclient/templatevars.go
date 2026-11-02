@@ -3,34 +3,34 @@ package apiclient
 import "context"
 
 type TemplateVarValue struct {
-	Id         string   `json:"templatevar_id"`
-	Name       string   `json:"name"`
-	Zones      []string `json:"zones"`
-	Local      bool     `json:"local"`
-	Value      string   `json:"value"`
-	Protected  bool     `json:"protected"`
-	Restricted bool     `json:"restricted"`
-	IsManaged  bool     `json:"is_managed"`
+	Id         string   `json:"templatevar_id" msgpack:"templatevar_id"`
+	Name       string   `json:"name" msgpack:"name"`
+	Zones      []string `json:"zones" msgpack:"zones"`
+	Local      bool     `json:"local" msgpack:"local"`
+	Value      string   `json:"value" msgpack:"value"`
+	Protected  bool     `json:"protected" msgpack:"protected"`
+	Restricted bool     `json:"restricted" msgpack:"restricted"`
+	IsManaged  bool     `json:"is_managed" msgpack:"is_managed"`
 }
 
 type TemplateVar struct {
-	Id         string   `json:"templatevar_id"`
-	Name       string   `json:"name"`
-	Zones      []string `json:"zones"`
-	Local      bool     `json:"local"`
-	Protected  bool     `json:"protected"`
-	Restricted bool     `json:"restricted"`
-	IsManaged  bool     `json:"is_managed"`
+	Id         string   `json:"templatevar_id" msgpack:"templatevar_id"`
+	Name       string   `json:"name" msgpack:"name"`
+	Zones      []string `json:"zones" msgpack:"zones"`
+	Local      bool     `json:"local" msgpack:"local"`
+	Protected  bool     `json:"protected" msgpack:"protected"`
+	Restricted bool     `json:"restricted" msgpack:"restricted"`
+	IsManaged  bool     `json:"is_managed" msgpack:"is_managed"`
 }
 
 type TemplateVarList struct {
-	Count       int           `json:"count"`
-	TemplateVar []TemplateVar `json:"variables"`
+	Count       int           `json:"count" msgpack:"count"`
+	TemplateVar []TemplateVar `json:"variables" msgpack:"variables"`
 }
 
 type TemplateVarCreateResponse struct {
-	Status bool   `json:"status"`
-	Id     string `json:"templatevar_id"`
+	Status bool   `json:"status" msgpack:"status"`
+	Id     string `json:"templatevar_id" msgpack:"templatevar_id"`
 }
 
 func (c *ApiClient) GetTemplateVars(ctx context.Context) (*TemplateVarList, int, error) {

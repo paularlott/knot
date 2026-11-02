@@ -8,6 +8,7 @@
     "@tailwindcss/postcss": "^4.1.0",
     "less": "^4.2.0",
     "postcss": "^8.4.47",
+    "redoc": "3.0.1",
     "tailwindcss": "^4.0.0",
     "vite": "^8.0.8"
   },

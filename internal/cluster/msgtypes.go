@@ -56,4 +56,5 @@ const (
 	FilesContentMsg
 	FilesSlotsMsg
 	FilesContentBatchMsg
+	DeviceGrantGossipMsg
 )

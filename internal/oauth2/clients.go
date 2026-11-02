@@ -33,28 +33,28 @@ const (
 )
 
 type registeredClient struct {
-	Name         string   `json:"n"`
-	RedirectURIs []string `json:"r"`
+	Name         string   `json:"n" msgpack:"n"`
+	RedirectURIs []string `json:"r" msgpack:"r"`
 }
 
 type clientRegistrationRequest struct {
-	ClientName              string   `json:"client_name"`
-	RedirectURIs            []string `json:"redirect_uris"`
-	GrantTypes              []string `json:"grant_types"`
-	ResponseTypes           []string `json:"response_types"`
-	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
-	Scope                   string   `json:"scope"`
+	ClientName              string   `json:"client_name" msgpack:"client_name"`
+	RedirectURIs            []string `json:"redirect_uris" msgpack:"redirect_uris"`
+	GrantTypes              []string `json:"grant_types" msgpack:"grant_types"`
+	ResponseTypes           []string `json:"response_types" msgpack:"response_types"`
+	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method" msgpack:"token_endpoint_auth_method"`
+	Scope                   string   `json:"scope" msgpack:"scope"`
 }
 
 type clientRegistrationResponse struct {
-	ClientId                string   `json:"client_id"`
-	ClientIdIssuedAt        int64    `json:"client_id_issued_at"`
-	ClientName              string   `json:"client_name,omitempty"`
-	RedirectURIs            []string `json:"redirect_uris"`
-	GrantTypes              []string `json:"grant_types"`
-	ResponseTypes           []string `json:"response_types"`
-	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
-	Scope                   string   `json:"scope,omitempty"`
+	ClientId                string   `json:"client_id" msgpack:"client_id"`
+	ClientIdIssuedAt        int64    `json:"client_id_issued_at" msgpack:"client_id_issued_at"`
+	ClientName              string   `json:"client_name,omitempty" msgpack:"client_name,omitempty"`
+	RedirectURIs            []string `json:"redirect_uris" msgpack:"redirect_uris"`
+	GrantTypes              []string `json:"grant_types" msgpack:"grant_types"`
+	ResponseTypes           []string `json:"response_types" msgpack:"response_types"`
+	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method" msgpack:"token_endpoint_auth_method"`
+	Scope                   string   `json:"scope,omitempty" msgpack:"scope,omitempty"`
 }
 
 // HandleRegister handles the dynamic client registration endpoint.

@@ -30,6 +30,7 @@ import (
 	"github.com/paularlott/scriptling/extlibs/messaging/slack"
 	"github.com/paularlott/scriptling/extlibs/messaging/telegram"
 	"github.com/paularlott/scriptling/extlibs/netsecurity"
+	scriptlingoauth "github.com/paularlott/scriptling/extlibs/oauth"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
@@ -100,7 +101,9 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterRequestsLibrary(env, netPolicy)
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterHTMLParserLibrary(env)
-	extlibs.RegisterWaitForLibrary(env, netPolicy)
+	// No wait_for here: it is an agent-side library (registerAgentLibraries),
+	// where it runs unrestricted; server-side scripts (MCP tools, event sinks)
+	// get no file or port waiting at all.
 	extlibs.RegisterYAMLLibrary(env)
 	if customLogger != nil {
 		extlibs.RegisterLoggingLibrary(env, customLogger)
@@ -112,14 +115,20 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	agent.Register(env)
 	scriptlingaitools.Register(env)
 	scriptlingsimilarity.Register(env)
-	scriptlingmcp.Register(env, netPolicy)
+	// Server-side scripts may not start processes, so stdio (command) MCP
+	// servers are refused: mcp.Client("/bin/sh", ...) would spawn it. HTTP(S)
+	// MCP servers follow the network policy as before.
+	scriptlingmcp.RegisterConfigured(env, netPolicy, false)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
 
-	// Outbound messaging sends (telegram, discord, slack) — safe server-side.
-	telegram.Register(env, nil)
-	discord.Register(env, nil)
-	slack.Register(env, nil)
+	// Outbound messaging sends (telegram, discord, slack): every request
+	// follows the network policy, platform hosts included, and send_file is
+	// confined to the configured path allow-list.
+	messagingPaths := serverScriptPaths()
+	telegram.RegisterConfigured(env, nil, messagingPaths, netPolicy)
+	discord.RegisterConfigured(env, nil, messagingPaths, netPolicy)
+	slack.RegisterConfigured(env, nil, messagingPaths, netPolicy)
 
 	extlibs.RegisterTOMLLibrary(env)
 	extlibs.RegisterTemplateHTMLLibrary(env)
@@ -127,6 +136,17 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterShlexLibrary(env) // shlex — pure string processing, no filesystem access
 	extlibs.RegisterCsvLibrary(env)   // scriptling.csv — CSV parsing/formatting, no filesystem access
 	extlibs.RegisterXmlLibrary(env)   // scriptling.xml — XML parsing/formatting, no filesystem access
+}
+
+// serverScriptPaths is the path allow-list for server-side scripts: the
+// configured ScriptFSAllowedPaths, or an empty (deny-all) list when none is
+// configured, so a library that is registered regardless (wait_for, the
+// messaging uploads) can reach no local file without the admin opting in.
+func serverScriptPaths() []string {
+	if cfg := config.GetServerConfig(); cfg != nil && len(cfg.ScriptFSAllowedPaths) > 0 {
+		return cfg.ScriptFSAllowedPaths
+	}
+	return []string{}
 }
 
 // registerServerFSPaths registers the fs library in server-side environments
@@ -229,6 +249,10 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	scriptlingmcp.Register(env, netPolicy)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+
+	// scriptling.oauth — sign scripts in to an identity provider (device sign-in, client credentials) and verify
+	// access tokens; requests to the IdP go through knot's resolver configuration like requests'.
+	scriptlingoauth.Register(env, netPolicy)
 
 	// Agent-side scriptling plugins (--plugin / --plugin-dir), loaded once at
 	// agent startup. This is how the agent reaches heavyweight drivers (e.g.

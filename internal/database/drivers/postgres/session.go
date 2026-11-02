@@ -10,10 +10,13 @@ import (
 // sessions without Redis. Expired rows are hidden from reads and removed by
 // the garbage collector.
 
+// SaveSession never clears is_deleted: a deleted session stays deleted, in
+// one statement, so a request that read the session before a logout on
+// another server can't save it back to life.
 func (db *PostgresDriver) SaveSession(session *model.Session) error {
 	_, err := db.connection.Exec(`
-		INSERT INTO sessions (session_id, ip, user_id, original_user_id, user_agent, expires_after, updated_at, is_deleted)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO sessions (session_id, ip, user_id, original_user_id, user_agent, expires_after, updated_at, is_deleted, auth_provider, provider_token, provider_token_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (session_id) DO UPDATE SET
 			ip = EXCLUDED.ip,
 			user_id = EXCLUDED.user_id,
@@ -21,8 +24,12 @@ func (db *PostgresDriver) SaveSession(session *model.Session) error {
 			user_agent = EXCLUDED.user_agent,
 			expires_after = EXCLUDED.expires_after,
 			updated_at = EXCLUDED.updated_at,
-			is_deleted = EXCLUDED.is_deleted`,
-		session.Id, session.Ip, session.UserId, session.OriginalUserId, session.UserAgent, session.ExpiresAfter.UTC(), session.UpdatedAt, session.IsDeleted)
+			is_deleted = sessions.is_deleted OR EXCLUDED.is_deleted,
+			auth_provider = CASE WHEN EXCLUDED.provider_token_at >= sessions.provider_token_at THEN EXCLUDED.auth_provider ELSE sessions.auth_provider END,
+			provider_token = CASE WHEN EXCLUDED.provider_token_at >= sessions.provider_token_at THEN EXCLUDED.provider_token ELSE sessions.provider_token END,
+			provider_token_at = GREATEST(sessions.provider_token_at, EXCLUDED.provider_token_at)`,
+		session.Id, session.Ip, session.UserId, session.OriginalUserId, session.UserAgent, session.ExpiresAfter.UTC(), session.UpdatedAt, session.IsDeleted,
+		session.AuthProvider, session.ProviderToken, session.ProviderTokenAt)
 	return err
 }
 

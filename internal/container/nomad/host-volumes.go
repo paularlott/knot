@@ -9,11 +9,11 @@ import (
 )
 
 type hostVolCreateResponse struct {
-	ID string `json:"ID"`
+	ID string `json:"ID" msgpack:"ID"`
 }
 
 type hostCreateResponse struct {
-	Volume hostVolCreateResponse `json:"Volume"`
+	Volume hostVolCreateResponse `json:"Volume" msgpack:"Volume"`
 }
 
 func (client *NomadClient) CreateHostVolume(volume *model.CSIVolume) (string, error) {
@@ -88,8 +88,8 @@ func (client *NomadClient) DeleteHostVolume(id string, namespace string) error {
 }
 
 type volumeListVolume struct {
-	Name string `json:"Name"`
-	ID   string `json:"ID"`
+	Name string `json:"Name" msgpack:"Name"`
+	ID   string `json:"ID" msgpack:"ID"`
 }
 
 func (client *NomadClient) GetIdHostVolume(name, namespace string) (string, error) {

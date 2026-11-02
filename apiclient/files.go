@@ -3,6 +3,7 @@ package apiclient
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,72 +17,75 @@ import (
 )
 
 type FileGrant struct {
-	Type   string `json:"type"`
-	Id     string `json:"id,omitempty"`
-	Name   string `json:"name,omitempty"`
-	Access string `json:"access"`
+	Type   string `json:"type" msgpack:"type"`
+	Id     string `json:"id,omitempty" msgpack:"id,omitempty"`
+	Name   string `json:"name,omitempty" msgpack:"name,omitempty"`
+	Access string `json:"access" msgpack:"access"`
 }
 
 type FileBucketInfo struct {
-	Id        string      `json:"id"`           // fixed for the life of the bucket, whatever its name
-	Name      string      `json:"name"`         // full name, "<owner>--<name>"
-	Display   string      `json:"display_name"` // the short name for the caller's own buckets, else the full name
-	OwnerId   string      `json:"owner_id"`
-	OwnerName string      `json:"owner_name"`
-	Grants    []FileGrant `json:"grants"`
-	Size      int64       `json:"size"`
-	Count     int         `json:"count"`
-	Access    string      `json:"access"` // effective: owner, write or read
+	Id        string      `json:"id" msgpack:"id"`                     // fixed for the life of the bucket, whatever its name
+	Name      string      `json:"name" msgpack:"name"`                 // full name, "<owner>--<name>"
+	Display   string      `json:"display_name" msgpack:"display_name"` // the short name for the caller's own buckets, else the full name
+	OwnerId   string      `json:"owner_id" msgpack:"owner_id"`
+	OwnerName string      `json:"owner_name" msgpack:"owner_name"`
+	Grants    []FileGrant `json:"grants" msgpack:"grants"`
+	Size      int64       `json:"size" msgpack:"size"`
+	Count     int         `json:"count" msgpack:"count"`
+	Access    string      `json:"access" msgpack:"access"` // effective: owner, write or read
 	// Granted is the access held in the caller's own right and Via how it is
 	// held (owner, user, group, all); Via is empty when the caller reaches the
 	// bucket only as a file storage manager.
-	Granted   string    `json:"granted"`
-	Via       string    `json:"via"`
-	CreatedAt time.Time `json:"created_at"`
+	Granted   string    `json:"granted" msgpack:"granted"`
+	Via       string    `json:"via" msgpack:"via"`
+	CreatedAt time.Time `json:"created_at" msgpack:"created_at"`
 }
 
 type FileBucketList struct {
-	Buckets []FileBucketInfo `json:"buckets"`
+	Buckets []FileBucketInfo `json:"buckets" msgpack:"buckets"`
 }
 
 type FileBucketCreateRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 // FileShareRequest shares a bucket. Type is user, group or all; Name is the
 // username (or email) or group name, unused for all.
 type FileShareRequest struct {
-	Type   string `json:"type"`
-	Name   string `json:"name"`
-	Access string `json:"access"`
+	Type   string `json:"type" msgpack:"type"`
+	Name   string `json:"name" msgpack:"name"`
+	Access string `json:"access" msgpack:"access"`
 }
 
 type FileUnshareRequest struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
+	Type string `json:"type" msgpack:"type"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 // FileTransferRequest moves a bucket to another user; Force allows the move
 // even when it takes the new owner over their quota.
 type FileTransferRequest struct {
-	User  string `json:"user"`
-	Force bool   `json:"force"`
+	User  string `json:"user" msgpack:"user"`
+	Force bool   `json:"force" msgpack:"force"`
 }
 
 type FileObjectInfo struct {
-	Key         string    `json:"key"`
-	Size        int64     `json:"size"`
-	ETag        string    `json:"etag"`
-	SHA256      string    `json:"sha256"`
-	ContentType string    `json:"content_type"`
-	ModifiedAt  time.Time `json:"modified_at"`
+	Key         string    `json:"key" msgpack:"key"`
+	Size        int64     `json:"size" msgpack:"size"`
+	ETag        string    `json:"etag" msgpack:"etag"`
+	SHA256      string    `json:"sha256" msgpack:"sha256"`
+	ContentType string    `json:"content_type" msgpack:"content_type"`
+	ModifiedAt  time.Time `json:"modified_at" msgpack:"modified_at"`
+	// Meta is the file's user metadata, as S3 x-amz-meta-*: its mtime and,
+	// for a file written over NFS, its mode and inode number.
+	Meta map[string]string `json:"meta,omitempty" msgpack:"meta,omitempty"`
 }
 
 // FileChange is one entry of a bucket's change feed: a file as it is now, or
 // one that was deleted.
 type FileChange struct {
 	FileObjectInfo
-	Deleted bool `json:"deleted,omitempty"`
+	Deleted bool `json:"deleted,omitempty" msgpack:"deleted,omitempty"`
 }
 
 // FileChangeList is a page of a bucket's change feed. Cursor continues it;
@@ -90,77 +94,120 @@ type FileChange struct {
 // another server, or deletions it had not seen were forgotten): start again
 // without a cursor, which returns every file.
 type FileChangeList struct {
-	Changes []FileChange `json:"changes"`
-	Cursor  string       `json:"cursor"`
-	More    bool         `json:"more"`
-	Reset   bool         `json:"reset"`
+	Changes []FileChange `json:"changes" msgpack:"changes"`
+	Cursor  string       `json:"cursor" msgpack:"cursor"`
+	More    bool         `json:"more" msgpack:"more"`
+	Reset   bool         `json:"reset" msgpack:"reset"`
+}
+
+// FileStat says what a path in a bucket is: a file, or a folder, with its
+// marker (the object that keeps an empty folder) when it has one.
+type FileStat struct {
+	File   *FileObjectInfo `json:"file,omitempty" msgpack:"file,omitempty"`
+	Folder bool            `json:"folder,omitempty" msgpack:"folder,omitempty"`
+	Marker *FileObjectInfo `json:"marker,omitempty" msgpack:"marker,omitempty"`
+}
+
+// FileRange is part of a file to write, for PatchFileObject.
+type FileRange struct {
+	Offset int64
+	Length int64
+	Data   io.Reader // Length bytes
 }
 
 type FileObjectList struct {
-	Objects     []FileObjectInfo `json:"objects"`
-	Prefixes    []string         `json:"prefixes"`
-	IsTruncated bool             `json:"is_truncated"`
-	Next        string           `json:"next"`
+	Objects     []FileObjectInfo `json:"objects" msgpack:"objects"`
+	Prefixes    []string         `json:"prefixes" msgpack:"prefixes"`
+	IsTruncated bool             `json:"is_truncated" msgpack:"is_truncated"`
+	Next        string           `json:"next" msgpack:"next"`
+	// Markers, when asked for, are the markers of the folders in Prefixes
+	// that have one, by prefix.
+	Markers map[string]FileObjectInfo `json:"markers,omitempty" msgpack:"markers,omitempty"`
 }
 
 // FileCopyRequest copies one file to another place, in the same bucket or
 // another, on the server: the content is never transferred. The source and
 // destination buckets may be named in short form, like the other endpoints.
 type FileCopyRequest struct {
-	SourceBucket string `json:"source_bucket"`
-	SourceKey    string `json:"source_key"`
-	DestBucket   string `json:"dest_bucket"`
-	DestKey      string `json:"dest_key"`
+	SourceBucket string `json:"source_bucket" msgpack:"source_bucket"`
+	SourceKey    string `json:"source_key" msgpack:"source_key"`
+	DestBucket   string `json:"dest_bucket" msgpack:"dest_bucket"`
+	DestKey      string `json:"dest_key" msgpack:"dest_key"`
 	// IfMatch copies only if the destination file has this ETag;
 	// IfNoneMatch only if there is no file there. Either refusal is a 412.
-	IfMatch     string `json:"if_match,omitempty"`
-	IfNoneMatch bool   `json:"if_none_match,omitempty"`
+	IfMatch     string `json:"if_match,omitempty" msgpack:"if_match,omitempty"`
+	IfNoneMatch bool   `json:"if_none_match,omitempty" msgpack:"if_none_match,omitempty"`
+	// Meta, when set, replaces the copy's metadata. With it, a file may be
+	// copied onto itself to change only its metadata.
+	Meta map[string]string `json:"meta,omitempty" msgpack:"meta,omitempty"`
 }
 
 // FileMoveRequest renames a file, or a folder and everything under it, within
 // a bucket, on the server. A folder is given with or without a trailing slash.
 // Without Overwrite the move is refused if the destination holds a file.
 type FileMoveRequest struct {
-	Bucket    string `json:"bucket"`
-	From      string `json:"from"`
-	To        string `json:"to"`
-	Overwrite bool   `json:"overwrite,omitempty"`
+	Bucket    string `json:"bucket" msgpack:"bucket"`
+	From      string `json:"from" msgpack:"from"`
+	To        string `json:"to" msgpack:"to"`
+	Overwrite bool   `json:"overwrite,omitempty" msgpack:"overwrite,omitempty"`
 }
 
 // FileMoveResponse says how many files were moved.
 type FileMoveResponse struct {
-	Moved int `json:"moved"`
+	Moved int `json:"moved" msgpack:"moved"`
 }
 
 // FileShareTargets lists who a bucket can be shared with.
 type FileShareTargets struct {
-	Users  []FileShareUser  `json:"users"`
-	Groups []FileShareGroup `json:"groups"`
+	Users  []FileShareUser  `json:"users" msgpack:"users"`
+	Groups []FileShareGroup `json:"groups" msgpack:"groups"`
 }
 
 type FileShareUser struct {
-	Id       string `json:"user_id"`
-	Username string `json:"username"`
-	CanOwn   bool   `json:"can_own"` // may own buckets, so may receive a transfer
-	Self     bool   `json:"self"`    // the caller
+	Id       string `json:"user_id" msgpack:"user_id"`
+	Username string `json:"username" msgpack:"username"`
+	CanOwn   bool   `json:"can_own" msgpack:"can_own"` // may own buckets, so may receive a transfer
+	Self     bool   `json:"self" msgpack:"self"`       // the caller
 }
 
 type FileShareGroup struct {
-	Id   string `json:"group_id"`
-	Name string `json:"name"`
+	Id   string `json:"group_id" msgpack:"group_id"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 type FileUsage struct {
-	UsedBytes  int64 `json:"used_bytes"`
-	Objects    int   `json:"objects"`
-	Buckets    int   `json:"buckets"`
-	QuotaBytes int64 `json:"quota_bytes"`
-	MaxBuckets int   `json:"max_buckets"` // 0 for no limit
+	UsedBytes  int64 `json:"used_bytes" msgpack:"used_bytes"`
+	Objects    int   `json:"objects" msgpack:"objects"`
+	Buckets    int   `json:"buckets" msgpack:"buckets"`
+	QuotaBytes int64 `json:"quota_bytes" msgpack:"quota_bytes"`
+	MaxBuckets int   `json:"max_buckets" msgpack:"max_buckets"` // 0 for no limit
 }
 
 // FileMtimeHeader carries an object's modification time as fractional unix
 // seconds, the same form rclone stores in x-amz-meta-mtime.
 const FileMtimeHeader = "X-Knot-Mtime"
+
+// FileMetaHeaderPrefix starts the headers carrying an object's user metadata
+// on GET, HEAD and PUT, one header per key (cf. S3's x-amz-meta-).
+const FileMetaHeaderPrefix = "X-Knot-Meta-"
+
+// FileWriterHeader names the client making a change, so change events can
+// say who made each (see SetWriter).
+const FileWriterHeader = "X-Knot-Writer"
+
+// SetWriter names this client in the changes it makes, so in the change
+// events (FilesChangedPayload) it can tell its own changes from others'.
+func (c *ApiClient) SetWriter(id string) {
+	if hc, ok := c.httpClient.(*rest.HTTPClient); ok {
+		hc.SetHeader(FileWriterHeader, id)
+	}
+}
+
+// FileSizeHeader gives a patched file's new size.
+const FileSizeHeader = "X-Knot-Size"
+
+// FilePatchContentType is the body of a patch (see PatchFileObject).
+const FilePatchContentType = "application/x-knot-patch"
 
 // FileReuseHeader on an upload with no body names the SHA-256 of content the
 // bucket held until recently (a file deleted or replaced within the hour):
@@ -234,7 +281,14 @@ func (c *ApiClient) GetFileUsage(ctx context.Context) (*FileUsage, error) {
 // ListFileObjects lists one page of a bucket. With delimiter "/" keys below
 // the next "/" are rolled up into prefixes.
 func (c *ApiClient) ListFileObjects(ctx context.Context, bucket, prefix, delimiter, after string, limit int) (*FileObjectList, error) {
+	return c.listFileObjects(ctx, bucket, prefix, delimiter, after, limit, false)
+}
+
+func (c *ApiClient) listFileObjects(ctx context.Context, bucket, prefix, delimiter, after string, limit int, markers bool) (*FileObjectList, error) {
 	q := url.Values{}
+	if markers {
+		q.Set("markers", "1")
+	}
 	if prefix != "" {
 		q.Set("prefix", prefix)
 	}
@@ -388,7 +442,7 @@ func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string
 // PutFileObjectIfMatch uploads content only if the file still has the ETag
 // etag: otherwise it fails with an error IsPreconditionFailed recognises.
 func (c *ApiClient) PutFileObjectIfMatch(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, etag string) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, false, etag)
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, false, etag, nil)
 }
 
 // PutFileObject uploads content of the given size (-1 if unknown).
@@ -409,16 +463,24 @@ func IsPreconditionFailed(err error) bool {
 }
 
 func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, ifAbsent, "")
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, ifAbsent, "", nil)
 }
 
-func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool, ifMatch string) (*FileObjectInfo, error) {
+// PutFileObjectMeta uploads an object with user metadata (FileObjectInfo.Meta).
+func (c *ApiClient) PutFileObjectMeta(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, meta map[string]string) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, time.Time{}, false, "", meta)
+}
+
+func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool, ifMatch string, meta map[string]string) (*FileObjectInfo, error) {
 	hc, err := c.rawClient()
 	if err != nil {
 		return nil, err
 	}
 
 	headers := map[string]string{"Content-Type": contentType}
+	for k, v := range meta {
+		headers[FileMetaHeaderPrefix+k] = v
+	}
 	if contentType == "" {
 		headers["Content-Type"] = "application/octet-stream"
 	}
@@ -443,6 +505,132 @@ func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, b
 		return nil, err
 	}
 	return info, nil
+}
+
+// StatFileObject says what a path in a bucket is, in one request; a path
+// that is neither a file nor a folder is an error, as a missing object is.
+func (c *ApiClient) StatFileObject(ctx context.Context, bucket, key string) (*FileStat, error) {
+	out := &FileStat{}
+	_, err := c.httpClient.Get(ctx, "/api/files/stat/"+url.PathEscape(bucket)+"/"+escapeKey(key), out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListFileObjectsMarkers lists as ListFileObjects does, with the marker of
+// each folder rolled up into a prefix (FileObjectList.Markers).
+func (c *ApiClient) ListFileObjectsMarkers(ctx context.Context, bucket, prefix, delimiter, after string, limit int) (*FileObjectList, error) {
+	return c.listFileObjects(ctx, bucket, prefix, delimiter, after, limit, true)
+}
+
+// PatchFileObject changes part of an object: the ranges, in order and not
+// overlapping, are written over it and it is cut or zero-filled to size, on
+// the server, so only what changed is sent. With ifMatch, only if the object
+// still has that ETag.
+func (c *ApiClient) PatchFileObject(ctx context.Context, bucket, key string, ranges []FileRange, size int64, ifMatch, contentType string, meta map[string]string) (*FileObjectInfo, error) {
+	hc, err := c.rawClient()
+	if err != nil {
+		return nil, err
+	}
+	var parts []io.Reader
+	var length int64
+	for _, rg := range ranges {
+		var hdr [16]byte
+		binary.BigEndian.PutUint64(hdr[:8], uint64(rg.Offset))
+		binary.BigEndian.PutUint64(hdr[8:], uint64(rg.Length))
+		parts = append(parts, bytes.NewReader(hdr[:]), io.LimitReader(rg.Data, rg.Length))
+		length += 16 + rg.Length
+	}
+	headers := map[string]string{
+		"Content-Type": FilePatchContentType,
+		FileSizeHeader: strconv.FormatInt(size, 10),
+	}
+	if contentType != "" {
+		headers["Content-Type"] = contentType
+	}
+	if ifMatch != "" {
+		headers["If-Match"] = `"` + ifMatch + `"`
+	}
+	for k, v := range meta {
+		headers[FileMetaHeaderPrefix+k] = v
+	}
+	resp, err := hc.DoRaw(ctx, http.MethodPatch, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), io.MultiReader(parts...), length, headers)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	info := &FileObjectInfo{}
+	if err := rest.DecodeResponse(resp, info); err != nil {
+		return nil, err
+	}
+	return info, nil
+}
+
+// HeadFileObject describes an object without downloading it.
+func (c *ApiClient) HeadFileObject(ctx context.Context, bucket, key string) (*FileObjectInfo, error) {
+	hc, err := c.rawClient()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := hc.DoRaw(ctx, http.MethodHead, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, rest.DecodeResponse(resp, nil)
+	}
+	return ObjectInfoFromHeaders(key, resp.Header, resp.ContentLength), nil
+}
+
+// ObjectInfoFromHeaders reads the description of an object from the headers
+// of a GET or HEAD of it.
+func ObjectInfoFromHeaders(key string, h http.Header, size int64) *FileObjectInfo {
+	info := &FileObjectInfo{
+		Key:         key,
+		Size:        size,
+		ETag:        strings.Trim(h.Get("ETag"), `"`),
+		SHA256:      h.Get("X-Knot-Sha256"),
+		ContentType: h.Get("Content-Type"),
+	}
+	if t, ok := ParseMtime(h.Get(FileMtimeHeader)); ok {
+		info.ModifiedAt = t
+	} else if t, err := http.ParseTime(h.Get("Last-Modified")); err == nil {
+		info.ModifiedAt = t
+	}
+	for k, v := range h {
+		if len(v) > 0 && len(k) > len(FileMetaHeaderPrefix) && strings.EqualFold(k[:len(FileMetaHeaderPrefix)], FileMetaHeaderPrefix) {
+			if info.Meta == nil {
+				info.Meta = map[string]string{}
+			}
+			info.Meta[strings.ToLower(k[len(FileMetaHeaderPrefix):])] = v[0]
+		}
+	}
+	return info
+}
+
+// GetFileObjectRange downloads length bytes of an object from offset; the
+// caller closes the body.
+func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, offset, length int64) (*http.Response, error) {
+	hc, err := c.rawClient()
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", offset, offset+length-1)}
+	resp, err := hc.DoRaw(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
+		resp.Body.Close()
+		return nil, io.EOF
+	}
+	if resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		return nil, rest.DecodeResponse(resp, nil)
+	}
+	return resp, nil
 }
 
 // GetFileObject downloads an object; the caller closes the body.

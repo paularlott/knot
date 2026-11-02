@@ -19,6 +19,17 @@ var migrations = []string{
 	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS disable_user_secrets BOOLEAN NOT NULL DEFAULT FALSE`,
 	// 5: restrictions a space has applied to its own credential
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS restrictions JSONB NOT NULL DEFAULT '{}'`,
+	// 6: providers' refresh tokens are no longer stored
+	`ALTER TABLE user_providers DROP COLUMN IF EXISTS refresh_token`,
+	// 7-8: the names an identity provider gives roles and groups
+	`ALTER TABLE roles ADD COLUMN IF NOT EXISTS external_name VARCHAR(255) NOT NULL DEFAULT ''`,
+	`ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS external_name VARCHAR(255) NOT NULL DEFAULT ''`,
+	// 9-11: the sign-in provider of a session and its grant
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(255) NOT NULL DEFAULT ''`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS provider_token TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS provider_token_at BIGINT NOT NULL DEFAULT 0`,
+	// 12: users' passkeys
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS passkeys JSONB DEFAULT NULL`,
 }
 
 func (db *PostgresDriver) runMigrations() error {

@@ -51,10 +51,10 @@ type jobSpec struct {
 }
 
 type containerInspect struct {
-	ID     string `json:"id"`
+	ID     string `json:"id" msgpack:"id"`
 	Status struct {
-		State string `json:"state"`
-	} `json:"status"`
+		State string `json:"state" msgpack:"state"`
+	} `json:"status" msgpack:"status"`
 }
 
 // appleStatus is a container's state in `container ls --format json`:
@@ -69,7 +69,7 @@ func (s *appleStatus) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	var obj struct {
-		State string `json:"state"`
+		State string `json:"state" msgpack:"state"`
 	}
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return err
@@ -79,10 +79,10 @@ func (s *appleStatus) UnmarshalJSON(data []byte) error {
 }
 
 type appleListContainer struct {
-	Status        appleStatus `json:"status"`
+	Status        appleStatus `json:"status" msgpack:"status"`
 	Configuration struct {
-		ID string `json:"id"`
-	} `json:"configuration"`
+		ID string `json:"id" msgpack:"id"`
+	} `json:"configuration" msgpack:"configuration"`
 }
 
 func normalizeContainerReference(ref string) string {
@@ -522,6 +522,9 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 
 		if _, ok := space.VolumeData[volName]; !ok {
 			c.logger.Debug("creating volume", "volname", volName)
+			if spec.HasDriver() {
+				return fmt.Errorf("volume %q: driver and driver_opts are only supported on Docker and Podman", volName)
+			}
 
 			args := []string{"volume", "create"}
 			if spec.Size != "" {
@@ -891,6 +894,9 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 
 	for volName, spec := range volInfo.Volumes {
 		c.logger.Debug("creating volume:", "volname", volName)
+		if spec.HasDriver() {
+			return fmt.Errorf("volume %q: driver and driver_opts are only supported on Docker and Podman", volName)
+		}
 
 		args := []string{"volume", "create"}
 		if spec.Size != "" {

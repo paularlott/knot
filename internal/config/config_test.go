@@ -2,7 +2,7 @@ package config
 
 import "testing"
 
-func TestSessionCookieDomain(t *testing.T) {
+func TestLegacySessionCookieDomain(t *testing.T) {
 	cases := []struct {
 		name           string
 		wildcardDomain string
@@ -20,7 +20,7 @@ func TestSessionCookieDomain(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			cfg := &ServerConfig{WildcardDomain: c.wildcardDomain, URL: c.serverURL}
-			got := cfg.SessionCookieDomain()
+			got := cfg.LegacySessionCookieDomain()
 			if got != c.want {
 				t.Fatalf("got %q, want %q", got, c.want)
 			}

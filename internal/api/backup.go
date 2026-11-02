@@ -546,7 +546,7 @@ func HandleRestoreContentMissing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Shas []string `json:"shas"`
+		Shas []string `json:"shas" msgpack:"shas"`
 	}
 	if err := rest.DecodeRequestBody(w, r, &req); err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -557,7 +557,7 @@ func HandleRestoreContentMissing(w http.ResponseWriter, r *http.Request) {
 		missing = []string{}
 	}
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Missing []string `json:"missing"`
+		Missing []string `json:"missing" msgpack:"missing"`
 	}{missing})
 }
 

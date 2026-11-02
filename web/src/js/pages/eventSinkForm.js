@@ -236,6 +236,13 @@ window.eventSinkForm = function (isEdit, sinkId, isGlobal = false) {
     scriptKeydown(e) {
       if (!this.scriptShowList) return;
       const opts = this.filteredScripts;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        this.$nextTick(() =>
+          document
+            .getElementById("script_id-opt-" + this.scriptSelectedIndex)
+            ?.scrollIntoView({ block: "nearest" }),
+        );
+      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         this.scriptSelectedIndex =

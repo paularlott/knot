@@ -59,8 +59,8 @@ func (db *PostgresDriver) SaveUser(user *model.User, updateFields []string) erro
 		// Upsert current index rows
 		for providerID, ep := range user.ExternalAuthProviders {
 			_, err = tx.Exec(
-				"INSERT INTO user_providers (provider_id, provider_uid, user_id, refresh_token) VALUES (?,?,?,?) ON CONFLICT (provider_id, provider_uid) DO UPDATE SET user_id=EXCLUDED.user_id, refresh_token=EXCLUDED.refresh_token",
-				providerID, ep.ProviderUID, user.Id, ep.RefreshToken,
+				"INSERT INTO user_providers (provider_id, provider_uid, user_id) VALUES (?,?,?) ON CONFLICT (provider_id, provider_uid) DO UPDATE SET user_id=EXCLUDED.user_id",
+				providerID, ep.ProviderUID, user.Id,
 			)
 			if err != nil {
 				return err

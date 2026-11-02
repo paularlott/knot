@@ -9,20 +9,20 @@ import (
 )
 
 type Skill struct {
-	Id            string        `json:"skill_id" db:"skill_id,pk"`
-	UserId        string        `json:"user_id" db:"user_id"`
-	Name          string        `json:"name" db:"name"`
-	Description   string        `json:"description" db:"description"`
-	Content       string        `json:"content" db:"content"`
-	Groups        []string      `json:"groups" db:"groups,json"`
-	Zones         []string      `json:"zones" db:"zones,json"`
-	Active        bool          `json:"active" db:"active"`
-	IsDeleted     bool          `json:"is_deleted" db:"is_deleted"`
-	IsManaged     bool          `json:"is_managed" db:"is_managed"`
-	CreatedUserId string        `json:"created_user_id" db:"created_user_id"`
-	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
-	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	Id            string        `json:"skill_id" db:"skill_id,pk" msgpack:"skill_id"`
+	UserId        string        `json:"user_id" db:"user_id" msgpack:"user_id"`
+	Name          string        `json:"name" db:"name" msgpack:"name"`
+	Description   string        `json:"description" db:"description" msgpack:"description"`
+	Content       string        `json:"content" db:"content" msgpack:"content"`
+	Groups        []string      `json:"groups" db:"groups,json" msgpack:"groups"`
+	Zones         []string      `json:"zones" db:"zones,json" msgpack:"zones"`
+	Active        bool          `json:"active" db:"active" msgpack:"active"`
+	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	IsManaged     bool          `json:"is_managed" db:"is_managed" msgpack:"is_managed"`
+	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 func NewSkill(

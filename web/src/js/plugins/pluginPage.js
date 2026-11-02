@@ -936,6 +936,8 @@ window.pluginPage = function pluginPage(url) {
       const list = this.acList(input);
       list.style.display = 'block';
       this.acPosition(input, list);
+      const active = list.querySelectorAll('li')[this.acState(input).selected];
+      if (active) active.scrollIntoView({ block: 'nearest' });
       requestAnimationFrame(() => this.acPosition(input, this.acList(input)));
       this.acState(input).open = true;
     },

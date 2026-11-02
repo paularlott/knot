@@ -24,6 +24,14 @@ type stubClient struct {
 	deleted       map[string]bool
 	symlinks      map[string]string // dest → target
 	lastFindReq   apiclient.FindRequest
+	files         map[string]remoteFile // content served by ReadSpaceFileBytes
+	reads         int
+}
+
+type remoteFile struct {
+	content string
+	mtimeNs int64
+	perm    uint32
 }
 
 type uploadedFile struct {
@@ -112,6 +120,23 @@ func (s *stubClient) CreateSymlinkSpaceFile(ctx context.Context, spaceID, filePa
 	defer s.mu.Unlock()
 	s.symlinks[filePath] = target
 	return nil
+}
+
+func (s *stubClient) ReadSpaceFileBytes(ctx context.Context, spaceID, filePath string, offset, length int64) (*apiclient.SpaceFileRange, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reads++
+	f, ok := s.files[filePath]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	end := min(offset+length, int64(len(f.content)))
+	return &apiclient.SpaceFileRange{
+		Content:  []byte(f.content[min(offset, end):end]),
+		FileSize: int64(len(f.content)),
+		MtimeNs:  f.mtimeNs,
+		FilePerm: f.perm,
+	}, nil
 }
 
 func (s *stubClient) hasUploaded(p string) bool {

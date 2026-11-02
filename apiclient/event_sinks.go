@@ -3,71 +3,71 @@ package apiclient
 import "context"
 
 type WebhookConfig struct {
-	URL           string            `json:"url"`
-	Secret        string            `json:"secret"`
-	Headers       map[string]string `json:"headers,omitempty"`
-	BodyTemplate  string            `json:"body_template"`
-	SkipTLSVerify bool              `json:"skip_tls_verify"`
+	URL           string            `json:"url" msgpack:"url"`
+	Secret        string            `json:"secret" msgpack:"secret"`
+	Headers       map[string]string `json:"headers,omitempty" msgpack:"headers,omitempty"`
+	BodyTemplate  string            `json:"body_template" msgpack:"body_template"`
+	SkipTLSVerify bool              `json:"skip_tls_verify" msgpack:"skip_tls_verify"`
 }
 
 type EventSinkInfo struct {
-	Id          string         `json:"event_sink_id"`
-	UserId      string         `json:"user_id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Events      []string       `json:"events"`
-	SinkType    string         `json:"sink_type"`
-	Webhook     *WebhookConfig `json:"webhook,omitempty"`
-	ScriptId    string         `json:"script_id,omitempty"`
-	Active      bool           `json:"active"`
+	Id          string         `json:"event_sink_id" msgpack:"event_sink_id"`
+	UserId      string         `json:"user_id" msgpack:"user_id"`
+	Name        string         `json:"name" msgpack:"name"`
+	Description string         `json:"description" msgpack:"description"`
+	Events      []string       `json:"events" msgpack:"events"`
+	SinkType    string         `json:"sink_type" msgpack:"sink_type"`
+	Webhook     *WebhookConfig `json:"webhook,omitempty" msgpack:"webhook,omitempty"`
+	ScriptId    string         `json:"script_id,omitempty" msgpack:"script_id,omitempty"`
+	Active      bool           `json:"active" msgpack:"active"`
 }
 
 type EventSinkList struct {
-	Count      int             `json:"count"`
-	EventSinks []EventSinkInfo `json:"event_sinks"`
+	Count      int             `json:"count" msgpack:"count"`
+	EventSinks []EventSinkInfo `json:"event_sinks" msgpack:"event_sinks"`
 }
 
 type EventSinkDetails struct {
-	Id          string         `json:"event_sink_id"`
-	UserId      string         `json:"user_id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Events      []string       `json:"events"`
-	SinkType    string         `json:"sink_type"`
-	Webhook     *WebhookConfig `json:"webhook,omitempty"`
-	ScriptId    string         `json:"script_id,omitempty"`
-	Active      bool           `json:"active"`
+	Id          string         `json:"event_sink_id" msgpack:"event_sink_id"`
+	UserId      string         `json:"user_id" msgpack:"user_id"`
+	Name        string         `json:"name" msgpack:"name"`
+	Description string         `json:"description" msgpack:"description"`
+	Events      []string       `json:"events" msgpack:"events"`
+	SinkType    string         `json:"sink_type" msgpack:"sink_type"`
+	Webhook     *WebhookConfig `json:"webhook,omitempty" msgpack:"webhook,omitempty"`
+	ScriptId    string         `json:"script_id,omitempty" msgpack:"script_id,omitempty"`
+	Active      bool           `json:"active" msgpack:"active"`
 }
 
 type EventSinkCreateRequest struct {
-	UserId      string         `json:"user_id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Events      []string       `json:"events"`
-	SinkType    string         `json:"sink_type"`
-	Webhook     *WebhookConfig `json:"webhook,omitempty"`
-	ScriptId    string         `json:"script_id,omitempty"`
-	Active      bool           `json:"active"`
+	UserId      string         `json:"user_id" msgpack:"user_id"`
+	Name        string         `json:"name" msgpack:"name"`
+	Description string         `json:"description" msgpack:"description"`
+	Events      []string       `json:"events" msgpack:"events"`
+	SinkType    string         `json:"sink_type" msgpack:"sink_type"`
+	Webhook     *WebhookConfig `json:"webhook,omitempty" msgpack:"webhook,omitempty"`
+	ScriptId    string         `json:"script_id,omitempty" msgpack:"script_id,omitempty"`
+	Active      bool           `json:"active" msgpack:"active"`
 }
 
 type EventSinkUpdateRequest struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Events      []string       `json:"events"`
-	SinkType    string         `json:"sink_type"`
-	Webhook     *WebhookConfig `json:"webhook,omitempty"`
-	ScriptId    string         `json:"script_id,omitempty"`
-	Active      bool           `json:"active"`
+	Name        string         `json:"name" msgpack:"name"`
+	Description string         `json:"description" msgpack:"description"`
+	Events      []string       `json:"events" msgpack:"events"`
+	SinkType    string         `json:"sink_type" msgpack:"sink_type"`
+	Webhook     *WebhookConfig `json:"webhook,omitempty" msgpack:"webhook,omitempty"`
+	ScriptId    string         `json:"script_id,omitempty" msgpack:"script_id,omitempty"`
+	Active      bool           `json:"active" msgpack:"active"`
 }
 
 type EventSinkCreateResponse struct {
-	Status bool   `json:"status"`
-	Id     string `json:"event_sink_id"`
+	Status bool   `json:"status" msgpack:"status"`
+	Id     string `json:"event_sink_id" msgpack:"event_sink_id"`
 }
 
 type EmitEventRequest struct {
-	Type    string                 `json:"type"`
-	Payload map[string]interface{} `json:"payload"`
+	Type    string                 `json:"type" msgpack:"type"`
+	Payload map[string]interface{} `json:"payload" msgpack:"payload"`
 }
 
 func (c *ApiClient) GetEventSinks(ctx context.Context) (*EventSinkList, error) {

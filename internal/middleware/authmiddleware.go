@@ -41,8 +41,8 @@ func Initialize() {
 }
 
 func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
-	// Clear any stale session cookies so a leftover host-only cookie (from
-	// before wildcard-domain widening) can't shadow a fresh login attempt.
+	// Clear any stale session cookies so a leftover domain-wide cookie (from
+	// an earlier version) can't shadow a fresh login attempt.
 	DeleteSessionCookie(w, r)
 
 	// Tell MCP clients where to authorize (RFC 9728), so clients such as
@@ -52,7 +52,7 @@ func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusUnauthorized, w, r, struct {
-		Error string `json:"error"`
+		Error string `json:"error" msgpack:"error"`
 	}{
 		Error: "Authentication token is not valid",
 	})
@@ -200,7 +200,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				if err != nil {
 					logger.Error("failed to get session", "error", err)
 					rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
-						Error string `json:"error"`
+						Error string `json:"error" msgpack:"error"`
 					}{
 						Error: "Session storage temporarily unavailable",
 					})
@@ -242,7 +242,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			if err != nil {
 				logger.Error("failed to load user, treating as transient", "error", err, "user_id", userId)
 				rest.WriteResponse(http.StatusServiceUnavailable, w, r, struct {
-					Error string `json:"error"`
+					Error string `json:"error" msgpack:"error"`
 				}{
 					Error: "User store temporarily unavailable",
 				})
@@ -306,7 +306,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 }
 
 type ErrorResponse struct {
-	Error string `json:"error"`
+	Error string `json:"error" msgpack:"error"`
 }
 
 func checkPermission(next http.HandlerFunc, permission uint16, msg string) http.HandlerFunc {
@@ -563,7 +563,7 @@ func TokenScopesRequired(next http.HandlerFunc) http.HandlerFunc {
 		if token, _ := r.Context().Value("access_token").(*model.Token); token != nil && len(token.Scopes) > 0 {
 			if !tokenScopeAllows(token.Scopes, r.URL.Path) {
 				rest.WriteResponse(http.StatusForbidden, w, r, struct {
-					Error string `json:"error"`
+					Error string `json:"error" msgpack:"error"`
 				}{
 					Error: "token scopes do not permit this endpoint",
 				})

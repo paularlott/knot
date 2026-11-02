@@ -2,6 +2,8 @@ package agentlink
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -97,7 +99,12 @@ func handleCommandConnection(conn net.Conn) {
 
 	msg, err := receiveMsg(conn)
 	if err != nil {
-		log.WithError(err).Error("Failed to receive message")
+		// A client hanging up before sending anything is routine, not a fault
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			log.WithError(err).Debug("Failed to receive message")
+		} else {
+			log.WithError(err).Error("Failed to receive message")
+		}
 		return
 	}
 

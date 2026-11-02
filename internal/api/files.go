@@ -39,6 +39,7 @@ func filesContext(w http.ResponseWriter, r *http.Request) (*filestore.Store, *mo
 		return nil, nil, nil, false
 	}
 	limitToSpace(p, api_utils.RequestSpace(r))
+	p.Writer = r.Header.Get(apiclient.FileWriterHeader)
 	return store, user, p, true
 }
 
@@ -296,7 +297,7 @@ func HandleDeleteFileBucket(w http.ResponseWriter, r *http.Request) {
 	}
 	auditBucket(r, user, model.AuditEventBucketDelete, fmt.Sprintf("Deleted bucket %s", name), name, map[string]interface{}{"force": force})
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Status bool `json:"status"`
+		Status bool `json:"status" msgpack:"status"`
 	}{true})
 }
 
@@ -510,6 +511,7 @@ func objectResponse(o *filestore.Object) apiclient.FileObjectInfo {
 		SHA256:      o.SHA256,
 		ContentType: o.ContentType,
 		ModifiedAt:  modified,
+		Meta:        o.Meta,
 	}
 }
 
@@ -539,6 +541,19 @@ func HandleListFileObjects(w http.ResponseWriter, r *http.Request) {
 	for _, o := range res.Objects {
 		list.Objects = append(list.Objects, objectResponse(o))
 	}
+	// With markers, each folder rolled up into a prefix comes with its
+	// marker, the object that keeps it when empty and holds its
+	// attributes, so a client need not ask for each.
+	if q.Get("markers") != "" {
+		for _, pfx := range res.Prefixes {
+			if o, err := store.HeadObject(p, filestore.ResolveName(p, r.PathValue("bucket")), pfx); err == nil {
+				if list.Markers == nil {
+					list.Markers = map[string]apiclient.FileObjectInfo{}
+				}
+				list.Markers[pfx] = objectResponse(o)
+			}
+		}
+	}
 	rest.WriteResponse(http.StatusOK, w, r, list)
 }
 
@@ -560,6 +575,9 @@ func setObjectHeaders(w http.ResponseWriter, o *filestore.Object) {
 		h.Set(apiclient.FileMtimeHeader, mtime)
 	} else {
 		h.Set(apiclient.FileMtimeHeader, apiclient.FormatMtime(o.ModifiedAt))
+	}
+	for k, v := range o.Meta {
+		h.Set(apiclient.FileMetaHeaderPrefix+k, v)
 	}
 }
 
@@ -620,13 +638,7 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		Size:        r.ContentLength,
 		IfMatch:     r.Header.Get("If-Match"),
 		IfNoneMatch: r.Header.Get("If-None-Match") == "*",
-	}
-	if mtime := r.Header.Get(apiclient.FileMtimeHeader); mtime != "" {
-		// Kept as metadata, as S3 clients do, so Last-Modified stays the
-		// upload time and rclone sees the same modification time.
-		if t, ok := apiclient.ParseMtime(mtime); ok {
-			opts.Meta = map[string]string{"mtime": apiclient.FormatMtime(t)}
-		}
+		Meta:        metaFromRequest(r),
 	}
 
 	var o *filestore.Object
@@ -682,7 +694,7 @@ func HandleListFileChanges(w http.ResponseWriter, r *http.Request) {
 // access to the destination, and the destination bucket's owner is charged
 // for the new file.
 func HandleCopyFileObject(w http.ResponseWriter, r *http.Request) {
-	store, _, p, ok := filesContext(w, r)
+	store, user, p, ok := filesContext(w, r)
 	if !ok {
 		return
 	}
@@ -698,12 +710,17 @@ func HandleCopyFileObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	src, dst := filestore.ResolveName(p, req.SourceBucket), filestore.ResolveName(p, req.DestBucket)
-	if src == dst && req.SourceKey == req.DestKey {
+	if src == dst && req.SourceKey == req.DestKey && req.Meta == nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "source and destination are the same file"})
 		return
 	}
 
-	o, err := store.CopyObjectIf(p, src, req.SourceKey, dst, req.DestKey, nil, filestore.PutOptions{IfMatch: req.IfMatch, IfNoneMatch: req.IfNoneMatch})
+	// New metadata replaces the copy's, as S3's REPLACE directive.
+	var opts *filestore.PutOptions
+	if req.Meta != nil {
+		opts = &filestore.PutOptions{Meta: req.Meta, ModifiedBy: user.Id}
+	}
+	o, err := store.CopyObjectIf(p, src, req.SourceKey, dst, req.DestKey, opts, filestore.PutOptions{IfMatch: req.IfMatch, IfNoneMatch: req.IfNoneMatch})
 	if err != nil {
 		filesError(w, r, err)
 		return
@@ -749,7 +766,7 @@ func HandleDeleteFileObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Status bool `json:"status"`
+		Status bool `json:"status" msgpack:"status"`
 	}{true})
 }
 

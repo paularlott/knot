@@ -13,19 +13,19 @@ import (
 
 // Template Variable object
 type TemplateVar struct {
-	Id            string        `json:"templatevar_id" db:"templatevar_id,pk"`
-	Name          string        `json:"name" db:"name"`
-	Zones         []string      `json:"zones" db:"zones,json"`
-	Value         string        `json:"value" db:"value"`
-	Protected     bool          `json:"protected" db:"protected"`
-	Local         bool          `json:"local" db:"local"`
-	Restricted    bool          `json:"restricted" db:"restricted"`
-	IsDeleted     bool          `json:"is_deleted" db:"is_deleted"`
-	IsManaged     bool          `json:"is_managed" db:"is_managed"`
-	CreatedUserId string        `json:"created_user_id" db:"created_user_id"`
-	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
-	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	Id            string        `json:"templatevar_id" db:"templatevar_id,pk" msgpack:"templatevar_id"`
+	Name          string        `json:"name" db:"name" msgpack:"name"`
+	Zones         []string      `json:"zones" db:"zones,json" msgpack:"zones"`
+	Value         string        `json:"value" db:"value" msgpack:"value"`
+	Protected     bool          `json:"protected" db:"protected" msgpack:"protected"`
+	Local         bool          `json:"local" db:"local" msgpack:"local"`
+	Restricted    bool          `json:"restricted" db:"restricted" msgpack:"restricted"`
+	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	IsManaged     bool          `json:"is_managed" db:"is_managed" msgpack:"is_managed"`
+	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 func NewTemplateVar(name string, zones []string, local bool, value string, protected bool, restricted bool, userId string) *TemplateVar {

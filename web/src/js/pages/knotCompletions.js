@@ -39,19 +39,19 @@ export const knotLibraries = [
       },
       {
         "name": "get",
-        "signature": "get(path)",
+        "signature": "get(path, params)",
         "description": "GET request to the Knot API. params is an optional dict of query parameters",
         "returns": "dict"
       },
       {
         "name": "post",
-        "signature": "post(path, body, expect)",
+        "signature": "post(path, body)",
         "description": "POST request to the Knot API. body is a dict",
         "returns": "dict"
       },
       {
         "name": "put",
-        "signature": "put(path, body, expect)",
+        "signature": "put(path, body)",
         "description": "PUT request to the Knot API. body is a dict",
         "returns": "dict"
       },
@@ -99,7 +99,7 @@ export const knotLibraries = [
     "functions": [
       {
         "name": "emit",
-        "signature": "emit(type, payload)",
+        "signature": "emit(event_type, payload)",
         "description": "Emit a custom event from this space. The 'custom.' prefix is added automatically.",
         "returns": "bool"
       },
@@ -1173,7 +1173,7 @@ export const knotLibraries = [
     "functions": [
       {
         "name": "get",
-        "signature": "get(path, field)",
+        "signature": "get(path)",
         "description": "Read a secret by its 1Password reference, op://vault/item/field (op://vault/item/section/field for a field in a section); only inside a space",
         "returns": "string"
       }
@@ -1412,6 +1412,24 @@ export const knotLibraries = [
         "returns": "bool"
       },
       {
+        "name": "restrict",
+        "signature": "restrict(name, buckets, files, no_secrets, lock, secrets_allow, secrets_deny)",
+        "description": "Restrict what a space's own credential can do; from inside a space restrictions only tighten. name defaults to the space this runs in. buckets keeps only the named buckets, each \"name\" or \"name:ro\"; files is \"ro\", \"none\" or \"\"; no_secrets switches personal secrets off and secrets_allow / secrets_deny limit them by prefix such as \"op://vault/\" (Knot Pro); lock locks the space's processes out of everything but file storage and personal secrets. Returns the restrictions, as restrictions() does.",
+        "returns": "dict"
+      },
+      {
+        "name": "restrictions",
+        "signature": "restrictions(name)",
+        "description": "Get a space's restrictions (name defaults to the space this runs in): restricted, no_secrets, locked, files, limit_buckets, buckets ({name, read_only}), limit_secrets, secrets_allow, secrets_deny, template_no_files and template_no_secrets.",
+        "returns": "dict"
+      },
+      {
+        "name": "clear_restrictions",
+        "signature": "clear_restrictions(name)",
+        "description": "Lift all of a space's restrictions. Refused from inside a space.",
+        "returns": "dict"
+      },
+      {
         "name": "transfer",
         "signature": "transfer(name, user_id)",
         "description": "Transfer space to another user (user_id can be username, email, or UUID)",
@@ -1599,9 +1617,9 @@ export const knotLibraries = [
       },
       {
         "name": "add_component",
-        "signature": "add_component(stack_definition, template, name, description, shell, **kwargs: Any)",
-        "description": "Add a component (template binding) to an existing stack definition. Resolves template name to ID and rejects duplicate component names.",
-        "returns": "dict"
+        "signature": "add_component(stack_definition, template, name, description, shell, startup_script, depends_on)",
+        "description": "Add a component (template binding) to an existing stack definition. Resolves template name to ID and rejects duplicate component names. startup_script is a startup script ID; depends_on lists other component names this one depends on.",
+        "returns": "bool"
       },
       {
         "name": "remove_component",
@@ -1695,7 +1713,7 @@ export const knotLibraries = [
       },
       {
         "name": "update",
-        "signature": "update(template_id, name, job, description, platform, custom_fields, disable_user_activity, disable_file_storage, disable_user_secrets, **kwargs: Any)",
+        "signature": "update(template_id, name, job, description, platform, volumes, active, custom_fields, disable_user_activity, disable_file_storage, disable_user_secrets, **kwargs: Any)",
         "description": "Update template properties, including health_check_type, health_check_auto_restart, max_uptime, idle_timeout, ports, jobs and port_forwards. Omitted properties are left unchanged. disable_file_storage and disable_user_secrets switch file storage and personal secrets (Knot Pro) off for the template's spaces; disable_user_activity stops user activity collection (Knot Pro). max_uptime / idle_timeout units are one of \"minute\", \"hour\", \"day\"; \"disabled\" (or a 0 value for idle) turns the stop off. custom_fields, when given, replaces the template's custom fields (same shape as create); omitted leaves them unchanged.",
         "returns": "bool"
       },

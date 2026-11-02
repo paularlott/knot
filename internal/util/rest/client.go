@@ -49,6 +49,7 @@ type RESTClient interface {
 	SetAccept(accept ...string) RESTClient
 	SetUserAgent(userAgent string) RESTClient
 	AppendUserAgent(userAgent string) RESTClient
+	SetResponseCheck(check func(*http.Response) error) RESTClient
 	SetAuthToken(token string) RESTClient
 	SetTokenKey(key string) RESTClient
 	SetTokenFormat(format string) RESTClient
@@ -76,6 +77,29 @@ type HTTPClient struct {
 	HTTPClient  *http.Client
 	headers     map[string]string
 	accept      []string
+
+	// responseCheck, when set, vets every reply before it's read; an error
+	// fails the request.
+	responseCheck func(*http.Response) error
+}
+
+// SetResponseCheck vets every reply with check before it's read.
+func (c *HTTPClient) SetResponseCheck(check func(*http.Response) error) RESTClient {
+	c.responseCheck = check
+	return c
+}
+
+// do sends req, applying the response check.
+func (c *HTTPClient) do(req *http.Request) (*http.Response, error) {
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil || c.responseCheck == nil {
+		return resp, err
+	}
+	if err := c.responseCheck(resp); err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+	return resp, nil
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) (*HTTPClient, error) {
@@ -293,7 +317,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 	}
 
 	c.setHeaders(req)
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -306,12 +330,7 @@ func (c *HTTPClient) Get(ctx context.Context, path string, response interface{})
 	}
 
 	if response != nil {
-		contentType := resp.Header.Get("Content-Type")
-		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = DecodeMsgPack(resp.Body, response)
-		} else {
-			err = decodeJSON(resp.Body, response)
-		}
+		err = decodeBody(resp.Header.Get("Content-Type"), resp.Body, response)
 	}
 	return resp.StatusCode, err
 }
@@ -327,11 +346,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 
 	u := c.baseURL.ResolveReference(rel)
 
-	if c.contentType == ContentTypeMsgPack {
-		data, err = msgpack.Marshal(request)
-	} else {
-		data, err = json.Marshal(request)
-	}
+	data, err = encodeBody(c.contentType, request)
 	if err != nil {
 		return 0, err
 	}
@@ -342,7 +357,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 	}
 
 	c.setHeaders(req)
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -354,12 +369,7 @@ func (c *HTTPClient) SendData(ctx context.Context, method string, path string, r
 	}
 
 	if response != nil {
-		contentType := resp.Header.Get("Content-Type")
-		if strings.Contains(contentType, ContentTypeMsgPack) {
-			err = DecodeMsgPack(resp.Body, response)
-		} else {
-			err = decodeJSON(resp.Body, response)
-		}
+		err = decodeBody(resp.Header.Get("Content-Type"), resp.Body, response)
 		if err != nil {
 			return resp.StatusCode, err
 		}
@@ -419,11 +429,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 
 	u := c.baseURL.ResolveReference(rel)
 
-	if contentType == ContentTypeMsgPack {
-		data, err = msgpack.Marshal(request)
-	} else {
-		data, err = json.Marshal(request)
-	}
+	data, err = encodeBody(contentType, request)
 	if err != nil {
 		return 0, err
 	}
@@ -446,7 +452,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 		req.Header.Set(key, value)
 	}
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -458,12 +464,7 @@ func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, metho
 	}
 
 	if response != nil {
-		respContentType := resp.Header.Get("Content-Type")
-		if strings.Contains(respContentType, ContentTypeMsgPack) {
-			err = DecodeMsgPack(resp.Body, response)
-		} else {
-			err = decodeJSON(resp.Body, response)
-		}
+		err = decodeBody(resp.Header.Get("Content-Type"), resp.Body, response)
 		if err != nil {
 			return resp.StatusCode, err
 		}
@@ -515,7 +516,7 @@ func (c *HTTPClient) GetJSON(ctx context.Context, path string, response interfac
 		req.Header.Set(key, value)
 	}
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -559,11 +560,7 @@ func (c *HTTPClient) streamDataCore(
 	var data []byte
 	var err error
 
-	if c.contentType == ContentTypeMsgPack {
-		data, err = msgpack.Marshal(request)
-	} else {
-		data, err = json.Marshal(request)
-	}
+	data, err = encodeBody(c.contentType, request)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -590,7 +587,7 @@ func (c *HTTPClient) streamDataCore(
 	c.HTTPClient.Timeout = 0 // Disable timeout for streaming
 
 	// Make request
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.do(req)
 
 	// Restore original timeout
 	c.HTTPClient.Timeout = originalTimeout
@@ -725,7 +722,15 @@ func (c *HTTPClient) DoRaw(ctx context.Context, method string, path string, body
 	}
 
 	client := &http.Client{Transport: c.HTTPClient.Transport}
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil || c.responseCheck == nil {
+		return resp, err
+	}
+	if err := c.responseCheck(resp); err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+	return resp, nil
 }
 
 // DecodeResponse turns a non-2xx response into an error carrying the server's
@@ -749,8 +754,5 @@ func DecodeResponse(resp *http.Response, response interface{}) error {
 	if response == nil {
 		return nil
 	}
-	if strings.Contains(resp.Header.Get("Content-Type"), ContentTypeMsgPack) {
-		return DecodeMsgPack(resp.Body, response)
-	}
-	return decodeJSON(resp.Body, response)
+	return decodeBody(resp.Header.Get("Content-Type"), resp.Body, response)
 }

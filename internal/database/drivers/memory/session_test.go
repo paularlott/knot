@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/database/model"
 )
 
@@ -68,4 +69,70 @@ func mustSessionsForUser(t *testing.T, db *MemoryDbDriver, userId string) []*mod
 		t.Fatal(err)
 	}
 	return sessions
+}
+
+// A deleted session stays deleted: a request that read it before a logout,
+// or a gossiped refresh, saving a live copy afterwards must not revive it.
+func TestSaveSessionKeepsDeletion(t *testing.T) {
+	db := &MemoryDbDriver{}
+	db.Connect()
+
+	live := model.Session{Id: "s1", UserId: "a", ExpiresAfter: time.Now().Add(time.Hour).UTC()}
+	if err := db.SaveSession(&model.Session{Id: live.Id, UserId: live.UserId, ExpiresAfter: live.ExpiresAfter}); err != nil {
+		t.Fatal(err)
+	}
+
+	deleted := live
+	deleted.IsDeleted = true
+	if err := db.SaveSession(&deleted); err != nil {
+		t.Fatal(err)
+	}
+
+	late := live // read before the logout, refreshed after it
+	late.ExpiresAfter = time.Now().Add(2 * time.Hour).UTC()
+	if err := db.SaveSession(&late); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := db.GetSession("s1")
+	if got == nil || !got.IsDeleted {
+		t.Fatalf("session after a late refresh = %+v, want it still deleted", got)
+	}
+}
+
+// A request saving the copy of a session it read before the provider grant
+// was replaced must not bring the replaced grant back.
+func TestSaveSessionKeepsNewerProviderToken(t *testing.T) {
+	db := &MemoryDbDriver{}
+	db.Connect()
+
+	read := model.Session{Id: "s1", UserId: "a", ExpiresAfter: time.Now().Add(time.Hour).UTC(),
+		AuthProvider: "corp", ProviderToken: "old", ProviderTokenAt: hlc.Now()}
+	if err := db.SaveSession(&read); err != nil {
+		t.Fatal(err)
+	}
+
+	replaced := read
+	replaced.ProviderToken = "new"
+	replaced.ProviderTokenAt = hlc.Now()
+	if err := db.SaveSession(&replaced); err != nil {
+		t.Fatal(err)
+	}
+
+	late := read // read before the grant was replaced, refreshed after
+	late.ExpiresAfter = time.Now().Add(2 * time.Hour).UTC()
+	late.UpdatedAt = hlc.Now()
+	if err := db.SaveSession(&late); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.GetSession("s1")
+	if err != nil || got == nil {
+		t.Fatalf("session: %v, %v", got, err)
+	}
+	if got.ProviderToken != "new" || got.ProviderTokenAt != replaced.ProviderTokenAt {
+		t.Errorf("provider token = %q, want the newer grant kept", got.ProviderToken)
+	}
+	if !got.ExpiresAfter.Equal(late.ExpiresAfter) {
+		t.Errorf("expiry = %v, want the late refresh's %v", got.ExpiresAfter, late.ExpiresAfter)
+	}
 }

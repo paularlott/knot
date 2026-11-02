@@ -3,31 +3,31 @@ package apiclient
 import "context"
 
 type RoleDetails struct {
-	Id                string   `json:"role_id"`
-	Name              string   `json:"name"`
-	Permissions       []uint16 `json:"permissions"`
-	PluginPermissions []string `json:"plugin_permissions"`
+	Id                string   `json:"role_id" msgpack:"role_id"`
+	Name              string   `json:"name" msgpack:"name"`
+	Permissions       []uint16 `json:"permissions" msgpack:"permissions"`
+	PluginPermissions []string `json:"plugin_permissions" msgpack:"plugin_permissions"`
 }
 
 type RoleInfo struct {
-	Id   string `json:"role_id"`
-	Name string `json:"name"`
+	Id   string `json:"role_id" msgpack:"role_id"`
+	Name string `json:"name" msgpack:"name"`
 }
 
 type RoleInfoList struct {
-	Count int        `json:"count"`
-	Roles []RoleInfo `json:"roles"`
+	Count int        `json:"count" msgpack:"count"`
+	Roles []RoleInfo `json:"roles" msgpack:"roles"`
 }
 
 type RoleRequest struct {
-	Name              string   `json:"name"`
-	Permissions       []uint16 `json:"permissions"`
-	PluginPermissions []string `json:"plugin_permissions"`
+	Name              string   `json:"name" msgpack:"name"`
+	Permissions       []uint16 `json:"permissions" msgpack:"permissions"`
+	PluginPermissions []string `json:"plugin_permissions" msgpack:"plugin_permissions"`
 }
 
 type RoleResponse struct {
-	Status bool   `json:"status"`
-	Id     string `json:"role_id"`
+	Status bool   `json:"status" msgpack:"status"`
+	Id     string `json:"role_id" msgpack:"role_id"`
 }
 
 func (c *ApiClient) GetRoles(ctx context.Context) (*RoleInfoList, int, error) {

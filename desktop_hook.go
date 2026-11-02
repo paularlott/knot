@@ -14,6 +14,9 @@ import (
 // system tray icon instead of printing help.
 func applyDesktopMode(cmd *cli.Command) {
 	cmd.Run = desktopRun
+
+	// Desktop builds can serve a server's file storage over NFS.
+	cmd.Commands = append(cmd.Commands, desktop.NFSServerCmd)
 }
 
 // desktopRun starts desktop mode only for a bare `knot`. With a root Run the

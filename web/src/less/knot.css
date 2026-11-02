@@ -188,7 +188,7 @@
 }
 
 @utility auth-form-panel {
-  @apply rounded-2xl border border-white/70 bg-white/75 p-5 shadow-lg ring-1 ring-black/5 backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/35 dark:ring-white/10 sm:p-6;
+  @apply rounded-2xl border border-gray-200/80 bg-gray-50/80 p-5 shadow-lg ring-1 ring-black/5 backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/35 dark:ring-white/10 sm:p-6;
 }
 
 @utility auth-form-heading {
@@ -213,6 +213,25 @@
 
 @utility auth-form-submit {
   @apply w-full rounded-xl bg-gradient-to-r from-blue-700 via-blue-800 to-cyan-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition-all duration-200 hover:brightness-105 focus:outline-hidden focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70 dark:focus:ring-blue-800;
+}
+
+/* Sign-in page buttons above the email form (passkey, and sign-in
+   providers in Pro): one full-width line each, icon and label centred. */
+@utility auth-provider-button {
+  @apply relative flex w-full items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm transition-colors duration-200 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:border-gray-500 dark:hover:bg-gray-700;
+}
+
+@utility auth-provider-icon-shell {
+  @apply flex size-5 shrink-0 items-center justify-center text-gray-900 dark:text-white;
+}
+
+@utility auth-provider-title {
+  @apply truncate font-semibold;
+}
+
+/* The "or sign in with email" rule between those buttons and the form. */
+@utility auth-divider {
+  @apply flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 before:h-px before:flex-1 before:bg-gray-300 after:h-px after:flex-1 after:bg-gray-300 dark:before:bg-gray-600 dark:after:bg-gray-600;
 }
 
 /* Dialogs sit in the middle of the screen at every width. */

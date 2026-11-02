@@ -22,8 +22,8 @@ import (
 // JobsErrorResponse is the 400 body from the jobs update endpoint: JobErrors
 // maps each invalid job name to its validation error.
 type JobsErrorResponse struct {
-	Error     string            `json:"error"`
-	JobErrors map[string]string `json:"job_errors,omitempty"`
+	Error     string            `json:"error" msgpack:"error"`
+	JobErrors map[string]string `json:"job_errors,omitempty" msgpack:"job_errors,omitempty"`
 }
 
 // HandleGetSpaceJobs returns the space's persisted job definitions and runner

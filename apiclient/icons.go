@@ -5,9 +5,9 @@ import (
 )
 
 type Icon struct {
-	Description string `json:"description"`
-	Source      string `json:"source"`
-	URL         string `json:"url"`
+	Description string `json:"description" msgpack:"description"`
+	Source      string `json:"source" msgpack:"source"`
+	URL         string `json:"url" msgpack:"url"`
 }
 
 type IconsResponse struct {

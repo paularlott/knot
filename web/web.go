@@ -27,6 +27,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/oauth2"
+	"github.com/paularlott/knot/internal/passkey"
 	"github.com/paularlott/knot/internal/plugins"
 
 	"github.com/paularlott/knot/internal/log"
@@ -319,7 +320,6 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /vnc/{space_id}", middleware.WebAuth(HandleVNCPage))
 
 	router.HandleFunc("GET /api-tokens", middleware.WebAuth(HandleSimplePage))
-	router.HandleFunc("GET /api-tokens/create/{token_name}", middleware.WebAuth(HandleTokenCreatePage))
 
 	router.HandleFunc("GET /spaces", middleware.WebAuth(HandleListSpaces))
 	router.HandleFunc("GET /spaces/{user_id}", middleware.WebAuth(checkPermissionUseManageSpaces(HandleListSpaces)))
@@ -408,6 +408,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /login", HandleLoginPage)
 	router.HandleFunc("GET /oauth/grant", middleware.WebAuth(HandleOAuth2GrantPage))
 	router.HandleFunc("POST /oauth/grant", middleware.WebAuth(oauth2.HandleGrant))
+	router.HandleFunc("GET /device", middleware.WebAuth(HandleDevicePage))
+	router.HandleFunc("POST /device", middleware.WebAuth(HandleDeviceDecision))
 
 	// If download path set then enable serving of the download folder
 	downloadPath := cfg.DownloadPath
@@ -712,6 +714,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"timezone":                            cfg.Timezone,
 		"disableSpaceCreate":                  cfg.DisableSpaceCreate,
 		"totpEnabled":                         cfg.TOTP.Enabled,
+		"passkeysEnabled":                     passkey.Enabled(),
+		"passkeyOrigin":                       passkey.Origin(),
 		"clusterMode":                         cfg.Cluster.AdvertiseAddr != "",
 		"isLeafNode":                          cfg.LeafNode,
 		"logoURL":                             cfg.UI.LogoURL,

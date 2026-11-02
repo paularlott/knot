@@ -8,19 +8,19 @@ import (
 )
 
 type AuditLogEntry struct {
-	Id         int64                  `json:"audit_log_id"`
-	Zone       string                 `json:"zone"`
-	Actor      string                 `json:"actor"`
-	ActorType  string                 `json:"actor_type"`
-	Event      string                 `json:"event"`
-	When       time.Time              `json:"when"`
-	Details    string                 `json:"details"`
-	Properties map[string]interface{} `json:"properties"`
+	Id         int64                  `json:"audit_log_id" msgpack:"audit_log_id"`
+	Zone       string                 `json:"zone" msgpack:"zone"`
+	Actor      string                 `json:"actor" msgpack:"actor"`
+	ActorType  string                 `json:"actor_type" msgpack:"actor_type"`
+	Event      string                 `json:"event" msgpack:"event"`
+	When       time.Time              `json:"when" msgpack:"when"`
+	Details    string                 `json:"details" msgpack:"details"`
+	Properties map[string]interface{} `json:"properties" msgpack:"properties"`
 }
 
 type AuditLogs struct {
-	Count int             `json:"count"`
-	Items []AuditLogEntry `json:"items"`
+	Count int             `json:"count" msgpack:"count"`
+	Items []AuditLogEntry `json:"items" msgpack:"items"`
 }
 
 type AuditLogFilter struct {

@@ -245,14 +245,16 @@ result = "htmlparser_imported"
 			},
 		},
 		{
+			// wait_for is an agent-side library: server-side scripts get no
+			// file or port waiting at all.
 			name: "wait_for",
 			script: `
 import scriptling.wait_for
 result = "wait_for_imported"
 `,
 			verify: func(t *testing.T, env *scriptling.Scriptling, err error) {
-				if err != nil {
-					t.Errorf("Failed to import wait_for: %v", err)
+				if err == nil || !strings.Contains(err.Error(), "unknown library: scriptling.wait_for") {
+					t.Errorf("wait_for must not be importable in the MCP environment, got: %v", err)
 				}
 			},
 		},

@@ -6,27 +6,27 @@ import (
 )
 
 type TokenInfo struct {
-	Id           string    `json:"token_id"`
-	Name         string    `json:"name"`
-	ExpiresAfter time.Time `json:"expires_after"`
+	Id           string    `json:"token_id" msgpack:"token_id"`
+	Name         string    `json:"name" msgpack:"name"`
+	ExpiresAfter time.Time `json:"expires_after" msgpack:"expires_after"`
 	// Scopes restricts which endpoints the token can reach.
 	// nil/empty = unrestricted. Non-empty = limited to the listed scopes.
-	Scopes []string `json:"scopes,omitempty"`
+	Scopes []string `json:"scopes,omitempty" msgpack:"scopes,omitempty"`
 }
 
 type CreateTokenRequest struct {
-	Name   string   `json:"name"`
-	Scopes []string `json:"scopes,omitempty"`
+	Name   string   `json:"name" msgpack:"name"`
+	Scopes []string `json:"scopes,omitempty" msgpack:"scopes,omitempty"`
 }
 
 type UpdateTokenRequest struct {
-	Name   *string   `json:"name,omitempty"`
-	Scopes *[]string `json:"scopes,omitempty"`
+	Name   *string   `json:"name,omitempty" msgpack:"name,omitempty"`
+	Scopes *[]string `json:"scopes,omitempty" msgpack:"scopes,omitempty"`
 }
 
 type CreateTokenResponse struct {
-	Status  bool   `json:"status"`
-	TokenID string `json:"token_id"`
+	Status  bool   `json:"status" msgpack:"status"`
+	TokenID string `json:"token_id" msgpack:"token_id"`
 }
 
 func (c *ApiClient) GetTokens(ctx context.Context) (*[]TokenInfo, int, error) {

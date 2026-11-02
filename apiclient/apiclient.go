@@ -2,10 +2,13 @@ package apiclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
 )
@@ -20,7 +23,12 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClien
 		return nil, err
 	}
 
+	// Requests and replies travel as msgpack, which names fields as the
+	// JSON does only between a knot command and server of the same minor
+	// version, so every reply is checked for that.
 	client.SetContentType(rest.ContentTypeMsgPack)
+	client.SetAccept(rest.ContentTypeMsgPack, rest.ContentTypeJSON)
+	client.SetResponseCheck(checkServerVersion)
 
 	return &ApiClient{
 		httpClient: client,
@@ -31,6 +39,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClien
 func NewMuxClient(user *model.User) *ApiClient {
 	client := rest.NewMuxClient(user)
 	client.SetContentType(rest.ContentTypeMsgPack)
+	client.SetAccept(rest.ContentTypeMsgPack, rest.ContentTypeJSON)
 
 	return &ApiClient{
 		httpClient: client,
@@ -50,8 +59,10 @@ func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
 // UseSessionCookie authenticates subsequent calls with the web session as a
 // real Cookie header. Cookies survive every proxy and are read by servers
 // both older and newer than the custom-header scheme briefly used in between.
+// The session goes under both names a server may read it by: an https
+// server reads only the __Host- one, others the plain one.
 func (c *ApiClient) UseSessionCookie(useCookie bool) *ApiClient {
-	c.httpClient.SetTokenKey("Cookie").SetTokenFormat(model.WebSessionCookie + "=%s")
+	c.httpClient.SetTokenKey("Cookie").SetTokenFormat("__Host-" + model.WebSessionCookie + "=%[1]s; " + model.WebSessionCookie + "=%[1]s")
 	return c
 }
 
@@ -140,4 +151,25 @@ func (c *ApiClient) ConnectWebSocket(ctx context.Context, url string) (*websocke
 	dialer := websocket.Dialer{}
 	ws, _, err := dialer.DialContext(ctx, url, header)
 	return ws, err
+}
+
+// ErrServerVersion is returned when the server's major.minor version isn't
+// the knot command's.
+var ErrServerVersion = errors.New("the knot command and server versions don't match")
+
+// checkServerVersion refuses a reply from a server on another major.minor
+// version, or one too old to say (before 0.41). A reply without the
+// version that isn't from knot, such as a proxy's 502, passes, so its own
+// error shows.
+func checkServerVersion(resp *http.Response) error {
+	version := resp.Header.Get(build.VersionHeader)
+	switch {
+	case version == "" && resp.StatusCode >= http.StatusInternalServerError:
+		return nil
+	case version == "":
+		return fmt.Errorf("%w: the server is older than knot 0.41, and this knot command is %s; use a knot command matching the server's version", ErrServerVersion, build.Version)
+	case !build.SameMajorMinor(version, build.Version):
+		return fmt.Errorf("%w: the server is knot %s, and this knot command is %s; use a knot command from version %s", ErrServerVersion, version, build.Version, build.MajorMinor(version))
+	}
+	return nil
 }

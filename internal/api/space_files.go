@@ -19,6 +19,11 @@ type ReadFileRequest struct {
 	Path   string `json:"path" msgpack:"path"`
 	Offset int    `json:"offset,omitempty" msgpack:"offset,omitempty"` // 1-based line number to start at (0/absent = from beginning)
 	Limit  int    `json:"limit,omitempty" msgpack:"limit,omitempty"`   // max lines to return (0/absent = no limit)
+	// ByteLength, when set, reads that many bytes from ByteOffset rather
+	// than the whole file (at most 8 MB), and returns the file's size,
+	// mtime and permission bits; offset and limit don't apply.
+	ByteOffset int64 `json:"byte_offset,omitempty" msgpack:"byte_offset,omitempty"`
+	ByteLength int64 `json:"byte_length,omitempty" msgpack:"byte_length,omitempty"`
 }
 
 type ReadFileResponse struct {
@@ -29,6 +34,15 @@ type ReadFileResponse struct {
 	Offset     int    `json:"offset,omitempty" msgpack:"offset,omitempty"`           // applied offset (1-based, only when offset/limit used)
 	Limit      int    `json:"limit,omitempty" msgpack:"limit,omitempty"`             // applied limit (only when offset/limit used)
 	Error      string `json:"error,omitempty" msgpack:"error,omitempty"`
+	// Set for a byte range read. Data carries the bytes, which a string
+	// can't in JSON (base64 there, raw in msgpack); Content stays empty.
+	// Ranged tells a client the server read a range, as one too old to
+	// would have returned the whole file in Content.
+	Ranged   bool   `json:"ranged,omitempty" msgpack:"ranged,omitempty"`
+	Data     []byte `json:"data,omitempty" msgpack:"data,omitempty"`
+	FileSize int64  `json:"file_size,omitempty" msgpack:"file_size,omitempty"`
+	MtimeNs  int64  `json:"mtime_ns,omitempty" msgpack:"mtime_ns,omitempty"`
+	FilePerm uint32 `json:"file_perm,omitempty" msgpack:"file_perm,omitempty"`
 }
 
 type WriteFileRequest struct {
@@ -146,6 +160,8 @@ func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
 		SourcePath: req.Path,
 		Direction:  "from_space",
 		Workdir:    "",
+		ByteOffset: req.ByteOffset,
+		ByteLength: req.ByteLength,
 	}
 
 	responseChannel, err := session.SendCopyFile(copyCmd)
@@ -166,6 +182,18 @@ func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
 
 	if !response.Success {
 		result.Error = response.Error
+	} else if req.ByteLength > 0 {
+		if !response.Ranged {
+			result.Success = false
+			result.Error = "the space's agent can't read part of a file; restart the space to update it"
+		} else {
+			result.Ranged = true
+			result.Data = response.Content
+			result.Size = len(response.Content)
+			result.FileSize = response.FileSize
+			result.MtimeNs = response.MtimeNs
+			result.FilePerm = response.FilePerm
+		}
 	} else {
 		content := string(response.Content)
 		// Apply 1-based line offset/limit when requested. Offset/limit of 0
@@ -179,7 +207,7 @@ func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
 		result.Size = len(content)
 	}
 
-	if response.Success {
+	if result.Success {
 		auditSpaceFileOp(r, "read", req.Path, true, int64(result.Size))
 	} else {
 		auditSpaceFileOp(r, "read", req.Path, false, -1)

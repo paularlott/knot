@@ -10,18 +10,18 @@ import (
 
 // Template object
 type Volume struct {
-	Id            string        `json:"volume_id" db:"volume_id,pk"`
-	Name          string        `json:"name" db:"name"`
-	Zone          string        `json:"zone" db:"zone"`
-	NodeId        string        `json:"node_id" db:"node_id"`
-	Platform      string        `json:"platform" db:"platform"`
-	Definition    string        `json:"definition" db:"definition"`
-	Active        bool          `json:"active" db:"active"`
-	IsDeleted     bool          `json:"is_deleted" db:"is_deleted"`
-	CreatedUserId string        `json:"created_user_id" db:"created_user_id"`
-	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
-	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	Id            string        `json:"volume_id" db:"volume_id,pk" msgpack:"volume_id"`
+	Name          string        `json:"name" db:"name" msgpack:"name"`
+	Zone          string        `json:"zone" db:"zone" msgpack:"zone"`
+	NodeId        string        `json:"node_id" db:"node_id" msgpack:"node_id"`
+	Platform      string        `json:"platform" db:"platform" msgpack:"platform"`
+	Definition    string        `json:"definition" db:"definition" msgpack:"definition"`
+	Active        bool          `json:"active" db:"active" msgpack:"active"`
+	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 func NewVolume(name string, definition string, userId string, platform string) *Volume {

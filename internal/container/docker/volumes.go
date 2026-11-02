@@ -10,16 +10,24 @@ import (
 )
 
 type volumeCreateRequest struct {
-	Name string `json:"Name"`
+	Name       string            `json:"Name" msgpack:"Name"`
+	Driver     string            `json:"Driver,omitempty" msgpack:"Driver,omitempty"`
+	DriverOpts map[string]string `json:"DriverOpts,omitempty" msgpack:"DriverOpts,omitempty"`
 }
 
 type volumeCreateResponse struct {
-	Name string `json:"Name"`
+	Name string `json:"Name" msgpack:"Name"`
 }
 
-func (c *DockerClient) volumeCreate(ctx context.Context, name string) (string, error) {
+// volumeCreate makes a volume, with the volume driver and options the
+// definition gives (e.g. the local driver's nfs type), if any.
+func (c *DockerClient) volumeCreate(ctx context.Context, name string, spec model.LocalVolumeEntry) (string, error) {
 	var resp volumeCreateResponse
-	code, err := c.httpClient.PostJSON(ctx, "/v1.41/volumes/create", volumeCreateRequest{Name: name}, &resp, http.StatusCreated)
+	req := volumeCreateRequest{Name: name, Driver: spec.Driver, DriverOpts: spec.DriverOpts}
+	if req.Driver == "" && len(req.DriverOpts) > 0 {
+		req.Driver = "local"
+	}
+	code, err := c.httpClient.PostJSON(ctx, "/v1.41/volumes/create", req, &resp, http.StatusCreated)
 	if err != nil {
 		return "", fmt.Errorf("volume create failed (HTTP %d): %w", code, err)
 	}
@@ -50,9 +58,9 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]inte
 		return fmt.Errorf("volume definition must contain exactly 1 volume")
 	}
 
-	for volName := range vi.Volumes {
+	for volName, spec := range vi.Volumes {
 		c.Logger.Debug("creating volume", "name", volName)
-		if _, err := c.volumeCreate(context.Background(), volName); err != nil {
+		if _, err := c.volumeCreate(context.Background(), volName, spec); err != nil {
 			return err
 		}
 	}

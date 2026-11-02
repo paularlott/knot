@@ -20,12 +20,14 @@ import (
 	"github.com/paularlott/knot/internal/util/excludes"
 )
 
-// MirrorCmd mirrors a local directory tree to a space. Source is local,
-// destination is <space>:<path>. Uploads every file in the tree (preserving
-// each file's mtime and permission bits) and deletes any remote file that
-// doesn't exist locally — the destination ends up as a mirror of the source.
+// MirrorCmd mirrors a directory tree between this machine and a space, in
+// whichever direction the arguments give: the side written <space>:<path>
+// is the space. Copies every changed file (preserving each file's mtime and
+// permission bits) and deletes any file at the destination that the source
+// doesn't have — the destination ends up as a mirror of the source.
 //
-//	knot space mirror ./src myspace:/var/www/html
+//	knot space mirror ./src myspace:/var/www/html   # this machine → space
+//	knot space mirror myspace:/var/www/html ./src   # space → this machine
 //
 // For one-way upload without deletes, use knot space copy per-file or write
 // your own loop. For continuous two-way sync, mutagen against the space's SSH
@@ -33,8 +35,8 @@ import (
 // of a tree.
 var MirrorCmd = &cli.Command{
 	Name:        "mirror",
-	Usage:       "Mirror a local directory to a space",
-	Description: "Upload <local folder> to <space>:<path>, then delete remote files that don't exist locally. The destination ends up as a mirror of the source. With --watch, keeps running and syncs local changes live. For one-shot upload without deletes, use `knot space copy` per-file.",
+	Usage:       "Mirror a directory between this machine and a space",
+	Description: "Copy <source> to <destination>, then delete files at the destination that the source doesn't have. The destination ends up as a mirror of the source. Write the space side as <space>:<path>: `knot space mirror ./site myspace:/var/www` uploads, and `knot space mirror myspace:/var/www ./site` downloads. With --watch, keeps running and uploads local changes live. For one-shot copies without deletes, use `knot space copy` per-file.",
 	Flags: []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:    "exclude",
@@ -43,25 +45,25 @@ var MirrorCmd = &cli.Command{
 		},
 		&cli.IntFlag{
 			Name:         "parallel",
-			Usage:        "Concurrent upload workers (default 8)",
+			Usage:        "Files copied at once (default 8)",
 			DefaultValue: 8,
 		},
 		&cli.BoolFlag{
 			Name:  "dry-run",
-			Usage: "List what would be uploaded/deleted without performing any I/O",
+			Usage: "List what would be copied or deleted without changing anything",
 		},
 		&cli.BoolFlag{
 			Name:  "debug",
-			Usage: "Log why each file was uploaded (new / size differs / mtime drift) — for diagnosing idempotence issues",
+			Usage: "Log why each file was copied (new / size differs / mtime drift) — for diagnosing idempotence issues",
 		},
 		&cli.BoolFlag{
 			Name:    "verbose",
 			Aliases: []string{"v"},
-			Usage:   "Print every upload and delete as it happens (default: summary only)",
+			Usage:   "Print every copy and delete as it happens (default: summary only)",
 		},
 		&cli.BoolFlag{
 			Name:  "verify",
-			Usage: "Compare local and remote hashes without uploading or deleting; report any mismatches",
+			Usage: "Compare local and remote hashes without copying or deleting; report any mismatches",
 		},
 		&cli.BoolFlag{
 			Name:  "hash",
@@ -69,30 +71,37 @@ var MirrorCmd = &cli.Command{
 		},
 		&cli.BoolFlag{
 			Name:  "watch",
-			Usage: "After the initial mirror, watch for local changes and sync them live (one-way: local → space). Ctrl+C to stop",
+			Usage: "After the initial mirror, watch for local changes and upload them live (uploads only). Ctrl+C to stop",
 		},
 	},
 	Arguments: []cli.Argument{
 		&cli.StringArg{
-			Name:     "local",
+			Name:     "source",
 			Required: true,
-			Usage:    "Local folder to mirror",
+			Usage:    "Folder to mirror: a local path, or 'space:path'",
 		},
 		&cli.StringArg{
-			Name:     "remote",
+			Name:     "destination",
 			Required: true,
-			Usage:    "Destination in the form 'space:path'",
+			Usage:    "Where to mirror it: 'space:path', or a local path",
 		},
 	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		local := cmd.GetStringArg("local")
-		remote := cmd.GetStringArg("remote")
+		source := cmd.GetStringArg("source")
+		destination := cmd.GetStringArg("destination")
+
+		local, remote, pull := destination, source, true
+		switch sourceInSpace, destInSpace := isSpacePath(source), isSpacePath(destination); {
+		case sourceInSpace && destInSpace:
+			return fmt.Errorf("mirror copies between this machine and a space, not between two spaces")
+		case !sourceInSpace && !destInSpace:
+			return fmt.Errorf("give the space side as 'space:path'")
+		case destInSpace:
+			local, remote, pull = source, destination, false
+		}
 
 		colon := strings.Index(remote, ":")
-		if colon <= 1 {
-			return fmt.Errorf("remote must be in the form 'space:path'")
-		}
 		spaceName := remote[:colon]
 		remoteDir := remote[colon+1:]
 		if remoteDir == "" {
@@ -100,11 +109,15 @@ var MirrorCmd = &cli.Command{
 		}
 
 		info, err := os.Stat(local)
-		if err != nil {
+		switch {
+		case err == nil && !info.IsDir():
+			return fmt.Errorf("local path must be a directory (got %q)", local)
+		case err != nil && !(pull && os.IsNotExist(err)):
+			// Downloading creates the local folder; uploading needs it.
 			return fmt.Errorf("stat local: %w", err)
 		}
-		if !info.IsDir() {
-			return fmt.Errorf("local path must be a directory (got %q)", local)
+		if pull && cmd.GetBool("watch") {
+			return fmt.Errorf("--watch only works when uploading to a space")
 		}
 
 		client, err := cmdutil.GetClient(cmd)
@@ -141,6 +154,7 @@ var MirrorCmd = &cli.Command{
 			verify:  cmd.GetBool("verify"),
 			hash:    cmd.GetBool("hash") || cmd.GetBool("verify"), // verify always uses hash
 			watch:   cmd.GetBool("watch"),
+			pull:    pull,
 		}
 		if opts.parallel < 1 {
 			opts.parallel = 1
@@ -150,9 +164,12 @@ var MirrorCmd = &cli.Command{
 			opts.parallel = 32
 		}
 
-		if opts.verify {
+		switch {
+		case opts.verify:
 			fmt.Fprintf(os.Stderr, "Verifying %s ↔ %s:%s\n", local, spaceName, remoteDir)
-		} else {
+		case pull:
+			fmt.Fprintf(os.Stderr, "Mirroring %s:%s → %s\n", spaceName, remoteDir, local)
+		default:
 			fmt.Fprintf(os.Stderr, "Mirroring %s → %s:%s\n", local, spaceName, remoteDir)
 		}
 
@@ -161,14 +178,21 @@ var MirrorCmd = &cli.Command{
 		}
 
 		start := time.Now()
-		stats, err := opts.run(ctx)
+		run := opts.run
+		if pull {
+			run = opts.runPull
+		}
+		stats, err := run(ctx)
 		if err != nil {
 			return err
 		}
 		if !opts.verify {
-			fmt.Fprintf(os.Stderr, "Done: %s\n", stats.String(time.Since(start)))
+			fmt.Fprintf(os.Stderr, "Done: %s\n", stats.summary(time.Since(start), pull))
 		}
 		if failed := stats.failed.Load(); failed > 0 {
+			if pull {
+				return fmt.Errorf("%d file(s) couldn't be mirrored from %s:%s", failed, spaceName, remoteDir)
+			}
 			return fmt.Errorf("%d file(s) couldn't be mirrored to %s:%s", failed, spaceName, remoteDir)
 		}
 		return nil
@@ -180,7 +204,7 @@ var MirrorCmd = &cli.Command{
 // keeps going).
 type mirrorStats struct {
 	scanned      atomic.Int64
-	uploaded     atomic.Int64
+	uploaded     atomic.Int64 // or downloaded, when pulling
 	skipped      atomic.Int64
 	deleted      atomic.Int64
 	failed       atomic.Int64
@@ -190,6 +214,11 @@ type mirrorStats struct {
 }
 
 func (s *mirrorStats) String(duration time.Duration) string {
+	return s.summary(duration, false)
+}
+
+// summary reports the cycle, naming the copies for their direction.
+func (s *mirrorStats) summary(duration time.Duration, pull bool) string {
 	skipped := s.skipped.Load()
 	detail := ""
 	if skipped > 0 {
@@ -199,8 +228,12 @@ func (s *mirrorStats) String(duration time.Duration) string {
 			detail = fmt.Sprintf(" (%d hash, %d mtime)", h, m)
 		}
 	}
-	return fmt.Sprintf("%d scanned, %d uploaded, %d skipped%s, %d deleted, %d failed (%s)",
-		s.scanned.Load(), s.uploaded.Load(), skipped, detail,
+	copied := "uploaded"
+	if pull {
+		copied = "downloaded"
+	}
+	return fmt.Sprintf("%d scanned, %d %s, %d skipped%s, %d deleted, %d failed (%s)",
+		s.scanned.Load(), s.uploaded.Load(), copied, skipped, detail,
 		s.deleted.Load(), s.failed.Load(), duration.Round(time.Millisecond))
 }
 
@@ -257,6 +290,7 @@ type mirrorOptions struct {
 	verify    bool // hash-only comparison, no uploads/deletes
 	hash      bool // use crc64 comparison instead of mtime+size
 	watch     bool // after initial mirror, watch for changes
+	pull      bool // space → local rather than local → space
 }
 
 // mirrorClient is the subset of *apiclient.ApiClient that mirror needs.
@@ -266,6 +300,7 @@ type mirrorClient interface {
 	WriteSpaceFileOpts(ctx context.Context, spaceID, filePath, content, mode string, mtimeNs int64, filePerm uint32) error
 	DeleteSpaceFile(ctx context.Context, spaceID string, req apiclient.DeleteFileRequest) (*apiclient.DeleteFileResponse, error)
 	CreateSymlinkSpaceFile(ctx context.Context, spaceID, filePath, target string) error
+	ReadSpaceFileBytes(ctx context.Context, spaceID, filePath string, offset, length int64) (*apiclient.SpaceFileRange, error)
 }
 
 // remoteMeta is the subset of FindEntry that mirror compares against local
@@ -446,9 +481,6 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		})
 	}
 
-	// Upload phase: bounded parallel.
-	o.uploadInParallel(ctx, uploads, stats)
-
 	// Delete phase: any path still in remoteSet wasn't in local → remove.
 	// Pass the actual isDir from the remote meta so dirOnly exclude
 	// patterns (e.g. "build/") shield remote directories correctly.
@@ -459,6 +491,16 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		}
 		extras = append(extras, rel)
 	}
+
+	// Refuse to wipe the space from an empty local folder, as a mistyped
+	// path or swapped arguments would.
+	if stats.scanned.Load() == 0 && len(extras) > 0 {
+		return stats, fmt.Errorf("%s is empty, so mirroring it would delete everything in %s:%s; check the path, or use --dry-run to see what would change", o.localRoot, o.spaceName, o.remoteDir)
+	}
+
+	// Upload phase: bounded parallel.
+	o.uploadInParallel(ctx, uploads, stats)
+
 	o.deleteExtras(ctx, extras, stats)
 
 	return stats, nil

@@ -13,6 +13,14 @@ info:
   description: |
     # Introduction
     The REST API is used for the CLI, Web interface and 3rd party integrations.
+
+    # Encodings
+    Requests and replies are JSON by default. Send `Content-Type: application/msgpack` and
+    list it first in `Accept` to use msgpack instead, with the same field names as the
+    JSON. Byte fields, such as file content read in pieces, are base64 in JSON and raw in
+    msgpack. Every reply carries the server's version in the `X-Knot-Version` header, and
+    the server refuses a knot command (`User-Agent: knot vX.Y.Z`) from another major.minor
+    version.
 tags:
   - name: Authorization
     description: |
@@ -532,7 +540,6 @@ paths:
         content:
           application/json:
             schema:
-              type: object
               $ref: "#/components/schemas/CreateUserRequest"
       responses:
         "201":
@@ -850,6 +857,94 @@ paths:
                     description: True if the user has the permission.
         "400":
           $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/passkeys:
+    get:
+      tags:
+        - Users
+      summary: List User Passkeys
+      description: List a user's passkeys, without their key material. Passkeys are added from the user's profile in the web interface.
+      operationId: getUserPasskeys
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The user's passkeys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  passkeys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        passkey_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        backup_eligible:
+                          type: boolean
+                          description: True for a synced passkey, false for one bound to its device.
+                        backup_state:
+                          type: boolean
+                        created_at:
+                          type: string
+                          format: date-time
+                        last_used_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/passkeys/{passkey_id}:
+    delete:
+      tags:
+        - Users
+      summary: Remove User Passkey
+      description: Remove one of a user's passkeys; it can no longer sign in.
+      operationId: deleteUserPasskey
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user.
+          schema:
+            type: string
+            format: uuid
+        - name: passkey_id
+          in: path
+          required: true
+          description: The ID of the passkey.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Passkey removed
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -3846,6 +3941,20 @@ paths:
                   default: 0
                   description: Maximum number of lines to return. 0 or omitted = no limit (whole file).
                   example: 20
+                byte_offset:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: With byte_length, the byte to start reading at.
+                byte_length:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: >
+                    Read this many bytes from byte_offset (at most 8 MB) rather than the
+                    whole file, returning them in data along with the file's size, mtime
+                    and permission bits. offset and limit don't apply.
+                  example: 4194304
       responses:
         "200":
           description: File read successfully
@@ -3872,6 +3981,24 @@ paths:
                   limit:
                     type: integer
                     description: Applied limit (only present when offset/limit used).
+                  ranged:
+                    type: boolean
+                    description: True when the server read a byte range. A server older than knot 0.41 leaves it out and returns the whole file in content.
+                  data:
+                    type: string
+                    format: byte
+                    description: The bytes read, base64-encoded (only present for a byte_length read).
+                  file_size:
+                    type: integer
+                    format: int64
+                    description: The whole file's size in bytes (only present for a byte_length read).
+                  mtime_ns:
+                    type: integer
+                    format: int64
+                    description: The file's modification time in Unix nanoseconds (only present for a byte_length read).
+                  file_perm:
+                    type: integer
+                    description: The file's permission bits (only present for a byte_length read).
                   error:
                     type: string
                     description: Error message if operation failed.

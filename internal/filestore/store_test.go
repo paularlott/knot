@@ -1656,7 +1656,11 @@ func (s *Store) forgetContent(sha string) {
 func TestChangedReports(t *testing.T) {
 	type report struct{ ids []string }
 	reports := make(chan report, 16)
-	s, err := Open(Config{Dir: t.TempDir(), NodeId: "node-chg", Changed: func(ids []string) {
+	s, err := Open(Config{Dir: t.TempDir(), NodeId: "node-chg", Changed: func(changes []BucketChanges) {
+		var ids []string
+		for _, c := range changes {
+			ids = append(ids, c.BucketId)
+		}
 		sort.Strings(ids)
 		reports <- report{ids}
 	}})
@@ -1712,5 +1716,77 @@ func TestChangedReports(t *testing.T) {
 	closeStore()
 	if extra, ok := next(700 * time.Millisecond); ok {
 		t.Errorf("reported after close: %v", extra.ids)
+	}
+}
+
+// A report names the files that changed and who changed each, when the
+// client said, and falls back to whole buckets past what it can name.
+func TestChangedReportsFilesAndWriters(t *testing.T) {
+	reports := make(chan []BucketChanges, 16)
+	s, err := Open(Config{Dir: t.TempDir(), NodeId: "node-chg2", Changed: func(c []BucketChanges) { reports <- c }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	next := func() []BucketChanges {
+		t.Helper()
+		select {
+		case r := <-reports:
+			return r
+		case <-time.After(2 * time.Second):
+			t.Fatal("no report")
+			return nil
+		}
+	}
+	mustCreate(t, s, alice, "writers")
+	next()
+
+	w1 := *alice
+	w1.Writer = "nfs-1"
+	w2 := *alice
+	w2.Writer = "nfs-2"
+	put(t, s, &w1, "writers", "mine", "x")
+	put(t, s, &w1, "writers", "both", "x")
+	put(t, s, &w2, "writers", "both", "y")
+	put(t, s, alice, "writers", "anon", "z")
+	if err := s.DeleteObject(&w2, "writers", "mine"); err != nil {
+		t.Fatal(err)
+	}
+	r := next()
+	if len(r) != 1 || r[0].BucketId != bid(s, "writers") {
+		t.Fatalf("report %+v", r)
+	}
+	got := map[string]string{}
+	for _, f := range r[0].Files {
+		got[f.Key] = f.Writer
+	}
+	// "mine": written by nfs-1, deleted by nfs-2; "both": two writers.
+	want := map[string]string{"mine": "", "both": "", "anon": ""}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("files %v, want %v", got, want)
+	}
+
+	put(t, s, &w1, "writers", "solo", "x")
+	if r := next(); len(r) != 1 || len(r[0].Files) != 1 || r[0].Files[0] != (FileChange{Key: "solo", Writer: "nfs-1"}) {
+		t.Fatalf("one writer's change: %+v", r)
+	}
+
+	// The writer is never stored.
+	if o, err := s.HeadObject(alice, "writers", "solo"); err != nil || o.Writer != "" {
+		t.Fatalf("writer kept on the record: %+v %v", o, err)
+	}
+
+	// From another server: no writer.
+	s.Merge(nil, []*Object{{BucketId: bid(s, "writers"), Key: "remote", SHA256: strings.Repeat("b", 64), Size: 1, UpdatedAt: hlc.Now()}})
+	if r := next(); len(r) != 1 || len(r[0].Files) != 1 || r[0].Files[0] != (FileChange{Key: "remote"}) {
+		t.Fatalf("remote change: %+v", r)
+	}
+
+	// More than can be named: the bucket as a whole.
+	for i := 0; i <= changeMaxKeys; i++ {
+		put(t, s, &w1, "writers", fmt.Sprintf("many/%d", i), "x")
+	}
+	if r := next(); len(r) != 1 || r[0].Files != nil {
+		t.Fatalf("too many to name: %d buckets, files %v", len(r), len(r[0].Files))
 	}
 }

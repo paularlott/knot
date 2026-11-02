@@ -11,7 +11,7 @@ import (
 // the space. The agentlink package installs it; scripts outside a space
 // never get this library and use the embedded Python knot.secret, which
 // refuses.
-var UserSecretResolver func(path, field string) (string, error)
+var UserSecretResolver func(path string) (string, error)
 
 // GetSecretLibrary returns the knot.secret library for scripts running in a
 // space. It shadows the embedded Python module: personal secrets are only
@@ -28,21 +28,10 @@ func GetSecretLibrary() *object.Library {
 			return errors.ParameterError("path", err)
 		}
 
-		field := ""
-		if len(args) > 1 {
-			if field, err = args[1].AsString(); err != nil {
-				return errors.ParameterError("field", err)
-			}
-		} else if f := kwargs.Get("field"); f != nil {
-			if field, err = f.AsString(); err != nil {
-				return errors.ParameterError("field", err)
-			}
-		}
-
 		if UserSecretResolver == nil {
 			return &object.Error{Message: "personal secrets can only be read inside a knot space"}
 		}
-		value, rerr := UserSecretResolver(path, field)
+		value, rerr := UserSecretResolver(path)
 		if rerr != nil {
 			return &object.Error{Message: rerr.Error()}
 		}

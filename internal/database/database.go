@@ -298,6 +298,8 @@ func initDrivers() {
 				logger.Fatal("failed to save node_id", "error", err)
 			}
 		}
+
+		runDataMigrations(dbInstance)
 	})
 }
 

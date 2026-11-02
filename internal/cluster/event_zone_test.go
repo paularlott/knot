@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/authratelimit"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/devicegrant"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 )
@@ -39,6 +40,7 @@ func (nonLeaderTransport) GossipVolume(*model.Volume)                     {}
 func (nonLeaderTransport) GossipSpaceUsageSample(*model.SpaceUsageSample) {}
 func (nonLeaderTransport) GossipAuditLog(*model.AuditLogEntry)            {}
 func (nonLeaderTransport) GossipAuthFailure(*authratelimit.Event)         {}
+func (nonLeaderTransport) GossipDeviceGrant(*devicegrant.Grant)           {}
 func (nonLeaderTransport) GossipSession(*model.Session)                   {}
 func (nonLeaderTransport) GossipScript(*model.Script)                     {}
 func (nonLeaderTransport) GossipSkill(*model.Skill)                       {}

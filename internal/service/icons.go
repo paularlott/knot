@@ -15,13 +15,13 @@ import (
 
 // Icon represents a single icon entry
 type Icon struct {
-	Description string `toml:"description" json:"description"`
-	Source      string `toml:"-" json:"source"`
-	URL         string `toml:"url" json:"url"`
+	Description string `toml:"description" json:"description" msgpack:"description"`
+	Source      string `toml:"-" json:"source" msgpack:"source"`
+	URL         string `toml:"url" json:"url" msgpack:"url"`
 }
 
 type IconList struct {
-	Icons []Icon `toml:"icons" json:"icons"`
+	Icons []Icon `toml:"icons" json:"icons" msgpack:"icons"`
 }
 
 var (

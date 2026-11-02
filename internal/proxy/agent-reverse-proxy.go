@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/util"
 )
 
 func CreateAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host string) *httputil.ReverseProxy {
@@ -18,6 +19,7 @@ func CreateAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *s
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
+		util.StripKnotCookies(req.Header)
 		req.Header.Set("X-Proxy", "knot "+build.Version)
 		req.URL.Scheme = "http" // Force http as the agent will upgrade the connection to https
 

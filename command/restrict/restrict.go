@@ -21,28 +21,40 @@ const restrictDescription = "Any restriction also confines the space: it can the
 	"--lock locks the space's processes out of everything else: beyond the files they're allowed, they can only restart or shut the space down, while port forwards and scripts started from outside the space keep working. "
 
 // secretsEnabled is set by Knot Pro, which has personal secrets; until then
-// the secrets restriction stays out of sight.
+// the secrets restrictions stay out of sight.
 var (
-	secretsEnabled bool
-	noSecretsFlags []*cli.BoolFlag
+	secretsEnabled  bool
+	showSecretFlags []func()
 )
 
-// EnableSecrets shows the --no-secrets flag. Knot Pro calls it.
+// EnableSecrets shows the personal secret flags. Knot Pro calls it.
 func EnableSecrets() {
 	secretsEnabled = true
-	for _, f := range noSecretsFlags {
-		f.Hidden = false
+	for _, show := range showSecretFlags {
+		show()
 	}
 }
 
-func noSecretsFlag() *cli.BoolFlag {
-	f := &cli.BoolFlag{
+func secretFlags() []cli.Flag {
+	noSecrets := &cli.BoolFlag{
 		Name:   "no-secrets",
 		Usage:  "Switch personal secrets off.",
 		Hidden: !secretsEnabled,
 	}
-	noSecretsFlags = append(noSecretsFlags, f)
-	return f
+	allow := &cli.StringSliceFlag{
+		Name:   "secret-allow",
+		Usage:  "Allow only personal secrets under this prefix, such as op://vault/ (can be specified multiple times).",
+		Hidden: !secretsEnabled,
+	}
+	deny := &cli.StringSliceFlag{
+		Name:   "secret-deny",
+		Usage:  "Refuse personal secrets under this prefix, such as op://vault/item/ (can be specified multiple times).",
+		Hidden: !secretsEnabled,
+	}
+	showSecretFlags = append(showSecretFlags, func() {
+		noSecrets.Hidden, allow.Hidden, deny.Hidden = false, false, false
+	})
+	return []cli.Flag{noSecrets, allow, deny}
 }
 
 // RestrictCmd restricts a space. With spaceArg the space can be named, and
@@ -51,7 +63,7 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 	cmd := &cli.Command{
 		Name:    "restrict",
 		MaxArgs: cli.NoArgs,
-		Flags: []cli.Flag{
+		Flags: append(append([]cli.Flag{
 			&cli.StringSliceFlag{
 				Name:  "bucket",
 				Usage: "Keep only this bucket, as name or name:ro (can be specified multiple times).",
@@ -64,13 +76,13 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 				Name:  "no-files",
 				Usage: "Switch file storage off, the same as --files none.",
 			},
-			noSecretsFlag(),
+		}, secretFlags()...),
 			&cli.BoolFlag{
 				Name:  "lock",
 				Usage: "Lock the space's processes out of everything but their files, and restarting or shutting the space down.",
 			},
 			&cli.BoolFlag{Name: "json", Usage: "Print the restrictions as JSON"},
-		},
+		),
 		Run: func(ctx context.Context, cmd *cli.Command) error {
 			space, err := targetSpace(cmd, spaceArg)
 			if err != nil {
@@ -83,7 +95,8 @@ func RestrictCmd(spaceArg bool) *cli.Command {
 
 			var res *apiclient.SpaceRestrictions
 			if spaceArg && cmd.GetBool("clear") {
-				if len(cmd.GetStringSlice("bucket")) > 0 || cmd.GetString("files") != "" || cmd.GetBool("no-files") || cmd.GetBool("no-secrets") || cmd.GetBool("lock") {
+				if len(cmd.GetStringSlice("bucket")) > 0 || cmd.GetString("files") != "" || cmd.GetBool("no-files") || cmd.GetBool("no-secrets") ||
+					len(cmd.GetStringSlice("secret-allow")) > 0 || len(cmd.GetStringSlice("secret-deny")) > 0 || cmd.GetBool("lock") {
 					return fmt.Errorf("--clear can't be used with other restrictions")
 				}
 				res, _, err = client.ClearSpaceRestrictions(ctx, space)
@@ -193,9 +206,11 @@ func targetSpace(cmd *cli.Command, spaceArg bool) (string, error) {
 
 func restrictRequest(cmd *cli.Command) (*apiclient.SpaceRestrictRequest, error) {
 	request := &apiclient.SpaceRestrictRequest{
-		NoSecrets: cmd.GetBool("no-secrets"),
-		Lock:      cmd.GetBool("lock"),
-		Files:     strings.ToLower(strings.TrimSpace(cmd.GetString("files"))),
+		NoSecrets:    cmd.GetBool("no-secrets"),
+		Lock:         cmd.GetBool("lock"),
+		Files:        strings.ToLower(strings.TrimSpace(cmd.GetString("files"))),
+		SecretsAllow: cmd.GetStringSlice("secret-allow"),
+		SecretsDeny:  cmd.GetStringSlice("secret-deny"),
 	}
 	switch request.Files {
 	case "", "ro", "none":
@@ -230,7 +245,7 @@ func printRestrictions(res *apiclient.SpaceRestrictions) {
 		fmt.Println("Restricted:  yes, until lifted from outside the space")
 	}
 
-	if res.SecretsAvailable {
+	if secretsEnabled {
 		secrets := "allowed"
 		switch {
 		case res.TemplateNoSecrets:
@@ -238,7 +253,20 @@ func printRestrictions(res *apiclient.SpaceRestrictions) {
 		case res.NoSecrets:
 			secrets = "off"
 		}
+		if secrets == "allowed" && res.LimitSecrets {
+			secrets = "only under the prefixes below"
+		} else if secrets == "allowed" && len(res.SecretsDeny) > 0 {
+			secrets = "allowed, except under the prefixes below"
+		}
 		fmt.Printf("Secrets:     %s\n", secrets)
+		if !res.TemplateNoSecrets && !res.NoSecrets {
+			for _, p := range res.SecretsAllow {
+				fmt.Printf("  allow %s\n", p)
+			}
+			for _, p := range res.SecretsDeny {
+				fmt.Printf("  deny  %s\n", p)
+			}
+		}
 	}
 
 	files := "all buckets"

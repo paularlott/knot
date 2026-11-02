@@ -490,8 +490,8 @@ func pruneAppleTestContainers(namePrefix string) {
 
 	var containers []struct {
 		Configuration struct {
-			ID string `json:"id"`
-		} `json:"configuration"`
+			ID string `json:"id" msgpack:"id"`
+		} `json:"configuration" msgpack:"configuration"`
 	}
 	if err := json.Unmarshal(out, &containers); err != nil {
 		return

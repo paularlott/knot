@@ -3,6 +3,7 @@ package mcptools
 import (
 	"context"
 	"encoding/json"
+	"github.com/paularlott/knot/build"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,7 @@ import (
 func mockAPIServer(t *testing.T, handlers map[string]func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(build.VersionHeader, build.Version)
 		key := r.Method + " " + r.URL.Path
 		h, ok := handlers[key]
 		if !ok {

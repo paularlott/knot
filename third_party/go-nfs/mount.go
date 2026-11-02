@@ -1,0 +1,60 @@
+package nfs
+
+import (
+	"bytes"
+	"context"
+
+	"github.com/willscott/go-nfs-client/nfs/xdr"
+)
+
+const (
+	mountServiceID = 100005
+)
+
+func init() {
+	_ = RegisterVersionedMessageHandler(mountServiceID, 3, uint32(MountProcNull), onMountNull)
+	_ = RegisterVersionedMessageHandler(mountServiceID, 3, uint32(MountProcMount), onMount)
+	_ = RegisterVersionedMessageHandler(mountServiceID, 3, uint32(MountProcUmnt), onUMount)
+}
+
+func onMountNull(ctx context.Context, w *response, userHandle Handler) error {
+	return w.writeHeader(ResponseCodeSuccess)
+}
+
+func onMount(ctx context.Context, w *response, userHandle Handler) error {
+	// TODO: auth check.
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
+	dirpath, err := readOpaque(w.req.Body)
+	if err != nil {
+		return err
+	}
+	mountReq := MountRequest{Header: w.req.Header, Dirpath: dirpath}
+	status, handle, flavors := userHandle.Mount(ctx, w.conn, mountReq)
+
+	if err := w.writeHeader(ResponseCodeSuccess); err != nil {
+		return err
+	}
+
+	writer := bytes.NewBuffer([]byte{})
+	if err := xdr.Write(writer, uint32(status)); err != nil {
+		return err
+	}
+
+	rootHndl := userHandle.ToHandle(handle, []string{})
+
+	if status == MountStatusOk {
+		_ = xdr.Write(writer, rootHndl)
+		_ = xdr.Write(writer, flavors)
+	}
+	return w.Write(writer.Bytes())
+}
+
+func onUMount(ctx context.Context, w *response, userHandle Handler) error {
+	// knot: readOpaque skips the XDR padding, which xdr.ReadOpaque ignores.
+	_, err := readOpaque(w.req.Body)
+	if err != nil {
+		return err
+	}
+
+	return w.writeHeader(ResponseCodeSuccess)
+}

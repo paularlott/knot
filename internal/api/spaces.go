@@ -493,11 +493,11 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Return the Token ID
 	rest.WriteResponse(http.StatusCreated, w, r, struct {
-		Status  bool   `json:"status"`
-		SpaceID string `json:"space_id"`
+		Status  bool   `json:"status" msgpack:"status"`
+		SpaceID string `json:"space_id" msgpack:"space_id"`
 		// RequiresIP is true for KVM spaces created without an IP address:
 		// they cannot start until one is set via the edit form.
-		RequiresIP bool `json:"requires_ip,omitempty"`
+		RequiresIP bool `json:"requires_ip,omitempty" msgpack:"requires_ip,omitempty"`
 	}{
 		Status:     true,
 		SpaceID:    space.Id,
@@ -1925,7 +1925,7 @@ func HandleStackExists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, struct {
-		Exists bool `json:"exists"`
+		Exists bool `json:"exists" msgpack:"exists"`
 	}{
 		Exists: len(spaces) > 0,
 	})

@@ -124,7 +124,7 @@ except Exception as e:
 	if err != nil {
 		t.Fatalf("get restrictions: %v", err)
 	}
-	if !res.Restricted || res.NoSecrets != harness.ProBuild || res.SecretsAvailable != harness.ProBuild || !res.LimitBuckets || len(res.Buckets) != 2 {
+	if !res.Restricted || res.NoSecrets != harness.ProBuild || !res.LimitBuckets || len(res.Buckets) != 2 {
 		t.Fatalf("restrictions seen from outside: %+v", res)
 	}
 	if res, _, err = adminUser.Client.ClearSpaceRestrictions(ctx, space); err != nil || res.Restricted {

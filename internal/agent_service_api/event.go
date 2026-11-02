@@ -11,8 +11,8 @@ import (
 )
 
 type eventRequest struct {
-	Type    string                 `json:"type"`
-	Payload map[string]interface{} `json:"payload"`
+	Type    string                 `json:"type" msgpack:"type"`
+	Payload map[string]interface{} `json:"payload" msgpack:"payload"`
 }
 
 func handleEvent(w http.ResponseWriter, r *http.Request) {
