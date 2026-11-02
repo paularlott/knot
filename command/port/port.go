@@ -76,7 +76,6 @@ command runs (Ctrl-C to stop).`,
 		&cli.BoolFlag{
 			Name:         "tls",
 			Usage:        "Enable TLS encryption for the tunnel.",
-			ConfigPath:   []string{"tls"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TUNNEL_TLS"},
 			DefaultValue: false,
 		},
