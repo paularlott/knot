@@ -168,8 +168,14 @@ func parseAllow(list []string) ([]netip.Prefix, error) {
 	if len(list) == 0 {
 		list = []string{"127.0.0.0/8", "::1/128"}
 	}
-	var out []netip.Prefix
+	// A command-line value isn't split on commas as the env var is, so
+	// "--nfs-allow 10.0.0.0/8,192.168.1.0/24" arrives as one entry.
+	var entries []string
 	for _, s := range list {
+		entries = append(entries, strings.Split(s, ",")...)
+	}
+	var out []netip.Prefix
+	for _, s := range entries {
 		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
