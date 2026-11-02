@@ -45,3 +45,22 @@ func TestLocalRedirect(t *testing.T) {
 		})
 	}
 }
+
+func TestIsLocalURL(t *testing.T) {
+	for target, want := range map[string]bool{
+		"/":                         true,
+		"/profile":                  true,
+		"/spaces?filter=mine":       true,
+		"":                          false,
+		"profile":                   false,
+		"//attacker.example":        false,
+		"/\\attacker.example":       false,
+		"https://attacker.example/": false,
+		"/%2F%2Fattacker.example":   false,
+		"/logout":                   false,
+	} {
+		if got := IsLocalURL(target); got != want {
+			t.Errorf("IsLocalURL(%q) = %v, want %v", target, got, want)
+		}
+	}
+}

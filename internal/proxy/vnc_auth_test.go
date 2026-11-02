@@ -46,6 +46,24 @@ func TestIsWildcardVNCHost(t *testing.T) {
 	}
 }
 
+func TestIsValidRedirect(t *testing.T) {
+	cfg := withVNCConfig(t)
+	for target, want := range map[string]bool{
+		"https://alice--box--vnc.knot.example.com" + vncAuthPath + "?code=x":      true,
+		"https://alice--box--vnc.knot.example.com:8443" + vncAuthPath + "?code=x": true,
+		"http://alice--box--vnc.knot.example.com" + vncAuthPath + "?code=x":       false,
+		"https://alice--box--vnc.knot.example.com/other?code=x":                   false,
+		"https://alice--box--vnc.evil.example.com" + vncAuthPath + "?code=x":      false,
+		"https://u@alice--box--vnc.knot.example.com" + vncAuthPath:                false,
+		"https://alice--box--vnc.knot.example.com" + vncAuthPath + "#frag":        false,
+		"//alice--box--vnc.knot.example.com" + vncAuthPath:                        false,
+	} {
+		if got := isValidRedirect(cfg, target); got != want {
+			t.Errorf("isValidRedirect(%q) = %v, want %v", target, got, want)
+		}
+	}
+}
+
 // Without its cookie, a VNC host sends a browser to sign in on knot's
 // host, and refuses anything else.
 func TestVNCHostWithoutCookie(t *testing.T) {

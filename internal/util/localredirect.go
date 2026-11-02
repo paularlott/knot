@@ -27,6 +27,9 @@ func LocalRedirect(raw string) string {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
+	if len(path) > 1 && (path[1] == '/' || path[1] == '\\') {
+		return ""
+	}
 
 	// A path of "//host", or one browsers turn into it by dropping tabs
 	// and newlines or reading a backslash as a slash, would make the
@@ -57,4 +60,14 @@ func safeLocalPath(p string) bool {
 		}
 	}
 	return true
+}
+
+// IsLocalURL reports whether target is a path on this server, as
+// LocalRedirect returns: it starts with a single "/", not "//" or "/\",
+// and holds nothing browsers would turn into either.
+func IsLocalURL(target string) bool {
+	if !strings.HasPrefix(target, "/") || (len(target) > 1 && (target[1] == '/' || target[1] == '\\')) {
+		return false
+	}
+	return LocalRedirect(target) == target
 }

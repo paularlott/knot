@@ -146,17 +146,37 @@ func HandleVNCLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scheme := "https"
-	if u, err := url.Parse(cfg.URL); err == nil && u.Scheme != "" {
-		scheme = u.Scheme
-	}
 	q := url.Values{"code": {code}}
 	if back := util.LocalRedirect(r.URL.Query().Get("return")); back != "" {
 		q.Set("return", back)
 	}
+	target := serverScheme(cfg) + "://" + host + vncAuthPath + "?" + q.Encode()
+	if !isValidRedirect(cfg, target) {
+		http.Error(w, "not a VNC host", http.StatusBadRequest)
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	http.Redirect(w, r, scheme+"://"+host+vncAuthPath+"?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
+// isValidRedirect reports whether target is a handoff to a VNC host: the
+// server's scheme, a VNC host under its wildcard domain, and vncAuthPath,
+// so the handoff never sends a code anywhere else.
+func isValidRedirect(cfg *config.ServerConfig, target string) bool {
+	u, err := url.Parse(target)
+	if err != nil || u.User != nil || u.Fragment != "" || u.Path != vncAuthPath {
+		return false
+	}
+	return u.Scheme == serverScheme(cfg) && isWildcardVNCHost(cfg, u.Host)
+}
+
+// serverScheme is the scheme of the server's URL, https if it has none.
+func serverScheme(cfg *config.ServerConfig) string {
+	if u, err := url.Parse(cfg.URL); err == nil && u.Scheme != "" {
+		return u.Scheme
+	}
+	return "https"
 }
 
 // handleVNCHandoff, on the VNC host, trades a handoff code for the VNC
@@ -195,7 +215,7 @@ func handleVNCHandoff(w http.ResponseWriter, r *http.Request, cfg *config.Server
 	middleware.SetCookie(w, r, vncGrantCookie, grant, 0)
 
 	back := util.LocalRedirect(r.URL.Query().Get("return"))
-	if back == "" || strings.HasPrefix(back, vncAuthPath) {
+	if !util.IsLocalURL(back) || strings.HasPrefix(back, vncAuthPath) {
 		back = "/"
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
