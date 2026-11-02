@@ -49,27 +49,27 @@ func New(origin string) *Authenticator {
 
 type creationOptions struct {
 	PublicKey struct {
-		Challenge string `json:"challenge"`
+		Challenge string `json:"challenge" msgpack:"challenge"`
 		RP        struct {
-			ID string `json:"id"`
-		} `json:"rp"`
+			ID string `json:"id" msgpack:"id"`
+		} `json:"rp" msgpack:"rp"`
 		User struct {
-			ID string `json:"id"`
-		} `json:"user"`
+			ID string `json:"id" msgpack:"id"`
+		} `json:"user" msgpack:"user"`
 		ExcludeCredentials []struct {
-			ID string `json:"id"`
-		} `json:"excludeCredentials"`
-	} `json:"publicKey"`
+			ID string `json:"id" msgpack:"id"`
+		} `json:"excludeCredentials" msgpack:"excludeCredentials"`
+	} `json:"publicKey" msgpack:"publicKey"`
 }
 
 type requestOptions struct {
 	PublicKey struct {
-		Challenge        string `json:"challenge"`
-		RPID             string `json:"rpId"`
+		Challenge        string `json:"challenge" msgpack:"challenge"`
+		RPID             string `json:"rpId" msgpack:"rpId"`
 		AllowCredentials []struct {
-			ID string `json:"id"`
-		} `json:"allowCredentials"`
-	} `json:"publicKey"`
+			ID string `json:"id" msgpack:"id"`
+		} `json:"allowCredentials" msgpack:"allowCredentials"`
+	} `json:"publicKey" msgpack:"publicKey"`
 }
 
 func (a *Authenticator) flags(at bool) byte {
@@ -170,7 +170,7 @@ func (a *Authenticator) Get(options []byte) ([]byte, *Credential, error) {
 		}
 		if len(pk.AllowCredentials) > 0 {
 			ok := slices.ContainsFunc(pk.AllowCredentials, func(ac struct {
-				ID string `json:"id"`
+				ID string `json:"id" msgpack:"id"`
 			}) bool {
 				return ac.ID == b64.EncodeToString(cand.ID)
 			})

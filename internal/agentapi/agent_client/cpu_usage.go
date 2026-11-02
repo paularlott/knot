@@ -1,6 +1,7 @@
 package agent_client
 
 import (
+	"math"
 	"os"
 	"runtime"
 	"strconv"
@@ -61,7 +62,7 @@ func readCgroupCPUUsage() (time.Duration, bool) {
 	if data, err := os.ReadFile(cgroupFile(dirs, "", "cpu.stat")); err == nil {
 		for _, line := range strings.Split(string(data), "\n") {
 			if value, ok := strings.CutPrefix(line, "usage_usec "); ok {
-				if usec, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64); err == nil {
+				if usec, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64); err == nil && usec >= 0 && usec <= math.MaxInt64/int64(time.Microsecond) {
 					return time.Duration(usec) * time.Microsecond, true
 				}
 			}
@@ -69,7 +70,7 @@ func readCgroupCPUUsage() (time.Duration, bool) {
 	}
 	for _, dir := range []string{"cpuacct", "cpu,cpuacct", "cpuacct,cpu"} {
 		if data, err := os.ReadFile(cgroupFile(dirs, dir, "cpuacct.usage")); err == nil {
-			if ns, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err == nil {
+			if ns, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil && ns >= 0 {
 				return time.Duration(ns), true
 			}
 		}

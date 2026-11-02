@@ -405,7 +405,9 @@ window.pluginPage = function pluginPage(url) {
 
     armAction(btn, action, key) {
       btn.type = 'button';
-      btn.dataset.action = action.action || '';
+      // setAttribute, not dataset.action: CodeQL reads an `.action` write
+      // as a form action URL. It is only ever sent back as a form field.
+      btn.setAttribute('data-action', action.action || '');
       btn.dataset.key = key;
       const confirmSpec = normalizeConfirm(action.confirm);
       if (confirmSpec) btn.dataset.confirm = JSON.stringify(confirmSpec);

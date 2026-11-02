@@ -28,8 +28,8 @@ const maxPasskeyBody = 64 * 1024
 
 // PasskeyRegisterFinishRequest is the body of POST /api/users/whoami/passkeys/finish.
 type PasskeyRegisterFinishRequest struct {
-	Name       string          `json:"name"`
-	Credential json.RawMessage `json:"credential"`
+	Name       string          `json:"name" msgpack:"name"`
+	Credential json.RawMessage `json:"credential" msgpack:"credential"`
 }
 
 // passkeySignInRefused reports why user may not sign in with, or add, a
