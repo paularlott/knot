@@ -22,6 +22,8 @@ type TemplateOptions struct {
 
 	// Volumes is the volume definition YAML attached to the template.
 	Volumes string
+	// Mounts are the container's volume mounts, as name:/path.
+	Mounts []string
 	// AllowMigration enables failed-node migration for the template
 	// (AllowNodeMigration + HealthCheckAutoRestart).
 	AllowMigration bool
@@ -66,6 +68,12 @@ environment:
 		// host port 0 = docker assigns an ephemeral port, avoiding
 		// collisions when several spaces use the same template.
 		job += fmt.Sprintf("ports:\n  - 0:%d\n", opts.Port)
+	}
+	if len(opts.Mounts) > 0 {
+		job += "volumes:\n"
+		for _, m := range opts.Mounts {
+			job += "  - " + m + "\n"
+		}
 	}
 	return job
 }

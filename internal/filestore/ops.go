@@ -465,28 +465,48 @@ type PutOptions struct {
 // rclone --metadata, s3fs and the NFS server keep them.
 var fileAttrMeta = []string{"mode", "uid", "gid"}
 
-// KeepFileAttrs gives a write that does not set a file's POSIX attributes
-// those of the file it replaces, so replacing a file's content, from the web
+// The modes a file and a folder marker are given when written with none, as
+// a umask of 022 gives, in the form apiclient.FileModeMeta describes.
+const (
+	defaultFileMode   = "100644"
+	defaultFolderMode = "40755"
+)
+
+// FillFileAttrs gives a write the POSIX attributes it does not set: those of
+// the file it replaces, so replacing a file's content, from the web
 // interface, a script or an S3 client that knows nothing of modes, keeps its
-// mode, as replacing a file's content on a file system does.
-func (s *Store) KeepFileAttrs(p *Principal, bucket, key string, opts *PutOptions) {
+// mode, as replacing a file's content on a file system does; and a mode for
+// a file that has none, so every file shows the same mode however it is
+// reached.
+func (s *Store) FillFileAttrs(p *Principal, bucket, key string, opts *PutOptions) {
+	set := func(k, v string) {
+		if opts.Meta == nil {
+			opts.Meta = map[string]string{}
+		}
+		opts.Meta[k] = v
+	}
 	var old *Object
+	looked := false
 	for _, k := range fileAttrMeta {
 		if _, ok := opts.Meta[k]; ok {
 			continue
 		}
+		if !looked {
+			old, _ = s.HeadObject(p, bucket, key)
+			looked = true
+		}
 		if old == nil {
-			o, err := s.HeadObject(p, bucket, key)
-			if err != nil {
-				return // nothing replaced
-			}
-			old = o
+			break
 		}
 		if v, ok := old.Meta[k]; ok {
-			if opts.Meta == nil {
-				opts.Meta = map[string]string{}
-			}
-			opts.Meta[k] = v
+			set(k, v)
+		}
+	}
+	if _, ok := opts.Meta["mode"]; !ok {
+		if strings.HasSuffix(key, "/") {
+			set("mode", defaultFolderMode)
+		} else {
+			set("mode", defaultFileMode)
 		}
 	}
 }

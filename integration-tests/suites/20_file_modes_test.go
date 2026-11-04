@@ -306,22 +306,19 @@ func TestFileModes(t *testing.T) {
 	})
 }
 
-// mountNFS serves the server's buckets over NFS, as user, and mounts them at
-// dir. It skips the test where this machine cannot mount NFS as this user
-// (only macOS lets a user mount without root).
-func mountNFS(t *testing.T, s *harness.Server, user *harness.User, dir string) string {
+// startNFS serves the server's buckets over NFS on loopback, as user, until
+// the test ends, and returns its port. args are added to the command.
+func startNFS(t *testing.T, s *harness.Server, user *harness.User, args ...string) int {
 	t.Helper()
-	if runtime.GOOS != "darwin" {
-		t.Skip("mounting NFS needs root here")
-	}
 	port, err := harness.FreePort()
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := exec.Command(bins.Server, "nfs-server", "--server", s.BaseURL, "--token", user.Token,
-		"--nfs-listen", "127.0.0.1:"+strconv.Itoa(port))
-	srv.Dir = filepath.Dir(dir)
-	srv.Env = append(os.Environ(), "HOME="+srv.Dir)
+	dir := t.TempDir()
+	srv := exec.Command(bins.Server, append([]string{"nfs-server", "--server", s.BaseURL, "--token", user.Token,
+		"--nfs-listen", "127.0.0.1:" + strconv.Itoa(port)}, args...)...)
+	srv.Dir = dir
+	srv.Env = append(os.Environ(), "HOME="+dir)
 	var log bytes.Buffer
 	srv.Stdout, srv.Stderr = &log, &log
 	if err := srv.Start(); err != nil {
@@ -340,7 +337,18 @@ func mountNFS(t *testing.T, s *harness.Server, user *harness.User, dir string) s
 	}) {
 		t.Fatalf("nfs-server did not start:\n%s", log.String())
 	}
+	return port
+}
 
+// mountNFS serves the server's buckets over NFS, as user, and mounts them at
+// dir. It skips the test where this machine cannot mount NFS as this user
+// (only macOS lets a user mount without root).
+func mountNFS(t *testing.T, s *harness.Server, user *harness.User, dir string) string {
+	t.Helper()
+	if runtime.GOOS != "darwin" {
+		t.Skip("mounting NFS needs root here")
+	}
+	port := startNFS(t, s, user)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}

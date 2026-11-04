@@ -641,7 +641,7 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		Meta:        metaFromRequest(r),
 	}
 	bucket, key := filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key")
-	store.KeepFileAttrs(p, bucket, key, &opts)
+	store.FillFileAttrs(p, bucket, key, &opts)
 
 	var o *filestore.Object
 	var err error

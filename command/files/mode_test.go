@@ -127,15 +127,23 @@ func TestUploadWithoutModeKeepsMode(t *testing.T) {
 	}
 	expectObjectMode(t, store, "sync-test", "keep/tool", 0600)
 
-	// A file with no mode to keep gets none, and a download leaves the
-	// mode of the file it replaces.
+	// A new file written without a mode, as from the web interface, gets
+	// 0644, and a folder marker 0755.
 	putRemote(t, client, "sync-test", "keep/plain.txt", "plain")
-	if _, ok := objectMode(t, store, "sync-test", "keep/plain.txt"); ok {
-		t.Errorf("a file written without a mode got one")
+	expectObjectMode(t, store, "sync-test", "keep/plain.txt", 0644)
+	if _, err := client.PutFileObject(ctx, "sync-test", "keep/folder/", strings.NewReader(""), 0, "", apiclient.FileAttrs{}); err != nil {
+		t.Fatal(err)
 	}
-	dst := filepath.Join(t.TempDir(), "plain.txt")
-	writeMode(t, dst, "old", 0640)
-	if err := downloadFile(ctx, client, "sync-test", "keep/plain.txt", dst); err != nil {
+	if o, _ := store.HeadObject(&filestore.Principal{IsAdmin: true}, "tester--sync-test", "keep/folder/"); o.Meta[apiclient.FileModeMeta] != "40755" {
+		t.Errorf("folder marker mode %q, want 40755", o.Meta[apiclient.FileModeMeta])
+	}
+
+	// A file kept from before with no mode at all is downloaded with the
+	// mode of the file it replaces.
+	putModeless(t, store, "keep/old.txt", "old")
+	dst := filepath.Join(t.TempDir(), "old.txt")
+	writeMode(t, dst, "older", 0640)
+	if err := downloadFile(ctx, client, "sync-test", "keep/old.txt", dst); err != nil {
 		t.Fatal(err)
 	}
 	expectLocalMode(t, dst, 0640)
@@ -148,7 +156,7 @@ func TestSyncUpMode(t *testing.T) {
 	writeMode(t, filepath.Join(dir, "run.sh"), "#!/bin/sh\n", 0755)
 	writeMode(t, filepath.Join(dir, "notes.txt"), "notes", 0644)
 	// Uploaded before modes were kept: same content, no mode.
-	putRemote(t, client, "sync-test", "up/notes.txt", "notes")
+	putModeless(t, store, "up/notes.txt", "notes")
 
 	if err := syncUp(ctx, client, dir, "sync-test", "up/", false, false); err != nil {
 		t.Fatal(err)
@@ -188,7 +196,7 @@ func TestSyncDownMode(t *testing.T) {
 	if err := uploadFile(ctx, client, src, "sync-test", "down/run.sh"); err != nil {
 		t.Fatal(err)
 	}
-	putRemote(t, client, "sync-test", "down/plain.txt", "plain")
+	putModeless(t, store, "down/plain.txt", "plain")
 
 	dir := t.TempDir()
 	writeMode(t, filepath.Join(dir, "plain.txt"), "plain", 0640)

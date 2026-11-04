@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -216,12 +217,13 @@ func TestSyncUpThroughSymlink(t *testing.T) {
 }
 
 // Downloads get normal file permissions, not the temporary file's 0600.
-// A file the bucket keeps no mode for is downloaded 0644, or with the mode of
-// the file it replaces; TestCopyKeepsMode covers one that has a mode.
+// A file the bucket keeps no mode for, written before modes were kept, is
+// downloaded 0644, or with the mode of the file it replaces;
+// TestCopyKeepsMode covers one that has a mode.
 func TestDownloadMode(t *testing.T) {
-	client, _ := newFilesServer(t)
+	client, store := newFilesServer(t)
 	ctx := context.Background()
-	putRemote(t, client, "sync-test", "mode/f.txt", "x")
+	putModeless(t, store, "mode/f.txt", "x")
 	dst := filepath.Join(t.TempDir(), "f.txt")
 	if err := downloadFile(ctx, client, "sync-test", "mode/f.txt", dst); err != nil {
 		t.Fatal(err)
@@ -233,5 +235,15 @@ func TestDownloadMode(t *testing.T) {
 	downloadFile(ctx, client, "sync-test", "mode/f.txt", dst)
 	if info, _ := os.Stat(dst); info.Mode().Perm() != 0600 {
 		t.Errorf("replaced file lost its mode: %o", info.Mode().Perm())
+	}
+}
+
+// putModeless writes a file with no mode straight into the store, as files
+// written before modes were kept are.
+func putModeless(t *testing.T, store *filestore.Store, key, content string) {
+	t.Helper()
+	p, _ := filestore.PrincipalFor(adminUser)
+	if _, err := store.PutObject(p, "tester--sync-test", key, strings.NewReader(content), filestore.PutOptions{Size: int64(len(content))}); err != nil {
+		t.Fatal(err)
 	}
 }
