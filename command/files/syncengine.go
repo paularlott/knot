@@ -59,9 +59,9 @@ type syncOptions struct {
 	dryRun          bool
 	excludes        func(rel string, isDir bool) bool
 	allowMassDelete bool
-	statePath       string // two ways: where the base is kept
+	statePath       string        // two ways: where the base is kept
 	log             logger.Logger // where the sync reports; the "sync" group of the knot logger by default
-	watching        bool // passes run on as changes come; no summary when nothing happened
+	watching        bool          // passes run on as changes come; no summary when nothing happened
 }
 
 type remoteFile struct {
@@ -71,13 +71,16 @@ type remoteFile struct {
 	sha      string
 	etag     string
 	modified time.Time
+	mode     os.FileMode // permission bits kept with it, 0 when none
+	meta     map[string]string
 }
 
 type localFile struct {
 	rel   string // slash-separated, below the directory, as the file system spells it
 	size  int64
 	mtime time.Time
-	sha   string // "" until needed
+	mode  os.FileMode // permission bits, 0 where the platform has none
+	sha   string      // "" until needed
 }
 
 type hashed struct {
@@ -115,11 +118,11 @@ type recentContent struct {
 }
 
 type passCounts struct {
-	uploaded, downloaded, unchanged, deleted, conflicts, skipped int
+	uploaded, downloaded, unchanged, modes, deleted, conflicts, skipped int
 }
 
 func (c passCounts) any() bool {
-	return c.uploaded+c.downloaded+c.deleted+c.conflicts+c.skipped > 0
+	return c.uploaded+c.downloaded+c.modes+c.deleted+c.conflicts+c.skipped > 0
 }
 
 func newSyncer(client *apiclient.ApiClient, opt syncOptions) *syncer {
@@ -300,7 +303,16 @@ func fromInfo(o apiclient.FileObjectInfo, prefix string) *remoteFile {
 		sha:      o.SHA256,
 		etag:     o.ETag,
 		modified: o.ModifiedAt,
+		mode:     remoteMode(o.Meta),
+		meta:     o.Meta,
 	}
+}
+
+// remoteMode is the permission bits kept with a bucket file, 0 when it has
+// none or the platform has none.
+func remoteMode(meta map[string]string) os.FileMode {
+	mode, _ := storedMode(meta)
+	return mode
 }
 
 // addRemote adds a bucket file to remote, unless it is excluded, would land
@@ -423,7 +435,7 @@ func (s *syncer) scanLocal() error {
 		if err != nil {
 			return nil
 		}
-		local[s.identity(rel)] = &localFile{rel: rel, size: info.Size(), mtime: info.ModTime()}
+		local[s.identity(rel)] = &localFile{rel: rel, size: info.Size(), mtime: info.ModTime(), mode: apiclient.LocalFileAttrs(info).Mode}
 		return nil
 	})
 	if err != nil {
@@ -453,7 +465,7 @@ func (s *syncer) statLocal(rel string) *localFile {
 			return nil
 		}
 	}
-	return &localFile{rel: rel, size: info.Size(), mtime: info.ModTime()}
+	return &localFile{rel: rel, size: info.Size(), mtime: info.ModTime(), mode: apiclient.LocalFileAttrs(info).Mode}
 }
 
 // spelling returns how the file system spells a path, "" if it cannot tell.
@@ -558,7 +570,18 @@ type action struct {
 	b    *baseEntry
 	// keepTimes: the bucket's file matches and only its time is brought over.
 	keepTimes bool
+	// setMode: the content matches but the modes differ; the mode is copied
+	// to the bucket (modeToRemote) or the local file (modeToLocal).
+	setMode modeFix
 }
+
+type modeFix int
+
+const (
+	modeAsIs modeFix = iota
+	modeToRemote
+	modeToLocal
+)
 
 // plan decides what each path needs.
 func (s *syncer) plan(ids []string) []action {
@@ -571,6 +594,9 @@ func (s *syncer) plan(ids []string) []action {
 			switch {
 			case l != nil && s.sameContent(l, r):
 				a.kind = actAgree
+				if l.mode != 0 && l.mode != r.mode {
+					a.setMode = modeToRemote
+				}
 			case l != nil:
 				a.kind = actUpload
 			case r != nil && s.opt.del:
@@ -581,6 +607,9 @@ func (s *syncer) plan(ids []string) []action {
 			case r != nil && s.sameContent(l, r):
 				a.kind = actAgree
 				a.keepTimes = !r.modified.IsZero() && l.mtime.Sub(r.modified).Abs() > time.Second
+				if l.mode != 0 && r.mode != 0 && l.mode != r.mode {
+					a.setMode = modeToLocal
+				}
 			case r != nil:
 				a.kind = actDownload
 			case l != nil && s.opt.del:
@@ -588,6 +617,9 @@ func (s *syncer) plan(ids []string) []action {
 			}
 		case modeTwoWay:
 			a.kind = s.planTwoWay(l, r, b)
+			if a.kind == actAgree {
+				a.setMode = planModeTwoWay(l, r, b)
+			}
 		}
 		if a.kind != actNone {
 			out = append(out, a)
@@ -639,6 +671,28 @@ func (s *syncer) planTwoWay(l *localFile, r *remoteFile, b *baseEntry) actKind {
 		return actUpload
 	}
 	return actConflict
+}
+
+// planModeTwoWay decides where the mode goes when both sides hold the same
+// content but not the same mode: to the bucket when it keeps none, else from
+// the side that changed it since the base, this side when both did. With no
+// base mode to go by, the bucket's is the one set on purpose.
+func planModeTwoWay(l *localFile, r *remoteFile, b *baseEntry) modeFix {
+	if l.mode == 0 || l.mode == r.mode {
+		return modeAsIs
+	}
+	if r.mode == 0 {
+		return modeToRemote
+	}
+	var base os.FileMode
+	if b != nil {
+		base = os.FileMode(b.Mode)
+	}
+	switch {
+	case base == 0, l.mode == base:
+		return modeToLocal
+	}
+	return modeToRemote
 }
 
 func (s *syncer) matchesBase(l *localFile, b *baseEntry) bool {
@@ -795,9 +849,6 @@ func (s *syncer) runParallel(ctx context.Context, actions []action) []error {
 func (s *syncer) apply(ctx context.Context, a action) error {
 	switch a.kind {
 	case actAgree:
-		s.mu.Lock()
-		s.counts.unchanged++
-		s.mu.Unlock()
 		if a.keepTimes && !s.opt.dryRun {
 			local := filepath.Join(s.opt.dir, filepath.FromSlash(a.l.rel))
 			os.Chtimes(local, a.r.modified, a.r.modified)
@@ -805,6 +856,12 @@ func (s *syncer) apply(ctx context.Context, a action) error {
 				a.l.mtime = info.ModTime()
 			}
 		}
+		if a.setMode != modeAsIs {
+			return s.copyMode(ctx, a)
+		}
+		s.mu.Lock()
+		s.counts.unchanged++
+		s.mu.Unlock()
 		s.agree(a.id, a.l, a.r)
 		return nil
 	case actForget:
@@ -834,8 +891,72 @@ func (s *syncer) agree(id string, l *localFile, r *remoteFile) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.base[id] = &baseEntry{Key: r.key, SHA: r.sha, Size: r.size, LocalSize: l.size, LocalMtime: l.mtime.UnixNano()}
+	s.base[id] = &baseEntry{Key: r.key, SHA: r.sha, Size: r.size, LocalSize: l.size, LocalMtime: l.mtime.UnixNano(), Mode: uint32(l.mode)}
 	s.baseDirt = true
+}
+
+// copyMode brings a file's mode across when only it differs: to the bucket,
+// rewriting the file's metadata in place (its content is not copied), or to
+// the local file.
+func (s *syncer) copyMode(ctx context.Context, a action) error {
+	l, r := a.l, a.r
+	local := filepath.Join(s.opt.dir, filepath.FromSlash(l.rel))
+	if a.setMode == modeToLocal {
+		if s.opt.dryRun {
+			s.log.Info("would set mode", "file", l.rel, "mode", fmt.Sprintf("%04o", r.mode))
+			s.count(func(c *passCounts) { c.modes++ })
+			return nil
+		}
+		if !s.unchangedSince(l.rel, l) {
+			return nil
+		}
+		if err := os.Chmod(local, r.mode); err != nil {
+			return err
+		}
+		s.log.Info("set mode", "file", l.rel, "mode", fmt.Sprintf("%04o", r.mode))
+		nl := *l
+		nl.mode = r.mode
+		s.mu.Lock()
+		s.local[a.id] = &nl
+		s.counts.modes++
+		s.mu.Unlock()
+		s.agree(a.id, &nl, r)
+		return nil
+	}
+
+	name := remoteName(s.opt.bucket, r.key)
+	if s.opt.dryRun {
+		s.log.Info("would set mode", "file", name, "mode", fmt.Sprintf("%04o", l.mode))
+		s.count(func(c *passCounts) { c.modes++ })
+		return nil
+	}
+	meta := make(map[string]string, len(r.meta)+1)
+	for k, v := range r.meta {
+		meta[k] = v
+	}
+	meta[apiclient.FileModeMeta] = apiclient.FormatFileMode(l.mode)
+	info, err := s.client.CopyFileObject(ctx, apiclient.FileCopyRequest{
+		SourceBucket: s.opt.bucket, SourceKey: r.key, DestBucket: s.opt.bucket, DestKey: r.key,
+		IfMatch: r.etag, Meta: meta,
+	})
+	if err != nil {
+		if apiclient.IsPreconditionFailed(err) {
+			s.log.Debug("changed in the bucket meanwhile: looking again", "file", name)
+			return nil
+		}
+		return fmt.Errorf("%s: %w", name, cmdutil.CleanErr(err))
+	}
+	s.log.Info("set mode", "file", name, "mode", fmt.Sprintf("%04o", l.mode))
+	nr := fromInfo(*info, s.opt.prefix)
+	if nr.sha == "" {
+		nr.sha = r.sha
+	}
+	s.mu.Lock()
+	s.remote[a.id] = nr
+	s.counts.modes++
+	s.mu.Unlock()
+	s.agree(a.id, l, nr)
+	return nil
 }
 
 func (s *syncer) upload(ctx context.Context, a action) error {
@@ -905,10 +1026,16 @@ func (s *syncer) send(ctx context.Context, local, key string, l *localFile, sha,
 	rc, recent := s.recent[sha]
 	s.mu.Unlock()
 
+	attrs := apiclient.FileAttrs{Mtime: l.mtime, Mode: l.mode}
 	if source != "" {
+		// The copy takes the local file's attributes, not the source's.
+		meta := map[string]string{"mtime": apiclient.FormatMtime(l.mtime)}
+		if l.mode != 0 {
+			meta[apiclient.FileModeMeta] = apiclient.FormatFileMode(l.mode)
+		}
 		info, err := s.client.CopyFileObject(ctx, apiclient.FileCopyRequest{
 			SourceBucket: s.opt.bucket, SourceKey: source, DestBucket: s.opt.bucket, DestKey: key,
-			IfMatch: ifMatch, IfNoneMatch: ifAbsent,
+			IfMatch: ifMatch, IfNoneMatch: ifAbsent, Meta: meta,
 		})
 		if err == nil {
 			return info, "copied in the bucket", nil
@@ -919,7 +1046,7 @@ func (s *syncer) send(ctx context.Context, local, key string, l *localFile, sha,
 		// The source went meanwhile: reuse or send the content instead.
 	}
 	if source != "" || (recent && time.Since(rc.seen) < recentFor) {
-		info, ok, err := s.client.ReuseFileObject(ctx, s.opt.bucket, key, sha, l.mtime, ifMatch, ifAbsent)
+		info, ok, err := s.client.ReuseFileObject(ctx, s.opt.bucket, key, sha, attrs, ifMatch, ifAbsent)
 		if err != nil {
 			return nil, "", err
 		}
@@ -936,11 +1063,11 @@ func (s *syncer) send(ctx context.Context, local, key string, l *localFile, sha,
 	var info *apiclient.FileObjectInfo
 	switch {
 	case ifMatch != "":
-		info, err = s.client.PutFileObjectIfMatch(ctx, s.opt.bucket, key, f, l.size, contentType(local), l.mtime, ifMatch)
+		info, err = s.client.PutFileObjectIfMatch(ctx, s.opt.bucket, key, f, l.size, contentType(local), attrs, ifMatch)
 	case ifAbsent:
-		info, err = s.client.PutFileObjectIfAbsent(ctx, s.opt.bucket, key, f, l.size, contentType(local), l.mtime)
+		info, err = s.client.PutFileObjectIfAbsent(ctx, s.opt.bucket, key, f, l.size, contentType(local), attrs)
 	default:
-		info, err = s.client.PutFileObject(ctx, s.opt.bucket, key, f, l.size, contentType(local), l.mtime)
+		info, err = s.client.PutFileObject(ctx, s.opt.bucket, key, f, l.size, contentType(local), attrs)
 	}
 	return info, "", err
 }
@@ -973,7 +1100,7 @@ func (s *syncer) download(ctx context.Context, a action) error {
 	if err != nil {
 		return nil
 	}
-	l := &localFile{rel: rel, size: info.Size(), mtime: info.ModTime(), sha: r.sha}
+	l := &localFile{rel: rel, size: info.Size(), mtime: info.ModTime(), mode: apiclient.LocalFileAttrs(info).Mode, sha: r.sha}
 	s.mu.Lock()
 	s.hashes[rel] = hashed{size: l.size, mtime: l.mtime, sha: r.sha}
 	s.local[a.id] = l
@@ -1078,7 +1205,7 @@ func (s *syncer) conflict(ctx context.Context, a action) error {
 	}
 	s.log.Warn("conflict: changed on both sides; the local version is kept beside it", "file", rel, "local_version", aside)
 
-	moved := &localFile{rel: aside, size: a.l.size, mtime: a.l.mtime, sha: a.l.sha}
+	moved := &localFile{rel: aside, size: a.l.size, mtime: a.l.mtime, mode: a.l.mode, sha: a.l.sha}
 	asideId := s.identity(aside)
 	s.mu.Lock()
 	delete(s.local, a.id)
@@ -1146,12 +1273,12 @@ func (s *syncer) report() {
 	if s.opt.dryRun {
 		msg = "dry run: nothing changed"
 	}
-	kv := []any{"uploaded", c.uploaded, "downloaded", c.downloaded, "unchanged", c.unchanged, "deleted", c.deleted}
+	kv := []any{"uploaded", c.uploaded, "downloaded", c.downloaded, "modes", c.modes, "unchanged", c.unchanged, "deleted", c.deleted}
 	switch s.opt.mode {
 	case modeUp:
-		kv = []any{"uploaded", c.uploaded, "unchanged", c.unchanged, "deleted", c.deleted}
+		kv = []any{"uploaded", c.uploaded, "modes", c.modes, "unchanged", c.unchanged, "deleted", c.deleted}
 	case modeDown:
-		kv = []any{"downloaded", c.downloaded, "unchanged", c.unchanged, "deleted", c.deleted}
+		kv = []any{"downloaded", c.downloaded, "modes", c.modes, "unchanged", c.unchanged, "deleted", c.deleted}
 	default:
 		kv = append(kv, "conflicts", c.conflicts)
 	}

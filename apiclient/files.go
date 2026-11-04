@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -190,6 +192,76 @@ const FileMtimeHeader = "X-Knot-Mtime"
 // FileMetaHeaderPrefix starts the headers carrying an object's user metadata
 // on GET, HEAD and PUT, one header per key (cf. S3's x-amz-meta-).
 const FileMetaHeaderPrefix = "X-Knot-Meta-"
+
+// FileModeMeta is the metadata key holding a file's mode, as s3fs and the
+// NFS server keep it: the decimal POSIX st_mode, file type and permissions.
+const FileModeMeta = "mode"
+
+// POSIX st_mode file types, the same on every platform knot runs on.
+const (
+	stIFMT  = 0o170000
+	stIFREG = 0o100000
+	stIFDIR = 0o040000
+	stIFLNK = 0o120000
+)
+
+// FormatFileMode renders a mode as FileModeMeta holds it.
+func FormatFileMode(mode os.FileMode) string {
+	typ := uint64(stIFREG)
+	switch {
+	case mode&os.ModeSymlink != 0:
+		typ = stIFLNK
+	case mode&os.ModeDir != 0:
+		typ = stIFDIR
+	}
+	return strconv.FormatUint(typ|uint64(mode&os.ModePerm), 10)
+}
+
+// ParseFileMode reads the mode kept in meta: its permission bits, with
+// os.ModeSymlink for a link. ok is false when meta holds none.
+func ParseFileMode(meta map[string]string) (mode os.FileMode, ok bool) {
+	v, found := meta[FileModeMeta]
+	if !found {
+		return 0, false
+	}
+	m, err := strconv.ParseUint(v, 10, 32)
+	if err != nil {
+		return 0, false
+	}
+	mode = os.FileMode(m) & os.ModePerm
+	if m&stIFMT == stIFLNK {
+		mode |= os.ModeSymlink
+	}
+	return mode, true
+}
+
+// FileAttrs are the attributes an upload records with a file's content. A
+// zero field is not recorded: an upload without a mode keeps the mode of the
+// file it replaces.
+type FileAttrs struct {
+	Mtime time.Time
+	Mode  os.FileMode // permission bits, with os.ModeSymlink for a link
+}
+
+// setHeaders adds the attributes to an upload's headers.
+func (a FileAttrs) setHeaders(headers map[string]string) {
+	if !a.Mtime.IsZero() {
+		headers[FileMtimeHeader] = FormatMtime(a.Mtime)
+	}
+	if a.Mode != 0 {
+		headers[FileMetaHeaderPrefix+FileModeMeta] = FormatFileMode(a.Mode)
+	}
+}
+
+// LocalFileAttrs are the attributes of a local file an upload records: its
+// modification time and, where the platform has them, its permission bits.
+func LocalFileAttrs(info os.FileInfo) FileAttrs {
+	attrs := FileAttrs{Mtime: info.ModTime()}
+	if runtime.GOOS != "windows" {
+		attrs.Mode = info.Mode().Perm()
+	}
+	return attrs
+}
 
 // FileWriterHeader names the client making a change, so change events can
 // say who made each (see SetWriter).
@@ -408,15 +480,13 @@ func (c *ApiClient) ListFileChanges(ctx context.Context, bucket, prefix, cursor 
 // without sending it. ok is false when the server does not hold the content:
 // the caller uploads it instead. ifMatch, when set, is the ETag the file
 // must still have; ifAbsent writes only if there is no file.
-func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string, mtime time.Time, ifMatch string, ifAbsent bool) (*FileObjectInfo, bool, error) {
+func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string, attrs FileAttrs, ifMatch string, ifAbsent bool) (*FileObjectInfo, bool, error) {
 	hc, err := c.rawClient()
 	if err != nil {
 		return nil, false, err
 	}
 	headers := map[string]string{FileReuseHeader: sha, "Content-Type": "application/octet-stream"}
-	if !mtime.IsZero() {
-		headers[FileMtimeHeader] = FormatMtime(mtime)
-	}
+	attrs.setHeaders(headers)
 	if ifMatch != "" {
 		headers["If-Match"] = `"` + ifMatch + `"`
 	}
@@ -441,19 +511,19 @@ func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string
 
 // PutFileObjectIfMatch uploads content only if the file still has the ETag
 // etag: otherwise it fails with an error IsPreconditionFailed recognises.
-func (c *ApiClient) PutFileObjectIfMatch(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, etag string) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, false, etag, nil)
+func (c *ApiClient) PutFileObjectIfMatch(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs, etag string) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, attrs, false, etag, nil)
 }
 
 // PutFileObject uploads content of the given size (-1 if unknown).
-func (c *ApiClient) PutFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time) (*FileObjectInfo, error) {
-	return c.putFileObject(ctx, bucket, key, body, size, contentType, mtime, false)
+func (c *ApiClient) PutFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs) (*FileObjectInfo, error) {
+	return c.putFileObject(ctx, bucket, key, body, size, contentType, attrs, false)
 }
 
 // PutFileObjectIfAbsent is PutFileObject that leaves an existing file alone:
 // it fails with an error IsPreconditionFailed recognises.
-func (c *ApiClient) PutFileObjectIfAbsent(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time) (*FileObjectInfo, error) {
-	return c.putFileObject(ctx, bucket, key, body, size, contentType, mtime, true)
+func (c *ApiClient) PutFileObjectIfAbsent(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs) (*FileObjectInfo, error) {
+	return c.putFileObject(ctx, bucket, key, body, size, contentType, attrs, true)
 }
 
 // IsPreconditionFailed reports whether err is the server refusing a
@@ -462,16 +532,16 @@ func IsPreconditionFailed(err error) bool {
 	return rest.IsStatus(err, http.StatusPreconditionFailed)
 }
 
-func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, ifAbsent, "", nil)
+func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs, ifAbsent bool) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, attrs, ifAbsent, "", nil)
 }
 
 // PutFileObjectMeta uploads an object with user metadata (FileObjectInfo.Meta).
 func (c *ApiClient) PutFileObjectMeta(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, meta map[string]string) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, time.Time{}, false, "", meta)
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, FileAttrs{}, false, "", meta)
 }
 
-func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool, ifMatch string, meta map[string]string) (*FileObjectInfo, error) {
+func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs, ifAbsent bool, ifMatch string, meta map[string]string) (*FileObjectInfo, error) {
 	hc, err := c.rawClient()
 	if err != nil {
 		return nil, err
@@ -484,9 +554,7 @@ func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, b
 	if contentType == "" {
 		headers["Content-Type"] = "application/octet-stream"
 	}
-	if !mtime.IsZero() {
-		headers[FileMtimeHeader] = FormatMtime(mtime)
-	}
+	attrs.setHeaders(headers)
 	if ifAbsent {
 		headers["If-None-Match"] = "*"
 	}

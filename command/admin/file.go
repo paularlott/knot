@@ -43,12 +43,26 @@ type backupBucket struct {
 }
 
 type backupObject struct {
-	BucketId    string    `json:"bucket_id" msgpack:"bucket_id"`
-	Key         string    `json:"key" msgpack:"key"`
-	Size        int64     `json:"size" msgpack:"size"`
-	SHA256      string    `json:"sha256" msgpack:"sha256"`
-	ContentType string    `json:"content_type" msgpack:"content_type"`
-	ModifiedAt  time.Time `json:"modified_at" msgpack:"modified_at"`
+	BucketId    string            `json:"bucket_id" msgpack:"bucket_id"`
+	Key         string            `json:"key" msgpack:"key"`
+	Size        int64             `json:"size" msgpack:"size"`
+	SHA256      string            `json:"sha256" msgpack:"sha256"`
+	ContentType string            `json:"content_type" msgpack:"content_type"`
+	Meta        map[string]string `json:"meta,omitempty" msgpack:"meta"`
+	ModifiedAt  time.Time         `json:"modified_at" msgpack:"modified_at"`
+}
+
+// attrs are the attributes the file is restored with: its own modification
+// time and mode, a link's included, when the backup holds them.
+func (o *backupObject) attrs() apiclient.FileAttrs {
+	attrs := apiclient.FileAttrs{Mtime: o.ModifiedAt}
+	if t, ok := apiclient.ParseMtime(o.Meta["mtime"]); ok {
+		attrs.Mtime = t
+	}
+	if mode, ok := apiclient.ParseFileMode(o.Meta); ok {
+		attrs.Mode = mode
+	}
+	return attrs
 }
 
 var encryptKeyFlag = &cli.StringFlag{
@@ -447,9 +461,9 @@ func restoreFile(ctx context.Context, client *apiclient.ApiClient, dir, bucket, 
 	var body *os.File = f
 	var err error
 	if body == nil {
-		_, err = put(ctx, bucket, key, nil, 0, o.ContentType, o.ModifiedAt)
+		_, err = put(ctx, bucket, key, nil, 0, o.ContentType, o.attrs())
 	} else {
-		_, err = put(ctx, bucket, key, body, o.Size, o.ContentType, o.ModifiedAt)
+		_, err = put(ctx, bucket, key, body, o.Size, o.ContentType, o.attrs())
 	}
 	switch {
 	case err == nil:

@@ -275,7 +275,9 @@ func syncBuckets(ctx context.Context, client *apiclient.ApiClient, srcBucket, sr
 		if rel == "" {
 			continue // the folder's own marker
 		}
-		if d, ok := dst[rel]; ok && (d.SHA256 == o.SHA256 && d.Size == o.Size) {
+		// A server copy brings the content and its mode, so a file whose
+		// mode alone differs is copied too.
+		if d, ok := dst[rel]; ok && d.SHA256 == o.SHA256 && d.Size == o.Size && d.Meta[apiclient.FileModeMeta] == o.Meta[apiclient.FileModeMeta] {
 			counts.unchanged++
 			continue
 		}

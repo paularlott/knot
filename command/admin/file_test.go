@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/backupfile"
 )
 
@@ -116,5 +118,26 @@ func TestSplitBucketPath(t *testing.T) {
 		if _, _, err := splitBucketPath(bad); err == nil {
 			t.Errorf("%q was accepted", bad)
 		}
+	}
+}
+
+// A restored file gets back its own modification time and mode, not the
+// time it was last written to the store.
+func TestRestoreAttrs(t *testing.T) {
+	written := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	own := time.Date(2025, 6, 7, 8, 9, 10, 0, time.UTC)
+	o := &backupObject{ModifiedAt: written, Meta: map[string]string{
+		"mtime":                apiclient.FormatMtime(own),
+		apiclient.FileModeMeta: apiclient.FormatFileMode(0750),
+	}}
+	attrs := o.attrs()
+	if attrs.Mode != 0750 || attrs.Mtime.Sub(own).Abs() > time.Millisecond {
+		t.Errorf("attrs %+v, want mode 0750 and mtime %v", attrs, own)
+	}
+
+	// Without them, the write time, and no mode, so none is set.
+	attrs = (&backupObject{ModifiedAt: written}).attrs()
+	if attrs.Mode != 0 || !attrs.Mtime.Equal(written) {
+		t.Errorf("attrs %+v, want no mode and mtime %v", attrs, written)
 	}
 }

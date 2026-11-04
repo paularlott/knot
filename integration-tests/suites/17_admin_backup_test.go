@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/integration-tests/harness"
@@ -72,7 +71,7 @@ func TestAdminBackupRestore(t *testing.T) {
 	}
 	small, large := []byte("small file"), bytes.Repeat([]byte("L"), 200*1024)
 	for key, data := range map[string][]byte{"dir/small.txt": small, "large.bin": large} {
-		if _, err := admin.Client.PutFileObject(ctx, "it-bak-files", key, bytes.NewReader(data), int64(len(data)), "application/octet-stream", time.Time{}); err != nil {
+		if _, err := admin.Client.PutFileObject(ctx, "it-bak-files", key, bytes.NewReader(data), int64(len(data)), "application/octet-stream", apiclient.FileAttrs{}); err != nil {
 			t.Fatalf("put %s: %v", key, err)
 		}
 	}

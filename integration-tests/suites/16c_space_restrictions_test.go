@@ -25,7 +25,7 @@ func TestSpaceRestrictions(t *testing.T) {
 		if _, err := adminUser.Client.CreateFileBucket(ctx, name); err != nil {
 			t.Fatalf("create bucket %s: %v", name, err)
 		}
-		if _, err := adminUser.Client.PutFileObject(ctx, name, "a.txt", strings.NewReader("hello"), 5, "text/plain", time.Now()); err != nil {
+		if _, err := adminUser.Client.PutFileObject(ctx, name, "a.txt", strings.NewReader("hello"), 5, "text/plain", apiclient.FileAttrs{Mtime: time.Now()}); err != nil {
 			t.Fatalf("put %s/a.txt: %v", name, err)
 		}
 	}

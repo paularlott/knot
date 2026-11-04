@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/integration-tests/harness"
 )
 
@@ -40,7 +41,7 @@ func TestLeafFilesStayApart(t *testing.T) {
 		t.Fatalf("create origin bucket: %v", err)
 	}
 	data := []byte("origin data")
-	if _, err := originAdmin.Client.PutFileObject(ctx, "origin-bucket", "o.txt", bytes.NewReader(data), int64(len(data)), "text/plain", time.Time{}); err != nil {
+	if _, err := originAdmin.Client.PutFileObject(ctx, "origin-bucket", "o.txt", bytes.NewReader(data), int64(len(data)), "text/plain", apiclient.FileAttrs{}); err != nil {
 		t.Fatalf("put on origin: %v", err)
 	}
 
@@ -64,11 +65,11 @@ func TestLeafFilesStayApart(t *testing.T) {
 		t.Fatalf("create leaf bucket: %v", err)
 	}
 	ldata := []byte("leaf data")
-	if _, err := leafAdmin.Client.PutFileObject(lctx, "leaf-bucket", "l.txt", bytes.NewReader(ldata), int64(len(ldata)), "text/plain", time.Time{}); err != nil {
+	if _, err := leafAdmin.Client.PutFileObject(lctx, "leaf-bucket", "l.txt", bytes.NewReader(ldata), int64(len(ldata)), "text/plain", apiclient.FileAttrs{}); err != nil {
 		t.Fatalf("put on leaf: %v", err)
 	}
 	// And one more on the origin once the leaf is up.
-	if _, err := originAdmin.Client.PutFileObject(ctx, "origin-bucket", "o2.txt", bytes.NewReader(data), int64(len(data)), "text/plain", time.Time{}); err != nil {
+	if _, err := originAdmin.Client.PutFileObject(ctx, "origin-bucket", "o2.txt", bytes.NewReader(data), int64(len(data)), "text/plain", apiclient.FileAttrs{}); err != nil {
 		t.Fatalf("second put on origin: %v", err)
 	}
 

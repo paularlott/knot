@@ -145,7 +145,7 @@ func testBucket(t *testing.T, store *filestore.Store, name string) {
 
 func putRemote(t *testing.T, client *apiclient.ApiClient, bucket, key, content string) {
 	t.Helper()
-	if _, err := client.PutFileObject(context.Background(), bucket, key, strings.NewReader(content), int64(len(content)), "text/plain", time.Time{}); err != nil {
+	if _, err := client.PutFileObject(context.Background(), bucket, key, strings.NewReader(content), int64(len(content)), "text/plain", apiclient.FileAttrs{}); err != nil {
 		t.Fatalf("put %s:%s: %v", bucket, key, err)
 	}
 }
@@ -417,7 +417,7 @@ func TestCopyBetweenBuckets(t *testing.T) {
 	client, store := newFilesServer(t)
 	testBucket(t, store, "other")
 	old := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
-	if _, err := client.PutFileObject(context.Background(), "sync-test", "path/abc.py", strings.NewReader("abc"), 3, "text/x-python", old); err != nil {
+	if _, err := client.PutFileObject(context.Background(), "sync-test", "path/abc.py", strings.NewReader("abc"), 3, "text/x-python", apiclient.FileAttrs{Mtime: old}); err != nil {
 		t.Fatal(err)
 	}
 	putRemote(t, client, "sync-test", "path/b.py", "b")

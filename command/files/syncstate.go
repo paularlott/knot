@@ -18,11 +18,12 @@ import (
 const baseVersion = 1
 
 type baseEntry struct {
-	Key        string `json:"key" msgpack:"key"`                 // the file's key in the bucket
-	SHA        string `json:"sha256" msgpack:"sha256"`           // the content both sides held
-	Size       int64  `json:"size" msgpack:"size"`               // its size
-	LocalSize  int64  `json:"local_size" msgpack:"local_size"`   // the local file's size then
-	LocalMtime int64  `json:"local_mtime" msgpack:"local_mtime"` // and its modification time, unix nanoseconds
+	Key        string `json:"key" msgpack:"key"`                       // the file's key in the bucket
+	SHA        string `json:"sha256" msgpack:"sha256"`                 // the content both sides held
+	Size       int64  `json:"size" msgpack:"size"`                     // its size
+	LocalSize  int64  `json:"local_size" msgpack:"local_size"`         // the local file's size then
+	LocalMtime int64  `json:"local_mtime" msgpack:"local_mtime"`       // and its modification time, unix nanoseconds
+	Mode       uint32 `json:"mode,omitempty" msgpack:"mode,omitempty"` // the permission bits both held, 0 when not known
 }
 
 type baseFile struct {

@@ -216,14 +216,12 @@ func TestSyncUpThroughSymlink(t *testing.T) {
 }
 
 // Downloads get normal file permissions, not the temporary file's 0600.
+// A file the bucket keeps no mode for is downloaded 0644, or with the mode of
+// the file it replaces; TestCopyKeepsMode covers one that has a mode.
 func TestDownloadMode(t *testing.T) {
 	client, _ := newFilesServer(t)
 	ctx := context.Background()
-	src := filepath.Join(t.TempDir(), "f.txt")
-	writeFile(t, src, "x")
-	if err := uploadFile(ctx, client, src, "sync-test", "mode/f.txt"); err != nil {
-		t.Fatal(err)
-	}
+	putRemote(t, client, "sync-test", "mode/f.txt", "x")
 	dst := filepath.Join(t.TempDir(), "f.txt")
 	if err := downloadFile(ctx, client, "sync-test", "mode/f.txt", dst); err != nil {
 		t.Fatal(err)

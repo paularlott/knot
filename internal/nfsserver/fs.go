@@ -28,7 +28,7 @@ import (
 // mounted either way shows the same modes and times; mtime is in the form
 // the knot CLI and rclone write.
 const (
-	metaMode  = "mode"
+	metaMode  = apiclient.FileModeMeta
 	metaMtime = "mtime"
 	metaUid   = "uid"
 	metaGid   = "gid"
@@ -607,28 +607,15 @@ func newIno() string {
 // modeFrom reads the permission bits stored on a file, s3fs style (the
 // decimal st_mode).
 func modeFrom(meta map[string]string) os.FileMode {
-	if v, ok := meta[metaMode]; ok {
-		if m, err := strconv.ParseUint(v, 10, 32); err == nil {
-			mode := os.FileMode(m) & os.ModePerm
-			if m&syscall.S_IFMT == syscall.S_IFLNK {
-				mode |= os.ModeSymlink
-			}
-			return mode
-		}
+	if mode, ok := apiclient.ParseFileMode(meta); ok {
+		return mode
 	}
 	return defaultFileMode
 }
 
 // stMode is the decimal st_mode stored in metaMode.
 func stMode(mode os.FileMode) string {
-	typ := uint32(syscall.S_IFREG)
-	switch {
-	case mode&os.ModeSymlink != 0:
-		typ = syscall.S_IFLNK
-	case mode&os.ModeDir != 0:
-		typ = syscall.S_IFDIR
-	}
-	return strconv.FormatUint(uint64(typ|uint32(mode&os.ModePerm)), 10)
+	return apiclient.FormatFileMode(mode)
 }
 
 // mtimeFrom reads the modification time stored on a file, falling back to

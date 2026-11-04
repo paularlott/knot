@@ -34,6 +34,7 @@ Copy `.env.example` to `.env`. The knobs:
 | `KNOT_TEST_VERBOSE_SERVER` | `1` = stream server logs into the test output |
 | `KNOT_TEST_NO_BUILD` | `1` = skip `task build`, use existing `bin/knot` |
 | `KNOT_TEST_SPACE_READY_TIMEOUT` | seconds to wait for a space agent (default 600) |
+| `KNOT_TEST_FILES_ROOT` | where file storage tests keep the server's storage and their local folders, to test on another disk (default: a temporary folder) |
 
 ## How a run works
 
@@ -127,6 +128,7 @@ resources → events → ports → logs → clustering.
 | `TestHostCookiesBehindTLSProxy` | with an https `server.url` but plain-http requests (a load balancer ending TLS), cookies take the `__Host-` prefix and Secure; a session cookie planted under the plain name is ignored |
 | `TestAgentRegistrationRequiresProof` | a peer with no registration key — or a forged proof — cannot register as a space, gets no secrets, and cannot disturb the live agent session |
 | `TestSpaceRestrictions` | a space restricts itself to chosen buckets (read-only refuses writes), can only tighten its restrictions from inside, is confined, and its owner lifts them from outside; a restart clears them |
+| `TestFileModes` | the `knot file` command keeps file modes: `cp` both ways, `sync` up, down, two ways and between buckets, a `chmod` alone synced either way; a write that gives no mode keeps it; `admin file restore` brings it back; over a real NFS mount (macOS only: elsewhere mounting needs root), files written by the command show their modes, a file made over NFS keeps its mode through a write and a rename, and a chmod there reaches the bucket |
 
 ### Clustering
 

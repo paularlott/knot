@@ -7,6 +7,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -218,7 +219,7 @@ func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket,
 	if err != nil {
 		return err
 	}
-	if _, err := client.PutFileObject(ctx, bucket, key, f, info.Size(), contentType(local), info.ModTime()); err != nil {
+	if _, err := client.PutFileObject(ctx, bucket, key, f, info.Size(), contentType(local), apiclient.LocalFileAttrs(info)); err != nil {
 		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
 	}
 	fmt.Printf("%s -> %s (%s)\n", local, remoteName(bucket, key), formatBytes(info.Size()))
@@ -274,11 +275,14 @@ func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, lo
 		os.Remove(tmp.Name())
 		return 0, err
 	}
-	// The temporary file is private (0600); give the download the mode of
-	// the file it replaces, or the usual 0644.
+	// The temporary file is private (0600); give the download the mode kept
+	// with the file, else that of the file it replaces, or the usual 0644.
 	mode := os.FileMode(0644)
 	if info, err := os.Stat(local); err == nil {
 		mode = info.Mode().Perm()
+	}
+	if m, ok := storedMode(map[string]string{apiclient.FileModeMeta: resp.Header.Get(apiclient.FileMetaHeaderPrefix + apiclient.FileModeMeta)}); ok {
+		mode = m
 	}
 	os.Chmod(tmp.Name(), mode)
 	if err := os.Rename(tmp.Name(), local); err != nil {
@@ -289,6 +293,19 @@ func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, lo
 		os.Chtimes(local, mtime, mtime)
 	}
 	return n, nil
+}
+
+// storedMode is the permission bits kept with a bucket file, where the
+// platform has them.
+func storedMode(meta map[string]string) (os.FileMode, bool) {
+	if runtime.GOOS == "windows" {
+		return 0, false
+	}
+	mode, ok := apiclient.ParseFileMode(meta)
+	if !ok || mode&os.ModeSymlink != 0 {
+		return 0, false
+	}
+	return mode.Perm(), true
 }
 
 // copyFromStdin uploads stdin to a single bucket file.
@@ -302,7 +319,7 @@ func copyFromStdin(ctx context.Context, client *apiclient.ApiClient, dst locatio
 	if isFolderKey(dst.key) || hasGlob(dst.key) {
 		return fmt.Errorf("a file name is required when copying stdin: %s", dst)
 	}
-	if _, err := client.PutFileObject(ctx, dst.bucket, dst.key, os.Stdin, -1, contentType(dst.key), time.Now()); err != nil {
+	if _, err := client.PutFileObject(ctx, dst.bucket, dst.key, os.Stdin, -1, contentType(dst.key), apiclient.FileAttrs{Mtime: time.Now()}); err != nil {
 		return apiError(err)
 	}
 	fmt.Printf("stdin -> %s\n", dst)
