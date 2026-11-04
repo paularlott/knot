@@ -129,3 +129,39 @@ description = "Search things"
 		t.Fatalf("expected unknown mode error")
 	}
 }
+
+func TestLoadTOMLGroupsImplyShared(t *testing.T) {
+	reg, err := LoadTOML([]byte(`
+[server]
+type = "stdio"
+command = "./bin/method-server"
+
+[[methods]]
+name = "qa.redeploy"
+description = "Redeploy"
+groups = ["CI"]
+`), "notes")
+	if err != nil {
+		t.Fatalf("LoadTOML() error = %v", err)
+	}
+	if reg.Methods[0].Scope != ScopeShared {
+		t.Fatalf("expected groups to imply shared scope, got %q", reg.Methods[0].Scope)
+	}
+}
+
+func TestLoadTOMLRejectsPrivateWithGroups(t *testing.T) {
+	_, err := LoadTOML([]byte(`
+[server]
+type = "stdio"
+command = "./bin/method-server"
+
+[[methods]]
+name = "qa.redeploy"
+description = "Redeploy"
+scope = "private"
+groups = ["CI"]
+`), "notes")
+	if err == nil {
+		t.Fatal("expected a private method with groups to be rejected")
+	}
+}

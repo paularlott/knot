@@ -569,7 +569,7 @@ export const knotLibraries = [
           },
           {
             "name": "method",
-            "signature": "method(self, name: str, *, local_name: str = \"\", description: str = \"\", scope: str = \"private\", keywords: list[str] | None = None, groups: list[str] | None = None, mcp_tool: bool = False, params: dict[str, Any] | None = None, result: dict[str, Any] | None = None, events: list[str] | None = None, event_sinks: list[str] | None = None,)",
+            "signature": "method(self, name: str, *, local_name: str = \"\", description: str = \"\", scope: str = \"\", keywords: list[str] | None = None, groups: list[str] | None = None, mcp_tool: bool = False, params: dict[str, Any] | None = None, result: dict[str, Any] | None = None, events: list[str] | None = None, event_sinks: list[str] | None = None,)",
             "description": "Method ",
             "returns": "bool"
           },

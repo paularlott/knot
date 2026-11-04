@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -367,5 +368,203 @@ func waitFor(t *testing.T, cond func() bool) {
 			t.Fatal("condition not met before deadline")
 		}
 		time.Sleep(2 * time.Millisecond)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Custom events delivered to other users' shared methods
+// ---------------------------------------------------------------------------
+
+type paramsCaller struct {
+	mu     sync.Mutex
+	params map[string]string // spaceId/localName -> rendered params
+}
+
+func (pc *paramsCaller) call(spaceId, localMethod string, params json.RawMessage) error {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.params[spaceId+"/"+localMethod] = string(params)
+	return nil
+}
+
+func (pc *paramsCaller) get(key string) (string, bool) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	p, ok := pc.params[key]
+	return p, ok
+}
+
+func (pc *paramsCaller) count() int {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return len(pc.params)
+}
+
+// saveEventUser stores a user so deliverToSubscriptions can load the sender.
+func saveEventUser(t *testing.T, roles, groups []string) *model.User {
+	t.Helper()
+	id := uuid.NewString()
+	user := &model.User{
+		Id:       id,
+		Username: "u" + id[:8],
+		Email:    id + "@test.local",
+		Active:   true,
+		Roles:    roles,
+		Groups:   groups,
+	}
+	if err := database.GetInstance().SaveUser(user, nil); err != nil {
+		t.Fatalf("SaveUser: %v", err)
+	}
+	return user
+}
+
+func TestDeliverCustomEventToSharedMethods(t *testing.T) {
+	setupPoolTestDB(t)
+	restoreJSONRPCCaller(t)
+	restoreTransport(t)
+	SetTransport(&fakeTransport{leader: true})
+	pc := &paramsCaller{params: map[string]string{}}
+	SetJSONRPCCaller(pc.call)
+
+	ci := saveEventUser(t, []string{model.RoleAdminUUID}, []string{"group-ci"})
+	noRole := saveEventUser(t, nil, []string{"group-ci"})
+
+	d := newTestDispatcher()
+	d.subscriptions["space-shared"] = []*JSONRPCSubscription{{
+		SpaceId: "space-shared", UserId: "qa-user-1", LocalName: "redeploy",
+		Scope: "shared", Events: []string{"custom.ci.*"},
+	}}
+	d.subscriptions["space-group"] = []*JSONRPCSubscription{{
+		SpaceId: "space-group", UserId: "qa-user-2", LocalName: "redeploy",
+		Scope: "shared", Groups: []string{"group-ci"}, Events: []string{"custom.ci.*"},
+	}}
+	d.subscriptions["space-other-group"] = []*JSONRPCSubscription{{
+		SpaceId: "space-other-group", UserId: "qa-user-3", LocalName: "redeploy",
+		Scope: "shared", Groups: []string{"group-dev"}, Events: []string{"custom.ci.*"},
+	}}
+	d.subscriptions["space-private"] = []*JSONRPCSubscription{{
+		SpaceId: "space-private", UserId: "qa-user-4", LocalName: "redeploy",
+		Scope: "private", Events: []string{"custom.ci.*"},
+	}}
+
+	d.deliverToSubscriptions(&EventEnvelope{EventId: "evt-ci-1", EventType: "custom.ci.deployed", UserId: ci.Id, Actor: EventActor{Id: ci.Id}, Ts: hlc.Now()})
+	waitFor(t, func() bool { return pc.count() == 2 })
+	time.Sleep(20 * time.Millisecond)
+	for _, key := range []string{"space-shared/redeploy", "space-group/redeploy"} {
+		if _, ok := pc.get(key); !ok {
+			t.Errorf("%s not called", key)
+		}
+	}
+	if pc.count() != 2 {
+		t.Fatalf("calls = %v, want only the shared methods the sender may call", pc.params)
+	}
+
+	// A sender without use_methods reaches no other user's method.
+	d.deliverToSubscriptions(&EventEnvelope{EventId: "evt-ci-2", EventType: "custom.ci.deployed", UserId: noRole.Id, Actor: EventActor{Id: noRole.Id}, Ts: hlc.Now()})
+	time.Sleep(20 * time.Millisecond)
+	if pc.count() != 2 {
+		t.Fatalf("calls = %v, want none from a sender without use_methods", pc.params)
+	}
+}
+
+func TestSystemEventsStayWithOwner(t *testing.T) {
+	setupPoolTestDB(t)
+	restoreJSONRPCCaller(t)
+	restoreTransport(t)
+	SetTransport(&fakeTransport{leader: true})
+	rc := &recordingCaller{}
+	SetJSONRPCCaller(rc.call)
+
+	owner := saveEventUser(t, []string{model.RoleAdminUUID}, nil)
+
+	d := newTestDispatcher()
+	d.subscriptions["space-shared"] = []*JSONRPCSubscription{{
+		SpaceId: "space-shared", UserId: "someone-else", LocalName: "on_start",
+		Scope: "shared", Events: []string{"*"},
+	}}
+
+	d.deliverToSubscriptions(subEnvelope("evt-sys-1", owner.Id))
+	time.Sleep(20 * time.Millisecond)
+	if rc.count() != 0 {
+		t.Fatalf("call count = %d, want 0 (system events never leave their owner)", rc.count())
+	}
+}
+
+func TestCrossUserDeliveryOmitsSpaceDetails(t *testing.T) {
+	setupPoolTestDB(t)
+	restoreJSONRPCCaller(t)
+	restoreTransport(t)
+	SetTransport(&fakeTransport{leader: true})
+	pc := &paramsCaller{params: map[string]string{}}
+	SetJSONRPCCaller(pc.call)
+
+	sender := saveEventUser(t, []string{model.RoleAdminUUID}, nil)
+	space := model.NewSpace("secret-space", "", sender.Id, "", "bash", &[]model.AltNameEntry{}, "", "",
+		[]model.SpaceCustomField{{Name: "token", Value: "hidden"}})
+	if err := database.GetInstance().SaveSpace(space, nil); err != nil {
+		t.Fatalf("SaveSpace: %v", err)
+	}
+
+	const tmpl = `{"space":"${{ .space.name }}","custom":${{ json .custom }},"data":${{ json .event.data }}}`
+	d := newTestDispatcher()
+	d.sinkCache = []*model.EventSink{
+		{Name: "fmt-own", SinkType: "json-rpc", Active: true, UserId: sender.Id, Events: []string{"*"}, Webhook: &model.WebhookConfig{BodyTemplate: tmpl}},
+		{Name: "fmt-other", SinkType: "json-rpc", Active: true, UserId: "qa-user", Events: []string{"*"}, Webhook: &model.WebhookConfig{BodyTemplate: tmpl}},
+	}
+	d.subscriptions["space-own"] = []*JSONRPCSubscription{{
+		SpaceId: "space-own", UserId: sender.Id, LocalName: "on_event",
+		Events: []string{"*"}, EventSinks: []string{"fmt-own"},
+	}}
+	d.subscriptions["space-other"] = []*JSONRPCSubscription{{
+		SpaceId: "space-other", UserId: "qa-user", LocalName: "on_event",
+		Scope: "shared", Events: []string{"*"}, EventSinks: []string{"fmt-other"},
+	}}
+
+	d.deliverToSubscriptions(&EventEnvelope{
+		EventId: "evt-strip-1", EventType: "custom.ci.deployed", SpaceId: space.Id, UserId: sender.Id, Actor: EventActor{Id: sender.Id},
+		Payload: map[string]interface{}{"version": "1.2.3"}, Ts: hlc.Now(),
+	})
+	waitFor(t, func() bool { return pc.count() == 2 })
+
+	own, _ := pc.get("space-own/on_event")
+	if want := `{"space":"secret-space","custom":{"token":"hidden"},"data":{"version":"1.2.3"}}`; own != want {
+		t.Errorf("owner params = %s, want %s", own, want)
+	}
+	other, _ := pc.get("space-other/on_event")
+	if want := `{"space":"","custom":{},"data":{"version":"1.2.3"}}`; other != want {
+		t.Errorf("other user's params = %s, want %s", other, want)
+	}
+}
+
+// Someone a space is shared with can raise events for it. Other users'
+// methods are reached on their rights, not the owner's.
+func TestSharedSpaceEventUsesRaisersRights(t *testing.T) {
+	setupPoolTestDB(t)
+	restoreJSONRPCCaller(t)
+	restoreTransport(t)
+	SetTransport(&fakeTransport{leader: true})
+	pc := &paramsCaller{params: map[string]string{}}
+	SetJSONRPCCaller(pc.call)
+
+	owner := saveEventUser(t, []string{model.RoleAdminUUID}, []string{"group-ci"})
+	sharedWith := saveEventUser(t, nil, nil)
+
+	d := newTestDispatcher()
+	d.subscriptions["space-owner"] = []*JSONRPCSubscription{{
+		SpaceId: "space-owner", UserId: owner.Id, LocalName: "on_event", Events: []string{"custom.*"},
+	}}
+	d.subscriptions["space-qa"] = []*JSONRPCSubscription{{
+		SpaceId: "space-qa", UserId: "qa-user", LocalName: "redeploy",
+		Scope: "shared", Groups: []string{"group-ci"}, Events: []string{"custom.*"},
+	}}
+
+	d.deliverToSubscriptions(&EventEnvelope{
+		EventId: "evt-shared-1", EventType: "custom.ci.deployed", SpaceId: "space-owner", UserId: owner.Id,
+		Actor: EventActor{Id: sharedWith.Id}, Ts: hlc.Now(),
+	})
+	waitFor(t, func() bool { return pc.count() == 1 })
+	time.Sleep(20 * time.Millisecond)
+	if _, ok := pc.get("space-owner/on_event"); !ok || pc.count() != 1 {
+		t.Fatalf("calls = %v, want only the owner's own method", pc.params)
 	}
 }

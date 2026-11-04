@@ -289,10 +289,9 @@ func (c *AgentClient) ConnectAndServe() {
 }
 
 func (c *AgentClient) Shutdown() {
-	// Stop the method server process first so the exit goroutine can clean
-	// up (it will try to unregister from the knot server, which races with
-	// the connection close below — that's fine, the server removes the
-	// methods when the session drops anyway).
+	// Stop the method server process before closing the connections. Its
+	// methods stay registered until the session drops, when the knot server
+	// removes them.
 	c.stopMethodServer()
 
 	c.serverListMutex.Lock()

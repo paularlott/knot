@@ -52,12 +52,35 @@ func (c *AgentClient) RegisterMethods(reg *methods.Registration) error {
 	if reg.Server.Command == "" {
 		return fmt.Errorf("server command is required")
 	}
-	if err := c.startMethodServer(reg); err != nil {
+
+	// The new server starts alongside the running one, which keeps serving
+	// until the knot server accepts the new registration: a refused
+	// registration leaves the space's methods as they were.
+	server, err := c.newMethodServer(reg)
+	if err != nil {
 		return err
 	}
 	if err := c.publishMethods(reg); err != nil {
-		c.stopMethodServer()
+		server.shutdown()
 		return err
+	}
+
+	c.methodMu.Lock()
+	select {
+	case <-server.closed:
+		// It exited before taking over, after the knot server had replaced
+		// the running server's registration with its own: put that back.
+		c.methodMu.Unlock()
+		c.restoreMethods()
+		return errors.New("method server exited during registration")
+	default:
+	}
+	previous := c.methodServer
+	c.methodServer = server
+	c.methodMu.Unlock()
+
+	if previous != nil {
+		previous.shutdown()
 	}
 
 	// Stash so we can re-publish after any knot-server reconnect (the server's
@@ -67,6 +90,21 @@ func (c *AgentClient) RegisterMethods(reg *methods.Registration) error {
 	c.lastRegMu.Unlock()
 
 	return nil
+}
+
+// restoreMethods re-publishes the running server's registration, or drops
+// the space's methods when there is none.
+func (c *AgentClient) restoreMethods() {
+	c.lastRegMu.RLock()
+	reg := c.lastReg
+	c.lastRegMu.RUnlock()
+	if reg == nil {
+		c.unregisterMethods()
+		return
+	}
+	if err := c.publishMethods(reg); err != nil {
+		log.WithError(err).Warn("restoreMethods: failed to re-publish the running registration")
+	}
 }
 
 // UnregisterAllMethods removes all methods from the knot server, stops the
@@ -126,9 +164,9 @@ func (c *AgentClient) republishMethods() {
 	log.Info("republished methods after reconnect", "method_count", len(reg.Methods))
 }
 
-func (c *AgentClient) startMethodServer(reg *methods.Registration) error {
-	c.stopMethodServer()
-
+// newMethodServer starts a method server process for reg. The caller
+// installs it as c.methodServer once its registration is accepted.
+func (c *AgentClient) newMethodServer(reg *methods.Registration) (*methodServerProcess, error) {
 	// stderr is forwarded to the knot server as log lines, one SendLogMessage
 	// per newline-delimited chunk (matching the previous pumpStderr behaviour).
 	logWriter := &stderrLogWriter{c: c}
@@ -146,22 +184,27 @@ func (c *AgentClient) startMethodServer(reg *methods.Registration) error {
 	// the previous implementation ran: flush any trailing stderr, fail any
 	// queued callers, drop the knot-server registrations for the dead process
 	// and clear the stashed registration so a reconnect doesn't republish
-	// methods whose backing process has gone.
+	// methods whose backing process has gone. A server that is not the
+	// running one (replaced, refused or stopped) owns no registration, so its
+	// exit leaves the registrations alone.
 	onExit := func(waitErr error) {
 		logWriter.flush()
 		server.markClosed()
 
 		c.methodMu.Lock()
-		if c.methodServer == server {
+		current := c.methodServer == server
+		if current {
 			c.methodServer = nil
 		}
 		c.methodMu.Unlock()
 
-		c.unregisterMethods()
+		if current {
+			c.unregisterMethods()
 
-		c.lastRegMu.Lock()
-		c.lastReg = nil
-		c.lastRegMu.Unlock()
+			c.lastRegMu.Lock()
+			c.lastReg = nil
+			c.lastRegMu.Unlock()
+		}
 
 		if waitErr != nil {
 			log.WithError(waitErr).Warn("method server exited")
@@ -176,19 +219,17 @@ func (c *AgentClient) startMethodServer(reg *methods.Registration) error {
 		jsonrpc.WithOnExit(onExit),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	server.client = jsonrpc.NewClient(transport)
 	server.transport = transport
 
-	c.methodMu.Lock()
-	c.methodServer = server
-	c.methodMu.Unlock()
-
-	return nil
+	return server, nil
 }
 
+// stopMethodServer stops the running server. Its exit leaves the space's
+// registrations on the knot servers; callers drop them where needed.
 func (c *AgentClient) stopMethodServer() {
 	c.methodMu.Lock()
 	server := c.methodServer
@@ -198,13 +239,7 @@ func (c *AgentClient) stopMethodServer() {
 	if server == nil {
 		return
 	}
-	server.markClosed()
-	if server.client != nil {
-		// Close closes stdin (signalling the child to exit), waits up to the
-		// jsonrpc shutdown timeout, then kills if needed. The OnExit hook
-		// above runs as the child is reaped.
-		_ = server.client.Close()
-	}
+	server.shutdown()
 }
 
 func (c *AgentClient) publishMethods(reg *methods.Registration) error {
@@ -390,9 +425,9 @@ func (s *methodServerProcess) markClosed() {
 	s.closeOnce.Do(func() { close(s.closed) })
 }
 
-// shutdown is used by tests to fail a wired-up (pipe) server. For a real
-// process, closing the client drives the child down and the OnExit hook
-// performs the full cleanup.
+// shutdown stops the server. For a real process, closing the client closes
+// stdin (signalling the child to exit), waits up to the jsonrpc shutdown
+// timeout, then kills if needed; the OnExit hook runs as the child is reaped.
 func (s *methodServerProcess) shutdown() {
 	s.markClosed()
 	if s.client != nil {

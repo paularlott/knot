@@ -90,6 +90,8 @@ type JSONRPCSubscription struct {
 	UserId     string
 	MethodName string
 	LocalName  string
+	Scope      string
+	Groups     []string
 	Events     []string
 	EventSinks []string
 }
@@ -672,6 +674,8 @@ func (d *EventDispatcher) RegisterSubscriptions(spaceId, userId string, methods 
 			UserId:     userId,
 			MethodName: m.Name,
 			LocalName:  m.LocalName,
+			Scope:      m.Scope,
+			Groups:     m.Groups,
 			Events:     m.Events,
 			EventSinks: m.EventSinks,
 		})
@@ -724,7 +728,8 @@ func matchEventType(patterns []string, eventType string) bool {
 // subscribed via `events` annotations. Runs on the zone leader (same model
 // as webhook/script delivery). `event_sinks` on the subscription provides
 // optional formatting only — the referenced sinks' body templates transform
-// the payload before delivery.
+// the payload before delivery. Custom events also reach other users' shared
+// methods, see canReceiveFrom.
 func (d *EventDispatcher) deliverToSubscriptions(envelope *EventEnvelope) {
 	d.mu.Lock()
 	if _, seen := d.jsonrpcDelivered[envelope.EventId]; seen {
@@ -738,15 +743,26 @@ func (d *EventDispatcher) deliverToSubscriptions(envelope *EventEnvelope) {
 		return
 	}
 
+	// Other users' methods are reached on the rights of whoever raised the
+	// event, not its owner: someone a space is shared with can raise events
+	// for it without holding the owner's permissions or groups.
+	var sender *model.User
+	if isCustomEvent(envelope.EventType) && envelope.Actor.Id != "" {
+		if user, err := database.GetInstance().GetUser(envelope.Actor.Id); err == nil {
+			sender = user
+		}
+	}
+
 	d.mu.RLock()
 	var matched []struct {
 		sub       *JSONRPCSubscription
 		template  string
 		hasCustom bool
+		crossUser bool
 	}
 	for _, subs := range d.subscriptions {
 		for _, sub := range subs {
-			if sub.UserId != envelope.UserId {
+			if !canReceiveFrom(sub, envelope, sender) {
 				continue
 			}
 
@@ -783,7 +799,8 @@ func (d *EventDispatcher) deliverToSubscriptions(envelope *EventEnvelope) {
 				sub       *JSONRPCSubscription
 				template  string
 				hasCustom bool
-			}{sub, customTemplate, hasCustom})
+				crossUser bool
+			}{sub, customTemplate, hasCustom, sub.UserId != envelope.UserId})
 		}
 	}
 	d.mu.RUnlock()
@@ -793,14 +810,46 @@ func (d *EventDispatcher) deliverToSubscriptions(envelope *EventEnvelope) {
 	d.mu.Unlock()
 
 	for _, m := range matched {
-		go d.deliverJSONRPCWithRetry(envelope, m.sub, m.template, m.hasCustom)
+		go d.deliverJSONRPCWithRetry(envelope, m.sub, m.template, m.hasCustom, m.crossUser)
 	}
 }
 
-func (d *EventDispatcher) deliverJSONRPCWithRetry(envelope *EventEnvelope, sub *JSONRPCSubscription, template string, hasCustom bool) {
+func isCustomEvent(eventType string) bool {
+	return strings.HasPrefix(eventType, "custom.")
+}
+
+// canReceiveFrom reports whether a subscription receives an event. A space's
+// methods receive their owner's events. Another user's custom events reach a
+// method only when it is shared and the sender, the user who raised the
+// event, could call it directly: they hold use_methods and, if the method
+// names groups, belong to one of them. System events stay with their owner.
+func canReceiveFrom(sub *JSONRPCSubscription, envelope *EventEnvelope, sender *model.User) bool {
+	if sub.UserId == envelope.UserId {
+		return true
+	}
+	if sender == nil || sender.Id != envelope.Actor.Id || !sender.Active || sender.IsDeleted {
+		return false
+	}
+	if !isCustomEvent(envelope.EventType) || sub.Scope != methods.ScopeShared {
+		return false
+	}
+	if !sender.HasPermission(model.PermissionUseMethods) {
+		return false
+	}
+	return len(sub.Groups) == 0 || sender.HasAnyGroup(&sub.Groups)
+}
+
+func (d *EventDispatcher) deliverJSONRPCWithRetry(envelope *EventEnvelope, sub *JSONRPCSubscription, template string, hasCustom bool, crossUser bool) {
 	defer d.decrementPending(envelope.EventId)
 
-	renderData := d.envelopeToRenderData(envelope)
+	// Another user's method gets the event and its payload only, never the
+	// source space's name, port URLs or custom fields.
+	var renderData *model.EventRenderData
+	if crossUser {
+		renderData = baseRenderData(envelope)
+	} else {
+		renderData = d.envelopeToRenderData(envelope)
+	}
 
 	var bodyTemplate string
 	if hasCustom {
@@ -873,7 +922,10 @@ func RaiseSystemEvent(eventType, spaceId, userId string, payload map[string]inte
 	GetEventDispatcher().Dispatch(envelope)
 }
 
-func RaiseCustomEvent(eventId, eventType, spaceId, userId string, payload map[string]interface{}) {
+// RaiseCustomEvent raises a custom event owned by userId and raised by
+// actorId: the user who called the API, or the space owner for an event
+// from inside a space, whose processes act as the owner.
+func RaiseCustomEvent(eventId, eventType, spaceId, userId, actorId string, payload map[string]interface{}) {
 	if !strings.HasPrefix(eventType, "custom.") {
 		eventType = "custom." + eventType
 	}
@@ -888,8 +940,8 @@ func RaiseCustomEvent(eventId, eventType, spaceId, userId string, payload map[st
 	}
 
 	username := ""
-	if userId != "" {
-		if user, err := database.GetInstance().GetUser(userId); err == nil && user != nil {
+	if actorId != "" {
+		if user, err := database.GetInstance().GetUser(actorId); err == nil && user != nil {
 			username = user.Username
 		}
 	}
@@ -902,7 +954,7 @@ func RaiseCustomEvent(eventId, eventType, spaceId, userId string, payload map[st
 		Payload:   payload,
 		Ts:        hlc.Now(),
 		Actor: EventActor{
-			Id:       userId,
+			Id:       actorId,
 			Username: username,
 			Kind:     model.AuditActorTypeUser,
 		},
@@ -964,8 +1016,8 @@ func SetSpaceHealth(spaceId string, healthy bool, failures uint32) {
 	}
 }
 
-func (d *EventDispatcher) envelopeToRenderData(env *EventEnvelope) *model.EventRenderData {
-	data := &model.EventRenderData{
+func baseRenderData(env *EventEnvelope) *model.EventRenderData {
+	return &model.EventRenderData{
 		EventId:   env.EventId,
 		EventType: env.EventType,
 		SpaceId:   env.SpaceId,
@@ -977,6 +1029,10 @@ func (d *EventDispatcher) envelopeToRenderData(env *EventEnvelope) *model.EventR
 		ActorKind: env.Actor.Kind,
 		PortURLs:  map[string]string{},
 	}
+}
+
+func (d *EventDispatcher) envelopeToRenderData(env *EventEnvelope) *model.EventRenderData {
+	data := baseRenderData(env)
 
 	if env.SpaceId != "" {
 		db := database.GetInstance()

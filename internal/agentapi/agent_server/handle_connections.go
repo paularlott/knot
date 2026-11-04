@@ -722,7 +722,8 @@ func handleEvent(stream net.Conn, session *Session) {
 		userId = space.UserId
 	}
 
-	service.RaiseCustomEvent(eventMsg.EventId, eventMsg.EventType, session.Id, userId, payload)
+	// Processes in a space act as its owner, so the owner raised the event.
+	service.RaiseCustomEvent(eventMsg.EventId, eventMsg.EventType, session.Id, userId, userId, payload)
 
 	var reply msg.EventReply
 	if err := msg.WriteMessage(stream, &reply); err != nil {

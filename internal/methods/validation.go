@@ -119,11 +119,20 @@ func NormalizeAndValidate(reg *Registration, spaceName string) error {
 		if !methodNameRe.MatchString(method.LocalName) {
 			return fmt.Errorf("method %q has invalid local_name %q", method.Name, method.LocalName)
 		}
+		// Listing groups shares the method with them, so groups without a
+		// scope mean shared; a private method cannot list groups.
 		if method.Scope == "" {
-			method.Scope = ScopePrivate
+			if len(method.Groups) > 0 {
+				method.Scope = ScopeShared
+			} else {
+				method.Scope = ScopePrivate
+			}
 		}
 		if method.Scope != ScopePrivate && method.Scope != ScopeShared {
 			return fmt.Errorf("method %q has invalid scope %q", method.Name, method.Scope)
+		}
+		if method.Scope == ScopePrivate && len(method.Groups) > 0 {
+			return fmt.Errorf("method %q is private but lists groups; remove scope or set it to %q", method.Name, ScopeShared)
 		}
 		if method.Description == "" {
 			return fmt.Errorf("method %q description is required", method.Name)
