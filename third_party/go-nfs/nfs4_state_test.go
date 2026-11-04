@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"os"
 	"testing"
 
@@ -271,5 +272,40 @@ func TestGhostHandleCloses(t *testing.T) {
 	}
 	if got := compound(putfh, closeOp); got[len(got)-1] != nfs4ErrNoEnt {
 		t.Errorf("CLOSE again: %v, want NOENT", got)
+	}
+}
+
+// failingCommitFS is a filesystem whose saves fail, as when the server
+// behind it cannot be reached.
+type failingCommitFS struct{ billy.Filesystem }
+
+func (failingCommitFS) Commit(string) error { return errors.New("server unreachable") }
+
+// CLOSE closes the open even when saving fails: the Mac's client sends a
+// failed CLOSE again at once, forever. COMMIT, which clients send before
+// CLOSE with writes unsaved, is what reports a failed save.
+func TestCloseWhenSavingFails(t *testing.T) {
+	fs := failingCommitFS{memfs.New()}
+	f, _ := fs.Create("f")
+	f.Close()
+	srv := &Server{Handler: pathHandler{}}
+	sm := srv.nfs4State()
+	owner := nfs4Owner{ClientID: newClient(t, sm, "a"), Owner: "o"}
+	open, _ := sm.open(owner, "f")
+
+	var args bytes.Buffer
+	xdr.Write(&args, nfs4CloseArgs{Seqid: 1, StateID: open})
+	c := &nfs4Compound{ctx: context.Background(), w: &response{conn: &conn{Server: srv}}, handler: pathHandler{}, current: &nfs4FileHandle{fs: fs, path: []string{"f"}}}
+	if status := nfs4OnClose(c, &args, &bytes.Buffer{}); status != nfs4OK {
+		t.Errorf("CLOSE with saving failing: %d, want OK", status)
+	}
+	if _, status := sm.close(open); status == nfs4OK {
+		t.Error("the open was not closed")
+	}
+
+	var commit bytes.Buffer
+	xdr.Write(&commit, nfs4CommitArgs{})
+	if status := nfs4OnCommit(c, &commit, &bytes.Buffer{}); status == nfs4OK {
+		t.Error("COMMIT with saving failing answered OK")
 	}
 }

@@ -250,6 +250,19 @@ func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket,
 	if err != nil {
 		return err
 	}
+	if info.Size() >= partedAt {
+		// A large file goes in parts, carrying on from any sent before.
+		_, reused, err := uploadInParts(ctx, client, f, info, bucket, key, contentType(local), apiclient.LocalFileAttrs(info), "", false)
+		if err != nil {
+			return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+		}
+		note := ""
+		if reused > 0 {
+			note = ", carried on: " + formatBytes(reused) + " already sent"
+		}
+		fmt.Printf("%s -> %s (%s%s)\n", local, remoteName(bucket, key), formatBytes(info.Size()), note)
+		return nil
+	}
 	if _, err := client.PutFileObject(ctx, bucket, key, f, info.Size(), contentType(local), apiclient.LocalFileAttrs(info)); err != nil {
 		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
 	}

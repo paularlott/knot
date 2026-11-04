@@ -65,7 +65,7 @@ func limitToSpace(p *filestore.Principal, space *model.Space) {
 func filesError(w http.ResponseWriter, r *http.Request, err error) {
 	status := http.StatusInternalServerError
 	switch {
-	case errors.Is(err, filestore.ErrNoSuchBucket), errors.Is(err, filestore.ErrNoSuchKey):
+	case errors.Is(err, filestore.ErrNoSuchBucket), errors.Is(err, filestore.ErrNoSuchKey), errors.Is(err, filestore.ErrNoSuchUpload):
 		status = http.StatusNotFound
 	case errors.Is(err, filestore.ErrAccessDenied), errors.Is(err, filestore.ErrCannotOwn), errors.Is(err, filestore.ErrBucketLimit),
 		errors.Is(err, filestore.ErrCannotShare), errors.Is(err, filestore.ErrCannotTransfer):
@@ -81,7 +81,7 @@ func filesError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, filestore.ErrBucketNamespace), errors.Is(err, filestore.ErrUsernameUnusable), errors.Is(err, filestore.ErrRecipientCannotOwn),
 		errors.Is(err, filestore.ErrInvalidKey), errors.Is(err, filestore.ErrInvalidGrant), errors.Is(err, filestore.ErrTooManyGrants),
 		errors.Is(err, filestore.ErrMetadataTooLarge), errors.Is(err, filestore.ErrInvalidMetadata), errors.Is(err, filestore.ErrContentMismatch), errors.Is(err, io.ErrUnexpectedEOF),
-		errors.Is(err, filestore.ErrInvalidCursor):
+		errors.Is(err, filestore.ErrInvalidCursor), errors.Is(err, filestore.ErrInvalidPart):
 		status = http.StatusBadRequest
 	case errors.Is(err, filestore.ErrUnavailable):
 		status = http.StatusServiceUnavailable

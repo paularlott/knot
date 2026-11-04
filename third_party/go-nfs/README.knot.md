@@ -88,8 +88,12 @@ NFSv4.0:
 - An operation on the current filehandle (READ, WRITE, COMMIT, GETATTR,
   SETATTR, READDIR, READLINK) whose file is gone answers NFS4ERR_STALE, not
   NFS4ERR_NOENT, which RFC 7530 keeps for operations that look a name up
-  (`nfs4FileStatusFromErr`); CLOSE of a file removed meanwhile closes its
-  open without saving.
+  (`nfs4FileStatusFromErr`).
+- CLOSE closes the open whether or not saving what was written succeeds:
+  COMMIT, which clients send before CLOSE with writes unsaved, reports a
+  failed save, and the Committer keeps what is unsaved. A failed CLOSE the
+  Mac's client sends again at once, forever, which while the server behind
+  the Committer was unreachable was a tight loop.
 - A special stateid (all zeros or all ones) where state is needed is
   NFS4ERR_BAD_STATEID (RFC 7530 9.1.4.3), not NFS4ERR_STALE_STATEID, which
   tells the client the server restarted, with one exception: a LOCK for a

@@ -106,6 +106,10 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PATCH /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandlePatchFileObject)))
 	router.HandleFunc("GET /api/files/stat/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleStatFileObject)))
 	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleCopyFileObject)))
+	router.HandleFunc("POST /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleStartFileUpload)))
+	router.HandleFunc("PUT /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleUploadFilePart)))
+	router.HandleFunc("GET /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleListFileUploadParts)))
+	router.HandleFunc("DELETE /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleAbortFileUpload)))
 	router.HandleFunc("POST /api/files/move", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleMoveFileObjects)))
 	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleDeleteFileObject)))
 

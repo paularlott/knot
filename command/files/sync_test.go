@@ -77,6 +77,13 @@ func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", api.HandleGetFileObject)
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", api.HandlePutFileObject)
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", api.HandleDeleteFileObject)
+	mux.HandleFunc("POST /api/files/uploads/{bucket}/{key...}", api.HandleStartFileUpload)
+	mux.HandleFunc("PUT /api/files/uploads/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {
+		partsSent.Add(1)
+		api.HandleUploadFilePart(w, r)
+	})
+	mux.HandleFunc("GET /api/files/uploads/{bucket}/{key...}", api.HandleListFileUploadParts)
+	mux.HandleFunc("DELETE /api/files/uploads/{bucket}/{key...}", api.HandleAbortFileUpload)
 	srv := httptest.NewServer(middleware.KnotVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), "user", user)))
 	})))

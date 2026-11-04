@@ -27,6 +27,7 @@ var syncFlags = []cli.Flag{
 	&cli.BoolFlag{Name: "no-default-excludes", Usage: "With --watch or --two-way, sync version control folders and editor scratch files too."},
 	&cli.BoolFlag{Name: "allow-mass-delete", Usage: "Delete even when most of a side's files would go, or the other side is empty."},
 	&cli.StringFlag{Name: "state-file", Usage: "Two ways, where to keep the sync's state (default: in the user's configuration directory)."},
+	&cli.StringFlag{Name: "hash-file", Usage: "Where to keep the checksums of the local files between runs (default: in the user's configuration directory), such as ~/.notes-hashes beside ~/notes."},
 }
 
 var syncCmd = &cli.Command{
@@ -48,7 +49,9 @@ With --two-way, between a directory and a bucket folder, changes on either side 
 
 Continual and two-way syncs leave out version control folders (.git, .hg, .svn) and editor and system scratch files unless --no-default-excludes is given; --exclude adds more. A pass that would delete more than half of a side's files (and more than 10), or everything because the other side is empty, is refused, unless --allow-mass-delete is given; while watching, the deletions are held back and the rest goes ahead.
 
-On a file system that ignores case, two bucket files whose names differ only in case cannot both be held: the second is skipped with a warning.`,
+On a file system that ignores case, two bucket files whose names differ only in case cannot both be held: the second is skipped with a warning.
+
+The checksums of the local files are kept between runs, so unchanged files are not read again, in knot's sync folder in the user's configuration directory (~/.config/knot/sync on Linux, ~/Library/Application Support/knot/sync on macOS, %AppData%\knot\sync on Windows), or where --hash-file says. Checksums and states there unused for 90 days are removed; any of them can be deleted by hand when no sync is running. Files of 256 MiB or more are sent in parts, and an upload stopped part way carries on from the parts already sent when run again.`,
 	Arguments: []cli.Argument{
 		&cli.StringArg{Name: "source", Usage: "Local directory or bucket:folder", Required: true},
 		&cli.StringArg{Name: "destination", Usage: "Local directory or bucket:folder", Required: true},
@@ -69,6 +72,7 @@ On a file system that ignores case, two bucket files whose names differ only in 
 			noDefaultExcludes: cmd.GetBool("no-default-excludes"),
 			allowMassDelete:   cmd.GetBool("allow-mass-delete"),
 			statePath:         cmd.GetString("state-file"),
+			hashPath:          cmd.GetString("hash-file"),
 		})
 	},
 }
@@ -80,6 +84,7 @@ type syncRequest struct {
 	noDefaultExcludes          bool
 	allowMassDelete            bool
 	statePath                  string
+	hashPath                   string
 	follow                     eventFollower // the event stream; nil for the server's
 	log                        logger.Logger // where the sync reports; the knot logger when nil
 }
@@ -113,6 +118,16 @@ func runSyncRequest(ctx context.Context, client *apiclient.ApiClient, srcArg, ds
 	if req.statePath != "" && !req.twoWay {
 		return fmt.Errorf("--state-file is for --two-way")
 	}
+	for _, p := range []*string{&req.statePath, &req.hashPath} {
+		if *p == "" {
+			continue
+		}
+		abs, err := filepath.Abs(expandHome(*p))
+		if err != nil {
+			return err
+		}
+		*p = abs
+	}
 
 	switch {
 	case src.remote && dst.remote:
@@ -130,6 +145,7 @@ func runSyncRequest(ctx context.Context, client *apiclient.ApiClient, srcArg, ds
 		dryRun:          req.dryRun,
 		allowMassDelete: req.allowMassDelete,
 		statePath:       req.statePath,
+		hashCachePath:   req.hashPath,
 		watching:        req.watch,
 		log:             req.log,
 	}

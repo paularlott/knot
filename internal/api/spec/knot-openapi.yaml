@@ -2293,6 +2293,217 @@ paths:
           $ref: "#/components/responses/service-unavailable"
       security: [BearerAuth: []]
 
+  /api/files/uploads/{bucket}/{key}:
+    post:
+      tags:
+        - File Storage
+      summary: Start or Complete Upload in Parts
+      description: |
+        Upload a large file in parts, so an upload stopped part way can carry on from the
+        parts already sent. Parts are held by the server that received them, for a week,
+        until the upload is completed or aborted; carry an upload on through the same server.
+
+        Without `upload_id`, starts an upload of the file at the key. It takes the headers a
+        PUT of the whole file takes (`Content-Type`, `X-Knot-Mtime`, `X-Knot-Meta-*`) and
+        answers with the `upload_id`.
+
+        With `upload_id` and `complete`, makes the parts named in the body, in order, the
+        file, as one write: `If-Match` and `If-None-Match: *` apply as they do to a PUT, and
+        attributes not given (such as the mode) are kept from the file it replaces. Answers
+        with the file, as a PUT does.
+      operationId: startOrCompleteFileUpload
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: false
+          description: The upload to complete.
+          schema:
+            type: string
+        - name: complete
+          in: query
+          required: false
+          description: Present, with `upload_id`, to complete the upload.
+          schema:
+            type: string
+        - name: If-Match
+          in: header
+          required: false
+          description: On completing, only replace the file if its current ETag is this value.
+          schema:
+            type: string
+        - name: If-None-Match
+          in: header
+          required: false
+          description: On completing, `*` to write only if there is no file at the key.
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileUploadComplete"
+      responses:
+        "200":
+          description: The upload started (`upload_id`), or the file made from its parts.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FileUpload"
+                  - $ref: "#/components/schemas/FileObject"
+        "400":
+          description: A part named is not held, or not in order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          description: The bucket, or the upload, is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "412":
+          description: The file does not have the ETag given in `If-Match`, or exists with `If-None-Match`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - File Storage
+      summary: Upload Part
+      description: |
+        Send one part of an upload, numbered from 1; the body is the part's content. A part
+        sent again replaces the one held. With `X-Knot-Part-Sha256`, the part's SHA-256 in
+        hex, a part that does not match is refused. Parts count against the bucket owner's
+        quota as they arrive.
+      operationId: uploadFilePart
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: part
+          in: query
+          required: true
+          description: The part's number, from 1 to 10000.
+          schema:
+            type: integer
+        - name: X-Knot-Part-Sha256
+          in: header
+          required: false
+          description: The part's SHA-256 in hex.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: The part, as held.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUploadPart"
+        "400":
+          description: The part's number is not valid, or its content does not match its checksum.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          description: The upload is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "413":
+          description: The bucket owner's quota would be exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+    get:
+      tags:
+        - File Storage
+      summary: List Upload Parts
+      description: The parts of an upload this server holds, so an upload stopped part way can carry on.
+      operationId: listFileUploadParts
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The parts held.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FileUploadPart"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          description: The upload is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - File Storage
+      summary: Abort Upload
+      description: Discard an upload in parts and the parts held.
+      operationId: abortFileUpload
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The upload was discarded.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          description: The upload is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+
   /api/files/copy:
     post:
       tags:
@@ -12966,6 +13177,33 @@ components:
           type: string
           format: date-time
           description: The file's own modification time when known (from `X-Knot-Mtime`), otherwise the upload time.
+
+    FileUpload:
+      type: object
+      properties:
+        upload_id:
+          type: string
+          description: The upload, to send its parts and complete it with.
+    FileUploadPart:
+      type: object
+      properties:
+        number:
+          type: integer
+        etag:
+          type: string
+          description: The part's MD5 in hex.
+        size:
+          type: integer
+          format: int64
+    FileUploadComplete:
+      type: object
+      required: [parts]
+      properties:
+        parts:
+          type: array
+          description: The parts that make the file, in order, each by number and ETag.
+          items:
+            $ref: "#/components/schemas/FileUploadPart"
 
     FileObjectList:
       type: object

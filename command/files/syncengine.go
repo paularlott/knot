@@ -87,12 +87,14 @@ type localFile struct {
 	mode   os.FileMode // permission bits, 0 where the platform has none or for a link
 	link   bool        // a symbolic link: target is its content
 	target string
-	sha    string // "" until needed
+	sha    string    // "" until needed
+	stamp  fileStamp // inode and change time, where the platform has them
 }
 
 type hashed struct {
 	size  int64
 	mtime time.Time
+	stamp fileStamp
 	sha   string
 }
 
@@ -101,6 +103,8 @@ type syncer struct {
 	client *apiclient.ApiClient
 
 	bucketId string
+	// own are the sync's own files inside the directory (see ownFiles).
+	own      []string
 	fullName string // the bucket's full name
 	fold     bool   // the local file system ignores case
 
@@ -192,6 +196,13 @@ func internalName(name string) bool {
 
 // excluded reports whether a path is left out of the sync.
 func (s *syncer) excluded(rel string, isDir bool) bool {
+	if !isDir {
+		for _, own := range s.own {
+			if rel == own || strings.HasPrefix(rel, own+".tmp-") {
+				return true
+			}
+		}
+	}
 	return internalName(path.Base(rel)) || s.opt.excludes(rel, isDir)
 }
 
@@ -233,7 +244,35 @@ func (s *syncer) prepare(ctx context.Context) error {
 		}
 	}
 	s.loadHashes()
+	s.own = ownFiles(s.opt.dir, s.opt.hashCachePath, s.opt.statePath)
+	if !s.opt.dryRun {
+		if sd, err := syncDir(); err == nil {
+			sweepSyncDir(sd, time.Now())
+		}
+	}
 	return nil
+}
+
+// ownFiles returns, of the sync's own files, those inside the directory
+// synced, as paths below it: a checksum cache or state kept there (as
+// --hash-file or --state-file can put it) is not synced itself.
+func ownFiles(dir string, paths ...string) []string {
+	var own []string
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		parent := filepath.Dir(p)
+		if real, err := filepath.EvalSymlinks(parent); err == nil {
+			parent = real
+		}
+		rel, err := filepath.Rel(dir, filepath.Join(parent, filepath.Base(p)))
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		own = append(own, filepath.ToSlash(rel))
+	}
+	return own
 }
 
 // caseInsensitive reports whether dir's file system ignores case, by making
@@ -341,12 +380,12 @@ func (s *syncer) newLocal(rel string, info os.FileInfo) *localFile {
 		if err != nil {
 			return nil
 		}
-		return &localFile{rel: rel, size: int64(len(target)), mtime: info.ModTime(), link: true, target: target}
+		return &localFile{rel: rel, size: int64(len(target)), mtime: info.ModTime(), link: true, target: target, stamp: stampOf(info)}
 	}
 	if !info.Mode().IsRegular() {
 		return nil
 	}
-	return &localFile{rel: rel, size: info.Size(), mtime: info.ModTime(), mode: apiclient.LocalFileAttrs(info).Mode}
+	return &localFile{rel: rel, size: info.Size(), mtime: info.ModTime(), mode: apiclient.LocalFileAttrs(info).Mode, stamp: stampOf(info)}
 }
 
 // remoteMode is the permission bits kept with a bucket file, 0 when it has
@@ -557,8 +596,8 @@ func (s *syncer) spelling(rel string) string {
 	return strings.Join(parts, "/")
 }
 
-// localSHA returns a local file's checksum, reading it only when its size or
-// modification time changed since it was last read.
+// localSHA returns a local file's checksum, reading it only when its size,
+// modification time or stamp changed since it was last read.
 func (s *syncer) localSHA(l *localFile) (string, error) {
 	if l.link {
 		sum := sha256.Sum256([]byte(l.target))
@@ -569,12 +608,12 @@ func (s *syncer) localSHA(l *localFile) (string, error) {
 		s.mu.Unlock()
 		return l.sha, nil
 	}
-	if h, ok := s.hashes[l.rel]; ok && h.size == l.size && h.mtime.Equal(l.mtime) {
+	if h, ok := s.hashes[l.rel]; ok && h.size == l.size && h.mtime.Equal(l.mtime) && stampMatches(h.stamp, l.stamp) {
 		l.sha = h.sha
 		s.mu.Unlock()
 		return l.sha, nil
 	}
-	if b := s.base[s.identity(l.rel)]; b != nil && b.LocalSize == l.size && b.LocalMtime == l.mtime.UnixNano() {
+	if b := s.base[s.identity(l.rel)]; b != nil && b.matchesLocal(l) {
 		l.sha = b.SHA
 		s.mu.Unlock()
 		return l.sha, nil
@@ -587,7 +626,7 @@ func (s *syncer) localSHA(l *localFile) (string, error) {
 	}
 	s.mu.Lock()
 	l.sha = sha
-	s.hashes[l.rel] = hashed{size: l.size, mtime: l.mtime, sha: sha}
+	s.hashes[l.rel] = hashed{size: l.size, mtime: l.mtime, stamp: l.stamp, sha: sha}
 	s.hashDirt = true
 	s.hashedNow++
 	s.mu.Unlock()
@@ -609,7 +648,7 @@ func (s *syncer) unchangedSince(rel string, l *localFile) bool {
 	if l == nil {
 		return os.IsNotExist(err)
 	}
-	return err == nil && info.Size() == l.size && info.ModTime().Equal(l.mtime)
+	return err == nil && info.Size() == l.size && info.ModTime().Equal(l.mtime) && stampMatches(l.stamp, stampOf(info))
 }
 
 // ---------------------------------------------------------------------------
@@ -771,7 +810,7 @@ func twoWayMode(local, remote, base os.FileMode) modeFix {
 }
 
 func (s *syncer) matchesBase(l *localFile, b *baseEntry) bool {
-	if l.size == b.LocalSize && l.mtime.UnixNano() == b.LocalMtime {
+	if b.matchesLocal(l) {
 		return true
 	}
 	sha, err := s.localSHA(l)
@@ -1004,7 +1043,7 @@ func (s *syncer) agree(id string, l *localFile, r *remoteFile) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.base[id] = &baseEntry{Key: r.key, SHA: r.sha, Size: r.size, LocalSize: l.size, LocalMtime: l.mtime.UnixNano(), Mode: uint32(l.mode)}
+	s.base[id] = &baseEntry{Key: r.key, SHA: r.sha, Size: r.size, LocalSize: l.size, LocalMtime: l.mtime.UnixNano(), LocalIno: l.stamp.ino, LocalCtime: l.stamp.ctime, Mode: uint32(l.mode)}
 	s.baseDirt = true
 }
 
@@ -1185,6 +1224,15 @@ func (s *syncer) send(ctx context.Context, local, key string, l *localFile, sha,
 		}
 		defer f.Close()
 		body, ctype = f, contentType(local)
+		// A large file goes in parts, carrying on from any sent before.
+		if info, err := f.Stat(); err == nil && info.Size() >= partedAt {
+			out, reused, err := uploadInParts(ctx, s.client, f, info, s.opt.bucket, key, ctype, attrs, ifMatch, ifAbsent)
+			how := ""
+			if reused > 0 {
+				how = "carried on, " + formatBytes(reused) + " already sent"
+			}
+			return out, how, err
+		}
 	}
 	var info *apiclient.FileObjectInfo
 	var err error
@@ -1233,7 +1281,7 @@ func (s *syncer) download(ctx context.Context, a action) error {
 	}
 	l.sha = r.sha
 	s.mu.Lock()
-	s.hashes[rel] = hashed{size: l.size, mtime: l.mtime, sha: r.sha}
+	s.hashes[rel] = hashed{size: l.size, mtime: l.mtime, stamp: l.stamp, sha: r.sha}
 	s.hashDirt = true
 	s.local[a.id] = l
 	s.counts.downloaded++
@@ -1348,7 +1396,7 @@ func (s *syncer) conflict(ctx context.Context, a action) error {
 	}
 	s.log.Warn("conflict: changed on both sides; the local version is kept beside it", "file", rel, "local_version", aside)
 
-	moved := &localFile{rel: aside, size: a.l.size, mtime: a.l.mtime, mode: a.l.mode, link: a.l.link, target: a.l.target, sha: a.l.sha}
+	moved := &localFile{rel: aside, size: a.l.size, mtime: a.l.mtime, mode: a.l.mode, link: a.l.link, target: a.l.target, sha: a.l.sha, stamp: a.l.stamp}
 	asideId := s.identity(aside)
 	s.mu.Lock()
 	delete(s.local, a.id)

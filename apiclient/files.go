@@ -548,10 +548,6 @@ func (c *ApiClient) PutFileObjectMeta(ctx context.Context, bucket, key string, b
 }
 
 func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs, ifAbsent bool, ifMatch string, meta map[string]string) (*FileObjectInfo, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
 
 	headers := map[string]string{"Content-Type": contentType}
 	for k, v := range meta {
@@ -568,7 +564,7 @@ func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, b
 		headers["If-Match"] = `"` + ifMatch + `"`
 	}
 
-	resp, err := hc.DoRaw(ctx, http.MethodPut, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), body, size, headers)
+	resp, err := c.doTransfer(ctx, http.MethodPut, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), body, size, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -603,10 +599,6 @@ func (c *ApiClient) ListFileObjectsMarkers(ctx context.Context, bucket, prefix, 
 // the server, so only what changed is sent. With ifMatch, only if the object
 // still has that ETag.
 func (c *ApiClient) PatchFileObject(ctx context.Context, bucket, key string, ranges []FileRange, size int64, ifMatch, contentType string, meta map[string]string) (*FileObjectInfo, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
 	var parts []io.Reader
 	var length int64
 	for _, rg := range ranges {
@@ -629,7 +621,7 @@ func (c *ApiClient) PatchFileObject(ctx context.Context, bucket, key string, ran
 	for k, v := range meta {
 		headers[FileMetaHeaderPrefix+k] = v
 	}
-	resp, err := hc.DoRaw(ctx, http.MethodPatch, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), io.MultiReader(parts...), length, headers)
+	resp, err := c.doTransfer(ctx, http.MethodPatch, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), io.MultiReader(parts...), length, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -687,12 +679,8 @@ func ObjectInfoFromHeaders(key string, h http.Header, size int64) *FileObjectInf
 // GetFileObjectRange downloads length bytes of an object from offset; the
 // caller closes the body.
 func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, offset, length int64) (*http.Response, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
 	headers := map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", offset, offset+length-1)}
-	resp, err := hc.DoRaw(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
+	resp, err := c.doTransfer(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -709,11 +697,7 @@ func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, 
 
 // GetFileObject downloads an object; the caller closes the body.
 func (c *ApiClient) GetFileObject(ctx context.Context, bucket, key string) (*http.Response, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.DoRaw(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, nil)
+	resp, err := c.doTransfer(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, nil)
 	if err != nil {
 		return nil, err
 	}

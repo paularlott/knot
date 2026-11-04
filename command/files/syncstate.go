@@ -24,6 +24,17 @@ type baseEntry struct {
 	LocalSize  int64  `json:"local_size" msgpack:"local_size"`         // the local file's size then
 	LocalMtime int64  `json:"local_mtime" msgpack:"local_mtime"`       // and its modification time, unix nanoseconds
 	Mode       uint32 `json:"mode,omitempty" msgpack:"mode,omitempty"` // the permission bits both held, 0 when not known
+	// The local file's inode number and change time then, where the
+	// platform has them (see fileStamp).
+	LocalIno   uint64 `json:"local_ino,omitempty" msgpack:"local_ino,omitempty"`
+	LocalCtime int64  `json:"local_ctime,omitempty" msgpack:"local_ctime,omitempty"`
+}
+
+// matchesLocal reports whether the local file is as it was when both sides
+// last agreed, without reading it.
+func (b *baseEntry) matchesLocal(l *localFile) bool {
+	return b.LocalSize == l.size && b.LocalMtime == l.mtime.UnixNano() &&
+		stampMatches(fileStamp{ino: b.LocalIno, ctime: b.LocalCtime}, l.stamp)
 }
 
 type baseFile struct {
@@ -38,12 +49,12 @@ type baseFile struct {
 // defaultStatePath is where the state of a two-way sync of a bucket folder
 // and a directory is kept.
 func defaultStatePath(server, bucket, prefix, dir string) (string, error) {
-	cfg, err := os.UserConfigDir()
+	sd, err := syncDir()
 	if err != nil {
 		return "", err
 	}
 	sum := sha256.Sum256([]byte(server + "\x00" + bucket + "\x00" + prefix + "\x00" + dir))
-	return filepath.Join(cfg, "knot", "sync", hex.EncodeToString(sum[:12])+".json"), nil
+	return filepath.Join(sd, hex.EncodeToString(sum[:12])+".json"), nil
 }
 
 // loadBase reads the state of an earlier run. A missing file is a first run:
@@ -62,6 +73,9 @@ func (s *syncer) loadBase(bucketName string) error {
 	}
 	if err != nil {
 		return err
+	}
+	if !s.opt.dryRun {
+		markUsed(s.opt.statePath)
 	}
 	var bf baseFile
 	if err := json.Unmarshal(data, &bf); err != nil {
@@ -107,27 +121,7 @@ func (s *syncer) saveBase() error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(s.opt.statePath), 0700); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(s.opt.statePath), ".sync-state-*")
-	if err != nil {
-		return err
-	}
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	if err := os.Rename(tmp.Name(), s.opt.statePath); err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	return nil
+	return writeAtomic(s.opt.statePath, data)
 }
 
 func (s *syncer) bucketName() (string, error) {
