@@ -656,9 +656,18 @@ func TestBatchFallsBackToOtherServers(t *testing.T) {
 	cl, stores := newCluster(t, 3)
 	a, b, c := stores[0], stores[1], stores[2]
 	mustCreate(t, a, alice, "fallback")
+
+	// b and c are off the network for the write, so neither hears of it:
+	// were b sent the record it would fetch the content from a at once, and
+	// the record below would be nothing new to it.
+	cl.setDown("node1", true)
 	cl.setDown("node2", true)
 	o := put(t, a, alice, "fallback", "f", "only on a")
+	cl.setDown("node1", false)
 	cl.setDown("node2", false)
+	if b.holds(o.SHA256) || c.holds(o.SHA256) {
+		t.Fatal("the content reached b or c while they were down")
+	}
 	da, _ := a.Digests("", 0)
 	b.Merge(digestBuckets(da), nil)
 	page, _ := a.ObjectPage(bid(a, "fallback"), "", 10, nil)
@@ -667,9 +676,20 @@ func TestBatchFallsBackToOtherServers(t *testing.T) {
 	for _, p := range page {
 		p.SourceNode = c.nodeId
 	}
-	b.forgetContent(o.SHA256)
+	cl.mu.Lock()
+	batchesBefore := cl.batches
+	cl.mu.Unlock()
 	b.Merge(nil, page)
 	waitFor(t, "b gets the content from a", func() bool { return b.holds(o.SHA256) })
+	cl.mu.Lock()
+	batches := cl.batches - batchesBefore
+	cl.mu.Unlock()
+	if batches == 0 {
+		t.Error("the content was not asked for in a batch first")
+	}
+	if c.holds(o.SHA256) {
+		t.Error("c was given content it never stored")
+	}
 }
 
 // A write that loses to a newer record from another server, at the same
