@@ -167,7 +167,31 @@ groups = ["`+ciGroup+`"]
 		"it.group": true, "it.other_group": true, "it.shared": true, "it.private": true,
 	})
 
+	// Events raised inside a space, through its agent, are the space owner's:
+	// processes there act as the owner. From the CI user's space, `knot event`
+	// and knot.event.emit() reach the same methods as its API call.
+	ciRunning := spaceFixture(t, uniqueName("it-ci-run"), admin.Id, admin.Client)
+	mustContain(t, "knot event in the CI user's space",
+		harness.RunCommand(t, admin.Client, ciRunning, 30, "bash", "-c", "knot event it.methods.cli && echo SENT"), "SENT")
+	expect("knot event in the CI user's space", "custom.it.methods.cli", map[string]bool{"it.group": true, "it.shared": true})
+
+	sctx, scancel := testCtx(120)
+	out, exitCode, err := admin.Client.ExecuteScriptContent(sctx, ciRunning,
+		"import knot.event\nknot.event.emit(\"it.methods.script\", {\"version\": \"1.2.3\"})\nprint(\"EMITTED\")\n", nil)
+	scancel()
+	if err != nil || exitCode != 0 || !contains(out, "EMITTED") {
+		t.Fatalf("knot.event.emit in the CI user's space: err=%v exit=%d output=%s", err, exitCode, out)
+	}
+	expect("knot.event.emit in the CI user's space", "custom.it.methods.script", map[string]bool{"it.group": true, "it.shared": true})
+
 	if !harness.ProBuild {
+		// From the space of a user without use_methods, an event raised
+		// inside it reaches none of another user's methods.
+		noPermission := spaceFixture(t, uniqueName("it-u2-run"), user2.Id, user2.Client)
+		mustContain(t, "knot event in a space without use_methods",
+			harness.RunCommand(t, user2.Client, noPermission, 30, "bash", "-c", "knot event it.methods.cli.nopermission && echo SENT"), "SENT")
+		expect("knot event in a space without use_methods", "custom.it.methods.cli.nopermission", map[string]bool{})
+
 		// A user without use_methods reaches none of another user's methods.
 		emit(user2, "it.methods.nopermission")
 		expect("event without use_methods", "custom.it.methods.nopermission", map[string]bool{})

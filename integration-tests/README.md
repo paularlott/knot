@@ -111,7 +111,7 @@ resources → events → ports → logs → clustering.
 | Test | What it proves |
 |---|---|
 | `TestEventSinkWebhook` | an event sink subscribed to a custom event receives it as a webhook delivery |
-| `TestCustomEventsReachSharedMethods` | in a real space, a private method with `groups` fails to register and the space keeps the methods it had; another user's custom event reaches the methods shared with its group or with everyone but not a private one or one shared with another group, the owner's own event reaches all of them, and a sender without the shared-method permission reaches none |
+| `TestCustomEventsReachSharedMethods` | in a real space, a private method with `groups` fails to register and the space keeps the methods it had; another user's custom event reaches the methods shared with its group or with everyone but not a private one or one shared with another group, the owner's own event reaches all of them, and a sender without the shared-method permission reaches none, directly or through a space shared with them; events raised inside a space with `knot event` and `knot.event.emit()` count as its owner's and follow the same rules |
 | `TestEventsSSE` | the SSE stream carries domain events (a group change produces `groups:changed`) |
 | `TestAuditLogRecordsActivity` | an audited action appears in the audit log with the right actor and event |
 | `TestPortForwarding` | a forward between spaces carries real data (the SSH banner), throttling applies and is reflected in the port list, stop tears it down |
