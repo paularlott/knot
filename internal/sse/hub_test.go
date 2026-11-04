@@ -67,7 +67,7 @@ func TestSendToUser(t *testing.T) {
 		unregister: make(chan *Client),
 		shutdown:   make(chan struct{}),
 	}
-	go h.run()
+	go h.run(h.shutdown)
 	defer close(h.shutdown)
 
 	a1 := h.NewClient("alice", "s1")

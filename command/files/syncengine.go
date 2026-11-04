@@ -108,7 +108,8 @@ type syncer struct {
 	mu       sync.Mutex
 	remote   map[string]*remoteFile // by identity
 	local    map[string]*localFile  // by identity, as last seen
-	markers  map[string]bool        // empty bucket folders, by rel
+	dirs     map[string]*localDir   // local folders, by identity ending in /
+	markers  map[string]*remoteFile // bucket folders' markers, by identity ending in /
 	base     map[string]*baseEntry  // two ways, by identity
 	hashes   map[string]hashed      // by local rel
 	recent   map[string]recentContent
@@ -129,11 +130,11 @@ type recentContent struct {
 }
 
 type passCounts struct {
-	uploaded, downloaded, unchanged, modes, deleted, conflicts, skipped int
+	uploaded, downloaded, unchanged, modes, deleted, conflicts, skipped, folders int
 }
 
 func (c passCounts) any() bool {
-	return c.uploaded+c.downloaded+c.modes+c.deleted+c.conflicts+c.skipped > 0
+	return c.uploaded+c.downloaded+c.modes+c.deleted+c.conflicts+c.skipped+c.folders > 0
 }
 
 func newSyncer(client *apiclient.ApiClient, opt syncOptions) *syncer {
@@ -149,7 +150,8 @@ func newSyncer(client *apiclient.ApiClient, opt syncOptions) *syncer {
 		client:  client,
 		remote:  make(map[string]*remoteFile),
 		local:   make(map[string]*localFile),
-		markers: make(map[string]bool),
+		dirs:    make(map[string]*localDir),
+		markers: make(map[string]*remoteFile),
 		base:    make(map[string]*baseEntry),
 		hashes:  make(map[string]hashed),
 		recent:  make(map[string]recentContent),
@@ -261,7 +263,7 @@ func caseInsensitive(dir string) bool {
 // change feed, which returns a cursor to follow it with afterwards.
 func (s *syncer) loadRemote(ctx context.Context, feed bool) error {
 	remote := make(map[string]*remoteFile)
-	markers := make(map[string]bool)
+	markers := make(map[string]*remoteFile)
 	var files []*remoteFile
 	if feed {
 		cursor := ""
@@ -295,7 +297,7 @@ func (s *syncer) loadRemote(ctx context.Context, feed bool) error {
 	defer s.mu.Unlock()
 	for _, f := range files {
 		if f.rel == "" || strings.HasSuffix(f.rel, "/") {
-			markers[f.rel] = true
+			s.addMarker(markers, f)
 			continue
 		}
 		s.addRemote(remote, f)
@@ -406,11 +408,18 @@ func (s *syncer) pullChanges(ctx context.Context) (ids []string, reset bool, err
 		for _, c := range page.Changes {
 			f := fromInfo(c.FileObjectInfo, s.opt.prefix)
 			if f.rel == "" || strings.HasSuffix(f.rel, "/") {
-				if c.Deleted {
-					delete(s.markers, f.rel)
-				} else {
-					s.markers[f.rel] = true
+				if f.rel == "" {
+					continue
 				}
+				id := s.identity(f.rel)
+				if c.Deleted {
+					if have, ok := s.markers[id]; ok && have.key == f.key {
+						delete(s.markers, id)
+					}
+				} else {
+					s.addMarker(s.markers, f)
+				}
+				ids = append(ids, id)
 				continue
 			}
 			id := s.identity(f.rel)
@@ -446,6 +455,7 @@ func (s *syncer) pullChanges(ctx context.Context) (ids []string, reset bool, err
 // scanLocal walks the directory in full.
 func (s *syncer) scanLocal() error {
 	local := make(map[string]*localFile)
+	dirs := make(map[string]*localDir)
 	err := filepath.WalkDir(s.opt.dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if p == s.opt.dir {
@@ -467,7 +477,13 @@ func (s *syncer) scanLocal() error {
 			}
 			return nil
 		}
-		if d.IsDir() || (!d.Type().IsRegular() && d.Type()&fs.ModeSymlink == 0) {
+		if d.IsDir() {
+			if info, err := d.Info(); err == nil {
+				dirs[s.identity(rel+"/")] = newLocalDir(rel+"/", info)
+			}
+			return nil
+		}
+		if !d.Type().IsRegular() && d.Type()&fs.ModeSymlink == 0 {
 			return nil
 		}
 		info, err := d.Info()
@@ -482,7 +498,7 @@ func (s *syncer) scanLocal() error {
 	if err != nil {
 		return err
 	}
-	s.local = local
+	s.local, s.dirs = local, dirs
 	return nil
 }
 
@@ -619,6 +635,9 @@ type action struct {
 	l    *localFile
 	r    *remoteFile
 	b    *baseEntry
+	// dir: the action is a folder's, d the local folder and r its marker.
+	dir bool
+	d   *localDir
 	// keepTimes: the bucket's file matches and only its time is brought over.
 	keepTimes bool
 	// setMode: the content matches but the modes differ; the mode is copied
@@ -724,23 +743,28 @@ func (s *syncer) planTwoWay(l *localFile, r *remoteFile, b *baseEntry) actKind {
 	return actConflict
 }
 
-// planModeTwoWay decides where the mode goes when both sides hold the same
-// content but not the same mode: to the bucket when it keeps none, else from
-// the side that changed it since the base, this side when both did. With no
-// base mode to go by, the bucket's is the one set on purpose.
+// planModeTwoWay decides where a file's mode goes when both sides hold the
+// same content but not the same mode.
 func planModeTwoWay(l *localFile, r *remoteFile, b *baseEntry) modeFix {
-	if l.mode == 0 || l.mode == r.mode {
-		return modeAsIs
-	}
-	if r.mode == 0 {
-		return modeToRemote
-	}
 	var base os.FileMode
 	if b != nil {
 		base = os.FileMode(b.Mode)
 	}
-	switch {
-	case base == 0, l.mode == base:
+	return twoWayMode(l.mode, r.mode, base)
+}
+
+// twoWayMode decides where the mode goes when the two sides hold a file or
+// folder with different modes: to the bucket when it keeps none, else from
+// the side that changed it since the base, this side when both did. With no
+// base mode to go by, the bucket's is the one set on purpose.
+func twoWayMode(local, remote, base os.FileMode) modeFix {
+	if local == 0 || local == remote {
+		return modeAsIs
+	}
+	if remote == 0 {
+		return modeToRemote
+	}
+	if base == 0 || local == base {
 		return modeToLocal
 	}
 	return modeToRemote
@@ -763,6 +787,9 @@ func (s *syncer) guardDeletes(plan []action) ([]action, error) {
 	}
 	var delLocal, delRemote int
 	for _, a := range plan {
+		if a.dir {
+			continue // folders go with the files: held back when they are
+		}
 		switch a.kind {
 		case actDeleteLocal:
 			delLocal++
@@ -821,13 +848,27 @@ func (s *syncer) pass(ctx context.Context, ids []string) error {
 		for id := range s.base {
 			seen[id] = true
 		}
+		for id := range s.dirs {
+			seen[id] = true
+		}
+		for id := range s.markers {
+			seen[id] = true
+		}
 		for id := range seen {
 			ids = append(ids, id)
 		}
 	}
 	sort.Strings(ids)
 
-	plan := s.plan(ids)
+	var fileIds, dirIds []string
+	for _, id := range ids {
+		if isDirId(id) {
+			dirIds = append(dirIds, id)
+		} else {
+			fileIds = append(fileIds, id)
+		}
+	}
+	plan := append(s.plan(fileIds), s.planDirs(dirIds)...)
 	plan, guardErr := s.guardDeletes(plan)
 	if guardErr != nil && !s.opt.dryRun && !s.opt.watching {
 		// A single pass changes nothing when it would delete too much.
@@ -839,8 +880,12 @@ func (s *syncer) pass(ctx context.Context, ids []string) error {
 	// Links are downloaded after the files, one at a time, so that a file
 	// below a link's name lands in a real folder and never where the link
 	// points.
-	var transfers, links, deletes, rest []action
+	var transfers, links, deletes, rest, dirs []action
 	for _, a := range plan {
+		if a.dir {
+			dirs = append(dirs, a)
+			continue
+		}
 		switch a.kind {
 		case actDownload, actConflict:
 			if a.r != nil && a.r.link {
@@ -859,7 +904,7 @@ func (s *syncer) pass(ctx context.Context, ids []string) error {
 	for _, a := range rest {
 		s.apply(ctx, a)
 	}
-	errs := s.runParallel(ctx, transfers)
+	errs := s.runParallel(ctx, transfers, transferWorkers)
 	for _, a := range links {
 		if err := s.apply(ctx, a); err != nil {
 			errs = append(errs, err)
@@ -870,9 +915,7 @@ func (s *syncer) pass(ctx context.Context, ids []string) error {
 			errs = append(errs, err)
 		}
 	}
-	if s.opt.mode == modeDown && !s.opt.dryRun {
-		s.makeMarkerDirs()
-	}
+	errs = append(errs, s.applyDirs(ctx, dirs)...)
 	if err := s.saveBase(); err != nil {
 		errs = append(errs, err)
 	}
@@ -886,10 +929,10 @@ func (s *syncer) pass(ctx context.Context, ids []string) error {
 	return nil
 }
 
-func (s *syncer) runParallel(ctx context.Context, actions []action) []error {
+func (s *syncer) runParallel(ctx context.Context, actions []action, workers int) []error {
 	var mu sync.Mutex
 	var errs []error
-	sem := make(chan struct{}, transferWorkers)
+	sem := make(chan struct{}, workers)
 	var wg sync.WaitGroup
 	for _, a := range actions {
 		if ctx.Err() != nil {
@@ -913,6 +956,9 @@ func (s *syncer) runParallel(ctx context.Context, actions []action) []error {
 
 // apply carries out one action. It is called from several goroutines.
 func (s *syncer) apply(ctx context.Context, a action) error {
+	if a.dir {
+		return s.applyDir(ctx, a)
+	}
 	switch a.kind {
 	case actAgree:
 		// A link's own time cannot be set: Chtimes would set its target's.
@@ -1082,15 +1128,17 @@ func (s *syncer) upload(ctx context.Context, a action) error {
 // the bucket has it: as a copy of a file that holds it, or by reusing content
 // the bucket held until moments ago (a rename, or a change undone).
 func (s *syncer) send(ctx context.Context, local, key string, l *localFile, sha, ifMatch string, ifAbsent bool) (*apiclient.FileObjectInfo, string, error) {
+	// The bucket file to copy is the one last seen holding the content,
+	// if it still does: looked up, not searched for, as a first sync of a
+	// large tree would otherwise look through every file for each it sends.
 	s.mu.Lock()
 	var source string
-	for _, r := range s.remote {
-		if r.sha == sha && r.key != key {
+	rc, recent := s.recent[sha]
+	if recent && rc.key != key {
+		if r := s.remote[s.identity(strings.TrimPrefix(rc.key, s.opt.prefix))]; r != nil && r.key == rc.key && r.sha == sha {
 			source = r.key
-			break
 		}
 	}
-	rc, recent := s.recent[sha]
 	s.mu.Unlock()
 
 	attrs := apiclient.FileAttrs{Mtime: l.mtime, Mode: l.mode}
@@ -1224,12 +1272,20 @@ func (s *syncer) deleteLocal(a action) error {
 	return nil
 }
 
-// removeEmptyDirs removes directories a deletion left empty, up to the root.
+// removeEmptyDirs removes directories a deletion left empty, up to the root,
+// but not one the bucket keeps as a folder of its own.
 func (s *syncer) removeEmptyDirs(dir string) {
 	for dir != s.opt.dir && strings.HasPrefix(dir, s.opt.dir+string(filepath.Separator)) {
-		if os.Remove(dir) != nil {
+		id := s.identity(s.rel(dir) + "/")
+		s.mu.Lock()
+		_, kept := s.markers[id]
+		s.mu.Unlock()
+		if kept || os.Remove(dir) != nil {
 			return
 		}
+		s.mu.Lock()
+		delete(s.dirs, id)
+		s.mu.Unlock()
 		dir = filepath.Dir(dir)
 	}
 }
@@ -1330,18 +1386,6 @@ func conflictName(rel string, at time.Time) string {
 	return dir + stem + ".conflict-" + host + "-" + at.Format("20060102-150405") + ext
 }
 
-// makeMarkerDirs makes the bucket's empty folders as directories.
-func (s *syncer) makeMarkerDirs() {
-	for rel := range s.markers {
-		if rel == "" || s.excluded(strings.TrimSuffix(rel, "/"), true) {
-			continue
-		}
-		if local, err := within(s.opt.dir, rel); err == nil {
-			os.MkdirAll(local, 0755)
-		}
-	}
-}
-
 func (s *syncer) count(f func(*passCounts)) {
 	s.mu.Lock()
 	f(&s.counts)
@@ -1371,6 +1415,9 @@ func (s *syncer) report() {
 		kv = []any{"downloaded", c.downloaded, "modes", c.modes, "unchanged", c.unchanged, "deleted", c.deleted}
 	default:
 		kv = append(kv, "conflicts", c.conflicts)
+	}
+	if c.folders > 0 {
+		kv = append(kv, "folders", c.folders)
 	}
 	if s.opt.watching {
 		if c.any() {

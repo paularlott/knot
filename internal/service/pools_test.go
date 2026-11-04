@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -32,9 +33,13 @@ func ordinalOf(t *testing.T, poolName string, space *model.Space) int {
 	return n
 }
 
+// newPoolTestUser is a user of its own for one run of a test: pools and
+// spaces are named per user, and the database lives for the whole test
+// process, so a test run again (go test -count) must not meet its earlier
+// run's pools and spaces.
 func newPoolTestUser(id string) *model.User {
 	return &model.User{
-		Id:    id,
+		Id:    id + "-" + uuid.NewString()[:8],
 		Roles: []string{model.RoleAdminUUID},
 	}
 }

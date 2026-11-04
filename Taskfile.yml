@@ -218,9 +218,13 @@ tasks:
         for:
           var: "AGENT_PLATFORMS"
     sources:
+      # every package the agent compiles: it carries the knot command too
       - ./agent/**/*.go
-      - ./internal/**/*.go
+      - ./apiclient/**/*.go
       - ./build/**/*.go
+      - ./command/**/*.go
+      - ./internal/**/*.go
+      - ./third_party/**/*.go
       - go.mod
       - go.sum
     generates:
@@ -267,9 +271,13 @@ tasks:
         zip {{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip {{.FINAL_NAME}} && \
         rm -f {{.FINAL_NAME}}
     sources:
+      # every package the agent compiles: it carries the knot command too
       - ./agent/**/*.go
-      - ./internal/**/*.go
+      - ./apiclient/**/*.go
       - ./build/**/*.go
+      - ./command/**/*.go
+      - ./internal/**/*.go
+      - ./third_party/**/*.go
       - go.mod
       - go.sum
     generates:

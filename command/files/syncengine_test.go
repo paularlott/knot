@@ -82,17 +82,17 @@ func TestSyncExcludes(t *testing.T) {
 	if err := runSyncRequest(ctx, client, src, "sync-test:a", syncRequest{excludes: []string{"*.log", "node_modules/"}}); err != nil {
 		t.Fatal(err)
 	}
-	expectKeys(t, bucketKeys(t, client, "sync-test"), "a/.git/HEAD", "a/keep.txt")
+	expectKeys(t, bucketKeys(t, client, "sync-test"), "a/.git/", "a/.git/HEAD", "a/keep.txt")
 
 	// Two ways, .git is left out by default, and included on request.
 	if err := runSyncRequest(ctx, client, src, "sync-test:b", syncRequest{twoWay: true, statePath: filepath.Join(t.TempDir(), "s.json")}); err != nil {
 		t.Fatal(err)
 	}
-	expectKeysWithPrefixIn(t, client, "sync-test", "b/", "b/debug.log", "b/keep.txt", "b/node_modules/x.js")
+	expectKeysWithPrefixIn(t, client, "sync-test", "b/", "b/debug.log", "b/keep.txt", "b/node_modules/", "b/node_modules/x.js")
 	if err := runSyncRequest(ctx, client, src, "sync-test:c", syncRequest{twoWay: true, noDefaultExcludes: true, statePath: filepath.Join(t.TempDir(), "s.json")}); err != nil {
 		t.Fatal(err)
 	}
-	expectKeysWithPrefixIn(t, client, "sync-test", "c/", "c/.git/HEAD", "c/debug.log", "c/keep.txt", "c/node_modules/x.js")
+	expectKeysWithPrefixIn(t, client, "sync-test", "c/", "c/.git/", "c/.git/HEAD", "c/debug.log", "c/keep.txt", "c/node_modules/", "c/node_modules/x.js")
 
 	// An excluded remote file is neither fetched nor deleted.
 	putRemote(t, client, "sync-test", "d/skip.log", "remote log")

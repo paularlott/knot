@@ -137,7 +137,7 @@ func TestSyncUpAndDown(t *testing.T) {
 	if err := syncUp(ctx, client, src, "sync-test", "cfg/", false, false); err != nil {
 		t.Fatal(err)
 	}
-	if keys := remoteKeys(t, client); len(keys) != 2 || keys[0] != "cfg/a.txt" || keys[1] != "cfg/sub/b.txt" {
+	if keys := remoteKeys(t, client); len(keys) != 3 || keys[0] != "cfg/a.txt" || keys[1] != "cfg/sub/" || keys[2] != "cfg/sub/b.txt" {
 		t.Fatalf("after first sync %v", keys)
 	}
 
@@ -169,7 +169,7 @@ func TestSyncUpAndDown(t *testing.T) {
 	if err := syncUp(ctx, client, src, "sync-test", "cfg/", true, false); err != nil {
 		t.Fatal(err)
 	}
-	if keys := remoteKeys(t, client); len(keys) != 1 || keys[0] != "cfg/sub/b.txt" {
+	if keys := remoteKeys(t, client); len(keys) != 2 || keys[0] != "cfg/sub/" || keys[1] != "cfg/sub/b.txt" {
 		t.Fatalf("after delete sync %v", keys)
 	}
 

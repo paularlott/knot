@@ -36,6 +36,9 @@ func TestValidateKvmSpaceAddressZoneScoped(t *testing.T) {
 	if err := db.SaveSpace(other, []string{}); err != nil {
 		t.Fatal(err)
 	}
+	// The database lives for the whole test process: leave it as found, so
+	// the test can run again (go test -count).
+	t.Cleanup(func() { db.DeleteSpace(other) })
 	if err := ValidateKvmSpaceAddress(template, "192.0.2.10", ""); err != nil {
 		t.Fatalf("expected an address taken in another zone to be usable: %v", err)
 	}
@@ -47,6 +50,7 @@ func TestValidateKvmSpaceAddressZoneScoped(t *testing.T) {
 	if err := db.SaveSpace(local, []string{}); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { db.DeleteSpace(local) })
 	if err := ValidateKvmSpaceAddress(template, "192.0.2.10", ""); err == nil {
 		t.Fatal("expected an in-use error for a same-zone duplicate address")
 	}

@@ -218,7 +218,13 @@ func (s *syncer) gather(ctx context.Context, dirty map[string]string, rescan, re
 	for id, rel := range dirty {
 		seen[id] = true
 		s.mu.Lock()
-		if l := s.statLocal(rel); l != nil {
+		if isDirId(id) {
+			if d := s.statLocalDir(rel); d != nil {
+				s.dirs[s.identity(d.rel)] = d
+			} else {
+				delete(s.dirs, id)
+			}
+		} else if l := s.statLocal(rel); l != nil {
 			s.local[s.identity(l.rel)] = l
 		} else {
 			delete(s.local, id)
@@ -237,6 +243,14 @@ func (s *syncer) gather(ctx context.Context, dirty map[string]string, rescan, re
 func (s *syncer) relFor(id string) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if isDirId(id) {
+		if d := s.dirs[id]; d != nil {
+			return d.rel
+		}
+		if m := s.markers[id]; m != nil {
+			return m.rel
+		}
+	}
 	if l := s.local[id]; l != nil {
 		return l.rel
 	}
@@ -268,9 +282,11 @@ func (s *syncer) onFsEvent(w dirWatcher, ev watchEvent, dirty map[string]string)
 		if s.excluded(rel, true) {
 			return false
 		}
-		// A new directory, or one whose events were lost: watch it, and
-		// look at what it holds, without walking the rest of the tree.
+		// A new directory, one changed (its mode), or one whose events were
+		// lost: watch it, and look at it and what it holds, without walking
+		// the rest of the tree.
 		w.add(ev.path)
+		dirty[s.identity(rel+"/")] = rel + "/"
 		s.walkNew(ev.path, dirty)
 		if ev.below {
 			s.dirtyBelow(rel, dirty)
@@ -285,12 +301,14 @@ func (s *syncer) onFsEvent(w dirWatcher, ev watchEvent, dirty map[string]string)
 	if statErr != nil {
 		s.dirtyBelow(rel, dirty)
 		w.remove(ev.path)
+		dirty[s.identity(rel+"/")] = rel + "/"
 	}
 	dirty[s.identity(rel)] = rel
 	return false
 }
 
-// dirtyBelow notes every file known below a folder, to look at again.
+// dirtyBelow notes every file and folder known below a folder, to look at
+// again.
 func (s *syncer) dirtyBelow(rel string, dirty map[string]string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -300,9 +318,15 @@ func (s *syncer) dirtyBelow(rel string, dirty map[string]string) {
 			dirty[id] = l.rel
 		}
 	}
+	for id, d := range s.dirs {
+		if strings.HasPrefix(id, prefix) {
+			dirty[id] = d.rel
+		}
+	}
 }
 
-// walkNew notes every file below a directory that has just appeared.
+// walkNew notes every file and folder below a directory that has just
+// appeared.
 func (s *syncer) walkNew(dir string, dirty map[string]string) {
 	filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -314,8 +338,11 @@ func (s *syncer) walkNew(dir string, dirty map[string]string) {
 		}
 		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
-			if p != dir && s.excluded(rel, true) {
-				return filepath.SkipDir
+			if p != dir {
+				if s.excluded(rel, true) {
+					return filepath.SkipDir
+				}
+				dirty[s.identity(rel+"/")] = rel + "/"
 			}
 			return nil
 		}

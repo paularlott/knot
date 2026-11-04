@@ -3,7 +3,6 @@ package filestore
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -692,7 +691,8 @@ func (s *Store) storeContent(sha string, size int64, data []byte, path string, f
 	// With no file, the content is the data, which is empty for an empty file.
 	if path == "" {
 		held := false
-		err := s.db.Update(func(txn *badger.Txn) error {
+		err := s.update(func(txn *badger.Txn) error {
+			held = false
 			n, err := getRef(txn, sha)
 			if err != nil {
 				return err
@@ -955,7 +955,8 @@ func (s *Store) applyChunk(ops []objectOp) ([]*Object, error) {
 	var results []applied
 	first := s.changes.alloc(len(ops))
 	defer s.changes.done(first)
-	for attempt := 0; ; attempt++ {
+	var retry conflictRetry
+	for {
 		results = results[:0]
 		err := s.db.Update(func(txn *badger.Txn) error {
 			results = results[:0]
@@ -968,7 +969,7 @@ func (s *Store) applyChunk(ops []objectOp) ([]*Object, error) {
 			}
 			return nil
 		})
-		if errors.Is(err, badger.ErrConflict) && attempt < 50 {
+		if retry.again(err) {
 			continue
 		}
 		if err != nil {
@@ -1445,9 +1446,10 @@ func (s *Store) dropRecords(recs []*Object) error {
 	var dropped []*Object
 	var released []string
 	var err error
-	for attempt := 0; attempt < 5; attempt++ {
+	var retry conflictRetry
+	for {
 		err = s.dropTxn(recs, &dropped, &released)
-		if !errors.Is(err, badger.ErrConflict) {
+		if !retry.again(err) {
 			break
 		}
 	}

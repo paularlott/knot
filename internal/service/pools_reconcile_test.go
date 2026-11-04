@@ -39,8 +39,8 @@ func newReconcileFixture(t *testing.T, name string) *reconcileFixture {
 
 	tmpl := newPoolTestTemplate(t, "recon-tmpl-"+name)
 	user := newPoolTestUser("recon-user-" + name)
-	user.Username = "recon-user-" + name
-	user.Email = "recon-user-" + name + "@test.local"
+	user.Username = user.Id
+	user.Email = user.Id + "@test.local"
 	if err := database.GetInstance().SaveUser(user, nil); err != nil {
 		t.Fatalf("SaveUser: %v", err)
 	}

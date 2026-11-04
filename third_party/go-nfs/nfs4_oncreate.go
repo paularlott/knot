@@ -70,8 +70,17 @@ func nfs4OnCreate(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 		if err := parent.fs.(billy.Symlink).Symlink(req.LinkData, nfs4Join(parent.fs, childPath)); err != nil {
 			return nfs4StatusFromErr(err)
 		}
-	} else if err := parent.fs.MkdirAll(nfs4Join(parent.fs, childPath), attrs.attrs.Mode(0777)); err != nil {
-		return nfs4StatusFromErr(err)
+	} else {
+		dirPath := nfs4Join(parent.fs, childPath)
+		if err := parent.fs.MkdirAll(dirPath, attrs.attrs.Mode(0777)); err != nil {
+			return nfs4StatusFromErr(err)
+		}
+		// knot: the attributes given are set on the new folder, as NFSv3's
+		// MKDIR and NFSv4's OPEN set theirs; upstream dropped them, so a
+		// folder made with a mode (mkdir -m 0700) got the default.
+		if err := attrs.attrs.Apply(c.handler.Change(parent.fs), parent.fs, dirPath); err != nil {
+			return nfs4StatusFromErr(err)
+		}
 	}
 	after := parent.changeID()
 	if status := c.setCurrent(parent.fs, childPath); status != nfs4OK {

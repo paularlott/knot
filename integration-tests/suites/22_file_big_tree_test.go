@@ -68,6 +68,8 @@ func TestFileSyncBigTree(t *testing.T) {
 	if _, err := admin.Client.CreateFileBucket(ctx, "big"); err != nil {
 		t.Fatal(err)
 	}
+	// Each folder synced has a marker in the bucket, as well as its files.
+	folders := (n + filesPerFolder - 1) / filesPerFolder
 	bucketCount := func(t *testing.T) int {
 		t.Helper()
 		b, err := admin.Client.GetFileBucket(ctx, "big")
@@ -112,8 +114,8 @@ func TestFileSyncBigTree(t *testing.T) {
 		}
 
 		_, took := knot("--log-level", "debug", "file", "sync", tree, "big:tree")
-		if c := bucketCount(t); c != n {
-			t.Fatalf("bucket holds %d files after the first sync, want %d", c, n)
+		if c := bucketCount(t); c != n+folders {
+			t.Fatalf("bucket holds %d files and folders after the first sync, want %d", c, n+folders)
 		}
 		t.Logf("first sync: %s", took.Round(time.Millisecond))
 
@@ -227,8 +229,8 @@ echo "$(pwd): $(find t -type f | wc -l) files"`,
 			t.Fatalf("first sync in the space failed:\n%s", tailLines(out, 20))
 		}
 		t.Logf("first sync: %s", time.Since(start).Round(time.Millisecond))
-		if got := bucketCount(t) - before; got != n {
-			t.Fatalf("the bucket gained %d files from the space, want %d", got, n)
+		if got := bucketCount(t) - before; got != n+folders {
+			t.Fatalf("the bucket gained %d files and folders from the space, want %d", got, n+folders)
 		}
 
 		start = time.Now()

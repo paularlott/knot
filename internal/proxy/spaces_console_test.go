@@ -38,6 +38,9 @@ func TestConsoleReportsFailuresInTheTerminal(t *testing.T) {
 	if err := db.SaveUser(user, nil); err != nil {
 		t.Fatal(err)
 	}
+	// The database lives for the whole test process: leave it as found, so
+	// the test can run again (go test -count).
+	t.Cleanup(func() { db.DeleteUser(user) })
 
 	template := model.NewTemplate("kvm-console-test", "", "image: base", "", user.Id, nil,
 		model.PlatformKvm, true, false, false, false, false, false, "", "",
@@ -97,6 +100,9 @@ func TestConsoleFallsBackToLocalForPhantomNode(t *testing.T) {
 	if err := db.SaveUser(user, nil); err != nil {
 		t.Fatal(err)
 	}
+	// The database lives for the whole test process: leave it as found, so
+	// the test can run again (go test -count).
+	t.Cleanup(func() { db.DeleteUser(user) })
 
 	template := model.NewTemplate("kvm-fallback-test", "", "image: base", "", user.Id, nil,
 		model.PlatformKvm, true, false, false, false, false, false, "", "",
@@ -159,6 +165,9 @@ func TestVNCRequiresTemplateFeature(t *testing.T) {
 	if err := db.SaveUser(user, nil); err != nil {
 		t.Fatal(err)
 	}
+	// The database lives for the whole test process: leave it as found, so
+	// the test can run again (go test -count).
+	t.Cleanup(func() { db.DeleteUser(user) })
 
 	// KVM template with the display disabled (the default).
 	template := model.NewTemplate("kvm-vnc-off", "", "image: base", "", user.Id, nil,
@@ -262,6 +271,9 @@ func TestVNCBridgeRelaysRFB(t *testing.T) {
 	if err := db.SaveUser(user, nil); err != nil {
 		t.Fatal(err)
 	}
+	// The database lives for the whole test process: leave it as found, so
+	// the test can run again (go test -count).
+	t.Cleanup(func() { db.DeleteUser(user) })
 
 	template := model.NewTemplate("kvm-vnc-relay", "", "image: base", "", user.Id, nil,
 		model.PlatformKvm, true, false, false, false, false, false, "", "",

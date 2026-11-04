@@ -45,6 +45,9 @@ func TestUpdateSpaceStackPrefix(t *testing.T) {
 		if err := db.SaveSpace(space, nil); err != nil {
 			t.Fatalf("SaveSpace create: %v", err)
 		}
+		// The database lives for the whole test process: leave it as
+		// found, so the test can run again (go test -count).
+		t.Cleanup(func() { db.DeleteSpace(space) })
 
 		// Reload through the service (ownership/zone checks), detach and clear prefix.
 		loaded, err := GetSpaceService().GetSpace(space.Id, user)
@@ -75,6 +78,9 @@ func TestUpdateSpaceStackPrefix(t *testing.T) {
 		if err := db.SaveSpace(space, nil); err != nil {
 			t.Fatalf("SaveSpace create: %v", err)
 		}
+		// The database lives for the whole test process: leave it as
+		// found, so the test can run again (go test -count).
+		t.Cleanup(func() { db.DeleteSpace(space) })
 
 		loaded, err := GetSpaceService().GetSpace(space.Id, user)
 		if err != nil {

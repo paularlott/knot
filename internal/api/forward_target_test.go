@@ -50,6 +50,9 @@ func TestHandleForwardTargetCheck(t *testing.T) {
 	if err := db.SaveSpace(space, nil); err != nil {
 		t.Fatalf("SaveSpace: %v", err)
 	}
+	// The database is opened once per test process: leave it as found, so
+	// the test can run again in it (go test -count).
+	t.Cleanup(func() { db.DeleteSpace(space) })
 
 	check := func(t *testing.T, user *model.User, query string) (int, string) {
 		t.Helper()

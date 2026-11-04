@@ -19,16 +19,21 @@ import (
 	"github.com/paularlott/knot/integration-tests/harness"
 )
 
-// fileWant is how a file in the shared bucket should look whichever way it
-// is reached: its permission bits, or a link's target.
+// fileWant is how a file or folder in the shared bucket should look
+// whichever way it is reached: its permission bits, or a link's target. A
+// folder's key ends in /.
 type fileWant struct {
 	mode os.FileMode
 	link string
+	dir  bool
 }
 
 func (w fileWant) String() string {
-	if w.link != "" {
+	switch {
+	case w.link != "":
 		return "link to " + w.link
+	case w.dir:
+		return fmt.Sprintf("folder %04o", w.mode)
 	}
 	return fmt.Sprintf("%04o", w.mode)
 }
@@ -38,7 +43,7 @@ func (w fileWant) String() string {
 // one with the knot command, the web interface, over NFS and (Knot Pro) S3,
 // each reads the same on the other through the knot command, over NFS from
 // macOS, over NFS from a Linux space with the bucket mounted, and over S3,
-// modes and links included; written from the space, the same holds back on
+// modes, links and folders, empty ones too, included; written from the space, the same holds back on
 // the first server; and fsck --repair on one server reaches the other.
 func TestFileStorageInterchange(t *testing.T) {
 	harness.Feature(t, "file-storage")
@@ -125,10 +130,28 @@ func TestFileStorageInterchange(t *testing.T) {
 	write(filepath.Join(tree, "vendor", "pkg", "tool"), "#!/bin/sh\n", 0755)
 	os.MkdirAll(filepath.Join(tree, "vendor", "bin"), 0755)
 	os.Symlink("../pkg/tool", filepath.Join(tree, "vendor", "bin", "tool"))
+	mkdir := func(path string, mode os.FileMode) {
+		t.Helper()
+		if err := os.MkdirAll(path, 0755); err != nil {
+			t.Fatal(err)
+		}
+		os.Chmod(path, mode)
+	}
+	mkdir(filepath.Join(tree, "empty"), 0755)
+	mkdir(filepath.Join(tree, "private"), 0700)
 	knotOn(t, nodeA, adminA, "file", "sync", tree, "shared:tree")
 	want["tree/data.txt"] = fileWant{mode: 0640}
 	want["tree/vendor/pkg/tool"] = fileWant{mode: 0755}
 	want["tree/vendor/bin/tool"] = fileWant{link: "../pkg/tool"}
+	want["tree/empty/"] = fileWant{mode: 0755, dir: true}
+	want["tree/private/"] = fileWant{mode: 0700, dir: true}
+	want["tree/vendor/"] = fileWant{mode: 0755, dir: true}
+
+	// A copy of a tree with an empty folder in it.
+	mkdir(filepath.Join(root, "cptree", "hollow"), 0750)
+	write(filepath.Join(root, "cptree", "f.txt"), "f", 0644)
+	knotOn(t, nodeA, adminA, "file", "cp", "-r", filepath.Join(root, "cptree"), "shared:cp/")
+	want["cp/hollow/"] = fileWant{mode: 0750, dir: true}
 
 	// The web interface: an upload of a new file, which gets the default
 	// mode, and the editor saving over a file, which keeps its mode. Both
@@ -152,8 +175,12 @@ func TestFileStorageInterchange(t *testing.T) {
 	if err := os.Symlink("made.sh", filepath.Join(nfsDir, "link")); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Mkdir(filepath.Join(nfsDir, "madedir"), 0700); err != nil {
+		t.Fatal(err)
+	}
 	want["nfs/made.sh"] = fileWant{mode: 0711}
 	want["nfs/link"] = fileWant{link: "made.sh"}
+	want["nfs/madedir/"] = fileWant{mode: 0700, dir: true}
 
 	// S3 (Knot Pro): rclone with --metadata, and without it, which sends no
 	// mode, so a new file gets the default.
@@ -209,8 +236,11 @@ func TestFileStorageInterchange(t *testing.T) {
 
 	// Every file reaches server B with its mode or link.
 	stored := func(w fileWant) string {
-		if w.link != "" {
+		switch {
+		case w.link != "":
 			return "120777"
+		case w.dir:
+			return apiclient.FormatFileMode(os.ModeDir | w.mode)
 		}
 		return apiclient.FormatFileMode(w.mode)
 	}
@@ -225,12 +255,14 @@ func TestFileStorageInterchange(t *testing.T) {
 	}
 
 	// check compares a file as one way of reaching it shows it.
-	check := func(t *testing.T, how, k string, mode os.FileMode, link string, err error) {
+	check := func(t *testing.T, how, k string, mode os.FileMode, link string, isDir bool, err error) {
 		t.Helper()
 		w := want[k]
 		switch {
 		case err != nil:
 			t.Errorf("%s: %s: %v", how, k, err)
+		case w.dir != isDir:
+			t.Errorf("%s: %s is a folder: %v, want %s", how, k, isDir, w)
 		case w.link != "" && link != w.link:
 			t.Errorf("%s: %s is %04o / link %q, want %s", how, k, mode, link, w)
 		case w.link == "" && (link != "" || mode != w.mode):
@@ -250,7 +282,7 @@ func TestFileStorageInterchange(t *testing.T) {
 			if info != nil {
 				mode = info.Mode().Perm()
 			}
-			check(t, how, k, mode, link, err)
+			check(t, how, k, mode, link, info != nil && info.IsDir(), err)
 		}
 	}
 
@@ -283,8 +315,14 @@ func TestFileStorageInterchange(t *testing.T) {
 					}
 				}
 			}
-			if len(seen) != len(want) {
-				t.Errorf("S3 on B listed %d of %d files", len(seen), len(want))
+			files := 0
+			for _, w := range want {
+				if !w.dir {
+					files++
+				}
+			}
+			if len(seen) != files {
+				t.Errorf("S3 on B listed %d of %d files", len(seen), files)
 			}
 			dl := filepath.Join(root, "rclone-from-b")
 			rcloneOn(t, nodeB, adminB, "copy", "-M", "knot:admin--shared/cli/", filepath.Join(dl, "cli"))
@@ -295,7 +333,7 @@ func TestFileStorageInterchange(t *testing.T) {
 				if info != nil {
 					mode = info.Mode().Perm()
 				}
-				check(t, "rclone -M from B", k, mode, "", err)
+				check(t, "rclone -M from B", k, mode, "", false, err)
 			}
 		})
 	}
@@ -347,7 +385,7 @@ func TestFileStorageInterchange(t *testing.T) {
 				link = strings.TrimSpace(f[3])
 			}
 			got[k] = true
-			check(t, "space on B", k, os.FileMode(m), link, nil)
+			check(t, "space on B", k, os.FileMode(m), link, f[2] == "directory", nil)
 		}
 		if len(got) != len(want) {
 			t.Errorf("the space saw %d of %d files:\n%s", len(got), len(want), out)
@@ -357,15 +395,18 @@ func TestFileStorageInterchange(t *testing.T) {
 			t.Errorf("running through vendor/bin: %q", out)
 		}
 
-		// Written in the space: a file, a chmod, a link and a folder reach
-		// server A, its knot command and its NFS.
+		// Written in the space: a file, a chmod, a link, an empty folder and
+		// a folder's chmod reach server A, its knot command and its NFS.
 		harness.RunCommand(t, adminB.Client, spaceId, 30, "sh", "-c",
 			"mkdir -p /shared/space && printf '#!/bin/sh\\n' > /shared/space/new.sh && chmod 0750 /shared/space/new.sh && "+
-				"ln -s new.sh /shared/space/link && chmod 0700 /shared/tree/data.txt")
+				"ln -s new.sh /shared/space/link && chmod 0700 /shared/tree/data.txt && "+
+				"mkdir -m 0750 /shared/space/sub && chmod 0711 /shared/tree/empty")
 		back := map[string]fileWant{
 			"space/new.sh":  {mode: 0750},
 			"space/link":    {link: "new.sh"},
 			"tree/data.txt": {mode: 0700},
+			"space/sub/":    {mode: 0750, dir: true},
+			"tree/empty/":   {mode: 0711, dir: true},
 		}
 		for k, w := range back {
 			want[k] = w
@@ -384,13 +425,14 @@ func TestFileStorageInterchange(t *testing.T) {
 			info, err := os.Lstat(p)
 			var link string
 			var mode os.FileMode
+			isDir := false
 			if err == nil {
-				mode = info.Mode().Perm()
+				mode, isDir = info.Mode().Perm(), info.IsDir()
 				if info.Mode()&os.ModeSymlink != 0 {
 					link, err = os.Readlink(p)
 				}
 			}
-			check(t, "knot file sync from A", k, mode, link, err)
+			check(t, "knot file sync from A", k, mode, link, isDir, err)
 		}
 		if !waitForCond(30, func() bool {
 			info, err := os.Stat(filepath.Join(mntA, "shared", "space", "new.sh"))

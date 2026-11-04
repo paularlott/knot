@@ -55,6 +55,9 @@ NFSv4.0:
   file or folder could be created from macOS.
 - CREATE makes symbolic links (NF4LNK) where the filesystem can; upstream
   refused them.
+- CREATE of a folder sets the attributes given (its mode, from
+  `mkdir -m`), as NFSv3's MKDIR and NFSv4's OPEN do; upstream dropped them,
+  so every folder got the default mode.
 - Errors map as NFSv3's do (`statusFromError`), with NFS4ERR_XDEV,
   NFS4ERR_NAMETOOLONG and NFS4ERR_DQUOT added.
 - READ and WRITE sizes offered are 1MB (`maxTransfer`), not 16MB, which with

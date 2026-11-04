@@ -36,6 +36,9 @@ func newUser(t *testing.T, name string) *model.User {
 	if err := database.GetInstance().SaveUser(u, nil); err != nil {
 		t.Fatalf("SaveUser: %v", err)
 	}
+	// The database lives for the whole test process: leave it as found, so
+	// the test can run again (go test -count).
+	t.Cleanup(func() { database.GetInstance().DeleteUser(u) })
 	return u
 }
 

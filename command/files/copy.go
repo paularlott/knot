@@ -155,6 +155,13 @@ func runCopy(ctx context.Context, client *apiclient.ApiClient, args []string, re
 		return !(targets[i].src.link && !dst.remote) && targets[j].src.link && !dst.remote
 	})
 	count := 0
+	// Folders' modes are set once everything is in them, a folder's
+	// contents first, so a read-only folder is read-only only once filled.
+	type dirMode struct {
+		dir  string
+		mode os.FileMode
+	}
+	var modes []dirMode
 	for _, t := range targets {
 		s := t.src
 		if !dst.remote && isFolder {
@@ -163,6 +170,8 @@ func runCopy(ctx context.Context, client *apiclient.ApiClient, args []string, re
 			}
 		}
 		switch {
+		case dst.remote && s.marker && s.local != "":
+			err = uploadFolder(ctx, client, s.local, dst.bucket, t.key)
 		case dst.remote && s.link && s.local != "":
 			err = uploadLink(ctx, client, s.local, dst.bucket, t.key)
 		case dst.remote && s.local != "":
@@ -170,8 +179,11 @@ func runCopy(ctx context.Context, client *apiclient.ApiClient, args []string, re
 		case dst.remote:
 			err = serverCopy(ctx, client, s, dst.bucket, t.key)
 		case s.marker:
-			// An empty folder in a bucket becomes an empty directory.
+			// A bucket folder becomes a directory, with the folder's mode.
 			if err = os.MkdirAll(t.dir, 0755); err == nil {
+				if s.mode != 0 {
+					modes = append(modes, dirMode{t.dir, s.mode})
+				}
 				continue
 			}
 		default:
@@ -182,6 +194,12 @@ func runCopy(ctx context.Context, client *apiclient.ApiClient, args []string, re
 		}
 		if !s.marker {
 			count++
+		}
+	}
+	sort.Slice(modes, func(i, j int) bool { return modes[i].dir > modes[j].dir })
+	for _, m := range modes {
+		if err := os.Chmod(m.dir, m.mode); err != nil {
+			return err
 		}
 	}
 	if count != 1 {
@@ -236,6 +254,45 @@ func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket,
 		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
 	}
 	fmt.Printf("%s -> %s (%s)\n", local, remoteName(bucket, key), formatBytes(info.Size()))
+	return nil
+}
+
+// uploadFolder copies a local directory to a bucket as a folder marker, with
+// the directory's mode, as the NFS server keeps a folder.
+func uploadFolder(ctx context.Context, client *apiclient.ApiClient, local, bucket, key string) error {
+	info, err := os.Lstat(local)
+	if err != nil {
+		return err
+	}
+	attrs := apiclient.LocalFileAttrs(info)
+	if attrs.Mode != 0 {
+		attrs.Mode |= os.ModeDir
+	}
+	// A folder the bucket has already is left as it is, or has just its
+	// mode changed: its marker's other attributes, the inode number the NFS
+	// server gave it among them, are kept.
+	if have, err := client.HeadFileObject(ctx, bucket, key); err == nil {
+		mode := apiclient.FormatFileMode(attrs.Mode)
+		if attrs.Mode == 0 || have.Meta[apiclient.FileModeMeta] == mode {
+			return nil
+		}
+		meta := make(map[string]string, len(have.Meta)+1)
+		for k, v := range have.Meta {
+			meta[k] = v
+		}
+		meta[apiclient.FileModeMeta] = mode
+		if _, err := client.CopyFileObject(ctx, apiclient.FileCopyRequest{
+			SourceBucket: bucket, SourceKey: key, DestBucket: bucket, DestKey: key, IfMatch: have.ETag, Meta: meta,
+		}); err != nil {
+			return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+		}
+		fmt.Printf("%s -> %s (folder mode %04o)\n", local, remoteName(bucket, key), attrs.Mode.Perm())
+		return nil
+	}
+	if _, err := client.PutFileObject(ctx, bucket, key, strings.NewReader(""), 0, "", attrs); err != nil {
+		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+	}
+	fmt.Printf("%s -> %s (folder)\n", local, remoteName(bucket, key))
 	return nil
 }
 
