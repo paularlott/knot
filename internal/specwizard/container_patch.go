@@ -410,14 +410,6 @@ func appendMappingEntry(mapping *yaml.Node, key string, valNode *yaml.Node) {
 	mapping.Content = append(mapping.Content, scalarStr(key), valNode)
 }
 
-// removeMappingEntry removes the key-value pair at the given index. Caller
-// must ensure idx is valid (even, points to a key node).
-func removeMappingEntry(mapping *yaml.Node, idx int) {
-	if idx+1 < len(mapping.Content) {
-		mapping.Content = append(mapping.Content[:idx], mapping.Content[idx+2:]...)
-	}
-}
-
 // Usage of apiclient import (avoids unused import when patchContainerYAML
 // is the only consumer in this file).
 var _ = (*apiclient.UnifiedSpec)(nil)

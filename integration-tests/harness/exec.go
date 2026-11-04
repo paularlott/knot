@@ -6,13 +6,8 @@ import (
 	"math/rand/v2"
 	"net"
 	"os/exec"
-	"path/filepath"
 	"sync"
 )
-
-func runGo(dir string, args ...string) (string, error) {
-	return runGoEnv(dir, nil, args...)
-}
 
 func runGoEnv(dir string, env map[string]string, args ...string) (string, error) {
 	cmd := exec.Command("go", args...)
@@ -73,12 +68,4 @@ func portFree(port int) bool {
 	}
 	pc.Close()
 	return true
-}
-
-func mustAbs(path string) string {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	return abs
 }

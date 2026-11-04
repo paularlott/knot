@@ -100,13 +100,6 @@ func getSnapshot() *snapshot {
 	return currentSnapshot.Load()
 }
 
-func normalizePreferences(preferences []string) []string {
-	if len(preferences) == 0 {
-		return defaultPreferences()
-	}
-	return preferences
-}
-
 // containerBackendsInOrder filters an enabled-backends list down to the
 // container runtimes, preserving the listed order.
 func containerBackendsInOrder(enabled []string) []string {

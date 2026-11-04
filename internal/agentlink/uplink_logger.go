@@ -50,15 +50,6 @@ func (l *uplinkLink) send(level msg.LogLevel, service, message string) bool {
 	return true
 }
 
-func (l *uplinkLink) close() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.conn != nil {
-		l.conn.Close()
-		l.conn = nil
-	}
-}
-
 // UplinkLogger is a logger.Logger that forwards log lines from a CLI
 // sub-process (e.g. `knot run-script`) to the agent daemon over the command
 // socket; the daemon then ships them upstream to the knot server via the agent

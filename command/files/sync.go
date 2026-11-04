@@ -211,16 +211,6 @@ func fileSHA256(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// sameContent reports whether a local file holds the given remote content.
-func sameContent(local string, size int64, sha string) bool {
-	info, err := os.Stat(local)
-	if err != nil || !info.Mode().IsRegular() || info.Size() != size {
-		return false
-	}
-	got, err := fileSHA256(local)
-	return err == nil && got == sha
-}
-
 type syncCounts struct {
 	copied, unchanged, deleted int
 }

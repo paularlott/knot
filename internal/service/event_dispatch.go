@@ -627,27 +627,6 @@ func (d *EventDispatcher) GetEntriesForGossip() []*InFlightEntry {
 	return entries
 }
 
-// recordInFlightLocked is recordInFlight without locking (caller holds lock).
-func (d *EventDispatcher) recordInFlightLocked(envelope *EventEnvelope, sinkId string) {
-	key := inFlightKey(envelope.EventId, sinkId)
-	if _, exists := d.inFlight[key]; exists {
-		return
-	}
-	d.inFlight[key] = &InFlightEntry{
-		EventId:   envelope.EventId,
-		EventType: envelope.EventType,
-		SinkId:    sinkId,
-		UserId:    envelope.UserId,
-		SpaceId:   envelope.SpaceId,
-		Payload:   envelope.Payload,
-		ActorId:   envelope.Actor.Id,
-		ActorName: envelope.Actor.Username,
-		ActorKind: envelope.Actor.Kind,
-		Status:    "pending",
-		Version:   hlc.Now(),
-	}
-}
-
 // ReloadSinks refreshes the in-memory sink cache from the database.
 func (d *EventDispatcher) ReloadSinks() {
 	sinks, err := database.GetInstance().GetEventSinks()
