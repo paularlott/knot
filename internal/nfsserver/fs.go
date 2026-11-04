@@ -24,9 +24,9 @@ import (
 	nfsfile "github.com/willscott/go-nfs/file"
 )
 
-// Object metadata holding POSIX attributes, the keys s3fs uses so a bucket
-// mounted either way shows the same modes and times; mtime is in the form
-// the knot CLI and rclone write.
+// Object metadata holding POSIX attributes, the keys rclone --metadata and
+// s3fs use, so a bucket reached any of those ways shows the same modes and
+// times; mode and mtime are in the forms the knot CLI and rclone write.
 const (
 	metaMode  = apiclient.FileModeMeta
 	metaMtime = "mtime"
@@ -571,10 +571,8 @@ func (fi *fileInfo) withMeta(meta map[string]string) *fileInfo {
 
 // withMarker gives a folder the attributes stored on its marker.
 func (fi *fileInfo) withMarker(marker *Object) *fileInfo {
-	if v, ok := marker.Meta[metaMode]; ok {
-		if m, err := strconv.ParseUint(v, 10, 32); err == nil {
-			fi.mode = os.ModeDir | os.FileMode(m)&os.ModePerm
-		}
+	if m, ok := apiclient.ParseFileMode(marker.Meta); ok {
+		fi.mode = os.ModeDir | m&os.ModePerm
 	}
 	fi.mtime = mtimeFrom(marker.Meta, marker.ModifiedAt)
 	return fi.withMeta(marker.Meta)
@@ -604,8 +602,8 @@ func newIno() string {
 	}
 }
 
-// modeFrom reads the permission bits stored on a file, s3fs style (the
-// decimal st_mode).
+// modeFrom reads the permission bits stored on a file (see
+// apiclient.FileModeMeta).
 func modeFrom(meta map[string]string) os.FileMode {
 	if mode, ok := apiclient.ParseFileMode(meta); ok {
 		return mode
@@ -613,7 +611,7 @@ func modeFrom(meta map[string]string) os.FileMode {
 	return defaultFileMode
 }
 
-// stMode is the decimal st_mode stored in metaMode.
+// stMode is the st_mode stored in metaMode.
 func stMode(mode os.FileMode) string {
 	return apiclient.FormatFileMode(mode)
 }

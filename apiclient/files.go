@@ -193,8 +193,10 @@ const FileMtimeHeader = "X-Knot-Mtime"
 // on GET, HEAD and PUT, one header per key (cf. S3's x-amz-meta-).
 const FileMetaHeaderPrefix = "X-Knot-Meta-"
 
-// FileModeMeta is the metadata key holding a file's mode, as s3fs and the
-// NFS server keep it: the decimal POSIX st_mode, file type and permissions.
+// FileModeMeta is the metadata key holding a file's mode: the POSIX st_mode,
+// file type and permissions, in octal as rclone --metadata writes it
+// ("100755"), so modes round-trip through rclone. Knot before 0.42 wrote the
+// decimal form s3fs uses; knot admin file fsck --repair rewrites those.
 const FileModeMeta = "mode"
 
 // POSIX st_mode file types, the same on every platform knot runs on.
@@ -214,25 +216,29 @@ func FormatFileMode(mode os.FileMode) string {
 	case mode&os.ModeDir != 0:
 		typ = stIFDIR
 	}
-	return strconv.FormatUint(typ|uint64(mode&os.ModePerm), 10)
+	return strconv.FormatUint(typ|uint64(mode&os.ModePerm), 8)
 }
 
 // ParseFileMode reads the mode kept in meta: its permission bits, with
-// os.ModeSymlink for a link. ok is false when meta holds none.
+// os.ModeSymlink for a link. ok is false when meta holds none, or holds
+// something that is not a file's, folder's or link's mode.
 func ParseFileMode(meta map[string]string) (mode os.FileMode, ok bool) {
 	v, found := meta[FileModeMeta]
 	if !found {
 		return 0, false
 	}
-	m, err := strconv.ParseUint(v, 10, 32)
-	if err != nil {
+	m, err := strconv.ParseUint(strings.TrimSpace(v), 8, 32)
+	if err != nil || m > 0o177777 {
 		return 0, false
 	}
-	mode = os.FileMode(m) & os.ModePerm
-	if m&stIFMT == stIFLNK {
-		mode |= os.ModeSymlink
+	switch m & stIFMT {
+	case 0, stIFREG, stIFDIR:
+	case stIFLNK:
+		mode = os.ModeSymlink
+	default:
+		return 0, false
 	}
-	return mode, true
+	return mode | os.FileMode(m)&os.ModePerm, true
 }
 
 // FileAttrs are the attributes an upload records with a file's content. A

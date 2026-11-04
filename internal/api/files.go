@@ -641,7 +641,7 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		Meta:        metaFromRequest(r),
 	}
 	bucket, key := filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key")
-	keepFileAttrs(store, p, bucket, key, &opts)
+	store.KeepFileAttrs(p, bucket, key, &opts)
 
 	var o *filestore.Object
 	var err error
@@ -660,36 +660,6 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, objectResponse(o))
-}
-
-// fileAttrMeta are the metadata keys holding a file's POSIX attributes, as
-// s3fs and the NFS server keep them.
-var fileAttrMeta = []string{apiclient.FileModeMeta, "uid", "gid"}
-
-// keepFileAttrs gives a write that does not set a file's POSIX attributes,
-// as from the web interface or a script, those of the file it replaces, so
-// replacing a file's content keeps its mode. (An S3 write replaces them, as
-// S3 requires: this is knot's own API.)
-func keepFileAttrs(store *filestore.Store, p *filestore.Principal, bucket, key string, opts *filestore.PutOptions) {
-	var old *filestore.Object
-	for _, k := range fileAttrMeta {
-		if _, ok := opts.Meta[k]; ok {
-			continue
-		}
-		if old == nil {
-			o, err := store.HeadObject(p, bucket, key)
-			if err != nil {
-				return // nothing replaced
-			}
-			old = o
-		}
-		if v, ok := old.Meta[k]; ok {
-			if opts.Meta == nil {
-				opts.Meta = map[string]string{}
-			}
-			opts.Meta[k] = v
-		}
-	}
 }
 
 // HandleListFileChanges returns what changed in a bucket since a cursor.

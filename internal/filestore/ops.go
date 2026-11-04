@@ -461,6 +461,36 @@ type PutOptions struct {
 	IfNoneMatch bool   // only write if the object does not exist
 }
 
+// fileAttrMeta are the metadata keys holding a file's POSIX attributes, as
+// rclone --metadata, s3fs and the NFS server keep them.
+var fileAttrMeta = []string{"mode", "uid", "gid"}
+
+// KeepFileAttrs gives a write that does not set a file's POSIX attributes
+// those of the file it replaces, so replacing a file's content, from the web
+// interface, a script or an S3 client that knows nothing of modes, keeps its
+// mode, as replacing a file's content on a file system does.
+func (s *Store) KeepFileAttrs(p *Principal, bucket, key string, opts *PutOptions) {
+	var old *Object
+	for _, k := range fileAttrMeta {
+		if _, ok := opts.Meta[k]; ok {
+			continue
+		}
+		if old == nil {
+			o, err := s.HeadObject(p, bucket, key)
+			if err != nil {
+				return // nothing replaced
+			}
+			old = o
+		}
+		if v, ok := old.Meta[k]; ok {
+			if opts.Meta == nil {
+				opts.Meta = map[string]string{}
+			}
+			opts.Meta[k] = v
+		}
+	}
+}
+
 // HeadObject returns an object's record.
 func (s *Store) HeadObject(p *Principal, bucket, key string) (*Object, error) {
 	s.mu.RLock()

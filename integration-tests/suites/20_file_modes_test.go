@@ -190,6 +190,35 @@ func TestFileModes(t *testing.T) {
 	knot("admin", "file", "restore", backup, "admin--modes:tree/sub/private", "--encrypt-key", key)
 	expectRemote("tree/sub/private", 0600)
 
+	// A mode in the decimal form knot wrote before 0.42 reads as no mode,
+	// never a wrong one, until knot admin file fsck --repair rewrites it.
+	info, err := admin.Client.HeadFileObject(ctx, "modes", "tree/sub/private")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info.Meta[apiclient.FileModeMeta] = "33152" // decimal 0100600
+	if _, err := admin.Client.CopyFileObject(ctx, apiclient.FileCopyRequest{
+		SourceBucket: "modes", SourceKey: "tree/sub/private", DestBucket: "modes", DestKey: "tree/sub/private", Meta: info.Meta,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if mode, err := admin.Client.HeadFileObject(ctx, "modes", "tree/sub/private"); err != nil {
+		t.Fatal(err)
+	} else if m, ok := apiclient.ParseFileMode(mode.Meta); ok {
+		t.Errorf("decimal mode read as %04o", m)
+	}
+	check := exec.Command(bins.Server, "admin", "file", "fsck", "--server", s.BaseURL, "--token", admin.Token)
+	check.Dir, check.Env = cli, append(os.Environ(), "HOME="+cli)
+	if out, err := check.CombinedOutput(); err == nil || !strings.Contains(string(out), "decimal-mode") {
+		t.Errorf("fsck did not report the decimal mode (%v):\n%s", err, out)
+	}
+	knot("admin", "file", "fsck", "--repair")
+	expectRemote("tree/sub/private", 0600)
+	if after, _ := admin.Client.HeadFileObject(ctx, "modes", "tree/sub/private"); after.Meta[apiclient.FileModeMeta] != "100600" {
+		t.Errorf("fsck --repair left mode %q, want 100600", after.Meta[apiclient.FileModeMeta])
+	}
+	knot("admin", "file", "fsck")
+
 	t.Run("nfs", func(t *testing.T) {
 		mnt := mountNFS(t, s, admin, filepath.Join(root, "mnt"))
 		bucket := filepath.Join(mnt, "modes")

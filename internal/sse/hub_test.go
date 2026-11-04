@@ -73,6 +73,11 @@ func TestSendToUser(t *testing.T) {
 	a1 := h.NewClient("alice", "s1")
 	a2 := h.NewClient("alice", "s2")
 	b := h.NewClient("bob", "s3")
+	// The hub records a client just after taking it from register.
+	deadline := time.Now().Add(time.Second)
+	for len(h.UserIds()) != 2 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
 	if ids := h.UserIds(); len(ids) != 2 {
 		t.Fatalf("user ids %v", ids)
 	}

@@ -243,6 +243,13 @@ func remoteIndex(ctx context.Context, client *apiclient.ApiClient, bucket, prefi
 	return index, nil
 }
 
+// sameMode reports whether two files keep the same mode, or both none.
+func sameMode(a, b map[string]string) bool {
+	ma, oka := apiclient.ParseFileMode(a)
+	mb, okb := apiclient.ParseFileMode(b)
+	return oka == okb && ma == mb
+}
+
 // syncBuckets makes one bucket folder match another on the server, copying
 // only the files whose content differs, so no data is transferred.
 func syncBuckets(ctx context.Context, client *apiclient.ApiClient, srcBucket, srcPrefix, dstBucket, dstPrefix string, del, dryRun bool) error {
@@ -277,7 +284,7 @@ func syncBuckets(ctx context.Context, client *apiclient.ApiClient, srcBucket, sr
 		}
 		// A server copy brings the content and its mode, so a file whose
 		// mode alone differs is copied too.
-		if d, ok := dst[rel]; ok && d.SHA256 == o.SHA256 && d.Size == o.Size && d.Meta[apiclient.FileModeMeta] == o.Meta[apiclient.FileModeMeta] {
+		if d, ok := dst[rel]; ok && d.SHA256 == o.SHA256 && d.Size == o.Size && sameMode(d.Meta, o.Meta) {
 			counts.unchanged++
 			continue
 		}
