@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -148,10 +149,22 @@ func runCopy(ctx context.Context, client *apiclient.ApiClient, args []string, re
 		targets = append(targets, t)
 	}
 
+	// Links are made after every file, so that a file below a link's name
+	// lands in a real folder and never where the link points.
+	sort.SliceStable(targets, func(i, j int) bool {
+		return !(targets[i].src.link && !dst.remote) && targets[j].src.link && !dst.remote
+	})
 	count := 0
 	for _, t := range targets {
 		s := t.src
+		if !dst.remote && isFolder {
+			if link := linkOnPath(dst.raw, s.rel); link != "" {
+				return fmt.Errorf("refusing to write %s through %s, a symbolic link", s.rel, link)
+			}
+		}
 		switch {
+		case dst.remote && s.link && s.local != "":
+			err = uploadLink(ctx, client, s.local, dst.bucket, t.key)
 		case dst.remote && s.local != "":
 			err = uploadFile(ctx, client, s.local, dst.bucket, t.key)
 		case dst.remote:
@@ -226,6 +239,25 @@ func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket,
 	return nil
 }
 
+// uploadLink copies a local symbolic link to a bucket as a link, its target
+// the content, as the NFS server stores one.
+func uploadLink(ctx context.Context, client *apiclient.ApiClient, local, bucket, key string) error {
+	info, err := os.Lstat(local)
+	if err != nil {
+		return err
+	}
+	target, err := os.Readlink(local)
+	if err != nil {
+		return err
+	}
+	attrs := apiclient.FileAttrs{Mtime: info.ModTime(), Mode: linkMode}
+	if _, err := client.PutFileObject(ctx, bucket, key, strings.NewReader(target), int64(len(target)), "", attrs); err != nil {
+		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+	}
+	fmt.Printf("%s -> %s (link to %s)\n", local, remoteName(bucket, key), target)
+	return nil
+}
+
 // serverCopy copies a file already in a bucket, on the server.
 func serverCopy(ctx context.Context, client *apiclient.ApiClient, s source, bucket, key string) error {
 	info, err := client.CopyFileObject(ctx, apiclient.FileCopyRequest{SourceBucket: s.bucket, SourceKey: s.key, DestBucket: bucket, DestKey: key})
@@ -256,6 +288,22 @@ func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, lo
 
 	if local == "-" {
 		return io.Copy(os.Stdout, resp.Body)
+	}
+
+	// A symbolic link, as the NFS server and the knot command store one: its
+	// target is the content.
+	if mode, ok := apiclient.ParseFileMode(map[string]string{apiclient.FileModeMeta: resp.Header.Get(apiclient.FileMetaHeaderPrefix + apiclient.FileModeMeta)}); ok && mode&os.ModeSymlink != 0 {
+		target, err := io.ReadAll(io.LimitReader(resp.Body, maxLinkTarget+1))
+		if err != nil {
+			return 0, err
+		}
+		if len(target) == 0 || len(target) > maxLinkTarget {
+			return 0, fmt.Errorf("%s: not a valid symbolic link", remoteName(bucket, key))
+		}
+		if err := makeLink(string(target), local); err != nil {
+			return 0, err
+		}
+		return int64(len(target)), nil
 	}
 
 	if dir := filepath.Dir(local); dir != "" {

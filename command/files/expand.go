@@ -20,6 +20,7 @@ type source struct {
 	rel    string // where it goes below a destination folder, slash separated
 	size   int64
 	marker bool // a folder marker object (key ends in /): it makes a folder, not a file
+	link   bool // a symbolic link: a local one found below a folder, or a bucket one
 }
 
 func (s source) String() string {
@@ -84,7 +85,7 @@ func remoteSources(ctx context.Context, client *apiclient.ApiClient, loc locatio
 		}
 		for _, o := range objects {
 			if rel, ok := matchGlob(key, o.Key, recursive); ok && rel != "" {
-				list = append(list, source{bucket: bucket, key: o.Key, rel: rel, size: o.Size, marker: strings.HasSuffix(o.Key, "/")})
+				list = append(list, source{bucket: bucket, key: o.Key, rel: rel, size: o.Size, marker: strings.HasSuffix(o.Key, "/"), link: isLinkMeta(o.Meta)})
 			}
 		}
 		if len(list) == 0 {
@@ -114,7 +115,7 @@ func remoteSources(ctx context.Context, client *apiclient.ApiClient, loc locatio
 			if rel == "" && !ownMarker {
 				continue // the folder's own marker
 			}
-			list = append(list, source{bucket: bucket, key: o.Key, rel: rel, size: o.Size, marker: strings.HasSuffix(o.Key, "/")})
+			list = append(list, source{bucket: bucket, key: o.Key, rel: rel, size: o.Size, marker: strings.HasSuffix(o.Key, "/"), link: isLinkMeta(o.Meta)})
 		}
 		return list, true, nil
 	}
@@ -151,8 +152,11 @@ func localSources(arg string, recursive bool) (list []source, folder bool, err e
 	if err != nil {
 		return nil, true, err
 	}
+	// Links below the folder are copied as links, not followed, as cp -R
+	// and rsync -a copy them.
 	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !d.Type().IsRegular() {
+		link := d != nil && d.Type()&fs.ModeSymlink != 0 && linksSupported
+		if err != nil || d.IsDir() || (!d.Type().IsRegular() && !link) {
 			return err
 		}
 		rel, err := filepath.Rel(root, p)
@@ -163,7 +167,7 @@ func localSources(arg string, recursive bool) (list []source, folder bool, err e
 		if err != nil {
 			return err
 		}
-		list = append(list, source{local: p, rel: filepath.ToSlash(rel), size: fi.Size()})
+		list = append(list, source{local: p, rel: filepath.ToSlash(rel), size: fi.Size(), link: link})
 		return nil
 	})
 	return list, true, err

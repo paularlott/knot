@@ -219,6 +219,30 @@ func TestFileModes(t *testing.T) {
 	}
 	knot("admin", "file", "fsck")
 
+	// Symbolic links, as composer's vendor/bin holds: synced as links, never
+	// followed, and made again as links.
+	links := filepath.Join(root, "links")
+	write(filepath.Join(links, "vendor", "pkg", "tool"), "#!/bin/sh\n", 0755)
+	os.MkdirAll(filepath.Join(links, "vendor", "bin"), 0755)
+	if err := os.Symlink("../pkg/tool", filepath.Join(links, "vendor", "bin", "tool")); err != nil {
+		t.Fatal(err)
+	}
+	knot("file", "sync", links, "modes:links")
+	if info, err := admin.Client.HeadFileObject(ctx, "modes", "links/vendor/bin/tool"); err != nil || info.Meta[apiclient.FileModeMeta] != "120777" || info.Size != int64(len("../pkg/tool")) {
+		t.Errorf("modes:links/vendor/bin/tool is not a link: %+v %v", info, err)
+	}
+	linksDown := filepath.Join(root, "links-down")
+	knot("file", "sync", "modes:links", linksDown)
+	expectLink := func(t *testing.T, path, want string) {
+		t.Helper()
+		if got, err := os.Readlink(path); err != nil || got != want {
+			t.Errorf("%s: link to %q (%v), want %q", strings.TrimPrefix(path, root), got, err, want)
+		}
+	}
+	expectLink(t, filepath.Join(linksDown, "vendor", "bin", "tool"), "../pkg/tool")
+	knot("file", "cp", "-r", "modes:links/", filepath.Join(root, "links-cp")+"/")
+	expectLink(t, filepath.Join(root, "links-cp", "vendor", "bin", "tool"), "../pkg/tool")
+
 	t.Run("nfs", func(t *testing.T) {
 		mnt := mountNFS(t, s, admin, filepath.Join(root, "mnt"))
 		bucket := filepath.Join(mnt, "modes")
@@ -267,6 +291,18 @@ func TestFileModes(t *testing.T) {
 		}
 		knot("file", "cp", "modes:nfs/moved.sh", filepath.Join(root, "from-nfs", "moved.sh"))
 		expectLocal(filepath.Join(root, "from-nfs", "moved.sh"), 0750)
+
+		// A link synced by the knot command is a link over NFS, and one made
+		// over NFS is synced down as a link.
+		expectLink(t, filepath.Join(bucket, "links", "vendor", "bin", "tool"), "../pkg/tool")
+		if c, err := os.ReadFile(filepath.Join(bucket, "links", "vendor", "bin", "tool")); err != nil || string(c) != "#!/bin/sh\n" {
+			t.Errorf("link over NFS does not reach its file: %q %v", c, err)
+		}
+		if err := os.Symlink("pkg/tool", filepath.Join(bucket, "links", "vendor", "nfs-link")); err != nil {
+			t.Fatal(err)
+		}
+		knot("file", "sync", "modes:links", linksDown)
+		expectLink(t, filepath.Join(linksDown, "vendor", "nfs-link"), "pkg/tool")
 	})
 }
 

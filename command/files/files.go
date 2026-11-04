@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/paularlott/cli"
@@ -102,7 +103,62 @@ func within(dir, rel string) (string, error) {
 	if r, err := filepath.Rel(dir, local); err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("refusing to write %s outside %s", rel, dir)
 	}
+	if link := linkOnPath(dir, rel); link != "" {
+		return "", fmt.Errorf("refusing to write %s through %s, a symbolic link", rel, link)
+	}
 	return local, nil
+}
+
+// linkOnPath returns the first folder on the way from dir to rel that is a
+// symbolic link, "" when none is: what is written there would land where the
+// link points, perhaps outside dir. rel itself may be a link, which is
+// replaced rather than followed.
+func linkOnPath(dir, rel string) string {
+	parts := strings.Split(filepath.ToSlash(filepath.Clean(filepath.FromSlash(rel))), "/")
+	p := dir
+	for i, part := range parts[:len(parts)-1] {
+		p = filepath.Join(p, part)
+		info, err := os.Lstat(p)
+		if err != nil {
+			return "" // not there yet, so nothing to pass through
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return strings.Join(parts[:i+1], "/")
+		}
+	}
+	return ""
+}
+
+// linksSupported says whether symbolic links are copied as links: not on
+// Windows, where making one takes a privilege most users lack.
+var linksSupported = runtime.GOOS != "windows"
+
+// linkMode is the mode a symbolic link is stored with, as the NFS server and
+// rclone store one.
+const linkMode = os.ModeSymlink | 0777
+
+// maxLinkTarget bounds a link's target, PATH_MAX on Linux.
+const maxLinkTarget = 4096
+
+// makeLink makes local a symbolic link to target, replacing a file or link
+// there in one step.
+func makeLink(target, local string) error {
+	if !linksSupported {
+		return fmt.Errorf("%s: symbolic links are not supported here", local)
+	}
+	if err := os.MkdirAll(filepath.Dir(local), 0755); err != nil {
+		return err
+	}
+	tmp := filepath.Join(filepath.Dir(local), fmt.Sprintf(".knot-link-%d-%s", os.Getpid(), filepath.Base(local)))
+	os.Remove(tmp)
+	if err := os.Symlink(target, tmp); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, local); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 func formatBytes(n int64) string {
