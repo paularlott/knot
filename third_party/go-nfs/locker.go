@@ -45,3 +45,17 @@ type LockConflict struct {
 // ErrLockLimit is returned by a ByteRangeLocker that refuses a lock to bound
 // its state; LOCK answers NFS4ERR_RESOURCE.
 var ErrLockLimit = errors.New("nfs: lock limit exceeded")
+
+// LockPaths is implemented by a ByteRangeLocker that can follow its files
+// as their paths change: Rename moves the ranges held on from, and on paths
+// below it, to to, and drops those held on what was at to, which the rename
+// replaced; Remove drops those held on path, and below it, which is gone.
+//
+// knot: added. Upstream kept ranges under the path they were taken on, so
+// a file renamed while locked lost its locks to its old name, and a file
+// removed while locked left them to the next file made with its name, where
+// nothing would ever release them.
+type LockPaths interface {
+	Rename(from, to string)
+	Remove(path string)
+}

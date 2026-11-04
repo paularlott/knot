@@ -36,6 +36,7 @@ Copy `.env.example` to `.env`. The knobs:
 | `KNOT_TEST_SPACE_READY_TIMEOUT` | seconds to wait for a space agent (default 600) |
 | `KNOT_TEST_FILES_ROOT` | where file storage tests keep the server's storage and their local folders, to test on another disk (default: a temporary folder) |
 | `KNOT_TEST_BIG_TREE` | runs `TestFileSyncBigTree`: `1` for 180,000 files, or a number; skipped when unset, as it takes minutes |
+| `KNOT_TEST_LOAD` | multiplies the writers and the time spent writing in `TestFileMultiWriter` (default `1`, about 35 seconds; `4` takes about 70) |
 
 ## How a run works
 
@@ -132,6 +133,7 @@ resources → events → ports → logs → clustering.
 | `TestFileModes` | the `knot file` command keeps file modes: `cp` both ways, `sync` up, down, two ways and between buckets, a `chmod` alone synced either way; a write that gives no mode keeps it; `admin file restore` brings it back; a mode in the decimal form knot wrote before 0.42 reads as none until `admin file fsck` reports it and `--repair` rewrites it in octal; over a real NFS mount (macOS only: elsewhere mounting needs root), files written by the command show their modes, a file made over NFS keeps its mode through a write and a rename, and a chmod there reaches the bucket; symbolic links sync and copy as links, are links over NFS, and one made over NFS syncs down as a link |
 | `TestFileStorageInterchange` | two clustered servers, each with its own database and storage (under `KNOT_TEST_FILES_ROOT` when set): files written on one with `knot file cp` and `sync` (modes and a link), the web interface (an upload gets 0644, an edit keeps the mode), over NFS and, on Knot Pro, S3 (rclone with and without `--metadata`), and a mode `fsck --repair` rewrote, all read the same on the other through `knot file sync`, NFS from macOS, S3, and a Linux space with the bucket mounted over an NFS template volume; files, a chmod and a link written in the space read the same back on the first. macOS only |
 | `TestFileSyncBigTree` | with `KNOT_TEST_BIG_TREE`: a tree of 180,000 files syncs with the knot command for this machine and, inside a space, for Linux; a second sync reads no file for its checksum; a watch sees a change and a folder moved in quickly, never walks the whole tree, and can watch every folder (FSEvents on macOS, inotify on Linux) |
+| `TestFileMultiWriter` | two clustered servers, each with its own database and storage, take writes at once from many writers on both: files of their own reach both servers with their content; the same files written by all end the same on both, as one of the versions written; files sharing content (empty ones too) keep it while the other server deletes some; many writers making the same new folders at once over NFS each finish, the folders made once; a file held open and locked over NFS while the nfs-server restarts is written, unlocked and locked again; writes over NFS mounts of both servers do the same as over the API (macOS); afterwards `fsck` finds nothing and neither server logged a file, NFS or cluster error. `KNOT_TEST_LOAD` scales it |
 
 ### Clustering
 

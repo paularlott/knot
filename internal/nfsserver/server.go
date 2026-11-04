@@ -358,6 +358,32 @@ func (h *handler) FromHandle(fh []byte) (billy.Filesystem, []string, error) {
 	}
 
 	fi, err := h.fs.Stat(joined)
+	// A file renamed here since the handle was made is found where it
+	// went, by its number: the Mac's client goes on using the handle of a
+	// file it renamed itself (see moves).
+	gone := errors.Is(err, os.ErrNotExist)
+	replaced := false
+	if info, ok := fi.(*fileInfo); ok && err == nil && ino != 0 && info.ino != 0 && info.ino != ino && !info.IsDir() {
+		replaced = true
+	}
+	// A file another server or client replaced at its path, rather than
+	// one removed or renamed away here, is the same file changed (see
+	// sawRecently).
+	now := time.Now()
+	if gone || replaced {
+		to, found := h.fs.moved.find(joined, ino, now)
+		switch {
+		case found && to != "":
+			if tfi, terr := h.fs.Stat(to); terr == nil {
+				tinfo, _ := tfi.(*fileInfo)
+				if ino == 0 || tinfo == nil || tinfo.ino == 0 || tinfo.ino == ino || tfi.IsDir() {
+					joined, fi, err, replaced = to, tfi, nil, false
+				}
+			}
+		case !found && replaced && h.fs.moved.sawRecently(joined, ino, now):
+			replaced = false
+		}
+	}
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil, &nfs.NFSStatusError{NFSStatus: nfs.NFSStatusStale}
@@ -370,8 +396,15 @@ func (h *handler) FromHandle(fh []byte) (billy.Filesystem, []string, error) {
 	// So is a file whose number is gone: written whole by another client
 	// (the web UI, the CLI, S3), which keeps no metadata it is not given.
 	// That is the same file changed, as a local overwrite keeps the inode.
-	if info, ok := fi.(*fileInfo); ok && ino != 0 && info.ino != 0 && info.ino != ino {
+	// A folder at a path is the same folder whatever its number: one made
+	// before folders were numbered by their path, on two servers at once,
+	// has a number that changes when one server's marker replaces the
+	// other's.
+	if replaced {
 		return nil, nil, &nfs.NFSStatusError{NFSStatus: nfs.NFSStatusStale}
+	}
+	if info, ok := fi.(*fileInfo); ok && ino != 0 && info.ino == ino && !info.IsDir() {
+		h.fs.moved.saw(joined, ino, now)
 	}
 
 	if joined == "" {

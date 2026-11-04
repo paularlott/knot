@@ -33,14 +33,14 @@ func nfs4OnRead(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	}
 	file, err := current.fs.Open(current.fullPath())
 	if err != nil {
-		return nfs4StatusFromErr(err)
+		return nfs4FileStatusFromErr(err)
 	}
 	defer file.Close()
 
 	data := make([]byte, req.Count)
 	n, err := file.ReadAt(data, int64(req.Offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return nfs4StatusFromErr(err)
+		return nfs4FileStatusFromErr(err)
 	}
 	eof := errors.Is(err, io.EOF)
 	if !eof {

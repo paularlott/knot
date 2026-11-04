@@ -41,11 +41,9 @@ func nfs4OnLock(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	if status != nfs4OK {
 		return status
 	}
-	if req.Reclaim {
-		// No grace period: this server keeps no lock state across a
-		// restart to reclaim.
-		return nfs4ErrNoGrace
-	}
+	// knot: a reclaim is granted as any other lock, as OPEN's reclaims are
+	// (see nfs4Reclaim); upstream answered NFS4ERR_NO_GRACE. One another
+	// owner took meanwhile is DENIED, and the client knows its lock lost.
 	r, status := nfs4LockRange(req.Offset, req.Length, req.LockType)
 	if status != nfs4OK {
 		return status

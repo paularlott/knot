@@ -73,6 +73,7 @@ const (
 	nfs4ErrBadStateID        nfs4Status = 10025
 	nfs4ErrAttrNotSupp       nfs4Status = 10032
 	nfs4ErrNoGrace           nfs4Status = 10033
+	nfs4ErrReclaimBad        nfs4Status = 10034
 	nfs4ErrBadXDR            nfs4Status = 10036
 	nfs4ErrBadName           nfs4Status = 10041
 	nfs4ErrOpIllegal         nfs4Status = 10044
@@ -171,12 +172,18 @@ type nfs4Compound struct {
 	handler Handler
 	current *nfs4FileHandle
 	saved   *nfs4FileHandle
+	// ghostClosed is set once a CLOSE in this compound closed a ghost
+	// handle's open (see nfs4OnPutFH).
+	ghostClosed bool
 }
 
 type nfs4FileHandle struct {
 	handle []byte
 	fs     billy.Filesystem
 	path   []string
+	// ghost is a handle the server no longer resolves (see nfs4OnPutFH):
+	// only state operations, which go by stateid, may use it.
+	ghost bool
 }
 
 // nfs4StateID is a stateid4: Seqid is the state's generation, Other names it.
@@ -308,6 +315,18 @@ func (c *nfs4Compound) requireCurrent() (*nfs4FileHandle, nfs4Status) {
 	if c.current == nil {
 		return nil, nfs4ErrNoFileHandle
 	}
+	if c.current.ghost {
+		return nil, nfs4ErrStale
+	}
+	return c.current, nfs4OK
+}
+
+// requireCurrentOrGhost is requireCurrent for the state operations that
+// may act on a ghost handle (see nfs4OnPutFH).
+func (c *nfs4Compound) requireCurrentOrGhost() (*nfs4FileHandle, nfs4Status) {
+	if c.current == nil {
+		return nil, nfs4ErrNoFileHandle
+	}
 	return c.current, nfs4OK
 }
 
@@ -329,6 +348,7 @@ func (fh *nfs4FileHandle) clone() *nfs4FileHandle {
 		handle: append([]byte(nil), fh.handle...),
 		fs:     fh.fs,
 		path:   nfs4CopyPath(fh.path),
+		ghost:  fh.ghost,
 	}
 }
 
@@ -399,6 +419,20 @@ func nfs4CopyPath(in []string) []string {
 	out := make([]string, len(in))
 	copy(out, in)
 	return out
+}
+
+// nfs4FileStatusFromErr is nfs4StatusFromErr for an operation on the
+// current filehandle: a file gone from under it is NFS4ERR_STALE.
+//
+// knot: NFS4ERR_NOENT is not an answer such operations may give (RFC 7530
+// names it for those that look a name up). Given it for a READ or WRITE of
+// a file removed a moment before, the Mac's client was left unable to
+// unmount; NFS4ERR_STALE has it let go of the file.
+func nfs4FileStatusFromErr(err error) nfs4Status {
+	if status := nfs4StatusFromErr(err); status != nfs4ErrNoEnt {
+		return status
+	}
+	return nfs4ErrStale
 }
 
 func nfs4StatusFromErr(err error) nfs4Status {

@@ -1,7 +1,9 @@
 package nfs
 
 import (
+	"errors"
 	"io"
+	"os"
 
 	"github.com/go-git/go-billy/v5"
 )
@@ -61,6 +63,15 @@ func nfs4OnCreate(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	}
 
 	childPath := parent.child(req.Name)
+	// knot: a name already there is answered EXIST (RFC 7530 18.4.4), and
+	// the check and the making are one step for clients racing to make it.
+	unlock := lockName(nfs4Join(parent.fs, childPath))
+	defer unlock()
+	if _, err := parent.fs.Lstat(nfs4Join(parent.fs, childPath)); err == nil {
+		return nfs4ErrExist
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nfs4StatusFromErr(err)
+	}
 	before := parent.changeID()
 	// knot: a symbolic link is made, not a folder.
 	if req.Type == FileTypeLink {

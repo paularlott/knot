@@ -49,6 +49,8 @@ type nfs4OpenArgs struct {
 	How         nfs4CreateHow `xdr:"unioncase=1"`
 	Claim       uint32        `xdr:"union"`
 	File        string        `xdr:"unioncase=0"`
+	// knot: CLAIM_PREVIOUS carries the delegation type to reclaim.
+	DelegateType uint32 `xdr:"unioncase=1"`
 }
 
 type nfs4OpenRes struct {
@@ -90,10 +92,7 @@ func nfs4OnOpen(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 		return nfs4ErrInval
 	}
 	if req.Claim == nfs4ClaimPrevious {
-		// No grace period: this server keeps no open state across a
-		// restart to reclaim. NFS4ERR_NO_GRACE sends the client to open
-		// the file afresh; any other error loses the open.
-		return nfs4ErrNoGrace
+		return nfs4Reclaim(c, req, res)
 	}
 	if req.Claim != nfs4ClaimNull {
 		return nfs4ErrNotSupp
@@ -177,6 +176,57 @@ func nfs4OnOpen(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 		CInfo:      nfs4ChangeInfo{Before: before, After: after},
 		RFlags:     nfs4OpenResultLocktypePosix,
 		AttrSet:    createAttrs.mask,
+		Delegation: nfs4OpenDelegateNone,
+	})
+}
+
+// nfs4Reclaim answers an OPEN that reclaims an open the client held before
+// it took the server to have restarted: the current filehandle is the file.
+//
+// knot: upstream answered NFS4ERR_NO_GRACE, keeping no state to reclaim.
+// The Mac's client, told so, starts its recovery again a second later, and
+// again, forever, every process using the mount hung: after this server
+// restarts, and after any stateid of its is refused. This server holds no
+// share reservations or delegations that a reclaim could contradict, so a
+// reclaim is granted as a fresh open of the file, at any time.
+func nfs4Reclaim(c *nfs4Compound, req nfs4OpenArgs, res io.Writer) nfs4Status {
+	if req.DelegateType != nfs4OpenDelegateNone {
+		// No delegation was ever granted to reclaim.
+		return nfs4ErrReclaimBad
+	}
+	if req.ShareDeny != nfs4ShareDenyNone {
+		return nfs4ErrNotSupp
+	}
+	if req.ShareAccess&(nfs4ShareAccessRead|nfs4ShareAccessWrite) == 0 {
+		return nfs4ErrInval
+	}
+	file, status := c.requireCurrent()
+	if status != nfs4OK {
+		return status
+	}
+	info, err := file.fs.Lstat(file.fullPath())
+	if err != nil {
+		return nfs4FileStatusFromErr(err)
+	}
+	if info.IsDir() {
+		return nfs4ErrIsDir
+	}
+	if req.ShareAccess&nfs4ShareAccessWrite != 0 {
+		if status := file.ensureWritable(); status != nfs4OK {
+			return status
+		}
+	}
+	sm := c.w.Server.nfs4State()
+	if status := sm.checkClient(req.Owner.ClientID); status != nfs4OK {
+		return status
+	}
+	id, status := sm.open(req.Owner, file.fullPath())
+	if status != nfs4OK {
+		return status
+	}
+	return nfs4Encode(res, nfs4OpenRes{
+		StateID:    id,
+		RFlags:     nfs4OpenResultLocktypePosix,
 		Delegation: nfs4OpenDelegateNone,
 	})
 }

@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -301,31 +303,32 @@ func TestHandles(t *testing.T) {
 	}
 }
 
-func TestHandlesGoStale(t *testing.T) {
+func TestHandlesAfterRename(t *testing.T) {
 	fsys, _ := newTestFS(t)
 	h := newHandler(fsys)
-	stale := func(fh []byte) bool {
-		_, _, err := h.FromHandle(fh)
-		return err != nil
+	resolve := func(fh []byte) (string, error) {
+		_, p, err := h.FromHandle(fh)
+		return strings.Join(p, "/"), err
 	}
 
-	// A file renamed away: its old handle is stale, so the client looks
-	// the new name up again.
+	// A file renamed away: its old handle finds it at its new name, as the
+	// Mac's client needs of a file it renamed while open (see moves).
 	writeFile(t, fsys, "data/a.txt", "a")
 	flushAll(t, fsys)
 	fh := h.ToHandle(fsys, []string{"data", "a.txt"})
 	if err := fsys.Rename("data/a.txt", "data/b.txt"); err != nil {
 		t.Fatal(err)
 	}
-	if !stale(fh) {
-		t.Fatal("handle of a renamed file still valid")
+	if p, err := resolve(fh); err != nil || p != "data/b.txt" {
+		t.Fatalf("handle of a renamed file: %q %v, want data/b.txt", p, err)
 	}
 
-	// A new file at the old path is a different file.
+	// A new file at the old path is a different file: the handle still
+	// finds the one it was made for.
 	writeFile(t, fsys, "data/a.txt", "new")
 	flushAll(t, fsys)
-	if !stale(fh) {
-		t.Fatal("handle reaches a different file now at its path")
+	if p, err := resolve(fh); err != nil || p != "data/b.txt" {
+		t.Fatalf("handle reaches %q %v, not the renamed file", p, err)
 	}
 
 	// The moved file keeps its inode number.
@@ -334,17 +337,22 @@ func TestHandlesGoStale(t *testing.T) {
 		t.Fatal("inode number lost on rename")
 	}
 
+	// Removed, its handle is stale.
+	if err := fsys.Remove("data/b.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if p, err := resolve(fh); err == nil {
+		t.Fatalf("handle of a removed file reaches %q", p)
+	}
+
 	// Folders too.
 	fsys.MkdirAll("data/d1", 0755)
 	dh := h.ToHandle(fsys, []string{"data", "d1"})
 	if err := fsys.Rename("data/d1", "data/d2"); err != nil {
 		t.Fatal(err)
 	}
-	if !stale(dh) {
-		t.Fatal("handle of a renamed folder still valid")
-	}
-	if _, err := fsys.Stat("data/d2"); err != nil {
-		t.Fatal(err)
+	if p, err := resolve(dh); err != nil || p != "data/d2" {
+		t.Fatalf("handle of a renamed folder: %q %v, want data/d2", p, err)
 	}
 }
 
@@ -542,5 +550,49 @@ func TestForcedOwner(t *testing.T) {
 	fi, _ = fsys.Stat("data/f")
 	if info := fi.(*fileInfo); info.uid != 501 || info.gid != 20 {
 		t.Fatalf("stored owner lost: %d:%d", info.uid, info.gid)
+	}
+}
+
+// A folder's inode number comes from its path, so two clients, or two
+// servers, making the same folder at once give it the same number, and a
+// handle to a folder holds however its number came about: one given out
+// with another number, as when another server's marker replaced this one's,
+// still reaches it.
+func TestFolderNumbersAreStable(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	h := newHandler(fsys)
+
+	// Made by several at once.
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fsys.MkdirAll("data/raced", 0755)
+		}()
+	}
+	wg.Wait()
+	fi, err := fsys.Stat("data/raced")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want, _ := strconv.ParseUint(folderIno("data", "raced"), 16, 64); fi.(*fileInfo).ino != want {
+		t.Errorf("a folder made at once by several has number %x, want %x", fi.(*fileInfo).ino, want)
+	}
+
+	// A handle with another number for the folder still reaches it.
+	fh := h.ToHandle(fsys, []string{"data", "raced"})
+	binary.BigEndian.PutUint64(fh[1:handleHeader], 0x1234)
+	if _, p, err := h.FromHandle(fh); err != nil || strings.Join(p, "/") != "data/raced" {
+		t.Errorf("a folder's handle with another number: %v %v", p, err)
+	}
+
+	// A file's still marks it as another file at the same path.
+	writeFile(t, fsys, "data/raced/f", "f")
+	flushAll(t, fsys)
+	fh = h.ToHandle(fsys, []string{"data", "raced", "f"})
+	binary.BigEndian.PutUint64(fh[1:handleHeader], 0x1234)
+	if _, _, err := h.FromHandle(fh); err == nil {
+		t.Error("a file's handle with another number was taken")
 	}
 }

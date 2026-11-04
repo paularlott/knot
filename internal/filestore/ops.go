@@ -623,37 +623,48 @@ func (s *Store) commitContent(p *Principal, bucket, key string, st *staged, etag
 	}
 	defer release()
 
-	// A content file is installed and referenced under the lock that stops
-	// content whose last reference went from being removed in between.
-	if kind == contentFile {
-		s.blobMu.RLock()
-		defer s.blobMu.RUnlock()
-		if err := s.blobs.install(st.tw.Path(), sha); err != nil {
-			st.discard()
-			return nil, err
-		}
-	}
-
 	o := s.newObjectLocked(b, key, sha, etag, st.size, opts)
 	o.Writer = p.Writer
-	changed, err := s.applyObjects([]objectOp{{
-		obj: o,
-		pre: func(txn *badger.Txn, cur *Object) error {
-			if !s.liveLocked(cur) {
-				cur = nil
+
+	// A content file is installed and referenced under the lock that stops
+	// content whose last reference went from being removed in between. That
+	// lock is let go before the change is committed: committing removes the
+	// content changes left unreferenced, which takes it to write.
+	changed, err := func() ([]*Object, error) {
+		if kind == contentFile {
+			s.blobMu.RLock()
+			defer s.blobMu.RUnlock()
+			if err := s.blobs.install(st.tw.Path(), sha); err != nil {
+				st.discard()
+				return nil, err
 			}
-			return checkPreconditions(cur, opts)
-		},
-		content: kind,
-		data:    data,
-	}})
+		}
+		return s.applyObjects([]objectOp{{
+			obj: o,
+			pre: func(txn *badger.Txn, cur *Object) error {
+				if !s.liveLocked(cur) {
+					cur = nil
+				}
+				return checkPreconditions(cur, opts)
+			},
+			content: kind,
+			data:    data,
+		}})
+	}()
 	if err != nil {
 		return nil, err
 	}
 	if len(changed) == 0 {
 		// A newer record, from a write on another server at the same moment,
 		// is already held: this write happened and was replaced at once, which
-		// is what last writer wins means. Nothing is stored or gossiped.
+		// is what last writer wins means. Nothing is gossiped, and a content
+		// file installed for it goes unless something else holds the content.
+		if kind == contentFile {
+			s.unlinkMu.Lock()
+			s.unlink = append(s.unlink, sha)
+			s.unlinkMu.Unlock()
+			s.flushUnlinks()
+		}
 		return o.clone(), nil
 	}
 

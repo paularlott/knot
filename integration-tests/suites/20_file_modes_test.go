@@ -5,6 +5,8 @@ package suites
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -309,35 +311,60 @@ func TestFileModes(t *testing.T) {
 // startNFS serves the server's buckets over NFS on loopback, as user, until
 // the test ends, and returns its port. args are added to the command.
 func startNFS(t *testing.T, s *harness.Server, user *harness.User, args ...string) int {
+	port, _ := startNFSRestartable(t, s, user, args...)
+	return port
+}
+
+// startNFSRestartable is startNFS that also returns a restart: it kills the
+// nfs-server, as a crash or an upgrade would, and starts it again on the
+// same port.
+func startNFSRestartable(t *testing.T, s *harness.Server, user *harness.User, args ...string) (int, func()) {
 	t.Helper()
 	port, err := harness.FreePort()
 	if err != nil {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	srv := exec.Command(bins.Server, append([]string{"nfs-server", "--server", s.BaseURL, "--token", user.Token,
-		"--nfs-listen", "127.0.0.1:" + strconv.Itoa(port)}, args...)...)
-	srv.Dir = dir
-	srv.Env = append(os.Environ(), "HOME="+dir)
+	// Its output goes to a log beside the servers' too, to read when it
+	// misbehaves (a SIGQUIT dumps its goroutines there).
 	var log bytes.Buffer
-	srv.Stdout, srv.Stderr = &log, &log
-	if err := srv.Start(); err != nil {
-		t.Fatal(err)
+	out := io.Writer(&log)
+	if f, err := os.Create(filepath.Join(filepath.Dir(s.LogPath), fmt.Sprintf("nfs-%s-%d.log", s.Name, port))); err == nil {
+		t.Cleanup(func() { f.Close() })
+		out = io.MultiWriter(&log, f)
 	}
-	t.Cleanup(func() {
+	var srv *exec.Cmd
+	start := func() {
+		t.Helper()
+		srv = exec.Command(bins.Server, append([]string{"nfs-server", "--server", s.BaseURL, "--token", user.Token,
+			"--nfs-listen", "127.0.0.1:" + strconv.Itoa(port)}, args...)...)
+		srv.Dir = dir
+		srv.Env = append(os.Environ(), "HOME="+dir)
+		srv.Stdout, srv.Stderr = out, out
+		if err := srv.Start(); err != nil {
+			t.Fatal(err)
+		}
+		if !waitForCond(30, func() bool {
+			c, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(port), time.Second)
+			if err == nil {
+				c.Close()
+			}
+			return err == nil
+		}) {
+			t.Fatalf("nfs-server did not start:\n%s", log.String())
+		}
+	}
+	stop := func() {
 		srv.Process.Kill()
 		srv.Wait()
-	})
-	if !waitForCond(30, func() bool {
-		c, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(port), time.Second)
-		if err == nil {
-			c.Close()
-		}
-		return err == nil
-	}) {
-		t.Fatalf("nfs-server did not start:\n%s", log.String())
 	}
-	return port
+	start()
+	t.Cleanup(func() { stop() })
+	return port, func() {
+		t.Helper()
+		stop()
+		start()
+	}
 }
 
 // mountNFS serves the server's buckets over NFS, as user, and mounts them at
@@ -348,7 +375,23 @@ func mountNFS(t *testing.T, s *harness.Server, user *harness.User, dir string) s
 	if runtime.GOOS != "darwin" {
 		t.Skip("mounting NFS needs root here")
 	}
-	port := startNFS(t, s, user)
+	return mountNFSAt(t, startNFS(t, s, user), dir)
+}
+
+// mountNFSRestartable is mountNFS that also returns a restart of the
+// nfs-server behind the mount (see startNFSRestartable).
+func mountNFSRestartable(t *testing.T, s *harness.Server, user *harness.User, dir string) (string, func()) {
+	t.Helper()
+	if runtime.GOOS != "darwin" {
+		t.Skip("mounting NFS needs root here")
+	}
+	port, restart := startNFSRestartable(t, s, user)
+	return mountNFSAt(t, port, dir), restart
+}
+
+// mountNFSAt mounts the NFS server on port at dir until the test ends.
+func mountNFSAt(t *testing.T, port int, dir string) string {
+	t.Helper()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -359,8 +402,11 @@ func mountNFS(t *testing.T, s *harness.Server, user *harness.User, dir string) s
 		t.Skipf("cannot mount NFS here: %v\n%s", err, out)
 	}
 	t.Cleanup(func() {
+		// umount -f, never diskutil: given a folder that is no longer a
+		// mount point, diskutil unmounts the volume holding it instead,
+		// which ejected the disk KNOT_TEST_FILES_ROOT was on.
 		if out, err := exec.Command("umount", dir).CombinedOutput(); err != nil {
-			exec.Command("diskutil", "unmount", "force", dir).Run()
+			exec.Command("umount", "-f", dir).Run()
 			t.Logf("umount %s: %v %s", dir, err, out)
 		}
 	})

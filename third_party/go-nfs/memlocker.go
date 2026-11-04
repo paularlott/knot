@@ -3,6 +3,7 @@ package nfs
 import (
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -229,4 +230,60 @@ func lessLockOwner(a, b LockOwner) bool {
 		return a.Client < b.Client
 	}
 	return a.Owner < b.Owner
+}
+
+// Rename moves the ranges on from, and below it, to to (LockPaths).
+func (m *memoryLocker) Rename(from, to string) {
+	if from == to {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	moved := map[string]map[LockOwner][]LockRange{}
+	for path, owners := range m.files {
+		if rest, ok := pathBelow(path, from); ok {
+			held := make(map[LockOwner][]LockRange, len(owners))
+			for owner, ranges := range owners {
+				held[owner] = ranges
+				m.setLocked(owner, path, nil, -len(ranges))
+			}
+			moved[to+rest] = held
+		}
+	}
+	// What was at to, and below it, was replaced.
+	m.removeLocked(to)
+	for path, owners := range moved {
+		for owner, ranges := range owners {
+			m.setLocked(owner, path, ranges, len(ranges))
+		}
+	}
+}
+
+// Remove drops the ranges on path, and below it (LockPaths).
+func (m *memoryLocker) Remove(path string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.removeLocked(path)
+}
+
+func (m *memoryLocker) removeLocked(base string) {
+	for path, owners := range m.files {
+		if _, ok := pathBelow(path, base); ok {
+			for owner, ranges := range owners {
+				m.setLocked(owner, path, nil, -len(ranges))
+			}
+		}
+	}
+}
+
+// pathBelow reports whether path is base or below it, and returns the rest
+// of path after base.
+func pathBelow(path, base string) (string, bool) {
+	if path == base {
+		return "", true
+	}
+	if strings.HasPrefix(path, base) && strings.HasPrefix(path[len(base):], "/") {
+		return path[len(base):], true
+	}
+	return "", false
 }

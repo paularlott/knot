@@ -51,7 +51,7 @@ func nfs4OnReadDir(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	// last had, however the folder changed meanwhile; no verifier is needed.
 	contents, nfsErr := getDirListing(c.handler, current.handle)
 	if nfsErr != nil {
-		return nfs4StatusFromErr(nfsErr)
+		return nfs4FileStatusFromErr(nfsErr)
 	}
 	verifier := uint64(0)
 

@@ -58,6 +58,53 @@ NFSv4.0:
 - CREATE of a folder sets the attributes given (its mode, from
   `mkdir -m`), as NFSv3's MKDIR and NFSv4's OPEN do; upstream dropped them,
   so every folder got the default mode.
+- CREATE of a name that exists answers NFS4ERR_EXIST (RFC 7530 18.4.4);
+  upstream answered every CREATE of a folder that existed as if it had made
+  it. NFSv3's MKDIR answers EXIST for a file of that name too, not only a
+  folder. Both check and make under a lock on the name (`createlock.go`),
+  so of clients racing to make a folder one does and the others are told
+  it exists.
+- Open and lock state follows its file. On a RENAME, NFSv4's or NFSv3's,
+  it moves to the new path (`nfs4StateManager.rename`), and what the rename
+  replaced lets go of its path; on a REMOVE it lets go of the path
+  (`removed`), its locks dropped. The lock table follows through
+  `LockPaths`, which the in-memory locker implements. Upstream kept state
+  under the path it was taken on: the lock stateid of a file renamed while
+  locked was NFS4ERR_BAD_STATEID, and the locks of a file removed while
+  locked passed to the next file made with its name, where no one would
+  release them. The Mac's client, many processes making folders at once,
+  renames, removes and remakes the AppleDouble `._` file beside a folder
+  while others hold locks on it, and both hung every process using the
+  mount: the first sent it reclaiming its opens forever, the second left
+  processes waiting forever for a lock.
+- A handle that no longer resolves, its file removed, is a ghost: PUTFH
+  succeeds, the operations that need the file answer NFS4ERR_STALE as PUTFH
+  did, but CLOSE and LOCKU act by stateid, answering NFS4ERR_NOENT for state
+  already gone, and the GETATTR after such a CLOSE answers NFS4ERR_NOENT
+  (`nfs4OnPutFH`). The Mac's client, letting go of a file it held open
+  when it was removed, sends PUTFH CLOSE GETATTR and on any error but
+  NOENT sends it again at once, forever (NFS.kext `nfs_vnop_inactive`),
+  every process using that folder waiting behind it, and unmounting too.
+- An operation on the current filehandle (READ, WRITE, COMMIT, GETATTR,
+  SETATTR, READDIR, READLINK) whose file is gone answers NFS4ERR_STALE, not
+  NFS4ERR_NOENT, which RFC 7530 keeps for operations that look a name up
+  (`nfs4FileStatusFromErr`); CLOSE of a file removed meanwhile closes its
+  open without saving.
+- A special stateid (all zeros or all ones) where state is needed is
+  NFS4ERR_BAD_STATEID (RFC 7530 9.1.4.3), not NFS4ERR_STALE_STATEID, which
+  tells the client the server restarted, with one exception: a LOCK for a
+  new lock owner under the anonymous open stateid is granted, a lock with
+  no open behind it. The Mac's client sends one for a file it has lost its
+  open of (one process closing it as another locks it), and any refusal
+  starts the recovery below.
+- Reclaims are granted, at any time: an OPEN with CLAIM_PREVIOUS opens the
+  current file afresh (`nfs4Reclaim`), and a LOCK with reclaim set is a
+  LOCK, DENIED if another owner took the range meanwhile. Upstream answered
+  NFS4ERR_NO_GRACE, keeping no state across a restart, and the Mac's client,
+  told so, starts its recovery again a second later, forever, every process
+  using the mount hung: after this server restarts, and after any of its
+  stateids is refused. There are no share reservations or delegations that
+  a reclaim could contradict.
 - Errors map as NFSv3's do (`statusFromError`), with NFS4ERR_XDEV,
   NFS4ERR_NAMETOOLONG and NFS4ERR_DQUOT added.
 - READ and WRITE sizes offered are 1MB (`maxTransfer`), not 16MB, which with

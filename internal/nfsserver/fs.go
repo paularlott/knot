@@ -79,6 +79,10 @@ type storeFS struct {
 	// so it can pass over its own in change events.
 	writer string
 
+	// moved remembers where files renamed here went, for handles made
+	// before (see moves).
+	moved moves
+
 	mu        sync.Mutex
 	stats     map[string]cachedStat // by statKey
 	dirs      map[string]*dirNames  // folders' entries, by statKey of the folder
@@ -592,6 +596,14 @@ func appleDouble(key string) string {
 }
 
 // newIno is a new inode number for metaIno.
+// folderIno is the inode number of a folder: the one it shows with no
+// marker, so making a marker keeps it, and two clients or two servers making
+// the same folder at once give it the same one. A random one would leave the
+// file handles given out with the losing number stale.
+func folderIno(bucket, key string) string {
+	return strconv.FormatUint(fileId(bucket, key+"/"), 16)
+}
+
 func newIno() string {
 	var b [8]byte
 	for {
@@ -916,11 +928,19 @@ func (fs *storeFS) Remove(name string) error {
 		return pathErr("remove", name, fs.backend.DeleteBucket(ctx(), bucket))
 	}
 
+	var ino uint64
+	if fi, err := fs.Stat(name); err == nil {
+		if info, ok := fi.(*fileInfo); ok && !info.IsDir() {
+			ino = info.ino
+		}
+	}
 	staged := fs.staging.remove(bucket, key)
 	err := fs.backend.Delete(ctx(), bucket, key)
 	if err == nil || (staged && errors.Is(err, os.ErrNotExist)) {
 		fs.removeAppleDouble(bucket, key)
 		fs.noteGone(bucket, key)
+		// Its handles are of a file removed here (see moves).
+		fs.moved.add(name, "", ino, time.Now())
 		return nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -992,6 +1012,8 @@ func (fs *storeFS) removeAppleDouble(bucket, key string) {
 	case err == nil, errors.Is(err, os.ErrNotExist):
 		fs.forget(bucket, ad, false)
 		fs.noteGone(bucket, ad)
+		// Its handles are of a file removed here (see moves).
+		fs.moved.add(bucket+"/"+ad, "", 0, time.Now())
 	default:
 		// Not known whether it is still there: ask again.
 		fs.mu.Lock()
@@ -1018,7 +1040,12 @@ func (fs *storeFS) Rename(from, to string) error {
 	if err != nil {
 		return err
 	}
-	if dst, err := fs.Stat(to); err == nil {
+	var replacedIno uint64
+	dst, dstErr := fs.Stat(to)
+	if info, ok := dst.(*fileInfo); ok && dstErr == nil && !info.IsDir() {
+		replacedIno = info.ino
+	}
+	if dstErr == nil {
 		if dst.IsDir() != src.IsDir() {
 			if dst.IsDir() {
 				return pathErr("rename", to, syscall.EISDIR)
@@ -1056,6 +1083,15 @@ func (fs *storeFS) Rename(from, to string) error {
 	}
 	fs.noteGone(fb, fk)
 	fs.noteExists(tb, tk)
+	var ino uint64
+	if info, ok := src.(*fileInfo); ok {
+		ino = info.ino
+	}
+	if dstErr == nil && !dst.IsDir() {
+		// What the rename replaced is a file removed here.
+		fs.moved.add(to, "", replacedIno, time.Now())
+	}
+	fs.moved.add(from, to, ino, time.Now())
 	return nil
 }
 
@@ -1076,7 +1112,7 @@ func (fs *storeFS) MkdirAll(name string, perm os.FileMode) error {
 		// A new top level folder is a new bucket of the user's own.
 		err = fs.backend.CreateBucket(ctx(), bucket)
 	} else {
-		_, err = fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: newIno()})
+		_, err = fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: folderIno(bucket, key)})
 	}
 	if err != nil {
 		return pathErr("mkdir", name, err)
@@ -1234,7 +1270,7 @@ func (fs *storeFS) setMeta(name string, kv map[string]string) error {
 		}
 		defer fs.forget(bucket, key, false)
 		if marker == nil {
-			meta := map[string]string{metaIno: newIno()}
+			meta := map[string]string{metaIno: folderIno(bucket, key)}
 			for k, v := range kv {
 				meta[k] = v
 			}

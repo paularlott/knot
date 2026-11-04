@@ -40,7 +40,7 @@ func nfs4SetAttr(c *nfs4Compound, args io.Reader) (nfs4Bitmap, nfs4Status) {
 		return nil, status
 	}
 	if err := attrs.attrs.Apply(c.handler.Change(current.fs), current.fs, current.fullPath()); err != nil {
-		return nil, nfs4StatusFromErr(err)
+		return nil, nfs4FileStatusFromErr(err)
 	}
 	return attrs.mask, nfs4OK
 }
