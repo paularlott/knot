@@ -63,6 +63,7 @@ type syncOptions struct {
 	excludes        func(rel string, isDir bool) bool
 	allowMassDelete bool
 	statePath       string        // two ways: where the base is kept
+	hashCachePath   string        // where local checksums are kept between runs; the default when empty
 	log             logger.Logger // where the sync reports; the "sync" group of the knot logger by default
 	watching        bool          // passes run on as changes come; no summary when nothing happened
 }
@@ -114,6 +115,10 @@ type syncer struct {
 	cursor   string
 	warned   map[string]string
 	baseDirt bool
+
+	hashDirt  bool      // hashes changed since the cache was written
+	hashSaved time.Time // when it was
+	hashedNow int       // files read for their checksum this pass
 
 	counts passCounts
 }
@@ -225,6 +230,7 @@ func (s *syncer) prepare(ctx context.Context) error {
 			return err
 		}
 	}
+	s.loadHashes()
 	return nil
 }
 
@@ -566,6 +572,8 @@ func (s *syncer) localSHA(l *localFile) (string, error) {
 	s.mu.Lock()
 	l.sha = sha
 	s.hashes[l.rel] = hashed{size: l.size, mtime: l.mtime, sha: sha}
+	s.hashDirt = true
+	s.hashedNow++
 	s.mu.Unlock()
 	return sha, nil
 }
@@ -868,6 +876,7 @@ func (s *syncer) pass(ctx context.Context, ids []string) error {
 	if err := s.saveBase(); err != nil {
 		errs = append(errs, err)
 	}
+	s.saveHashes(!s.opt.watching)
 	if guardErr != nil {
 		errs = append(errs, guardErr)
 	}
@@ -1177,6 +1186,7 @@ func (s *syncer) download(ctx context.Context, a action) error {
 	l.sha = r.sha
 	s.mu.Lock()
 	s.hashes[rel] = hashed{size: l.size, mtime: l.mtime, sha: r.sha}
+	s.hashDirt = true
 	s.local[a.id] = l
 	s.counts.downloaded++
 	s.mu.Unlock()
@@ -1345,7 +1355,10 @@ func (s *syncer) report() {
 	s.mu.Lock()
 	c := s.counts
 	s.counts = passCounts{}
+	hashed := s.hashedNow
+	s.hashedNow = 0
 	s.mu.Unlock()
+	s.log.Debug("files read for their checksum", "count", hashed)
 	msg := "synced"
 	if s.opt.dryRun {
 		msg = "dry run: nothing changed"

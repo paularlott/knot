@@ -274,7 +274,7 @@ func (s *agentServer) ConnectAndServe() {
 				}
 
 				response = &msg.RegisterResponse{}
-				if err := msg.ReadMessage(s.conn, response); err != nil {
+				if err := msg.ReadMessageWithTimeout(s.conn, response, msg.RegistrationReplyTimeout); err != nil {
 					log.WithError(err).Error("decoding register response:")
 					s.conn.Close()
 					time.Sleep(connectRetryDelay)

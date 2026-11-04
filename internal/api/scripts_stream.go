@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
@@ -25,6 +26,9 @@ var upgrader = websocket.Upgrader{
 }
 
 func HandleExecuteScriptStream(w http.ResponseWriter, r *http.Request) {
+	// The script may stream for minutes: the connection, upgraded to a
+	// websocket, keeps the server's write deadline unless it is lifted.
+	rest.NoDeadlines(w)
 	spaceId := r.PathValue("space_id")
 	scriptName := r.URL.Query().Get("script")
 	isContent := r.URL.Query().Get("content") == "true"

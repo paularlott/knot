@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/paularlott/knot/apiclient"
 )
 
@@ -45,18 +44,18 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 	watchLocal := s.opt.mode != modeDown
 	watchRemote := s.opt.mode != modeUp
 
-	var fsw *fsnotify.Watcher
-	var fsEvents <-chan fsnotify.Event
-	var fsErrors <-chan error
+	var w dirWatcher
+	var fsEvents <-chan watchEvent
 	if watchLocal {
 		var err error
-		if fsw, err = fsnotify.NewWatcher(); err != nil {
+		if w, err = newDirWatcher(s); err != nil {
 			return fmt.Errorf("watch %s: %w", s.opt.dir, err)
 		}
-		defer fsw.Close()
-		s.watchTree(fsw, s.opt.dir)
-		fsEvents, fsErrors = fsw.Events, fsw.Errors
+		defer w.close()
+		w.add(s.opt.dir)
+		fsEvents = w.events()
 	}
+	defer s.saveHashes(true)
 
 	// The bucket's event stream says when to ask for its changes.
 	remoteKick := make(chan struct{}, 1)
@@ -121,25 +120,11 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 			if !ok {
 				return nil
 			}
-			if s.onFsEvent(fsw, ev, dirty) {
+			if s.onFsEvent(w, ev, dirty) {
 				rescan = true
 			}
 			if settle == nil {
 				settle = time.After(settleTime)
-			}
-
-		case err, ok := <-fsErrors:
-			if !ok {
-				return nil
-			}
-			// Events lost (the kernel queue overflowed): look at everything.
-			if errors.Is(err, fsnotify.ErrEventOverflow) {
-				rescan = true
-				if settle == nil {
-					settle = time.After(settleTime)
-				}
-			} else if err != nil {
-				s.log.WithError(err).Warn("watching the directory")
 			}
 
 		case <-remoteKick:
@@ -157,6 +142,11 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 				remoteDue = true
 			}
 			if time.Since(lastRescan) >= rescanEvery {
+				rescan = true
+			}
+			// Events lost (a queue overflowed): look at everything.
+			if w != nil && w.takeLost() {
+				s.log.Debug("file system events were lost: looking at every file")
 				rescan = true
 			}
 			if (remoteDue || rescan) && settle == nil {
@@ -210,6 +200,7 @@ func (s *syncer) gather(ctx context.Context, dirty map[string]string, rescan, re
 		}
 	}
 	if full {
+		s.log.Debug("looking at every local file")
 		s.mu.Lock()
 		err := s.scanLocal()
 		s.mu.Unlock()
@@ -260,58 +251,76 @@ func (s *syncer) relFor(id string) string {
 
 // onFsEvent notes what a file system event touched. It reports true when
 // the change is better found by walking (a directory came or went).
-func (s *syncer) onFsEvent(fsw *fsnotify.Watcher, ev fsnotify.Event, dirty map[string]string) bool {
-	rel, err := filepath.Rel(s.opt.dir, ev.Name)
+func (s *syncer) onFsEvent(w dirWatcher, ev watchEvent, dirty map[string]string) bool {
+	if ev.all {
+		return true
+	}
+	rel, err := filepath.Rel(s.opt.dir, ev.path)
 	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 		return false
 	}
 	rel = filepath.ToSlash(rel)
-	if internalName(filepath.Base(ev.Name)) {
+	if internalName(filepath.Base(ev.path)) {
 		return false
 	}
-	info, statErr := os.Lstat(ev.Name)
+	info, statErr := os.Lstat(ev.path)
 	if statErr == nil && info.IsDir() {
 		if s.excluded(rel, true) {
 			return false
 		}
-		// A new directory: watch it, and walk it for what it already holds.
-		s.watchTree(fsw, ev.Name)
-		return true
+		// A new directory, or one whose events were lost: watch it, and
+		// look at what it holds, without walking the rest of the tree.
+		w.add(ev.path)
+		s.walkNew(ev.path, dirty)
+		if ev.below {
+			s.dirtyBelow(rel, dirty)
+		}
+		return false
 	}
 	if s.excluded(rel, false) {
 		return false
 	}
-	// A path that is gone may have been a directory: walk if anything was
-	// known below it.
+	// A path that is gone may have been a directory: look again at what was
+	// known below it, and stop watching it.
 	if statErr != nil {
-		s.mu.Lock()
-		prefix := s.identity(rel) + "/"
-		for id := range s.local {
-			if strings.HasPrefix(id, prefix) {
-				s.mu.Unlock()
-				return true
-			}
-		}
-		s.mu.Unlock()
+		s.dirtyBelow(rel, dirty)
+		w.remove(ev.path)
 	}
 	dirty[s.identity(rel)] = rel
 	return false
 }
 
-// watchTree watches a directory and those below it that are not excluded.
-func (s *syncer) watchTree(fsw *fsnotify.Watcher, root string) {
-	filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil || !d.IsDir() {
+// dirtyBelow notes every file known below a folder, to look at again.
+func (s *syncer) dirtyBelow(rel string, dirty map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	prefix := s.identity(rel) + "/"
+	for id, l := range s.local {
+		if strings.HasPrefix(id, prefix) {
+			dirty[id] = l.rel
+		}
+	}
+}
+
+// walkNew notes every file below a directory that has just appeared.
+func (s *syncer) walkNew(dir string, dirty map[string]string) {
+	filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
 			return nil
 		}
-		if p != s.opt.dir {
-			rel, _ := filepath.Rel(s.opt.dir, p)
-			if s.excluded(filepath.ToSlash(rel), true) {
+		rel, err := filepath.Rel(s.opt.dir, p)
+		if err != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			if p != dir && s.excluded(rel, true) {
 				return filepath.SkipDir
 			}
+			return nil
 		}
-		if err := fsw.Add(p); err != nil {
-			s.log.WithError(err).Warn("cannot watch folder", "dir", s.rel(p))
+		if !internalName(d.Name()) && !s.excluded(rel, false) {
+			dirty[s.identity(rel)] = rel
 		}
 		return nil
 	})

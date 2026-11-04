@@ -81,6 +81,7 @@ type syncRequest struct {
 	allowMassDelete            bool
 	statePath                  string
 	follow                     eventFollower // the event stream; nil for the server's
+	log                        logger.Logger // where the sync reports; the knot logger when nil
 }
 
 // runSync makes the destination match the source, in the direction the two
@@ -130,6 +131,7 @@ func runSyncRequest(ctx context.Context, client *apiclient.ApiClient, srcArg, ds
 		allowMassDelete: req.allowMassDelete,
 		statePath:       req.statePath,
 		watching:        req.watch,
+		log:             req.log,
 	}
 	local, remote := src, dst
 	if src.remote {

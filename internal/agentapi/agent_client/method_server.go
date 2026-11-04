@@ -267,9 +267,11 @@ func (c *AgentClient) publishMethods(reg *methods.Registration) error {
 		if err == nil {
 			err = msg.WriteMessage(conn, &msg.RegisterMethodsRequest{Registration: *reg})
 		}
+		// The server checks and stores the registration before it answers,
+		// which a busy database may slow.
 		var response msg.RegisterMethodsResponse
 		if err == nil {
-			err = msg.ReadMessage(conn, &response)
+			err = msg.ReadMessageWithTimeout(conn, &response, msg.RegistrationReplyTimeout)
 		}
 		_ = conn.Close()
 		if err != nil {

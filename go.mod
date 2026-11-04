@@ -20,6 +20,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.9.2
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/go-webauthn/webauthn v0.18.2
+	github.com/go-webgpu/goffi v0.6.8
 	github.com/gogpu/systray v0.3.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -63,7 +64,6 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/go-webauthn/x v0.3.1 // indirect
-	github.com/go-webgpu/goffi v0.6.8 // indirect
 	github.com/godbus/dbus/v5 v5.2.4 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect

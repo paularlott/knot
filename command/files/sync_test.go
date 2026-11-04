@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -29,8 +30,18 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	testDBDir = dir
+	// Sync state and checksum caches go to the user's configuration
+	// directory: keep the tests' out of the real one.
+	cfg, err := os.MkdirTemp("", "knot-files-cli-config")
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("HOME", cfg)
+	os.Setenv("XDG_CONFIG_HOME", cfg)
+	os.Setenv("APPDATA", cfg)
 	code := m.Run()
 	os.RemoveAll(dir)
+	os.RemoveAll(cfg)
 	os.Exit(code)
 }
 
@@ -221,6 +232,9 @@ func TestSyncUpThroughSymlink(t *testing.T) {
 // downloaded 0644, or with the mode of the file it replaces;
 // TestCopyKeepsMode covers one that has a mode.
 func TestDownloadMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no POSIX modes on Windows")
+	}
 	client, store := newFilesServer(t)
 	ctx := context.Background()
 	putModeless(t, store, "mode/f.txt", "x")

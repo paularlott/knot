@@ -38,7 +38,7 @@ def run(space, name):
     Works for disabled and manual-only jobs. The space must be running.
     Returns True if the job was started.
     """
-    response = api.post(f"/space-io/{_enc(space)}/jobs/run", {"name": name})
+    response = api.post(f"/space-io/{_enc(space)}/jobs/run", {"name": name}, timeout=60)
     if not response.get("success", False):
         raise RuntimeError(response.get("error", f"failed to run job '{name}'"))
     return True

@@ -151,7 +151,7 @@ def execute(space_name, script_name=None, script_id=None, content=None, args=Non
     else:
         raise Exception("script_name, script_id, or content is required")
 
-    response = api.post(f"/api/spaces/{_enc(space_name)}/execute-script", body)
+    response = api.post(f"/api/spaces/{_enc(space_name)}/execute-script", body, timeout=420)
     return {
         "output": response.get("output", ""),
         "error": response.get("error", ""),

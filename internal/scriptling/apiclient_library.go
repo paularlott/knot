@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/scriptling/conversion"
@@ -17,6 +18,32 @@ import (
 
 // maxRawBytes caps one raw transfer: a script holds file content in memory.
 const maxRawBytes = 64 << 20
+
+// callContext bounds one call by the timeout, in seconds, the script gives
+// as timeout= or as the positional argument at pos, lifting the REST
+// client's own timeout so a longer one is honoured. A call given no timeout
+// keeps the client's: none in the server, six minutes in a space.
+func callContext(ctx context.Context, kwargs object.Kwargs, args []object.Object, pos int) (context.Context, context.CancelFunc, object.Object) {
+	t := kwargs.Get("timeout")
+	if t == nil && len(args) > pos {
+		t = args[pos]
+	}
+	if t == nil {
+		return ctx, func() {}, nil
+	}
+	if _, isNull := t.(*object.Null); isNull {
+		return ctx, func() {}, nil
+	}
+	secs, err := t.AsFloat()
+	if err != nil {
+		return nil, nil, errors.ParameterError("timeout", err)
+	}
+	if secs <= 0 {
+		return nil, nil, &object.Error{Message: "timeout must be more than 0 seconds"}
+	}
+	ctx, cancel := context.WithTimeout(rest.WithoutTimeout(ctx), time.Duration(secs*float64(time.Second)))
+	return ctx, cancel, nil
+}
 
 // GetApiClientLibrary returns the knot.apiclient Go transport library.
 // In embedded contexts this replaces the Python apiclient.py transport stub.
@@ -69,8 +96,14 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			}
 		}
 
+		ctx, cancel, errObj := callContext(ctx, kwargs, args, 2)
+		if errObj != nil {
+			return errObj
+		}
+		defer cancel()
+
 		var result interface{}
-		statusCode, apiErr := client.GetJSON(context.Background(), path, &result)
+		statusCode, apiErr := client.GetJSON(ctx, path, &result)
 		if apiErr != nil {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
@@ -81,7 +114,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Null{}
 		}
 		return conversion.FromGo(result)
-	}, "get(path, params=None) - Make a GET request, returns Dict or List")
+	}, "get(path, params=None, timeout=None) - Make a GET request, waiting up to timeout seconds if given; returns Dict or List")
 
 	builder.FunctionWithHelp("post", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if err := errors.MinArgs(args, 1); err != nil {
@@ -99,8 +132,14 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			}
 		}
 
+		ctx, cancel, errObj := callContext(ctx, kwargs, args, 2)
+		if errObj != nil {
+			return errObj
+		}
+		defer cancel()
+
 		var result interface{}
-		statusCode, apiErr := client.PostJSON(context.Background(), path, body, &result, 0)
+		statusCode, apiErr := client.PostJSON(ctx, path, body, &result, 0)
 		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
@@ -111,7 +150,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Null{}
 		}
 		return conversion.FromGo(result)
-	}, "post(path, body=None) - Make a POST request, returns Dict or List")
+	}, "post(path, body=None, timeout=None) - Make a POST request, waiting up to timeout seconds if given; returns Dict or List")
 
 	builder.FunctionWithHelp("put", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if err := errors.MinArgs(args, 1); err != nil {
@@ -129,8 +168,14 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			}
 		}
 
+		ctx, cancel, errObj := callContext(ctx, kwargs, args, 2)
+		if errObj != nil {
+			return errObj
+		}
+		defer cancel()
+
 		var result interface{}
-		statusCode, apiErr := client.PutJSON(context.Background(), path, body, &result, 0)
+		statusCode, apiErr := client.PutJSON(ctx, path, body, &result, 0)
 		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
@@ -141,7 +186,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Null{}
 		}
 		return conversion.FromGo(result)
-	}, "put(path, body=None) - Make a PUT request, returns Dict or List")
+	}, "put(path, body=None, timeout=None) - Make a PUT request, waiting up to timeout seconds if given; returns Dict or List")
 
 	builder.FunctionWithHelp("delete", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if err := errors.MinArgs(args, 1); err != nil {
@@ -162,6 +207,12 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			}
 		}
 
+		ctx, cancel, errObj := callContext(ctx, kwargs, args, 2)
+		if errObj != nil {
+			return errObj
+		}
+		defer cancel()
+
 		var result interface{}
 		if len(headers) > 0 {
 			hc, ok := client.(rest.RawClient)
@@ -177,7 +228,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 				return &object.Error{Message: fmt.Sprintf("API error: %v", derr)}
 			}
 		} else {
-			statusCode, apiErr := client.Delete(context.Background(), path, nil, &result, 0)
+			statusCode, apiErr := client.Delete(ctx, path, nil, &result, 0)
 			if apiErr != nil && apiErr != io.EOF {
 				return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 			}
@@ -189,7 +240,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Null{}
 		}
 		return conversion.FromGo(result)
-	}, "delete(path, headers=None) - Make a DELETE request, with any extra request headers; returns Dict or List")
+	}, "delete(path, headers=None, timeout=None) - Make a DELETE request, with any extra request headers, waiting up to timeout seconds if given; returns Dict or List")
 
 	// Raw transfers carry file content, which is bytes rather than JSON.
 	rawClient := func() (rest.RawClient, object.Object) {
@@ -213,6 +264,12 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return errObj
 		}
 
+		ctx, cancel, errObj := callContext(ctx, kwargs, args, 1)
+		if errObj != nil {
+			return errObj
+		}
+		defer cancel()
+
 		resp, rerr := hc.DoRaw(ctx, http.MethodGet, path, nil, 0, nil)
 		if rerr != nil {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
@@ -229,7 +286,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Error{Message: fmt.Sprintf("API error: the response is larger than the %d MB a script may read", maxRawBytes>>20)}
 		}
 		return object.NewBytes(body)
-	}, "get_bytes(path) - Make a GET request, returns the response body as Bytes")
+	}, "get_bytes(path, timeout=None) - Make a GET request, waiting up to timeout seconds if given; returns the response body as Bytes")
 
 	builder.FunctionWithHelp("put_bytes", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if err := errors.MinArgs(args, 2); err != nil {
@@ -261,6 +318,12 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return errObj
 		}
 
+		ctx, cancel, errObj := callContext(ctx, kwargs, args, 3)
+		if errObj != nil {
+			return errObj
+		}
+		defer cancel()
+
 		resp, rerr := hc.DoRaw(ctx, http.MethodPut, path, bytes.NewReader(data), int64(len(data)), map[string]string{"Content-Type": contentType})
 		if rerr != nil {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
@@ -275,7 +338,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Null{}
 		}
 		return conversion.FromGo(result)
-	}, "put_bytes(path, data, content_type=\"\") - Make a PUT request with a str or Bytes body, returns Dict or List")
+	}, "put_bytes(path, data, content_type=\"\", timeout=None) - Make a PUT request with a str or Bytes body, waiting up to timeout seconds if given; returns Dict or List")
 
 	return builder.Build()
 }

@@ -124,6 +124,13 @@ func TestSpaceRunCommandBehaviour(t *testing.T) {
 	if _, err := harness.TryRunCommand(user1.Client, id, 30, "exit 7"); err == nil {
 		t.Fatal("failing command did not report an error")
 	}
+
+	// A command may run as long as its timeout, not a fixed few seconds.
+	out = harness.RunCommand(t, user1.Client, id, 30, "sleep 7; echo finished")
+	mustContain(t, "a command running 7 seconds", out, "finished")
+	if _, err := harness.TryRunCommand(user1.Client, id, 2, "sleep 10"); err == nil {
+		t.Fatal("a command running past its timeout did not fail")
+	}
 }
 
 // knotCLI runs the knot command built for the suite as user1 against the

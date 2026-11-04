@@ -27,6 +27,9 @@ type RunCommandResponse struct {
 }
 
 func HandleRunCommand(w http.ResponseWriter, r *http.Request) {
+	// The command may run as long as its timeout, past the server's usual
+	// write deadline.
+	rest.NoDeadlines(w)
 	spaceId := r.PathValue("space_id")
 
 	var req RunCommandRequest

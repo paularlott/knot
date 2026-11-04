@@ -101,6 +101,8 @@ func auditSpaceFileOp(r *http.Request, op, path string, success bool, size int64
 }
 
 func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
+	// The agent may take minutes over a large file or tree.
+	rest.NoDeadlines(w)
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
@@ -247,6 +249,8 @@ func sliceLines(content string, offset, limit int) (sliced string, totalLines in
 }
 
 func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
+	// The agent may take minutes over a large file or tree.
+	rest.NoDeadlines(w)
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 

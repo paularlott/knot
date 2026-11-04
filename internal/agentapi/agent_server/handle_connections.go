@@ -785,7 +785,7 @@ func handleRunCommand(stream net.Conn, session *Session) {
 
 	// Read the response from the agent
 	var response msg.RunCommandResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(agentConn, &response, runCommandWait(runCmd.Timeout)); err != nil {
 		log.WithError(err).Error("reading run command response from agent:")
 		response = msg.RunCommandResponse{
 			Success: false,
@@ -848,7 +848,7 @@ func handleCopyFile(stream net.Conn, session *Session) {
 
 	// Read the response from the agent
 	var response msg.CopyFileResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(agentConn, &response, agentWorkTimeout); err != nil {
 		log.WithError(err).Error("reading copy file response from agent:")
 		response = msg.CopyFileResponse{
 			Success: false,
@@ -909,7 +909,7 @@ func forwardSingleShot[Msg any, Resp any](stream net.Conn, session *Session, cmd
 	}
 
 	var response Resp
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(agentConn, &response, agentWorkTimeout); err != nil {
 		log.WithError(err).Error("reading " + cmdName + " response from agent:")
 		msg.WriteMessage(stream, &errorResponse{Error: "Failed to read response from agent"})
 		return
@@ -989,7 +989,7 @@ func handlePortForward(stream net.Conn, session *Session) {
 
 	// Read the response from the agent
 	var response msg.PortForwardResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(agentConn, &response, agentReplyTimeout); err != nil {
 		log.WithError(err).Error("reading port forward response from agent:")
 		response = msg.PortForwardResponse{
 			Success: false,
@@ -1031,7 +1031,7 @@ func handlePortList(stream net.Conn, session *Session) {
 
 	// Read the response from the agent
 	var response msg.PortListResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(agentConn, &response, agentReplyTimeout); err != nil {
 		log.WithError(err).Error("reading port list response from agent:")
 		response = msg.PortListResponse{
 			Forwards: []msg.PortForwardInfo{},
@@ -1091,7 +1091,7 @@ func handlePortStop(stream net.Conn, session *Session) {
 
 	// Read the response from the agent
 	var response msg.PortStopResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(agentConn, &response, agentReplyTimeout); err != nil {
 		log.WithError(err).Error("reading port stop response from agent:")
 		response = msg.PortStopResponse{
 			Success: false,

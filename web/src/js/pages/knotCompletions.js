@@ -39,38 +39,38 @@ export const knotLibraries = [
       },
       {
         "name": "get",
-        "signature": "get(path, params)",
-        "description": "GET request to the Knot API. params is an optional dict of query parameters",
+        "signature": "get(path, params, timeout)",
+        "description": "GET request to the Knot API. params is an optional dict of query parameters; waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "post",
-        "signature": "post(path, body)",
-        "description": "POST request to the Knot API. body is a dict",
+        "signature": "post(path, body, timeout)",
+        "description": "POST request to the Knot API. body is a dict; waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "put",
-        "signature": "put(path, body)",
-        "description": "PUT request to the Knot API. body is a dict",
+        "signature": "put(path, body, timeout)",
+        "description": "PUT request to the Knot API. body is a dict; waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "delete",
-        "signature": "delete(path, headers)",
-        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match)",
+        "signature": "delete(path, headers, timeout)",
+        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match); waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "get_bytes",
-        "signature": "get_bytes(path)",
-        "description": "GET request to the Knot API returning the response body as bytes (file content)",
+        "signature": "get_bytes(path, timeout)",
+        "description": "GET request to the Knot API returning the response body as bytes (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "bytes"
       },
       {
         "name": "put_bytes",
-        "signature": "put_bytes(path, data, content_type)",
-        "description": "PUT request to the Knot API with a string or bytes body (file content)",
+        "signature": "put_bytes(path, data, content_type, timeout)",
+        "description": "PUT request to the Knot API with a string or bytes body (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       }
     ]
