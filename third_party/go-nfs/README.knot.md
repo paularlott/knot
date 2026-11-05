@@ -15,6 +15,9 @@ Both versions:
 - A panic in a request's handler is recovered and answered with a system
   error, logged with its stack (`conn.callHandler`), as upstream's open
   PR #151 proposes; upstream let it end the process.
+- Each reply is written by the goroutine that handled its request, under a
+  lock (`conn.writeReply`), rather than handed over a channel to a goroutine
+  that wrote replies: one goroutine wake-up fewer per request.
 
 NFSv3:
 

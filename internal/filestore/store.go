@@ -83,9 +83,10 @@ type Config struct {
 	// together; a nil list means too much changed to name.
 	Changed func(changes []BucketChanges)
 
-	// NoSync skips the fsync of writes, so a crash or power loss can lose the
-	// last moments of writes. It is for tests and tools; a server always
-	// makes a write durable before it is reported done.
+	// NoSync skips the fsync of writes, so a crash of the system or a power
+	// cut can lose the last moments of writes reported done (a crash of the
+	// server alone loses nothing). Tests and tools use it, and a server with
+	// files.no_sync set.
 	NoSync bool
 }
 

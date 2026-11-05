@@ -310,6 +310,13 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_DEFAULT_MAX_BUCKETS"},
 			DefaultValue: 0,
 		},
+		&cli.BoolFlag{
+			Name:         "files-no-sync",
+			Usage:        "Report file storage writes done without forcing them to disk first: faster on drives without power-loss protection, but a power cut or system crash can lose the last writes reported done.",
+			ConfigPath:   []string{"server.files.no_sync"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_FILES_NO_SYNC"},
+			DefaultValue: false,
+		},
 		&cli.StringFlag{
 			Name:         "mcp-tools-path",
 			Usage:        "Path to mcp-tools directory (overrides embedded tools).",
@@ -1029,6 +1036,7 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	// Open file storage when a storage directory is configured
 	if cfg.FilesPath != "" {
 		store, err := filestore.Open(filestore.Config{
+			NoSync:      cfg.FilesNoSync,
 			Dir:         cfg.FilesPath,
 			Quota:       filestore.DatabaseQuota,
 			BucketLimit: filestore.DatabaseBucketLimit,
@@ -1041,6 +1049,9 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 		filestore.SetInstance(store)
 		defer store.Close()
 		logger.Info("file storage enabled", "path", cfg.FilesPath)
+		if cfg.FilesNoSync {
+			logger.Warn("file storage writes are not forced to disk (files.no_sync): a power cut or system crash can lose the last writes")
+		}
 	}
 
 	// Sweep stale chat conversations (retention). Only on full cluster
@@ -1740,6 +1751,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		FilesPath:              absPath(cmd.GetString("files-path")),
 		FilesDefaultQuotaMB:    cmd.GetInt("files-default-quota-mb"),
 		FilesDefaultMaxBuckets: cmd.GetInt("files-default-max-buckets"),
+		FilesNoSync:            cmd.GetBool("files-no-sync"),
 		PublicFilesPath:        cmd.GetString("public-files-path"),
 		MCPToolsPath:           cmd.GetString("mcp-tools-path"),
 		MCPToolsDisabled:       cmd.GetStringSlice("mcp-disable-builtin-tools"),

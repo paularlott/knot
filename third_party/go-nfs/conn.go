@@ -41,8 +41,13 @@ const (
 
 type conn struct {
 	*Server
-	writeSerializer chan []byte
 	net.Conn
+
+	// knot: replies are written by the handler that made them, one at a
+	// time under writeMu, rather than handed to a goroutine that wrote
+	// them: that hand-off was a goroutine wake-up per reply.
+	writeMu sync.Mutex
+	out     *bufio.Writer
 }
 
 // maxRequestFragmentBytes rejects implausible record-marking lengths before a
@@ -59,9 +64,7 @@ func (c *conn) serve(ctx context.Context) {
 		return
 	}
 
-	c.writeSerializer = make(chan []byte, 1)
-	go c.serializeWrites(connCtx)
-
+	c.out = bufio.NewWriter(c.Conn)
 	bio := bufio.NewReader(c.Conn)
 	for {
 		w, err := c.readRequestHeader(connCtx, bio)
@@ -99,9 +102,7 @@ func (c *conn) serve(ctx context.Context) {
 // Each request body is read into memory before its handler starts, so the
 // loop can read the next request while earlier ones are still running.
 func (c *conn) serveConcurrently(ctx context.Context, cancel context.CancelFunc, limit int) {
-	c.writeSerializer = make(chan []byte, limit)
-	go c.serializeWrites(ctx)
-
+	c.out = bufio.NewWriter(c.Conn)
 	sem := make(chan struct{}, limit)
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -150,39 +151,19 @@ func (c *conn) serveConcurrently(ctx context.Context, cancel context.CancelFunc,
 	}
 }
 
-func (c *conn) serializeWrites(ctx context.Context) {
-	// todo: maybe don't need the extra buffer
-	writer := bufio.NewWriter(c.Conn)
-	var fragmentBuf [4]byte
-	var fragmentInt uint32
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg, ok := <-c.writeSerializer:
-			if !ok {
-				return
-			}
-			// prepend the fragmentation header
-			fragmentInt = uint32(len(msg))
-			fragmentInt |= (1 << 31)
-			binary.BigEndian.PutUint32(fragmentBuf[:], fragmentInt)
-			n, err := writer.Write(fragmentBuf[:])
-			if n < 4 || err != nil {
-				return
-			}
-			n, err = writer.Write(msg)
-			if err != nil {
-				return
-			}
-			if n < len(msg) {
-				panic("todo: ensure writes complete fully.")
-			}
-			if err = writer.Flush(); err != nil {
-				return
-			}
-		}
+// writeReply writes one reply, with its record-marking header, and sends it.
+func (c *conn) writeReply(msg []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	var mark [4]byte
+	binary.BigEndian.PutUint32(mark[:], uint32(len(msg))|1<<31)
+	if _, err := c.out.Write(mark[:]); err != nil {
+		return err
 	}
+	if _, err := c.out.Write(msg); err != nil {
+		return err
+	}
+	return c.out.Flush()
 }
 
 // Handle a request. errors from this method indicate a failure to read or
@@ -385,12 +366,10 @@ func (w *response) drain(ctx context.Context) error {
 }
 
 func (w *response) finish(ctx context.Context) error {
-	select {
-	case w.conn.writeSerializer <- w.writer.Bytes():
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return err
 	}
+	return w.conn.writeReply(w.writer.Bytes())
 }
 
 func (c *conn) readRequestHeader(ctx context.Context, reader *bufio.Reader) (w *response, err error) {
