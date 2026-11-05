@@ -402,6 +402,15 @@ func TestFolderTimeFollowsItsEntries(t *testing.T) {
 	if !mtime().After(set) {
 		t.Fatal("folder time did not move for another writer's change")
 	}
+
+	// Another writer's file in a new folder, made by the file alone (no
+	// marker), is a new entry in the folder above: its time moves too.
+	fsys.Chtimes("data/d", set, set)
+	time.Sleep(time.Millisecond)
+	fsys.Changed([]string{bucket.Id}, []FileChanged{{BucketId: bucket.Id, Key: "d/new/z", Writer: "other"}})
+	if !mtime().After(set) {
+		t.Fatal("folder time did not move when another writer's file made a folder in it")
+	}
 }
 
 // flakyBackend fails saves a number of times, as a server that is down.

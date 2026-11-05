@@ -466,6 +466,13 @@ func (fs *storeFS) Changed(bucketIds []string, files []FileChanged) {
 // forgetChanged drops what is kept of a file changed elsewhere: the file,
 // every folder above it, which a change there can make or unmake, and for a
 // folder's marker, what is below it.
+//
+// Every folder above moves its time on, not only the file's own: a file
+// saved into, or removed from, a folder without a marker can make or
+// unmake that folder, and the folders above it, and the change cannot say
+// whether it did. A folder whose time stood still would have clients keep
+// a listing without (or with) it for as long as they like: NFSv4 clients
+// keep a listing while the folder's change attribute holds.
 func (fs *storeFS) forgetChanged(bucket, key string) {
 	folder := strings.HasSuffix(key, "/")
 	key = strings.TrimSuffix(key, "/")
@@ -474,8 +481,6 @@ func (fs *storeFS) forgetChanged(bucket, key string) {
 	fs.bumpLocked(bucket)
 	delete(fs.stats, statKey(bucket, key))
 	fs.dropDirsLocked(bucket, key, folder)
-	dir, _ := parentOf(key)
-	fs.dirTouchedLocked(bucket, dir)
 	for k := key; k != ""; {
 		k = path.Dir(k)
 		if k == "." {
@@ -483,6 +488,7 @@ func (fs *storeFS) forgetChanged(bucket, key string) {
 		}
 		delete(fs.stats, statKey(bucket, k))
 		delete(fs.dirs, statKey(bucket, k))
+		fs.dirTouchedLocked(bucket, k)
 	}
 	if folder {
 		prefix := statKey(bucket, key) + "/"
