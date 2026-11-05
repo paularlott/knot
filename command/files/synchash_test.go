@@ -59,13 +59,13 @@ func TestSweepSyncDir(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Now()
 	files := map[string]time.Duration{
-		"hashes-old.msgpack":       staleAfter + time.Hour,
-		"hashes-new.msgpack":       time.Hour,
-		"old.json":                 staleAfter + time.Hour,
-		"new.json":                 time.Hour,
-		"hashes-x.msgpack.tmp-123": tempStaleAfter + time.Hour,
-		"hashes-y.msgpack.tmp-456": time.Minute,
-		"something-else.txt":       staleAfter + time.Hour,
+		"hashes-old.bin":       staleAfter + time.Hour,
+		"hashes-new.bin":       time.Hour,
+		"state-old.bin":        staleAfter + time.Hour,
+		"state-new.bin":        time.Hour,
+		"hashes-x.bin.tmp-123": tempStaleAfter + time.Hour,
+		"hashes-y.bin.tmp-456": time.Minute,
+		"something-else.txt":   staleAfter + time.Hour,
 	}
 	for name, age := range files {
 		p := filepath.Join(dir, name)
@@ -77,9 +77,9 @@ func TestSweepSyncDir(t *testing.T) {
 	}
 	sweepSyncDir(dir, now)
 	for name, want := range map[string]bool{
-		"hashes-old.msgpack": false, "hashes-new.msgpack": true,
-		"old.json": false, "new.json": true,
-		"hashes-x.msgpack.tmp-123": false, "hashes-y.msgpack.tmp-456": true,
+		"hashes-old.bin": false, "hashes-new.bin": true,
+		"state-old.bin": false, "state-new.bin": true,
+		"hashes-x.bin.tmp-123": false, "hashes-y.bin.tmp-456": true,
 		"something-else.txt": true,
 	} {
 		_, err := os.Stat(filepath.Join(dir, name))

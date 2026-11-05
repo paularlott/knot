@@ -115,15 +115,17 @@ type syncer struct {
 	dirs     map[string]*localDir   // local folders, by identity ending in /
 	markers  map[string]*remoteFile // bucket folders' markers, by identity ending in /
 	base     map[string]*baseEntry  // two ways, by identity
+	baseFile *recordFile[baseEntry] // where base is kept
 	hashes   map[string]hashed      // by local rel
 	recent   map[string]recentContent
 	cursor   string
 	warned   map[string]string
 	baseDirt bool
 
-	hashDirt  bool      // hashes changed since the cache was written
-	hashSaved time.Time // when it was
-	hashedNow int       // files read for their checksum this pass
+	hashFile  *recordFile[hashCacheEntry] // where hashes are kept
+	hashDirt  bool                        // hashes changed since the cache was written
+	hashSaved time.Time                   // when it was
+	hashedNow int                         // files read for their checksum this pass
 
 	counts passCounts
 }
@@ -243,7 +245,9 @@ func (s *syncer) prepare(ctx context.Context) error {
 			return err
 		}
 	}
-	s.loadHashes()
+	if err := s.loadHashes(); err != nil {
+		return err
+	}
 	s.own = ownFiles(s.opt.dir, s.opt.hashCachePath, s.opt.statePath)
 	if !s.opt.dryRun {
 		if sd, err := syncDir(); err == nil {

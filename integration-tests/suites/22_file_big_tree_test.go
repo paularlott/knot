@@ -198,6 +198,30 @@ func TestFileSyncBigTree(t *testing.T) {
 		if strings.Contains(log, "cannot watch every folder") {
 			t.Errorf("the watch could not watch every folder:\n%s", grepLines(log, "cannot watch"))
 		}
+
+		// Two ways: the state of every file is written once, and a change
+		// to one adds a record rather than writing it all again.
+		state := filepath.Join(root, "state.bin")
+		_, took = knot("file", "sync", "--two-way", tree, "big:tree", "--state-file", state)
+		full := sizeOf(t, state)
+		t.Logf("first two-way sync: %s, state %.1f MB", took.Round(time.Millisecond), float64(full)/1e6)
+		_, took = knot("file", "sync", "--two-way", tree, "big:tree", "--state-file", state)
+		if grown := sizeOf(t, state) - full; grown != 0 {
+			t.Errorf("a two-way sync with nothing changed wrote %d bytes of state", grown)
+		}
+		t.Logf("second two-way sync, nothing changed: %s", took.Round(time.Millisecond))
+		os.WriteFile(filepath.Join(tree, "d00009", "f04.php"), []byte("<?php // changed again\n"), 0644)
+		_, took = knot("file", "sync", "--two-way", tree, "big:tree", "--state-file", state)
+		grown := sizeOf(t, state) - full
+		if grown <= 0 || grown > 200 {
+			t.Errorf("one change wrote %d bytes of a %d byte state, want one record", grown, full)
+		}
+		t.Logf("two-way sync of one change: %s, wrote %d bytes of state", took.Round(time.Millisecond), grown)
+		caches, _ := filepath.Glob(filepath.Join(root, "*", "*", "knot", "sync", "hashes-*.bin"))
+		more, _ := filepath.Glob(filepath.Join(root, ".config", "knot", "sync", "hashes-*.bin"))
+		for _, c := range append(caches, more...) {
+			t.Logf("checksum cache %s: %.1f MB", filepath.Base(c), float64(sizeOf(t, c))/1e6)
+		}
 	})
 
 	t.Run("linux space", func(t *testing.T) {
@@ -320,4 +344,13 @@ func grepLines(s, sub string) string {
 		}
 	}
 	return strings.Join(out, "\n")
+}
+
+func sizeOf(t *testing.T, path string) int64 {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info.Size()
 }

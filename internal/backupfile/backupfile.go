@@ -345,38 +345,6 @@ func HasContentOfSize(dir, sha string, size int64) bool {
 	return err == nil && info.Size() == size
 }
 
-// WriteContent stores content read from r under its checksum, refusing
-// content that does not match it. It returns the bytes written.
-func WriteContent(dir, sha string, r io.Reader) (int64, error) {
-	if len(sha) != 64 {
-		return 0, errors.New("invalid checksum")
-	}
-	dst := ContentPath(dir, sha)
-	if err := os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
-		return 0, err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".incoming-*")
-	if err != nil {
-		return 0, err
-	}
-	h := sha256.New()
-	n, err := io.Copy(io.MultiWriter(tmp, h), r)
-	if err == nil && hex.EncodeToString(h.Sum(nil)) != sha {
-		err = fmt.Errorf("content does not match its checksum %s", sha)
-	}
-	if err == nil {
-		err = tmp.Sync()
-	}
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		os.Remove(tmp.Name())
-		return 0, err
-	}
-	return n, os.Rename(tmp.Name(), dst)
-}
-
 // OpenContent opens the content with a checksum.
 func OpenContent(dir, sha string) (*os.File, error) {
 	if len(sha) != 64 {

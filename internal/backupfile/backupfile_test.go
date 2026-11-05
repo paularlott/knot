@@ -146,7 +146,7 @@ func TestContent(t *testing.T) {
 	if HasContent(dir, sha) {
 		t.Fatal("held before written")
 	}
-	if _, err := WriteContent(dir, sha, strings.NewReader("other data")); err == nil {
+	if _, err := putContent(dir, sha, "other data"); err == nil {
 		t.Error("content that does not match its checksum was kept")
 	}
 	if HasContent(dir, sha) {
@@ -155,7 +155,7 @@ func TestContent(t *testing.T) {
 	if entries, _ := os.ReadDir(filepath.Dir(ContentPath(dir, sha))); len(entries) != 0 {
 		t.Errorf("a failed write left %d files", len(entries))
 	}
-	n, err := WriteContent(dir, sha, strings.NewReader(data))
+	n, err := putContent(dir, sha, data)
 	if err != nil || n != int64(len(data)) || !HasContent(dir, sha) {
 		t.Fatalf("write: %d %v", n, err)
 	}
@@ -164,7 +164,7 @@ func TestContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Close()
-	if _, err := WriteContent(dir, "short", strings.NewReader("x")); err == nil {
+	if _, err := putContent(dir, "short", "x"); err == nil {
 		t.Error("an invalid checksum was accepted")
 	}
 }
@@ -189,6 +189,14 @@ func TestManifest(t *testing.T) {
 
 // A copy that breaks off is carried on from where it stopped, and a server
 // that ignores the offset is handled.
+// putContent copies data into the backup as content with checksum sha, as a
+// backup does.
+func putContent(dir, sha, data string) (int64, error) {
+	return DownloadContent(dir, sha, func(int64) (io.ReadCloser, bool, error) {
+		return io.NopCloser(strings.NewReader(data)), false, nil
+	})
+}
+
 func TestDownloadContentResumes(t *testing.T) {
 	dir := t.TempDir()
 	data := strings.Repeat("0123456789", 5000)
@@ -257,7 +265,7 @@ func TestPrune(t *testing.T) {
 		data := fmt.Sprintf("content %d", i)
 		sum := sha256.Sum256([]byte(data))
 		*v = hex.EncodeToString(sum[:])
-		if _, err := WriteContent(dir, *v, strings.NewReader(data)); err != nil {
+		if _, err := putContent(dir, *v, data); err != nil {
 			t.Fatal(err)
 		}
 	}

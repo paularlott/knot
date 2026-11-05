@@ -2,13 +2,14 @@ package command_files
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/shamaton/msgpack/v3"
 )
 
 // The checksums of local files are kept between runs, by size, modification
@@ -24,7 +25,6 @@ import (
 // directory no longer synced does not leave its checksums behind for good.
 
 const (
-	hashCacheVersion = 1
 	// hashSaveEvery is how often a watching sync writes the cache.
 	hashSaveEvery = 30 * time.Second
 	// staleAfter is how long a cache or two-way state in the sync folder
@@ -86,8 +86,7 @@ func sweepSyncDir(dir string, now time.Time) {
 			age = tempStaleAfter
 		case strings.HasPrefix(name, "upload-") && strings.HasSuffix(name, ".json"):
 			age = uploadStaleAfter // the server has let the parts go
-		case strings.HasPrefix(name, "hashes-") && strings.HasSuffix(name, ".msgpack"),
-			strings.HasSuffix(name, ".json"):
+		case (strings.HasPrefix(name, "hashes-") || strings.HasPrefix(name, "state-")) && strings.HasSuffix(name, ".bin"):
 			age = staleAfter
 		default:
 			continue
@@ -127,21 +126,40 @@ func writeAtomic(path string, data []byte) error {
 	return nil
 }
 
-type hashCacheFile struct {
-	Version int                       `msgpack:"version"`
-	Dir     string                    `msgpack:"dir"`
-	Files   map[string]hashCacheEntry `msgpack:"files"` // by local rel
-}
+// hashCacheMagic and hashCacheVersion mark a checksum cache (see
+// recordFile).
+const (
+	hashCacheMagic   = "KNSH"
+	hashCacheVersion = 1
+)
 
 type hashCacheEntry struct {
-	Size  int64  `msgpack:"size"`
-	Mtime int64  `msgpack:"mtime"` // unix nanoseconds
-	SHA   []byte `msgpack:"sha"`   // 32 bytes
+	Size  int64
+	Mtime int64 // unix nanoseconds
+	SHA   [sha256.Size]byte
 	// The inode number and change time, where the platform has them (see
-	// fileStamp); a cache written without them has each file read again
-	// once.
-	Ino   uint64 `msgpack:"ino,omitempty"`
-	Ctime int64  `msgpack:"ctime,omitempty"`
+	// fileStamp).
+	Ino   uint64
+	Ctime int64
+}
+
+var hashCodec = recordCodec[hashCacheEntry]{
+	put: func(b []byte, _ string, e hashCacheEntry) []byte {
+		b = binary.AppendVarint(b, e.Size)
+		b = binary.AppendVarint(b, e.Mtime)
+		b = append(b, e.SHA[:]...)
+		b = binary.AppendUvarint(b, e.Ino)
+		return binary.AppendVarint(b, e.Ctime)
+	},
+	get: func(r *recReader, _ string) hashCacheEntry {
+		var e hashCacheEntry
+		e.Size = r.varint()
+		e.Mtime = r.varint()
+		copy(e.SHA[:], r.take(sha256.Size))
+		e.Ino = r.uvarint()
+		e.Ctime = r.varint()
+		return e
+	},
 }
 
 // hashCachePath is where the checksums of a directory's files are kept.
@@ -151,44 +169,66 @@ func hashCachePath(dir string) (string, error) {
 		return "", err
 	}
 	sum := sha256.Sum256([]byte(dir))
-	return filepath.Join(sd, "hashes-"+hex.EncodeToString(sum[:12])+".msgpack"), nil
+	return filepath.Join(sd, "hashes-"+hex.EncodeToString(sum[:12])+".bin"), nil
 }
 
-// loadHashes reads the checksums kept by an earlier run. A missing or
-// unreadable cache is no cache.
-func (s *syncer) loadHashes() {
+// loadHashes reads the checksums kept by an earlier run. A missing,
+// damaged or unreadable cache is no cache, or as much of one as was read; a
+// cache of another directory is replaced. A file there that is not a cache
+// at all is left alone, and the sync refused.
+func (s *syncer) loadHashes() error {
 	if s.opt.hashCachePath == "" {
 		p, err := hashCachePath(s.opt.dir)
 		if err != nil {
-			return
+			return nil
 		}
 		s.opt.hashCachePath = p
 	}
-	data, err := os.ReadFile(s.opt.hashCachePath)
-	if err != nil {
-		return
+	s.hashFile = newRecordFile(s.opt.hashCachePath, hashCacheMagic, hashCacheVersion, s.opt.dir, hashCodec)
+	held, err := s.hashFile.load()
+	switch {
+	case errors.Is(err, errRecordForeign):
+		return fmt.Errorf("checksum cache: %w", describeRecordErr(s.opt.hashCachePath, err))
+	case err != nil && !errors.Is(err, errRecordVersion):
+		s.log.Debug("checksum cache not read", "file", s.opt.hashCachePath, "error", err)
+	}
+	if s.hashFile.lost {
+		s.log.Debug("checksum cache damaged: the files after the damage are read again", "file", s.opt.hashCachePath, "kept", len(held))
 	}
 	if !s.opt.dryRun {
 		markUsed(s.opt.hashCachePath)
 	}
-	var f hashCacheFile
-	if msgpack.Unmarshal(data, &f) != nil || f.Version != hashCacheVersion || f.Dir != s.opt.dir {
-		return
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for rel, e := range f.Files {
-		if len(e.SHA) == sha256.Size {
-			s.hashes[rel] = hashed{size: e.Size, mtime: time.Unix(0, e.Mtime), stamp: fileStamp{ino: e.Ino, ctime: e.Ctime}, sha: hex.EncodeToString(e.SHA)}
-		}
+	for rel, e := range held {
+		s.hashes[rel] = hashed{size: e.Size, mtime: time.Unix(0, e.Mtime), stamp: fileStamp{ino: e.Ino, ctime: e.Ctime}, sha: hex.EncodeToString(e.SHA[:])}
 	}
+	return nil
 }
 
-// saveHashes writes the checksums when they changed: at once with force, else
-// no more often than hashSaveEvery. Only files still there are kept, so the
-// cache does not grow with files long gone.
+// cacheEntry is what the cache keeps of rel: its checksum while the file is
+// as it was when read.
+func (s *syncer) cacheEntry(rel string) (hashCacheEntry, bool) {
+	h, ok := s.hashes[rel]
+	if !ok {
+		return hashCacheEntry{}, false
+	}
+	l := s.local[s.identity(rel)]
+	if l == nil || l.rel != rel || l.size != h.size || !l.mtime.Equal(h.mtime) || !stampMatches(h.stamp, l.stamp) {
+		return hashCacheEntry{}, false
+	}
+	e := hashCacheEntry{Size: h.size, Mtime: h.mtime.UnixNano(), Ino: h.stamp.ino, Ctime: h.stamp.ctime}
+	if n, err := hex.Decode(e.SHA[:], []byte(h.sha)); err != nil || n != sha256.Size {
+		return hashCacheEntry{}, false
+	}
+	return e, true
+}
+
+// saveHashes writes what changed in the checksums: at once with force, else
+// no more often than hashSaveEvery. Only files still there, as they were
+// when read, are kept, so the cache does not grow with files long gone.
 func (s *syncer) saveHashes(force bool) {
-	if s.opt.dryRun || s.opt.hashCachePath == "" {
+	if s.opt.dryRun || s.hashFile == nil {
 		return
 	}
 	s.mu.Lock()
@@ -196,25 +236,18 @@ func (s *syncer) saveHashes(force bool) {
 		s.mu.Unlock()
 		return
 	}
-	f := hashCacheFile{Version: hashCacheVersion, Dir: s.opt.dir, Files: make(map[string]hashCacheEntry, len(s.hashes))}
-	for rel, h := range s.hashes {
-		l := s.local[s.identity(rel)]
-		if l == nil || l.rel != rel || l.size != h.size || !l.mtime.Equal(h.mtime) || !stampMatches(h.stamp, l.stamp) {
-			continue
+	s.hashFile.update(func(yield func(string, hashCacheEntry) bool) {
+		for rel := range s.hashes {
+			if e, ok := s.cacheEntry(rel); ok && !yield(rel, e) {
+				return
+			}
 		}
-		raw, err := hex.DecodeString(h.sha)
-		if err != nil {
-			continue
-		}
-		f.Files[rel] = hashCacheEntry{Size: h.size, Mtime: h.mtime.UnixNano(), SHA: raw, Ino: h.stamp.ino, Ctime: h.stamp.ctime}
-	}
+	}, s.cacheEntry)
 	s.hashDirt = false
 	s.hashSaved = time.Now()
 	s.mu.Unlock()
 
-	data, err := msgpack.Marshal(&f)
-	if err != nil {
-		return
+	if err := s.hashFile.save(); err != nil {
+		s.log.Debug("checksum cache not written", "file", s.opt.hashCachePath, "error", err)
 	}
-	writeAtomic(s.opt.hashCachePath, data)
 }
