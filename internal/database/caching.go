@@ -1,8 +1,11 @@
 package database
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -425,20 +428,74 @@ func (d *cachingDriver) DeletePoolDefinition(pool *model.PoolDefinition) error {
 // Users
 // ---------------------------------------------------------------------------
 
-// copyUser deep-copies via JSON — cheap next to a database round trip, and
-// necessary in both directions: handlers mutate the users they read (profile
-// and role updates), and a driver handing out shared pointers must not
-// poison the cache.
+// copyUser deep-copies a user: necessary in both directions, as handlers
+// mutate the users they read (profile and role updates), and a driver
+// handing out shared pointers must not poison the cache. It is on the path
+// of every authenticated request, so it copies field by field rather than
+// through JSON; TestCopyUserSharesNothing fails if a field it should copy
+// is added and missed.
 func copyUser(u *model.User) *model.User {
-	data, err := json.Marshal(u)
-	if err != nil {
-		return u
+	if u == nil {
+		return nil
 	}
-	var copy model.User
-	if json.Unmarshal(data, &copy) != nil {
-		return u
+	c := *u
+	c.ExternalAuthProviders = maps.Clone(u.ExternalAuthProviders)
+	if u.Passkeys != nil {
+		c.Passkeys = make([]model.Passkey, len(u.Passkeys))
+		for i, pk := range u.Passkeys {
+			pk.CredentialID = bytes.Clone(pk.CredentialID)
+			pk.PublicKey = bytes.Clone(pk.PublicKey)
+			pk.AAGUID = bytes.Clone(pk.AAGUID)
+			pk.Transports = slices.Clone(pk.Transports)
+			if pk.LastUsedAt != nil {
+				t := *pk.LastUsedAt
+				pk.LastUsedAt = &t
+			}
+			c.Passkeys[i] = pk
+		}
 	}
-	return &copy
+	c.Roles = slices.Clone(u.Roles)
+	c.Groups = slices.Clone(u.Groups)
+	c.LinkedUsers = slices.Clone(u.LinkedUsers)
+	if u.Preferences != nil {
+		c.Preferences = copyAny(u.Preferences).(map[string]any)
+	}
+	if u.LastLoginAt != nil {
+		t := *u.LastLoginAt
+		c.LastLoginAt = &t
+	}
+	return &c
+}
+
+// copyAny deep-copies a value of the kinds JSON decodes to, and maps and
+// slices of strings; anything else, a number, string or bool, is shared,
+// being immutable.
+func copyAny(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		if v == nil {
+			return v
+		}
+		out := make(map[string]any, len(v))
+		for k, e := range v {
+			out[k] = copyAny(e)
+		}
+		return out
+	case []any:
+		if v == nil {
+			return v
+		}
+		out := make([]any, len(v))
+		for i, e := range v {
+			out[i] = copyAny(e)
+		}
+		return out
+	case map[string]string:
+		return maps.Clone(v)
+	case []string:
+		return slices.Clone(v)
+	}
+	return v
 }
 
 // getUserEntry returns a live cache entry for the id, refreshing the sliding
