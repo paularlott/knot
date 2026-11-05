@@ -143,25 +143,25 @@ func TestContent(t *testing.T) {
 	sum := sha256.Sum256([]byte(data))
 	sha := hex.EncodeToString(sum[:])
 
-	if HasContent(dir, sha) {
+	if plain(dir).Has(sha) {
 		t.Fatal("held before written")
 	}
 	if _, err := putContent(dir, sha, "other data"); err == nil {
 		t.Error("content that does not match its checksum was kept")
 	}
-	if HasContent(dir, sha) {
+	if plain(dir).Has(sha) {
 		t.Error("mismatched content stored")
 	}
 	if entries, _ := os.ReadDir(filepath.Dir(ContentPath(dir, sha))); len(entries) != 0 {
 		t.Errorf("a failed write left %d files", len(entries))
 	}
 	n, err := putContent(dir, sha, data)
-	if err != nil || n != int64(len(data)) || !HasContent(dir, sha) {
+	if err != nil || n != int64(len(data)) || !plain(dir).Has(sha) {
 		t.Fatalf("write: %d %v", n, err)
 	}
-	f, err := OpenContent(dir, sha)
-	if err != nil {
-		t.Fatal(err)
+	f, size, err := plain(dir).Open(sha)
+	if err != nil || size != int64(len(data)) {
+		t.Fatal(size, err)
 	}
 	f.Close()
 	if _, err := putContent(dir, "short", "x"); err == nil {
@@ -189,6 +189,12 @@ func TestManifest(t *testing.T) {
 
 // A copy that breaks off is carried on from where it stopped, and a server
 // that ignores the offset is handled.
+// plain is the content of a backup without a key.
+func plain(dir string) *Content {
+	c, _ := NewContent(dir, "", false)
+	return c
+}
+
 // putContent copies data into the backup as content with checksum sha, as a
 // backup does.
 func putContent(dir, sha, data string) (int64, error) {
@@ -207,7 +213,7 @@ func TestDownloadContentResumes(t *testing.T) {
 	_, err := DownloadContent(dir, sha, func(offset int64) (io.ReadCloser, bool, error) {
 		return io.NopCloser(io.MultiReader(strings.NewReader(data[:20000]), errReader{io.ErrUnexpectedEOF})), true, nil
 	})
-	if err == nil || HasContent(dir, sha) {
+	if err == nil || plain(dir).Has(sha) {
 		t.Fatalf("a broken copy: %v", err)
 	}
 	if info, _ := os.Stat(PartialPath(dir, sha)); info == nil || info.Size() != 20000 {
@@ -220,7 +226,7 @@ func TestDownloadContentResumes(t *testing.T) {
 		asked = offset
 		return io.NopCloser(strings.NewReader(data[offset:])), true, nil
 	})
-	if err != nil || asked != 20000 || n != int64(len(data))-20000 || !HasContent(dir, sha) {
+	if err != nil || asked != 20000 || n != int64(len(data))-20000 || !plain(dir).Has(sha) {
 		t.Fatalf("resumed copy: asked %d, copied %d: %v", asked, n, err)
 	}
 	if _, err := os.Stat(PartialPath(dir, sha)); !os.IsNotExist(err) {
@@ -238,7 +244,7 @@ func TestDownloadContentResumes(t *testing.T) {
 	})
 	if _, err := DownloadContent(dir2, sha, func(int64) (io.ReadCloser, bool, error) {
 		return io.NopCloser(strings.NewReader(data)), false, nil
-	}); err != nil || !HasContent(dir2, sha) {
+	}); err != nil || !plain(dir2).Has(sha) {
 		t.Errorf("a full resend: %v", err)
 	}
 
@@ -246,7 +252,7 @@ func TestDownloadContentResumes(t *testing.T) {
 	dir3 := t.TempDir()
 	if _, err := DownloadContent(dir3, sha, func(int64) (io.ReadCloser, bool, error) {
 		return io.NopCloser(strings.NewReader("wrong")), false, nil
-	}); err == nil || HasContent(dir3, sha) {
+	}); err == nil || plain(dir3).Has(sha) {
 		t.Error("wrong content kept")
 	}
 	if _, err := os.Stat(PartialPath(dir3, sha)); !os.IsNotExist(err) {
@@ -274,7 +280,7 @@ func TestPrune(t *testing.T) {
 	if err != nil || removed != 2 || freed == 0 {
 		t.Fatalf("pruned %d (%d bytes): %v", removed, freed, err)
 	}
-	if !HasContent(dir, keep) || HasContent(dir, drop) {
+	if !plain(dir).Has(keep) || plain(dir).Has(drop) {
 		t.Error("wrong content pruned")
 	}
 	if _, err := os.Stat(filepath.Dir(ContentPath(dir, drop))); !os.IsNotExist(err) && filepath.Dir(ContentPath(dir, drop)) != filepath.Dir(ContentPath(dir, keep)) {
@@ -334,7 +340,7 @@ func TestDownloadContentWholePartial(t *testing.T) {
 		t.Errorf("asked the server for offset %d of a whole copy", offset)
 		return nil, false, errors.New("refused")
 	})
-	if err != nil || !HasContent(dir, sha) {
+	if err != nil || !plain(dir).Has(sha) {
 		t.Fatalf("whole partial: %v", err)
 	}
 }

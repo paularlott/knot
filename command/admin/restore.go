@@ -31,7 +31,7 @@ To get back a single file or folder, rather than the whole backup, use knot admi
 	},
 	MaxArgs: cli.NoArgs,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "encrypt-key", Aliases: []string{"e"}, Usage: "The key the records were encrypted with.", EnvVars: []string{config.CONFIG_ENV_PREFIX + "_RESTORE_ENCRYPT_KEY"}},
+		&cli.StringFlag{Name: "encrypt-key", Aliases: []string{"e"}, Usage: "The key the backup was encrypted with.", EnvVars: []string{config.CONFIG_ENV_PREFIX + "_RESTORE_ENCRYPT_KEY"}},
 		&cli.BoolFlag{Name: "no-content", Usage: "Restore the records of buckets and files but not their content."},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
@@ -150,6 +150,10 @@ const restoreBatch = 1000
 // sent, how many it already held, and the files whose content the backup
 // does not have.
 func restoreContent(ctx context.Context, client *apiclient.ApiClient, dir, key string) (uploaded, held int, missing []string) {
+	content, err := backupContentOf(dir, key)
+	if err != nil {
+		return 0, 0, []string{err.Error()}
+	}
 	r, err := backupfile.Open(dir, "file-objects", key)
 	if err != nil {
 		return 0, 0, []string{err.Error()}
@@ -164,7 +168,7 @@ func restoreContent(ctx context.Context, client *apiclient.ApiClient, dir, key s
 		go func() {
 			defer wg.Done()
 			for sha := range jobs {
-				err := uploadContent(ctx, client, dir, sha)
+				err := uploadContent(ctx, client, content, sha)
 				mu.Lock()
 				if err != nil {
 					missing = append(missing, fmt.Sprintf("%s: %v", sha[:12], err))
@@ -218,15 +222,15 @@ func restoreContent(ctx context.Context, client *apiclient.ApiClient, dir, key s
 	return
 }
 
-func uploadContent(ctx context.Context, client *apiclient.ApiClient, dir, sha string) error {
-	if !backupfile.HasContent(dir, sha) {
+func uploadContent(ctx context.Context, client *apiclient.ApiClient, content *backupfile.Content, sha string) error {
+	if !content.Has(sha) {
 		return errors.New("not in the backup")
 	}
-	return retry(ctx, func() error { return uploadContentOnce(ctx, client, dir, sha) })
+	return retry(ctx, func() error { return uploadContentOnce(ctx, client, content, sha) })
 }
 
-func uploadContentOnce(ctx context.Context, client *apiclient.ApiClient, dir, sha string) error {
-	f, err := backupfile.OpenContent(dir, sha)
+func uploadContentOnce(ctx context.Context, client *apiclient.ApiClient, content *backupfile.Content, sha string) error {
+	f, size, err := content.Open(sha)
 	if errors.Is(err, os.ErrNotExist) {
 		return errors.New("not in the backup")
 	}
@@ -234,12 +238,21 @@ func uploadContentOnce(ctx context.Context, client *apiclient.ApiClient, dir, sh
 		return err
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	if err := client.RestoreContent(ctx, sha, f, info.Size()); err != nil {
+	if err := client.RestoreContent(ctx, sha, f, size); err != nil {
 		return cmdutil.CleanErr(err)
 	}
 	return nil
+}
+
+// backupContentOf is the content of the backup in dir, encrypted with key if
+// its manifest says it is.
+func backupContentOf(dir, key string) (*backupfile.Content, error) {
+	m, err := backupfile.ReadManifest(dir)
+	if err != nil {
+		return nil, err
+	}
+	if m.ContentEncrypted && key == "" {
+		return nil, errors.New("the backup is encrypted: give the key with --encrypt-key")
+	}
+	return backupfile.NewContent(dir, key, m.ContentEncrypted)
 }

@@ -52,9 +52,9 @@ var BackupCmd = &cli.Command{
 
 The backup is taken through the server's API, by a user holding the Backup Server permission (the Backup User role), so it can run from anywhere. Choose the server with --server and --token, or --alias for one in the configuration file's client.connection section; with neither, the default alias is used.
 
-The folder holds one file of records for each kind, a manifest written when the backup is complete, and file content stored by checksum under content/. Run it again into the same folder to refresh the backup: only content not already there is copied. Records are kept as they were when the backup started; content is copied afterwards, so a file replaced meanwhile may have lost its old content, which is reported.
+The folder holds one file of records for each kind, a manifest written when the backup is complete, and file content under content/, each content stored once however many files share it. Run it again into the same folder to refresh the backup: only content not already there is copied. Records are kept as they were when the backup started; content is copied afterwards, so a file replaced meanwhile may have lost its old content, which is reported.
 
-Selecting kinds backs up only those; with none selected everything is. --encrypt-key encrypts the records, which include password hashes and API tokens; file content is stored as it is, so protect the folder.
+Selecting kinds backs up only those; with none selected everything is. --encrypt-key encrypts the backup: the records, which include password hashes and API tokens, and the files' content, kept under names that do not give away what it is. Keep the key safe: without it nothing in the backup can be read. A folder backed up into before without a key, or with another, keeps that content too until --prune removes it.
 
 Restore the folder into a new server with knot admin restore, and list or restore files from it with knot admin file ls and knot admin file restore.`,
 	Arguments: []cli.Argument{
@@ -82,7 +82,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 		&cli.BoolFlag{Name: "all", Aliases: []string{"a"}, Usage: "Backup everything", ConfigPath: []string{"backup.all"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ALL"}, DefaultValue: true},
 		&cli.StringFlag{Name: "limit-user", Usage: "Limit the backup to a specific user by username.", ConfigPath: []string{"backup.limit_user"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_USER"}},
 		&cli.StringFlag{Name: "limit-template", Usage: "Limit the backup to a specific template by name.", ConfigPath: []string{"backup.limit_template"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_TEMPLATE"}},
-		&cli.StringFlag{Name: "encrypt-key", Aliases: []string{"e"}, Usage: "Encrypt the records with this key, which must be 32 bytes long.", ConfigPath: []string{"backup.encrypt_key"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ENCRYPT_KEY"}},
+		&cli.StringFlag{Name: "encrypt-key", Aliases: []string{"e"}, Usage: "Encrypt the backup, its records and its files' content, with this key, which must be 32 bytes long.", ConfigPath: []string{"backup.encrypt_key"}, EnvVars: []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ENCRYPT_KEY"}},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		dir := cmd.GetStringArg("backupdir")
@@ -228,7 +228,7 @@ Restore the folder into a new server with knot admin restore, and list or restor
 		}
 
 		if err := backupfile.WriteManifest(dir, &backupfile.Manifest{
-			Created: time.Now().UTC(), Server: info.Version, Encrypted: key != "", Counts: counts, Content: withContent,
+			Created: time.Now().UTC(), Server: info.Version, Encrypted: key != "", ContentEncrypted: key != "", Counts: counts, Content: withContent,
 		}); err != nil {
 			return err
 		}
@@ -369,6 +369,10 @@ const contentWorkers = 16
 // folder does not hold yet, from the server. It returns how many it copied,
 // how many it already held, the bytes copied and what could not be read.
 func backupContent(ctx context.Context, client *apiclient.ApiClient, dir, key string) (copied, held int, total int64, problems []string) {
+	content, err := backupfile.NewContent(dir, key, key != "")
+	if err != nil {
+		return 0, 0, 0, []string{err.Error()}
+	}
 	r, err := backupfile.Open(stagingDir(dir), "file-objects", key)
 	if err != nil {
 		return 0, 0, 0, []string{err.Error()}
@@ -383,7 +387,7 @@ func backupContent(ctx context.Context, client *apiclient.ApiClient, dir, key st
 		go func() {
 			defer wg.Done()
 			for sha := range jobs {
-				n, err := copyContent(ctx, client, dir, sha)
+				n, err := copyContent(ctx, client, content, sha)
 				mu.Lock()
 				if err != nil {
 					problems = append(problems, fmt.Sprintf("%s: %v", sha[:12], err))
@@ -410,7 +414,7 @@ func backupContent(ctx context.Context, client *apiclient.ApiClient, dir, key st
 			return nil
 		}
 		queued[o.SHA256] = struct{}{}
-		if backupfile.HasContentOfSize(dir, o.SHA256, o.Size) {
+		if content.HasOfSize(o.SHA256, o.Size) {
 			mu.Lock()
 			held++
 			mu.Unlock()
@@ -451,13 +455,17 @@ func pruneContent(dir, key string) (int, int64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	return backupfile.Prune(dir, func(sha string) bool { _, ok := wanted[sha]; return ok })
+	content, err := backupfile.NewContent(dir, key, key != "")
+	if err != nil {
+		return 0, 0, err
+	}
+	return content.Prune(wanted)
 }
 
-func copyContent(ctx context.Context, client *apiclient.ApiClient, dir, sha string) (int64, error) {
+func copyContent(ctx context.Context, client *apiclient.ApiClient, content *backupfile.Content, sha string) (int64, error) {
 	var total int64
 	err := retry(ctx, func() error {
-		n, err := backupfile.DownloadContent(dir, sha, func(offset int64) (io.ReadCloser, bool, error) {
+		n, err := content.Download(sha, func(offset int64) (io.ReadCloser, bool, error) {
 			resp, resumed, err := client.BackupContent(ctx, sha, offset)
 			if err != nil {
 				return nil, false, err

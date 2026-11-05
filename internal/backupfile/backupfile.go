@@ -2,13 +2,15 @@
 //
 //	manifest.json      what the backup holds, written last
 //	<kind>.jsonl       the records of one kind, a JSON line each
-//	content/aa/bb/<sha>  file content, by its checksum
+//	content/aa/bb/<name> file content, by its checksum or, encrypted, by a
+//	                     keyed hash of it
 //
 // A record file begins with a header line. With a key the records follow in
 // encrypted blocks of about a thousand lines, so a backup of any size is read
-// and written a block at a time. Content is stored as it is, once however many
-// files share it, so repeating a backup into the same folder copies only what
-// is new.
+// and written a block at a time. Content is stored once however many files
+// share it, so repeating a backup into the same folder copies only what is
+// new; with a key it is encrypted too, under names that do not give away its
+// checksum (see Content).
 package backupfile
 
 import (
@@ -50,6 +52,10 @@ type Manifest struct {
 	Encrypted bool           `json:"encrypted" msgpack:"encrypted"`
 	Counts    map[string]int `json:"counts" msgpack:"counts"`
 	Content   bool           `json:"content" msgpack:"content"` // file content was copied
+	// ContentEncrypted says the content is encrypted with the key, as it is
+	// in a backup with a key since knot 0.42 (see Content); in one before,
+	// only the records were.
+	ContentEncrypted bool `json:"content_encrypted,omitempty" msgpack:"content_encrypted,omitempty"`
 }
 
 // WriteManifest writes the manifest into dir.
@@ -325,34 +331,6 @@ func ContentPath(dir, sha string) string {
 	return filepath.Join(dir, "content", sha[0:2], sha[2:4], sha)
 }
 
-// HasContent reports whether the backup holds the content with a checksum.
-func HasContent(dir, sha string) bool {
-	if len(sha) != 64 {
-		return false
-	}
-	_, err := os.Stat(ContentPath(dir, sha))
-	return err == nil
-}
-
-// HasContentOfSize is HasContent that also checks the size, so content a crash
-// left empty or cut short is copied again rather than trusted. Content is not
-// synced file by file, which would make a backup of many small files crawl.
-func HasContentOfSize(dir, sha string, size int64) bool {
-	if len(sha) != 64 {
-		return false
-	}
-	info, err := os.Stat(ContentPath(dir, sha))
-	return err == nil && info.Size() == size
-}
-
-// OpenContent opens the content with a checksum.
-func OpenContent(dir, sha string) (*os.File, error) {
-	if len(sha) != 64 {
-		return nil, os.ErrNotExist
-	}
-	return os.Open(ContentPath(dir, sha))
-}
-
 // PartialPath is where content with a checksum is kept while it is being
 // copied. A copy that fails leaves it, so the next attempt, in this run or
 // the next, carries on from there.
@@ -455,7 +433,7 @@ func sumFile(f *os.File) (string, error) {
 }
 
 // Prune removes content that no file refers to: keep reports whether a
-// checksum is still wanted. It also clears partial copies. It returns how many
+// content file's name (see Content.Name) is still wanted. It also clears partial copies. It returns how many
 // files it removed and the bytes they held.
 func Prune(dir string, keep func(sha string) bool) (removed int, freed int64, err error) {
 	root := filepath.Join(dir, "content")
