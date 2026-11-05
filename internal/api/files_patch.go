@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -114,12 +115,30 @@ func HandlePatchFileObject(w http.ResponseWriter, r *http.Request) {
 	rest.NoDeadlines(w)
 
 	size, err := strconv.ParseInt(r.Header.Get(apiclient.FileSizeHeader), 10, 64)
-	if err != nil || size < 0 {
+	if err != nil || size < 0 || size > maxPatchSize {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: apiclient.FileSizeHeader + " must give the new size"})
 		return
 	}
 	bucket, key := filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key")
 	ifMatch := strings.Trim(r.Header.Get("If-Match"), `"`)
+
+	// What can be refused before the body is read is: a change the user may
+	// not make, cannot fit, or is to a version no longer there.
+	if err := store.CheckPut(p, bucket, key, size); err != nil {
+		filesError(w, r, err)
+		return
+	}
+	if ifMatch != "" {
+		o, err := store.HeadObject(p, bucket, key)
+		if err != nil {
+			filesError(w, r, err)
+			return
+		}
+		if o.ETag != ifMatch {
+			filesError(w, r, filestore.ErrPrecondition)
+			return
+		}
+	}
 
 	// The ranges are read first, so the file is held below only while the
 	// change is made, not while a client sends it, and can be applied again.
@@ -159,6 +178,10 @@ func HandlePatchFileObject(w http.ResponseWriter, r *http.Request) {
 // patchAttempts is how many times a patch without If-Match is made, the file
 // changing each time as it was.
 const patchAttempts = 10
+
+// maxPatchSize is the largest new size a patch may give: one whose body's
+// limit (see spoolPatch) can be counted.
+const maxPatchSize = (math.MaxInt64 - 16) / 17
 
 // patchOnce makes a patch's change once: from the stored file, which must
 // still be the version ifMatch names when it is given, and only if the file

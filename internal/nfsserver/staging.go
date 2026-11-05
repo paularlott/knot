@@ -462,14 +462,20 @@ var mergeNotice = time.Second
 // cached content to be current while its size and modification time are
 // as they were.
 func (fs *storeFS) noticeMerge(bucket, key string, saved *Object) {
-	etag := saved.ETag
-	meta := maps.Clone(saved.Meta)
-	if meta == nil {
-		meta = map[string]string{}
-	}
 	time.AfterFunc(mergeNotice, func() {
+		// Only the file as saved gets the new time: one changed since,
+		// even only its mode or owner, keeping the same content, is left
+		// as it is, as is one written again, the same, meanwhile.
+		cur, err := fs.backend.Head(ctx(), bucket, key)
+		if err != nil || cur.ETag != saved.ETag || !maps.Equal(cur.Meta, saved.Meta) {
+			return
+		}
+		meta := maps.Clone(cur.Meta)
+		if meta == nil {
+			meta = map[string]string{}
+		}
 		meta[metaMtime] = apiclient.FormatMtime(time.Now())
-		if err := fs.backend.SetMeta(ctx(), bucket, key, meta, etag); err == nil {
+		if err := fs.backend.SetMeta(ctx(), bucket, key, meta, cur.ETag); err == nil {
 			fs.forget(bucket, key, false)
 		}
 	})
@@ -477,31 +483,49 @@ func (fs *storeFS) noticeMerge(bucket, key string, saved *Object) {
 
 // flush saves a staged copy as the file and drops it.
 func (s *staging) flush(e *dirtyFile) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.gone {
-		return nil
-	}
-
-	if e.staleTruncation() {
-		log.WithGroup("nfs").Info("not saving the truncation of a file replaced or removed since", "bucket", e.bucket, "key", e.key)
-		s.drop(e)
-		return nil
-	}
-
 	// A file changing elsewhere as it is saved, or whose content has not
 	// yet reached the server, is tried again at once for a while: the
-	// client waiting on the save has its close() fail otherwise.
-	err := e.save()
-	for start, wait := time.Now(), 100*time.Millisecond; transient(err) && time.Since(start) < busyPatience; wait = min(wait*2, time.Second) {
-		time.Sleep(wait)
-		err = e.save()
+	// client waiting on the save has its close() fail otherwise. The copy
+	// is let go between tries, so others can look at the file meanwhile.
+	start, pause := time.Now(), 100*time.Millisecond
+	for {
+		e.mu.Lock()
+		if e.gone {
+			e.mu.Unlock()
+			return nil
+		}
+		if e.staleTruncation() {
+			log.WithGroup("nfs").Info("not saving the truncation of a file replaced or removed since", "bucket", e.bucket, "key", e.key)
+			s.drop(e)
+			e.mu.Unlock()
+			return nil
+		}
+		err := e.save()
+		if err == nil {
+			s.drop(e)
+			e.mu.Unlock()
+			return nil
+		}
+		if transient(err) && time.Since(start) < busyPatience {
+			e.mu.Unlock()
+			time.Sleep(pause)
+			pause = min(pause*2, time.Second)
+			continue
+		}
+		defer e.mu.Unlock()
+		return s.retryLater(e, err)
 	}
-	if err == nil {
-		s.drop(e)
-		return nil
-	}
+}
 
+// busyFlushes is how many flushes in a row a file changing elsewhere, or
+// waiting for its content, is tried again soon after; then it waits as for
+// any other failure, as it is not settling (a server whose content it
+// waits on gone, say).
+const busyFlushes = 5
+
+// retryLater handles a save that failed: dropped if it never can be made, else
+// tried again later; e.mu is held.
+func (s *staging) retryLater(e *dirtyFile, err error) error {
 	e.failures++
 	logger := log.WithGroup("nfs")
 	if permanent(err) {
@@ -511,7 +535,7 @@ func (s *staging) flush(e *dirtyFile) error {
 		return err
 	}
 	var wait time.Duration
-	if transient(err) {
+	if transient(err) && e.failures <= busyFlushes {
 		// The file kept changing elsewhere as the change was made: busy,
 		// not failing, so soon tried again.
 		wait = min(conflictRetry*time.Duration(e.failures), retryMin)
@@ -547,7 +571,10 @@ func (e *dirtyFile) save() error {
 		patch := func(ifMatch string) error {
 			ranges := make([]Range, 0, len(send))
 			for _, sp := range send {
-				ranges = append(ranges, Range{Offset: sp.off, Length: sp.end - sp.off, Data: io.NewSectionReader(e.f, sp.off, sp.end-sp.off)})
+				// Past the copy's end (nothing written there) is zeros.
+				n := sp.end - sp.off
+				data := io.LimitReader(io.MultiReader(io.NewSectionReader(e.f, sp.off, n), zeros{}), n)
+				ranges = append(ranges, Range{Offset: sp.off, Length: n, Data: data})
 			}
 			o, err := e.s.fs.backend.Patch(ctx(), e.bucket, e.key, ranges, e.size, ifMatch, e.contentType, e.meta)
 			saved = o
@@ -565,7 +592,19 @@ func (e *dirtyFile) save() error {
 			// it for the file it holds and keep what it read before.
 			e.mtime = time.Now()
 			e.meta[metaMtime] = apiclient.FormatMtime(e.mtime)
-			if err = patch(""); err == nil && saved != nil {
+			// A newer version shorter than the one written over has
+			// nothing past its end: what is not written here there is
+			// zeros, as in a file grown, and sent, as the server fills in
+			// nothing. Refused for being short of that, it shrank again.
+			for range 3 {
+				if cur, err := e.s.fs.backend.Head(ctx(), e.bucket, e.key); err == nil && cur.Size < e.keep {
+					send.add(cur.Size, e.keep)
+				}
+				if err = patch(""); !errors.Is(err, syscall.EINVAL) {
+					break
+				}
+			}
+			if err == nil && saved != nil {
 				e.s.fs.noticeMerge(e.bucket, e.key, saved)
 			}
 		}
@@ -581,6 +620,14 @@ func (e *dirtyFile) save() error {
 		e.f = nil
 	}
 	return err
+}
+
+// zeros reads as endless zero bytes.
+type zeros struct{}
+
+func (zeros) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
 }
 
 // drop forgets a staged copy; e.mu is held.

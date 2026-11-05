@@ -2,6 +2,7 @@ package nfsserver
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -688,7 +689,7 @@ func objectInfo(name, bucket string, o *Object) *fileInfo {
 		id:    fileId(bucket, o.Key),
 		sha:   o.SHA256,
 		etag:  o.ETag,
-		ctime: o.ModifiedAt,
+		ctime: cmp.Or(o.ChangedAt, o.ModifiedAt),
 	}).withMeta(o.Meta)
 }
 
@@ -1397,17 +1398,22 @@ func (f *file) ReadAtInfo(b []byte, off int64) (int, os.FileInfo, error) {
 	// What is read is the version the file's attributes describe, so a
 	// client is never sent one version's bytes as another's: its size, and
 	// whether it changed, come from those attributes. Changed meanwhile, the
-	// file is looked at afresh and the newer version read.
+	// file is looked at afresh and the newer version read. One changing
+	// faster than that, every time, is read as it is when read, its
+	// attributes not known.
 	for attempt := 0; ; attempt++ {
 		var read os.FileInfo
 		sha, etag, size := "", "", int64(-1)
-		if fi, err := f.fs.Stat(f.name); err == nil {
-			info := fi.(*fileInfo)
-			read, sha, etag, size = fi, info.sha, info.etag, fi.Size()
+		if attempt < readAttempts {
+			if fi, err := f.fs.Stat(f.name); err == nil {
+				info := fi.(*fileInfo)
+				read, sha, etag, size = fi, info.sha, info.etag, fi.Size()
+			}
 		}
 		n, err := f.fs.readSaved(f.bucket, f.key, sha, etag, size, b, off)
 		if errors.Is(err, errPrecondition) && attempt < readAttempts {
 			f.fs.forget(f.bucket, f.key, false)
+			time.Sleep(time.Duration(attempt) * 10 * time.Millisecond)
 			continue
 		}
 		if err != nil && !errors.Is(err, io.EOF) {
@@ -1418,7 +1424,7 @@ func (f *file) ReadAtInfo(b []byte, off int64) (int, os.FileInfo, error) {
 }
 
 // readAttempts is how many times in a row a read finds the file changed
-// since it was looked at, and looks again, before failing.
+// since it was looked at, and looks again, before reading it as it is.
 const readAttempts = 10
 
 func (f *file) Read(b []byte) (int, error) {

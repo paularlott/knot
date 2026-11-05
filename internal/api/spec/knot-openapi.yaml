@@ -2103,6 +2103,8 @@ paths:
               $ref: "#/components/headers/FileSha256"
             X-Knot-Mtime:
               $ref: "#/components/headers/FileMtime"
+            X-Knot-Changed:
+              $ref: "#/components/headers/FileChanged"
           content:
             "*/*":
               schema:
@@ -2119,6 +2121,8 @@ paths:
               $ref: "#/components/headers/FileSha256"
             X-Knot-Mtime:
               $ref: "#/components/headers/FileMtime"
+            X-Knot-Changed:
+              $ref: "#/components/headers/FileChanged"
             Content-Range:
               schema:
                 type: string
@@ -13177,6 +13181,10 @@ components:
           type: string
           format: date-time
           description: The file's own modification time when known (from `X-Knot-Mtime`), otherwise the upload time.
+        changed_at:
+          type: string
+          format: date-time
+          description: When this version of the file was saved, its content or metadata changed. Unlike `modified_at`, never a time a client gave.
 
     FileUpload:
       type: object
@@ -13394,6 +13402,10 @@ components:
         type: string
     FileMtime:
       description: The file's own modification time as fractional unix seconds (the upload time when none was given).
+      schema:
+        type: string
+    FileChanged:
+      description: When this version of the file was saved, its content or metadata changed, as fractional unix seconds; unlike `X-Knot-Mtime`, never a time a client gave.
       schema:
         type: string
 

@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -95,7 +97,26 @@ func runNFSServer(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	logger := log.WithGroup("nfs")
+
+	// A server that cannot be reached, or is failing, is waited for: one
+	// restarting, or not yet started when this is, would otherwise leave
+	// the mounts with nothing to answer them. One that refuses the token
+	// will not change its mind.
 	user, err := client.WhoAmI(ctx)
+	for waited := false; err != nil && waitForServer(err); waited = true {
+		if !waited {
+			logger.Warn("can't reach the knot server, waiting for it", "error", cmdutil.CleanErr(err))
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("couldn't reach the knot server: %w", cmdutil.CleanErr(err))
+		case <-time.After(2 * time.Second):
+		}
+		user, err = client.WhoAmI(ctx)
+	}
 	if err != nil {
 		return fmt.Errorf("couldn't reach the knot server: %w", cmdutil.CleanErr(err))
 	}
@@ -128,11 +149,7 @@ func runNFSServer(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	logger := log.WithGroup("nfs")
 	logger.Info("serving file storage over NFS", "listen", srv.Addr().String(), "user", user.Username)
-
-	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	// The server says when files change, here or anywhere, so what is
 	// known of them can be kept until they do.
@@ -165,6 +182,13 @@ func runNFSServer(ctx context.Context, cmd *cli.Command) error {
 
 	// Save what clients have written but not yet committed.
 	return srv.Close()
+}
+
+// waitForServer reports whether a request failed for the server being
+// unreachable or failing, which can pass, rather than refusing it.
+func waitForServer(err error) bool {
+	code := apiclient.StatusCode(err)
+	return code == 0 || code >= 500 || code == http.StatusTooManyRequests
 }
 
 // ownerId is the id given, else this process's, else root's where there is

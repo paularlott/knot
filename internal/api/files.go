@@ -511,6 +511,7 @@ func objectResponse(o *filestore.Object) apiclient.FileObjectInfo {
 		SHA256:      o.SHA256,
 		ContentType: o.ContentType,
 		ModifiedAt:  modified,
+		ChangedAt:   o.ModifiedAt,
 		Meta:        o.Meta,
 	}
 }
@@ -571,6 +572,7 @@ func setObjectHeaders(w http.ResponseWriter, o *filestore.Object) {
 	h.Set("ETag", `"`+o.ETag+`"`)
 	h.Set("Last-Modified", o.ModifiedAt.UTC().Format(http.TimeFormat))
 	h.Set("X-Knot-Sha256", o.SHA256)
+	h.Set(apiclient.FileChangedHeader, apiclient.FormatMtime(o.ModifiedAt))
 	if mtime, ok := o.Meta["mtime"]; ok {
 		h.Set(apiclient.FileMtimeHeader, mtime)
 	} else {

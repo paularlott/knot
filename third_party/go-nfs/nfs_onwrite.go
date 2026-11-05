@@ -56,7 +56,9 @@ func onWrite(ctx context.Context, w *response, userHandle Handler) error {
 		if os.IsNotExist(err) {
 			return &NFSStatusError{NFSStatusNoEnt, err}
 		}
-		return &NFSStatusError{NFSStatusAccess, err}
+		// knot: mapped by statusFromError; upstream answered ACCESS for any
+		// failure, a server unable to answer for a moment included.
+		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 	if !info.Mode().IsRegular() {
 		return &NFSStatusError{NFSStatusInval, os.ErrInvalid}
@@ -66,7 +68,9 @@ func onWrite(ctx context.Context, w *response, userHandle Handler) error {
 	// now the actual op.
 	file, err := fs.OpenFile(fs.Join(path...), os.O_RDWR, info.Mode().Perm())
 	if err != nil {
-		return &NFSStatusError{NFSStatusAccess, err}
+		// knot: mapped by statusFromError; upstream answered ACCESS for any
+		// failure, a server unable to answer for a moment included.
+		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 	if req.Offset > 0 {
 		if _, err := file.Seek(int64(req.Offset), io.SeekStart); err != nil {

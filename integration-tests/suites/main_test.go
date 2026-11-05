@@ -46,6 +46,11 @@ func workspace(t *testing.T) string {
 }
 
 func TestMain(m *testing.M) {
+	// Run as a test's NFS client process, not as the tests (see
+	// nfsWorkerEnv).
+	if os.Getenv(nfsWorkerEnv) != "" {
+		os.Exit(runNFSWorker())
+	}
 	// go test runs the binary with the package directory as cwd, so plain
 	// ".env" misses the repo root — and Task does not export .env values as
 	// process environment. Load the root file explicitly; a suites-local

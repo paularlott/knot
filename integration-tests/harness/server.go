@@ -252,7 +252,14 @@ func StartServerAt(cfg *Config, bins *Binaries, name, hostAddr string, extraArgs
 // ports, data dir and flags. State in badger (users, tokens, spaces)
 // survives; in-memory state (auth rate-limit blocks) is cleared — which is
 // exactly what the rate-limit journey stage needs.
-func (s *Server) Restart() error {
+func (s *Server) Restart() error { return s.restart(false) }
+
+// Crash kills the server process at once (SIGKILL), as a crash would, with
+// no chance to finish what it was doing, and starts it again as Restart
+// does.
+func (s *Server) Crash() error { return s.restart(true) }
+
+func (s *Server) restart(kill bool) error {
 	s.mu.Lock()
 	if s.stopped {
 		s.mu.Unlock()
@@ -260,7 +267,11 @@ func (s *Server) Restart() error {
 	}
 	oldCmd := s.cmd
 	if oldCmd != nil && oldCmd.Process != nil {
-		oldCmd.Process.Signal(syscall.SIGTERM)
+		if kill {
+			oldCmd.Process.Kill()
+		} else {
+			oldCmd.Process.Signal(syscall.SIGTERM)
+		}
 		done := make(chan struct{})
 		go func() { oldCmd.Wait(); close(done) }()
 		select {

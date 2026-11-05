@@ -305,6 +305,13 @@ func TestQuota(t *testing.T) {
 	if _, err := s.PutObject(alice, "small", "c", strings.NewReader("1"), PutOptions{Size: 1}); !errors.Is(err, ErrQuotaExceeded) {
 		t.Errorf("over quota: %v", err)
 	}
+	// Checked before anything is sent, as PutObject first does.
+	if err := s.CheckPut(alice, "small", "c", 1); !errors.Is(err, ErrQuotaExceeded) {
+		t.Errorf("CheckPut over quota: %v", err)
+	}
+	if err := s.CheckPut(alice, "small", "a", 5); err != nil {
+		t.Errorf("CheckPut replacing within quota: %v", err)
+	}
 	// Size unknown up front is still caught after the upload.
 	if _, err := s.PutObject(alice, "small", "c", strings.NewReader("1"), PutOptions{Size: -1}); !errors.Is(err, ErrQuotaExceeded) {
 		t.Errorf("over quota unknown size: %v", err)

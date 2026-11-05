@@ -6,8 +6,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"os"
+	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/go-git/go-billy/v5"
+	"github.com/willscott/go-nfs-client/nfs/xdr"
 )
 
 func TestReadOpaqueSkipsPadding(t *testing.T) {
@@ -70,5 +74,46 @@ func TestHandlerPanicAnswered(t *testing.T) {
 	var sysErr *ResponseCodeSystemError
 	if !errors.As(err, &sysErr) {
 		t.Fatalf("panic answered with %v", err)
+	}
+}
+
+// unreachableFS is a filesystem that cannot answer: its server is down.
+type unreachableFS struct{ billy.Filesystem }
+
+func (unreachableFS) Join(elem ...string) string { return strings.Join(elem, "/") }
+func (unreachableFS) Stat(string) (os.FileInfo, error) {
+	return nil, errors.New("dial tcp 127.0.0.1:8080: connect: connection refused")
+}
+func (f unreachableFS) Lstat(name string) (os.FileInfo, error) { return f.Stat(name) }
+
+type unreachableHandler struct{ Handler }
+
+func (unreachableHandler) FromHandle([]byte) (billy.Filesystem, []string, error) {
+	return unreachableFS{}, []string{"f"}, nil
+}
+
+// A WRITE or SETATTR of a file that cannot be looked at for a moment is
+// IO, not ACCES: told "permission denied", a program gives up for good.
+func TestUnreachableFileIsNotPermissionDenied(t *testing.T) {
+	write := func(v any) []byte {
+		var b bytes.Buffer
+		if err := xdr.Write(&b, v); err != nil {
+			t.Fatal(err)
+		}
+		return b.Bytes()
+	}
+	for name, call := range map[string]struct {
+		h    HandleFunc
+		body []byte
+	}{
+		"WRITE":   {onWrite, write(writeArgs{Handle: []byte("h"), Count: 1, How: uint32(fileSync), Data: []byte("x")})},
+		"SETATTR": {onSetAttr, append(write([]byte("h")), make([]byte, 64)...)},
+	} {
+		w := &response{req: &request{Body: bytes.NewReader(call.body)}}
+		err := call.h(context.Background(), w, unreachableHandler{})
+		var st *NFSStatusError
+		if !errors.As(err, &st) || st.NFSStatus != NFSStatusIO {
+			t.Errorf("%s of a file that cannot be looked at: %v", name, err)
+		}
 	}
 }

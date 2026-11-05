@@ -253,6 +253,30 @@ func TestFileStatAndPatchHandlers(t *testing.T) {
 		t.Errorf("bad patch: %d %s", rr.Code, rr.Body.String())
 	}
 
+	// Refused before its body is read: a size too large to count with,
+	// and a change to a version no longer there. The body is not read.
+	refusedUnread := func(size, ifMatch string, want int) {
+		t.Helper()
+		body := &unreadBody{}
+		req := httptest.NewRequest("PATCH", "/api/files/objects/b/dir/file.txt", body)
+		req = req.WithContext(filesRequest("PATCH", "/", "", user).Context())
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Content-Type", apiclient.FilePatchContentType)
+		req.Header.Set(apiclient.FileSizeHeader, size)
+		if ifMatch != "" {
+			req.Header.Set("If-Match", `"`+ifMatch+`"`)
+		}
+		req.SetPathValue("bucket", "b")
+		req.SetPathValue("key", "dir/file.txt")
+		rr := httptest.NewRecorder()
+		HandlePatchFileObject(rr, req)
+		if rr.Code != want || body.read {
+			t.Errorf("patch of size %s, If-Match %q: %d, body read %v; want %d unread", size, ifMatch, rr.Code, body.read, want)
+		}
+	}
+	refusedUnread("576460752303423488", "", http.StatusBadRequest)
+	refusedUnread("13", file.ETag, http.StatusPreconditionFailed)
+
 	// Patches without If-Match made at once all land, each made over what
 	// the others left, rather than refusing or undoing each other; one too
 	// large to keep in memory among them.
@@ -299,4 +323,12 @@ func TestFileStatAndPatchHandlers(t *testing.T) {
 			t.Errorf("part %d lost", i)
 		}
 	}
+}
+
+// unreadBody is a request body that notes whether it was read.
+type unreadBody struct{ read bool }
+
+func (b *unreadBody) Read(p []byte) (int, error) {
+	b.read = true
+	return 0, io.EOF
 }

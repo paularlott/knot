@@ -30,9 +30,15 @@ Both versions:
 
 NFSv3:
 
-- LOOKUP answers NOENT only for a name that is not there; another error
-  (the filesystem unable to answer for a moment) is IO. Upstream answered
-  every error NOENT, which clients take, and cache, as the file being gone.
+- LOOKUP answers NOENT only for a name that is not there or cannot be (one
+  the filesystem refuses as invalid), ACCES for one not allowed and
+  NAMETOOLONG for one too long; another error (the filesystem unable to
+  answer for a moment) is IO. Upstream answered every error NOENT, which
+  clients take, and cache, as the file being gone.
+- WRITE, CREATE and SETATTR of a file that can't be looked at or opened
+  answer the error's own status (ACCES only for one not allowed), IO for a
+  filesystem unable to answer for a moment; upstream answered ACCES, so a
+  program was told "permission denied" while the server restarted.
 - READDIR/READDIRPLUS cookies are a hash of the entry name, and a listing is
   in cookie order, so a client resuming after entries were removed (Linux
   `rm -rf`) carries on where it was instead of skipping entries. Listings are

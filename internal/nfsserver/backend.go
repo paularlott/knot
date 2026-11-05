@@ -92,6 +92,7 @@ type Object struct {
 	SHA256      string
 	ContentType string
 	ModifiedAt  time.Time
+	ChangedAt   time.Time // when this version was saved; zero if not known
 	Meta        map[string]string
 }
 
@@ -194,7 +195,7 @@ func bucketFrom(b *apiclient.FileBucketInfo) *Bucket {
 }
 
 func objectFrom(o *apiclient.FileObjectInfo) *Object {
-	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, SHA256: o.SHA256, ContentType: o.ContentType, ModifiedAt: o.ModifiedAt, Meta: o.Meta}
+	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, SHA256: o.SHA256, ContentType: o.ContentType, ModifiedAt: o.ModifiedAt, ChangedAt: o.ChangedAt, Meta: o.Meta}
 }
 
 func (b *apiBackend) Buckets(ctx context.Context) ([]Bucket, error) {

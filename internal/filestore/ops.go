@@ -590,6 +590,30 @@ func (s *Store) openBlob(ctx context.Context, o *Object) (Content, error) {
 	return f, nil
 }
 
+// CheckPut reports whether p could store size bytes as key, as PutObject
+// first checks: its access to the bucket, the key and the owner's quota.
+// It lets a caller refuse a write before reading what is to be written.
+func (s *Store) CheckPut(p *Principal, bucket, key string, size int64) error {
+	if !ValidKey(key) {
+		return ErrInvalidKey
+	}
+	owner, limit, err := s.quotaFor(p, bucket, AccessWrite)
+	if err != nil {
+		return err
+	}
+	s.mu.RLock()
+	var existing int64
+	if b := s.bucketByNameLocked(bucket); b != nil {
+		existing = s.existingSizeLocked(b.Id, key)
+	}
+	remaining := s.remainingLocked(owner, limit, existing)
+	s.mu.RUnlock()
+	if remaining >= 0 && size > remaining {
+		return ErrQuotaExceeded
+	}
+	return nil
+}
+
 // PutObject stores an object from r.
 func (s *Store) PutObject(p *Principal, bucket, key string, r io.Reader, opts PutOptions) (*Object, error) {
 	if !ValidKey(key) {

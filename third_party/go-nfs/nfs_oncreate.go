@@ -78,7 +78,9 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 		attrs = &SetFileAttributes{SetSize: attrs.SetSize}
 	} else {
 		if s, err := fs.Stat(fs.Join(path...)); err != nil {
-			return &NFSStatusError{NFSStatusAccess, err}
+			// knot: mapped by statusFromError; upstream answered ACCESS for any
+			// failure, a server unable to answer for a moment included.
+			return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 		} else if !s.IsDir() {
 			return &NFSStatusError{NFSStatusNotDir, nil}
 		}
@@ -93,7 +95,7 @@ func onCreate(ctx context.Context, w *response, userHandle Handler) error {
 		}
 		if err := file.Close(); err != nil {
 			Log.Errorf("Error Creating: %v", err)
-			return &NFSStatusError{NFSStatusAccess, err}
+			return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 		}
 	}
 

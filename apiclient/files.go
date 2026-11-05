@@ -78,6 +78,10 @@ type FileObjectInfo struct {
 	SHA256      string    `json:"sha256" msgpack:"sha256"`
 	ContentType string    `json:"content_type" msgpack:"content_type"`
 	ModifiedAt  time.Time `json:"modified_at" msgpack:"modified_at"`
+	// ChangedAt is when this version of the file was saved, its content
+	// or metadata changed: unlike ModifiedAt, not the time a client gave
+	// it. Zero from servers that do not say.
+	ChangedAt time.Time `json:"changed_at,omitzero" msgpack:"changed_at,omitempty"`
 	// Meta is the file's user metadata, as S3 x-amz-meta-*: its mtime and,
 	// for a file written over NFS, its mode and inode number.
 	Meta map[string]string `json:"meta,omitempty" msgpack:"meta,omitempty"`
@@ -188,6 +192,10 @@ type FileUsage struct {
 // FileMtimeHeader carries an object's modification time as fractional unix
 // seconds, the same form rclone stores in x-amz-meta-mtime.
 const FileMtimeHeader = "X-Knot-Mtime"
+
+// FileChangedHeader carries when an object's version was saved (see
+// FileObjectInfo.ChangedAt), as FileMtimeHeader does its modification time.
+const FileChangedHeader = "X-Knot-Changed"
 
 // FileMetaHeaderPrefix starts the headers carrying an object's user metadata
 // on GET, HEAD and PUT, one header per key (cf. S3's x-amz-meta-).
@@ -660,10 +668,16 @@ func ObjectInfoFromHeaders(key string, h http.Header, size int64) *FileObjectInf
 		SHA256:      h.Get("X-Knot-Sha256"),
 		ContentType: h.Get("Content-Type"),
 	}
+	lastModified, lmErr := http.ParseTime(h.Get("Last-Modified"))
 	if t, ok := ParseMtime(h.Get(FileMtimeHeader)); ok {
 		info.ModifiedAt = t
-	} else if t, err := http.ParseTime(h.Get("Last-Modified")); err == nil {
-		info.ModifiedAt = t
+	} else if lmErr == nil {
+		info.ModifiedAt = lastModified
+	}
+	if t, ok := ParseMtime(h.Get(FileChangedHeader)); ok {
+		info.ChangedAt = t
+	} else if lmErr == nil {
+		info.ChangedAt = lastModified
 	}
 	for k, v := range h {
 		if len(v) > 0 && len(k) > len(FileMetaHeaderPrefix) && strings.EqualFold(k[:len(FileMetaHeaderPrefix)], FileMetaHeaderPrefix) {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"syscall"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/willscott/go-nfs-client/nfs/xdr"
@@ -73,13 +74,15 @@ func onLookup(ctx context.Context, w *response, userHandle Handler) error {
 
 	reqPath := append(p, string(obj.Filename))
 	if _, err = fs.Lstat(fs.Join(reqPath...)); err != nil {
-		// knot: only a name not there is NOENT; another error (the
-		// filesystem unable to answer) is IO, which the client does not
-		// take, and cache, as the file being gone.
-		if errors.Is(err, os.ErrNotExist) {
+		// knot: a name not there, or that cannot be (one the filesystem
+		// refuses as invalid), is NOENT; one not allowed ACCES, one too
+		// long NAMETOOLONG; any other error (the filesystem unable to
+		// answer) is IO, which the client does not take, and cache, as the
+		// file being gone.
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.EINVAL) {
 			return &NFSStatusError{NFSStatusNoEnt, os.ErrNotExist}
 		}
-		return &NFSStatusError{NFSStatusIO, err}
+		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 
 	newHandle := userHandle.ToHandle(fs, reqPath)
