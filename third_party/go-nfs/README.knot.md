@@ -15,12 +15,24 @@ Both versions:
 - A panic in a request's handler is recovered and answered with a system
   error, logged with its stack (`conn.callHandler`), as upstream's open
   PR #151 proposes; upstream let it end the process.
+- A file's ctime, and NFSv4's change attribute and time_metadata, come from
+  a FileInfo implementing `ChangeInfo` (the version saved), not from its
+  size and modification time: a version replaced by another with the same
+  of both stayed cached by clients, who saw no change.
+- READ answers with the size, end of file and (NFSv3) attributes of the
+  version it read, from a file implementing `VersionedReader`; upstream
+  took them before reading, so a file replaced in between was answered with
+  one version's bytes and another's attributes, which the client then kept
+  as that version's.
 - Each reply is written by the goroutine that handled its request, under a
   lock (`conn.writeReply`), rather than handed over a channel to a goroutine
   that wrote replies: one goroutine wake-up fewer per request.
 
 NFSv3:
 
+- LOOKUP answers NOENT only for a name that is not there; another error
+  (the filesystem unable to answer for a moment) is IO. Upstream answered
+  every error NOENT, which clients take, and cache, as the file being gone.
 - READDIR/READDIRPLUS cookies are a hash of the entry name, and a listing is
   in cookie order, so a client resuming after entries were removed (Linux
   `rm -rf`) carries on where it was instead of skipping entries. Listings are
@@ -50,8 +62,11 @@ NFSv4.0:
 
 - READDIR uses the same name-hash cookies, so a listing that changes between
   calls is resumed correctly instead of refused (BAD_COOKIE) or skipped.
-- WRITE, COMMIT and CLOSE use `Committer` as NFSv3 does; CLOSE commits too,
-  so a file is saved when it is closed.
+- WRITE and COMMIT use `Committer` as NFSv3 does. CLOSE saves nothing:
+  clients save before the program's close() returns, and send CLOSE later,
+  when the handle can name another file's content (a file written and
+  renamed over another, whose name is then opened and written afresh).
+  Saving at CLOSE, as knot did before, saved that file half-written.
 - SETATTR, and the attributes given to OPEN and CREATE, accept owner,
   owner_group (by number), hidden and system, which are listed as supported:
   macOS sets hidden on everything it creates, which upstream refused, so no
@@ -92,11 +107,9 @@ NFSv4.0:
   SETATTR, READDIR, READLINK) whose file is gone answers NFS4ERR_STALE, not
   NFS4ERR_NOENT, which RFC 7530 keeps for operations that look a name up
   (`nfs4FileStatusFromErr`).
-- CLOSE closes the open whether or not saving what was written succeeds:
-  COMMIT, which clients send before CLOSE with writes unsaved, reports a
-  failed save, and the Committer keeps what is unsaved. A failed CLOSE the
-  Mac's client sends again at once, forever, which while the server behind
-  the Committer was unreachable was a tight loop.
+- CLOSE closes the open and never fails for a save, which it does not
+  make: a failed CLOSE the Mac's client sends again at once, forever. COMMIT
+  reports a failed save, and the Committer keeps what is unsaved.
 - A special stateid (all zeros or all ones) where state is needed is
   NFS4ERR_BAD_STATEID (RFC 7530 9.1.4.3), not NFS4ERR_STALE_STATEID, which
   tells the client the server restarted, with one exception: a LOCK for a

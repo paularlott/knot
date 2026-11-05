@@ -48,7 +48,7 @@ func TestAPIReadAtBlocks(t *testing.T) {
 	var got []byte
 	buf := make([]byte, 700000)
 	for off := int64(0); ; {
-		n, err := b.ReadAt(context.Background(), "b", "k", buf, off)
+		n, err := b.ReadAt(context.Background(), "b", "k", "", buf, off)
 		got = append(got, buf[:n]...)
 		off += int64(n)
 		if errors.Is(err, io.EOF) {
@@ -70,15 +70,15 @@ func TestAPIReadAtBlocks(t *testing.T) {
 
 	// Exactly to the end is EOF; beyond it reads nothing.
 	tail := make([]byte, 100)
-	if n, err := b.ReadAt(context.Background(), "b", "k", tail, int64(len(content)-100)); n != 100 || !errors.Is(err, io.EOF) {
+	if n, err := b.ReadAt(context.Background(), "b", "k", "", tail, int64(len(content)-100)); n != 100 || !errors.Is(err, io.EOF) {
 		t.Fatalf("read to the end: %d %v", n, err)
 	}
-	if n, err := b.ReadAt(context.Background(), "b", "k", tail, int64(len(content)+10)); n != 0 || !errors.Is(err, io.EOF) {
+	if n, err := b.ReadAt(context.Background(), "b", "k", "", tail, int64(len(content)+10)); n != 0 || !errors.Is(err, io.EOF) {
 		t.Fatalf("read past the end: %d %v", n, err)
 	}
 	// A read across a block boundary.
 	mid := make([]byte, 1000)
-	if n, err := b.ReadAt(context.Background(), "b", "k", mid, readBlock-500); err != nil || !bytes.Equal(mid[:n], content[readBlock-500:readBlock+500]) {
+	if n, err := b.ReadAt(context.Background(), "b", "k", "", mid, readBlock-500); err != nil || !bytes.Equal(mid[:n], content[readBlock-500:readBlock+500]) {
 		t.Fatalf("read across blocks: %d %v", n, err)
 	}
 }
@@ -92,7 +92,7 @@ func TestAPIReadAtSharesFetches(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			p := make([]byte, 4096)
-			b.ReadAt(context.Background(), "b", "k", p, int64(i)*4096)
+			b.ReadAt(context.Background(), "b", "k", "", p, int64(i)*4096)
 		}(i)
 	}
 	wg.Wait()
@@ -102,7 +102,7 @@ func TestAPIReadAtSharesFetches(t *testing.T) {
 
 	// Changing the file drops what was kept of it.
 	b.forgetBlocks("b", "k")
-	b.ReadAt(context.Background(), "b", "k", make([]byte, 10), 0)
+	b.ReadAt(context.Background(), "b", "k", "", make([]byte, 10), 0)
 	if n := requests.Load(); n != 2 {
 		t.Fatalf("block kept after the file changed: %d requests", n)
 	}

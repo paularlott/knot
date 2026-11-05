@@ -126,6 +126,10 @@ func ToFileAttribute(info os.FileInfo, filePath string) *FileAttribute {
 	f.Atime = ToNFSTime(info.ModTime())
 	f.Mtime = f.Atime
 	f.Ctime = f.Atime
+	// knot: see ChangeInfo.
+	if ci, ok := info.(ChangeInfo); ok {
+		f.Ctime = ToNFSTime(ci.ChangeTime())
+	}
 	return &f
 }
 

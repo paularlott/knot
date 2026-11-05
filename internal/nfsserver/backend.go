@@ -38,9 +38,11 @@ type Backend interface {
 	List(ctx context.Context, bucket, prefix, delimiter, after string, max int) (*Listing, error)
 	// ReadAt reads part of a file, returning io.EOF with what there is at
 	// its end.
-	ReadAt(ctx context.Context, bucket, key string, p []byte, off int64) (int, error)
-	// Get reads a whole file.
-	Get(ctx context.Context, bucket, key string) (io.ReadCloser, *Object, error)
+	// With etag, only that version of the file is read: errPrecondition
+	// once it has another.
+	ReadAt(ctx context.Context, bucket, key, etag string, p []byte, off int64) (int, error)
+	// Get reads a whole file; with etag, only that version of it, as ReadAt.
+	Get(ctx context.Context, bucket, key, etag string) (io.ReadCloser, *Object, error)
 	Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string, meta map[string]string) (*Object, error)
 	// Patch changes part of a file, sending only the ranges: they are
 	// written over it, in order and not overlapping, and it is cut or
@@ -103,6 +105,10 @@ type Listing struct {
 
 var errPrecondition = errors.New("the file has changed")
 
+// errBusy is a file the server could not yet change, the content it is
+// changed from not having arrived from another server, which it will.
+var errBusy = errors.New("the file's content is still on its way")
+
 // ---------------------------------------------------------------------------
 // The files API
 // ---------------------------------------------------------------------------
@@ -134,6 +140,7 @@ const (
 
 type blockKey struct {
 	bucket, key string
+	etag        string // the version the block is of, "" for any
 	n           int64
 }
 
@@ -167,6 +174,8 @@ func apiErr(err error) error {
 		e = syscall.EDQUOT
 	case http.StatusPreconditionFailed:
 		e = errPrecondition
+	case http.StatusServiceUnavailable:
+		e = errBusy
 	case http.StatusBadRequest:
 		e = syscall.EINVAL
 	default:
@@ -262,11 +271,11 @@ func (b *apiBackend) List(ctx context.Context, bucket, prefix, delimiter, after 
 	return out, nil
 }
 
-func (b *apiBackend) ReadAt(ctx context.Context, bucket, key string, p []byte, off int64) (int, error) {
+func (b *apiBackend) ReadAt(ctx context.Context, bucket, key, etag string, p []byte, off int64) (int, error) {
 	n := 0
 	for n < len(p) {
 		at := off + int64(n)
-		k := blockKey{bucket, key, at / readBlock}
+		k := blockKey{bucket, key, etag, at / readBlock}
 		blk, err := b.block(ctx, k)
 		if err != nil {
 			return n, err
@@ -282,7 +291,7 @@ func (b *apiBackend) ReadAt(ctx context.Context, bucket, key string, p []byte, o
 		}
 		// Reading through a block: fetch the next before it is asked for.
 		if !blk.eof && i+int64(c) > readBlock/2 {
-			go b.block(context.Background(), blockKey{bucket, key, k.n + 1})
+			go b.block(context.Background(), blockKey{bucket, key, etag, k.n + 1})
 		}
 	}
 	return n, nil
@@ -318,7 +327,7 @@ func (b *apiBackend) block(ctx context.Context, k blockKey) (*block, error) {
 	b.mu.Unlock()
 
 	buf := make([]byte, readBlock)
-	n, err := b.readRange(ctx, k.bucket, k.key, buf, k.n*readBlock)
+	n, err := b.readRange(ctx, k.bucket, k.key, k.etag, buf, k.n*readBlock)
 	blk.data = buf[:n]
 	if errors.Is(err, io.EOF) {
 		blk.eof, err = true, nil
@@ -347,11 +356,11 @@ func (b *apiBackend) Forget(bucket, key string) {
 
 // readRange reads part of a file with one request, io.EOF with what there
 // is at its end.
-func (b *apiBackend) readRange(ctx context.Context, bucket, key string, p []byte, off int64) (int, error) {
+func (b *apiBackend) readRange(ctx context.Context, bucket, key, etag string, p []byte, off int64) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	resp, err := b.client.GetFileObjectRange(ctx, bucket, key, off, int64(len(p)))
+	resp, err := b.client.GetFileObjectRange(ctx, bucket, key, off, int64(len(p)), etag)
 	if err != nil {
 		return 0, apiErr(err)
 	}
@@ -378,8 +387,8 @@ func (b *apiBackend) readRange(ctx context.Context, bucket, key string, p []byte
 	return n, err
 }
 
-func (b *apiBackend) Get(ctx context.Context, bucket, key string) (io.ReadCloser, *Object, error) {
-	resp, err := b.client.GetFileObject(ctx, bucket, key)
+func (b *apiBackend) Get(ctx context.Context, bucket, key, etag string) (io.ReadCloser, *Object, error) {
+	resp, err := b.client.GetFileObjectIf(ctx, bucket, key, etag)
 	if err != nil {
 		return nil, nil, apiErr(err)
 	}

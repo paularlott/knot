@@ -529,17 +529,52 @@ func (s *Store) HeadObject(p *Principal, bucket, key string) (*Object, error) {
 
 // OpenObject returns an object's record and its content, fetching the
 // content from another server first if this one does not hold it yet.
+//
+// Content another server wrote can be gone from it by the time it is asked
+// for, the file having been written again there: the newer record is then
+// on its way here, and is waited for a little and read instead, or the
+// file's removal, which is reported as such.
 func (s *Store) OpenObject(ctx context.Context, p *Principal, bucket, key string) (*Object, Content, error) {
 	o, err := s.HeadObject(p, bucket, key)
 	if err != nil {
 		return nil, nil, err
 	}
-	f, err := s.openBlob(ctx, o)
-	if err != nil {
-		return nil, nil, err
+	wait := 50 * time.Millisecond
+	deadline := time.Now().Add(replacedWait)
+	for {
+		f, err := s.openBlob(ctx, o)
+		if err == nil {
+			return o, f, nil
+		}
+		if !errors.Is(err, ErrUnavailable) {
+			return nil, nil, err
+		}
+		// Wait for a newer record, if one comes.
+		for {
+			if time.Now().After(deadline) {
+				return nil, nil, err
+			}
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			case <-time.After(wait):
+			}
+			wait = min(wait*2, 500*time.Millisecond)
+			cur, herr := s.HeadObject(p, bucket, key)
+			if herr != nil {
+				return nil, nil, herr
+			}
+			if cur.SHA256 != o.SHA256 {
+				o = cur
+				break
+			}
+		}
 	}
-	return o, f, nil
 }
+
+// replacedWait is how long a read waits for the newer version of a file
+// whose content its writer no longer holds.
+const replacedWait = 5 * time.Second
 
 func (s *Store) openBlob(ctx context.Context, o *Object) (Content, error) {
 	if f, err := s.openContent(o.SHA256); err == nil {
@@ -630,6 +665,7 @@ func (s *Store) commitContent(p *Principal, bucket, key string, st *staged, etag
 	// content whose last reference went from being removed in between. That
 	// lock is let go before the change is committed: committing removes the
 	// content changes left unreferenced, which takes it to write.
+	installed := false
 	changed, err := func() ([]*Object, error) {
 		if kind == contentFile {
 			s.blobMu.RLock()
@@ -638,6 +674,7 @@ func (s *Store) commitContent(p *Principal, bucket, key string, st *staged, etag
 				st.discard()
 				return nil, err
 			}
+			installed = true
 		}
 		return s.applyObjects([]objectOp{{
 			obj: o,
@@ -647,25 +684,27 @@ func (s *Store) commitContent(p *Principal, bucket, key string, st *staged, etag
 				}
 				return checkPreconditions(cur, opts)
 			},
-			content: kind,
-			data:    data,
+			basedOnCur: opts.IfMatch != "",
+			content:    kind,
+			data:       data,
 		}})
 	}()
+	if (err != nil || len(changed) == 0) && installed {
+		// The write was refused (a precondition failed), or a newer record,
+		// from a write on another server at the same moment, is already held:
+		// this write happened and was replaced at once, which is what last
+		// writer wins means. Either way the content file installed for it goes
+		// unless something else holds the content.
+		s.unlinkMu.Lock()
+		s.unlink = append(s.unlink, sha)
+		s.unlinkMu.Unlock()
+		s.flushUnlinks()
+	}
 	if err != nil {
 		return nil, err
 	}
 	if len(changed) == 0 {
-		// A newer record, from a write on another server at the same moment,
-		// is already held: this write happened and was replaced at once, which
-		// is what last writer wins means. Nothing is gossiped, and a content
-		// file installed for it goes unless something else holds the content.
-		if kind == contentFile {
-			s.unlinkMu.Lock()
-			s.unlink = append(s.unlink, sha)
-			s.unlinkMu.Unlock()
-			s.flushUnlinks()
-		}
-		return o.clone(), nil
+		return o.clone(), nil // nothing is gossiped
 	}
 
 	s.commit(nil, []*Object{o})
@@ -785,6 +824,7 @@ func (s *Store) CopyObjectIf(p *Principal, srcBucket, srcKey, dstBucket, dstKey 
 			}
 			return checkPreconditions(cur, cond)
 		},
+		basedOnCur: cond.IfMatch != "",
 	}})
 	if err != nil {
 		return nil, err

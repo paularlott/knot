@@ -663,28 +663,33 @@ func TestFileMultiWriter(t *testing.T) {
 
 	// Neither server's storage is damaged, and neither logged an error about
 	// files, NFS or the cluster.
-	t.Run("storage intact", func(t *testing.T) {
-		for _, s := range servers {
-			out, err := runKnot(s.server, s.user, "admin", "file", "fsck")
-			if err != nil || !strings.Contains(out, "No problems found") {
-				t.Errorf("fsck on server %s: %v\n%s", s.name, err, out)
+	t.Run("storage intact", func(t *testing.T) { checkStorageIntact(t, servers) })
+}
+
+// checkStorageIntact checks that neither server's storage is damaged and
+// that neither logged an error about files, NFS or the cluster.
+func checkStorageIntact(t *testing.T, servers []writer) {
+	t.Helper()
+	for _, s := range servers {
+		out, err := runKnot(s.server, s.user, "admin", "file", "fsck")
+		if err != nil || !strings.Contains(out, "No problems found") {
+			t.Errorf("fsck on server %s: %v\n%s", s.name, err, out)
+		}
+	}
+	errLine := regexp.MustCompile(`\bERR\b`)
+	about := regexp.MustCompile(`(?i)file|nfs|cluster|gossip|store`)
+	for _, s := range servers {
+		data, err := os.ReadFile(s.server.LogPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			line = plain(line)
+			if errLine.MatchString(line) && about.MatchString(line) {
+				t.Errorf("server %s logged: %s", s.name, line)
 			}
 		}
-		errLine := regexp.MustCompile(`\bERR\b`)
-		about := regexp.MustCompile(`(?i)file|nfs|cluster|gossip|store`)
-		for _, s := range servers {
-			data, err := os.ReadFile(s.server.LogPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, line := range strings.Split(string(data), "\n") {
-				line = plain(line)
-				if errLine.MatchString(line) && about.MatchString(line) {
-					t.Errorf("server %s logged: %s", s.name, line)
-				}
-			}
-		}
-	})
+	}
 }
 
 // nfsWatchdog waits for wg. Writes over NFS that have not finished after d

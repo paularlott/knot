@@ -308,6 +308,13 @@ func Open(cfg Config) (*Store, error) {
 
 // Close stops background work, sends any changes not yet gossiped and
 // closes the database.
+// TempFile makes a temporary file in the store's folder for them, on the
+// same disk as its content; one left behind is removed at start-up, or once
+// old.
+func (s *Store) TempFile(pattern string) (*os.File, error) {
+	return os.CreateTemp(filepath.Join(s.dir, "tmp"), pattern)
+}
+
 func (s *Store) Close() {
 	s.bgMu.Lock()
 	s.closed = true
@@ -908,6 +915,10 @@ type objectOp struct {
 	// pre, for a change made here rather than received, checks the record
 	// being replaced, nil if there is none, inside the transaction.
 	pre func(txn *badger.Txn, cur *Object) error
+	// basedOnCur says the change was made from the record it replaces (an
+	// If-Match that pre checks): it is then later than that record whatever
+	// their stamps say.
+	basedOnCur bool
 
 	// content is what is stored with the record: nothing (it arrives by
 	// replication, or is shared with another record), the data to keep in the
@@ -1052,6 +1063,21 @@ func (s *Store) applyOne(txn *badger.Txn, op objectOp, seq uint64) (applied, err
 	if op.pre != nil {
 		if err := op.pre(txn, cur); err != nil {
 			return applied{}, err
+		}
+		// A write made from what is here now replaces it. It was stamped as
+		// it began, and what it replaces can have been stamped since: written
+		// meanwhile here (a copy of the file onto itself, which keeps its
+		// ETag, so a write made from the file before still meets its
+		// If-Match), or by another server ahead of this one's clock. Taken
+		// for older, it would be dropped while reported written, though it
+		// holds the change it was made from. (A write not made from what is
+		// here, which loses to a record stamped later, happened and was
+		// replaced at once: last writer wins.)
+		if op.basedOnCur && cur != nil && !objectNewer(o, cur) {
+			o.UpdatedAt = hlc.Now()
+			if !o.UpdatedAt.After(cur.UpdatedAt) {
+				o.UpdatedAt = cur.UpdatedAt + 1
+			}
 		}
 	}
 	if cur != nil && !objectNewer(o, cur) {

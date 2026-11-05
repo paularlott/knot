@@ -3,6 +3,7 @@ package nfs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 
 	"github.com/go-git/go-billy/v5"
@@ -72,7 +73,13 @@ func onLookup(ctx context.Context, w *response, userHandle Handler) error {
 
 	reqPath := append(p, string(obj.Filename))
 	if _, err = fs.Lstat(fs.Join(reqPath...)); err != nil {
-		return &NFSStatusError{NFSStatusNoEnt, os.ErrNotExist}
+		// knot: only a name not there is NOENT; another error (the
+		// filesystem unable to answer) is IO, which the client does not
+		// take, and cache, as the file being gone.
+		if errors.Is(err, os.ErrNotExist) {
+			return &NFSStatusError{NFSStatusNoEnt, os.ErrNotExist}
+		}
+		return &NFSStatusError{NFSStatusIO, err}
 	}
 
 	newHandle := userHandle.ToHandle(fs, reqPath)

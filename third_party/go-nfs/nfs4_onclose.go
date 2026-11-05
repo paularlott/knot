@@ -1,9 +1,7 @@
 package nfs
 
 import (
-	"errors"
 	"io"
-	"os"
 )
 
 type nfs4CloseArgs struct {
@@ -32,20 +30,17 @@ func nfs4OnClose(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 		c.ghostClosed = true
 		return nfs4Encode(res, id)
 	}
-	// knot: a file closed is finished with: what was written goes to the
-	// Committer now, without waiting for a COMMIT. The open is closed
-	// whether that save succeeds or not. A client with writes not yet
-	// saved sends COMMIT before CLOSE, and that COMMIT reports a failed
-	// save to the program; what is still unsaved stays with the Committer,
-	// which goes on trying. A failed CLOSE, on the other hand, the Mac's
-	// client sends again at once, forever (NFS.kext nfs_vnop_inactive):
-	// while the server behind the Committer was unreachable, that was a
-	// tight loop of CLOSEs until it came back.
-	if cm, ok := current.fs.(Committer); ok {
-		if err := cm.Commit(current.fullPath()); err != nil && !errors.Is(err, os.ErrNotExist) {
-			Log.Warnf("close %s: saving failed, still unsaved: %v", current.fullPath(), err)
-		}
-	}
+	// knot: CLOSE saves nothing. A client saves what it wrote before the
+	// program's close() returns, with FILE_SYNC writes or a COMMIT, and the
+	// Committer saves anything else once writes stop. Clients send CLOSE
+	// later, on their own time: Linux after close() has returned, the Mac
+	// when it lets go of the file. By then the handle can name another
+	// file's content: a file written, closed and renamed over another
+	// has its CLOSE arrive after the rename, and after the program has
+	// opened the name again and begun writing it afresh, and saving at that
+	// CLOSE saved that half-written file for everyone to read. A failed
+	// CLOSE, the Mac's client sends again at once, forever (NFS.kext
+	// nfs_vnop_inactive), so it never fails for a save.
 	id, status := c.w.Server.nfs4State().close(req.StateID)
 	if status != nfs4OK {
 		return status

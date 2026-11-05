@@ -3,6 +3,7 @@ package nfsserver
 import (
 	"errors"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"strings"
@@ -28,12 +29,26 @@ import (
 
 // A save that fails for a reason that may pass (the server unreachable or
 // failing) is retried for as long as it takes, waiting a little longer each
-// time up to retryMax; one the server refuses (quota, permission, a bucket
+// time up to retryMax, and one that met the file changing elsewhere again
+// and again is retried soon; one the server refuses (quota, permission, a bucket
 // gone, a bad name) is dropped, as retrying cannot help.
 const (
 	retryMin = 5 * time.Second
-	retryMax = time.Minute
+	// conflictRetry is how soon a save is tried again after the file kept
+	// changing elsewhere as it was made, a little longer each time.
+	conflictRetry = 250 * time.Millisecond
+	retryMax      = time.Minute
 )
+
+// transient reports whether a save failed only for the file changing
+// elsewhere as it was made, or its content not having arrived yet.
+func transient(err error) bool {
+	return errors.Is(err, errPrecondition) || errors.Is(err, errBusy)
+}
+
+// busyPatience is how long a save is tried again at once for a file that
+// is changing elsewhere, before the client is told it failed.
+const busyPatience = 10 * time.Second
 
 // permanent reports whether a save failed for good.
 func permanent(err error) bool {
@@ -106,6 +121,10 @@ type dirtyFile struct {
 	timer       *time.Timer
 	failures    int
 	gone        bool // saved or removed; a new copy must be made
+	// fromETag is the version of the saved file the copy began from, and
+	// gotData whether anything has been written to the copy since.
+	fromETag string
+	gotData  bool
 }
 
 func bucketKey(bucket, key string) string { return bucket + "\x00" + key }
@@ -198,6 +217,7 @@ func (e *dirtyFile) load(load loadMode) error {
 	case loadAttrs:
 		if o, err := e.s.fs.backend.Head(ctx(), e.bucket, e.key); err == nil {
 			e.keepAttrs(o)
+			e.fromETag = o.ETag
 		} else if errors.Is(err, os.ErrNotExist) {
 			e.meta[metaIno] = newIno() // a new file
 		} else {
@@ -223,7 +243,7 @@ func (e *dirtyFile) load(load loadMode) error {
 	var c io.ReadCloser
 	if cf := e.s.fs.cache.open(o.SHA256); cf != nil {
 		c = cf
-	} else if c, o, err = e.s.fs.backend.Get(ctx(), e.bucket, e.key); err != nil {
+	} else if c, o, err = e.s.fs.backend.Get(ctx(), e.bucket, e.key, ""); err != nil {
 		return err
 	}
 	defer c.Close()
@@ -295,7 +315,9 @@ func (e *dirtyFile) readSparse(b []byte, off int64) (int, error) {
 			}
 		case pos < e.keep:
 			chunk = min(chunk, e.keep-pos)
-			got, err := e.s.fs.readSaved(e.bucket, e.key, e.base.SHA256, e.base.Size, b[n:n+int(chunk)], pos)
+			// Any version: the save writes what was written here over
+			// whatever the file is by then.
+			got, err := e.s.fs.readSaved(e.bucket, e.key, e.base.SHA256, "", e.base.Size, b[n:n+int(chunk)], pos)
 			if err != nil && !errors.Is(err, io.EOF) {
 				return n, err
 			}
@@ -312,6 +334,7 @@ func (e *dirtyFile) readSparse(b []byte, off int64) (int, error) {
 
 // writeAt writes to the staged copy; e.mu is held.
 func (e *dirtyFile) writeAt(b []byte, off int64) (int, error) {
+	e.gotData = true
 	n, err := e.f.WriteAt(b, off)
 	if end := off + int64(n); end > e.size {
 		e.size = end
@@ -376,10 +399,80 @@ func (e *dirtyFile) schedule(d time.Duration) {
 		d = max(rem, 0)
 	}
 	if e.timer == nil {
-		e.timer = time.AfterFunc(d, func() { e.s.flush(e) })
+		e.timer = time.AfterFunc(d, func() { e.s.flushIdle(e) })
 	} else {
 		e.timer.Reset(d)
 	}
+}
+
+// flushIdle saves a copy whose writes have stopped for a while, as clients
+// that never commit need. A saved file only emptied, which a client does
+// as it opens one to write it afresh, waits for what is written to it, for
+// a commit, or for maxDirtyAge: its writes can be a while coming (queued
+// behind others on a busy client), and saved meanwhile, others would read
+// the file empty.
+func (s *staging) flushIdle(e *dirtyFile) {
+	e.mu.Lock()
+	wait := !e.gone && e.onlyEmptied() && time.Since(e.since) < s.maxDirtyAge
+	if wait {
+		e.schedule(s.maxDirtyAge - time.Since(e.since))
+	}
+	e.mu.Unlock()
+	if !wait {
+		s.flush(e)
+	}
+}
+
+// onlyEmptied reports whether the copy is a saved file emptied and nothing
+// more; e.mu is held.
+func (e *dirtyFile) onlyEmptied() bool {
+	return !e.gotData && e.size == 0 && e.fromETag != ""
+}
+
+// staleTruncation reports whether the copy is a saved file emptied and
+// nothing more, which another client has since replaced or removed: as on a
+// local disk, truncating a file that is no longer there makes nothing, and
+// saving it would empty the file that replaced it. A client is left with
+// such a copy when its handle went stale between emptying the file and
+// writing it, its writes refused. e.mu is held.
+func (e *dirtyFile) staleTruncation() bool {
+	if !e.onlyEmptied() {
+		return false
+	}
+	o, err := e.s.fs.backend.Head(ctx(), e.bucket, e.key)
+	if errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	return err == nil && o.ETag != e.fromETag
+}
+
+// mergeNotice is how long after saving changes over a newer version the
+// file is recorded again (see noticeMerge).
+var mergeNotice = time.Second
+
+// noticeMerge records a file saved over a newer version again, unchanged,
+// a moment after: a new version of it, which its clients see as a change
+// made elsewhere. The version saved holds what others wrote as well as
+// this client's changes, but this client learns of it in the answer to its
+// own save, takes it for its own change, and goes on serving what it has
+// cached of the rest, its own earlier writes that the newer version did not
+// keep among it.
+//
+// It gets a modification time of its own too: NFSv3 clients take a file's
+// cached content to be current while its size and modification time are
+// as they were.
+func (fs *storeFS) noticeMerge(bucket, key string, saved *Object) {
+	etag := saved.ETag
+	meta := maps.Clone(saved.Meta)
+	if meta == nil {
+		meta = map[string]string{}
+	}
+	time.AfterFunc(mergeNotice, func() {
+		meta[metaMtime] = apiclient.FormatMtime(time.Now())
+		if err := fs.backend.SetMeta(ctx(), bucket, key, meta, etag); err == nil {
+			fs.forget(bucket, key, false)
+		}
+	})
 }
 
 // flush saves a staged copy as the file and drops it.
@@ -390,7 +483,20 @@ func (s *staging) flush(e *dirtyFile) error {
 		return nil
 	}
 
+	if e.staleTruncation() {
+		log.WithGroup("nfs").Info("not saving the truncation of a file replaced or removed since", "bucket", e.bucket, "key", e.key)
+		s.drop(e)
+		return nil
+	}
+
+	// A file changing elsewhere as it is saved, or whose content has not
+	// yet reached the server, is tried again at once for a while: the
+	// client waiting on the save has its close() fail otherwise.
 	err := e.save()
+	for start, wait := time.Now(), 100*time.Millisecond; transient(err) && time.Since(start) < busyPatience; wait = min(wait*2, time.Second) {
+		time.Sleep(wait)
+		err = e.save()
+	}
 	if err == nil {
 		s.drop(e)
 		return nil
@@ -404,8 +510,16 @@ func (s *staging) flush(e *dirtyFile) error {
 		s.fail(bucketKey(e.bucket, e.key), err)
 		return err
 	}
-	wait := min(retryMin<<min(e.failures-1, 8), retryMax)
-	logger.Warn("saving file failed, will retry", "bucket", e.bucket, "key", e.key, "error", err, "attempt", e.failures, "in", wait)
+	var wait time.Duration
+	if transient(err) {
+		// The file kept changing elsewhere as the change was made: busy,
+		// not failing, so soon tried again.
+		wait = min(conflictRetry*time.Duration(e.failures), retryMin)
+		logger.Info("file changed elsewhere while saving, will retry", "bucket", e.bucket, "key", e.key, "attempt", e.failures, "in", wait)
+	} else {
+		wait = min(retryMin<<min(e.failures-1, 8), retryMax)
+		logger.Warn("saving file failed, will retry", "bucket", e.bucket, "key", e.key, "error", err, "attempt", e.failures, "in", wait)
+	}
 	e.since = time.Now()
 	e.schedule(wait)
 	return err
@@ -442,9 +556,18 @@ func (e *dirtyFile) save() error {
 		err := patch(e.base.ETag)
 		if errors.Is(err, errPrecondition) {
 			// Changed elsewhere since: what was written here goes over
-			// that, rather than being lost.
+			// that, rather than being lost. The server makes the change
+			// again itself if the file changes again as it does.
 			log.WithGroup("nfs").Info("file changed while being written, applying the writes over the newer version", "bucket", e.bucket, "key", e.key)
-			err = patch("")
+			// What is saved is now neither this client's file nor the
+			// newer one, so it gets a time of its own: with the time this
+			// client already has, and its size, its client would take
+			// it for the file it holds and keep what it read before.
+			e.mtime = time.Now()
+			e.meta[metaMtime] = apiclient.FormatMtime(e.mtime)
+			if err = patch(""); err == nil && saved != nil {
+				e.s.fs.noticeMerge(e.bucket, e.key, saved)
+			}
 		}
 		return err
 	}

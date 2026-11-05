@@ -692,6 +692,31 @@ func TestBatchFallsBackToOtherServers(t *testing.T) {
 	}
 }
 
+// A write made from the record it replaces (If-Match) replaces it, though
+// that record was stamped later than the write began: written meanwhile, a
+// copy of the file onto itself keeps its ETag, and the write, dropped as
+// older, would be reported written and lost.
+func TestWriteMadeFromANewerStampedRecordApplies(t *testing.T) {
+	s := newStore(t)
+	mustCreate(t, s, alice, "race")
+	id := bid(s, "race")
+
+	future := hlc.Now() + (1 << 40)
+	s.Merge(nil, []*Object{{BucketId: id, Key: "k", Size: 3, SHA256: contentSHA("cur"), ETag: "e", UpdatedAt: future}})
+
+	o, err := s.PutObject(alice, "race", "k", strings.NewReader("next"), PutOptions{Size: 4, IfMatch: "e"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := s.HeadObject(alice, "race", "k")
+	if err != nil || head.SHA256 != contentSHA("next") {
+		t.Fatalf("the write made from the record was dropped: %+v %v", head, err)
+	}
+	if !o.UpdatedAt.After(future) || o.UpdatedAt != head.UpdatedAt {
+		t.Errorf("stamped %v, the record it replaced %v", o.UpdatedAt, future)
+	}
+}
+
 // A write that loses to a newer record from another server, at the same
 // moment, still succeeds: it happened and was replaced, which is what last
 // writer wins means. It is not an error to the client, and not gossiped.

@@ -262,8 +262,10 @@ func nfs4BuildAttrs(ctx context.Context, userHandle Handler, fh *nfs4FileHandle,
 			v = stat().TotalSize
 		case nfs4AttrSpaceUsed:
 			v = attr.Used
-		case nfs4AttrTimeAccess, nfs4AttrTimeMetadata, nfs4AttrTimeModify:
+		case nfs4AttrTimeAccess, nfs4AttrTimeModify:
 			v = nfs4Time{Seconds: int64(attr.Mtime.Seconds), Nseconds: attr.Mtime.Nseconds}
+		case nfs4AttrTimeMetadata:
+			v = nfs4Time{Seconds: int64(attr.Ctime.Seconds), Nseconds: attr.Ctime.Nseconds}
 		case nfs4AttrTimeDelta:
 			v = nfs4Time{Seconds: 0, Nseconds: 1}
 		default:
@@ -374,6 +376,10 @@ func nfs4ChangeID(fs billy.Filesystem, p []string) uint64 {
 	info, err := fs.Lstat(joined)
 	if err != nil {
 		return 0
+	}
+	// knot: see ChangeInfo.
+	if ci, ok := info.(ChangeInfo); ok {
+		return ci.ChangeID()
 	}
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(joined))

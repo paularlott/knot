@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	nfs "github.com/willscott/go-nfs"
 )
 
 func TestSpans(t *testing.T) {
@@ -137,14 +139,14 @@ type countingBackend struct {
 	reads atomic.Int32
 }
 
-func (c *countingBackend) ReadAt(ctx context.Context, bucket, key string, p []byte, off int64) (int, error) {
+func (c *countingBackend) ReadAt(ctx context.Context, bucket, key, etag string, p []byte, off int64) (int, error) {
 	c.reads.Add(1)
-	return c.Backend.ReadAt(ctx, bucket, key, p, off)
+	return c.Backend.ReadAt(ctx, bucket, key, etag, p, off)
 }
 
-func (c *countingBackend) Get(ctx context.Context, bucket, key string) (io.ReadCloser, *Object, error) {
+func (c *countingBackend) Get(ctx context.Context, bucket, key, etag string) (io.ReadCloser, *Object, error) {
 	c.reads.Add(1)
-	return c.Backend.Get(ctx, bucket, key)
+	return c.Backend.Get(ctx, bucket, key, etag)
 }
 
 func TestDiskCache(t *testing.T) {
@@ -603,5 +605,218 @@ func TestFailedRenameKeepsSource(t *testing.T) {
 	}
 	if _, err := fsys.Stat("data/src"); err != nil {
 		t.Fatalf("source hidden after a failed rename: %v", err)
+	}
+}
+
+// A file read is the version its attributes describe: changed elsewhere
+// before this server heard, the read finds out and reads the new version,
+// and the attributes that follow describe it, never the old size with the
+// new bytes.
+func TestReadIsOfTheVersionDescribed(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	fsys.Live(true) // what is kept of files is trusted
+	if _, err := fsys.backend.Put(t.Context(), "data", "v", strings.NewReader("short"), 5, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := fsys.Stat("data/v"); err != nil || fi.Size() != 5 {
+		t.Fatalf("stat: %v %v", fi, err)
+	}
+	newer := "a much longer version"
+	if _, err := fsys.backend.Put(t.Context(), "data", "v", strings.NewReader(newer), int64(len(newer)), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	f, err := fsys.Open("data/v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 64)
+	n, info, _ := f.(nfs.VersionedReader).ReadAtInfo(buf, 0)
+	f.Close()
+	if string(buf[:n]) != newer {
+		t.Errorf("read %q, want %q", buf[:n], newer)
+	}
+	// The read answers with the attributes of what it read.
+	if info == nil || info.Size() != int64(len(newer)) {
+		t.Errorf("the read reports %v, want the newer version's size %d", info, len(newer))
+	}
+	if fi, err := fsys.Stat("data/v"); err != nil || fi.Size() != int64(len(newer)) {
+		t.Errorf("after the read the size is %d (%v), want %d", fi.Size(), err, len(newer))
+	}
+}
+
+// A file emptied and replaced by another client before anything was
+// written to it is not emptied: the truncation was of a file no longer
+// there.
+func TestTruncationOfAReplacedFileIsDropped(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	writeFile(t, fsys, "data/t", "old content")
+	flushAll(t, fsys)
+	f, err := fsys.OpenFile("data/t", os.O_WRONLY|os.O_TRUNC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if _, err := fsys.backend.Put(t.Context(), "data", "t", strings.NewReader("replaced"), 8, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	flushAll(t, fsys)
+	r, _, err := fsys.backend.Get(t.Context(), "data", "t", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(r)
+	r.Close()
+	if string(got) != "replaced" {
+		t.Errorf("the file reads %q, want the replacement", got)
+	}
+
+	// Not replaced, a truncation is saved.
+	f, _ = fsys.OpenFile("data/t", os.O_WRONLY|os.O_TRUNC, 0)
+	f.Close()
+	flushAll(t, fsys)
+	if o, err := fsys.backend.Head(t.Context(), "data", "t"); err != nil || o.Size != 0 {
+		t.Errorf("truncation not saved: %+v %v", o, err)
+	}
+}
+
+// Changes to a large file saved over a newer version get a time of their
+// own: the writer's client, seeing its own time and size, would keep what
+// it read of the parts others changed.
+func TestLargeFileMergedGetsItsOwnTime(t *testing.T) {
+	defer func(d time.Duration) { mergeNotice = d }(mergeNotice)
+	mergeNotice = 50 * time.Millisecond
+	fsys, _ := newTestFS(t)
+	data := make([]byte, sparseMin+1<<20)
+	f, _ := fsys.Create("data/m")
+	f.Write(data)
+	f.Close()
+	flushAll(t, fsys)
+
+	f, _ = fsys.OpenFile("data/m", os.O_RDWR, 0)
+	f.Seek(1<<20, io.SeekStart)
+	f.Write([]byte("mine"))
+	f.Close()
+	staged, _ := fsys.Stat("data/m")
+
+	// Another client changes the file before this one's change is saved.
+	other := append([]byte(nil), data...)
+	copy(other[3<<20:], "theirs")
+	if _, err := fsys.backend.Put(t.Context(), "data", "m", bytes.NewReader(other), int64(len(other)), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Millisecond)
+	flushAll(t, fsys)
+	fsys.forget("data", "m", false)
+	saved, err := fsys.Stat("data/m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Times pass through a decimal form that can move them a nanosecond.
+	if d := saved.ModTime().Sub(staged.ModTime()); d.Abs() < 500*time.Microsecond {
+		t.Errorf("the merged file has the writer's time %v (%v from it)", staged.ModTime(), d)
+	}
+	got := readAll(t, fsys, "data/m", int64(len(data)))
+	if string(got[1<<20:1<<20+4]) != "mine" || string(got[3<<20:3<<20+6]) != "theirs" {
+		t.Error("the changes were not merged")
+	}
+
+	// A moment later the file changes again, unchanged, so the writer's
+	// client, which took the merge for its own change, sees one made
+	// elsewhere.
+	// Its modification time changes too: NFSv3 clients go by it and the size.
+	merged := saved.(nfs.ChangeInfo).ChangeID()
+	var again os.FileInfo
+	if !waitFor(func() bool {
+		fsys.forget("data", "m", false)
+		fi, err := fsys.Stat("data/m")
+		again = fi
+		return err == nil && fi.(nfs.ChangeInfo).ChangeID() != merged
+	}) {
+		t.Error("the merged file was not recorded again")
+	} else if d := again.ModTime().Sub(saved.ModTime()); d.Abs() < 10*time.Millisecond {
+		t.Errorf("recorded again with the same modification time (%v from it)", d)
+	}
+	if content := readAll(t, fsys, "data/m", int64(len(data))); !bytes.Equal(content, got) {
+		t.Error("recording the file again changed it")
+	}
+}
+
+// waitFor waits up to two seconds for cond.
+func waitFor(cond func() bool) bool {
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		if cond() {
+			return true
+		}
+	}
+	return false
+}
+
+// Two versions of a file with the same size and modification time are told
+// apart by NFS clients: their change attribute and ctime differ.
+func TestVersionsWithTheSameTimeAndSizeDiffer(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	meta := map[string]string{metaMtime: "1700000000.000000000"}
+	put := func(content string) nfs.ChangeInfo {
+		t.Helper()
+		if _, err := fsys.backend.Put(t.Context(), "data", "same", strings.NewReader(content), int64(len(content)), "", meta); err != nil {
+			t.Fatal(err)
+		}
+		fsys.forget("data", "same", false)
+		fi, err := fsys.Stat("data/same")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fi.(nfs.ChangeInfo)
+	}
+	a := put("version one")
+	time.Sleep(time.Millisecond)
+	b := put("version two")
+	if a.(os.FileInfo).ModTime() != b.(os.FileInfo).ModTime() {
+		t.Fatal("the versions should share their modification time")
+	}
+	if a.ChangeID() == b.ChangeID() {
+		t.Error("the versions have the same change attribute")
+	}
+	if a.ChangeTime().Equal(b.ChangeTime()) {
+		t.Error("the versions have the same ctime")
+	}
+}
+
+// A file emptied as it is opened to be written afresh is not saved empty
+// when its writes are slow to come: others would read it empty meanwhile.
+// It waits for them, and is saved empty only once maxDirtyAge passes.
+func TestEmptiedFileWaitsForItsWrites(t *testing.T) {
+	fsys, _ := newTestFS(t)
+	writeFile(t, fsys, "data/e", "old content")
+	flushAll(t, fsys)
+	fsys.staging.flushDelay = 20 * time.Millisecond
+	fsys.staging.maxDirtyAge = 400 * time.Millisecond
+
+	saved := func() string {
+		r, _, err := fsys.backend.Get(t.Context(), "data", "e", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Close()
+		b, _ := io.ReadAll(r)
+		return string(b)
+	}
+
+	f, _ := fsys.OpenFile("data/e", os.O_WRONLY|os.O_TRUNC, 0)
+	time.Sleep(150 * time.Millisecond) // well past flushDelay
+	if got := saved(); got != "old content" {
+		t.Fatalf("saved %q before its writes came", got)
+	}
+	f.Write([]byte("new content"))
+	f.Close()
+	if !waitFor(func() bool { return saved() == "new content" }) {
+		t.Fatalf("the writes were not saved: %q", saved())
+	}
+
+	// Emptied and nothing more, it is saved once maxDirtyAge passes.
+	f, _ = fsys.OpenFile("data/e", os.O_WRONLY|os.O_TRUNC, 0)
+	f.Close()
+	if !waitFor(func() bool { return saved() == "" }) {
+		t.Fatalf("an emptied file was never saved: %q", saved())
 	}
 }

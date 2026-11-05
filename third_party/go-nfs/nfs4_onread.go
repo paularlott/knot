@@ -3,6 +3,7 @@ package nfs
 import (
 	"errors"
 	"io"
+	"os"
 )
 
 type nfs4ReadArgs struct {
@@ -38,13 +39,23 @@ func nfs4OnRead(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	defer file.Close()
 
 	data := make([]byte, req.Count)
-	n, err := file.ReadAt(data, int64(req.Offset))
+	var n int
+	var info os.FileInfo
+	if vr, ok := file.(VersionedReader); ok {
+		// knot: the end of file is that of the version read.
+		n, info, err = vr.ReadAtInfo(data, int64(req.Offset))
+	} else {
+		n, err = file.ReadAt(data, int64(req.Offset))
+	}
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nfs4FileStatusFromErr(err)
 	}
 	eof := errors.Is(err, io.EOF)
 	if !eof {
-		if info, statErr := current.fs.Stat(current.fullPath()); statErr == nil {
+		if info == nil {
+			info, _ = current.fs.Stat(current.fullPath())
+		}
+		if info != nil {
 			eof = int64(req.Offset)+int64(n) >= info.Size()
 		}
 	}

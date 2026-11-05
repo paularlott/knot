@@ -173,12 +173,15 @@ func (b *storeBackend) List(_ context.Context, bucket, prefix, delimiter, after 
 	return out, nil
 }
 
-func (b *storeBackend) ReadAt(ctx context.Context, bucket, key string, p []byte, off int64) (int, error) {
-	_, c, err := b.store.OpenObject(ctx, b.p, b.bucket(bucket), key)
+func (b *storeBackend) ReadAt(ctx context.Context, bucket, key, etag string, p []byte, off int64) (int, error) {
+	o, c, err := b.store.OpenObject(ctx, b.p, b.bucket(bucket), key)
 	if err != nil {
 		return 0, storeErr(err)
 	}
 	defer c.Close()
+	if etag != "" && o.ETag != etag {
+		return 0, errPrecondition
+	}
 	if _, err := c.Seek(off, io.SeekStart); err != nil {
 		return 0, err
 	}
@@ -189,10 +192,14 @@ func (b *storeBackend) ReadAt(ctx context.Context, bucket, key string, p []byte,
 	return n, err
 }
 
-func (b *storeBackend) Get(ctx context.Context, bucket, key string) (io.ReadCloser, *Object, error) {
+func (b *storeBackend) Get(ctx context.Context, bucket, key, etag string) (io.ReadCloser, *Object, error) {
 	o, c, err := b.store.OpenObject(ctx, b.p, b.bucket(bucket), key)
 	if err != nil {
 		return nil, nil, storeErr(err)
+	}
+	if etag != "" && o.ETag != etag {
+		c.Close()
+		return nil, nil, errPrecondition
 	}
 	return c, toObject(o), nil
 }

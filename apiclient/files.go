@@ -678,8 +678,14 @@ func ObjectInfoFromHeaders(key string, h http.Header, size int64) *FileObjectInf
 
 // GetFileObjectRange downloads length bytes of an object from offset; the
 // caller closes the body.
-func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, offset, length int64) (*http.Response, error) {
+//
+// With ifMatch, an ETag, it is read only if the object still has it, a
+// 412 error otherwise.
+func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, offset, length int64, ifMatch string) (*http.Response, error) {
 	headers := map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", offset, offset+length-1)}
+	if ifMatch != "" {
+		headers["If-Match"] = `"` + ifMatch + `"`
+	}
 	resp, err := c.doTransfer(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
 	if err != nil {
 		return nil, err
@@ -697,7 +703,17 @@ func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, 
 
 // GetFileObject downloads an object; the caller closes the body.
 func (c *ApiClient) GetFileObject(ctx context.Context, bucket, key string) (*http.Response, error) {
-	resp, err := c.doTransfer(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, nil)
+	return c.GetFileObjectIf(ctx, bucket, key, "")
+}
+
+// GetFileObjectIf downloads an object if it still has the ETag ifMatch (any
+// version when empty), a 412 error otherwise; the caller closes the body.
+func (c *ApiClient) GetFileObjectIf(ctx context.Context, bucket, key, ifMatch string) (*http.Response, error) {
+	var headers map[string]string
+	if ifMatch != "" {
+		headers = map[string]string{"If-Match": `"` + ifMatch + `"`}
+	}
+	resp, err := c.doTransfer(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
 	if err != nil {
 		return nil, err
 	}

@@ -281,9 +281,10 @@ type failingCommitFS struct{ billy.Filesystem }
 
 func (failingCommitFS) Commit(string) error { return errors.New("server unreachable") }
 
-// CLOSE closes the open even when saving fails: the Mac's client sends a
+// CLOSE closes the open with saving failing: the Mac's client sends a
 // failed CLOSE again at once, forever. COMMIT, which clients send before
-// CLOSE with writes unsaved, is what reports a failed save.
+// the program's close() returns with writes unsaved, is what reports a
+// failed save.
 func TestCloseWhenSavingFails(t *testing.T) {
 	fs := failingCommitFS{memfs.New()}
 	f, _ := fs.Create("f")

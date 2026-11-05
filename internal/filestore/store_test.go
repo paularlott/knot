@@ -1100,6 +1100,21 @@ func TestConditionalPut(t *testing.T) {
 	}
 }
 
+// A large write refused for its precondition leaves no content file behind.
+func TestConditionalPutRefusedLeavesNoContent(t *testing.T) {
+	s := newStore(t)
+	mustCreate(t, s, alice, "cond")
+	big := strings.Repeat("a", inlineMax+1)
+	o, err := s.PutObject(alice, "cond", "f", strings.NewReader(big), PutOptions{Size: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PutObject(alice, "cond", "f", strings.NewReader(big+"b"), PutOptions{Size: -1, IfMatch: o.ETag + "x"}); !errors.Is(err, ErrPrecondition) {
+		t.Fatalf("stale etag: %v", err)
+	}
+	clean(t, s, "after a refused write")
+}
+
 func TestBucketLimit(t *testing.T) {
 	limits := map[string]int{"alice": 2, "bob": 1}
 	s, err := Open(Config{Dir: t.TempDir(), BucketLimit: func(id string) (int, error) { return limits[id], nil }})
