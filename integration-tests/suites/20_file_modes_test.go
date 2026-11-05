@@ -367,14 +367,84 @@ func startNFSRestartable(t *testing.T, s *harness.Server, user *harness.User, ar
 	}
 }
 
+// canMountNFS reports whether this machine can mount NFS for a test: macOS
+// as the user, Linux through sudo without a password (as on a test server)
+// with the NFS client installed (nfs-common).
+func canMountNFS() bool {
+	switch runtime.GOOS {
+	case "darwin":
+		return true
+	case "linux":
+		if _, err := os.Stat("/sbin/mount.nfs"); err != nil {
+			return false
+		}
+		return exec.Command("sudo", "-n", "true").Run() == nil
+	}
+	return false
+}
+
+// skipUnlessNFS skips a test where NFS can't be mounted.
+func skipUnlessNFS(t *testing.T) {
+	t.Helper()
+	if !canMountNFS() {
+		t.Skip("mounting NFS needs macOS, or Linux with nfs-common and sudo without a password")
+	}
+}
+
+// nfsVersion is the NFS version mounts use: 4 (4.0), or 3 with
+// KNOT_TEST_NFS_VERS=3.
+func nfsVersion() string {
+	if os.Getenv("KNOT_TEST_NFS_VERS") == "3" {
+		return "3"
+	}
+	return "4"
+}
+
+// mountCommand mounts the NFS server on port at dir, as the docs say to.
+func mountCommand(ctx context.Context, port int, dir string) *exec.Cmd {
+	p := strconv.Itoa(port)
+	v3 := nfsVersion() == "3"
+	if runtime.GOOS == "linux" {
+		if v3 {
+			return exec.CommandContext(ctx, "sudo", "-n", "mount", "-t", "nfs", "-o", "vers=3,proto=tcp,port="+p+",mountport="+p+",mountproto=tcp,nolock", "127.0.0.1:/", dir)
+		}
+		return exec.CommandContext(ctx, "sudo", "-n", "mount", "-t", "nfs4", "-o", "vers=4.0,proto=tcp,port="+p, "127.0.0.1:/", dir)
+	}
+	if v3 {
+		return exec.CommandContext(ctx, "mount_nfs", "-o", "vers=3,tcp,port="+p+",mountport="+p+",nolocks,noresvport,locallocks", "127.0.0.1:/", dir)
+	}
+	return exec.CommandContext(ctx, "mount_nfs", "-o", "vers=4,tcp,port="+p, "127.0.0.1:/", dir)
+}
+
+// unmount unmounts dir, forcing it if it is busy or its server is gone.
+// Never diskutil: given a folder that is no longer a mount point, diskutil
+// unmounts the volume holding it instead, which ejected the disk
+// KNOT_TEST_FILES_ROOT was on.
+func unmount(dir string) error {
+	run := func(args ...string) error {
+		if runtime.GOOS == "linux" {
+			args = append([]string{"-n"}, args...)
+			return exec.Command("sudo", args...).Run()
+		}
+		return exec.Command(args[0], args[1:]...).Run()
+	}
+	if err := run("umount", dir); err != nil {
+		if runtime.GOOS == "linux" {
+			run("umount", "-f", "-l", dir)
+		} else {
+			run("umount", "-f", dir)
+		}
+		return err
+	}
+	return nil
+}
+
 // mountNFS serves the server's buckets over NFS, as user, and mounts them at
-// dir. It skips the test where this machine cannot mount NFS as this user
-// (only macOS lets a user mount without root).
+// dir. It skips the test where this machine cannot mount NFS (see
+// canMountNFS).
 func mountNFS(t *testing.T, s *harness.Server, user *harness.User, dir string) string {
 	t.Helper()
-	if runtime.GOOS != "darwin" {
-		t.Skip("mounting NFS needs root here")
-	}
+	skipUnlessNFS(t)
 	return mountNFSAt(t, startNFS(t, s, user), dir)
 }
 
@@ -382,9 +452,7 @@ func mountNFS(t *testing.T, s *harness.Server, user *harness.User, dir string) s
 // nfs-server behind the mount (see startNFSRestartable).
 func mountNFSRestartable(t *testing.T, s *harness.Server, user *harness.User, dir string) (string, func()) {
 	t.Helper()
-	if runtime.GOOS != "darwin" {
-		t.Skip("mounting NFS needs root here")
-	}
+	skipUnlessNFS(t)
 	port, restart := startNFSRestartable(t, s, user)
 	return mountNFSAt(t, port, dir), restart
 }
@@ -397,17 +465,13 @@ func mountNFSAt(t *testing.T, port int, dir string) string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "mount_nfs", "-o", "vers=4,tcp,port="+strconv.Itoa(port), "127.0.0.1:/", dir).CombinedOutput()
+	out, err := mountCommand(ctx, port, dir).CombinedOutput()
 	if err != nil {
-		t.Skipf("cannot mount NFS here: %v\n%s", err, out)
+		t.Fatalf("mount NFS: %v\n%s", err, out)
 	}
 	t.Cleanup(func() {
-		// umount -f, never diskutil: given a folder that is no longer a
-		// mount point, diskutil unmounts the volume holding it instead,
-		// which ejected the disk KNOT_TEST_FILES_ROOT was on.
-		if out, err := exec.Command("umount", dir).CombinedOutput(); err != nil {
-			exec.Command("umount", "-f", dir).Run()
-			t.Logf("umount %s: %v %s", dir, err, out)
+		if err := unmount(dir); err != nil {
+			t.Logf("umount %s: %v", dir, err)
 		}
 	})
 	return dir

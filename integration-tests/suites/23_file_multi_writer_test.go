@@ -16,7 +16,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -469,9 +468,6 @@ func TestFileMultiWriter(t *testing.T) {
 	// processes racing, one is removed while open and locked, renamed to
 	// ".nfs...", and its locks there were refused, which hung the mount.
 	t.Run("NFS folders made at once", func(t *testing.T) {
-		if runtime.GOOS != "darwin" {
-			t.Skip("needs macOS, which mounts NFS as a user")
-		}
 		mnt := mountNFS(t, nodeA, adminA, filepath.Join(root, "race-mnt"))
 		const rounds = 20
 		want := map[string]string{}
@@ -554,8 +550,10 @@ func TestFileMultiWriter(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "new"), []byte("new"), 0644); err != nil {
 				errs.add("write a new file: %v", err)
 			}
-			// The lock is free for another opener.
-			other, err := os.Open(filepath.Join(dir, "held"))
+			// The lock is free for another opener. Open for writing: over
+			// NFS, Linux takes an flock as a POSIX lock, and an exclusive
+			// one needs a file open for writing.
+			other, err := os.OpenFile(filepath.Join(dir, "held"), os.O_RDWR, 0)
 			if err != nil {
 				errs.add("open again: %v", err)
 				return
@@ -578,9 +576,6 @@ func TestFileMultiWriter(t *testing.T) {
 	// Over NFS, mounted from each server, with writers on both mounts, of
 	// files of their own and of the same files.
 	t.Run("NFS on both servers", func(t *testing.T) {
-		if runtime.GOOS != "darwin" {
-			t.Skip("needs macOS, which mounts NFS as a user")
-		}
 		mounts := map[string]string{
 			"A": mountNFS(t, nodeA, adminA, filepath.Join(root, "load-mnt-a")),
 			"B": mountNFS(t, nodeB, adminB, filepath.Join(root, "load-mnt-b")),
@@ -713,7 +708,7 @@ func nfsWatchdog(t *testing.T, wg *sync.WaitGroup, d time.Duration, servers []wr
 	time.Sleep(2 * time.Second)
 	exec.Command("pkill", "-KILL", "-f", nfsServers).Run()
 	for _, m := range mounts {
-		exec.Command("umount", "-f", m).Start()
+		go unmount(m)
 	}
 	select {
 	case <-done:
