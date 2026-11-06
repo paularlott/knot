@@ -3,6 +3,7 @@ package command_files
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -438,6 +439,49 @@ func startWatch(t *testing.T, client *apiclient.ApiClient, src, dst string, req 
 		}
 	})
 	return ev
+}
+
+// A change whose upload fails, the server restarting for example, is sent
+// again shortly, without waiting for another change or the look at
+// everything minutes later.
+func TestSyncWatchRetriesFailedPass(t *testing.T) {
+	client, _ := newFilesServer(t)
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "first.txt"), "1")
+	var out logBuf
+	startWatch(t, client, src, "sync-test:rt", syncRequest{log: out.logger()})
+	has := func(key string) func() bool {
+		return func() bool { _, ok := remoteContent(t, client, "sync-test", key); return ok }
+	}
+	waitUntil(t, "initial pass", has("rt/first.txt"))
+
+	failPuts.Store(true)
+	defer failPuts.Store(false)
+	writeFile(t, filepath.Join(src, "during.txt"), "d")
+	waitUntil(t, "the upload failing", func() bool { return logged(out.String(), "sync pass incomplete") })
+	failPuts.Store(false)
+	waitUntil(t, "during.txt sent once the server is back", has("rt/during.txt"))
+}
+
+// Deletions refused as too many are not tried again and again: they wait
+// for the user.
+func TestSyncWatchMassDeleteNotRetried(t *testing.T) {
+	client, _ := newFilesServer(t)
+	src := t.TempDir()
+	for i := 0; i < 20; i++ {
+		writeFile(t, filepath.Join(src, fmt.Sprintf("f%02d.txt", i)), "x")
+	}
+	var out logBuf
+	startWatch(t, client, src, "sync-test:md", syncRequest{del: true, log: out.logger()})
+	waitUntil(t, "initial pass", func() bool { return len(bucketKeys(t, client, "sync-test")) == 20 })
+	for i := 0; i < 15; i++ {
+		os.Remove(filepath.Join(src, fmt.Sprintf("f%02d.txt", i)))
+	}
+	waitUntil(t, "the deletions refused", func() bool { return strings.Contains(out.String(), "refusing to delete") })
+	time.Sleep(3 * retryMin)
+	if n := strings.Count(out.String(), "refusing to delete"); n != 1 {
+		t.Errorf("the refusal was reported %d times, want once:\n%s", n, out.String())
+	}
 }
 
 func TestSyncWatchUp(t *testing.T) {

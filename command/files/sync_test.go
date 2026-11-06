@@ -76,7 +76,13 @@ func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 	mux.HandleFunc("GET /api/files/list/{bucket}", api.HandleListFileObjects)
 	mux.HandleFunc("GET /api/files/changes/{bucket}", api.HandleListFileChanges)
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", api.HandleGetFileObject)
-	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", api.HandlePutFileObject)
+	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {
+		if failPuts.Load() {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		api.HandlePutFileObject(w, r)
+	})
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", api.HandleDeleteFileObject)
 	mux.HandleFunc("POST /api/files/uploads/{bucket}/{key...}", api.HandleStartFileUpload)
 	mux.HandleFunc("PUT /api/files/uploads/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {

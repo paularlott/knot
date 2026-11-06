@@ -36,15 +36,19 @@ const (
 	// finalFlushFor bounds the last pass a watching sync makes as it is
 	// stopped, sending the local changes not yet sent.
 	finalFlushFor = 5 * time.Second
+	// retryMin and retryMax bound the wait before a pass that failed, the
+	// server restarting for example, is tried again, doubling each time.
+	retryMin = 2 * time.Second
+	retryMax = time.Minute
 )
 
 // eventFollower follows the server's event stream; tests replace it.
 type eventFollower func(ctx context.Context, onEvent func(apiclient.Event), onState func(bool)) error
 
-// watch runs passes as changes come, after the first. w is the directory's
-// watcher when it was started before the first pass, nil when the directory
-// did not exist then.
-func (s *syncer) watch(ctx context.Context, w dirWatcher, follow eventFollower) error {
+// watch runs passes as changes come, after the first, which ended with
+// firstErr. w is the directory's watcher when it was started before the
+// first pass, nil when the directory did not exist then.
+func (s *syncer) watch(ctx context.Context, w dirWatcher, firstErr error, follow eventFollower) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -117,7 +121,17 @@ func (s *syncer) watch(ctx context.Context, w dirWatcher, follow eventFollower) 
 	dirty := make(map[string]string) // identity -> rel, local paths to look at
 	remoteDue := false
 	var settle <-chan time.Time
-	if rescan {
+	// A pass that fails is tried again after a while, everything it was to
+	// do, not left for the next change or look at everything.
+	var retryIn time.Duration
+	retry := func() <-chan time.Time {
+		retryIn = min(max(2*retryIn, retryMin), retryMax)
+		return time.After(retryIn)
+	}
+	if worthRetrying(firstErr) {
+		rescan = true
+		settle = retry()
+	} else if rescan {
 		settle = time.After(0)
 	}
 	lastPoll := time.Now()
@@ -147,6 +161,10 @@ func (s *syncer) watch(ctx context.Context, w dirWatcher, follow eventFollower) 
 				err = s.flushLocal(ctx, w, fsEvents, dirty)
 				dirty, rescan = make(map[string]string), false
 				lastRescan = time.Now()
+				if worthRetrying(err) {
+					rescan = true
+					settle = retry()
+				}
 			}
 			reply <- err
 
@@ -190,6 +208,16 @@ func (s *syncer) watch(ctx context.Context, w dirWatcher, follow eventFollower) 
 		case <-settle:
 			settle = nil
 			ids, full, err := s.gather(ctx, dirty, rescan, remoteDue)
+			if err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
+				// What was to be looked at still is, shortly.
+				s.log.WithError(err).Warn("could not look for changes")
+				s.passed(passCounts{}, err)
+				settle = retry()
+				continue
+			}
 			if remoteDue {
 				lastPoll = time.Now()
 			}
@@ -197,17 +225,10 @@ func (s *syncer) watch(ctx context.Context, w dirWatcher, follow eventFollower) 
 				lastRescan = time.Now()
 			}
 			dirty, rescan, remoteDue = make(map[string]string), false, false
-			if err != nil {
-				if ctx.Err() != nil {
-					return nil
-				}
-				s.log.WithError(err).Warn("could not look for changes")
-				s.passed(passCounts{}, err)
-				continue
-			}
 			if full {
 				ids = nil
 			} else if len(ids) == 0 {
+				retryIn = 0
 				continue
 			}
 			err = s.pass(ctx, ids)
@@ -215,8 +236,40 @@ func (s *syncer) watch(ctx context.Context, w dirWatcher, follow eventFollower) 
 				s.log.WithError(err).Warn("sync pass incomplete")
 			}
 			s.passed(s.report(), err)
+			if !worthRetrying(err) || ctx.Err() != nil {
+				retryIn = 0
+				continue
+			}
+			if full {
+				rescan = true
+			} else {
+				for _, id := range ids {
+					if rel := s.relFor(id); rel != "" {
+						dirty[id] = rel
+					}
+				}
+			}
+			settle = retry()
 		}
 	}
+}
+
+// worthRetrying says whether a pass that ended with err has more to do than
+// deletions it refused as too many, which wait on the user, not on time.
+func worthRetrying(err error) bool {
+	if err == nil {
+		return false
+	}
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, e := range j.Unwrap() {
+			if worthRetrying(e) {
+				return true
+			}
+		}
+		return false
+	}
+	var m *massDeleteError
+	return !errors.As(err, &m)
 }
 
 // flushLocal sends what changed locally and has not been synced: the

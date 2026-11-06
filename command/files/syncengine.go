@@ -828,6 +828,11 @@ func (s *syncer) matchesBase(l *localFile, b *baseEntry) bool {
 	return err == nil && sha == b.SHA
 }
 
+// massDeleteError is deletions a pass held back as too many.
+type massDeleteError struct{ msg string }
+
+func (e *massDeleteError) Error() string { return e.msg }
+
 // guardDeletes holds back a pass's deletions on a side when they look like
 // a mistake: most of the files there, or everything because the other side
 // came up empty (a directory not mounted, a share withdrawn).
@@ -876,7 +881,7 @@ func (s *syncer) guardDeletes(plan []action) ([]action, error) {
 		}
 		kept = append(kept, a)
 	}
-	return kept, errors.New(strings.Join(refused, "; "))
+	return kept, &massDeleteError{strings.Join(refused, "; ")}
 }
 
 // ---------------------------------------------------------------------------
@@ -884,8 +889,8 @@ func (s *syncer) guardDeletes(plan []action) ([]action, error) {
 // ---------------------------------------------------------------------------
 
 // pass plans and applies the changes for ids, or every path when ids is nil.
-// A refused mass deletion is returned as errMassDelete, after the rest of
-// the pass is done.
+// A refused mass deletion is returned as a *massDeleteError, after the rest
+// of the pass is done.
 func (s *syncer) pass(ctx context.Context, ids []string) error {
 	if ids == nil {
 		seen := make(map[string]bool)

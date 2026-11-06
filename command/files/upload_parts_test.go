@@ -15,6 +15,10 @@ import (
 // partsSent counts the parts the test server received.
 var partsSent atomic.Int64
 
+// failPuts makes the test server refuse whole-file uploads while set, as a
+// server restarting does.
+var failPuts atomic.Bool
+
 func smallParts(t *testing.T) {
 	t.Helper()
 	ps, pa := partSize, partedAt

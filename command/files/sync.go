@@ -213,7 +213,7 @@ func runEngine(ctx context.Context, client *apiclient.ApiClient, opt syncOptions
 	if follow == nil {
 		follow = client.FollowEvents
 	}
-	return s.watch(ctx, w, follow)
+	return s.watch(ctx, w, err, follow)
 }
 
 // syncUp and syncDown are single passes up and down.
