@@ -45,6 +45,18 @@ func callContext(ctx context.Context, kwargs object.Kwargs, args []object.Object
 	return ctx, cancel, nil
 }
 
+// statusError is the error for a refused request, with the server's own
+// message when the response carried one, as the in-process client leaves
+// it decoded in result.
+func statusError(statusCode int, result interface{}) object.Object {
+	if m, ok := result.(map[string]interface{}); ok {
+		if msg, ok := m["error"].(string); ok && msg != "" {
+			return &object.Error{Message: fmt.Sprintf("API error: HTTP %d: %s", statusCode, msg)}
+		}
+	}
+	return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
+}
+
 // GetApiClientLibrary returns the knot.apiclient Go transport library.
 // In embedded contexts this replaces the Python apiclient.py transport stub.
 // configure() and is_configured() are no-ops - the client is pre-configured.
@@ -108,7 +120,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
 		if statusCode >= 400 {
-			return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
+			return statusError(statusCode, result)
 		}
 		if result == nil {
 			return &object.Null{}
@@ -144,7 +156,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
 		if statusCode >= 400 {
-			return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
+			return statusError(statusCode, result)
 		}
 		if result == nil {
 			return &object.Null{}
@@ -180,7 +192,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
 		if statusCode >= 400 {
-			return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
+			return statusError(statusCode, result)
 		}
 		if result == nil {
 			return &object.Null{}
@@ -233,7 +245,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 				return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 			}
 			if statusCode >= 400 {
-				return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
+				return statusError(statusCode, result)
 			}
 		}
 		if result == nil {

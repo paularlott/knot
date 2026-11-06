@@ -278,3 +278,18 @@ type ProjectStatus struct {
 	Template bool        `json:"template,omitempty" msgpack:"template,omitempty"`
 	Jobs     []JobStatus `json:"jobs" msgpack:"jobs"`
 }
+
+// Settled reports whether every job has made its first pass or finished,
+// so the folders are in step, and whether any job failed.
+func (p ProjectStatus) Settled() (settled, failed bool) {
+	settled = true
+	for _, j := range p.Jobs {
+		switch {
+		case j.State == "failed":
+			failed = true
+		case j.Passes == 0 && j.State != "done":
+			settled = false
+		}
+	}
+	return settled || failed, failed
+}

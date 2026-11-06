@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/syncproject"
 )
 
 // startSyncProjects runs the space's sync projects: the template's, as each
@@ -65,6 +66,16 @@ func startSyncProjects(ctx context.Context, agentClient *agent_client.AgentClien
 	m.Resume()
 	return m
 }
+
+// syncProjectAgent is the agent's sync projects for the scripts it runs,
+// through knot.files.sync.
+type syncProjectAgent struct{ m *command_files.ProjectManager }
+
+func (a syncProjectAgent) Start(content, name string) (string, error) {
+	return a.m.Start(content, name)
+}
+func (a syncProjectAgent) Stop(name string) error                     { return a.m.Stop(name) }
+func (a syncProjectAgent) List() ([]syncproject.ProjectStatus, error) { return a.m.List(), nil }
 
 func reply(conn net.Conn, resp agentlink.SyncProjectResponse) {
 	if err := agentlink.Reply(conn, resp); err != nil {

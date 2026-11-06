@@ -542,3 +542,46 @@ func TestProjectManagerTemplateChanges(t *testing.T) {
 		t.Fatalf("the template project runs on with none: %+v", m.List())
 	}
 }
+
+// Starting a project already running from the same content leaves it
+// running, as a startup script does on every boot; changed content
+// replaces it.
+func TestProjectManagerStartUnchanged(t *testing.T) {
+	client, _ := newFilesServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m := NewProjectManager(ctx, t.TempDir(), fixedClient(client), (&logBuf{}).logger())
+	m.follow = (&fakeEvents{}).follow
+	defer m.StopAll()
+	dir := t.TempDir()
+	content := `
+name = "boot"
+[[sync]]
+local = "` + filepath.ToSlash(dir) + `"
+remote = "sync-test:boot/"
+`
+	if _, err := m.Start(content, ""); err != nil {
+		t.Fatal(err)
+	}
+	m.mu.Lock()
+	first := m.runs["boot"]
+	m.mu.Unlock()
+	if _, err := m.Start(content, ""); err != nil {
+		t.Fatal(err)
+	}
+	m.mu.Lock()
+	same := m.runs["boot"] == first
+	m.mu.Unlock()
+	if !same {
+		t.Error("starting the same project again restarted it")
+	}
+	if _, err := m.Start(content+"mode = \"upload\"\n", ""); err != nil {
+		t.Fatal(err)
+	}
+	m.mu.Lock()
+	replaced := m.runs["boot"] != first
+	m.mu.Unlock()
+	if !replaced {
+		t.Error("a changed project was not started again")
+	}
+}

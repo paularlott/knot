@@ -403,6 +403,96 @@ export const nomadVolumeSpecCompletions = [
   },
 ];
 
+// The sync block of a template's volumes: sync jobs the space's agent runs,
+// on every platform. Not for standalone volume definitions, which refuse it.
+export const syncSpecCompletions = [
+  {
+    caption: "sync",
+    value:
+      "sync:\n  - name: src\n    local: ~/src\n    remote: bucket:projects/${{ .space.name }}/\n",
+    meta: "sync",
+    score: 985,
+    docHTML: docs("sync", "Sync jobs the space's agent runs, keeping a local folder in step with a bucket folder, so the space's files outlive it."),
+  },
+  {
+    caption: "sync job",
+    value: "  - name: src\n    local: ~/src\n    remote: bucket:projects/${{ .space.name }}/\n",
+    meta: "sync",
+    score: 975,
+    docHTML: docs("Sync job", "One local folder kept in step with one bucket folder."),
+  },
+  {
+    caption: "local",
+    value: "local: ~/src",
+    meta: "sync",
+    score: 870,
+    docHTML: docs("local", "The folder in the space; ~ is the space user's home."),
+  },
+  {
+    caption: "remote",
+    value: "remote: bucket:projects/${{ .space.name }}/",
+    meta: "sync",
+    score: 869,
+    docHTML: docs("remote", "The bucket folder, written bucket:folder/."),
+  },
+  {
+    caption: "snapshot",
+    value: "snapshot: bucket:templates/starter/",
+    meta: "sync",
+    score: 868,
+    docHTML: docs("snapshot", "A bucket:folder/ snapshotted to the remote folder when it does not exist yet, so a new space starts from it."),
+  },
+  {
+    caption: "mode",
+    value: "mode: two-way",
+    meta: "sync",
+    score: 867,
+    docHTML: docs("mode", "two-way (the default), download or upload."),
+  },
+  {
+    caption: "exclude",
+    value: "exclude:\n  - node_modules/",
+    meta: "sync",
+    score: 866,
+    docHTML: docs("exclude", "Paths to leave out, as knot file sync --exclude."),
+  },
+  {
+    caption: "exclude_from",
+    value: "exclude_from: .gitignore",
+    meta: "sync",
+    score: 865,
+    docHTML: docs("exclude_from", "A file of patterns, relative to the local folder, read when the job starts."),
+  },
+  {
+    caption: "no_default_excludes",
+    value: "no_default_excludes: true",
+    meta: "sync",
+    score: 864,
+    docHTML: docs("no_default_excludes", "Sync version control folders (.git) and editor scratch files too."),
+  },
+  {
+    caption: "watch",
+    value: "watch: false",
+    meta: "sync",
+    score: 863,
+    docHTML: docs("watch", "Keep syncing changes as they are made; on unless false, which syncs once."),
+  },
+  {
+    caption: "delete",
+    value: "delete: false",
+    meta: "sync",
+    score: 862,
+    docHTML: docs("delete", "Pass deletions on; on unless false."),
+  },
+  {
+    caption: "allow_mass_delete",
+    value: "allow_mass_delete: true",
+    meta: "sync",
+    score: 861,
+    docHTML: docs("allow_mass_delete", "Let a pass delete most of a side's files, which is otherwise refused."),
+  },
+];
+
 // System + custom template variables available in job and volume templates.
 // These resolve at deploy time via the Go template engine using the ${{
 // delimiters. Suggested across nomad job, container, and volume editors.

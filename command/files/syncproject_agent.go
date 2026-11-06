@@ -90,7 +90,9 @@ func (m *ProjectManager) SetTemplate(p *syncproject.Project) {
 
 // Start runs a project from its file's content, replacing a project of the
 // same name, and keeps it to start again. name is its name when the file
-// gives none. It returns the project's name.
+// gives none. A project already running from the same content, none of
+// its jobs failed, is left running, so a script can start it on every
+// boot. It returns the project's name.
 func (m *ProjectManager) Start(content, name string) (string, error) {
 	p, err := syncproject.Parse([]byte(content), name)
 	if err != nil {
@@ -106,6 +108,12 @@ func (m *ProjectManager) Start(content, name string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	old := m.runs[p.Name]
+	file := filepath.Join(m.dir, p.Name+".toml")
+	if old != nil && !old.failed() {
+		if kept, err := os.ReadFile(file); err == nil && bytes.Equal(kept, []byte(content)) {
+			return p.Name, nil
+		}
+	}
 	delete(m.runs, p.Name)
 	if err := m.overlapsLocked(p); err != nil {
 		if old != nil {
@@ -119,7 +127,7 @@ func (m *ProjectManager) Start(content, name string) (string, error) {
 	if err := os.MkdirAll(m.dir, 0o700); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(m.dir, p.Name+".toml"), []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
 		return "", err
 	}
 	m.log.Info("starting sync project", "project", p.Name, "jobs", len(p.Sync))

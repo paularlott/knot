@@ -116,20 +116,15 @@ var syncProjectStartCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		var resp agentlink.SyncProjectResponse
-		if err := agentlink.SendWithResponseMsgTimeout(agentlink.CommandSyncProjectStart, agentlink.SyncProjectStartRequest{
-			Content: string(content), Name: syncproject.NameFromPath(cmd.GetStringArg("file")),
-		}, &resp, 30*time.Second); err != nil {
-			return agentErr(err)
-		}
-		if !resp.Success {
-			return fmt.Errorf("%s", resp.Error)
+		name, err := agentlink.SyncProjects{}.Start(string(content), syncproject.NameFromPath(cmd.GetStringArg("file")))
+		if err != nil {
+			return err
 		}
 		if !cmd.GetBool("wait") {
-			fmt.Printf("started sync project %s (%d jobs)\n", resp.Name, len(p.Sync))
+			fmt.Printf("started sync project %s (%d jobs)\n", name, len(p.Sync))
 			return nil
 		}
-		return waitForProject(ctx, resp.Name)
+		return waitForProject(ctx, name)
 	},
 }
 
@@ -150,16 +145,7 @@ func waitForProject(ctx context.Context, name string) error {
 		if mine == nil {
 			return fmt.Errorf("sync project %s is no longer running", name)
 		}
-		ready, failed := true, false
-		for _, j := range mine.Jobs {
-			switch {
-			case j.State == "failed":
-				failed = true
-			case j.Passes == 0 && j.State != "done":
-				ready = false
-			}
-		}
-		if failed || ready {
+		if settled, failed := mine.Settled(); settled {
 			printJobs(os.Stdout, []syncproject.ProjectStatus{*mine})
 			if failed {
 				return fmt.Errorf("sync project %s: a job failed", name)
@@ -186,12 +172,8 @@ var syncProjectStopCmd = &cli.Command{
 		if err := needAgent(); err != nil {
 			return err
 		}
-		var resp agentlink.SyncProjectResponse
-		if err := agentlink.SendWithResponseMsgTimeout(agentlink.CommandSyncProjectStop, agentlink.SyncProjectStopRequest{Name: cmd.GetStringArg("name")}, &resp, 30*time.Second); err != nil {
-			return agentErr(err)
-		}
-		if !resp.Success {
-			return fmt.Errorf("%s", resp.Error)
+		if err := (agentlink.SyncProjects{}).Stop(cmd.GetStringArg("name")); err != nil {
+			return err
 		}
 		fmt.Printf("stopped sync project %s\n", cmd.GetStringArg("name"))
 		return nil
@@ -296,22 +278,8 @@ func needAgent() error {
 	return nil
 }
 
-func agentErr(err error) error {
-	if err == agentlink.ErrSpaceLocked {
-		return fmt.Errorf("this space is locked: its processes cannot manage sync projects")
-	}
-	return fmt.Errorf("asking the space's agent: %w", err)
-}
-
 func agentProjects() ([]syncproject.ProjectStatus, error) {
-	var resp agentlink.SyncProjectResponse
-	if err := agentlink.SendWithResponseMsg(agentlink.CommandSyncProjectList, nil, &resp); err != nil {
-		return nil, agentErr(err)
-	}
-	if !resp.Success {
-		return nil, fmt.Errorf("%s", resp.Error)
-	}
-	return resp.Projects, nil
+	return agentlink.SyncProjects{}.List()
 }
 
 // projectState sums up a project's jobs' states.

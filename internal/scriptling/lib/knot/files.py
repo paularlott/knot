@@ -1,8 +1,9 @@
 # knot.files - File storage library for the Knot server
 #
-# Buckets of files replicated across the cluster: list, read, write, copy and
-# delete files, and manage the buckets, their sharing and your usage.
-# Requires knot.apiclient to be configured first.
+# Buckets of files replicated across the cluster: list, read, write, copy,
+# move and delete files, snapshot folders, and manage the buckets, their
+# sharing and your usage. Requires knot.apiclient to be configured first.
+# In a space, knot.files.sync runs sync projects in the space's agent.
 #
 # Buckets are named <owner>--<name>. Your own buckets can be given by their
 # short name; buckets shared with you need the full name.
@@ -17,6 +18,12 @@
 
 import knot.apiclient as api
 import urllib.parse
+
+# knot.files.sync, where knot provides it, is knot.files.sync here too.
+try:
+    import knot.files.sync as sync
+except Exception:
+    pass
 
 
 def _enc(s):
@@ -59,7 +66,34 @@ def _bucket(info):
     }
 
 
+# POSIX file types, as a file's mode keeps them.
+_S_IFMT = 0o170000
+_S_IFREG = 0o100000
+_S_IFDIR = 0o040000
+_S_IFLNK = 0o120000
+
+
+def _mode(meta):
+    """A file's permission bits and whether it is a symbolic link, from the
+    mode its metadata keeps in octal; None for the bits when it keeps none."""
+    v = meta.get("mode")
+    if v is None:
+        return None, False
+    try:
+        m = int(str(v).strip(), 8)
+    except Exception:
+        return None, False
+    typ = m & _S_IFMT
+    if typ == _S_IFLNK:
+        return m & 0o777, True
+    if typ == 0 or typ == _S_IFREG or typ == _S_IFDIR:
+        return m & 0o777, False
+    return None, False
+
+
 def _file(info):
+    meta = info.get("meta") or {}
+    mode, link = _mode(meta)
     return {
         "key": info.get("key"),
         "size": info.get("size", 0),
@@ -67,6 +101,10 @@ def _file(info):
         "sha256": info.get("sha256"),
         "content_type": info.get("content_type"),
         "modified_at": info.get("modified_at"),
+        "changed_at": info.get("changed_at"),
+        "mode": mode,
+        "link": link,
+        "meta": meta,
     }
 
 
@@ -278,8 +316,7 @@ def list_files(bucket, prefix="", recursive=False):
 
     Returns:
         A dict containing:
-        - files: A list of file dicts, each with key, size, etag, sha256,
-          content_type and modified_at
+        - files: A list of file dicts, as stat returns for a file
         - folders: A list of folder prefixes, each ending in "/" (empty when
           recursive)
 
@@ -330,9 +367,9 @@ def list_changes(bucket, prefix="", cursor=""):
 
     Returns:
         A dict containing:
-        - changes: A list of file dicts, each with key, size, etag, sha256,
-          content_type, modified_at and deleted (True for a file that was
-          deleted, which has only key and modified_at)
+        - changes: A list of file dicts, as stat returns for a file, each
+          with deleted too (True for a file that was deleted, which has
+          only key and modified_at)
         - cursor: The cursor to pass next time
         - reset: True when the cursor could not be followed (the server's
           index was rebuilt, or the cursor came from another server): changes
@@ -406,7 +443,7 @@ def write_file(bucket, key, data, content_type=""):
             application/octet-stream, when not given
 
     Returns:
-        The file dict, with key, size, etag, sha256, content_type and modified_at
+        The file dict, as stat returns for a file
 
     Raises:
         Exception if you may not write there, the quota is exceeded, or on API error
@@ -488,3 +525,170 @@ def file_exists(bucket, key):
     response = api.get("/api/files/list/" + _enc(bucket) + "?limit=1&prefix=" + _enc(key))
     found = response.get("objects") or []
     return len(found) > 0 and found[0].get("key") == key
+
+
+def stat(bucket, key):
+    """Say what a path in a bucket is, without reading any content.
+
+    Args:
+        bucket: Bucket name
+        key: The file's or folder's key; "" for the top of the bucket
+
+    Returns:
+        None when there is nothing there, or a dict with type "file" or
+        "folder". A file's also has:
+        - key, size, etag, sha256, content_type
+        - modified_at: The file's modification time, as its writer gave it
+        - changed_at: When this version was saved
+        - mode: Its permission bits, such as 0o755, or None when none were
+          kept
+        - link: True for a symbolic link, whose content is its target
+        - meta: Its metadata, a dict of strings
+        A folder's also has key, ending in "/", and marker: True when an
+        empty-folder marker keeps it
+
+    Raises:
+        Exception if the bucket does not exist or is not visible to you
+    """
+    _check_key(key)
+    try:
+        info = api.get("/api/files/stat/" + _enc(bucket) + "/" + _enc_key(key))
+    except Exception as e:
+        if "object not found" in str(e):
+            return None
+        raise
+    if info.get("file"):
+        f = _file(info["file"])
+        f["type"] = "file"
+        return f
+    folder = key.rstrip("/")
+    if folder:
+        folder += "/"
+    return {"type": "folder", "key": folder, "marker": info.get("marker") is not None}
+
+
+def move(bucket, source, dest, overwrite=False):
+    """Rename a file, or a folder and everything in it, within a bucket, on
+    the server: no content is transferred. Every file is copied before any
+    is deleted, so a failure part way leaves files in both places, never in
+    neither.
+
+    Args:
+        bucket: Bucket name
+        source: The file's or folder's key
+        dest: The new key
+        overwrite: Replace files already at the destination; otherwise a
+            destination holding a file refuses the move
+
+    Returns:
+        The number of files moved
+
+    Raises:
+        Exception if there is nothing at source, the destination holds a file
+        and overwrite is False, a folder would move into itself, or you may
+        not write to the bucket
+    """
+    _check_key(source)
+    _check_key(dest)
+    response = api.post("/api/files/move", {
+        "bucket": bucket,
+        "from": source,
+        "to": dest,
+        "overwrite": overwrite,
+    }, timeout=600)
+    return response.get("moved", 0)
+
+
+def snapshot(source_bucket, source, dest_bucket, dest):
+    """Copy a folder, as it was at one moment, to a new folder, on the
+    server: no content is transferred and the copy takes no more storage
+    until it changes. Files written into the folder while the snapshot is
+    made are not in it. The snapshot records itself in a manifest,
+    .knot-snapshot.json, written last into the new folder, so a folder
+    holding it is a complete snapshot.
+
+    Args:
+        source_bucket: Bucket holding the folder (you need read access)
+        source: The folder; "" for the whole bucket
+        dest_bucket: Bucket to make the snapshot in (you need write access)
+        dest: The new folder, which must not exist
+
+    Returns:
+        A dict containing:
+        - files: Number of files in the snapshot
+        - folders: Number of empty folders kept
+        - bytes: Their total size
+        - taken_at: The moment the snapshot shows
+        - source_bucket: The source bucket's full name
+        - source: The source folder
+        - manifest: The key of the snapshot's manifest
+
+    Raises:
+        Exception if the source does not exist, the destination does,
+        access is lacking, or the owner's quota would be exceeded
+    """
+    _check_key(source)
+    _check_key(dest)
+    info = api.post("/api/files/snapshot", {
+        "source_bucket": source_bucket,
+        "source": source,
+        "dest_bucket": dest_bucket,
+        "dest": dest,
+    }, timeout=3600)
+    return {
+        "files": info.get("files", 0),
+        "folders": info.get("folders", 0),
+        "bytes": info.get("bytes", 0),
+        "taken_at": info.get("taken_at"),
+        "source_bucket": info.get("source_bucket"),
+        "source": info.get("source_path"),
+        "manifest": info.get("manifest"),
+    }
+
+
+def set_attrs(bucket, key, mode=None, mtime=None):
+    """Change a file's permission bits or modification time, keeping its
+    content and other metadata. These are what knot file sync, NFS mounts
+    and rclone give the file when they make it locally.
+
+    Args:
+        bucket: Bucket name
+        key: The file's key
+        mode: Permission bits, such as 0o755; a link stays a link
+        mtime: Modification time, as Unix seconds (int or float) or an RFC
+            3339 string
+
+    Returns:
+        The file dict, as stat returns for a file
+
+    Raises:
+        Exception if the file does not exist, neither mode nor mtime is
+        given, mode is not between 0 and 0o777, or the file changed while
+        it was being changed (HTTP 412: try again)
+    """
+    if mode is None and mtime is None:
+        raise Exception("give mode, mtime or both")
+    if mode is not None and (not isinstance(mode, int) or mode < 0 or mode > 0o777):
+        raise Exception("mode must be permission bits, 0 to 0o777, such as 0o644")
+    f = stat(bucket, key)
+    if f is None or f["type"] != "file":
+        raise Exception("object not found: " + key)
+    meta = {}
+    for k in f["meta"]:
+        meta[k] = f["meta"][k]
+    if mode is not None:
+        typ = _S_IFLNK if f["link"] else _S_IFREG
+        meta["mode"] = "%o" % (typ | mode)
+    if mtime is not None:
+        if isinstance(mtime, str):
+            meta["mtime"] = mtime
+        else:
+            meta["mtime"] = "%.9f" % float(mtime)
+    return _file(api.post("/api/files/copy", {
+        "source_bucket": bucket,
+        "source_key": key,
+        "dest_bucket": bucket,
+        "dest_key": key,
+        "meta": meta,
+        "if_match": f["etag"],
+    }))

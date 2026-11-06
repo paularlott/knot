@@ -76,6 +76,9 @@ func filesEnvWith(t *testing.T, useMux bool) (run func(script string) map[string
 	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", HandlePutFileObject)
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", HandleDeleteFileObject)
 	mux.HandleFunc("POST /api/files/copy", HandleCopyFileObject)
+	mux.HandleFunc("POST /api/files/move", HandleMoveFileObjects)
+	mux.HandleFunc("POST /api/files/snapshot", HandleSnapshotFileFolder)
+	mux.HandleFunc("GET /api/files/stat/{bucket}/{key...}", HandleStatFileObject)
 	srv := httptest.NewServer(middleware.KnotVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), "user", alice)))
 	})))
@@ -430,5 +433,97 @@ result["gone"] = not files.file_exists("mux", "a.txt")
 	}
 	if r["deleted"] != true || r["gone"] != true {
 		t.Errorf("current conditional delete: %v %v", r["deleted"], r["gone"])
+	}
+}
+
+// Snapshots, moves, a path's details and a file's mode and time, through
+// the HTTP and the in-process clients alike.
+func TestKnotFilesSnapshotMoveStat(t *testing.T) {
+	for _, useMux := range []bool{false, true} {
+		t.Run(fmt.Sprintf("mux=%v", useMux), func(t *testing.T) {
+			run, _ := filesEnvWith(t, useMux)
+			r := run(`
+import knot.files as files
+
+result = {}
+files.create_bucket("tree")
+files.write_file("tree", "src/a.txt", "a")
+files.write_file("tree", "src/sub/b.txt", "b")
+
+st = files.stat("tree", "src/a.txt")
+result["file"] = [st["type"], st["key"], st["size"], st["mode"], st["link"], st["changed_at"] != None]
+result["folder"] = files.stat("tree", "src")
+result["folder_slash"] = files.stat("tree", "src/sub/")
+result["top"] = files.stat("tree", "")["type"]
+result["missing"] = files.stat("tree", "nope.txt")
+
+snap = files.snapshot("tree", "src", "tree", "snaps/one")
+result["snap"] = [snap["files"], snap["bytes"], snap["source"], snap["manifest"], snap["source_bucket"]]
+files.write_file("tree", "src/a.txt", "changed")
+result["snap_kept"] = files.read_text("tree", "snaps/one/a.txt")
+result["snap_sub"] = files.read_text("tree", "snaps/one/sub/b.txt")
+
+result["moved_file"] = files.move("tree", "src/a.txt", "src/renamed.txt")
+result["moved_folder"] = files.move("tree", "src/sub", "lib")
+result["after_move"] = sorted([f["key"] for f in files.list_files("tree", recursive=True)["files"] if not f["key"].startswith("snaps/")])
+files.write_file("tree", "lib/b2.txt", "x")
+
+f = files.set_attrs("tree", "src/renamed.txt", mode=0o755)
+result["mode"] = [f["mode"], files.stat("tree", "src/renamed.txt")["mode"], files.read_text("tree", "src/renamed.txt")]
+f = files.set_attrs("tree", "src/renamed.txt", mtime=1700000000.5)
+result["mtime_keeps_mode"] = [f["mode"], f["meta"]["mtime"]]
+result["listed_mode"] = [x["mode"] for x in files.list_files("tree", "src/")["files"]]
+
+errors = {}
+for name, fn in [
+    ("snap_exists", lambda: files.snapshot("tree", "src", "tree", "snaps/one")),
+    ("snap_missing", lambda: files.snapshot("tree", "nothing", "tree", "snaps/two")),
+    ("move_onto", lambda: files.move("tree", "lib/b.txt", "lib/b2.txt")),
+    ("move_into_itself", lambda: files.move("tree", "lib", "lib/inner")),
+    ("move_missing", lambda: files.move("tree", "gone", "elsewhere")),
+    ("attrs_none", lambda: files.set_attrs("tree", "src/renamed.txt")),
+    ("attrs_bad_mode", lambda: files.set_attrs("tree", "src/renamed.txt", mode=0o7777)),
+    ("attrs_missing", lambda: files.set_attrs("tree", "nope.txt", mode=0o644)),
+    ("stat_no_bucket", lambda: files.stat("nobucket", "a")),
+    ("sync_on_server", lambda: files.sync.list()),
+]:
+    try:
+        fn()
+        errors[name] = ""
+    except Exception as e:
+        errors[name] = str(e)
+result["errors"] = errors
+result["overwrote"] = files.move("tree", "lib/b.txt", "lib/b2.txt", overwrite=True)
+result["b2"] = files.read_text("tree", "lib/b2.txt")
+`)
+			if fmt.Sprint(r["file"]) != "[file src/a.txt 1 420 false true]" {
+				t.Errorf("stat of a file: %v", r["file"])
+			}
+			if fmt.Sprint(r["folder"]) != "map[key:src/ marker:false type:folder]" || fmt.Sprint(r["folder_slash"]) != "map[key:src/sub/ marker:false type:folder]" || r["top"] != "folder" || r["missing"] != nil {
+				t.Errorf("stat of folders: %v %v %v, of nothing: %v", r["folder"], r["folder_slash"], r["top"], r["missing"])
+			}
+			if fmt.Sprint(r["snap"]) != "[2 2 src snaps/one/.knot-snapshot.json scriptalice--tree]" || r["snap_kept"] != "a" || r["snap_sub"] != "b" {
+				t.Errorf("snapshot: %v %v %v", r["snap"], r["snap_kept"], r["snap_sub"])
+			}
+			if fmt.Sprint(r["moved_file"]) != "1" || fmt.Sprint(r["moved_folder"]) != "1" || fmt.Sprint(r["after_move"]) != "[lib/b.txt src/renamed.txt]" {
+				t.Errorf("moves: %v %v %v", r["moved_file"], r["moved_folder"], r["after_move"])
+			}
+			if fmt.Sprint(r["mode"]) != "[493 493 changed]" || fmt.Sprint(r["mtime_keeps_mode"]) != "[493 1700000000.500000000]" || fmt.Sprint(r["listed_mode"]) != "[493]" {
+				t.Errorf("attributes: %v %v %v", r["mode"], r["mtime_keeps_mode"], r["listed_mode"])
+			}
+			errs, _ := r["errors"].(map[string]interface{})
+			for name, want := range map[string]string{
+				"snap_exists": "exists", "snap_missing": "not found", "move_onto": "exists", "move_into_itself": "invalid",
+				"move_missing": "not found", "attrs_none": "give mode", "attrs_bad_mode": "0 to 0o777", "attrs_missing": "not found",
+				"stat_no_bucket": "bucket not found", "sync_on_server": "runs in a space",
+			} {
+				if msg, _ := errs[name].(string); !strings.Contains(strings.ToLower(msg), want) {
+					t.Errorf("error for %s = %q, want one containing %q", name, msg, want)
+				}
+			}
+			if fmt.Sprint(r["overwrote"]) != "1" || r["b2"] != "b" {
+				t.Errorf("overwriting move: %v %v", r["overwrote"], r["b2"])
+			}
+		})
 	}
 }
