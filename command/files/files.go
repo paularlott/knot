@@ -61,6 +61,7 @@ Knot Pro also serves the same buckets over S3 at <server>/s3, using your usernam
 		lsCmd,
 		copyCmd,
 		moveCmd,
+		snapshotCmd,
 		catCmd,
 		rmCmd,
 		syncCmd,

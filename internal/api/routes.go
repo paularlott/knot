@@ -111,6 +111,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleListFileUploadParts)))
 	router.HandleFunc("DELETE /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleAbortFileUpload)))
 	router.HandleFunc("POST /api/files/move", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleMoveFileObjects)))
+	router.HandleFunc("POST /api/files/snapshot", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleSnapshotFileFolder)))
 	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleDeleteFileObject)))
 
 	// Tokens

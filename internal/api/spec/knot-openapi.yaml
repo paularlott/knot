@@ -2609,6 +2609,69 @@ paths:
           $ref: "#/components/responses/service-unavailable"
       security: [BearerAuth: []]
 
+  /api/files/snapshot:
+    post:
+      tags:
+        - File Storage
+      summary: Snapshot Folder
+      description: |
+        Copy a folder and everything under it, as it was at one moment, to a new folder in
+        the same bucket or another, on the server and without moving any content. Every
+        file is read at once, so the copy holds no file older or newer than the rest however
+        much is written to the folder meanwhile. A `source` of `""` is the whole bucket.
+
+        The destination must not exist. Its files are written in batches and so appear over
+        a moment; the manifest, `.knot-snapshot.json`, is written last, and a failure takes
+        away what was written. The destination bucket's owner is charged for every file, as
+        for a copy. A snapshot holds what the server holds: writes not yet saved to it are
+        not in it.
+
+        The caller needs read access to the source bucket and write access to the
+        destination.
+      operationId: snapshotFileFolder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileSnapshotRequest"
+      responses:
+        "200":
+          description: The snapshot made, as its manifest records it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileSnapshot"
+        "400":
+          description: A field is missing, a key is invalid, or the destination is inside the source.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: |
+            The destination already exists, or files in the folder were replaced as the
+            snapshot was made, too fast for it to share their content: try again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "413":
+          description: The destination owner's storage quota would be exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
   /api/auth:
     post:
       tags:
@@ -13314,6 +13377,53 @@ components:
         moved:
           type: integer
           description: How many files were moved.
+
+    FileSnapshotRequest:
+      type: object
+      required:
+        - source_bucket
+        - dest_bucket
+        - dest
+      properties:
+        source_bucket:
+          type: string
+          description: The bucket to snapshot from, short or full name.
+        source:
+          type: string
+          description: The folder to snapshot, with or without a trailing slash; empty for the whole bucket.
+        dest_bucket:
+          type: string
+          description: The bucket to make the snapshot in, short or full name.
+        dest:
+          type: string
+          description: The new folder, which must not exist.
+
+    FileSnapshot:
+      type: object
+      properties:
+        files:
+          type: integer
+          description: How many files the snapshot holds, its manifest aside.
+        folders:
+          type: integer
+          description: How many folder markers it holds.
+        bytes:
+          type: integer
+          format: int64
+          description: The size of its files.
+        taken_at:
+          type: string
+          format: date-time
+          description: When the folder was read.
+        source_bucket:
+          type: string
+          description: The full name of the bucket snapshotted.
+        source_path:
+          type: string
+          description: The folder snapshotted, empty for the whole bucket.
+        manifest:
+          type: string
+          description: The key of the manifest, written last into the new folder.
 
     FileFsckRequest:
       type: object

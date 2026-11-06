@@ -163,6 +163,28 @@ type FileMoveResponse struct {
 	Moved int `json:"moved" msgpack:"moved"`
 }
 
+// FileSnapshotRequest copies a folder and everything below it, as it was at
+// one moment, to a new folder, on the server: no content is transferred.
+// Source "" is the whole bucket. The destination must not exist.
+type FileSnapshotRequest struct {
+	SourceBucket string `json:"source_bucket" msgpack:"source_bucket"`
+	Source       string `json:"source" msgpack:"source"`
+	DestBucket   string `json:"dest_bucket" msgpack:"dest_bucket"`
+	Dest         string `json:"dest" msgpack:"dest"`
+}
+
+// FileSnapshot is a snapshot made, as its manifest records it.
+type FileSnapshot struct {
+	Files        int       `json:"files" msgpack:"files"`
+	Folders      int       `json:"folders" msgpack:"folders"`
+	Bytes        int64     `json:"bytes" msgpack:"bytes"`
+	TakenAt      time.Time `json:"taken_at" msgpack:"taken_at"`
+	SourceBucket string    `json:"source_bucket" msgpack:"source_bucket"`
+	SourcePath   string    `json:"source_path" msgpack:"source_path"`
+	// Manifest is the key of the manifest written last into the snapshot.
+	Manifest string `json:"manifest" msgpack:"manifest"`
+}
+
 // FileShareTargets lists who a bucket can be shared with.
 type FileShareTargets struct {
 	Users  []FileShareUser  `json:"users" msgpack:"users"`
@@ -431,6 +453,14 @@ func (c *ApiClient) MoveFileObjects(ctx context.Context, req FileMoveRequest) (i
 	response := &FileMoveResponse{}
 	_, err := c.httpClient.Post(ctx, "/api/files/move", &req, response, 200)
 	return response.Moved, err
+}
+
+// SnapshotFileFolder copies a folder, as it was at one moment, to a new
+// folder on the server, without transferring any content.
+func (c *ApiClient) SnapshotFileFolder(ctx context.Context, req FileSnapshotRequest) (*FileSnapshot, error) {
+	response := &FileSnapshot{}
+	_, err := c.httpClient.Post(ctx, "/api/files/snapshot", &req, response, 200)
+	return response, err
 }
 
 // FilesFsck asks the server to check file storage, with no time limit as a

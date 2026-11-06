@@ -71,7 +71,7 @@ func filesError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, filestore.ErrCannotShare), errors.Is(err, filestore.ErrCannotTransfer):
 		status = http.StatusForbidden
 	case errors.Is(err, filestore.ErrBucketExists), errors.Is(err, filestore.ErrBucketNotEmpty), errors.Is(err, filestore.ErrTransferNameTaken),
-		errors.Is(err, filestore.ErrDestinationExists), errors.Is(err, filestore.ErrContentNotHeld):
+		errors.Is(err, filestore.ErrDestinationExists), errors.Is(err, filestore.ErrContentNotHeld), errors.Is(err, filestore.ErrSnapshotChanged):
 		status = http.StatusConflict
 	case errors.Is(err, filestore.ErrQuotaExceeded):
 		status = http.StatusRequestEntityTooLarge
@@ -756,6 +756,41 @@ func HandleMoveFileObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.FileMoveResponse{Moved: n})
+}
+
+// POST /api/files/snapshot: copy a folder, as it was at one moment, to a new
+// folder, on the server.
+func HandleSnapshotFileFolder(w http.ResponseWriter, r *http.Request) {
+	store, _, p, ok := filesContext(w, r)
+	if !ok {
+		return
+	}
+
+	var req apiclient.FileSnapshotRequest
+	if err := rest.DecodeRequestBody(w, r, &req); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if req.SourceBucket == "" || req.DestBucket == "" || strings.Trim(req.Dest, "/") == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "source_bucket, dest_bucket and dest are required"})
+		return
+	}
+
+	dst := filestore.ResolveName(p, req.DestBucket)
+	snap, err := store.SnapshotFolder(p, filestore.ResolveName(p, req.SourceBucket), req.Source, dst, req.Dest)
+	if err != nil {
+		filesError(w, r, err)
+		return
+	}
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.FileSnapshot{
+		Files:        snap.Files,
+		Folders:      snap.Folders,
+		Bytes:        snap.Bytes,
+		TakenAt:      snap.TakenAt,
+		SourceBucket: snap.SourceBucket,
+		SourcePath:   snap.SourcePath,
+		Manifest:     strings.Trim(req.Dest, "/") + "/" + filestore.SnapshotManifest,
+	})
 }
 
 func HandleDeleteFileObject(w http.ResponseWriter, r *http.Request) {

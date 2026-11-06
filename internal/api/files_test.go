@@ -566,3 +566,89 @@ func TestFileMoveHandler(t *testing.T) {
 		t.Errorf("overwrite: %d %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestFileSnapshotHandler(t *testing.T) {
+	prev := config.GetServerConfig()
+	config.SetServerConfig(&config.ServerConfig{
+		BadgerDB: config.BadgerDBConfig{Enabled: true, Path: t.TempDir()},
+		Zone:     "z-files-snapshot",
+	})
+	t.Cleanup(func() { config.SetServerConfig(prev) })
+	model.SetRoleCache(nil)
+
+	store, err := filestore.Open(filestore.Config{Dir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	filestore.SetInstance(store)
+	t.Cleanup(func() {
+		filestore.SetInstance(nil)
+		store.Close()
+	})
+
+	role := model.NewRole("files-snapshot-"+t.Name(), []uint16{model.PermissionUseFiles, model.PermissionShareBuckets}, "")
+	model.SaveRoleToCache(role)
+	db := database.GetInstance()
+	mk := func(id string) *model.User {
+		u := &model.User{Id: id, Username: strings.ReplaceAll(id, "-", ""), Email: id + "@test.local", Active: true, Roles: []string{role.Id}}
+		if err := db.SaveUser(u, nil); err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	alice, bob := mk("fs-alice"), mk("fs-bob")
+	ap, _ := filestore.PrincipalFor(alice)
+	for _, b := range []string{"fsalice--src", "fsalice--keep"} {
+		if _, err := store.CreateBucket(ap, b); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, k := range []string{"proj/a.txt", "proj/sub/b.txt", "other.txt"} {
+		if _, err := store.PutObject(ap, "fsalice--src", k, strings.NewReader("x"), filestore.PutOptions{Size: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	snapshot := func(user *model.User, req apiclient.FileSnapshotRequest) *httptest.ResponseRecorder {
+		b, _ := json.Marshal(req)
+		rr := httptest.NewRecorder()
+		HandleSnapshotFileFolder(rr, filesRequest("POST", "/api/files/snapshot", string(b), user))
+		return rr
+	}
+
+	// A folder into another bucket, by short names.
+	rr := snapshot(alice, apiclient.FileSnapshotRequest{SourceBucket: "src", Source: "proj/", DestBucket: "keep", Dest: "snaps/one/"})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("snapshot: %d %s", rr.Code, rr.Body.String())
+	}
+	var snap apiclient.FileSnapshot
+	if err := json.Unmarshal(rr.Body.Bytes(), &snap); err != nil {
+		t.Fatal(err)
+	}
+	if snap.Files != 2 || snap.Bytes != 2 || snap.SourceBucket != "fsalice--src" || snap.SourcePath != "proj" || snap.Manifest != "snaps/one/"+filestore.SnapshotManifest || snap.TakenAt.IsZero() {
+		t.Errorf("snapshot response %+v", snap)
+	}
+	if _, err := store.HeadObject(ap, "fsalice--keep", "snaps/one/sub/b.txt"); err != nil {
+		t.Errorf("snapshot file: %v", err)
+	}
+	if _, err := store.HeadObject(ap, "fsalice--keep", snap.Manifest); err != nil {
+		t.Errorf("manifest: %v", err)
+	}
+
+	// Refusals and their statuses.
+	for name, c := range map[string]struct {
+		user *model.User
+		req  apiclient.FileSnapshotRequest
+		want int
+	}{
+		"onto an existing folder": {alice, apiclient.FileSnapshotRequest{SourceBucket: "src", Source: "proj", DestBucket: "keep", Dest: "snaps/one"}, http.StatusConflict},
+		"of nothing":              {alice, apiclient.FileSnapshotRequest{SourceBucket: "src", Source: "gone", DestBucket: "keep", Dest: "x"}, http.StatusNotFound},
+		"into itself":             {alice, apiclient.FileSnapshotRequest{SourceBucket: "src", Source: "proj", DestBucket: "src", Dest: "proj/in"}, http.StatusBadRequest},
+		"without a destination":   {alice, apiclient.FileSnapshotRequest{SourceBucket: "src", Source: "proj", DestBucket: "keep", Dest: "/"}, http.StatusBadRequest},
+		"by a stranger":           {bob, apiclient.FileSnapshotRequest{SourceBucket: "fsalice--src", Source: "proj", DestBucket: "fsalice--keep", Dest: "bobs"}, http.StatusNotFound},
+	} {
+		if rr := snapshot(c.user, c.req); rr.Code != c.want {
+			t.Errorf("%s: %d %s, want %d", name, rr.Code, rr.Body.String(), c.want)
+		}
+	}
+}
