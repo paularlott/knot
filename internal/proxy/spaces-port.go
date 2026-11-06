@@ -89,14 +89,12 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load the space — fall back to pool routing if not found
-	space, err := db.GetSpaceByName(user.Id, domainParts[1])
-	if err != nil || space == nil {
-		space = service.GetPoolService().PickMemberForRouting(domainParts[1], user.Id)
-		if space == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	// The space, its alt name or the pool to pick a member of, by name or
+	// by the shortened name a host too long for DNS gets.
+	space := service.ResolveWebHostName(user.Id, domainParts[1])
+	if space == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	agentSession := agent_server.GetSession(space.Id)
@@ -163,15 +161,12 @@ func handleVNCProxy(w http.ResponseWriter, r *http.Request, domainParts []string
 
 	db := database.GetInstance()
 
-	// Resolve the space by name for the viewer; GetSpaceByName considers spaces
-	// owned by the viewer as well as spaces shared with them.
-	space, err := db.GetSpaceByName(viewer.Id, domainParts[1])
-	if err != nil || space == nil {
-		space = service.GetPoolService().PickMemberForRouting(domainParts[1], viewer.Id)
-		if space == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	// Resolve the space by name for the viewer, among spaces they own and
+	// spaces shared with them.
+	space := service.ResolveWebHostName(viewer.Id, domainParts[1])
+	if space == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	// Explicit access check, matching the terminal proxy.

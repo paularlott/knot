@@ -447,14 +447,15 @@ func TestSSHPrivateKey(t *testing.T) {
 
 func TestNewUsername(t *testing.T) {
 	for name, want := range map[string]bool{
-		"paul":                            true,
-		"paul.arlott":                     true,
-		"a1":                              true,
-		"abcdefghijklmnopqrstuvwxyz1234":  true,  // 30
-		"abcdefghijklmnopqrstuvwxyz12345": false, // 31
-		"paul-":                           false,
-		"paul.":                           false,
-		"pa--ul":                          false,
+		"paul":                           true,
+		"paul.arlott":                    true,
+		"a1":                             true,
+		"abcdefghijklmnopqrstuvwx":       true,  // 24
+		"abcdefghijklmnopqrstuvwxy":      false, // 25
+		"abcdefghijklmnopqrstuvwxyz1234": false, // 30, the old limit
+		"paul-":                          false,
+		"paul.":                          false,
+		"pa--ul":                         false,
 	} {
 		if got := NewUsername(name); got != want {
 			t.Errorf("NewUsername(%q) = %v, want %v", name, got, want)

@@ -119,7 +119,18 @@ func TestSpaceTunnels(t *testing.T) {
 		t.Fatalf("stop space tunnel: %v (status %d)", err, code)
 	}
 
-	_ = apiclient.SpaceTunnelStartRequest{}
+	// A tunnel whose address, <user>--<name>, would pass the 63 characters
+	// DNS allows before the first dot is refused, saying why, rather than
+	// started where no one can reach it.
+	long := "it-tunnel-" + strings.Repeat("x", 60-len("it-tunnel-"))
+	refused, code, err := adminUser.Client.StartSpaceTunnel(ctx, id, &apiclient.SpaceTunnelStartRequest{
+		Protocol: "http",
+		Port:     8080,
+		Name:     long,
+	})
+	if err != nil || refused == nil || refused.Success || !strings.Contains(refused.Error, "too long") {
+		t.Errorf("a tunnel too long for DNS: %+v, %v (status %d), want refused as too long", refused, err, code)
+	}
 }
 
 // tunnelGet makes one request through the tunnel listener, addressed by the

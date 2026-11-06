@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/hostlabel"
 	"github.com/paularlott/knot/internal/util/validate"
 	"github.com/paularlott/knot/internal/wsconn"
 
@@ -79,7 +80,12 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	tunnelName := r.PathValue("tunnel_name")
 	if !validate.Subdomain(tunnelName) {
 		logger.Error("invalid tunnel name", "tunnelName", tunnelName)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "invalid tunnel name "+tunnelName+": use letters, digits and hyphens", http.StatusBadRequest)
+		return
+	}
+	if err := hostlabel.CheckTunnel(user.Username, tunnelName); err != nil {
+		logger.Error("tunnel name too long", "tunnelName", tunnelName)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

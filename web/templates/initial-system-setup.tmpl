@@ -15,8 +15,8 @@
     <div>
       <label for="username" class="form-label">Username{{ template "req" }}</label>
       <input type="text" name="username" id="username" class="form-field" x-on:blur="checkUsername()" x-on:input="if (!usernameValid) checkUsername()" :class="{'form-field-error': !usernameValid}" :aria-invalid="!usernameValid ? 'true' : 'false'" :aria-describedby="!usernameValid ? 'username-help username-error' : 'username-help'" autocomplete="username" placeholder="Username" aria-required="true" x-model="formData.username">
-      <p id="username-help" class="description">Letters, numbers, hyphens (-) and dots (.). Start with a letter, end with a letter or number, up to 30 characters.</p>
-      <div id="username-error" class="error-message" x-show="!usernameValid" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 30 characters.</div>
+      <p id="username-help" class="description">Letters, numbers, hyphens (-) and dots (.). Start with a letter, end with a letter or number, up to 24 characters.</p>
+      <div id="username-error" class="error-message" x-show="!usernameValid" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 24 characters.</div>
     </div>
     <div>
       <label for="email" class="form-label">Email{{ template "req" }}</label>

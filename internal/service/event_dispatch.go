@@ -23,6 +23,7 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/methods"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/util/hostlabel"
 	"github.com/paularlott/scriptling/conversion"
 	"github.com/paularlott/scriptling/object"
 )
@@ -1104,7 +1105,7 @@ func buildPortURLs(space *model.Space, username, poolName string) map[string]str
 	log.Trace("buildPortURLs", "template", tmpl.Name, "port_count", len(tmpl.Ports), "username", username, "routing_name", routingName, "wildcard_domain", wildcardDomain)
 
 	for _, port := range tmpl.Ports {
-		url := "https://" + username + "--" + routingName + "--" + fmt.Sprintf("%d", port.Port) + wildcardDomain
+		url := "https://" + hostlabel.Label(username, routingName, fmt.Sprintf("%d", port.Port)) + wildcardDomain
 		urls[port.Name] = url
 		log.Trace("buildPortURLs: added", "port_name", port.Name, "port", port.Port, "url", url)
 	}
