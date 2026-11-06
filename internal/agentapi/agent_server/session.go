@@ -1,6 +1,7 @@
 package agent_server
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -664,6 +665,28 @@ func (s *Session) SendMirrorLog(batch *msg.MirrorLogMessage) error {
 		return err
 	}
 	return msg.WriteMessage(conn, batch)
+}
+
+// SendSyncFlush asks the space's agent to have its sync projects send the
+// local changes they have not sent yet, as the space is about to stop,
+// waiting up to timeout.
+func (s *Session) SendSyncFlush(timeout time.Duration) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if err := msg.WriteCommand(conn, msg.CmdSyncFlush); err != nil {
+		return err
+	}
+	var response msg.SyncFlushResponse
+	if err := msg.ReadMessageWithTimeout(conn, &response, timeout); err != nil {
+		return err
+	}
+	if response.Error != "" {
+		return errors.New(response.Error)
+	}
+	return nil
 }
 
 // SendJobsList asks the space's agent for its scheduled jobs snapshot.

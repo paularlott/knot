@@ -273,6 +273,10 @@ var agentServerCmd = &cli.Command{
 		spacejobs.SetLogger(agent_client.NewAgentClientLogger(agentClient, "knot_jobs"))
 		spacejobs.Start()
 
+		// Run sync projects: the template's sync block, and those started
+		// with knot file sync-project start, which are started again here.
+		syncProjects := startSyncProjects(ctx, agentClient)
+
 		// Install the methods registrar globally for the lifetime of the daemon.
 		// Any script that runs in the agent (startup scripts, `knot methods
 		// register file.py`) can call knot.methods Server.register(); the call
@@ -318,6 +322,7 @@ var agentServerCmd = &cli.Command{
 
 		agenttunnel.StopAll()
 		spacejobs.Stop()
+		syncProjects.StopAll()
 		agentlink.StopCommandSocket()
 		agentlink.SetMethodsScriptRunner(nil)
 		agentClient.Shutdown()

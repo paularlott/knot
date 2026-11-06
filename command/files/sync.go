@@ -183,15 +183,27 @@ func runEngine(ctx context.Context, client *apiclient.ApiClient, opt syncOptions
 		return err
 	}
 	// A directory a dry run down would make does not exist yet.
+	var w dirWatcher
 	if _, err := os.Stat(s.opt.dir); err == nil {
+		// Watching starts before the first look at the directory, so a
+		// change made while that pass runs is not missed.
+		if opt.watching && opt.mode != modeDown {
+			if w, err = newDirWatcher(s); err != nil {
+				return fmt.Errorf("watch %s: %w", s.opt.dir, err)
+			}
+			w.add(s.opt.dir)
+		}
 		if err := s.scanLocal(); err != nil {
+			if w != nil {
+				w.close()
+			}
 			return err
 		}
 	} else if !os.IsNotExist(err) {
 		return err
 	}
 	err := s.pass(ctx, nil)
-	s.report()
+	s.passed(s.report(), err)
 	if !opt.watching {
 		return err
 	}
@@ -201,7 +213,7 @@ func runEngine(ctx context.Context, client *apiclient.ApiClient, opt syncOptions
 	if follow == nil {
 		follow = client.FollowEvents
 	}
-	return s.watch(ctx, follow)
+	return s.watch(ctx, w, follow)
 }
 
 // syncUp and syncDown are single passes up and down.

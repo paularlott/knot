@@ -13,6 +13,7 @@ type AgentClientLogger struct {
 	client  *AgentClient
 	service string
 	group   string
+	fields  []any // added with With and WithError, to every message
 }
 
 // NewAgentClientLogger creates a new logger that writes to the agent client log stream
@@ -54,23 +55,26 @@ func (l *AgentClientLogger) Fatal(message string, keysAndValues ...any) {
 	l.log(msg.LogLevelError, message, keysAndValues...)
 }
 
-// With adds a key-value pair to the logger
+// With adds a key-value pair to every message the logger sends.
 func (l *AgentClientLogger) With(key string, value any) logger.Logger {
-	return l
+	c := *l
+	c.fields = append(append([]any{}, l.fields...), key, value)
+	return &c
 }
 
-// WithError adds an error to the logger
+// WithError adds an error to every message the logger sends.
 func (l *AgentClientLogger) WithError(err error) logger.Logger {
-	return l
+	if err == nil {
+		return l
+	}
+	return l.With("error", err.Error())
 }
 
 // WithGroup adds a group to the logger
 func (l *AgentClientLogger) WithGroup(group string) logger.Logger {
-	return &AgentClientLogger{
-		client:  l.client,
-		service: l.service,
-		group:   group,
-	}
+	c := *l
+	c.group = group
+	return &c
 }
 
 // log formats and sends a log message
@@ -79,7 +83,10 @@ func (l *AgentClientLogger) log(level msg.LogLevel, message string, keysAndValue
 		return
 	}
 
-	// Format the message with keys and values
+	// Format the message with keys and values, those added with With first
+	if len(l.fields) > 0 {
+		keysAndValues = append(append([]any{}, l.fields...), keysAndValues...)
+	}
 	if len(keysAndValues) > 0 {
 		message = l.formatMessage(message, keysAndValues...)
 	}

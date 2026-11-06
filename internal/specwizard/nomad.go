@@ -422,7 +422,7 @@ func BuildNomadHCL(spec *apiclient.UnifiedSpec, originalHCL string, originalVolu
 		}
 	}
 
-	volumes = buildNomadStorageDefinitions(spec.Storage, originalVolumes)
+	volumes = withSyncBlock(buildNomadStorageDefinitions(spec.Storage, originalVolumes), originalVolumes)
 	return job, volumes, nil
 }
 

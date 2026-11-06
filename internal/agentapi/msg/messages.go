@@ -65,6 +65,7 @@ const (
 	CmdUpdateJobs
 	CmdResolveUserSecret
 	CmdUpdateRestrictions
+	CmdSyncFlush // the server asks the agent's sync projects to send their local changes, as the space is about to stop
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

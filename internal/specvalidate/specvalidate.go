@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/syncproject"
 	"github.com/paularlott/knot/internal/util"
 	"gopkg.in/yaml.v3"
 )
@@ -408,12 +409,78 @@ func validateKvmDevice(v string) error {
 }
 
 // validateKvmVolumes rejects any volume definition: KVM spaces carry no
-// managed volumes, the VM's disk is created with the job.
+// managed volumes, the VM's disk is created with the job. A sync block,
+// which the space's agent runs, is allowed.
 func validateKvmVolumes(field, volumes string) []Issue {
 	if strings.TrimSpace(volumes) == "" {
 		return nil
 	}
-	return []Issue{{Field: field, Message: "KVM templates cannot define volumes"}}
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(volumes), &root); err != nil {
+		return []Issue{{Field: field, Line: lineFromError(err), Message: cleanYAMLError(err.Error())}}
+	}
+	if doc := docMapping(&root); doc != nil {
+		for i := 0; i < len(doc.Content); i += 2 {
+			if doc.Content[i].Value != "sync" {
+				return []Issue{{Field: field, Line: doc.Content[i].Line, Message: "KVM templates cannot define volumes, only sync"}}
+			}
+		}
+	}
+	issues, _ := validateSyncBlock(field, volumes)
+	return issues
+}
+
+// validateSyncBlock checks a template's sync block, the sync project its
+// spaces' agents run, and reports whether there is one. Values made from
+// variables (${{ }}) are checked once resolved, when the agent starts it.
+func validateSyncBlock(field, volumes string) ([]Issue, bool) {
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(volumes), &root); err != nil {
+		return nil, false
+	}
+	doc := docMapping(&root)
+	if doc == nil {
+		return nil, false
+	}
+	var node *yaml.Node
+	for i := 0; i+1 < len(doc.Content); i += 2 {
+		if doc.Content[i].Value == "sync" {
+			node = doc.Content[i+1]
+		}
+	}
+	if node == nil {
+		return nil, false
+	}
+	if node.Kind != yaml.SequenceNode {
+		return []Issue{{Field: field, Line: node.Line, Message: "sync must be a list of sync jobs"}}, true
+	}
+	if len(node.Content) == 0 {
+		return []Issue{{Field: field, Line: node.Line, Message: "sync has no sync jobs"}}, true
+	}
+	var issues []Issue
+	for _, item := range node.Content {
+		raw, err := yaml.Marshal(item)
+		if err != nil {
+			continue
+		}
+		var job syncproject.Job
+		if err := decodeYAMLStrict(string(raw), &job); err != nil {
+			issues = append(issues, Issue{Field: field, Line: item.Line, Message: "sync: " + err.Error()})
+			continue
+		}
+		if strings.Contains(string(raw), "${{") {
+			// Checked when resolved.
+			if strings.TrimSpace(job.Local) == "" || strings.TrimSpace(job.Remote) == "" {
+				issues = append(issues, Issue{Field: field, Line: item.Line, Message: "sync: each job needs local and remote"})
+			}
+			continue
+		}
+		p := syncproject.Project{Name: syncproject.TemplateProject, Sync: []syncproject.Job{job}}
+		if err := p.Validate(); err != nil {
+			issues = append(issues, Issue{Field: field, Line: item.Line, Message: "sync: " + err.Error()})
+		}
+	}
+	return issues, true
 }
 
 func validateLocalVolumeDefinitions(platform, field, volumes string, requireSingle bool) []Issue {
@@ -429,6 +496,12 @@ func validateLocalVolumeDefinitions(platform, field, volumes string, requireSing
 		return []Issue{{Field: field, Line: lineFromError(err), Message: cleanYAMLError(err.Error())}}
 	}
 
+	syncIssues, hasSync := validateSyncBlock(field, volumes)
+	if hasSync && !requireSingle {
+		if spec.Volumes == nil && len(spec.Paths) == 0 {
+			return syncIssues
+		}
+	}
 	if spec.Volumes == nil && len(spec.Paths) == 0 {
 		return []Issue{{Field: field, Message: "definition must contain a top-level volumes map or paths list"}}
 	}
@@ -445,7 +518,10 @@ func validateLocalVolumeDefinitions(platform, field, volumes string, requireSing
 	// A volume driver (driver, driver_opts), as for an NFS volume, is
 	// Docker's and Podman's; Apple has none. A "container" template may run
 	// on either, so it is checked when the volume is made.
-	var issues []Issue
+	issues := syncIssues
+	if requireSingle && hasSync {
+		issues = append(issues, Issue{Field: field, Message: "a volume definition cannot contain sync: it belongs in a template's volumes"})
+	}
 	for name, v := range spec.Volumes {
 		if !v.HasDriver() {
 			continue
@@ -484,11 +560,15 @@ func validateNomadVolumes(field, volumes string, requireSingle bool) []Issue {
 	if requireSingle && len(storage.Paths) > 0 {
 		return []Issue{{Field: field, Message: "volume definition cannot contain paths"}}
 	}
-	if len(definitions.Volumes) == 0 && len(storage.Paths) == 0 {
+	syncIssues, hasSync := validateSyncBlock(field, volumes)
+	if requireSingle && hasSync {
+		return []Issue{{Field: field, Message: "a volume definition cannot contain sync: it belongs in a template's volumes"}}
+	}
+	if len(definitions.Volumes) == 0 && len(storage.Paths) == 0 && !hasSync {
 		return []Issue{{Field: field, Message: "definition must contain at least 1 volume or path"}}
 	}
 
-	var issues []Issue
+	issues := syncIssues
 	for _, volume := range definitions.Volumes {
 		if strings.TrimSpace(volume.Name) == "" {
 			issues = append(issues, Issue{Field: field, Message: "volume name must be set"})

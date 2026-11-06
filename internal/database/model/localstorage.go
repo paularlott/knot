@@ -59,6 +59,10 @@ func (paths *PathList) UnmarshalYAML(value *yaml.Node) error {
 type LocalStorageSpec struct {
 	Volumes map[string]LocalVolumeEntry `yaml:"volumes"`
 	Paths   PathList                    `yaml:"paths"`
+	// Sync is the template's sync project, for the space's agent to run
+	// (syncproject.FromVolumes reads it); kept here so a strict read of the
+	// volumes allows it.
+	Sync yaml.Node `yaml:"sync"`
 }
 
 type ManagedPathsSpec struct {

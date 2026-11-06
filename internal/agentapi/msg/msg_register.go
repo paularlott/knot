@@ -1,6 +1,9 @@
 package msg
 
-import "github.com/paularlott/knot/internal/database/model"
+import (
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/syncproject"
+)
 
 // message sent from an agent to the server to register itself
 type Register struct {
@@ -55,4 +58,7 @@ type RegisterResponse struct {
 	PeerSecret               string // zone-wide shared secret for direct peer auth
 	AgentCliToken            string // handed to processes in the space instead of AgentToken
 	Locked                   bool   // the space has locked its processes out of knot
+	// SyncProject is the sync block of the template's volumes, its
+	// variables resolved, for the agent to run; nil when there is none.
+	SyncProject *syncproject.Project
 }

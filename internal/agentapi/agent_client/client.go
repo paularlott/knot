@@ -1,6 +1,7 @@
 package agent_client
 
 import (
+	"context"
 	"os"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/methods"
+	"github.com/paularlott/knot/internal/syncproject"
 )
 
 const (
@@ -31,7 +33,12 @@ type AgentClient struct {
 	agentToken             string      // Agent authentication token (same across all servers in zone)
 	agentCliToken          string      // the token handed to processes in the space
 	locked                 atomic.Bool // the space has locked its processes out of knot
-	serverURL              string      // Server URL for API calls (any server in zone)
+	syncProjectMu          sync.Mutex
+	syncProject            *syncproject.Project        // the template's sync project, from the last registration
+	syncProjectSeen        bool                        // a registration has said what it is
+	syncProjectHook        func(*syncproject.Project)  // runs it
+	syncFlushHook          func(context.Context) error // sends the sync projects' local changes, as the space stops
+	serverURL              string                      // Server URL for API calls (any server in zone)
 	credentialsMutex       sync.RWMutex
 	serverListMutex        sync.RWMutex
 	serverList             map[string]*agentServer
@@ -344,6 +351,49 @@ func (c *AgentClient) GetAgentCliToken() string {
 // each registration response and pushes every change over the agent link.
 func (c *AgentClient) SpaceLocked() bool {
 	return c.locked.Load()
+}
+
+// OnTemplateSyncProject has run called with the template's sync project
+// (nil for none) once a registration says what it is, and again on each
+// registration after: the template may have changed while the agent was
+// away. run decides whether anything changed.
+func (c *AgentClient) OnTemplateSyncProject(run func(*syncproject.Project)) {
+	c.syncProjectMu.Lock()
+	defer c.syncProjectMu.Unlock()
+	c.syncProjectHook = run
+	if run != nil && c.syncProjectSeen {
+		run(c.syncProject)
+	}
+}
+
+// OnSyncFlush has flush called when the server asks for the sync
+// projects' local changes to be sent, as the space is about to stop.
+func (c *AgentClient) OnSyncFlush(flush func(context.Context) error) {
+	c.syncProjectMu.Lock()
+	defer c.syncProjectMu.Unlock()
+	c.syncFlushHook = flush
+}
+
+// syncFlush runs the hook OnSyncFlush set, if any.
+func (c *AgentClient) syncFlush(ctx context.Context) error {
+	c.syncProjectMu.Lock()
+	flush := c.syncFlushHook
+	c.syncProjectMu.Unlock()
+	if flush == nil {
+		return nil
+	}
+	return flush(ctx)
+}
+
+// setTemplateSyncProject records the template's sync project from a
+// registration, and passes it on.
+func (c *AgentClient) setTemplateSyncProject(p *syncproject.Project) {
+	c.syncProjectMu.Lock()
+	defer c.syncProjectMu.Unlock()
+	c.syncProject, c.syncProjectSeen = p, true
+	if c.syncProjectHook != nil {
+		c.syncProjectHook(p)
+	}
 }
 
 func (c *AgentClient) GetServerURL() string {

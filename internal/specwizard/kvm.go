@@ -143,7 +143,7 @@ func BuildKvmYAML(spec *apiclient.UnifiedSpec, originalJob, originalVolumes stri
 			if marshalErr != nil {
 				return "", "", fmt.Errorf("marshal KVM YAML: %w", marshalErr)
 			}
-			return string(out), "", nil
+			return string(out), withSyncBlock("", originalVolumes), nil
 		}
 	}
 
@@ -151,7 +151,8 @@ func BuildKvmYAML(spec *apiclient.UnifiedSpec, originalJob, originalVolumes stri
 	if err != nil {
 		return "", "", fmt.Errorf("marshal KVM YAML: %w", err)
 	}
-	return string(out), "", nil
+	// A KVM template's volumes hold only a sync block, which is kept.
+	return string(out), withSyncBlock("", originalVolumes), nil
 }
 
 // patchKvmMapping rewrites the wizard-controlled keys of a decoded KVM job

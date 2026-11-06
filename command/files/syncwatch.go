@@ -32,27 +32,39 @@ const (
 	pollLive = 5 * time.Minute
 	// rescanEvery is how often the directory is walked in full.
 	rescanEvery = 5 * time.Minute
+
+	// finalFlushFor bounds the last pass a watching sync makes as it is
+	// stopped, sending the local changes not yet sent.
+	finalFlushFor = 5 * time.Second
 )
 
 // eventFollower follows the server's event stream; tests replace it.
 type eventFollower func(ctx context.Context, onEvent func(apiclient.Event), onState func(bool)) error
 
-func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
+// watch runs passes as changes come, after the first. w is the directory's
+// watcher when it was started before the first pass, nil when the directory
+// did not exist then.
+func (s *syncer) watch(ctx context.Context, w dirWatcher, follow eventFollower) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	watchLocal := s.opt.mode != modeDown
 	watchRemote := s.opt.mode != modeUp
 
-	var w dirWatcher
+	// A directory the first pass made was not watched while it ran: look at
+	// all of it once, now that it is.
+	rescan := false
 	var fsEvents <-chan watchEvent
 	if watchLocal {
-		var err error
-		if w, err = newDirWatcher(s); err != nil {
-			return fmt.Errorf("watch %s: %w", s.opt.dir, err)
+		if w == nil {
+			var err error
+			if w, err = newDirWatcher(s); err != nil {
+				return fmt.Errorf("watch %s: %w", s.opt.dir, err)
+			}
+			w.add(s.opt.dir)
+			rescan = true
 		}
 		defer w.close()
-		w.add(s.opt.dir)
 		fsEvents = w.events()
 	}
 	defer s.saveHashes(true)
@@ -103,9 +115,11 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 	s.log.Info("watching for changes (Ctrl+C to stop)", "dir", s.opt.dir, "bucket", remoteName(s.opt.bucket, s.opt.prefix))
 
 	dirty := make(map[string]string) // identity -> rel, local paths to look at
-	rescan := false
 	remoteDue := false
 	var settle <-chan time.Time
+	if rescan {
+		settle = time.After(0)
+	}
 	lastPoll := time.Now()
 	lastRescan := time.Now()
 	tick := time.NewTicker(time.Second)
@@ -114,7 +128,27 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 	for {
 		select {
 		case <-ctx.Done():
+			// Stopped: send what changed here and has not been sent yet,
+			// briefly, rather than leave it behind.
+			if watchLocal {
+				fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finalFlushFor)
+				if err := s.flushLocal(fctx, w, fsEvents, dirty); err != nil {
+					s.log.WithError(err).Warn("stopped before every local change was sent")
+				}
+				cancel()
+			}
 			return nil
+
+		case reply := <-s.opt.flush:
+			// Asked to send every local change now, as a space is about to
+			// stop.
+			var err error
+			if watchLocal {
+				err = s.flushLocal(ctx, w, fsEvents, dirty)
+				dirty, rescan = make(map[string]string), false
+				lastRescan = time.Now()
+			}
+			reply <- err
 
 		case ev, ok := <-fsEvents:
 			if !ok {
@@ -168,6 +202,7 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 					return nil
 				}
 				s.log.WithError(err).Warn("could not look for changes")
+				s.passed(passCounts{}, err)
 				continue
 			}
 			if full {
@@ -175,12 +210,43 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 			} else if len(ids) == 0 {
 				continue
 			}
-			if err := s.pass(ctx, ids); err != nil && ctx.Err() == nil {
+			err = s.pass(ctx, ids)
+			if err != nil && ctx.Err() == nil {
 				s.log.WithError(err).Warn("sync pass incomplete")
 			}
-			s.report()
+			s.passed(s.report(), err)
 		}
 	}
+}
+
+// flushLocal sends what changed locally and has not been synced: the
+// changes seen and, looking at every file, any the watcher has not told of
+// yet (FSEvents reports a moment late).
+func (s *syncer) flushLocal(ctx context.Context, w dirWatcher, fsEvents <-chan watchEvent, dirty map[string]string) error {
+	for drained := false; !drained; {
+		select {
+		case ev, ok := <-fsEvents:
+			if !ok {
+				drained = true
+				continue
+			}
+			s.onFsEvent(w, ev, dirty)
+		default:
+			drained = true
+		}
+	}
+	ids, full, err := s.gather(ctx, dirty, true, false)
+	if err != nil {
+		return err
+	}
+	if full {
+		ids = nil
+	} else if len(ids) == 0 {
+		return nil
+	}
+	err = s.pass(ctx, ids)
+	s.passed(s.report(), err)
+	return err
 }
 
 // gather brings both sides up to date for a pass: the local paths that

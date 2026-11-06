@@ -30,6 +30,11 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
+// syncFlushFor is how long the agent's sync projects are given to send their
+// local changes when the server asks, as the space is about to stop; the
+// server waits a little longer (agent_server's agentReplyTimeout).
+const syncFlushFor = 25 * time.Second
+
 const (
 	connectRetryDelay = 1 * time.Second // Delay before retrying connection
 )
@@ -378,6 +383,9 @@ func (s *agentServer) ConnectAndServe() {
 			// Apply the space's job definitions on every registration so a
 			// reconnect picks up changes made while the agent was offline.
 			spacejobs.Update(response.Jobs, response.JobsEnabled)
+
+			// And the template's sync project, as it is now.
+			s.agentClient.setTemplateSyncProject(response.SyncProject)
 
 			// Update health check config on every registration (template may have changed)
 			s.agentClient.UpdateHealthCheckConfig(msg.HealthConfig{
@@ -917,6 +925,17 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			return
 		}
 		s.agentClient.locked.Store(updateMsg.Locked)
+
+	case byte(msg.CmdSyncFlush):
+		ctx, cancel := context.WithTimeout(context.Background(), syncFlushFor)
+		var response msg.SyncFlushResponse
+		if err := s.agentClient.syncFlush(ctx); err != nil {
+			response.Error = err.Error()
+		}
+		cancel()
+		if err := msg.WriteMessage(stream, &response); err != nil {
+			log.WithError(err).Error("writing sync flush response:")
+		}
 
 	case byte(msg.CmdUpdateJobs):
 		var updateMsg msg.UpdateJobsMessage

@@ -66,6 +66,13 @@ type syncOptions struct {
 	hashCachePath   string        // where local checksums are kept between runs; the default when empty
 	log             logger.Logger // where the sync reports; the "sync" group of the knot logger by default
 	watching        bool          // passes run on as changes come; no summary when nothing happened
+	// onPass, when set, is told of each pass as it ends: what it did and
+	// whether it was complete. A failed look for changes is a pass that
+	// did nothing, with its error.
+	onPass func(c passCounts, err error)
+	// flush, when set, asks a watching sync to send every local change now;
+	// the error, nil when all went, is sent back on the channel given.
+	flush chan chan error
 }
 
 type remoteFile struct {
@@ -1444,10 +1451,17 @@ func (s *syncer) count(f func(*passCounts)) {
 	s.mu.Unlock()
 }
 
-// report logs what a pass did, and resets the counts. A single sync reports
-// its pass; while watching, each file's change is reported as it is made and
-// the passes only at debug level.
-func (s *syncer) report() {
+// passed reports a pass that ended to opt.onPass.
+func (s *syncer) passed(c passCounts, err error) {
+	if s.opt.onPass != nil {
+		s.opt.onPass(c, err)
+	}
+}
+
+// report logs what a pass did, resets the counts and returns them. A single
+// sync reports its pass; while watching, each file's change is reported as
+// it is made and the passes only at debug level.
+func (s *syncer) report() passCounts {
 	s.mu.Lock()
 	c := s.counts
 	s.counts = passCounts{}
@@ -1475,7 +1489,8 @@ func (s *syncer) report() {
 		if c.any() {
 			s.log.Debug(msg, kv...)
 		}
-		return
+		return c
 	}
 	s.log.Info(msg, kv...)
+	return c
 }

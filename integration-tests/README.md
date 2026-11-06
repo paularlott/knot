@@ -23,7 +23,7 @@ Copy `.env.example` to `.env`. The knobs:
 
 | Variable | Meaning |
 |---|---|
-| `KNOT_TEST_RUNTIME` | `docker` (default) or `apple` containers |
+| `KNOT_TEST_RUNTIME` | `docker` (default), `podman` or `apple` containers |
 | `KNOT_TEST_IMAGE_NAMESPACE` / `KNOT_TEST_IMAGE` | base image for spaces |
 | `KNOT_TEST_DOCKER_CACHE` | registry-cache prefix (default `hub.anaconda.ovh/docker`; falls back to docker hub when the cache is unreachable; empty = docker hub direct) |
 | `KNOT_TEST_CONTAINER_HOST` | host address as seen from inside containers |
@@ -39,6 +39,20 @@ Copy `.env.example` to `.env`. The knobs:
 | `KNOT_TEST_BIG_TREE` | runs `TestFileSyncBigTree`: `1` for 180,000 files, or a number; skipped when unset, as it takes minutes |
 | `KNOT_TEST_LOAD` | multiplies the writers and the time spent writing in `TestFileMultiWriter` (default `1`, about 35 seconds; `4` takes about 70), and the time spent writing in `TestFileSharedFolder` (15 seconds at `1`) |
 | `KNOT_TEST_PREV_BIN` | the previous release's `knot` binary, for `TestRestoreFromPreviousRelease`; unset, that test is skipped. Build one from the tag in a worktree, with this checkout's generated `web/` assets and `legal/` files copied in; for the pro suite, a pro build (`go build -tags pro`), as the suite starts servers with `--license` |
+
+### Rootless Podman
+
+Spaces run on rootless Podman (as on a Linux host without Docker) with:
+
+```shell
+systemctl --user start podman.socket   # or: podman system service --time=0 unix:///run/user/$UID/podman/knot-it.sock &
+export KNOT_TEST_RUNTIME=podman
+export KNOT_PODMAN_HOST=unix:///run/user/$UID/podman/podman.sock
+export KNOT_TEST_CONTAINER_HOST=host.containers.internal   # the host's own address leads back into the container
+export KNOT_TEST_DOCKER_CACHE=docker.io                    # the Podman API pulls without the CLI's registry login
+```
+
+Where Podman's default `pasta` networking can't be torn down ("rootless netns: kill network process: permission denied", seen on Ubuntu), stopping a space fails and it can't be deleted: run the API service with slirp4netns instead, for it alone, `CONTAINERS_CONF_OVERRIDE` naming a file holding `[network]` / `default_rootless_network_cmd = "slirp4netns"`. Test spaces of dedicated servers are left running when the run ends, as the final prune uses the `docker` command: remove them with `podman rm -f $(podman ps -aq --filter name=^admin-it-)`.
 
 ## How a run works
 
@@ -140,6 +154,9 @@ resources → events → ports → logs → clustering.
 | `TestFileSharedFolder` | one folder used as shared data by everything at once: four NFS clients (two on each of two clustered servers, each with its own nfs-server), the API and `knot file cp` on both servers. They write files of their own, all write the same few files (over NFS in place and by renaming a temporary file over), change their own parts of 24 MB files in place, and read throughout. Nothing hangs or fails; API reads are always a whole version; NFS reads are a whole version, or, when the file is replaced as it is read, runs of versions' bytes split where a newer version arrived, or not found or a stale handle (counted), never bytes no version had there; NFS writes made stale by a rename over them are counted; both servers end with every file as last written, the shared files as a version written; a large file changed by one server's clients keeps every client's last change, one changed through both servers holds a written change in every part (a close reporting its save deferred is counted); every NFS client then sees what the servers hold; fsck is clean. Needs NFS as `TestFileModes` does |
 | `TestFileServersKilled` | two clustered servers, written through the API of each and an NFS mount of each (files of their own, a few files shared by all, a 16 MB file changed a part at a time in place, every NFS write fsync'd), while each nfs-server and each server in turn is killed with SIGKILL and started again, and at the end a server and its nfs-server together. Nothing hangs; writes fail only while what they go through is down, and every writer's succeed again after the last kill; both servers end with the same files; every file and part holds its last acknowledged write or one tried after it (after failed writes, blocks of those over it, counted), never an older one or none; the shared files hold a version written; each mount then reads what the servers hold; fsck is clean and no process panicked. Needs NFS as `TestFileModes` does |
 | `TestFileSnapshot` | two clustered servers, each with a folder of 40 files rewritten through its API as fast as one client can, one file at a time in an order unlike the files' own (write k to file 7k mod 40), while `knot file snapshot` copies the folder on that server ten times. Every snapshot holds, for each file, its last write numbered no more than the newest write the snapshot holds, so it is of one moment, which a copy made a file at a time is not once a write lands while it is made; each has its manifest; both servers end with every snapshot, every file of which reads back from both; refusals (an existing destination, into itself, nothing there) write nothing; fsck is clean |
+| `TestFileSyncProject` | a template whose volumes' `sync` block keeps `~/src` in step with `code:projects/<space name>/`, starting it as a snapshot of a starter folder. The starter comes down to a new space without the snapshot's manifest; edits in the space go up, an excluded folder does not, and a change in the bucket comes down. In the space, `knot file sync-project start --wait` returns with its project synced, `list` and `status` show it and the template's, the template's cannot be stopped, and a stopped project syncs no more. The space is deleted straight after an edit, before the sync would have noticed it, and one of the same name made: it gets the edits, that last one included, and the bucket's change back, not the starter changed since |
+| `TestFileSyncProjectShared` | two spaces started at once from a template syncing one new folder made from a snapshot of a 30-file starter: one snapshot is made (30 files and one manifest), both spaces get every file, and a file written in one reaches the other. A template whose spaces may not use file storage reports its sync job failed, saying why, and the space works on |
+| `TestFileSyncProjectKilled` | a space writes files into a synced folder without pause while the server is killed (SIGKILL) and started again, the space's agent is killed (SIGKILL), which takes its container down with it, abruptly, until its runtime starts it again with its files as they were (the writer starting again where it stopped), and the server is restarted with the writer still running: once writing stops the bucket holds every file as the space does, within 90 seconds. The space is then restarted while writing: the new container has every file written before the restart was asked for, none missing. Needs Docker or Podman |
 | `TestFilesNoSync` | a server with `--files-no-sync` warns at start that writes are not forced to disk, takes writes of small and large files, and still has them after it is killed and started again |
 | `TestRestoreFromPreviousRelease` | a backup made by the previous release's `knot admin backup` from its server restores with this build: users, groups, roles, template variables, a template with its jobs, and files; a file mode in the decimal form before 0.42 is rewritten by `knot admin file fsck --repair`. Needs `KNOT_TEST_PREV_BIN` |
 

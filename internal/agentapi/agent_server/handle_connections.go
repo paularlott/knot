@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spaceusage"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/syncproject"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/crypt"
@@ -215,6 +216,7 @@ func handleAgentConnection(conn net.Conn) {
 	response.PortForwards = portForwards
 	response.Jobs = space.Jobs
 	response.JobsEnabled = space.JobsEnabled
+	response.SyncProject = templateSyncProject(template, space, user, logger)
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -889,4 +891,29 @@ func (s *Session) auditSSHAuth(result msg.SSHAuthResultMessage) {
 	}
 	audit.Log(s.Username, model.AuditActorTypeUser, model.AuditEventSpaceSessionOpen,
 		details, &props)
+}
+
+// templateSyncProject is the sync block of the template's volumes, its
+// variables resolved, for the space's agent to run; nil when there is none
+// or it cannot be read, which is logged.
+func templateSyncProject(template *model.Template, space *model.Space, user *model.User, l logger.Logger) *syncproject.Project {
+	if !strings.Contains(template.Volumes, "sync") {
+		return nil
+	}
+	variables, err := database.GetInstance().GetTemplateVars()
+	if err != nil {
+		l.WithError(err).Warn("template variables unavailable: the template's sync block is not run", "space", space.Name)
+		return nil
+	}
+	volumes, err := model.ResolveVariables(template.Volumes, template, space, user, model.FilterVars(variables))
+	if err != nil {
+		l.WithError(err).Warn("the template's volumes could not be resolved: its sync block is not run", "space", space.Name)
+		return nil
+	}
+	p, err := syncproject.FromVolumes(volumes)
+	if err != nil {
+		l.WithError(err).Warn("the template's sync block is not run", "space", space.Name)
+		return nil
+	}
+	return p
 }
