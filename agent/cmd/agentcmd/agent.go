@@ -231,6 +231,9 @@ var agentServerCmd = &cli.Command{
 		// Open agent connection to the server
 		agentClient := agent_client.NewAgentClient(cfg.Endpoint, cfg.SpaceID)
 		agent_client.SetAgentClient(agentClient)
+		// The agent's records go to its output, the container's log, and to
+		// the space's log too.
+		log.Tee(agent_client.NewSpaceLogCopy(agentClient, "knot_agent"))
 		// Startup scripts can run as the agent connects, before its sync
 		// projects start: knot.files.sync waits for them.
 		knotscriptling.ExpectSyncProjectAgent()

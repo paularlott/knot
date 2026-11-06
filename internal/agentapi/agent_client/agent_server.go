@@ -559,18 +559,20 @@ func (s *agentServer) sendOnLogConn(send func(net.Conn) error) bool {
 		return false
 	}
 	if s.logConn == nil {
-		log.Debug("opening logging connection to", "agent", s.address)
+		// Logged locally only: copied to the space's log, a failure here
+		// would queue another record to send, and another, without end.
+		log.Local().Debug("opening logging connection to", "agent", s.address)
 
 		var err error
 		s.logConn, err = s.muxSession.Open()
 		if err != nil {
-			log.Error("failed to open mux session for server", "server", s.address)
+			log.Local().Error("failed to open mux session for server", "server", s.address)
 			return false
 		}
 	}
 
 	if err := send(s.logConn); err != nil {
-		log.Error("failed to send message to server", "server", s.address)
+		log.Local().Error("failed to send message to server", "server", s.address)
 		s.logConn.Close()
 		s.logConn = nil
 		return false

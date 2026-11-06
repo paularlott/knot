@@ -10,7 +10,7 @@ import (
 )
 
 func (c *AgentClient) initLogMessages() {
-	log.Debug("initializing log message transport")
+	log.Local().Debug("initializing log message transport")
 
 	for {
 		logMsg := <-c.logChannel
