@@ -21,7 +21,10 @@ type AuthCode struct {
 	Scope               string
 	CodeChallenge       string
 	CodeChallengeMethod string
-	ExpiresAt           time.Time
+	// Resource is the canonical resource (RFC 8707) the client asked for at
+	// /authorize, or "" when it named none.
+	Resource  string
+	ExpiresAt time.Time
 }
 
 type AuthCodeStore struct {
@@ -37,7 +40,7 @@ func GetAuthCodeStore() *AuthCodeStore {
 	return authCodeStore
 }
 
-func (s *AuthCodeStore) CreateAuthCode(userId, clientId, redirectURI, scope, codeChallenge, codeChallengeMethod string) (*AuthCode, error) {
+func (s *AuthCodeStore) CreateAuthCode(userId, clientId, redirectURI, scope, codeChallenge, codeChallengeMethod, resource string) (*AuthCode, error) {
 	code, err := crypt.GenerateAPIKey()
 	if err != nil {
 		return nil, err
@@ -51,6 +54,7 @@ func (s *AuthCodeStore) CreateAuthCode(userId, clientId, redirectURI, scope, cod
 		Scope:               scope,
 		CodeChallenge:       codeChallenge,
 		CodeChallengeMethod: codeChallengeMethod,
+		Resource:            resource,
 		ExpiresAt:           time.Now().Add(AuthCodeExpiry),
 	}
 

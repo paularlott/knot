@@ -120,7 +120,7 @@ func TestAuthCodeRoundTripPKCEFields(t *testing.T) {
 	store := GetAuthCodeStore()
 	challenge := s256Challenge("round-trip-verifier-1234567890")
 
-	authCode, err := store.CreateAuthCode("user-1", "client-1", "http://localhost/cb", "mcp", challenge, "S256")
+	authCode, err := store.CreateAuthCode("user-1", "client-1", "http://localhost/cb", "mcp", challenge, "S256", "https://knot.example.com/mcp")
 	if err != nil {
 		t.Fatalf("CreateAuthCode failed: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestAuthCodeRoundTripPKCEFields(t *testing.T) {
 	if !ok {
 		t.Fatal("ConsumeAuthCode failed")
 	}
-	if stored.CodeChallenge != challenge || stored.CodeChallengeMethod != "S256" {
+	if stored.CodeChallenge != challenge || stored.CodeChallengeMethod != "S256" || stored.Resource != "https://knot.example.com/mcp" {
 		t.Errorf("PKCE fields not preserved: %+v", stored)
 	}
 	if !verifyPKCE(stored.CodeChallenge, stored.CodeChallengeMethod, "round-trip-verifier-1234567890") {

@@ -180,13 +180,13 @@ func TestDriverSpaceFlow(t *testing.T) {
 func TestDriverTokenFlow(t *testing.T) {
 	db, _ := newTestDriver(t)
 
-	token := &model.Token{Id: "tok-1", UserId: "u1", Name: "ci"}
+	token := &model.Token{Id: "tok-1", UserId: "u1", Name: "ci", Audience: "https://knot.example.com/mcp"}
 	if err := db.SaveToken(token); err != nil {
 		t.Fatalf("SaveToken: %v", err)
 	}
 
 	got, err := db.GetToken("tok-1")
-	if err != nil || got == nil || got.Name != "ci" {
+	if err != nil || got == nil || got.Name != "ci" || got.Audience != "https://knot.example.com/mcp" {
 		t.Fatalf("GetToken: %+v %v", got, err)
 	}
 

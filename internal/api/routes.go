@@ -294,8 +294,8 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// OAuth2 Discovery
 	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)
-	router.HandleFunc("GET /.well-known/oauth-protected-resource", oauth2.HandleProtectedResourceMetadata)
-	router.HandleFunc("GET /.well-known/oauth-protected-resource/mcp", oauth2.HandleProtectedResourceMetadata)
+	router.Handle("GET /.well-known/oauth-protected-resource", oauth2.ResourceServer.MetadataHandler())
+	router.Handle("GET "+oauth2.ResourceServer.MetadataPath(), oauth2.ResourceServer.MetadataHandler())
 
 	// Start a cleanup job for the rate limiters
 	go authratelimit.StartCleanup(nil)

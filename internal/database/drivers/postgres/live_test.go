@@ -297,11 +297,11 @@ func TestLiveMiscFlow(t *testing.T) {
 		t.Fatalf("GetSkillsByName zone order: %+v %v", skills, err)
 	}
 
-	token := &model.Token{Id: "t1", UserId: "u1", Name: "ci", ExpiresAfter: time.Now().Add(time.Hour), Scopes: []string{"mcp"}}
+	token := &model.Token{Id: "t1", UserId: "u1", Name: "ci", ExpiresAfter: time.Now().Add(time.Hour), Scopes: []string{"mcp"}, Audience: "https://knot.example.com/mcp"}
 	if err := db.SaveToken(token); err != nil {
 		t.Fatalf("SaveToken: %v", err)
 	}
-	if tk, err := db.GetToken("t1"); err != nil || len(tk.Scopes) != 1 {
+	if tk, err := db.GetToken("t1"); err != nil || len(tk.Scopes) != 1 || tk.Audience != "https://knot.example.com/mcp" {
 		t.Fatalf("GetToken: %v %v", tk, err)
 	}
 }
