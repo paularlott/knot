@@ -28,6 +28,26 @@ const Instructions = `knot manages development environments, called spaces, alon
 
 Only the most used tools are listed up front; many more, such as those for pools, stacks, templates and scripts, are found on demand. To find one, call tool_search with the task in a few plain words, such as "create pool", "stack definitions" or "edit file", or with no query to list every tool. Then call execute_tool with the exact tool name from the results and arguments that match its input schema. Search again with other words before concluding knot can't do something.`
 
+// tokenInfoFromRequest describes the credential behind an authenticated /mcp
+// request as an mcp.TokenInfo: the user as the subject and, for an API or
+// OAuth token, the token's scopes and expiry. It returns nil when there is no
+// user in the context.
+func tokenInfoFromRequest(ctx context.Context) *mcp.TokenInfo {
+	user, _ := ctx.Value("user").(*model.User)
+	if user == nil {
+		return nil
+	}
+	info := &mcp.TokenInfo{
+		Subject: user.Id,
+		Claims:  map[string]any{"username": user.Username},
+	}
+	if token, _ := ctx.Value("access_token").(*model.Token); token != nil {
+		info.Scopes = append([]string(nil), token.Scopes...)
+		info.Expiry = token.ExpiresAfter
+	}
+	return info
+}
+
 func newKnotMCPServer() *mcp.Server {
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(Instructions)
@@ -96,6 +116,12 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 				ctx = mcp.WithResourceProviders(ctx, skills)
 			}
 
+			// Tell tools who is calling and what the credential grants
+			// (mcp.TokenInfoFromContext).
+			if info := tokenInfoFromRequest(ctx); info != nil {
+				ctx = mcp.WithTokenInfo(ctx, info)
+			}
+
 			// Attach providers and apply show-all mode (X-MCP-Show-All / ?show_all) in one step
 			ctx = mcp.WithShowAllFromRequest(ctx, r, providers...)
 
@@ -149,7 +175,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 
 			// Opt the client into notifications: an HTTP client opens an SSE reader,
 			// and the propagation hook (installed by Register*) re-emits upstream
-			// listChanged events to our own clients. stdio clients always receive
+			// list_changed events to our own clients. stdio clients always receive
 			// notifications, so this is a harmless no-op for them.
 			if remoteServer.Notifications {
 				client.EnableNotifications()
@@ -209,6 +235,11 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 		totalTools := server.ListToolsWithContext(context.Background())
 		log.WithGroup("mcp").Info("Total tools after remote registration", "count", len(totalTools))
 	}
+
+	// Both servers receive list_changed notifications (NotifyToolsChanged and
+	// friends): the endpoint server's clients are external MCP clients of
+	// /mcp, the internal server's are knot's own surfaces.
+	SetServer(endpointServer, server)
 
 	// Log info
 	log.WithGroup("mcp").Info("MCP server initialized")

@@ -43,6 +43,7 @@
       <input type="hidden" name="state" value="{{ .state }}">
       <input type="hidden" name="code_challenge" value="{{ .codeChallenge }}">
       <input type="hidden" name="code_challenge_method" value="{{ .codeChallengeMethod }}">
+      {{ if .resource }}<input type="hidden" name="resource" value="{{ .resource }}">{{ end }}
 
       <div class="flex space-x-4">
         <button type="submit" name="action" value="approve" class="flex-1 btn-primary">

@@ -1155,10 +1155,10 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 	openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
 
 	if mcpEnabled || chatEnabled || openaiEndpointEnabled {
+		// InitializeMCPServer also records both its servers (the public /mcp
+		// endpoint's and this internal one) for the notification helpers, so
+		// script CRUD handlers reach clients of either with list_changed.
 		mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
-		// Record the server so other packages (e.g. script CRUD handlers) can
-		// emit listChanged notifications when the tool set changes.
-		internal_mcp.SetServer(mcpServer)
 		if !mcpEnabled {
 			logger.Debug("MCP chat-only mode")
 		} else {

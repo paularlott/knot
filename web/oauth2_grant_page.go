@@ -25,6 +25,9 @@ func HandleOAuth2GrantPage(w http.ResponseWriter, r *http.Request) {
 	data["state"] = r.URL.Query().Get("state")
 	data["codeChallenge"] = r.URL.Query().Get("code_challenge")
 	data["codeChallengeMethod"] = r.URL.Query().Get("code_challenge_method")
+	// The resource indicator (RFC 8707) is carried through the approval so
+	// the code is bound to it; HandleGrant validates it again.
+	data["resource"] = r.URL.Query().Get("resource")
 
 	clientName, err := oauth2.ValidateClient(r.URL.Query().Get("client_id"), r.URL.Query().Get("redirect_uri"))
 	if err != nil {

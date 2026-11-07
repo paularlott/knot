@@ -2587,7 +2587,9 @@ paths:
       summary: OAuth Protected Resource Metadata
       description: |
         Returns the RFC 9728 metadata for the MCP endpoint. Unauthenticated requests to `/mcp`
-        are answered with a `WWW-Authenticate` header pointing here. Also served at
+        are answered 401 with a `WWW-Authenticate: Bearer` challenge pointing here (with
+        `error="invalid_token"` when the bearer token sent was refused); a token whose scopes
+        exclude `mcp` is answered 403 with `error="insufficient_scope"`. Also served at
         `/.well-known/oauth-protected-resource`.
       operationId: getProtectedResourceMetadata
       responses:
@@ -2667,6 +2669,19 @@ paths:
           description: An opaque value used to maintain state between the request and callback
           schema:
             type: string
+        - name: resource
+          in: query
+          required: false
+          description: |
+            Resource indicator (RFC 8707): the resource the token is for. It must be an absolute
+            URI without a fragment naming this server's MCP endpoint (`<server URL>/mcp`, the
+            `resource` of the protected resource metadata); the scheme and host compare
+            case-insensitively and a trailing slash is ignored. Any other value is refused with
+            the `invalid_target` error, sent to a registered client's redirect URI, otherwise
+            answered with 400. The resource is bound to the authorization code.
+          schema:
+            type: string
+            format: uri
       responses:
         "302":
           description: Redirect to authorization grant page or redirect URI
@@ -2693,24 +2708,36 @@ paths:
               type: object
               required:
                 - grant_type
-                - code
-                - client_id
-                - redirect_uri
               properties:
                 grant_type:
                   type: string
-                  enum: [authorization_code]
-                  description: Must be "authorization_code"
+                  enum: [authorization_code, refresh_token]
+                  description: The grant type
                 code:
                   type: string
-                  description: The authorization code received from the authorization server
+                  description: The authorization code received from the authorization server (authorization_code grant, required)
                 client_id:
                   type: string
                   description: The client identifier
                 redirect_uri:
                   type: string
                   format: uri
-                  description: The redirect URI used in the authorization request
+                  description: The redirect URI used in the authorization request (authorization_code grant, required)
+                code_verifier:
+                  type: string
+                  description: The PKCE (RFC 7636) code verifier, for the authorization_code grant
+                refresh_token:
+                  type: string
+                  description: The refresh token, for the refresh_token grant
+                resource:
+                  type: string
+                  format: uri
+                  description: |
+                    Resource indicator (RFC 8707), for the authorization_code and refresh_token
+                    grants. When given it must name the resource the authorization code or
+                    refresh token is bound to (this server's MCP endpoint), or the request is
+                    refused with `invalid_target`. Whether given or not, the access token is
+                    issued for this server's MCP endpoint and is refused by any other resource.
       responses:
         "200":
           description: Access token granted successfully
@@ -2744,7 +2771,7 @@ paths:
                   error:
                     type: string
                     enum:
-                      [invalid_request, invalid_grant, unsupported_grant_type]
+                      [invalid_request, invalid_grant, invalid_target, unsupported_grant_type]
                     description: Error code
                   error_description:
                     type: string

@@ -110,6 +110,12 @@ var mcpInitParams = map[string]any{
 	"clientInfo":      map[string]any{"name": "knot-integration", "version": "1"},
 }
 
+// mcpResource is the server's MCP resource identifier (RFC 8707), built
+// from its configured public URL as the protected resource metadata is.
+func mcpResource() string {
+	return server.ContainerBaseURL + "/mcp"
+}
+
 // oauthAuthorize runs authorize → grant page → approve as the signed-in
 // browser and returns the authorization code sent to the redirect URI.
 func oauthAuthorize(t *testing.T, c *http.Client, clientId, redirectURI, challenge, wantName string) string {
@@ -122,6 +128,7 @@ func oauthAuthorize(t *testing.T, c *http.Client, clientId, redirectURI, challen
 		"state":                 {"st-123"},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
+		"resource":              {mcpResource()},
 	}
 
 	req, _ := http.NewRequest("GET", server.BaseURL+"/authorize?"+q.Encode(), nil)
@@ -138,6 +145,9 @@ func oauthAuthorize(t *testing.T, c *http.Client, clientId, redirectURI, challen
 	if wantName != "" && !strings.Contains(body, "<strong>"+wantName+"</strong>") {
 		t.Errorf("grant page does not name the client %q", wantName)
 	}
+	if !strings.Contains(body, `name="resource" value="`+mcpResource()+`"`) {
+		t.Errorf("grant page does not carry the resource %q", mcpResource())
+	}
 
 	form := url.Values{
 		"action":                {"approve"},
@@ -147,6 +157,7 @@ func oauthAuthorize(t *testing.T, c *http.Client, clientId, redirectURI, challen
 		"state":                 {"st-123"},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
+		"resource":              {mcpResource()},
 	}
 	req, _ = http.NewRequest("POST", server.BaseURL+"/oauth/grant", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -178,6 +189,7 @@ func oauthExchangeAndUse(t *testing.T, code, redirectURI, verifier string) {
 		"code":          {code},
 		"redirect_uri":  {redirectURI},
 		"code_verifier": {verifier},
+		"resource":      {mcpResource()},
 	})
 	if status != http.StatusOK || tokens.AccessToken == "" {
 		t.Fatalf("token exchange = %d %+v", status, tokens)
@@ -209,9 +221,18 @@ func oauthExchangeAndUse(t *testing.T, code, redirectURI, verifier string) {
 	})
 	mustEqual(t, "code reuse", status, http.StatusBadRequest)
 
+	// A refresh naming another resource is refused (RFC 8707 invalid_target).
+	status, _ = oauthTokenRequest(t, url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {tokens.RefreshToken},
+		"resource":      {"https://other.example.test/mcp"},
+	})
+	mustEqual(t, "refresh for another resource", status, http.StatusBadRequest)
+
 	status, refreshed := oauthTokenRequest(t, url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {tokens.RefreshToken},
+		"resource":      {mcpResource()},
 	})
 	if status != http.StatusOK || refreshed.AccessToken == "" {
 		t.Fatalf("refresh = %d %+v", status, refreshed)
@@ -234,6 +255,13 @@ func TestOAuthMCPDiscovery(t *testing.T) {
 	m := regexp.MustCompile(`^Bearer .*resource_metadata="([^"]+)"`).FindStringSubmatch(challenge)
 	if m == nil {
 		t.Fatalf("WWW-Authenticate = %q (body %s), want a Bearer challenge with resource_metadata", challenge, body)
+	}
+
+	// A refused token is named as such (RFC 6750), so the client re-authorizes.
+	status, header, _ = mcpCall(t, "not-a-knot-token", "initialize", mcpInitParams)
+	mustEqual(t, "invalid token /mcp", status, http.StatusUnauthorized)
+	if got := header.Get("WWW-Authenticate"); !strings.Contains(got, `error="invalid_token"`) || !strings.Contains(got, "resource_metadata=") {
+		t.Fatalf("WWW-Authenticate for an invalid token = %q, want error=\"invalid_token\" with resource_metadata", got)
 	}
 
 	// The metadata URL is built from the server's public URL; fetch the same
@@ -366,6 +394,21 @@ func TestOAuthRegisteredClient(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, _ = oauthDo(t, browser, req)
 	mustEqual(t, "forged approval to unregistered redirect", resp.StatusCode, http.StatusBadRequest)
+
+	// A token for another resource is refused (RFC 8707): the error goes
+	// back to the registered client's redirect URI.
+	q.Set("redirect_uri", redirectURI)
+	q.Set("state", "st-target")
+	q.Set("resource", "https://other.example.test/mcp")
+	req, _ = http.NewRequest("GET", server.BaseURL+"/authorize?"+q.Encode(), nil)
+	resp, _ = oauthDo(t, browser, req)
+	mustEqual(t, "authorize for another resource", resp.StatusCode, http.StatusSeeOther)
+	if loc, err := url.Parse(resp.Header.Get("Location")); err != nil || !strings.HasPrefix(loc.String(), redirectURI+"?") ||
+		loc.Query().Get("error") != "invalid_target" || loc.Query().Get("state") != "st-target" {
+		t.Fatalf("authorize for another resource redirected to %q, want %s with error=invalid_target", resp.Header.Get("Location"), redirectURI)
+	}
+	q.Del("resource")
+	q.Del("state")
 
 	// A tampered client_id is unknown.
 	q.Set("client_id", reg.ClientId+"x")

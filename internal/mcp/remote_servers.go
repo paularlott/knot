@@ -379,17 +379,23 @@ func createClient(server *model.MCPServer) (*mcp.Client, error) {
 	}
 
 	// HTTP server
+	normalizedURL := strings.TrimSuffix(server.URL, "/")
+
 	var auth mcp.AuthProvider
 	if server.AuthType == "oauth2" {
-		auth = mcp.NewOAuth2RefreshTokenAuth(server.OAuthTokenURL, server.OAuthClientID, server.OAuthAccessToken, server.OAuthRefreshToken)
+		// Refreshed tokens are asked for this server (RFC 8707 resource, as
+		// the MCP authorization spec requires): its canonical URI is the URL
+		// it is reached at. knot stores tokens obtained elsewhere and runs no
+		// discovery of its own, so the URL is the resource it knows.
+		auth = mcp.NewOAuth2RefreshTokenAuth(server.OAuthTokenURL, server.OAuthClientID, server.OAuthAccessToken, server.OAuthRefreshToken,
+			mcp.WithResource(normalizedURL))
 	} else if server.Token != "" {
 		auth = mcp.NewBearerTokenAuth(server.Token)
 	}
 
-	normalizedURL := strings.TrimSuffix(server.URL, "/")
 	client := mcp.NewClient(normalizedURL, auth, server.Namespace)
 
-	// Notifications are always enabled — listChanged events keep tool caches fresh.
+	// Notifications are always enabled — list_changed events keep tool caches fresh.
 	client.EnableNotifications()
 	declareUIAppsSupport(client)
 

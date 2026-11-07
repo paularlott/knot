@@ -63,6 +63,11 @@ type Token struct {
 	// RefreshToken marks tokens issued via the OAuth2 authorization-code
 	// flow; only these may be extended through the /token refresh grant.
 	RefreshToken bool `json:"refresh_token,omitempty" db:"refresh_token" msgpack:"refresh_token,omitempty"`
+	// Audience is the resource (RFC 8707) an OAuth2-issued token was issued
+	// for, knot's MCP endpoint URL, which /mcp checks the token against.
+	// "" for tokens issued another way or before audiences were recorded;
+	// those are not audience-checked.
+	Audience string `json:"audience,omitempty" db:"audience" msgpack:"audience,omitempty"`
 }
 
 // TokenPrefix starts every API token, so a token is recognisable and never

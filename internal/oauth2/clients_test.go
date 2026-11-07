@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/mcp"
 )
 
 func withEncryptionKey(t *testing.T, key string) {
@@ -127,11 +129,20 @@ func TestDiscoveryMetadata(t *testing.T) {
 	withEncryptionKey(t, "test-key")
 
 	rec := httptest.NewRecorder()
-	HandleProtectedResourceMetadata(rec, httptest.NewRequest("GET", "/.well-known/oauth-protected-resource/mcp", nil))
-	var prm ProtectedResourceMetadata
+	if path := ResourceServer.MetadataPath(); path != "/.well-known/oauth-protected-resource/mcp" {
+		t.Errorf("metadata path = %q", path)
+	}
+	ResourceServer.MetadataHandler().ServeHTTP(rec, httptest.NewRequest("GET", "/.well-known/oauth-protected-resource/mcp", nil))
+	var prm mcp.ProtectedResourceMetadata
 	json.Unmarshal(rec.Body.Bytes(), &prm)
 	if prm.Resource != "https://knot.example.com/mcp" || len(prm.AuthorizationServers) != 1 || prm.AuthorizationServers[0] != "https://knot.example.com" {
 		t.Errorf("protected resource metadata = %+v", prm)
+	}
+	if len(prm.ScopesSupported) != 1 || prm.ScopesSupported[0] != model.ScopeMCP {
+		t.Errorf("scopes_supported = %v", prm.ScopesSupported)
+	}
+	if len(prm.BearerMethodsSupported) != 1 || prm.BearerMethodsSupported[0] != "header" {
+		t.Errorf("bearer_methods_supported = %v", prm.BearerMethodsSupported)
 	}
 
 	rec = httptest.NewRecorder()

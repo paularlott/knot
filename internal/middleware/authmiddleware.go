@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/mcp"
 	"golang.org/x/net/context"
 )
 
@@ -40,15 +41,28 @@ func Initialize() {
 	}
 }
 
+// isMCPRequest reports whether r is for the MCP endpoint, whose refusals are
+// the OAuth protected resource challenges MCP clients act on.
+func isMCPRequest(r *http.Request) bool {
+	return r.URL.Path == "/mcp"
+}
+
 func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
 	// Clear any stale session cookies so a leftover domain-wide cookie (from
 	// an earlier version) can't shadow a fresh login attempt.
 	DeleteSessionCookie(w, r)
 
-	// Tell MCP clients where to authorize (RFC 9728), so clients such as
-	// Claude's custom connectors can start the OAuth flow.
-	if r.URL.Path == "/mcp" {
-		w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+oauth2.ProtectedResourceMetadataURL(r)+`", scope="`+model.ScopeMCP+`"`)
+	// Tell MCP clients where to authorize (RFC 9728, MCP authorization), so
+	// clients such as Claude's custom connectors can start the OAuth flow: a
+	// 401 with a Bearer challenge naming the resource metadata, and
+	// error="invalid_token" when a bearer token was presented but refused.
+	if isMCPRequest(r) {
+		err := mcp.ErrNoToken
+		if GetBearerToken(r) != "" {
+			err = mcp.ErrInvalidToken
+		}
+		oauth2.ResourceServer.Reject(w, r, err)
+		return
 	}
 
 	rest.WriteResponse(http.StatusUnauthorized, w, r, struct {
@@ -58,15 +72,24 @@ func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func GetBearerToken(w http.ResponseWriter, r *http.Request) string {
-	// Get the auth token
+// returnScopeDenied answers a request whose token's scopes don't cover the
+// endpoint: for /mcp a 403 insufficient_scope challenge naming the mcp scope
+// (so the client can step up), otherwise a JSON error.
+func returnScopeDenied(w http.ResponseWriter, r *http.Request) {
+	if isMCPRequest(r) {
+		oauth2.ResourceServer.RejectScope(w, r, []string{model.ScopeMCP})
+		return
+	}
+	rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{
+		Error: "token scopes do not permit this endpoint",
+	})
+}
+
+// GetBearerToken returns the token of an "Authorization: Bearer ..." header,
+// or "" when there is none. It writes nothing: the caller answers the refusal.
+func GetBearerToken(r *http.Request) string {
 	var bearer string
 	fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
-	if len(bearer) < 1 {
-		returnUnauthorized(w, r)
-		return ""
-	}
-
 	return bearer
 }
 
@@ -111,20 +134,20 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 		if HasUsers {
 			var userId string = ""
 
+			// An Authorization header that isn't a bearer token is refused,
+			// once, before anything is looked up.
+			authorization := r.Header.Get("Authorization")
+			bearer := GetBearerToken(r)
+			if authorization != "" && bearer == "" {
+				returnUnauthorized(w, r)
+				return
+			}
+
 			db := database.GetInstance()
 			store := database.GetSessionStorage()
 
 			// If have an Authorization header then we use that for authentication
-			authorization := r.Header.Get("Authorization")
 			if authorization != "" {
-
-				// Get the auth token
-				bearer := GetBearerToken(w, r)
-				if bearer == "" {
-					returnUnauthorized(w, r)
-					return
-				}
-
 				// Check if this is an agent token
 				if crypt.IsAgentToken(bearer) {
 					cfg := config.GetServerConfig()
@@ -171,6 +194,20 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 							return
 						}
 						returnUnauthorized(w, r)
+						return
+					}
+
+					// Token audience binding (RFC 8707, MCP authorization): a
+					// token issued for a resource other than this server's
+					// MCP endpoint is refused there. Tokens with no recorded
+					// audience - API tokens, and OAuth tokens issued before
+					// audiences were recorded - are still accepted, so nothing
+					// breaks on upgrade (an OAuth token gains its audience on
+					// its next refresh). See oauth2.MatchesMCPResource for how
+					// the scheme is treated when server.url isn't set.
+					if isMCPRequest(r) && token.Audience != "" && !oauth2.MatchesMCPResource(r, token.Audience) {
+						logger.Debug("token audience is not this MCP endpoint", "audience", token.Audience)
+						oauth2.ResourceServer.Reject(w, r, mcp.ErrWrongAudience)
 						return
 					}
 
@@ -271,9 +308,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 		// user-issued API tokens are restricted.
 		if token, _ := ctx.Value("access_token").(*model.Token); token != nil && len(token.Scopes) > 0 {
 			if !tokenScopeAllows(token.Scopes, r.URL.Path) {
-				rest.WriteResponse(http.StatusForbidden, w, r.WithContext(ctx), ErrorResponse{
-					Error: "token scopes do not permit this endpoint",
-				})
+				returnScopeDenied(w, r.WithContext(ctx))
 				return
 			}
 		}
@@ -562,11 +597,7 @@ func TokenScopesRequired(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if token, _ := r.Context().Value("access_token").(*model.Token); token != nil && len(token.Scopes) > 0 {
 			if !tokenScopeAllows(token.Scopes, r.URL.Path) {
-				rest.WriteResponse(http.StatusForbidden, w, r, struct {
-					Error string `json:"error" msgpack:"error"`
-				}{
-					Error: "token scopes do not permit this endpoint",
-				})
+				returnScopeDenied(w, r)
 				return
 			}
 		}

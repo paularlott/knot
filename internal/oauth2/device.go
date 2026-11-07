@@ -61,6 +61,15 @@ func HandleDeviceAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A resource indicator (RFC 8707), when given, must name this server's
+	// MCP endpoint like at /authorize. The grant issues the CLI an ordinary
+	// unrestricted API token rather than an MCP token, so it is not bound to
+	// the resource (an audience only restricts the token at /mcp anyway).
+	if _, desc, ok := checkResourceParams(r, r.PostForm["resource"]); !ok {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: ErrorInvalidTarget, ErrorDescription: desc})
+		return
+	}
+
 	tokenName := r.PostFormValue("token_name")
 	if !validate.TokenName(tokenName) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
