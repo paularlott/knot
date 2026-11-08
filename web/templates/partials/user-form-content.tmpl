@@ -128,6 +128,7 @@
                 <p id="max_tunnels-help" class="description">The maximum number of tunnels this user can create, 0 for unlimited.</p>
                 <div id="max_tunnels-error" x-show="!maxTunnelsValid" class="error-message" x-cloak>Enter a valid number between 0 and 100.</div>
               </div>
+{{ if .filesEnabled }}
               <div>
                 <label for="file_storage_mb" class="form-label">File Storage (MB)</label>
                 <input type="number" id="file_storage_mb" class="form-field" name="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:blur="checkFileStorage()" x-on:input="if (!fileStorageValid) checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" :aria-invalid="!fileStorageValid ? 'true' : 'false'" :aria-describedby="!fileStorageValid ? 'file_storage_mb-help file_storage_mb-error' : 'file_storage_mb-help'">
@@ -140,6 +141,7 @@
                 <p id="max_buckets-help" class="description">The maximum number of file storage buckets this user can own, 0 to use the server default.</p>
                 <div id="max_buckets-error" x-show="!maxBucketsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
+{{ end }}
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
               <div x-show="roles.length" x-cloak role="group" aria-labelledby="user-roles-label">

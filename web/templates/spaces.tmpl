@@ -656,6 +656,7 @@
               <div>
                 <p class="mb-4 text-gray-600 dark:text-gray-300">This space has these restrictions, until they're lifted:</p>
                 <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                  {{ if .filesEnabled }}
                   <dt class="font-medium text-gray-900 dark:text-white">Files</dt>
                   <dd>
                     <span x-text="restrictionsFiles(spaceRestrictions.data)"></span>
@@ -670,6 +671,7 @@
                       </ul>
                     </template>
                   </dd>
+                  {{ end }}
                   <dt class="font-medium text-gray-900 dark:text-white">Other access</dt>
                   <dd x-text="spaceRestrictions.data.locked ? 'Locked: restart and shut down only' : 'Confined to this space'"></dd>
                 </dl>

@@ -160,6 +160,10 @@ var permissionKeys = map[uint16]string{
 	PermissionViewPlugins:               "view_plugins",
 }
 
+// PermissionGroupFileStorage is the group of the file storage permissions, which are only
+// offered when file storage is turned on.
+const PermissionGroupFileStorage = "File Storage"
+
 var PermissionNames = []PermissionName{
 	{PermissionViewAuditLogs, "Audit", "View Audit Logs", "View the audit log of system activity."},
 	{PermissionDownloadAuditLogs, "Audit", "Download Audit Logs", "Export audit log entries to a file."},
@@ -178,10 +182,10 @@ var PermissionNames = []PermissionName{
 	{PermissionManageVariables, "Resource Management", "Manage Variables", "Create, edit, and delete system variables."},
 	{PermissionManageVolumes, "Resource Management", "Manage Volumes", "Create, edit, and delete volumes."},
 
-	{PermissionUseFiles, "File Storage", "Use File Storage", "Create and delete own buckets and manage their files."},
-	{PermissionShareBuckets, "File Storage", "Share Buckets", "Share own buckets with users, groups or everyone."},
-	{PermissionTransferBuckets, "File Storage", "Transfer Buckets", "Transfer own buckets to another user."},
-	{PermissionManageFiles, "File Storage", "Manage File Storage", "Full access to every bucket, including sharing and transferring any bucket."},
+	{PermissionUseFiles, PermissionGroupFileStorage, "Use File Storage", "Create and delete own buckets and manage their files."},
+	{PermissionShareBuckets, PermissionGroupFileStorage, "Share Buckets", "Share own buckets with users, groups or everyone."},
+	{PermissionTransferBuckets, PermissionGroupFileStorage, "Transfer Buckets", "Transfer own buckets to another user."},
+	{PermissionManageFiles, PermissionGroupFileStorage, "Manage File Storage", "Full access to every bucket, including sharing and transferring any bucket."},
 
 	{PermissionUseMCPServer, "AI Tools", "Use MCP Server", "Connect to the knot MCP server."},
 	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant", "Use the built-in web AI assistant."},
