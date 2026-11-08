@@ -44,23 +44,31 @@ func startTerminal(conn net.Conn, shell string, client *AgentClient) {
 		return
 	}
 
-	// Kill the process and clean up
+	// Stop the shell and clean up
 	defer func() {
-		if err := cmd.Process.Kill(); err != nil {
-			log.Error("unable to kill shell")
-		}
-		if _, err := cmd.Process.Wait(); err != nil {
-			log.Error("unable to wait for shell to exit")
-		}
-		if err := tty.Close(); err != nil {
-			log.Error("unable to close tty")
-		}
+		stopShell(cmd, tty)
 		if err := conn.Close(); err != nil {
 			log.Error("unable to close connection")
 		}
 	}()
 
 	runTerminal(conn, tty, client)
+}
+
+// stopShell hangs up the shell so it saves its history (see util.HangUpShell), then closes
+// its pty.
+func stopShell(cmd *exec.Cmd, tty *os.File) {
+	exited := make(chan struct{})
+	go func() {
+		cmd.Process.Wait()
+		close(exited)
+	}()
+
+	util.HangUpShell(cmd.Process, tty, exited)
+
+	if err := tty.Close(); err != nil {
+		log.Error("unable to close tty")
+	}
 }
 
 func startVSCodeTunnelTerminal(conn net.Conn, client *AgentClient) {

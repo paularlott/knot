@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/util"
@@ -172,6 +173,66 @@ func executeNonPtyCommand(s ssh.Session, command string) {
 	}
 }
 
+// runPtySession runs a command on a pty for an ssh session until the command exits or the
+// client goes away. A command left behind by a client that disconnects is hung up, as
+// OpenSSH does, so a shell gets to save its history rather than lingering.
+func runPtySession(s ssh.Session, cmd *exec.Cmd, tty *os.File, winCh <-chan ssh.Window) {
+	// The pty has to stay open until the command has exited, see util.HangUpShell
+	defer tty.Close()
+
+	go func() {
+		for win := range winCh {
+			setWinsize(tty, win.Width, win.Height)
+		}
+	}()
+	go io.Copy(tty, s) // stdin
+
+	waitErr := make(chan error, 1)
+	exited := make(chan struct{})
+	go func() {
+		waitErr <- cmd.Wait()
+		close(exited)
+	}()
+
+	outputDone := make(chan struct{})
+	go func() {
+		io.Copy(s, tty) // stdout
+		close(outputDone)
+	}()
+
+	select {
+	case <-exited:
+		// The command ended on its own, give the last of its output a moment to get out
+		select {
+		case <-outputDone:
+		case <-s.Context().Done():
+		case <-time.After(time.Second):
+		}
+	case <-outputDone:
+		// The pty closed, or output can't reach the client any more. A shell that is exiting
+		// normally is closing the pty; leave it alone so it can finish saving its history.
+		select {
+		case <-exited:
+		case <-time.After(time.Second):
+			util.HangUpShell(cmd.Process, tty, exited)
+		}
+	case <-s.Context().Done():
+		// The client has gone away, possibly while the shell was idle
+		util.HangUpShell(cmd.Process, tty, exited)
+	}
+
+	<-exited
+	if err := <-waitErr; err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			s.Exit(exitErr.ExitCode())
+		} else {
+			s.Exit(1)
+		}
+	} else {
+		s.Exit(0)
+	}
+}
+
 func defaultHandler(s ssh.Session) {
 	logger := log.WithGroup("sshd")
 	ptyReq, winCh, isPty := s.Pty()
@@ -194,25 +255,7 @@ func defaultHandler(s ssh.Session) {
 				return
 			}
 
-			go func() {
-				for win := range winCh {
-					setWinsize(tty, win.Width, win.Height)
-				}
-			}()
-			go func() {
-				io.Copy(tty, s)
-			}()
-			io.Copy(s, tty)
-			err = cmd.Wait()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					s.Exit(exitErr.ExitCode())
-				} else {
-					s.Exit(1)
-				}
-			} else {
-				s.Exit(0)
-			}
+			runPtySession(s, cmd, tty, winCh)
 			return
 		}
 
@@ -245,25 +288,7 @@ func defaultHandler(s ssh.Session) {
 			return
 		}
 
-		go func() {
-			for win := range winCh {
-				setWinsize(tty, win.Width, win.Height)
-			}
-		}()
-		go func() {
-			io.Copy(tty, s) // stdin
-		}()
-		io.Copy(s, tty) // stdout
-		err = cmd.Wait()
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				s.Exit(exitErr.ExitCode())
-			} else {
-				s.Exit(1)
-			}
-		} else {
-			s.Exit(0)
-		}
+		runPtySession(s, cmd, tty, winCh)
 	} else {
 		// Non-PTY mode: execute command or start shell
 		commands := s.Command()
