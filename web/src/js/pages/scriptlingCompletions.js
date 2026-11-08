@@ -2286,13 +2286,13 @@ const scriptlingLibraries = [
             name: "call_tools_parallel",
             signature: "call_tools_parallel(calls)",
             description: "Execute multiple tools concurrently.",
-            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success.",
+            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success; for a JSON-RPC error or a tool execution error (isError) it holds the message (\"MCP tool error: ...\" for the latter) and \"result\" is None. One failed call does not raise.",
           },
           {
             name: "execute_discovered_parallel",
             signature: "execute_discovered_parallel(calls)",
             description: "Execute multiple discovered tools concurrently.",
-            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success.",
+            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success; for a JSON-RPC error or a tool execution error (isError) it holds the message (\"MCP tool error: ...\" for the latter) and \"result\" is None. One failed call does not raise.",
           },
           {
             name: "list_resources",
@@ -4717,6 +4717,10 @@ const scriptlingLibraries = [
         {
           name: "context",
           description: "dict[str, Any]",
+        },
+        {
+          name: "auth",
+          description: "Optional[dict[str, Any]]",
         },
         ],
       },

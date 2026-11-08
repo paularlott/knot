@@ -2,6 +2,8 @@ package agent_client
 
 import (
 	"encoding/binary"
+	"errors"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -111,6 +113,16 @@ func startVSCodeTunnelTerminal(conn net.Conn, client *AgentClient) {
 	runTerminal(conn, tty, client)
 }
 
+// logTerminalReadError logs a failed read from the terminal connection, unless the connection
+// simply ended. The server closes it when the web terminal is closed and we close it when the
+// shell exits, so EOF and "use of closed network connection" are normal ends of a session.
+func logTerminalReadError(err error, msg string) {
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return
+	}
+	log.WithError(err).Error(msg)
+}
+
 func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
 	client.MarkActivity()
 
@@ -158,7 +170,7 @@ func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
 		cmdTypeBuf := make([]byte, 1)
 		_, err := conn.Read(cmdTypeBuf)
 		if err != nil {
-			log.WithError(err).Error("failed to read command type:")
+			logTerminalReadError(err, "failed to read command type:")
 			return
 		}
 
@@ -167,7 +179,7 @@ func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
 			// Read the size of the payload
 			sizeBytes := make([]byte, 4)
 			if _, err := conn.Read(sizeBytes); err != nil {
-				log.WithError(err).Error("failed to read size of payload:")
+				logTerminalReadError(err, "failed to read size of payload:")
 				return
 			}
 			payloadSize := binary.BigEndian.Uint32(sizeBytes)
@@ -179,7 +191,7 @@ func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
 			for totalRead < payloadSize {
 				n, err := conn.Read(payloadBuf[totalRead:])
 				if err != nil {
-					log.WithError(err).Error("failed to read payload:")
+					logTerminalReadError(err, "failed to read payload:")
 					return
 				}
 				totalRead += uint32(n)
