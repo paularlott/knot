@@ -32,10 +32,10 @@ require (
 	github.com/paularlott/jsonrpc v0.4.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.4.0
-	github.com/paularlott/mcp v0.34.0
-	github.com/paularlott/scriptling v0.34.0
+	github.com/paularlott/mcp v0.35.1
+	github.com/paularlott/scriptling v0.36.0
 	github.com/pkg/sftp v1.13.12
-	github.com/shamaton/msgpack/v3 v3.2.6
+	github.com/shamaton/msgpack/v3 v3.2.7
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valkey-io/valkey-go v1.0.79
 	github.com/willscott/go-nfs v0.0.5-0.20260926204150-6274d051a57f
