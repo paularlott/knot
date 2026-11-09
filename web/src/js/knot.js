@@ -321,7 +321,10 @@ window.fieldAutocompleter = function fieldAutocompleter(handlerId, staticOptions
       }
     },
     handleKeydown(event) {
-      if (!this.showList) return;
+      if (!this.showList) {
+        if (window.autocompleteReopenOnKey) window.autocompleteReopenOnKey(this, event);
+        return;
+      }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         this.schedulePositioning();
         this.$nextTick(() => {

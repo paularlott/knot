@@ -16,6 +16,17 @@ function autocompleteScrollContainer(el) {
   return null;
 }
 
+// A pick (Enter or a click) closes the list but leaves focus in the input,
+// so focusing again can't reopen it: typing, deleting or an arrow key does.
+function reopenOnKey(ac, e) {
+  const arrow = e.key === 'ArrowDown' || e.key === 'ArrowUp';
+  const typed = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+  if (!arrow && !typed && e.key !== 'Backspace' && e.key !== 'Delete') return;
+  if (arrow) e.preventDefault();
+  ac.handleFocus();
+}
+window.autocompleteReopenOnKey = reopenOnKey;
+
 const autocompleterBase = () => ({
   search: '',
   showList: false,
@@ -24,7 +35,10 @@ const autocompleterBase = () => ({
     return this.selectedIndex >= 0 ? `${this._listboxId}-opt-${this.selectedIndex}` : '';
   },
   handleKeydown(e) {
-    if (!this.showList) return;
+    if (!this.showList) {
+      reopenOnKey(this, e);
+      return;
+    }
     const filtered = this.filteredOptions;
     if (e.key === 'ArrowDown') {
       e.preventDefault();

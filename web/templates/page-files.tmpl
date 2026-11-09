@@ -508,7 +508,7 @@
                    x-model="shareModal.form.query" @input="comboInput(shareModal.form)"
                    @keydown="comboKeydown($event, shareModal.form, shareOptions(), o => selectShareOption(o))"
                    @focus="shareModal.form.open = true" @blur="setTimeout(() => shareModal.form.open = false, 150)">
-            <ul id="share-target-listbox" role="listbox" :aria-label="shareModal.form.type === 'group' ? 'Groups' : 'Users'" x-show="shareModal.form.open && shareOptions().length > 0" x-cloak class="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+            <ul tabindex="-1" id="share-target-listbox" role="listbox" :aria-label="shareModal.form.type === 'group' ? 'Groups' : 'Users'" x-show="shareModal.form.open && shareOptions().length > 0" x-cloak class="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
               <template x-for="(o, index) in shareOptions()" :key="o.id">
                 <li :id="'share-target-opt-' + index" role="option" :aria-selected="shareModal.form.id === o.id" @mousedown.prevent.stop="selectShareOption(o)" class="px-3 py-2 cursor-pointer text-sm text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" :class="{'bg-blue-50 dark:bg-blue-900/20': shareModal.form.active === index}" x-text="o.name"></li>
               </template>
@@ -568,7 +568,7 @@
                    x-model="transferModal.query" @input="comboInput(transferModal)"
                    @keydown="comboKeydown($event, transferModal, transferOptions(), o => selectTransferOption(o))"
                    @focus="transferModal.open = true" @blur="setTimeout(() => transferModal.open = false, 150)">
-            <ul id="transfer-user-listbox" role="listbox" aria-label="Users" x-show="transferModal.open && transferOptions().length > 0" x-cloak class="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+            <ul tabindex="-1" id="transfer-user-listbox" role="listbox" aria-label="Users" x-show="transferModal.open && transferOptions().length > 0" x-cloak class="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
               <template x-for="(o, index) in transferOptions()" :key="o.id">
                 <li :id="'transfer-user-opt-' + index" role="option" :aria-selected="transferModal.id === o.id" @mousedown.prevent.stop="selectTransferOption(o)" class="px-3 py-2 cursor-pointer text-sm text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" :class="{'bg-blue-50 dark:bg-blue-900/20': transferModal.active === index}" x-text="o.name"></li>
               </template>
