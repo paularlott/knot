@@ -280,8 +280,18 @@ tasks:
     env:
       GOOS: "{{.GOOS}}"
       GOARCH: "{{.GOARCH}}"
+    # MACOS_SIGN_IDENTITY (see .env.example) signs the macOS agents for release.
+    dotenv: [".env"]
     cmds:
       - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} ./agent
+      - |
+        # Developer ID signature with the hardened runtime, as notarization
+        # requires. Skipped without an identity or off macOS (the container
+        # build has no codesign), leaving Go's own ad-hoc signature.
+        if [ "{{.GOOS}}" = "darwin" ] && [ -n "$MACOS_SIGN_IDENTITY" ] && command -v codesign >/dev/null 2>&1; then
+          codesign --force --timestamp --options runtime --identifier com.paularlott.knot-agent \
+            --sign "$MACOS_SIGN_IDENTITY" {{.OUTPUT_FILE}} || exit 1
+        fi
       - |
         cd {{$.AGENT_OUTPUT_DIR}} && \
         mv {{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}} {{.FINAL_NAME}} && \
@@ -301,7 +311,7 @@ tasks:
       - "{{.ZIP_FILE}}"
 
   notarize-macos:
-    desc: Notarize the Developer ID signed Knot.app in the macOS zips and staple the ticket (NOTARY_* in .env)
+    desc: Notarize the Developer ID signed Knot.app and macOS agents, and staple the ticket to the app (NOTARY_* in .env)
     dotenv: [".env"]
     cmds:
       - |
@@ -323,21 +333,28 @@ tasks:
         trap 'rm -rf "$stage"' EXIT
         out="$PWD/{{.OUTPUT_DIR}}"
 
-        # Unpack each architecture's Knot.app and check it carries a
+        # Unpack each architecture's Knot.app and macOS agent (embedded in
+        # the server for spaces on macOS hosts) and check each carries a
         # Developer ID signature before anything is sent to Apple.
         for arch in amd64 arm64; do
           zip="$out/{{.PROJECT_NAME}}_darwin_${arch}.zip"
-          mkdir -p "$stage/apps/$arch" || exit 1
-          ditto -x -k "$zip" "$stage/apps/$arch" || exit 1
-          if ! codesign -dvv "$stage/apps/$arch/Knot.app" 2>&1 | grep -q '^Authority=Developer ID Application'; then
-            echo "$zip is not Developer ID signed: set MACOS_SIGN_IDENTITY in .env and rebuild (task clean all)" >&2
-            exit 1
-          fi
+          agent_zip="$PWD/{{.AGENT_OUTPUT_DIR}}/{{.PROJECT_NAME}}_agent_darwin_${arch}.zip"
+          mkdir -p "$stage/submit/apps/$arch" "$stage/submit/agents/$arch" || exit 1
+          ditto -x -k "$zip" "$stage/submit/apps/$arch" || exit 1
+          ditto -x -k "$agent_zip" "$stage/submit/agents/$arch" || exit 1
+          for item in "$stage/submit/apps/$arch/Knot.app" "$stage/submit/agents/$arch/knot-agent"; do
+            if ! codesign -dvv "$item" 2>&1 | grep -q '^Authority=Developer ID Application'; then
+              echo "$(basename "$item") ($arch) is not Developer ID signed: set MACOS_SIGN_IDENTITY in .env and rebuild (task clean all)" >&2
+              exit 1
+            fi
+          done
         done
 
-        # One submission covers both apps: notarization is recorded per
-        # binary, so each app's ticket can then be stapled separately.
-        ditto -c -k --keepParent "$stage/apps" "$stage/submit.zip" || exit 1
+        # One submission covers the apps and agents: notarization is recorded
+        # per binary, so each app's ticket can then be stapled separately.
+        # The agents are bare executables, which cannot be stapled; Gatekeeper
+        # finds their ticket online.
+        ditto -c -k --keepParent "$stage/submit" "$stage/submit.zip" || exit 1
         result=$(notary submit "$stage/submit.zip" --wait --output-format json) || true
         echo "$result"
         status=$(echo "$result" | jq -r '.status // empty')
@@ -351,7 +368,7 @@ tasks:
         # Staple the ticket into each app, so Gatekeeper accepts it offline
         # too, then repack the release zip with the stapled app.
         for arch in amd64 arm64; do
-          app="$stage/apps/$arch/Knot.app"
+          app="$stage/submit/apps/$arch/Knot.app"
           zip="$out/{{.PROJECT_NAME}}_darwin_${arch}.zip"
           stapled=0
           # A freshly accepted ticket can take a few seconds to be served.
