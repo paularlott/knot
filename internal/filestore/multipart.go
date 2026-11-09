@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -49,16 +50,17 @@ type CompletedPart struct {
 	ETag   string
 }
 
-func (s *Store) uploadDir(id string) string {
-	return filepath.Join(s.dir, "multipart", id)
-}
+// uploadIdRe matches the ids CreateMultipart makes: 16 random bytes in hex.
+var uploadIdRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
-func validUploadId(id string) bool {
-	if len(id) != 32 {
-		return false
+// uploadDir is the directory holding upload id. The id is checked here,
+// where the path is built, so a client-supplied id can never name a path
+// outside the multipart directory.
+func (s *Store) uploadDir(id string) (string, error) {
+	if !uploadIdRe.MatchString(id) {
+		return "", ErrNoSuchUpload
 	}
-	_, err := hex.DecodeString(id)
-	return err == nil
+	return filepath.Join(s.dir, "multipart", id), nil
 }
 
 // CreateMultipart starts a multipart upload.
@@ -80,7 +82,11 @@ func (s *Store) CreateMultipart(p *Principal, bucket, key string, opts PutOption
 	}
 	id := hex.EncodeToString(raw)
 
-	if err := os.MkdirAll(s.uploadDir(id), 0700); err != nil {
+	dir, err := s.uploadDir(id)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", err
 	}
 	up := MultipartUpload{
@@ -92,8 +98,8 @@ func (s *Store) CreateMultipart(p *Principal, bucket, key string, opts PutOption
 		Created:     time.Now().UTC(),
 	}
 	data, _ := json.Marshal(up)
-	if err := os.WriteFile(filepath.Join(s.uploadDir(id), "upload.json"), data, 0600); err != nil {
-		os.RemoveAll(s.uploadDir(id))
+	if err := os.WriteFile(filepath.Join(dir, "upload.json"), data, 0600); err != nil {
+		os.RemoveAll(dir)
 		return "", err
 	}
 	return id, nil
@@ -112,23 +118,25 @@ func readUpload(dir string) (*MultipartUpload, error) {
 	return &up, nil
 }
 
-// loadUpload returns an upload of bucket/key that p may write to.
-func (s *Store) loadUpload(p *Principal, bucket, key, id string) (*MultipartUpload, error) {
-	if !validUploadId(id) {
-		return nil, ErrNoSuchUpload
-	}
-	up, err := readUpload(s.uploadDir(id))
+// loadUpload returns an upload of bucket/key that p may write to, and the
+// directory holding it.
+func (s *Store) loadUpload(p *Principal, bucket, key, id string) (*MultipartUpload, string, error) {
+	dir, err := s.uploadDir(id)
 	if err != nil {
-		return nil, ErrNoSuchUpload
+		return nil, "", err
+	}
+	up, err := readUpload(dir)
+	if err != nil {
+		return nil, "", ErrNoSuchUpload
 	}
 	bucketId, err := s.checkBucketId(p, bucket, AccessWrite)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if up.BucketId != bucketId || up.Key != key {
-		return nil, ErrNoSuchUpload
+		return nil, "", ErrNoSuchUpload
 	}
-	return up, nil
+	return up, dir, nil
 }
 
 func partName(n int) string { return fmt.Sprintf("part-%05d", n) }
@@ -138,7 +146,8 @@ func (s *Store) UploadPart(p *Principal, bucket, key, id string, number int, r i
 	if number < 1 || number > 10000 {
 		return "", ErrInvalidPart
 	}
-	if _, err := s.loadUpload(p, bucket, key, id); err != nil {
+	_, dir, err := s.loadUpload(p, bucket, key, id)
+	if err != nil {
 		return "", err
 	}
 	// Parts count against the owner's quota as they arrive, so uploads that
@@ -148,7 +157,7 @@ func (s *Store) UploadPart(p *Principal, bucket, key, id string, number int, r i
 		return "", err
 	}
 	pending := int64(0)
-	for _, pi := range s.readParts(id) {
+	for _, pi := range readParts(dir) {
 		if pi.Number != number {
 			pending += pi.Size
 		}
@@ -169,7 +178,7 @@ func (s *Store) UploadPart(p *Principal, bucket, key, id string, number int, r i
 	}
 
 	etag := hex.EncodeToString(tw.MD5())
-	dst := filepath.Join(s.uploadDir(id), partName(number))
+	dst := filepath.Join(dir, partName(number))
 	if err := os.Rename(tw.Path(), dst); err != nil {
 		os.Remove(tw.Path())
 		return "", err
@@ -187,7 +196,7 @@ func (s *Store) UploadPart(p *Principal, bucket, key, id string, number int, r i
 // to the source; the part counts against the destination owner's quota like
 // any other. It returns the part's ETag.
 func (s *Store) UploadPartCopy(ctx context.Context, p *Principal, bucket, key, id string, number int, srcBucket, srcKey string, start, end int64) (string, error) {
-	if _, err := s.loadUpload(p, bucket, key, id); err != nil {
+	if _, _, err := s.loadUpload(p, bucket, key, id); err != nil {
 		return "", err
 	}
 	src, f, err := s.OpenObject(ctx, p, srcBucket, srcKey)
@@ -213,14 +222,16 @@ func (s *Store) UploadPartCopy(ctx context.Context, p *Principal, bucket, key, i
 
 // ListParts returns the parts uploaded so far.
 func (s *Store) ListParts(p *Principal, bucket, key, id string) ([]PartInfo, error) {
-	if _, err := s.loadUpload(p, bucket, key, id); err != nil {
+	_, dir, err := s.loadUpload(p, bucket, key, id)
+	if err != nil {
 		return nil, err
 	}
-	return s.readParts(id), nil
+	return readParts(dir), nil
 }
 
-func (s *Store) readParts(id string) []PartInfo {
-	matches, _ := filepath.Glob(filepath.Join(s.uploadDir(id), "part-*.json"))
+// readParts reads the parts uploaded so far to the upload in dir.
+func readParts(dir string) []PartInfo {
+	matches, _ := filepath.Glob(filepath.Join(dir, "part-*.json"))
 	parts := make([]PartInfo, 0, len(matches))
 	for _, m := range matches {
 		data, err := os.ReadFile(m)
@@ -251,7 +262,7 @@ func (s *Store) CompleteUpload(p *Principal, bucket, key, id string, parts []Com
 }
 
 func (s *Store) completeMultipart(p *Principal, bucket, key, id string, parts []CompletedPart, cond PutOptions, fillAttrs bool) (*Object, error) {
-	up, err := s.loadUpload(p, bucket, key, id)
+	up, dir, err := s.loadUpload(p, bucket, key, id)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +271,7 @@ func (s *Store) completeMultipart(p *Principal, bucket, key, id string, parts []
 	}
 
 	have := make(map[int]PartInfo)
-	for _, pi := range s.readParts(id) {
+	for _, pi := range readParts(dir) {
 		have[pi.Number] = pi
 	}
 
@@ -281,7 +292,7 @@ func (s *Store) completeMultipart(p *Principal, bucket, key, id string, parts []
 		raw, _ := hex.DecodeString(pi.ETag)
 		etagHash.Write(raw)
 
-		f, err := os.Open(filepath.Join(s.uploadDir(id), partName(cp.Number)))
+		f, err := os.Open(filepath.Join(dir, partName(cp.Number)))
 		if err != nil {
 			tw.discard()
 			return nil, ErrInvalidPart
@@ -318,16 +329,17 @@ func (s *Store) completeMultipart(p *Principal, bucket, key, id string, parts []
 	if err != nil {
 		return nil, err
 	}
-	os.RemoveAll(s.uploadDir(id))
+	os.RemoveAll(dir)
 	return o, nil
 }
 
 // AbortMultipart discards an upload and its parts.
 func (s *Store) AbortMultipart(p *Principal, bucket, key, id string) error {
-	if _, err := s.loadUpload(p, bucket, key, id); err != nil {
+	_, dir, err := s.loadUpload(p, bucket, key, id)
+	if err != nil {
 		return err
 	}
-	return os.RemoveAll(s.uploadDir(id))
+	return os.RemoveAll(dir)
 }
 
 // ListMultipartUploads lists the uploads in progress on this server for a bucket.
