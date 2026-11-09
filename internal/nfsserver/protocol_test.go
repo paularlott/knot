@@ -1,10 +1,12 @@
 package nfsserver
 
 import (
+	"errors"
 	"io"
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -35,17 +37,34 @@ func mountTest(t *testing.T) (*nfsc.Target, *storeBackend) {
 
 	_, port, _ := net.SplitHostPort(srv.Addr().String())
 	n, _ := strconv.Atoi(port)
-	client, err := nfsc.DialServiceAtPort("127.0.0.1", n)
-	if err != nil {
-		t.Fatal(err)
+	// The NFS client picks its local port at random and, unless run as root,
+	// gives up if that port is taken, as it can be by another test's
+	// connection: try again with another.
+	for attempt := 1; ; attempt++ {
+		target, err := mountAt(t, n)
+		if err == nil {
+			return target, backend
+		}
+		if !errors.Is(err, syscall.EADDRINUSE) || attempt == 10 {
+			t.Fatal(err)
+		}
 	}
-	t.Cleanup(func() { client.Close() })
+}
+
+// mountAt connects to the NFS server on port and mounts its root.
+func mountAt(t *testing.T, port int) (*nfsc.Target, error) {
+	client, err := nfsc.DialServiceAtPort("127.0.0.1", port)
+	if err != nil {
+		return nil, err
+	}
 	m := &nfsc.Mount{Client: client}
 	target, err := m.Mount("/", rpc.AuthNull)
 	if err != nil {
-		t.Fatal(err)
+		client.Close()
+		return nil, err
 	}
-	return target, backend
+	t.Cleanup(func() { client.Close() })
+	return target, nil
 }
 
 // An open with O_CREAT of a file that exists, by a client without it cached,

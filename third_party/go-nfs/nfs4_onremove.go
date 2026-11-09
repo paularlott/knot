@@ -29,6 +29,8 @@ func nfs4OnRemove(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	if err := current.fs.Remove(nfs4Join(current.fs, current.child(req.Name))); err != nil {
 		return nfs4StatusFromErr(err)
 	}
+	// knot: open and lock state lets go of the file (see removed).
+	c.w.Server.nfs4State().removed(nfs4Join(current.fs, current.child(req.Name)))
 	if err := c.handler.InvalidateHandle(current.fs, handle); err != nil {
 		return nfs4ErrServerFault
 	}

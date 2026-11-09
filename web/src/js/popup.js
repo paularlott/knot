@@ -1,3 +1,31 @@
+// The first label of a space's web host, <user>--<name>--<port>, made to
+// fit the 63 characters DNS allows a label, as the server makes it
+// (internal/util/hostlabel): a longer label keeps as much of the name as
+// fits, then a hyphen and an FNV-1a hash of the whole name.
+const maxLabel = 63;
+const hashLen = 8;
+
+function nameHash(name) {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(name.toLowerCase())) {
+    h ^= b;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(hashLen, "0");
+}
+
+export function hostLabel(user, name, port) {
+  user = String(user).toLowerCase();
+  name = String(name).toLowerCase();
+  port = String(port).toLowerCase();
+  const full = `${user}--${name}--${port}`;
+  if (full.length <= maxLabel) {
+    return full;
+  }
+  const keep = Math.max(1, Math.min(maxLabel - user.length - port.length - 4 - hashLen - 1, name.length));
+  return `${user}--${name.slice(0, keep).replace(/-+$/, "")}-${nameHash(name)}--${port}`;
+}
+
 export const popup = {
   openTerminal(spaceId) {
     const timestamp = new Date().getTime();
@@ -41,7 +69,7 @@ export const popup = {
   },
 
   openVNC(spaceId, domain, username, spaceName) {
-    const subdomain = `${window.location.protocol}//${username.toLowerCase()}--${spaceName.toLowerCase()}--vnc`;
+    const subdomain = `${window.location.protocol}//${hostLabel(username, spaceName, "vnc")}`;
     const maxWidth = Math.min(window.innerWidth, 1440);
     const maxHeight = window.innerHeight;
     const portSuffix = window.location.port ? `:${window.location.port}` : '';
@@ -51,7 +79,7 @@ export const popup = {
   },
 
   openPortWindow(spaceId, domain, username, spaceName, port) {
-    const subdomain = `${window.location.protocol}//${username.toLowerCase()}--${spaceName.toLowerCase()}--${port}`;
+    const subdomain = `${window.location.protocol}//${hostLabel(username, spaceName, port)}`;
     const portSuffix = window.location.port ? `:${window.location.port}` : '';
     window.open(domain.replace(/^\*/, subdomain) + portSuffix, `spaces_${spaceId}_http_port_${port}`);
     return false;

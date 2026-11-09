@@ -145,7 +145,7 @@ func testBucket(t *testing.T, store *filestore.Store, name string) {
 
 func putRemote(t *testing.T, client *apiclient.ApiClient, bucket, key, content string) {
 	t.Helper()
-	if _, err := client.PutFileObject(context.Background(), bucket, key, strings.NewReader(content), int64(len(content)), "text/plain", time.Time{}); err != nil {
+	if _, err := client.PutFileObject(context.Background(), bucket, key, strings.NewReader(content), int64(len(content)), "text/plain", apiclient.FileAttrs{}); err != nil {
 		t.Fatalf("put %s:%s: %v", bucket, key, err)
 	}
 }
@@ -417,7 +417,7 @@ func TestCopyBetweenBuckets(t *testing.T) {
 	client, store := newFilesServer(t)
 	testBucket(t, store, "other")
 	old := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
-	if _, err := client.PutFileObject(context.Background(), "sync-test", "path/abc.py", strings.NewReader("abc"), 3, "text/x-python", old); err != nil {
+	if _, err := client.PutFileObject(context.Background(), "sync-test", "path/abc.py", strings.NewReader("abc"), 3, "text/x-python", apiclient.FileAttrs{Mtime: old}); err != nil {
 		t.Fatal(err)
 	}
 	putRemote(t, client, "sync-test", "path/b.py", "b")
@@ -760,11 +760,11 @@ func TestRunSyncDirections(t *testing.T) {
 	if err := runSync(ctx, client, src, "sync-test:site", false, false); err != nil {
 		t.Fatal(err)
 	}
-	expectKeys(t, bucketKeys(t, client, "sync-test"), "site/a.txt", "site/sub/b.txt")
+	expectKeys(t, bucketKeys(t, client, "sync-test"), "site/a.txt", "site/sub/", "site/sub/b.txt")
 	if err := runSync(ctx, client, src, "other:", false, false); err != nil {
 		t.Fatal(err)
 	}
-	expectKeys(t, bucketKeys(t, client, "other"), "a.txt", "sub/b.txt")
+	expectKeys(t, bucketKeys(t, client, "other"), "a.txt", "sub/", "sub/b.txt")
 
 	// Down.
 	dst := filepath.Join(t.TempDir(), "out")
@@ -778,7 +778,7 @@ func TestRunSyncDirections(t *testing.T) {
 	if err := runSync(ctx, client, "sync-test:site", "other:copy", false, false); err != nil {
 		t.Fatal(err)
 	}
-	expectKeysWithPrefixIn(t, client, "other", "copy/", "copy/a.txt", "copy/extra.txt", "copy/sub/b.txt")
+	expectKeysWithPrefixIn(t, client, "other", "copy/", "copy/a.txt", "copy/extra.txt", "copy/sub/", "copy/sub/b.txt")
 	admin := &filestore.Principal{IsAdmin: true}
 	before, err := store.HeadObject(admin, "tester--other", "copy/a.txt")
 	if err != nil {
@@ -811,7 +811,7 @@ func TestRunSyncDirections(t *testing.T) {
 	if err := runSync(ctx, client, "sync-test:site", "other:copy", true, false); err != nil {
 		t.Fatal(err)
 	}
-	expectKeysWithPrefixIn(t, client, "other", "copy/", "copy/a.txt", "copy/extra.txt", "copy/sub/b.txt")
+	expectKeysWithPrefixIn(t, client, "other", "copy/", "copy/a.txt", "copy/extra.txt", "copy/sub/", "copy/sub/b.txt")
 
 	// Overlapping folders in one bucket are refused, in either spelling.
 	for _, pair := range [][2]string{
@@ -822,7 +822,7 @@ func TestRunSyncDirections(t *testing.T) {
 			t.Errorf("sync %v: %v", pair, err)
 		}
 	}
-	expectKeysWithPrefixIn(t, client, "sync-test", "site/", "site/a.txt", "site/extra.txt", "site/sub/b.txt")
+	expectKeysWithPrefixIn(t, client, "sync-test", "site/", "site/a.txt", "site/extra.txt", "site/sub/", "site/sub/b.txt")
 	// Neighbours with a shared name prefix do not overlap.
 	if err := runSync(ctx, client, "sync-test:site", "sync-test:site2", false, false); err != nil {
 		t.Errorf("sync to a folder whose name starts the same: %v", err)
@@ -845,8 +845,9 @@ func TestRunSyncDirections(t *testing.T) {
 	}
 }
 
-// Empty folders in a bucket become directories on download, and are left
-// alone by an upload sync with --delete.
+// Empty folders in a bucket become directories on download, and one the
+// local side does not have goes with an upload sync with --delete, as a
+// file would. The synced folder's own marker is left alone.
 func TestSyncFolderMarkers(t *testing.T) {
 	client, _ := newFilesServer(t)
 	ctx := context.Background()
@@ -868,5 +869,5 @@ func TestSyncFolderMarkers(t *testing.T) {
 	if err := runSync(ctx, client, src, "sync-test:f", true, false); err != nil {
 		t.Fatal(err)
 	}
-	expectKeys(t, bucketKeys(t, client, "sync-test"), "f/", "f/a.txt", "f/empty/")
+	expectKeys(t, bucketKeys(t, client, "sync-test"), "f/", "f/a.txt")
 }

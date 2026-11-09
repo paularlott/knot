@@ -28,12 +28,17 @@ func Username(name string) bool {
 	return re.MatchString(name) && !strings.Contains(name, "--") && !strings.Contains(name, "..")
 }
 
+// MaxNewUsernameLen is the longest username a new user may have. Usernames
+// begin hostnames and names of 63 characters at most: a space's web host
+// label <username>--<space>--<port>, a tunnel's <username>--<tunnel>, and a
+// bucket's <username>--<name>. 24 leaves room for the rest.
+const MaxNewUsernameLen = 24
+
 // NewUsername is the stricter rule for creating a user: a valid username of
-// at most 30 characters ending in a letter or digit, so that
-// "<username>--<bucket>" file storage names stay within S3's 63 characters.
+// at most MaxNewUsernameLen characters ending in a letter or digit.
 // Existing usernames are only held to Username.
 func NewUsername(name string) bool {
-	if !Username(name) || len(name) > 30 {
+	if !Username(name) || len(name) > MaxNewUsernameLen {
 		return false
 	}
 	last := name[len(name)-1]

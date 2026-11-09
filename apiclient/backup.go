@@ -73,15 +73,11 @@ func (c *ApiClient) BackupStream(ctx context.Context, kind string, params url.Va
 // offset; the caller closes the body. Resumed reports whether the stream
 // starts at offset, as asked, rather than at the beginning.
 func (c *ApiClient) BackupContent(ctx context.Context, sha string, offset int64) (resp *http.Response, resumed bool, err error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, false, err
-	}
 	var headers map[string]string
 	if offset > 0 {
 		headers = map[string]string{"Range": fmt.Sprintf("bytes=%d-", offset)}
 	}
-	resp, err = hc.DoRaw(ctx, http.MethodGet, "/api/backup/content/"+url.PathEscape(sha), nil, 0, headers)
+	resp, err = c.doTransfer(ctx, http.MethodGet, "/api/backup/content/"+url.PathEscape(sha), nil, 0, headers)
 	if err != nil {
 		return nil, false, err
 	}
@@ -93,11 +89,7 @@ func (c *ApiClient) BackupContent(ctx context.Context, sha string, offset int64)
 }
 
 func (c *ApiClient) rawGet(ctx context.Context, path string) (*http.Response, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.DoRaw(ctx, http.MethodGet, path, nil, 0, nil)
+	resp, err := c.doTransfer(ctx, http.MethodGet, path, nil, 0, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -164,11 +156,7 @@ func (c *ApiClient) RestoreMissingContent(ctx context.Context, shas []string) ([
 // RestoreContent uploads the content with a checksum; the server refuses
 // content that does not match it.
 func (c *ApiClient) RestoreContent(ctx context.Context, sha string, body io.Reader, size int64) error {
-	hc, err := c.rawClient()
-	if err != nil {
-		return err
-	}
-	resp, err := hc.DoRaw(ctx, http.MethodPut, "/api/restore/content/"+url.PathEscape(sha), body, size, map[string]string{"Content-Type": "application/octet-stream"})
+	resp, err := c.doTransfer(ctx, http.MethodPut, "/api/restore/content/"+url.PathEscape(sha), body, size, map[string]string{"Content-Type": "application/octet-stream"})
 	if err != nil {
 		return err
 	}

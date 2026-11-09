@@ -106,7 +106,12 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PATCH /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandlePatchFileObject)))
 	router.HandleFunc("GET /api/files/stat/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleStatFileObject)))
 	router.HandleFunc("POST /api/files/copy", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleCopyFileObject)))
+	router.HandleFunc("POST /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleStartFileUpload)))
+	router.HandleFunc("PUT /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleUploadFilePart)))
+	router.HandleFunc("GET /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleListFileUploadParts)))
+	router.HandleFunc("DELETE /api/files/uploads/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleAbortFileUpload)))
 	router.HandleFunc("POST /api/files/move", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleMoveFileObjects)))
+	router.HandleFunc("POST /api/files/snapshot", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleSnapshotFileFolder)))
 	router.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", middleware.ApiAuth(api_utils.FileStorageAllowed(HandleDeleteFileObject)))
 
 	// Tokens
@@ -289,8 +294,8 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// OAuth2 Discovery
 	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)
-	router.HandleFunc("GET /.well-known/oauth-protected-resource", oauth2.HandleProtectedResourceMetadata)
-	router.HandleFunc("GET /.well-known/oauth-protected-resource/mcp", oauth2.HandleProtectedResourceMetadata)
+	router.Handle("GET /.well-known/oauth-protected-resource", oauth2.ResourceServer.MetadataHandler())
+	router.Handle("GET "+oauth2.ResourceServer.MetadataPath(), oauth2.ResourceServer.MetadataHandler())
 
 	// Start a cleanup job for the rate limiters
 	go authratelimit.StartCleanup(nil)

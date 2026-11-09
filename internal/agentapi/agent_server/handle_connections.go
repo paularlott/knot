@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/spaceusage"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/syncproject"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/crypt"
@@ -215,6 +216,7 @@ func handleAgentConnection(conn net.Conn) {
 	response.PortForwards = portForwards
 	response.Jobs = space.Jobs
 	response.JobsEnabled = space.JobsEnabled
+	response.SyncProject = templateSyncProject(template, space, user, logger)
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -615,46 +617,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			// Single shot command so done
 			return
 
-		case byte(msg.CmdRunCommand):
-			handleRunCommand(stream, session)
-			return // Single shot command so done
-
-		case byte(msg.CmdCopyFile):
-			handleCopyFile(stream, session)
-			return // Single shot command so done
-
-		case byte(msg.CmdGrep):
-			handleGrep(stream, session)
-			return
-
-		case byte(msg.CmdFind):
-			handleFind(stream, session)
-			return
-
-		case byte(msg.CmdSed):
-			handleSed(stream, session)
-			return
-
-		case byte(msg.CmdEditFile):
-			handleEditFile(stream, session)
-			return
-
-		case byte(msg.CmdDeleteFile):
-			handleDeleteFile(stream, session)
-			return
-
-		case byte(msg.CmdPortForward):
-			handlePortForward(stream, session)
-			return // Single shot command so done
-
-		case byte(msg.CmdPortList):
-			handlePortList(stream, session)
-			return // Single shot command so done
-
-		case byte(msg.CmdPortStop):
-			handlePortStop(stream, session)
-			return // Single shot command so done
-
 		case byte(msg.CmdAddPortForward):
 			handleAddPortForward(stream, session)
 			return
@@ -722,7 +684,8 @@ func handleEvent(stream net.Conn, session *Session) {
 		userId = space.UserId
 	}
 
-	service.RaiseCustomEvent(eventMsg.EventId, eventMsg.EventType, session.Id, userId, payload)
+	// Processes in a space act as its owner, so the owner raised the event.
+	service.RaiseCustomEvent(eventMsg.EventId, eventMsg.EventType, session.Id, userId, userId, payload)
 
 	var reply msg.EventReply
 	if err := msg.WriteMessage(stream, &reply); err != nil {
@@ -736,375 +699,6 @@ func deltaCounter(current, previous uint64) uint64 {
 		return current
 	}
 	return current - previous
-}
-
-func handleRunCommand(stream net.Conn, session *Session) {
-	// Read the run command message
-	var runCmd msg.RunCommandMessage
-	if err := msg.ReadMessage(stream, &runCmd); err != nil {
-		log.WithError(err).Error("reading run command message:")
-		return
-	}
-
-	log.Info("forwarding run command to agent", "command", runCmd.Command, "space_id", session.Id)
-
-	// Open a new connection to the agent to send the run command
-	agentConn, err := session.MuxSession.Open()
-	if err != nil {
-		log.WithError(err).Error("opening connection to agent:")
-		response := msg.RunCommandResponse{
-			Success: false,
-			Error:   "Failed to connect to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-	defer agentConn.Close()
-
-	// Send the run command to the agent
-	if err := msg.WriteCommand(agentConn, msg.CmdRunCommand); err != nil {
-		log.WithError(err).Error("writing run command to agent:")
-		response := msg.RunCommandResponse{
-			Success: false,
-			Error:   "Failed to send command to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	if err := msg.WriteMessage(agentConn, &runCmd); err != nil {
-		log.WithError(err).Error("writing run command message to agent:")
-		response := msg.RunCommandResponse{
-			Success: false,
-			Error:   "Failed to send command message to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	// Read the response from the agent
-	var response msg.RunCommandResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("reading run command response from agent:")
-		response = msg.RunCommandResponse{
-			Success: false,
-			Error:   "Failed to read response from agent",
-		}
-	}
-
-	// Forward the response back to the client
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("writing run command response to client:")
-		return
-	}
-
-	log.Info("run command completed", "command", runCmd.Command, "space_id", session.Id, "success", response.Success)
-}
-
-func handleCopyFile(stream net.Conn, session *Session) {
-	// Read the copy file message
-	var copyCmd msg.CopyFileMessage
-	if err := msg.ReadMessage(stream, &copyCmd); err != nil {
-		log.WithError(err).Error("reading copy file message:")
-		return
-	}
-
-	log.Info("forwarding copy file to agent", "direction", copyCmd.Direction, "source", copyCmd.SourcePath, "dest", copyCmd.DestPath, "space_id", session.Id)
-
-	// Open a new connection to the agent to send the copy file command
-	agentConn, err := session.MuxSession.Open()
-	if err != nil {
-		log.WithError(err).Error("opening connection to agent:")
-		response := msg.CopyFileResponse{
-			Success: false,
-			Error:   "Failed to connect to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-	defer agentConn.Close()
-
-	// Send the copy file command to the agent
-	if err := msg.WriteCommand(agentConn, msg.CmdCopyFile); err != nil {
-		log.WithError(err).Error("writing copy file command to agent:")
-		response := msg.CopyFileResponse{
-			Success: false,
-			Error:   "Failed to send command to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	if err := msg.WriteMessage(agentConn, &copyCmd); err != nil {
-		log.WithError(err).Error("writing copy file message to agent:")
-		response := msg.CopyFileResponse{
-			Success: false,
-			Error:   "Failed to send command message to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	// Read the response from the agent
-	var response msg.CopyFileResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("reading copy file response from agent:")
-		response = msg.CopyFileResponse{
-			Success: false,
-			Error:   "Failed to read response from agent",
-		}
-	}
-
-	// Forward the response back to the client
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("writing copy file response to client:")
-		return
-	}
-
-	log.Info("copy file completed", "direction", copyCmd.Direction, "space_id", session.Id, "success", response.Success)
-}
-
-// errorResponse is sent on forwarder failure. Its `success`/`error` fields
-// msgpack-decode correctly into every *Response type (they all share those
-// field names/tags).
-type errorResponse struct {
-	Success bool   `msgpack:"success"`
-	Error   string `msgpack:"error"`
-}
-
-// forwardSingleShot is the generic read→forward→respond loop shared by every
-// single-shot file-ops command (grep, find, sed, edit). It reads a typed
-// message from the client stream, forwards it to the agent with the given
-// command byte, reads the typed response, and writes it back. On any failure
-// it writes an errorResponse whose fields decode into the expected response
-// type.
-func forwardSingleShot[Msg any, Resp any](stream net.Conn, session *Session, cmd msg.CmdType, cmdName string) {
-	var msgData Msg
-	if err := msg.ReadMessage(stream, &msgData); err != nil {
-		log.WithError(err).Error("reading " + cmdName + " message:")
-		return
-	}
-
-	log.Info("forwarding "+cmdName+" to agent", "space_id", session.Id)
-
-	agentConn, err := session.MuxSession.Open()
-	if err != nil {
-		log.WithError(err).Error("opening connection to agent:")
-		msg.WriteMessage(stream, &errorResponse{Error: "Failed to connect to agent"})
-		return
-	}
-	defer agentConn.Close()
-
-	if err := msg.WriteCommand(agentConn, cmd); err != nil {
-		log.WithError(err).Error("writing " + cmdName + " command to agent:")
-		msg.WriteMessage(stream, &errorResponse{Error: "Failed to send command to agent"})
-		return
-	}
-
-	if err := msg.WriteMessage(agentConn, &msgData); err != nil {
-		log.WithError(err).Error("writing " + cmdName + " message to agent:")
-		msg.WriteMessage(stream, &errorResponse{Error: "Failed to send message to agent"})
-		return
-	}
-
-	var response Resp
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("reading " + cmdName + " response from agent:")
-		msg.WriteMessage(stream, &errorResponse{Error: "Failed to read response from agent"})
-		return
-	}
-
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("writing " + cmdName + " response to client:")
-		return
-	}
-
-	log.Info(cmdName + " completed")
-}
-
-func handleGrep(stream net.Conn, session *Session) {
-	forwardSingleShot[msg.GrepMessage, msg.GrepResponse](stream, session, msg.CmdGrep, "grep")
-}
-
-func handleFind(stream net.Conn, session *Session) {
-	forwardSingleShot[msg.FindMessage, msg.FindResponse](stream, session, msg.CmdFind, "find")
-}
-
-func handleSed(stream net.Conn, session *Session) {
-	forwardSingleShot[msg.SedMessage, msg.SedResponse](stream, session, msg.CmdSed, "sed")
-}
-
-func handleEditFile(stream net.Conn, session *Session) {
-	forwardSingleShot[msg.EditFileMessage, msg.EditFileResponse](stream, session, msg.CmdEditFile, "edit")
-}
-
-func handleDeleteFile(stream net.Conn, session *Session) {
-	forwardSingleShot[msg.DeleteFileMessage, msg.DeleteFileResponse](stream, session, msg.CmdDeleteFile, "delete file")
-}
-
-func handlePortForward(stream net.Conn, session *Session) {
-	// Read the port forward message
-	var portCmd msg.PortForwardRequest
-	if err := msg.ReadMessage(stream, &portCmd); err != nil {
-		log.WithError(err).Error("reading port forward message:")
-		return
-	}
-
-	log.Info("forwarding port forward to agent", "local_port", portCmd.LocalPort, "space", portCmd.Space, "remote_port", portCmd.RemotePort, "space_id", session.Id)
-
-	// Open a new connection to the agent to send the port forward command
-	agentConn, err := session.MuxSession.Open()
-	if err != nil {
-		log.WithError(err).Error("opening connection to agent:")
-		response := msg.PortForwardResponse{
-			Success: false,
-			Error:   "Failed to connect to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-	defer agentConn.Close()
-
-	// Send the port forward command to the agent
-	if err := msg.WriteCommand(agentConn, msg.CmdPortForward); err != nil {
-		log.WithError(err).Error("writing port forward command to agent:")
-		response := msg.PortForwardResponse{
-			Success: false,
-			Error:   "Failed to send command to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	if err := msg.WriteMessage(agentConn, &portCmd); err != nil {
-		log.WithError(err).Error("writing port forward message to agent:")
-		response := msg.PortForwardResponse{
-			Success: false,
-			Error:   "Failed to send command message to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	// Read the response from the agent
-	var response msg.PortForwardResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("reading port forward response from agent:")
-		response = msg.PortForwardResponse{
-			Success: false,
-			Error:   "Failed to read response from agent",
-		}
-	}
-
-	// Forward the response back to the client
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("writing port forward response to client:")
-		return
-	}
-
-	log.Info("port forward completed", "local_port", portCmd.LocalPort, "space", portCmd.Space, "remote_port", portCmd.RemotePort, "space_id", session.Id, "success", response.Success)
-}
-
-func handlePortList(stream net.Conn, session *Session) {
-	// Open a new connection to the agent to send the port list command
-	agentConn, err := session.MuxSession.Open()
-	if err != nil {
-		log.WithError(err).Error("opening connection to agent:")
-		response := msg.PortListResponse{
-			Forwards: []msg.PortForwardInfo{},
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-	defer agentConn.Close()
-
-	// Send the port list command to the agent
-	if err := msg.WriteCommand(agentConn, msg.CmdPortList); err != nil {
-		log.WithError(err).Error("writing port list command to agent:")
-		response := msg.PortListResponse{
-			Forwards: []msg.PortForwardInfo{},
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	// Read the response from the agent
-	var response msg.PortListResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("reading port list response from agent:")
-		response = msg.PortListResponse{
-			Forwards: []msg.PortForwardInfo{},
-		}
-	}
-
-	// Forward the response back to the client
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("writing port list response to client:")
-		return
-	}
-}
-
-func handlePortStop(stream net.Conn, session *Session) {
-	// Read the port stop message
-	var portCmd msg.PortStopRequest
-	if err := msg.ReadMessage(stream, &portCmd); err != nil {
-		log.WithError(err).Error("reading port stop message:")
-		return
-	}
-
-	log.Info("forwarding port stop to agent", "local_port", portCmd.LocalPort, "space_id", session.Id)
-
-	// Open a new connection to the agent to send the port stop command
-	agentConn, err := session.MuxSession.Open()
-	if err != nil {
-		log.WithError(err).Error("opening connection to agent:")
-		response := msg.PortStopResponse{
-			Success: false,
-			Error:   "Failed to connect to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-	defer agentConn.Close()
-
-	// Send the port stop command to the agent
-	if err := msg.WriteCommand(agentConn, msg.CmdPortStop); err != nil {
-		log.WithError(err).Error("writing port stop command to agent:")
-		response := msg.PortStopResponse{
-			Success: false,
-			Error:   "Failed to send command to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	if err := msg.WriteMessage(agentConn, &portCmd); err != nil {
-		log.WithError(err).Error("writing port stop message to agent:")
-		response := msg.PortStopResponse{
-			Success: false,
-			Error:   "Failed to send command message to agent",
-		}
-		msg.WriteMessage(stream, &response)
-		return
-	}
-
-	// Read the response from the agent
-	var response msg.PortStopResponse
-	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("reading port stop response from agent:")
-		response = msg.PortStopResponse{
-			Success: false,
-			Error:   "Failed to read response from agent",
-		}
-	}
-
-	// Forward the response back to the client
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("writing port stop response to client:")
-		return
-	}
-
-	log.Info("port stop completed", "local_port", portCmd.LocalPort, "space_id", session.Id, "success", response.Success)
 }
 
 func compareVersionMajorMinor(version1, version2 string) bool {
@@ -1297,4 +891,29 @@ func (s *Session) auditSSHAuth(result msg.SSHAuthResultMessage) {
 	}
 	audit.Log(s.Username, model.AuditActorTypeUser, model.AuditEventSpaceSessionOpen,
 		details, &props)
+}
+
+// templateSyncProject is the sync block of the template's volumes, its
+// variables resolved, for the space's agent to run; nil when there is none
+// or it cannot be read, which is logged.
+func templateSyncProject(template *model.Template, space *model.Space, user *model.User, l logger.Logger) *syncproject.Project {
+	if !strings.Contains(template.Volumes, "sync") {
+		return nil
+	}
+	variables, err := database.GetInstance().GetTemplateVars()
+	if err != nil {
+		l.WithError(err).Warn("template variables unavailable: the template's sync block is not run", "space", space.Name)
+		return nil
+	}
+	volumes, err := model.ResolveVariables(template.Volumes, template, space, user, model.FilterVars(variables))
+	if err != nil {
+		l.WithError(err).Warn("the template's volumes could not be resolved: its sync block is not run", "space", space.Name)
+		return nil
+	}
+	p, err := syncproject.FromVolumes(volumes)
+	if err != nil {
+		l.WithError(err).Warn("the template's sync block is not run", "space", space.Name)
+		return nil
+	}
+	return p
 }

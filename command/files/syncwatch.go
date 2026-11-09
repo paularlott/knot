@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/paularlott/knot/apiclient"
 )
 
@@ -33,30 +32,46 @@ const (
 	pollLive = 5 * time.Minute
 	// rescanEvery is how often the directory is walked in full.
 	rescanEvery = 5 * time.Minute
+
+	// finalFlushFor bounds the last pass a watching sync makes as it is
+	// stopped, sending the local changes not yet sent.
+	finalFlushFor = 5 * time.Second
+	// retryMin and retryMax bound the wait before a pass that failed, the
+	// server restarting for example, is tried again, doubling each time.
+	retryMin = 2 * time.Second
+	retryMax = time.Minute
 )
 
 // eventFollower follows the server's event stream; tests replace it.
 type eventFollower func(ctx context.Context, onEvent func(apiclient.Event), onState func(bool)) error
 
-func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
+// watch runs passes as changes come, after the first, which ended with
+// firstErr. w is the directory's watcher when it was started before the
+// first pass, nil when the directory did not exist then.
+func (s *syncer) watch(ctx context.Context, w dirWatcher, firstErr error, follow eventFollower) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	watchLocal := s.opt.mode != modeDown
 	watchRemote := s.opt.mode != modeUp
 
-	var fsw *fsnotify.Watcher
-	var fsEvents <-chan fsnotify.Event
-	var fsErrors <-chan error
+	// A directory the first pass made was not watched while it ran: look at
+	// all of it once, now that it is.
+	rescan := false
+	var fsEvents <-chan watchEvent
 	if watchLocal {
-		var err error
-		if fsw, err = fsnotify.NewWatcher(); err != nil {
-			return fmt.Errorf("watch %s: %w", s.opt.dir, err)
+		if w == nil {
+			var err error
+			if w, err = newDirWatcher(s); err != nil {
+				return fmt.Errorf("watch %s: %w", s.opt.dir, err)
+			}
+			w.add(s.opt.dir)
+			rescan = true
 		}
-		defer fsw.Close()
-		s.watchTree(fsw, s.opt.dir)
-		fsEvents, fsErrors = fsw.Events, fsw.Errors
+		defer w.close()
+		fsEvents = w.events()
 	}
+	defer s.saveHashes(true)
 
 	// The bucket's event stream says when to ask for its changes.
 	remoteKick := make(chan struct{}, 1)
@@ -104,9 +119,21 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 	s.log.Info("watching for changes (Ctrl+C to stop)", "dir", s.opt.dir, "bucket", remoteName(s.opt.bucket, s.opt.prefix))
 
 	dirty := make(map[string]string) // identity -> rel, local paths to look at
-	rescan := false
 	remoteDue := false
 	var settle <-chan time.Time
+	// A pass that fails is tried again after a while, everything it was to
+	// do, not left for the next change or look at everything.
+	var retryIn time.Duration
+	retry := func() <-chan time.Time {
+		retryIn = min(max(2*retryIn, retryMin), retryMax)
+		return time.After(retryIn)
+	}
+	if worthRetrying(firstErr) {
+		rescan = true
+		settle = retry()
+	} else if rescan {
+		settle = time.After(0)
+	}
 	lastPoll := time.Now()
 	lastRescan := time.Now()
 	tick := time.NewTicker(time.Second)
@@ -115,31 +142,41 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 	for {
 		select {
 		case <-ctx.Done():
+			// Stopped: send what changed here and has not been sent yet,
+			// briefly, rather than leave it behind.
+			if watchLocal {
+				fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finalFlushFor)
+				if err := s.flushLocal(fctx, w, fsEvents, dirty); err != nil {
+					s.log.WithError(err).Warn("stopped before every local change was sent")
+				}
+				cancel()
+			}
 			return nil
+
+		case reply := <-s.opt.flush:
+			// Asked to send every local change now, as a space is about to
+			// stop.
+			var err error
+			if watchLocal {
+				err = s.flushLocal(ctx, w, fsEvents, dirty)
+				dirty, rescan = make(map[string]string), false
+				lastRescan = time.Now()
+				if worthRetrying(err) {
+					rescan = true
+					settle = retry()
+				}
+			}
+			reply <- err
 
 		case ev, ok := <-fsEvents:
 			if !ok {
 				return nil
 			}
-			if s.onFsEvent(fsw, ev, dirty) {
+			if s.onFsEvent(w, ev, dirty) {
 				rescan = true
 			}
 			if settle == nil {
 				settle = time.After(settleTime)
-			}
-
-		case err, ok := <-fsErrors:
-			if !ok {
-				return nil
-			}
-			// Events lost (the kernel queue overflowed): look at everything.
-			if errors.Is(err, fsnotify.ErrEventOverflow) {
-				rescan = true
-				if settle == nil {
-					settle = time.After(settleTime)
-				}
-			} else if err != nil {
-				s.log.WithError(err).Warn("watching the directory")
 			}
 
 		case <-remoteKick:
@@ -159,6 +196,11 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 			if time.Since(lastRescan) >= rescanEvery {
 				rescan = true
 			}
+			// Events lost (a queue overflowed): look at everything.
+			if w != nil && w.takeLost() {
+				s.log.Debug("file system events were lost: looking at every file")
+				rescan = true
+			}
 			if (remoteDue || rescan) && settle == nil {
 				settle = time.After(0)
 			}
@@ -166,6 +208,16 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 		case <-settle:
 			settle = nil
 			ids, full, err := s.gather(ctx, dirty, rescan, remoteDue)
+			if err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
+				// What was to be looked at still is, shortly.
+				s.log.WithError(err).Warn("could not look for changes")
+				s.passed(passCounts{}, err)
+				settle = retry()
+				continue
+			}
 			if remoteDue {
 				lastPoll = time.Now()
 			}
@@ -173,24 +225,81 @@ func (s *syncer) watch(ctx context.Context, follow eventFollower) error {
 				lastRescan = time.Now()
 			}
 			dirty, rescan, remoteDue = make(map[string]string), false, false
-			if err != nil {
-				if ctx.Err() != nil {
-					return nil
-				}
-				s.log.WithError(err).Warn("could not look for changes")
-				continue
-			}
 			if full {
 				ids = nil
 			} else if len(ids) == 0 {
+				retryIn = 0
 				continue
 			}
-			if err := s.pass(ctx, ids); err != nil && ctx.Err() == nil {
+			err = s.pass(ctx, ids)
+			if err != nil && ctx.Err() == nil {
 				s.log.WithError(err).Warn("sync pass incomplete")
 			}
-			s.report()
+			s.passed(s.report(), err)
+			if !worthRetrying(err) || ctx.Err() != nil {
+				retryIn = 0
+				continue
+			}
+			if full {
+				rescan = true
+			} else {
+				for _, id := range ids {
+					if rel := s.relFor(id); rel != "" {
+						dirty[id] = rel
+					}
+				}
+			}
+			settle = retry()
 		}
 	}
+}
+
+// worthRetrying says whether a pass that ended with err has more to do than
+// deletions it refused as too many, which wait on the user, not on time.
+func worthRetrying(err error) bool {
+	if err == nil {
+		return false
+	}
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, e := range j.Unwrap() {
+			if worthRetrying(e) {
+				return true
+			}
+		}
+		return false
+	}
+	var m *massDeleteError
+	return !errors.As(err, &m)
+}
+
+// flushLocal sends what changed locally and has not been synced: the
+// changes seen and, looking at every file, any the watcher has not told of
+// yet (FSEvents reports a moment late).
+func (s *syncer) flushLocal(ctx context.Context, w dirWatcher, fsEvents <-chan watchEvent, dirty map[string]string) error {
+	for drained := false; !drained; {
+		select {
+		case ev, ok := <-fsEvents:
+			if !ok {
+				drained = true
+				continue
+			}
+			s.onFsEvent(w, ev, dirty)
+		default:
+			drained = true
+		}
+	}
+	ids, full, err := s.gather(ctx, dirty, true, false)
+	if err != nil {
+		return err
+	}
+	if full {
+		ids = nil
+	} else if len(ids) == 0 {
+		return nil
+	}
+	err = s.pass(ctx, ids)
+	s.passed(s.report(), err)
+	return err
 }
 
 // gather brings both sides up to date for a pass: the local paths that
@@ -210,6 +319,7 @@ func (s *syncer) gather(ctx context.Context, dirty map[string]string, rescan, re
 		}
 	}
 	if full {
+		s.log.Debug("looking at every local file")
 		s.mu.Lock()
 		err := s.scanLocal()
 		s.mu.Unlock()
@@ -227,7 +337,13 @@ func (s *syncer) gather(ctx context.Context, dirty map[string]string, rescan, re
 	for id, rel := range dirty {
 		seen[id] = true
 		s.mu.Lock()
-		if l := s.statLocal(rel); l != nil {
+		if isDirId(id) {
+			if d := s.statLocalDir(rel); d != nil {
+				s.dirs[s.identity(d.rel)] = d
+			} else {
+				delete(s.dirs, id)
+			}
+		} else if l := s.statLocal(rel); l != nil {
 			s.local[s.identity(l.rel)] = l
 		} else {
 			delete(s.local, id)
@@ -246,6 +362,14 @@ func (s *syncer) gather(ctx context.Context, dirty map[string]string, rescan, re
 func (s *syncer) relFor(id string) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if isDirId(id) {
+		if d := s.dirs[id]; d != nil {
+			return d.rel
+		}
+		if m := s.markers[id]; m != nil {
+			return m.rel
+		}
+	}
 	if l := s.local[id]; l != nil {
 		return l.rel
 	}
@@ -260,58 +384,89 @@ func (s *syncer) relFor(id string) string {
 
 // onFsEvent notes what a file system event touched. It reports true when
 // the change is better found by walking (a directory came or went).
-func (s *syncer) onFsEvent(fsw *fsnotify.Watcher, ev fsnotify.Event, dirty map[string]string) bool {
-	rel, err := filepath.Rel(s.opt.dir, ev.Name)
+func (s *syncer) onFsEvent(w dirWatcher, ev watchEvent, dirty map[string]string) bool {
+	if ev.all {
+		return true
+	}
+	rel, err := filepath.Rel(s.opt.dir, ev.path)
 	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 		return false
 	}
 	rel = filepath.ToSlash(rel)
-	if internalName(filepath.Base(ev.Name)) {
+	if internalName(filepath.Base(ev.path)) {
 		return false
 	}
-	info, statErr := os.Lstat(ev.Name)
+	info, statErr := os.Lstat(ev.path)
 	if statErr == nil && info.IsDir() {
 		if s.excluded(rel, true) {
 			return false
 		}
-		// A new directory: watch it, and walk it for what it already holds.
-		s.watchTree(fsw, ev.Name)
-		return true
+		// A new directory, one changed (its mode), or one whose events were
+		// lost: watch it, and look at it and what it holds, without walking
+		// the rest of the tree.
+		w.add(ev.path)
+		dirty[s.identity(rel+"/")] = rel + "/"
+		s.walkNew(ev.path, dirty)
+		if ev.below {
+			s.dirtyBelow(rel, dirty)
+		}
+		return false
 	}
 	if s.excluded(rel, false) {
 		return false
 	}
-	// A path that is gone may have been a directory: walk if anything was
-	// known below it.
+	// A path that is gone may have been a directory: look again at what was
+	// known below it, and stop watching it.
 	if statErr != nil {
-		s.mu.Lock()
-		prefix := s.identity(rel) + "/"
-		for id := range s.local {
-			if strings.HasPrefix(id, prefix) {
-				s.mu.Unlock()
-				return true
-			}
-		}
-		s.mu.Unlock()
+		s.dirtyBelow(rel, dirty)
+		w.remove(ev.path)
+		dirty[s.identity(rel+"/")] = rel + "/"
 	}
 	dirty[s.identity(rel)] = rel
 	return false
 }
 
-// watchTree watches a directory and those below it that are not excluded.
-func (s *syncer) watchTree(fsw *fsnotify.Watcher, root string) {
-	filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil || !d.IsDir() {
+// dirtyBelow notes every file and folder known below a folder, to look at
+// again.
+func (s *syncer) dirtyBelow(rel string, dirty map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	prefix := s.identity(rel) + "/"
+	for id, l := range s.local {
+		if strings.HasPrefix(id, prefix) {
+			dirty[id] = l.rel
+		}
+	}
+	for id, d := range s.dirs {
+		if strings.HasPrefix(id, prefix) {
+			dirty[id] = d.rel
+		}
+	}
+}
+
+// walkNew notes every file and folder below a directory that has just
+// appeared.
+func (s *syncer) walkNew(dir string, dirty map[string]string) {
+	filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
 			return nil
 		}
-		if p != s.opt.dir {
-			rel, _ := filepath.Rel(s.opt.dir, p)
-			if s.excluded(filepath.ToSlash(rel), true) {
-				return filepath.SkipDir
-			}
+		rel, err := filepath.Rel(s.opt.dir, p)
+		if err != nil {
+			return nil
 		}
-		if err := fsw.Add(p); err != nil {
-			s.log.WithError(err).Warn("cannot watch folder", "dir", s.rel(p))
+		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			if p != dir {
+				if s.excluded(rel, true) {
+					return filepath.SkipDir
+				}
+				dirty[s.identity(rel+"/")] = rel + "/"
+			}
+			return nil
+		}
+		if !internalName(d.Name()) && !s.excluded(rel, false) {
+			dirty[s.identity(rel)] = rel
 		}
 		return nil
 	})

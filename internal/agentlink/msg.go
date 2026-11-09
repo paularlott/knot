@@ -38,6 +38,11 @@ const (
 	CommandJobsRun
 	CommandResolveUserSecret
 	CommandLocked // the reply to a request refused because the space's command line is restricted
+	// Sync projects the agent runs (knot file sync-project); answered by a
+	// handler the agent registers. After CommandLocked, so its value holds.
+	CommandSyncProjectStart
+	CommandSyncProjectStop
+	CommandSyncProjectList
 )
 
 // ErrSpaceLocked is returned for requests the agent refuses because the

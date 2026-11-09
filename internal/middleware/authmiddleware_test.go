@@ -51,9 +51,7 @@ func TestGetBearerToken(t *testing.T) {
 			if tt.authHeader != "" {
 				req.Header.Set("Authorization", tt.authHeader)
 			}
-			w := httptest.NewRecorder()
-
-			token := GetBearerToken(w, req)
+			token := GetBearerToken(req)
 
 			if tt.expectEmpty && token != "" {
 				t.Errorf("Expected empty token, got %q", token)

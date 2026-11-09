@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/paularlott/knot/apiclient"
@@ -201,8 +202,8 @@ func TestFileStatAndPatchHandlers(t *testing.T) {
 		t.Errorf("list markers: %d %+v", rr.Code, list.Markers)
 	}
 
-	patch := func(ranges []testRange, size int64, ifMatch string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest("PATCH", "/api/files/objects/b/dir/file.txt", bytes.NewReader(encodePatch(ranges)))
+	patchKey := func(key string, ranges []testRange, size int64, ifMatch string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("PATCH", "/api/files/objects/b/"+key, bytes.NewReader(encodePatch(ranges)))
 		req = req.WithContext(filesRequest("PATCH", "/", "", user).Context())
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("Content-Type", apiclient.FilePatchContentType)
@@ -211,13 +212,16 @@ func TestFileStatAndPatchHandlers(t *testing.T) {
 			req.Header.Set("If-Match", `"`+ifMatch+`"`)
 		}
 		req.SetPathValue("bucket", "b")
-		req.SetPathValue("key", "dir/file.txt")
+		req.SetPathValue("key", key)
 		rr := httptest.NewRecorder()
 		HandlePatchFileObject(rr, req)
 		return rr
 	}
-	read := func() string {
-		_, c, err := store.OpenObject(t.Context(), p, "carol--b", "dir/file.txt")
+	patch := func(ranges []testRange, size int64, ifMatch string) *httptest.ResponseRecorder {
+		return patchKey("dir/file.txt", ranges, size, ifMatch)
+	}
+	readKey := func(key string) string {
+		_, c, err := store.OpenObject(t.Context(), p, "carol--b", key)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -225,6 +229,7 @@ func TestFileStatAndPatchHandlers(t *testing.T) {
 		b, _ := io.ReadAll(c)
 		return string(b)
 	}
+	read := func() string { return readKey("dir/file.txt") }
 
 	if rr := patch([]testRange{{6, []byte("WORLD")}, {11, []byte("!!")}}, 13, file.ETag); rr.Code != 200 {
 		t.Fatalf("patch: %d %s", rr.Code, rr.Body.String())
@@ -247,4 +252,83 @@ func TestFileStatAndPatchHandlers(t *testing.T) {
 	if rr := patch([]testRange{{3, []byte("abcdef")}}, 5, ""); rr.Code != http.StatusBadRequest {
 		t.Errorf("bad patch: %d %s", rr.Code, rr.Body.String())
 	}
+
+	// Refused before its body is read: a size too large to count with,
+	// and a change to a version no longer there. The body is not read.
+	refusedUnread := func(size, ifMatch string, want int) {
+		t.Helper()
+		body := &unreadBody{}
+		req := httptest.NewRequest("PATCH", "/api/files/objects/b/dir/file.txt", body)
+		req = req.WithContext(filesRequest("PATCH", "/", "", user).Context())
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Content-Type", apiclient.FilePatchContentType)
+		req.Header.Set(apiclient.FileSizeHeader, size)
+		if ifMatch != "" {
+			req.Header.Set("If-Match", `"`+ifMatch+`"`)
+		}
+		req.SetPathValue("bucket", "b")
+		req.SetPathValue("key", "dir/file.txt")
+		rr := httptest.NewRecorder()
+		HandlePatchFileObject(rr, req)
+		if rr.Code != want || body.read {
+			t.Errorf("patch of size %s, If-Match %q: %d, body read %v; want %d unread", size, ifMatch, rr.Code, body.read, want)
+		}
+	}
+	refusedUnread("576460752303423488", "", http.StatusBadRequest)
+	refusedUnread("13", file.ETag, http.StatusPreconditionFailed)
+
+	// Patches without If-Match made at once all land, each made over what
+	// the others left, rather than refusing or undoing each other; one too
+	// large to keep in memory among them.
+	const parts, part = 16, 128 << 10
+	big := bytes.Repeat([]byte("Z"), patchInMemory+1)
+	size := int64(parts*part + len(big))
+	want := []byte(strings.Repeat("-", int(size)))
+	put("dir/many.bin", string(want), nil)
+	copy(want[parts*part:], big)
+	var wg sync.WaitGroup
+	codes := make([]int, parts+1)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		codes[parts] = patchKey("dir/many.bin", []testRange{{parts * part, big}}, size, "").Code
+	}()
+	for i := 0; i < parts; i++ {
+		data := bytes.Repeat([]byte{byte('a' + i)}, part)
+		copy(want[i*part:], data)
+		wg.Add(1)
+		go func(i int, data []byte) {
+			defer wg.Done()
+			codes[i] = patchKey("dir/many.bin", []testRange{{int64(i * part), data}}, size, "").Code
+		}(i, data)
+	}
+	wg.Wait()
+	for i, c := range codes {
+		if c != 200 {
+			t.Errorf("patch %d at once: %d", i, c)
+		}
+	}
+	got := readKey("dir/many.bin")
+	if got == string(want) {
+		return
+	}
+	if len(got) != len(want) {
+		t.Fatalf("after patches at once: %d bytes, want %d", len(got), len(want))
+	}
+	if got[parts*part:] != string(big) {
+		t.Error("the large patch was lost")
+	}
+	for i := 0; i < parts; i++ {
+		if got[i*part:(i+1)*part] != string(want[i*part:(i+1)*part]) {
+			t.Errorf("part %d lost", i)
+		}
+	}
+}
+
+// unreadBody is a request body that notes whether it was read.
+type unreadBody struct{ read bool }
+
+func (b *unreadBody) Read(p []byte) (int, error) {
+	b.read = true
+	return 0, io.EOF
 }

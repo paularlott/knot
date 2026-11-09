@@ -2,6 +2,8 @@ package agent_client
 
 import (
 	"encoding/binary"
+	"errors"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -44,23 +46,31 @@ func startTerminal(conn net.Conn, shell string, client *AgentClient) {
 		return
 	}
 
-	// Kill the process and clean up
+	// Stop the shell and clean up
 	defer func() {
-		if err := cmd.Process.Kill(); err != nil {
-			log.Error("unable to kill shell")
-		}
-		if _, err := cmd.Process.Wait(); err != nil {
-			log.Error("unable to wait for shell to exit")
-		}
-		if err := tty.Close(); err != nil {
-			log.Error("unable to close tty")
-		}
+		stopShell(cmd, tty)
 		if err := conn.Close(); err != nil {
 			log.Error("unable to close connection")
 		}
 	}()
 
 	runTerminal(conn, tty, client)
+}
+
+// stopShell hangs up the shell so it saves its history (see util.HangUpShell), then closes
+// its pty.
+func stopShell(cmd *exec.Cmd, tty *os.File) {
+	exited := make(chan struct{})
+	go func() {
+		cmd.Process.Wait()
+		close(exited)
+	}()
+
+	util.HangUpShell(cmd.Process, tty, exited)
+
+	if err := tty.Close(); err != nil {
+		log.Error("unable to close tty")
+	}
 }
 
 func startVSCodeTunnelTerminal(conn net.Conn, client *AgentClient) {
@@ -101,6 +111,16 @@ func startVSCodeTunnelTerminal(conn net.Conn, client *AgentClient) {
 	}()
 
 	runTerminal(conn, tty, client)
+}
+
+// logTerminalReadError logs a failed read from the terminal connection, unless the connection
+// simply ended. The server closes it when the web terminal is closed and we close it when the
+// shell exits, so EOF and "use of closed network connection" are normal ends of a session.
+func logTerminalReadError(err error, msg string) {
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return
+	}
+	log.WithError(err).Error(msg)
 }
 
 func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
@@ -150,7 +170,7 @@ func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
 		cmdTypeBuf := make([]byte, 1)
 		_, err := conn.Read(cmdTypeBuf)
 		if err != nil {
-			log.WithError(err).Error("failed to read command type:")
+			logTerminalReadError(err, "failed to read command type:")
 			return
 		}
 
@@ -159,7 +179,7 @@ func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
 			// Read the size of the payload
 			sizeBytes := make([]byte, 4)
 			if _, err := conn.Read(sizeBytes); err != nil {
-				log.WithError(err).Error("failed to read size of payload:")
+				logTerminalReadError(err, "failed to read size of payload:")
 				return
 			}
 			payloadSize := binary.BigEndian.Uint32(sizeBytes)
@@ -171,7 +191,7 @@ func runTerminal(conn net.Conn, tty *os.File, client *AgentClient) {
 			for totalRead < payloadSize {
 				n, err := conn.Read(payloadBuf[totalRead:])
 				if err != nil {
-					log.WithError(err).Error("failed to read payload:")
+					logTerminalReadError(err, "failed to read payload:")
 					return
 				}
 				totalRead += uint32(n)

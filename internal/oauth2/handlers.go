@@ -17,6 +17,7 @@ import (
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/mcp"
 )
 
 type TokenResponse struct {
@@ -78,6 +79,13 @@ func HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resource indicators (RFC 8707): a resource, when named, must be
+	// knot's MCP endpoint, the only resource it issues tokens for.
+	if _, desc, ok := checkResourceParams(r, r.URL.Query()["resource"]); !ok {
+		authorizeError(w, r, clientId, redirectURI, r.URL.Query().Get("state"), ErrorInvalidTarget, desc)
+		return
+	}
+
 	// Check if user is authenticated
 	user := r.Context().Value("user")
 	if user == nil {
@@ -89,6 +97,33 @@ func HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	// Show the grant page
 	http.Redirect(w, r, "/oauth/grant?"+r.URL.RawQuery, http.StatusSeeOther)
+}
+
+// authorizeError answers an authorization request that has a valid client
+// and redirect URI but can't be granted. A registered client's redirect URI
+// is known to be its own, so the error goes there as RFC 6749 section
+// 4.1.2.1 describes; an unregistered client's could be anyone's, so it is
+// answered here rather than turning /authorize into an open redirect.
+func authorizeError(w http.ResponseWriter, r *http.Request, clientId, redirectURI, state, code, desc string) {
+	if !strings.HasPrefix(clientId, registeredClientPrefix) {
+		http.Error(w, code+": "+desc, http.StatusBadRequest)
+		return
+	}
+	redirectURL, err := url.Parse(redirectURI)
+	if err != nil {
+		http.Error(w, code+": "+desc, http.StatusBadRequest)
+		return
+	}
+	q := redirectURL.Query()
+	q.Set("error", code)
+	if desc != "" {
+		q.Set("error_description", desc)
+	}
+	if state != "" {
+		q.Set("state", state)
+	}
+	redirectURL.RawQuery = q.Encode()
+	http.Redirect(w, r, redirectURL.String(), http.StatusSeeOther)
 }
 
 // HandleGrant handles the OAuth2 grant approval
@@ -120,9 +155,17 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// The resource is checked again for the same reason, and bound to
+		// the code so /token can hold the client to it.
+		resource, desc, ok := checkResourceParams(r, r.Form["resource"])
+		if !ok {
+			authorizeError(w, r, clientId, redirectURI, state, ErrorInvalidTarget, desc)
+			return
+		}
+
 		// Create authorization code
 		authCodeStore := GetAuthCodeStore()
-		authCode, err := authCodeStore.CreateAuthCode(user.Id, clientId, redirectURI, scope, codeChallenge, codeChallengeMethod)
+		authCode, err := authCodeStore.CreateAuthCode(user.Id, clientId, redirectURI, scope, codeChallenge, codeChallengeMethod, resource)
 		if err != nil {
 			logger.WithError(err).Error("failed to create auth code")
 			http.Error(w, "server_error", http.StatusInternalServerError)
@@ -245,6 +288,15 @@ func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resource indicators (RFC 8707 section 2.2): a resource named here must
+	// be the one bound to the code, or knot's MCP endpoint when the code has
+	// none. The token's audience is that resource either way, so a token is
+	// always bound to the MCP endpoint it was issued for.
+	audience, ok := tokenAudience(w, r, authCode.Resource)
+	if !ok {
+		return
+	}
+
 	name := authCode.ClientId
 	if u, err := url.Parse(authCode.RedirectURI); err == nil {
 		name = u.Hostname()
@@ -257,6 +309,7 @@ func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
 	token := model.NewToken(tokenName, authCode.UserId)
 	token.Scopes = grantedScopes(authCode.Scope)
 	token.RefreshToken = true
+	token.Audience = audience
 
 	db := database.GetInstance()
 	err := db.SaveToken(token)
@@ -315,6 +368,15 @@ func handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A resource named on refresh must be the token's audience (RFC 8707
+	// section 2.2). A token from before audiences were recorded is bound to
+	// the MCP endpoint now, as it would have been when issued.
+	audience, ok := tokenAudience(w, r, refreshToken.Audience)
+	if !ok {
+		return
+	}
+	refreshToken.Audience = audience
+
 	// Save the token to extend its life
 	expiresAfter := time.Now().Add(model.MaxTokenAge)
 	refreshToken.ExpiresAfter = expiresAfter.UTC()
@@ -331,6 +393,29 @@ func handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: refreshToken.Id,
 		Scope:        strings.Join(refreshToken.Scopes, " "),
 	})
+}
+
+// tokenAudience checks the resource parameters of a token request against
+// bound, the resource the code or refresh token is bound to ("" for none),
+// and returns the audience the access token gets: bound, or knot's MCP
+// endpoint when nothing was bound. On a mismatch it writes invalid_target
+// and returns false.
+func tokenAudience(w http.ResponseWriter, r *http.Request, bound string) (string, bool) {
+	audience := bound
+	if audience == "" {
+		audience = MCPResource(r)
+	}
+	for _, v := range r.Form["resource"] {
+		strict := config.GetServerConfig().URL != ""
+		if !validResourceIndicator(v) || !sameResource(v, audience, strict) {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
+				Error:            ErrorInvalidTarget,
+				ErrorDescription: "resource does not match the resource this grant is for",
+			})
+			return "", false
+		}
+	}
+	return audience, true
 }
 
 type AuthorizationServerMetadata struct {
@@ -397,26 +482,24 @@ func HandleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, metadata)
 }
 
-type ProtectedResourceMetadata struct {
-	Resource               string   `json:"resource" msgpack:"resource"`
-	AuthorizationServers   []string `json:"authorization_servers" msgpack:"authorization_servers"`
-	ScopesSupported        []string `json:"scopes_supported" msgpack:"scopes_supported"`
-	BearerMethodsSupported []string `json:"bearer_methods_supported" msgpack:"bearer_methods_supported"`
-	ResourceName           string   `json:"resource_name,omitempty" msgpack:"resource_name,omitempty"`
-}
-
-// HandleProtectedResourceMetadata serves the RFC 9728 metadata for the MCP
-// endpoint, which tells MCP clients where to authorize.
-func HandleProtectedResourceMetadata(w http.ResponseWriter, r *http.Request) {
-	baseURL := BaseURL(r)
-
-	rest.WriteResponse(http.StatusOK, w, r, ProtectedResourceMetadata{
-		Resource:               baseURL + "/mcp",
-		AuthorizationServers:   []string{baseURL},
-		ScopesSupported:        []string{model.ScopeMCP},
-		BearerMethodsSupported: []string{"header"},
-		ResourceName:           "knot",
-	})
+// ResourceServer describes knot's /mcp endpoint as an OAuth 2.1 protected
+// resource (RFC 9728): it serves the protected resource metadata and builds
+// the spec-shaped 401/403 Bearer challenges the auth middleware answers /mcp
+// refusals with. The resource and authorization server follow BaseURL, so
+// they track the configured server URL or, without one, the request's host.
+// Tokens are validated by the auth middleware, so ValidateToken is not set
+// and Protect/Authenticate are not used.
+var ResourceServer = &mcp.ResourceServer{
+	// Resource is only the fallback; ResourceFunc supplies the absolute URL.
+	// Its path places the metadata at /.well-known/oauth-protected-resource/mcp.
+	Resource:     "/mcp",
+	ResourceFunc: func(r *http.Request) string { return BaseURL(r) + "/mcp" },
+	AuthorizationServersFunc: func(r *http.Request) []string {
+		return []string{BaseURL(r)}
+	},
+	ScopesSupported: []string{model.ScopeMCP},
+	ResourceName:    "Knot",
+	MetadataURLFunc: ProtectedResourceMetadataURL,
 }
 
 type OpenIDConfiguration struct {

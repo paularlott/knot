@@ -3,7 +3,6 @@ package agent_client
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"time"
 
@@ -68,16 +67,19 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	var err error
 
 	if execMsg.IsSystemCall {
-		// System calls (startup, health checks) bypass the pool — they use
-		// io.Discard output and are one-shot.
+		// System calls (startup and shutdown scripts) bypass the pool and are
+		// one-shot. What they print goes to the agent's output and to the
+		// space's log, as their logging does.
 		var customLogger logger.Logger = nil
 		if agentClient != nil {
 			customLogger = NewAgentClientLogger(agentClient, "knot_script")
 		}
+		out := newScriptOutput(agentClient, "knot_script")
+		defer out.Close()
 		env, cleanup, err = service.NewAgentScriptlingEnv(client, userId, service.AgentScriptlingOptions{
 			Argv:   execMsg.Arguments,
 			Logger: customLogger,
-			Output: io.Discard, // system scripts (startup/shutdown) — output discarded
+			Output: out,
 		})
 		if cleanup != nil {
 			defer cleanup()

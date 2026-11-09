@@ -20,6 +20,7 @@ import {
   localVolumeSpecCompletions,
   nomadJobCompletions,
   nomadVolumeSpecCompletions,
+  syncSpecCompletions,
   templateVariableCompletions,
 } from "./specCompletions.js";
 import { scriptLibraries } from "./scriptCompletions.js";
@@ -617,6 +618,7 @@ window.templateForm = function (isEdit, templateId, isDuplicate = false) {
           ...(this.isSpecYaml()
             ? localVolumeSpecCompletions
             : nomadVolumeSpecCompletions),
+          ...syncSpecCompletions,
           ...templateVariableCompletions,
         ],
       );

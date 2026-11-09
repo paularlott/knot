@@ -43,10 +43,13 @@ func onMkdir(ctx context.Context, w *response, userHandle Handler) error {
 
 	newFolder := append(path, string(obj.Filename))
 	newFolderPath := fs.Join(newFolder...)
-	if s, err := fs.Stat(newFolderPath); err == nil {
-		if s.IsDir() {
-			return &NFSStatusError{NFSStatusExist, nil}
-		}
+	// knot: checked and made under a lock on the name (see lockName), and
+	// anything already there is EXIST; upstream checked for a folder only,
+	// and went on to make one where a file was.
+	unlock := lockName(newFolderPath)
+	defer unlock()
+	if _, err := fs.Lstat(newFolderPath); err == nil {
+		return &NFSStatusError{NFSStatusExist, os.ErrExist}
 	} else {
 		if s, err := fs.Stat(fs.Join(path...)); err != nil {
 			return &NFSStatusError{NFSStatusAccess, err}

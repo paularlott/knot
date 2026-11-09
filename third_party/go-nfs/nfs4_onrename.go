@@ -57,6 +57,8 @@ func nfs4OnRename(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	if err := source.fs.Rename(oldPath, newPath); err != nil {
 		return nfs4StatusFromErr(err)
 	}
+	// knot: open and lock state follows the file (see rename).
+	c.w.Server.nfs4State().rename(oldPath, newPath)
 	if err := c.handler.InvalidateHandle(source.fs, oldHandle); err != nil {
 		return nfs4ErrServerFault
 	}

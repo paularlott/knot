@@ -2244,7 +2244,7 @@ const scriptlingLibraries = [
             name: "tools",
             signature: "tools()",
             description: "List available tools.",
-            returns: "list[dict[str, Any]] - List of tool dicts with name, description, inputSchema, is_app. is_app is True when the tool is an MCP Apps view (linked to a ui:// resource): a host UI renders its view when it is called.",
+            returns: "list[dict[str, Any]] - List of tool dicts with name, title, description, inputSchema, is_app, read_only, destructive, idempotent, open_world. is_app is True when the tool is an MCP Apps view (linked to a ui:// resource): a host UI renders its view when it is called. title is the tool's display name (\"\" when none). read_only, destructive, idempotent and open_world are the server's behaviour hints, named as mcp.tool declares them: True, False, or None when the server did not state one (treat a None destructive or open_world as True). They are the server's claims, not guarantees.",
           },
           {
             name: "call_tool",
@@ -2286,13 +2286,13 @@ const scriptlingLibraries = [
             name: "call_tools_parallel",
             signature: "call_tools_parallel(calls)",
             description: "Execute multiple tools concurrently.",
-            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success.",
+            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success; for a JSON-RPC error or a tool execution error (isError) it holds the message (\"MCP tool error: ...\" for the latter) and \"result\" is None. One failed call does not raise.",
           },
           {
             name: "execute_discovered_parallel",
             signature: "execute_discovered_parallel(calls)",
             description: "Execute multiple discovered tools concurrently.",
-            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success.",
+            returns: "list[dict[str, Any]] - List of dicts with \"name\", \"result\", and \"error\" keys. \"error\" is an empty string on success; for a JSON-RPC error or a tool execution error (isError) it holds the message (\"MCP tool error: ...\" for the latter) and \"result\" is None. One failed call does not raise.",
           },
           {
             name: "list_resources",
@@ -2323,6 +2323,12 @@ const scriptlingLibraries = [
             signature: "get_prompt(name, arguments)",
             description: "Render a prompt by name into messages for the model.",
             returns: "dict[str, Any] - dict with \"description\" and \"messages\" (a list of {\"role\": ..., \"content\": ...})",
+          },
+          {
+            name: "complete",
+            signature: "complete(ref, argument, value=\"\", context=None)",
+            description: "Ask the server for argument completions (completion/complete).",
+            returns: "dict[str, Any] - dict with \"values\" (list of str, at most 100), \"total\" (int or None) and \"hasMore\" (bool)",
           },
           {
             name: "close",
@@ -2438,6 +2444,12 @@ const scriptlingLibraries = [
         name: "return_error",
         signature: "return_error(message)",
         description: "Return an error from the tool and stop execution.",
+        returns: "None",
+      },
+      {
+        name: "progress",
+        signature: "progress(progress, total=None, message=None)",
+        description: "Report progress to the MCP client.",
         returns: "None",
       },
     ],
@@ -4718,6 +4730,10 @@ const scriptlingLibraries = [
           name: "context",
           description: "dict[str, Any]",
         },
+        {
+          name: "auth",
+          description: "Optional[dict[str, Any]]",
+        },
         ],
       },
       {
@@ -4906,21 +4922,27 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "register_request_tool",
-        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False, ui=None, icons=None)",
+        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False, ui=None, icons=None, title=None, read_only=None, destructive=None, idempotent=None, open_world=None)",
         description: "Register an MCP tool for this request.",
         returns: "None",
       },
       {
         name: "register_request_resource",
-        signature: "register_request_resource(uri, handler, name=\"\", description=\"\", mime_type=\"\", template=False)",
+        signature: "register_request_resource(uri, handler, name=\"\", description=\"\", mime_type=\"\", template=False, complete=None)",
         description: "Register an MCP resource for this request.",
         returns: "None",
       },
       {
         name: "register_request_prompt",
-        signature: "register_request_prompt(name, handler, description=\"\", arguments=None)",
+        signature: "register_request_prompt(name, handler, description=\"\", arguments=None, complete=None)",
         description: "Register an MCP prompt for this request.",
         returns: "None",
+      },
+      {
+        name: "notify_resource_updated",
+        signature: "notify_resource_updated(uri)",
+        description: "Tell subscribed MCP clients a resource changed.",
+        returns: "bool - True if an MCP server is running to send it, False otherwise",
       },
       {
         name: "transport",
@@ -4930,19 +4952,19 @@ const scriptlingLibraries = [
       },
       {
         name: "tool",
-        signature: "tool(description, params=None, keywords=None, discoverable=False, ui=None, icons=None)",
+        signature: "tool(description, params=None, keywords=None, discoverable=False, ui=None, icons=None, title=None, read_only=None, destructive=None, idempotent=None, open_world=None)",
         description: "Decorator for MCP tools.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },
       {
         name: "resource",
-        signature: "resource(uri, name=\"\", description=\"\", mime_type=\"\", template=False)",
+        signature: "resource(uri, name=\"\", description=\"\", mime_type=\"\", template=False, complete=None)",
         description: "Decorator for MCP resources.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },
       {
         name: "prompt",
-        signature: "prompt(description=\"\", arguments=None)",
+        signature: "prompt(description=\"\", arguments=None, complete=None)",
         description: "Decorator for MCP prompts.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },

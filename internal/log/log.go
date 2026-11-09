@@ -15,34 +15,42 @@ var (
 	// externalWriter holds the httpWriter when external logging is
 	// configured, so Flush can drain it.
 	externalWriter io.Writer
+
+	// localLogger is the configured logger itself; defaultLogger wraps it
+	// to copy what Tee asks for.
+	localLogger logger.Logger
 )
 
 func init() {
 	// Initialize with default configuration
-	defaultLogger = logslog.New(logslog.Config{
+	localLogger = logslog.New(logslog.Config{
 		Level:  "info",
 		Format: "console",
 		Writer: os.Stderr,
 	})
+	defaultLogger = teeLogger{main: localLogger}
+	copyMin.Store(rankInfo)
 	// The pipeline logger carries records promised to the external service
 	// (audit events, forwarded space logs, tunnel requests). It shares the
 	// main logger's writer but is never level-filtered: log.level filters
 	// server diagnostics, not data the operator asked to be delivered.
-	pipelineLogger = defaultLogger
+	pipelineLogger = localLogger
 }
 
 // Configure sets up the logger with the given settings
 // Call this early in your main() function
 func Configure(level, format string, writer io.Writer) {
+	copyMin.Store(int32(levelRank(level)))
 	if writer == nil {
 		writer = os.Stderr
 	}
 
-	defaultLogger = logslog.New(logslog.Config{
+	localLogger = logslog.New(logslog.Config{
 		Level:  level,
 		Format: format,
 		Writer: writer,
 	})
+	defaultLogger = teeLogger{main: localLogger}
 	pipelineLogger = logslog.New(logslog.Config{
 		Level:  "info",
 		Format: format,
@@ -59,6 +67,7 @@ func Configure(level, format string, writer io.Writer) {
 //   - token: sent as "Authorization: Bearer <token>"; takes precedence over
 //     basic auth when both are configured.
 func ConfigureWithHTTP(level, url, format, stream, username, password, token string) {
+	copyMin.Store(int32(levelRank(level)))
 	if format == "" {
 		format = "ndjson"
 	}
@@ -72,11 +81,12 @@ func ConfigureWithHTTP(level, url, format, stream, username, password, token str
 	writer := newHTTPWriter(url, format, stream, nil, username, password, token)
 	externalWriter = writer
 
-	defaultLogger = logslog.New(logslog.Config{
+	localLogger = logslog.New(logslog.Config{
 		Level:  level,
 		Format: "json",
 		Writer: writer,
 	})
+	defaultLogger = teeLogger{main: localLogger}
 	pipelineLogger = logslog.New(logslog.Config{
 		Level:  "info",
 		Format: "json",

@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/filestore"
 )
 
@@ -81,8 +82,14 @@ func (b *storeBackend) DeleteBucket(_ context.Context, name string) error {
 	return storeErr(b.store.DeleteBucket(b.p, b.bucket(name), false))
 }
 
+// toObject is the file as the API describes it: modified when its mtime
+// says, changed when it was saved.
 func toObject(o *filestore.Object) *Object {
-	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, SHA256: o.SHA256, ContentType: o.ContentType, ModifiedAt: o.ModifiedAt, Meta: o.Meta}
+	modified := o.ModifiedAt
+	if t, ok := apiclient.ParseMtime(o.Meta[metaMtime]); ok {
+		modified = t
+	}
+	return &Object{Key: o.Key, Size: o.Size, ETag: o.ETag, SHA256: o.SHA256, ContentType: o.ContentType, ModifiedAt: modified, ChangedAt: o.ModifiedAt, Meta: o.Meta}
 }
 
 // patches counts the patches made, so tests can tell a file was changed in
@@ -130,6 +137,17 @@ func (b *storeBackend) Patch(ctx context.Context, bucket, key string, ranges []R
 	if ifMatch != "" && ifMatch != o.ETag {
 		return nil, errPrecondition
 	}
+	// As the server: everything past the stored file's end must be sent.
+	pos := int64(len(base))
+	for _, r := range ranges {
+		if r.Offset > pos && pos < size {
+			return nil, syscall.EINVAL
+		}
+		pos = max(pos, r.Offset+r.Length)
+	}
+	if pos < size {
+		return nil, syscall.EINVAL
+	}
 	out := make([]byte, size)
 	copy(out, base)
 	for _, r := range ranges {
@@ -173,12 +191,15 @@ func (b *storeBackend) List(_ context.Context, bucket, prefix, delimiter, after 
 	return out, nil
 }
 
-func (b *storeBackend) ReadAt(ctx context.Context, bucket, key string, p []byte, off int64) (int, error) {
-	_, c, err := b.store.OpenObject(ctx, b.p, b.bucket(bucket), key)
+func (b *storeBackend) ReadAt(ctx context.Context, bucket, key, etag string, p []byte, off int64) (int, error) {
+	o, c, err := b.store.OpenObject(ctx, b.p, b.bucket(bucket), key)
 	if err != nil {
 		return 0, storeErr(err)
 	}
 	defer c.Close()
+	if etag != "" && o.ETag != etag {
+		return 0, errPrecondition
+	}
 	if _, err := c.Seek(off, io.SeekStart); err != nil {
 		return 0, err
 	}
@@ -189,10 +210,14 @@ func (b *storeBackend) ReadAt(ctx context.Context, bucket, key string, p []byte,
 	return n, err
 }
 
-func (b *storeBackend) Get(ctx context.Context, bucket, key string) (io.ReadCloser, *Object, error) {
+func (b *storeBackend) Get(ctx context.Context, bucket, key, etag string) (io.ReadCloser, *Object, error) {
 	o, c, err := b.store.OpenObject(ctx, b.p, b.bucket(bucket), key)
 	if err != nil {
 		return nil, nil, storeErr(err)
+	}
+	if etag != "" && o.ETag != etag {
+		c.Close()
+		return nil, nil, errPrecondition
 	}
 	return c, toObject(o), nil
 }

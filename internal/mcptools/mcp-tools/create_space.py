@@ -72,7 +72,7 @@ try:
                         "name": port_name,
                         "port": port_number,
                         "protocol": protocol,
-                        "url": f"https://{username.lower()}--{name.lower()}--{port_number}{domain}",
+                        "url": "https://" + knot.server.host_label(username, name, port_number) + domain,
                     })
 except Exception:
     pass

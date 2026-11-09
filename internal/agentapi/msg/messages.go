@@ -65,6 +65,7 @@ const (
 	CmdUpdateJobs
 	CmdResolveUserSecret
 	CmdUpdateRestrictions
+	CmdSyncFlush // the server asks the agent's sync projects to send their local changes, as the space is about to stop
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {
@@ -146,13 +147,18 @@ func readPayload(conn net.Conn, timeout time.Duration) ([]byte, error) {
 	return payloadBuf, nil
 }
 
+// RegistrationReplyTimeout is how long an agent waits for the server to
+// answer its registration: the server looks the space up in its database
+// before it answers, which a busy database may slow.
+const RegistrationReplyTimeout = 30 * time.Second
+
 // ReadRegistrationReply reads the next message after a Register and returns
 // whichever arrives: a RegisterChallenge from a key-checking server, or the
 // final RegisterResponse — including one sent directly by a pre-handshake
 // server during a rolling upgrade. The two are told apart by their shape
 // (a challenge carries ServerNonce and no Success).
 func ReadRegistrationReply(conn net.Conn) (*RegisterChallenge, *RegisterResponse, error) {
-	payload, err := readPayload(conn, 5*time.Second)
+	payload, err := readPayload(conn, RegistrationReplyTimeout)
 	if err != nil {
 		return nil, nil, err
 	}

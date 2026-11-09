@@ -368,12 +368,91 @@ func (sm *nfs4StateManager) dropClientLocked(clientID uint64) {
 func (sm *nfs4StateManager) dropStateLocked(st *nfs4State) {
 	delete(sm.states, st.id.Other)
 	key := nfs4OwnerKey{st.kind, st.owner}
-	if files, ok := sm.byOwner[key]; ok {
+	if files, ok := sm.byOwner[key]; ok && files[st.path] == st {
 		delete(files, st.path)
 		if len(files) == 0 {
 			delete(sm.byOwner, key)
 		}
 	}
+}
+
+// rename moves the state of the file or folder at from, and of the files
+// below it, to to, with their locks. The state of what was at to, which the
+// rename replaced, is kept, as its holders may yet present its stateids,
+// but no longer under a path, so nothing new finds it.
+//
+// knot: added. Upstream kept state under the old path, so a lock stateid
+// presented for a renamed file was NFS4ERR_BAD_STATEID: the Mac's client
+// renames a file removed while open to ".nfs...", and, its locks refused,
+// it took the server to have lost its state and reclaimed its opens again
+// and again, each answered NFS4ERR_NO_GRACE, hanging the mount.
+func (sm *nfs4StateManager) rename(from, to string) {
+	if from == to {
+		return
+	}
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	var moving, replaced []*nfs4State
+	for _, st := range sm.states {
+		if _, ok := pathBelow(st.path, from); ok {
+			moving = append(moving, st)
+		} else if _, ok := pathBelow(st.path, to); ok {
+			replaced = append(replaced, st)
+		}
+	}
+	for _, st := range replaced {
+		sm.movePathLocked(st, "")
+	}
+	for _, st := range moving {
+		rest, _ := pathBelow(st.path, from)
+		sm.movePathLocked(st, to+rest)
+	}
+	if l, ok := sm.locker.(LockPaths); ok {
+		l.Rename(from, to)
+	}
+}
+
+// removed lets go of the state of the file or folder at path, and of the
+// files below it, which are gone: their holders may yet present their
+// stateids, but nothing new finds them by the path, and their locks are
+// dropped.
+//
+// knot: added. Upstream kept them under the path, and a file made later
+// with the same name took on the locks of the one removed, which no one
+// would ever release (the holder's unlock finds no file): the Mac's client,
+// many processes making folders at once, removes and remakes the "._" file
+// beside a folder while another holds a lock on it, and every process
+// waiting for that lock waited forever.
+func (sm *nfs4StateManager) removed(path string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	for _, st := range sm.states {
+		if _, ok := pathBelow(st.path, path); ok {
+			sm.movePathLocked(st, "")
+		}
+	}
+	if l, ok := sm.locker.(LockPaths); ok {
+		l.Remove(path)
+	}
+}
+
+// movePathLocked files st under path, or under none when path is "".
+func (sm *nfs4StateManager) movePathLocked(st *nfs4State, path string) {
+	key := nfs4OwnerKey{st.kind, st.owner}
+	if files := sm.byOwner[key]; files != nil && files[st.path] == st {
+		delete(files, st.path)
+		if len(files) == 0 {
+			delete(sm.byOwner, key)
+		}
+	}
+	st.path = path
+	if path == "" {
+		return
+	}
+	if sm.byOwner[key] == nil {
+		sm.byOwner[key] = make(map[string]*nfs4State)
+	}
+	sm.byOwner[key][path] = st
 }
 
 // ownerStateLocked returns owner's state of the given kind for path,
@@ -399,7 +478,16 @@ func (sm *nfs4StateManager) ownerStateLocked(kind nfs4StateKind, owner nfs4Owner
 // given kind, renewing its client's lease. A stateid from before a server
 // restart is NFS4ERR_STALE_STATEID, and one of a client whose lease has
 // expired NFS4ERR_EXPIRED.
+//
+// knot: a special stateid (all zeros or all ones) names no state, and is
+// NFS4ERR_BAD_STATEID where state is needed (RFC 7530 9.1.4.3). It was
+// NFS4ERR_STALE_STATEID, its zero "boot" not this server's, which tells the
+// client the server restarted. The Mac's client sends the zero stateid to
+// LOCK a file it has lost its open of.
 func (sm *nfs4StateManager) findLocked(kind nfs4StateKind, id nfs4StateID) (*nfs4State, nfs4Status) {
+	if id.Other == nfs4AnonymousStateID.Other || id.Other == nfs4BypassStateID.Other {
+		return nil, nfs4ErrBadStateID
+	}
 	if binary.BigEndian.Uint32(id.Other[0:4]) != sm.boot {
 		return nil, nfs4ErrStaleStateID
 	}
@@ -494,6 +582,18 @@ func (sm *nfs4StateManager) close(id nfs4StateID) (nfs4StateID, nfs4Status) {
 func (sm *nfs4StateManager) lock(open nfs4StateID, owner nfs4Owner, path string, r LockRange) (nfs4StateID, *nfs4LockDenied, nfs4Status) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
+	// knot: a lock under the anonymous stateid, no open behind it, is
+	// granted as any other. The Mac's client sends one for a file it has
+	// lost its open of (one process closing it as another locks it), and
+	// refused, it takes the server to have lost its state and reclaims its
+	// opens over and over, every process using the mount hung. Locks are
+	// advisory; what one needs is its owner's client, which is checked.
+	if open == nfs4AnonymousStateID {
+		if status := sm.checkClientLocked(owner.ClientID); status != nfs4OK {
+			return nfs4StateID{}, nil, status
+		}
+		return sm.lockLocked(owner, path, r)
+	}
 	st, status := sm.findLocked(nfs4OpenState, open)
 	if status != nfs4OK {
 		return nfs4StateID{}, nil, status
@@ -548,6 +648,23 @@ func (sm *nfs4StateManager) unlock(id nfs4StateID, path string, r LockRange) (nf
 
 	if err := sm.locker.Unlock(st.owner.lockerOwner(), path, r); err != nil {
 		return nfs4StateID{}, nfs4LockerStatus(err)
+	}
+	return st.advance(), nfs4OK
+}
+
+// unlockGone releases a range held under a lock stateid on a file that is
+// gone, by the stateid alone (see nfs4OnPutFH).
+func (sm *nfs4StateManager) unlockGone(id nfs4StateID, r LockRange) (nfs4StateID, nfs4Status) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	st, status := sm.findLocked(nfs4LockState, id)
+	if status != nfs4OK {
+		return nfs4StateID{}, status
+	}
+	if sm.locker != nil && st.path != "" {
+		if err := sm.locker.Unlock(st.owner.lockerOwner(), st.path, r); err != nil {
+			return nfs4StateID{}, nfs4LockerStatus(err)
+		}
 	}
 	return st.advance(), nfs4OK
 }

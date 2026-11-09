@@ -167,7 +167,11 @@ document.addEventListener(
     if (e.target && e.target.closest && e.target.closest('[data-escape-local]')) return;
     // Inside a code editor the first Escape is the editor's own (it arms Tab
     // to leave the editor, see ace-a11y.js); a second one closes as usual.
-    if (e.target && e.target.closest && e.target.closest('.ace_editor') && !e.target.closest('[data-ace-esc-armed]')) return;
+    // Editors where Tab already leaves (prose fields) close on the first.
+    if (
+      e.target && e.target.closest && e.target.closest('.ace_editor') &&
+      !e.target.closest('[data-ace-esc-armed], [data-ace-tab-exits]')
+    ) return;
     // If the discard dialog is open, Esc cancels it (and must not also close
     // the dirty form behind it).
     if (Alpine.store('discardDialog').show) {

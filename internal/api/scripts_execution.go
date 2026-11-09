@@ -23,6 +23,8 @@ type UnifiedScriptExecuteRequest struct {
 }
 
 func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
+	// The script may run for minutes, past the server's usual write deadline.
+	rest.NoDeadlines(w)
 	spaceId := r.PathValue("space_id")
 
 	request := UnifiedScriptExecuteRequest{}

@@ -14,6 +14,14 @@
 import knot.apiclient as api
 import urllib.parse
 
+
+# How long calls the server answers only once the space's agent has acted wait,
+# in seconds: file work may take the agent ten minutes, a script it runs six,
+# starting a port forward or a tunnel thirty seconds.
+_FILE_WORK_TIMEOUT = 660
+_SCRIPT_TIMEOUT = 420
+_AGENT_REPLY_TIMEOUT = 60
+
 # Capture builtin list type before the module-level def list() below shadows it.
 # Used by isinstance(x, _builtin_list) checks elsewhere in this file.
 _builtin_list = list
@@ -724,7 +732,7 @@ def run(name, command, args=None, timeout=30, workdir=""):
         "workdir": workdir
     }
 
-    response = api.post(f"/api/spaces/{_enc(name)}/run-command", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/run-command", body, timeout=timeout + 60)
     return response.get("output", "")
 
 
@@ -749,7 +757,7 @@ def run_script(name, script_name, args=None):
         "arguments": args or []
     }
 
-    response = api.post(f"/api/spaces/{_enc(name)}/execute-script", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/execute-script", body, timeout=_SCRIPT_TIMEOUT)
     return {
         "output": response.get("output", ""),
         "exit_code": response.get("exit_code", 0)
@@ -783,7 +791,7 @@ def eval(name, code, args=None):
         "arguments": args or []
     }
 
-    response = api.post(f"/api/spaces/{_enc(name)}/execute-script", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/execute-script", body, timeout=_SCRIPT_TIMEOUT)
     return {
         "output": response.get("output", ""),
         "error": response.get("error", ""),
@@ -812,7 +820,7 @@ def read_file(name, file_path, offset=0, limit=0):
         body["offset"] = offset
     if limit > 0:
         body["limit"] = limit
-    response = api.post(f"/api/spaces/{_enc(name)}/files/read", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/read", body, timeout=_FILE_WORK_TIMEOUT)
     return response.get("content", "")
 
 
@@ -848,7 +856,7 @@ def write_file(name, file_path, content, mode="overwrite", mtime_ns=None, file_p
         body["mtime_ns"] = mtime_ns
     if file_perm is not None:
         body["file_perm"] = file_perm
-    api.post(f"/api/spaces/{_enc(name)}/files/write", body)
+    api.post(f"/api/spaces/{_enc(name)}/files/write", body, timeout=_FILE_WORK_TIMEOUT)
     return True
 
 
@@ -888,7 +896,7 @@ def grep(name, pattern, path, literal=False, recursive=False, ignore_case=False,
         body["glob"] = glob
     if workdir:
         body["workdir"] = workdir
-    response = api.post(f"/api/spaces/{_enc(name)}/files/grep", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/grep", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "grep failed"))
     return response.get("matches", [])
@@ -929,7 +937,7 @@ def find(name, path=".", recursive=True, type="any", name_glob="", mtime_min=Non
         follow_links=follow_links, max_depth=max_depth, workdir=workdir,
         include_metadata=False,
     )
-    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "find failed"))
     return response.get("paths", [])
@@ -984,7 +992,7 @@ def find_entries(name, path=".", recursive=True, type="any", name_glob="", mtime
         include_metadata=True, include_hash=include_hash,
         include_symlinks=include_symlinks,
     )
-    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/find", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "find failed"))
     return response.get("entries", [])
@@ -1058,7 +1066,7 @@ def sed_replace(name, old, new, path, recursive=False, ignore_case=False,
         body["glob"] = glob
     if workdir:
         body["workdir"] = workdir
-    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "sed replace failed"))
     return response.get("files_modified", 0)
@@ -1100,7 +1108,7 @@ def sed_replace_pattern(name, pattern, new, path, recursive=False, ignore_case=F
         body["glob"] = glob
     if workdir:
         body["workdir"] = workdir
-    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "sed replace_pattern failed"))
     return response.get("files_modified", 0)
@@ -1139,7 +1147,7 @@ def sed_extract(name, pattern, path, recursive=False, ignore_case=False,
         body["glob"] = glob
     if workdir:
         body["workdir"] = workdir
-    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/sed", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "sed extract failed"))
     return response.get("matches", [])
@@ -1177,7 +1185,7 @@ def edit_file(name, file_path, search, replace, workdir=""):
     }
     if workdir:
         body["workdir"] = workdir
-    response = api.post(f"/api/spaces/{_enc(name)}/files/edit", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/edit", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "edit failed"))
     return response.get("bytes_written", 0)
@@ -1211,7 +1219,7 @@ def delete_file(name, file_path, recursive=False, workdir=""):
     }
     if workdir:
         body["workdir"] = workdir
-    response = api.post(f"/api/spaces/{_enc(name)}/files/delete", body)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/delete", body, timeout=_FILE_WORK_TIMEOUT)
     if not response.get("success", False):
         raise Exception(response.get("error", "delete failed"))
     return response.get("removed", 0)
@@ -1243,7 +1251,7 @@ def port_forward(source_space, local_port, remote_space, remote_port, persistent
         "persistent": persistent,
         "force": force,
     }
-    api.post(f"/space-io/{_enc(source_space)}/port/forward", body)
+    api.post(f"/space-io/{_enc(source_space)}/port/forward", body, timeout=_AGENT_REPLY_TIMEOUT)
     return True
 
 
@@ -1262,7 +1270,7 @@ def port_list(name):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/space-io/{_enc(name)}/port/list")
+    response = api.get(f"/space-io/{_enc(name)}/port/list", timeout=_AGENT_REPLY_TIMEOUT)
 
     result = []
     for fwd in response.get("forwards", []):
@@ -1289,7 +1297,7 @@ def port_stop(name, local_port):
         Exception if not configured or on API error
     """
     body = {"local_port": local_port}
-    api.post(f"/space-io/{_enc(name)}/port/stop", body)
+    api.post(f"/space-io/{_enc(name)}/port/stop", body, timeout=_AGENT_REPLY_TIMEOUT)
     return True
 
 
@@ -1325,7 +1333,7 @@ def port_throttle(name, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, t
         "down": down,
         "reset": reset,
     }
-    api.post(f"/space-io/{_enc(name)}/port/throttle", body)
+    api.post(f"/space-io/{_enc(name)}/port/throttle", body, timeout=_AGENT_REPLY_TIMEOUT)
     return True
 
 
@@ -1356,7 +1364,7 @@ def port_apply(source_space, forwards):
         Exception if not configured or on API error
     """
     body = {"forwards": forwards}
-    return api.post(f"/space-io/{_enc(source_space)}/port/apply", body)
+    return api.post(f"/space-io/{_enc(source_space)}/port/apply", body, timeout=_AGENT_REPLY_TIMEOUT)
 
 
 def _space_id(space):
@@ -1402,7 +1410,7 @@ def tunnel_start(space, protocol, port, name, server="", token=""):
             raise Exception("both server and token are required to target another server")
         body["server"] = server
         body["token"] = token
-    response = api.post(f"/space-io/{_enc(space_id)}/tunnel/start", body)
+    response = api.post(f"/space-io/{_enc(space_id)}/tunnel/start", body, timeout=_AGENT_REPLY_TIMEOUT)
     if response and not response.get("success", True):
         raise Exception(response.get("error", "failed to start tunnel"))
     return response.get("url", "") if response else ""
@@ -1426,7 +1434,7 @@ def tunnel_list(space):
         Exception if not configured or on API error
     """
     space_id = _space_id(space)
-    response = api.get(f"/space-io/{_enc(space_id)}/tunnel/list")
+    response = api.get(f"/space-io/{_enc(space_id)}/tunnel/list", timeout=_AGENT_REPLY_TIMEOUT)
     return response.get("tunnels", []) if response else []
 
 
@@ -1444,5 +1452,5 @@ def tunnel_stop(space, name):
         Exception if not configured or on API error
     """
     space_id = _space_id(space)
-    api.post(f"/space-io/{_enc(space_id)}/tunnel/stop", {"name": name})
+    api.post(f"/space-io/{_enc(space_id)}/tunnel/stop", {"name": name}, timeout=_AGENT_REPLY_TIMEOUT)
     return True

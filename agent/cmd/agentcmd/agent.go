@@ -231,6 +231,12 @@ var agentServerCmd = &cli.Command{
 		// Open agent connection to the server
 		agentClient := agent_client.NewAgentClient(cfg.Endpoint, cfg.SpaceID)
 		agent_client.SetAgentClient(agentClient)
+		// The agent's records go to its output, the container's log, and to
+		// the space's log too.
+		log.Tee(agent_client.NewSpaceLogCopy(agentClient, "knot_agent"))
+		// Startup scripts can run as the agent connects, before its sync
+		// projects start: knot.files.sync waits for them.
+		knotscriptling.ExpectSyncProjectAgent()
 		agentClient.ConnectAndServe()
 
 		// Start the syslog server if enabled
@@ -272,6 +278,11 @@ var agentServerCmd = &cli.Command{
 		// scripts.
 		spacejobs.SetLogger(agent_client.NewAgentClientLogger(agentClient, "knot_jobs"))
 		spacejobs.Start()
+
+		// Run sync projects: the template's sync block, and those started
+		// with knot file sync-project start, which are started again here.
+		syncProjects := startSyncProjects(ctx, agentClient)
+		knotscriptling.SetSyncProjectAgent(syncProjectAgent{syncProjects})
 
 		// Install the methods registrar globally for the lifetime of the daemon.
 		// Any script that runs in the agent (startup scripts, `knot methods
@@ -318,6 +329,8 @@ var agentServerCmd = &cli.Command{
 
 		agenttunnel.StopAll()
 		spacejobs.Stop()
+		knotscriptling.SetSyncProjectAgent(nil)
+		syncProjects.StopAll()
 		agentlink.StopCommandSocket()
 		agentlink.SetMethodsScriptRunner(nil)
 		agentClient.Shutdown()

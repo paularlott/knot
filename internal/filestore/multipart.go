@@ -238,6 +238,19 @@ func (s *Store) readParts(id string) []PartInfo {
 
 // CompleteMultipart assembles the listed parts into the object.
 func (s *Store) CompleteMultipart(p *Principal, bucket, key, id string, parts []CompletedPart, modifiedBy string) (*Object, error) {
+	return s.completeMultipart(p, bucket, key, id, parts, PutOptions{ModifiedBy: modifiedBy}, false)
+}
+
+// CompleteUpload assembles the listed parts into the object as a write of
+// the whole file would be made: only if it still has the ETag cond.IfMatch,
+// or none with cond.IfNoneMatch, and with the POSIX attributes it was not
+// given kept from the file it replaces (FillFileAttrs). It is how the knot
+// command completes an upload sent in parts.
+func (s *Store) CompleteUpload(p *Principal, bucket, key, id string, parts []CompletedPart, cond PutOptions) (*Object, error) {
+	return s.completeMultipart(p, bucket, key, id, parts, cond, true)
+}
+
+func (s *Store) completeMultipart(p *Principal, bucket, key, id string, parts []CompletedPart, cond PutOptions, fillAttrs bool) (*Object, error) {
 	up, err := s.loadUpload(p, bucket, key, id)
 	if err != nil {
 		return nil, err
@@ -291,11 +304,17 @@ func (s *Store) CompleteMultipart(p *Principal, bucket, key, id string, parts []
 		tw.discard()
 		return nil, err
 	}
-	o, err := s.commitContent(p, bucket, key, stagedFile(tw), etag, limit, PutOptions{
+	opts := PutOptions{
 		ContentType: up.ContentType,
 		Meta:        up.Meta,
-		ModifiedBy:  modifiedBy,
-	})
+		ModifiedBy:  cond.ModifiedBy,
+		IfMatch:     cond.IfMatch,
+		IfNoneMatch: cond.IfNoneMatch,
+	}
+	if fillAttrs {
+		s.FillFileAttrs(p, bucket, key, &opts)
+	}
+	o, err := s.commitContent(p, bucket, key, stagedFile(tw), etag, limit, opts)
 	if err != nil {
 		return nil, err
 	}

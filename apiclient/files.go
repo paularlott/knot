@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -76,6 +78,10 @@ type FileObjectInfo struct {
 	SHA256      string    `json:"sha256" msgpack:"sha256"`
 	ContentType string    `json:"content_type" msgpack:"content_type"`
 	ModifiedAt  time.Time `json:"modified_at" msgpack:"modified_at"`
+	// ChangedAt is when this version of the file was saved, its content
+	// or metadata changed: unlike ModifiedAt, not the time a client gave
+	// it. Zero from servers that do not say.
+	ChangedAt time.Time `json:"changed_at,omitzero" msgpack:"changed_at,omitempty"`
 	// Meta is the file's user metadata, as S3 x-amz-meta-*: its mtime and,
 	// for a file written over NFS, its mode and inode number.
 	Meta map[string]string `json:"meta,omitempty" msgpack:"meta,omitempty"`
@@ -157,6 +163,28 @@ type FileMoveResponse struct {
 	Moved int `json:"moved" msgpack:"moved"`
 }
 
+// FileSnapshotRequest copies a folder and everything below it, as it was at
+// one moment, to a new folder, on the server: no content is transferred.
+// Source "" is the whole bucket. The destination must not exist.
+type FileSnapshotRequest struct {
+	SourceBucket string `json:"source_bucket" msgpack:"source_bucket"`
+	Source       string `json:"source" msgpack:"source"`
+	DestBucket   string `json:"dest_bucket" msgpack:"dest_bucket"`
+	Dest         string `json:"dest" msgpack:"dest"`
+}
+
+// FileSnapshot is a snapshot made, as its manifest records it.
+type FileSnapshot struct {
+	Files        int       `json:"files" msgpack:"files"`
+	Folders      int       `json:"folders" msgpack:"folders"`
+	Bytes        int64     `json:"bytes" msgpack:"bytes"`
+	TakenAt      time.Time `json:"taken_at" msgpack:"taken_at"`
+	SourceBucket string    `json:"source_bucket" msgpack:"source_bucket"`
+	SourcePath   string    `json:"source_path" msgpack:"source_path"`
+	// Manifest is the key of the manifest written last into the snapshot.
+	Manifest string `json:"manifest" msgpack:"manifest"`
+}
+
 // FileShareTargets lists who a bucket can be shared with.
 type FileShareTargets struct {
 	Users  []FileShareUser  `json:"users" msgpack:"users"`
@@ -187,9 +215,89 @@ type FileUsage struct {
 // seconds, the same form rclone stores in x-amz-meta-mtime.
 const FileMtimeHeader = "X-Knot-Mtime"
 
+// FileChangedHeader carries when an object's version was saved (see
+// FileObjectInfo.ChangedAt), as FileMtimeHeader does its modification time.
+const FileChangedHeader = "X-Knot-Changed"
+
 // FileMetaHeaderPrefix starts the headers carrying an object's user metadata
 // on GET, HEAD and PUT, one header per key (cf. S3's x-amz-meta-).
 const FileMetaHeaderPrefix = "X-Knot-Meta-"
+
+// FileModeMeta is the metadata key holding a file's mode: the POSIX st_mode,
+// file type and permissions, in octal as rclone --metadata writes it
+// ("100755"), so modes round-trip through rclone. Knot before 0.42 wrote the
+// decimal form s3fs uses; knot admin file fsck --repair rewrites those.
+const FileModeMeta = "mode"
+
+// POSIX st_mode file types, the same on every platform knot runs on.
+const (
+	stIFMT  = 0o170000
+	stIFREG = 0o100000
+	stIFDIR = 0o040000
+	stIFLNK = 0o120000
+)
+
+// FormatFileMode renders a mode as FileModeMeta holds it.
+func FormatFileMode(mode os.FileMode) string {
+	typ := uint64(stIFREG)
+	switch {
+	case mode&os.ModeSymlink != 0:
+		typ = stIFLNK
+	case mode&os.ModeDir != 0:
+		typ = stIFDIR
+	}
+	return strconv.FormatUint(typ|uint64(mode&os.ModePerm), 8)
+}
+
+// ParseFileMode reads the mode kept in meta: its permission bits, with
+// os.ModeSymlink for a link. ok is false when meta holds none, or holds
+// something that is not a file's, folder's or link's mode.
+func ParseFileMode(meta map[string]string) (mode os.FileMode, ok bool) {
+	v, found := meta[FileModeMeta]
+	if !found {
+		return 0, false
+	}
+	m, err := strconv.ParseUint(strings.TrimSpace(v), 8, 32)
+	if err != nil || m > 0o177777 {
+		return 0, false
+	}
+	switch m & stIFMT {
+	case 0, stIFREG, stIFDIR:
+	case stIFLNK:
+		mode = os.ModeSymlink
+	default:
+		return 0, false
+	}
+	return mode | os.FileMode(m)&os.ModePerm, true
+}
+
+// FileAttrs are the attributes an upload records with a file's content. A
+// zero field is not recorded: an upload without a mode keeps the mode of the
+// file it replaces.
+type FileAttrs struct {
+	Mtime time.Time
+	Mode  os.FileMode // permission bits, with os.ModeSymlink for a link
+}
+
+// setHeaders adds the attributes to an upload's headers.
+func (a FileAttrs) setHeaders(headers map[string]string) {
+	if !a.Mtime.IsZero() {
+		headers[FileMtimeHeader] = FormatMtime(a.Mtime)
+	}
+	if a.Mode != 0 {
+		headers[FileMetaHeaderPrefix+FileModeMeta] = FormatFileMode(a.Mode)
+	}
+}
+
+// LocalFileAttrs are the attributes of a local file an upload records: its
+// modification time and, where the platform has them, its permission bits.
+func LocalFileAttrs(info os.FileInfo) FileAttrs {
+	attrs := FileAttrs{Mtime: info.ModTime()}
+	if runtime.GOOS != "windows" {
+		attrs.Mode = info.Mode().Perm()
+	}
+	return attrs
+}
 
 // FileWriterHeader names the client making a change, so change events can
 // say who made each (see SetWriter).
@@ -347,6 +455,14 @@ func (c *ApiClient) MoveFileObjects(ctx context.Context, req FileMoveRequest) (i
 	return response.Moved, err
 }
 
+// SnapshotFileFolder copies a folder, as it was at one moment, to a new
+// folder on the server, without transferring any content.
+func (c *ApiClient) SnapshotFileFolder(ctx context.Context, req FileSnapshotRequest) (*FileSnapshot, error) {
+	response := &FileSnapshot{}
+	_, err := c.httpClient.Post(ctx, "/api/files/snapshot", &req, response, 200)
+	return response, err
+}
+
 // FilesFsck asks the server to check file storage, with no time limit as a
 // deep check of a large store takes a while. req and out are a
 // filestore.FsckOptions and filestore.FsckReport; it needs the permission to
@@ -408,15 +524,13 @@ func (c *ApiClient) ListFileChanges(ctx context.Context, bucket, prefix, cursor 
 // without sending it. ok is false when the server does not hold the content:
 // the caller uploads it instead. ifMatch, when set, is the ETag the file
 // must still have; ifAbsent writes only if there is no file.
-func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string, mtime time.Time, ifMatch string, ifAbsent bool) (*FileObjectInfo, bool, error) {
+func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string, attrs FileAttrs, ifMatch string, ifAbsent bool) (*FileObjectInfo, bool, error) {
 	hc, err := c.rawClient()
 	if err != nil {
 		return nil, false, err
 	}
 	headers := map[string]string{FileReuseHeader: sha, "Content-Type": "application/octet-stream"}
-	if !mtime.IsZero() {
-		headers[FileMtimeHeader] = FormatMtime(mtime)
-	}
+	attrs.setHeaders(headers)
 	if ifMatch != "" {
 		headers["If-Match"] = `"` + ifMatch + `"`
 	}
@@ -441,19 +555,19 @@ func (c *ApiClient) ReuseFileObject(ctx context.Context, bucket, key, sha string
 
 // PutFileObjectIfMatch uploads content only if the file still has the ETag
 // etag: otherwise it fails with an error IsPreconditionFailed recognises.
-func (c *ApiClient) PutFileObjectIfMatch(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, etag string) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, false, etag, nil)
+func (c *ApiClient) PutFileObjectIfMatch(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs, etag string) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, attrs, false, etag, nil)
 }
 
 // PutFileObject uploads content of the given size (-1 if unknown).
-func (c *ApiClient) PutFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time) (*FileObjectInfo, error) {
-	return c.putFileObject(ctx, bucket, key, body, size, contentType, mtime, false)
+func (c *ApiClient) PutFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs) (*FileObjectInfo, error) {
+	return c.putFileObject(ctx, bucket, key, body, size, contentType, attrs, false)
 }
 
 // PutFileObjectIfAbsent is PutFileObject that leaves an existing file alone:
 // it fails with an error IsPreconditionFailed recognises.
-func (c *ApiClient) PutFileObjectIfAbsent(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time) (*FileObjectInfo, error) {
-	return c.putFileObject(ctx, bucket, key, body, size, contentType, mtime, true)
+func (c *ApiClient) PutFileObjectIfAbsent(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs) (*FileObjectInfo, error) {
+	return c.putFileObject(ctx, bucket, key, body, size, contentType, attrs, true)
 }
 
 // IsPreconditionFailed reports whether err is the server refusing a
@@ -462,20 +576,16 @@ func IsPreconditionFailed(err error) bool {
 	return rest.IsStatus(err, http.StatusPreconditionFailed)
 }
 
-func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, mtime, ifAbsent, "", nil)
+func (c *ApiClient) putFileObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs, ifAbsent bool) (*FileObjectInfo, error) {
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, attrs, ifAbsent, "", nil)
 }
 
 // PutFileObjectMeta uploads an object with user metadata (FileObjectInfo.Meta).
 func (c *ApiClient) PutFileObjectMeta(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, meta map[string]string) (*FileObjectInfo, error) {
-	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, time.Time{}, false, "", meta)
+	return c.putFileObjectCond(ctx, bucket, key, body, size, contentType, FileAttrs{}, false, "", meta)
 }
 
-func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, mtime time.Time, ifAbsent bool, ifMatch string, meta map[string]string) (*FileObjectInfo, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
+func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string, attrs FileAttrs, ifAbsent bool, ifMatch string, meta map[string]string) (*FileObjectInfo, error) {
 
 	headers := map[string]string{"Content-Type": contentType}
 	for k, v := range meta {
@@ -484,9 +594,7 @@ func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, b
 	if contentType == "" {
 		headers["Content-Type"] = "application/octet-stream"
 	}
-	if !mtime.IsZero() {
-		headers[FileMtimeHeader] = FormatMtime(mtime)
-	}
+	attrs.setHeaders(headers)
 	if ifAbsent {
 		headers["If-None-Match"] = "*"
 	}
@@ -494,7 +602,7 @@ func (c *ApiClient) putFileObjectCond(ctx context.Context, bucket, key string, b
 		headers["If-Match"] = `"` + ifMatch + `"`
 	}
 
-	resp, err := hc.DoRaw(ctx, http.MethodPut, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), body, size, headers)
+	resp, err := c.doTransfer(ctx, http.MethodPut, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), body, size, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -529,10 +637,6 @@ func (c *ApiClient) ListFileObjectsMarkers(ctx context.Context, bucket, prefix, 
 // the server, so only what changed is sent. With ifMatch, only if the object
 // still has that ETag.
 func (c *ApiClient) PatchFileObject(ctx context.Context, bucket, key string, ranges []FileRange, size int64, ifMatch, contentType string, meta map[string]string) (*FileObjectInfo, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
 	var parts []io.Reader
 	var length int64
 	for _, rg := range ranges {
@@ -555,7 +659,7 @@ func (c *ApiClient) PatchFileObject(ctx context.Context, bucket, key string, ran
 	for k, v := range meta {
 		headers[FileMetaHeaderPrefix+k] = v
 	}
-	resp, err := hc.DoRaw(ctx, http.MethodPatch, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), io.MultiReader(parts...), length, headers)
+	resp, err := c.doTransfer(ctx, http.MethodPatch, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), io.MultiReader(parts...), length, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -594,10 +698,16 @@ func ObjectInfoFromHeaders(key string, h http.Header, size int64) *FileObjectInf
 		SHA256:      h.Get("X-Knot-Sha256"),
 		ContentType: h.Get("Content-Type"),
 	}
+	lastModified, lmErr := http.ParseTime(h.Get("Last-Modified"))
 	if t, ok := ParseMtime(h.Get(FileMtimeHeader)); ok {
 		info.ModifiedAt = t
-	} else if t, err := http.ParseTime(h.Get("Last-Modified")); err == nil {
-		info.ModifiedAt = t
+	} else if lmErr == nil {
+		info.ModifiedAt = lastModified
+	}
+	if t, ok := ParseMtime(h.Get(FileChangedHeader)); ok {
+		info.ChangedAt = t
+	} else if lmErr == nil {
+		info.ChangedAt = lastModified
 	}
 	for k, v := range h {
 		if len(v) > 0 && len(k) > len(FileMetaHeaderPrefix) && strings.EqualFold(k[:len(FileMetaHeaderPrefix)], FileMetaHeaderPrefix) {
@@ -612,13 +722,15 @@ func ObjectInfoFromHeaders(key string, h http.Header, size int64) *FileObjectInf
 
 // GetFileObjectRange downloads length bytes of an object from offset; the
 // caller closes the body.
-func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, offset, length int64) (*http.Response, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
-	}
+//
+// With ifMatch, an ETag, it is read only if the object still has it, a
+// 412 error otherwise.
+func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, offset, length int64, ifMatch string) (*http.Response, error) {
 	headers := map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", offset, offset+length-1)}
-	resp, err := hc.DoRaw(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
+	if ifMatch != "" {
+		headers["If-Match"] = `"` + ifMatch + `"`
+	}
+	resp, err := c.doTransfer(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -635,11 +747,17 @@ func (c *ApiClient) GetFileObjectRange(ctx context.Context, bucket, key string, 
 
 // GetFileObject downloads an object; the caller closes the body.
 func (c *ApiClient) GetFileObject(ctx context.Context, bucket, key string) (*http.Response, error) {
-	hc, err := c.rawClient()
-	if err != nil {
-		return nil, err
+	return c.GetFileObjectIf(ctx, bucket, key, "")
+}
+
+// GetFileObjectIf downloads an object if it still has the ETag ifMatch (any
+// version when empty), a 412 error otherwise; the caller closes the body.
+func (c *ApiClient) GetFileObjectIf(ctx context.Context, bucket, key, ifMatch string) (*http.Response, error) {
+	var headers map[string]string
+	if ifMatch != "" {
+		headers = map[string]string{"If-Match": `"` + ifMatch + `"`}
 	}
-	resp, err := hc.DoRaw(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, nil)
+	resp, err := c.doTransfer(ctx, http.MethodGet, "/api/files/objects/"+url.PathEscape(bucket)+"/"+escapeKey(key), nil, 0, headers)
 	if err != nil {
 		return nil, err
 	}

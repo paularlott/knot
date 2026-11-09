@@ -123,8 +123,18 @@ def is_configured():
     return _get_client() is not None
 
 
-def get(path, params=None):
-    """Make a GET request to the Knot API."""
+# DEFAULT_TIMEOUT is how many seconds a request waits for the server's answer,
+# unless it gives its own: longer for one the server answers only once a space
+# has done some work.
+DEFAULT_TIMEOUT = 30
+
+# CONTENT_TIMEOUT is the default for get_bytes and put_bytes, which carry file
+# content.
+CONTENT_TIMEOUT = 600
+
+
+def get(path, params=None, timeout=DEFAULT_TIMEOUT):
+    """Make a GET request to the Knot API, waiting up to timeout seconds."""
     import requests as req
 
     client = _get_client()
@@ -144,7 +154,8 @@ def get(path, params=None):
     resp = req.get(
         url,
         headers={"Authorization": "Bearer " + client["token"], "Content-Type": "application/json", "Accept": "application/json"},
-        verify=not client["insecure"]
+        verify=not client["insecure"],
+        timeout=timeout
     )
 
     if resp.status_code >= 400:
@@ -153,8 +164,8 @@ def get(path, params=None):
     return resp.json()
 
 
-def post(path, body=None):
-    """Make a POST request to the Knot API."""
+def post(path, body=None, timeout=DEFAULT_TIMEOUT):
+    """Make a POST request to the Knot API, waiting up to timeout seconds."""
     import requests as req
     import json
 
@@ -169,7 +180,8 @@ def post(path, body=None):
         url,
         headers=headers,
         data=json.dumps(body) if body else None,
-        verify=not client["insecure"]
+        verify=not client["insecure"],
+        timeout=timeout
     )
 
     if resp.status_code >= 400:
@@ -180,8 +192,8 @@ def post(path, body=None):
     return None
 
 
-def put(path, body=None):
-    """Make a PUT request to the Knot API."""
+def put(path, body=None, timeout=DEFAULT_TIMEOUT):
+    """Make a PUT request to the Knot API, waiting up to timeout seconds."""
     import requests as req
     import json
 
@@ -196,7 +208,8 @@ def put(path, body=None):
         url,
         headers=headers,
         data=json.dumps(body) if body else None,
-        verify=not client["insecure"]
+        verify=not client["insecure"],
+        timeout=timeout
     )
 
     if resp.status_code >= 400:
@@ -207,8 +220,9 @@ def put(path, body=None):
     return None
 
 
-def delete(path, headers=None):
-    """Make a DELETE request to the Knot API, with any extra request headers."""
+def delete(path, headers=None, timeout=DEFAULT_TIMEOUT):
+    """Make a DELETE request to the Knot API, with any extra request headers,
+    waiting up to timeout seconds."""
     import requests as req
 
     client = _get_client()
@@ -225,7 +239,8 @@ def delete(path, headers=None):
     resp = req.delete(
         url,
         headers=headers,
-        verify=not client["insecure"]
+        verify=not client["insecure"],
+        timeout=timeout
     )
 
     if resp.status_code >= 400:
@@ -236,8 +251,9 @@ def delete(path, headers=None):
     return None
 
 
-def get_bytes(path):
-    """Make a GET request to the Knot API and return the response body as bytes."""
+def get_bytes(path, timeout=CONTENT_TIMEOUT):
+    """Make a GET request to the Knot API and return the response body as bytes,
+    waiting up to timeout seconds."""
     import requests as req
 
     client = _get_client()
@@ -247,7 +263,8 @@ def get_bytes(path):
     resp = req.get(
         client["url"] + path,
         headers={"Authorization": "Bearer " + client["token"]},
-        verify=not client["insecure"]
+        verify=not client["insecure"],
+        timeout=timeout
     )
 
     if resp.status_code >= 400:
@@ -256,8 +273,9 @@ def get_bytes(path):
     return resp.content
 
 
-def put_bytes(path, data, content_type=""):
-    """Make a PUT request to the Knot API with a str or bytes body (file content)."""
+def put_bytes(path, data, content_type="", timeout=CONTENT_TIMEOUT):
+    """Make a PUT request to the Knot API with a str or bytes body (file content),
+    waiting up to timeout seconds."""
     import requests as req
 
     client = _get_client()
@@ -277,7 +295,8 @@ def put_bytes(path, data, content_type=""):
             "Accept": "application/json",
         },
         data=data,
-        verify=not client["insecure"]
+        verify=not client["insecure"],
+        timeout=timeout
     )
 
     if resp.status_code >= 400:

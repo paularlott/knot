@@ -2103,6 +2103,8 @@ paths:
               $ref: "#/components/headers/FileSha256"
             X-Knot-Mtime:
               $ref: "#/components/headers/FileMtime"
+            X-Knot-Changed:
+              $ref: "#/components/headers/FileChanged"
           content:
             "*/*":
               schema:
@@ -2119,6 +2121,8 @@ paths:
               $ref: "#/components/headers/FileSha256"
             X-Knot-Mtime:
               $ref: "#/components/headers/FileMtime"
+            X-Knot-Changed:
+              $ref: "#/components/headers/FileChanged"
             Content-Range:
               schema:
                 type: string
@@ -2293,6 +2297,217 @@ paths:
           $ref: "#/components/responses/service-unavailable"
       security: [BearerAuth: []]
 
+  /api/files/uploads/{bucket}/{key}:
+    post:
+      tags:
+        - File Storage
+      summary: Start or Complete Upload in Parts
+      description: |
+        Upload a large file in parts, so an upload stopped part way can carry on from the
+        parts already sent. Parts are held by the server that received them, for a week,
+        until the upload is completed or aborted; carry an upload on through the same server.
+
+        Without `upload_id`, starts an upload of the file at the key. It takes the headers a
+        PUT of the whole file takes (`Content-Type`, `X-Knot-Mtime`, `X-Knot-Meta-*`) and
+        answers with the `upload_id`.
+
+        With `upload_id` and `complete`, makes the parts named in the body, in order, the
+        file, as one write: `If-Match` and `If-None-Match: *` apply as they do to a PUT, and
+        attributes not given (such as the mode) are kept from the file it replaces. Answers
+        with the file, as a PUT does.
+      operationId: startOrCompleteFileUpload
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: false
+          description: The upload to complete.
+          schema:
+            type: string
+        - name: complete
+          in: query
+          required: false
+          description: Present, with `upload_id`, to complete the upload.
+          schema:
+            type: string
+        - name: If-Match
+          in: header
+          required: false
+          description: On completing, only replace the file if its current ETag is this value.
+          schema:
+            type: string
+        - name: If-None-Match
+          in: header
+          required: false
+          description: On completing, `*` to write only if there is no file at the key.
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileUploadComplete"
+      responses:
+        "200":
+          description: The upload started (`upload_id`), or the file made from its parts.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FileUpload"
+                  - $ref: "#/components/schemas/FileObject"
+        "400":
+          description: A part named is not held, or not in order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          description: The bucket, or the upload, is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "412":
+          description: The file does not have the ETag given in `If-Match`, or exists with `If-None-Match`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+    put:
+      tags:
+        - File Storage
+      summary: Upload Part
+      description: |
+        Send one part of an upload, numbered from 1; the body is the part's content. A part
+        sent again replaces the one held. With `X-Knot-Part-Sha256`, the part's SHA-256 in
+        hex, a part that does not match is refused. Parts count against the bucket owner's
+        quota as they arrive.
+      operationId: uploadFilePart
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: part
+          in: query
+          required: true
+          description: The part's number, from 1 to 10000.
+          schema:
+            type: integer
+        - name: X-Knot-Part-Sha256
+          in: header
+          required: false
+          description: The part's SHA-256 in hex.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: The part, as held.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUploadPart"
+        "400":
+          description: The part's number is not valid, or its content does not match its checksum.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          description: The upload is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "413":
+          description: The bucket owner's quota would be exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+    get:
+      tags:
+        - File Storage
+      summary: List Upload Parts
+      description: The parts of an upload this server holds, so an upload stopped part way can carry on.
+      operationId: listFileUploadParts
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The parts held.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FileUploadPart"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          description: The upload is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+    delete:
+      tags:
+        - File Storage
+      summary: Abort Upload
+      description: Discard an upload in parts and the parts held.
+      operationId: abortFileUpload
+      parameters:
+        - $ref: "#/components/parameters/FileBucketName"
+        - $ref: "#/components/parameters/FileObjectKey"
+        - name: upload_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The upload was discarded.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          description: The upload is not known to this server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+      security: [BearerAuth: []]
+
   /api/files/copy:
     post:
       tags:
@@ -2386,6 +2601,69 @@ paths:
           $ref: "#/components/responses/not-found"
         "409":
           description: A file already exists at the destination and `overwrite` was not set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/files/snapshot:
+    post:
+      tags:
+        - File Storage
+      summary: Snapshot Folder
+      description: |
+        Copy a folder and everything under it, as it was at one moment, to a new folder in
+        the same bucket or another, on the server and without moving any content. Every
+        file is read at once, so the copy holds no file older or newer than the rest however
+        much is written to the folder meanwhile. A `source` of `""` is the whole bucket.
+
+        The destination must not exist. Its files are written in batches and so appear over
+        a moment; the manifest, `.knot-snapshot.json`, is written last, and a failure takes
+        away what was written. The destination bucket's owner is charged for every file, as
+        for a copy. A snapshot holds what the server holds: writes not yet saved to it are
+        not in it.
+
+        The caller needs read access to the source bucket and write access to the
+        destination.
+      operationId: snapshotFileFolder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileSnapshotRequest"
+      responses:
+        "200":
+          description: The snapshot made, as its manifest records it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileSnapshot"
+        "400":
+          description: A field is missing, a key is invalid, or the destination is inside the source.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "409":
+          description: |
+            The destination already exists, or files in the folder were replaced as the
+            snapshot was made, too fast for it to share their content: try again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "413":
+          description: The destination owner's storage quota would be exceeded.
           content:
             application/json:
               schema:
@@ -2587,7 +2865,9 @@ paths:
       summary: OAuth Protected Resource Metadata
       description: |
         Returns the RFC 9728 metadata for the MCP endpoint. Unauthenticated requests to `/mcp`
-        are answered with a `WWW-Authenticate` header pointing here. Also served at
+        are answered 401 with a `WWW-Authenticate: Bearer` challenge pointing here (with
+        `error="invalid_token"` when the bearer token sent was refused); a token whose scopes
+        exclude `mcp` is answered 403 with `error="insufficient_scope"`. Also served at
         `/.well-known/oauth-protected-resource`.
       operationId: getProtectedResourceMetadata
       responses:
@@ -2667,6 +2947,19 @@ paths:
           description: An opaque value used to maintain state between the request and callback
           schema:
             type: string
+        - name: resource
+          in: query
+          required: false
+          description: |
+            Resource indicator (RFC 8707): the resource the token is for. It must be an absolute
+            URI without a fragment naming this server's MCP endpoint (`<server URL>/mcp`, the
+            `resource` of the protected resource metadata); the scheme and host compare
+            case-insensitively and a trailing slash is ignored. Any other value is refused with
+            the `invalid_target` error, sent to a registered client's redirect URI, otherwise
+            answered with 400. The resource is bound to the authorization code.
+          schema:
+            type: string
+            format: uri
       responses:
         "302":
           description: Redirect to authorization grant page or redirect URI
@@ -2693,24 +2986,36 @@ paths:
               type: object
               required:
                 - grant_type
-                - code
-                - client_id
-                - redirect_uri
               properties:
                 grant_type:
                   type: string
-                  enum: [authorization_code]
-                  description: Must be "authorization_code"
+                  enum: [authorization_code, refresh_token]
+                  description: The grant type
                 code:
                   type: string
-                  description: The authorization code received from the authorization server
+                  description: The authorization code received from the authorization server (authorization_code grant, required)
                 client_id:
                   type: string
                   description: The client identifier
                 redirect_uri:
                   type: string
                   format: uri
-                  description: The redirect URI used in the authorization request
+                  description: The redirect URI used in the authorization request (authorization_code grant, required)
+                code_verifier:
+                  type: string
+                  description: The PKCE (RFC 7636) code verifier, for the authorization_code grant
+                refresh_token:
+                  type: string
+                  description: The refresh token, for the refresh_token grant
+                resource:
+                  type: string
+                  format: uri
+                  description: |
+                    Resource indicator (RFC 8707), for the authorization_code and refresh_token
+                    grants. When given it must name the resource the authorization code or
+                    refresh token is bound to (this server's MCP endpoint), or the request is
+                    refused with `invalid_target`. Whether given or not, the access token is
+                    issued for this server's MCP endpoint and is refused by any other resource.
       responses:
         "200":
           description: Access token granted successfully
@@ -2744,7 +3049,7 @@ paths:
                   error:
                     type: string
                     enum:
-                      [invalid_request, invalid_grant, unsupported_grant_type]
+                      [invalid_request, invalid_grant, invalid_target, unsupported_grant_type]
                     description: Error code
                   error_description:
                     type: string
@@ -12966,6 +13271,37 @@ components:
           type: string
           format: date-time
           description: The file's own modification time when known (from `X-Knot-Mtime`), otherwise the upload time.
+        changed_at:
+          type: string
+          format: date-time
+          description: When this version of the file was saved, its content or metadata changed. Unlike `modified_at`, never a time a client gave.
+
+    FileUpload:
+      type: object
+      properties:
+        upload_id:
+          type: string
+          description: The upload, to send its parts and complete it with.
+    FileUploadPart:
+      type: object
+      properties:
+        number:
+          type: integer
+        etag:
+          type: string
+          description: The part's MD5 in hex.
+        size:
+          type: integer
+          format: int64
+    FileUploadComplete:
+      type: object
+      required: [parts]
+      properties:
+        parts:
+          type: array
+          description: The parts that make the file, in order, each by number and ETag.
+          items:
+            $ref: "#/components/schemas/FileUploadPart"
 
     FileObjectList:
       type: object
@@ -13069,6 +13405,53 @@ components:
           type: integer
           description: How many files were moved.
 
+    FileSnapshotRequest:
+      type: object
+      required:
+        - source_bucket
+        - dest_bucket
+        - dest
+      properties:
+        source_bucket:
+          type: string
+          description: The bucket to snapshot from, short or full name.
+        source:
+          type: string
+          description: The folder to snapshot, with or without a trailing slash; empty for the whole bucket.
+        dest_bucket:
+          type: string
+          description: The bucket to make the snapshot in, short or full name.
+        dest:
+          type: string
+          description: The new folder, which must not exist.
+
+    FileSnapshot:
+      type: object
+      properties:
+        files:
+          type: integer
+          description: How many files the snapshot holds, its manifest aside.
+        folders:
+          type: integer
+          description: How many folder markers it holds.
+        bytes:
+          type: integer
+          format: int64
+          description: The size of its files.
+        taken_at:
+          type: string
+          format: date-time
+          description: When the folder was read.
+        source_bucket:
+          type: string
+          description: The full name of the bucket snapshotted.
+        source_path:
+          type: string
+          description: The folder snapshotted, empty for the whole bucket.
+        manifest:
+          type: string
+          description: The key of the manifest, written last into the new folder.
+
     FileFsckRequest:
       type: object
       properties:
@@ -13156,6 +13539,10 @@ components:
         type: string
     FileMtime:
       description: The file's own modification time as fractional unix seconds (the upload time when none was given).
+      schema:
+        type: string
+    FileChanged:
+      description: When this version of the file was saved, its content or metadata changed, as fractional unix seconds; unlike `X-Knot-Mtime`, never a time a client gave.
       schema:
         type: string
 

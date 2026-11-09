@@ -86,6 +86,8 @@ func onRemoveObj(ctx context.Context, w *response, userHandle Handler, directory
 		// knot: e.g. a folder found not empty only now, not IO.
 		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
+	// knot: NFSv4 open and lock state lets go of the file (see removed).
+	w.Server.nfs4State().removed(toDelete)
 
 	if err := userHandle.InvalidateHandle(fs, toDeleteHandle); err != nil {
 		return &NFSStatusError{NFSStatusServerFault, err}

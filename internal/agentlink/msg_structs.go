@@ -1,6 +1,9 @@
 package agentlink
 
-import "github.com/paularlott/knot/internal/methods"
+import (
+	"github.com/paularlott/knot/internal/methods"
+	"github.com/paularlott/knot/internal/syncproject"
+)
 
 type ConnectResponse struct {
 	Success bool   `msgpack:"s"`
@@ -158,4 +161,26 @@ type JobsRunRequest struct {
 type JobsResponse struct {
 	Success bool   `json:"success" msgpack:"success"`
 	Error   string `json:"error,omitempty" msgpack:"error,omitempty"`
+}
+
+// SyncProjectStartRequest has the agent run a sync project, replacing one
+// of the same name: the project file's content, and the name it has when
+// it gives none.
+type SyncProjectStartRequest struct {
+	Content string `json:"content" msgpack:"content"`
+	Name    string `json:"name" msgpack:"name"`
+}
+
+// SyncProjectStopRequest stops a sync project the agent runs.
+type SyncProjectStopRequest struct {
+	Name string `json:"name" msgpack:"name"`
+}
+
+// SyncProjectResponse is the outcome of a sync project request, and the
+// projects running.
+type SyncProjectResponse struct {
+	Success  bool                        `json:"success" msgpack:"success"`
+	Error    string                      `json:"error,omitempty" msgpack:"error,omitempty"`
+	Name     string                      `json:"name,omitempty" msgpack:"name,omitempty"` // the project started
+	Projects []syncproject.ProjectStatus `json:"projects,omitempty" msgpack:"projects,omitempty"`
 }

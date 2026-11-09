@@ -23,6 +23,7 @@ type ServerConfig struct {
 	FilesPath              string // file storage directory; empty disables file storage
 	FilesDefaultQuotaMB    int    // quota for users whose own and group limits are all 0; 0 = unlimited
 	FilesDefaultMaxBuckets int    // bucket limit for users whose own and group limits are all 0; 0 = unlimited
+	FilesNoSync            bool   // file storage writes are not forced to disk before they are reported done
 	PublicFilesPath        string
 	DownloadPath           string
 	DisableSpaceCreate     bool

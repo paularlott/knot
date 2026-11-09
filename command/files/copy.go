@@ -7,6 +7,8 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -147,17 +149,41 @@ func runCopy(ctx context.Context, client *apiclient.ApiClient, args []string, re
 		targets = append(targets, t)
 	}
 
+	// Links are made after every file, so that a file below a link's name
+	// lands in a real folder and never where the link points.
+	sort.SliceStable(targets, func(i, j int) bool {
+		return !(targets[i].src.link && !dst.remote) && targets[j].src.link && !dst.remote
+	})
 	count := 0
+	// Folders' modes are set once everything is in them, a folder's
+	// contents first, so a read-only folder is read-only only once filled.
+	type dirMode struct {
+		dir  string
+		mode os.FileMode
+	}
+	var modes []dirMode
 	for _, t := range targets {
 		s := t.src
+		if !dst.remote && isFolder {
+			if link := linkOnPath(dst.raw, s.rel); link != "" {
+				return fmt.Errorf("refusing to write %s through %s, a symbolic link", s.rel, link)
+			}
+		}
 		switch {
+		case dst.remote && s.marker && s.local != "":
+			err = uploadFolder(ctx, client, s.local, dst.bucket, t.key)
+		case dst.remote && s.link && s.local != "":
+			err = uploadLink(ctx, client, s.local, dst.bucket, t.key)
 		case dst.remote && s.local != "":
 			err = uploadFile(ctx, client, s.local, dst.bucket, t.key)
 		case dst.remote:
 			err = serverCopy(ctx, client, s, dst.bucket, t.key)
 		case s.marker:
-			// An empty folder in a bucket becomes an empty directory.
+			// A bucket folder becomes a directory, with the folder's mode.
 			if err = os.MkdirAll(t.dir, 0755); err == nil {
+				if s.mode != 0 {
+					modes = append(modes, dirMode{t.dir, s.mode})
+				}
 				continue
 			}
 		default:
@@ -168,6 +194,12 @@ func runCopy(ctx context.Context, client *apiclient.ApiClient, args []string, re
 		}
 		if !s.marker {
 			count++
+		}
+	}
+	sort.Slice(modes, func(i, j int) bool { return modes[i].dir > modes[j].dir })
+	for _, m := range modes {
+		if err := os.Chmod(m.dir, m.mode); err != nil {
+			return err
 		}
 	}
 	if count != 1 {
@@ -218,10 +250,81 @@ func uploadFile(ctx context.Context, client *apiclient.ApiClient, local, bucket,
 	if err != nil {
 		return err
 	}
-	if _, err := client.PutFileObject(ctx, bucket, key, f, info.Size(), contentType(local), info.ModTime()); err != nil {
+	if info.Size() >= partedAt {
+		// A large file goes in parts, carrying on from any sent before.
+		_, reused, err := uploadInParts(ctx, client, f, info, bucket, key, contentType(local), apiclient.LocalFileAttrs(info), "", false)
+		if err != nil {
+			return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+		}
+		note := ""
+		if reused > 0 {
+			note = ", carried on: " + formatBytes(reused) + " already sent"
+		}
+		fmt.Printf("%s -> %s (%s%s)\n", local, remoteName(bucket, key), formatBytes(info.Size()), note)
+		return nil
+	}
+	if _, err := client.PutFileObject(ctx, bucket, key, f, info.Size(), contentType(local), apiclient.LocalFileAttrs(info)); err != nil {
 		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
 	}
 	fmt.Printf("%s -> %s (%s)\n", local, remoteName(bucket, key), formatBytes(info.Size()))
+	return nil
+}
+
+// uploadFolder copies a local directory to a bucket as a folder marker, with
+// the directory's mode, as the NFS server keeps a folder.
+func uploadFolder(ctx context.Context, client *apiclient.ApiClient, local, bucket, key string) error {
+	info, err := os.Lstat(local)
+	if err != nil {
+		return err
+	}
+	attrs := apiclient.LocalFileAttrs(info)
+	if attrs.Mode != 0 {
+		attrs.Mode |= os.ModeDir
+	}
+	// A folder the bucket has already is left as it is, or has just its
+	// mode changed: its marker's other attributes, the inode number the NFS
+	// server gave it among them, are kept.
+	if have, err := client.HeadFileObject(ctx, bucket, key); err == nil {
+		mode := apiclient.FormatFileMode(attrs.Mode)
+		if attrs.Mode == 0 || have.Meta[apiclient.FileModeMeta] == mode {
+			return nil
+		}
+		meta := make(map[string]string, len(have.Meta)+1)
+		for k, v := range have.Meta {
+			meta[k] = v
+		}
+		meta[apiclient.FileModeMeta] = mode
+		if _, err := client.CopyFileObject(ctx, apiclient.FileCopyRequest{
+			SourceBucket: bucket, SourceKey: key, DestBucket: bucket, DestKey: key, IfMatch: have.ETag, Meta: meta,
+		}); err != nil {
+			return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+		}
+		fmt.Printf("%s -> %s (folder mode %04o)\n", local, remoteName(bucket, key), attrs.Mode.Perm())
+		return nil
+	}
+	if _, err := client.PutFileObject(ctx, bucket, key, strings.NewReader(""), 0, "", attrs); err != nil {
+		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+	}
+	fmt.Printf("%s -> %s (folder)\n", local, remoteName(bucket, key))
+	return nil
+}
+
+// uploadLink copies a local symbolic link to a bucket as a link, its target
+// the content, as the NFS server stores one.
+func uploadLink(ctx context.Context, client *apiclient.ApiClient, local, bucket, key string) error {
+	info, err := os.Lstat(local)
+	if err != nil {
+		return err
+	}
+	target, err := os.Readlink(local)
+	if err != nil {
+		return err
+	}
+	attrs := apiclient.FileAttrs{Mtime: info.ModTime(), Mode: linkMode}
+	if _, err := client.PutFileObject(ctx, bucket, key, strings.NewReader(target), int64(len(target)), "", attrs); err != nil {
+		return fmt.Errorf("%s: %w", local, cmdutil.CleanErr(err))
+	}
+	fmt.Printf("%s -> %s (link to %s)\n", local, remoteName(bucket, key), target)
 	return nil
 }
 
@@ -257,6 +360,22 @@ func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, lo
 		return io.Copy(os.Stdout, resp.Body)
 	}
 
+	// A symbolic link, as the NFS server and the knot command store one: its
+	// target is the content.
+	if mode, ok := apiclient.ParseFileMode(map[string]string{apiclient.FileModeMeta: resp.Header.Get(apiclient.FileMetaHeaderPrefix + apiclient.FileModeMeta)}); ok && mode&os.ModeSymlink != 0 {
+		target, err := io.ReadAll(io.LimitReader(resp.Body, maxLinkTarget+1))
+		if err != nil {
+			return 0, err
+		}
+		if len(target) == 0 || len(target) > maxLinkTarget {
+			return 0, fmt.Errorf("%s: not a valid symbolic link", remoteName(bucket, key))
+		}
+		if err := makeLink(string(target), local); err != nil {
+			return 0, err
+		}
+		return int64(len(target)), nil
+	}
+
 	if dir := filepath.Dir(local); dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return 0, err
@@ -274,11 +393,14 @@ func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, lo
 		os.Remove(tmp.Name())
 		return 0, err
 	}
-	// The temporary file is private (0600); give the download the mode of
-	// the file it replaces, or the usual 0644.
+	// The temporary file is private (0600); give the download the mode kept
+	// with the file, else that of the file it replaces, or the usual 0644.
 	mode := os.FileMode(0644)
 	if info, err := os.Stat(local); err == nil {
 		mode = info.Mode().Perm()
+	}
+	if m, ok := storedMode(map[string]string{apiclient.FileModeMeta: resp.Header.Get(apiclient.FileMetaHeaderPrefix + apiclient.FileModeMeta)}); ok {
+		mode = m
 	}
 	os.Chmod(tmp.Name(), mode)
 	if err := os.Rename(tmp.Name(), local); err != nil {
@@ -289,6 +411,19 @@ func fetchFile(ctx context.Context, client *apiclient.ApiClient, bucket, key, lo
 		os.Chtimes(local, mtime, mtime)
 	}
 	return n, nil
+}
+
+// storedMode is the permission bits kept with a bucket file, where the
+// platform has them.
+func storedMode(meta map[string]string) (os.FileMode, bool) {
+	if runtime.GOOS == "windows" {
+		return 0, false
+	}
+	mode, ok := apiclient.ParseFileMode(meta)
+	if !ok || mode&os.ModeSymlink != 0 {
+		return 0, false
+	}
+	return mode.Perm(), true
 }
 
 // copyFromStdin uploads stdin to a single bucket file.
@@ -302,7 +437,7 @@ func copyFromStdin(ctx context.Context, client *apiclient.ApiClient, dst locatio
 	if isFolderKey(dst.key) || hasGlob(dst.key) {
 		return fmt.Errorf("a file name is required when copying stdin: %s", dst)
 	}
-	if _, err := client.PutFileObject(ctx, dst.bucket, dst.key, os.Stdin, -1, contentType(dst.key), time.Now()); err != nil {
+	if _, err := client.PutFileObject(ctx, dst.bucket, dst.key, os.Stdin, -1, contentType(dst.key), apiclient.FileAttrs{Mtime: time.Now()}); err != nil {
 		return apiError(err)
 	}
 	fmt.Printf("stdin -> %s\n", dst)

@@ -305,6 +305,13 @@ func TestQuota(t *testing.T) {
 	if _, err := s.PutObject(alice, "small", "c", strings.NewReader("1"), PutOptions{Size: 1}); !errors.Is(err, ErrQuotaExceeded) {
 		t.Errorf("over quota: %v", err)
 	}
+	// Checked before anything is sent, as PutObject first does.
+	if err := s.CheckPut(alice, "small", "c", 1); !errors.Is(err, ErrQuotaExceeded) {
+		t.Errorf("CheckPut over quota: %v", err)
+	}
+	if err := s.CheckPut(alice, "small", "a", 5); err != nil {
+		t.Errorf("CheckPut replacing within quota: %v", err)
+	}
 	// Size unknown up front is still caught after the upload.
 	if _, err := s.PutObject(alice, "small", "c", strings.NewReader("1"), PutOptions{Size: -1}); !errors.Is(err, ErrQuotaExceeded) {
 		t.Errorf("over quota unknown size: %v", err)
@@ -1098,6 +1105,21 @@ func TestConditionalPut(t *testing.T) {
 	if got := read(t, s, alice, "cond", "f"); got != "v2" {
 		t.Errorf("content %q", got)
 	}
+}
+
+// A large write refused for its precondition leaves no content file behind.
+func TestConditionalPutRefusedLeavesNoContent(t *testing.T) {
+	s := newStore(t)
+	mustCreate(t, s, alice, "cond")
+	big := strings.Repeat("a", inlineMax+1)
+	o, err := s.PutObject(alice, "cond", "f", strings.NewReader(big), PutOptions{Size: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PutObject(alice, "cond", "f", strings.NewReader(big+"b"), PutOptions{Size: -1, IfMatch: o.ETag + "x"}); !errors.Is(err, ErrPrecondition) {
+		t.Fatalf("stale etag: %v", err)
+	}
+	clean(t, s, "after a refused write")
 }
 
 func TestBucketLimit(t *testing.T) {

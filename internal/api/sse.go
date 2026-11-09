@@ -33,7 +33,7 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 		// Check for Authorization header first
 		authorization := r.Header.Get("Authorization")
 		if authorization != "" {
-			bearer := middleware.GetBearerToken(w, r)
+			bearer := middleware.GetBearerToken(r)
 			if bearer == "" {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return

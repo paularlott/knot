@@ -169,6 +169,9 @@ func registerServerFSPaths(env *scriptling.Scriptling) {
 func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]object.Object, mcpLib *knotscriptling.MCPLibrary, aiClient ai.Client, withMethods bool) {
 	// knot.ai is always registered - Client() will return error if aiClient is nil
 	env.RegisterLibrary(knotscriptling.GetAILibrary(aiClient))
+	// knot.files.sync refuses here; the space's agent registers the one
+	// that works.
+	env.RegisterLibrary(knotscriptling.GetSyncLibrary(false))
 
 	// knot.methods and knot.methods.schema are registered in agent/CLI envs
 	// only, not MCP tool execution envs. The methodsRegistrar global gates
@@ -774,6 +777,8 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 	// knot.secret reads personal secrets over the agent link; it shadows
 	// the embedded Python module, which refuses outside a space.
 	env.RegisterLibrary(knotscriptling.GetSecretLibrary())
+	// knot.files.sync runs sync projects in the space's agent.
+	env.RegisterLibrary(knotscriptling.GetSyncLibrary(true))
 
 	cleanup := func() {}
 

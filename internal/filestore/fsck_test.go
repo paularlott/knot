@@ -253,3 +253,61 @@ func TestOwnersReconciled(t *testing.T) {
 }
 
 var dave2 = &Principal{UserId: "dave", Username: "dave", CanOwn: true}
+
+// Modes in the decimal form knot wrote before 0.42 are found, and a repair
+// rewrites them in octal, changing nothing else about the files.
+func TestFsckDecimalModes(t *testing.T) {
+	s := newStore(t)
+	mustCreate(t, s, alice, "modes")
+	write := func(key, content string, meta map[string]string) *Object {
+		t.Helper()
+		o, err := s.PutObject(alice, "modes", key, strings.NewReader(content), PutOptions{Size: int64(len(content)), Meta: meta})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return o
+	}
+	before := map[string]*Object{
+		"run.sh":   write("run.sh", "#!/bin/sh\n", map[string]string{"mode": "33261", "mtime": "1700000000.5", "uid": "501"}),
+		"dir/":     write("dir/", "", map[string]string{"mode": "16877"}),
+		"link":     write("link", "run.sh", map[string]string{"mode": "41471"}),
+		"octal.sh": write("octal.sh", "octal", map[string]string{"mode": "100755"}),
+		"plain":    write("plain", "plain", nil),
+	}
+
+	r := fsck(t, s, FsckOptions{})
+	if r.Found[FsckDecimalMode] != 3 || r.Unresolved() != 3 {
+		t.Fatalf("found %v %v", r.Found, r.Issues)
+	}
+	if o, _ := s.HeadObject(alice, "modes", "run.sh"); o.Meta["mode"] != "33261" {
+		t.Errorf("a check without repair changed the mode: %v", o.Meta)
+	}
+
+	r = fsck(t, s, FsckOptions{Repair: true})
+	if r.Repaired[FsckDecimalMode] != 3 || r.Unresolved() != 0 {
+		t.Fatalf("repair: found %v repaired %v %v", r.Found, r.Repaired, r.Issues)
+	}
+	for key, want := range map[string]string{"run.sh": "100755", "dir/": "40755", "link": "120777", "octal.sh": "100755", "plain": ""} {
+		o, err := s.HeadObject(alice, "modes", key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if o.Meta["mode"] != want {
+			t.Errorf("%s: mode %q, want %q", key, o.Meta["mode"], want)
+		}
+		b := before[key]
+		if o.ETag != b.ETag || o.SHA256 != b.SHA256 || o.Size != b.Size || !o.ModifiedAt.Equal(b.ModifiedAt) || o.ContentType != b.ContentType {
+			t.Errorf("%s: more than the mode changed: %+v, was %+v", key, o, b)
+		}
+		if want != "" && key != "octal.sh" && o.UpdatedAt == b.UpdatedAt {
+			t.Errorf("%s: rewritten as the same version, so it would not replicate", key)
+		}
+	}
+	if o, _ := s.HeadObject(alice, "modes", "run.sh"); o.Meta["mtime"] != "1700000000.5" || o.Meta["uid"] != "501" {
+		t.Errorf("the rest of the metadata changed: %v", o.Meta)
+	}
+	if got := read(t, s, alice, "modes", "run.sh"); got != "#!/bin/sh\n" {
+		t.Errorf("content %q", got)
+	}
+	clean(t, s, "after repair")
+}

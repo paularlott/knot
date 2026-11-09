@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/hostlabel"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
 )
@@ -103,7 +104,7 @@ func buildEventMetaDict(envelope *EventEnvelope) *object.Dict {
 					if err == nil && tmpl != nil {
 						for _, port := range tmpl.Ports {
 							spaceUrls[port.Name] = object.NewString(
-								"https://" + username + "--" + routingName + "--" + fmt.Sprintf("%d", port.Port) + wildcardDomain,
+								"https://" + hostlabel.Label(username, routingName, fmt.Sprintf("%d", port.Port)) + wildcardDomain,
 							)
 						}
 					}

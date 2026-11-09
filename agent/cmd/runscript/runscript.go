@@ -23,6 +23,8 @@ import (
 // the CLI process publish methods to the daemon — the same path as `knot
 // methods register`.
 func wireMethodsRegistrar() {
+	// knot.files.sync reaches the agent's sync projects the same way.
+	knotscriptling.SetSyncProjectAgent(agentlink.SyncProjects{})
 	knotscriptling.SetMethodsRegistrar(func(reg *knotmethods.Registration) error {
 		var resp agentlink.RegisterMethodsResponse
 		if err := agentlink.SendWithResponseMsg(agentlink.CommandRegisterMethods, agentlink.RegisterMethodsRequest{Registration: *reg}, &resp); err != nil {

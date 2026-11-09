@@ -9,9 +9,12 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/term"
+
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 var ErrScriptNotFound = errors.New("script not found")
@@ -68,7 +71,19 @@ func (c *ApiClient) UpdateScript(ctx context.Context, scriptId string, req Scrip
 	return err
 }
 
+// scriptRunTimeout bounds running a script in a space: the server waits six
+// minutes for it, with a minute to spare.
+const scriptRunTimeout = 7 * time.Minute
+
+// scriptRun bounds a script run by how long the server waits for it, not the
+// client's own timeout.
+func scriptRun(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(rest.WithoutTimeout(ctx), scriptRunTimeout)
+}
+
 func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string, args []string) (string, int, error) {
+	ctx, cancel := scriptRun(ctx)
+	defer cancel()
 	req := UnifiedScriptExecuteRequest{ScriptId: scriptId, Arguments: args}
 	var resp ScriptExecuteResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script", req, &resp, 0)
@@ -97,6 +112,8 @@ func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, 
 }
 
 func (c *ApiClient) ExecuteScriptContent(ctx context.Context, spaceId, content string, args []string) (string, int, error) {
+	ctx, cancel := scriptRun(ctx)
+	defer cancel()
 	req := UnifiedScriptExecuteRequest{Content: content, Arguments: args}
 	var resp ScriptExecuteResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script", req, &resp, 0)
@@ -110,6 +127,8 @@ func (c *ApiClient) ExecuteScriptContent(ctx context.Context, spaceId, content s
 }
 
 func (c *ApiClient) ExecuteScriptByName(ctx context.Context, spaceId, scriptName string, args []string) (string, int, error) {
+	ctx, cancel := scriptRun(ctx)
+	defer cancel()
 	req := UnifiedScriptExecuteRequest{ScriptName: scriptName, Arguments: args}
 	var resp ScriptExecuteResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script", req, &resp, 0)

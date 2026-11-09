@@ -24,6 +24,9 @@ func TestTemplateDetailsRoundTripsVNC(t *testing.T) {
 	if err := db.SaveUser(user, nil); err != nil {
 		t.Fatal(err)
 	}
+	// The database lives for the whole test process: leave it as found, so
+	// the test can run again (go test -count).
+	t.Cleanup(func() { db.DeleteUser(user) })
 
 	template := model.NewTemplate("kvm-vnc-roundtrip", "", "image: base", "", user.Id, nil,
 		model.PlatformKvm, true, false, false, false, false, false, "", "",

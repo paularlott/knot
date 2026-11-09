@@ -461,6 +461,56 @@ type PutOptions struct {
 	IfNoneMatch bool   // only write if the object does not exist
 }
 
+// fileAttrMeta are the metadata keys holding a file's POSIX attributes, as
+// rclone --metadata, s3fs and the NFS server keep them.
+var fileAttrMeta = []string{"mode", "uid", "gid"}
+
+// The modes a file and a folder marker are given when written with none, as
+// a umask of 022 gives, in the form apiclient.FileModeMeta describes.
+const (
+	defaultFileMode   = "100644"
+	defaultFolderMode = "40755"
+)
+
+// FillFileAttrs gives a write the POSIX attributes it does not set: those of
+// the file it replaces, so replacing a file's content, from the web
+// interface, a script or an S3 client that knows nothing of modes, keeps its
+// mode, as replacing a file's content on a file system does; and a mode for
+// a file that has none, so every file shows the same mode however it is
+// reached.
+func (s *Store) FillFileAttrs(p *Principal, bucket, key string, opts *PutOptions) {
+	set := func(k, v string) {
+		if opts.Meta == nil {
+			opts.Meta = map[string]string{}
+		}
+		opts.Meta[k] = v
+	}
+	var old *Object
+	looked := false
+	for _, k := range fileAttrMeta {
+		if _, ok := opts.Meta[k]; ok {
+			continue
+		}
+		if !looked {
+			old, _ = s.HeadObject(p, bucket, key)
+			looked = true
+		}
+		if old == nil {
+			break
+		}
+		if v, ok := old.Meta[k]; ok {
+			set(k, v)
+		}
+	}
+	if _, ok := opts.Meta["mode"]; !ok {
+		if strings.HasSuffix(key, "/") {
+			set("mode", defaultFolderMode)
+		} else {
+			set("mode", defaultFileMode)
+		}
+	}
+}
+
 // HeadObject returns an object's record.
 func (s *Store) HeadObject(p *Principal, bucket, key string) (*Object, error) {
 	s.mu.RLock()
@@ -479,17 +529,52 @@ func (s *Store) HeadObject(p *Principal, bucket, key string) (*Object, error) {
 
 // OpenObject returns an object's record and its content, fetching the
 // content from another server first if this one does not hold it yet.
+//
+// Content another server wrote can be gone from it by the time it is asked
+// for, the file having been written again there: the newer record is then
+// on its way here, and is waited for a little and read instead, or the
+// file's removal, which is reported as such.
 func (s *Store) OpenObject(ctx context.Context, p *Principal, bucket, key string) (*Object, Content, error) {
 	o, err := s.HeadObject(p, bucket, key)
 	if err != nil {
 		return nil, nil, err
 	}
-	f, err := s.openBlob(ctx, o)
-	if err != nil {
-		return nil, nil, err
+	wait := 50 * time.Millisecond
+	deadline := time.Now().Add(replacedWait)
+	for {
+		f, err := s.openBlob(ctx, o)
+		if err == nil {
+			return o, f, nil
+		}
+		if !errors.Is(err, ErrUnavailable) {
+			return nil, nil, err
+		}
+		// Wait for a newer record, if one comes.
+		for {
+			if time.Now().After(deadline) {
+				return nil, nil, err
+			}
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			case <-time.After(wait):
+			}
+			wait = min(wait*2, 500*time.Millisecond)
+			cur, herr := s.HeadObject(p, bucket, key)
+			if herr != nil {
+				return nil, nil, herr
+			}
+			if cur.SHA256 != o.SHA256 {
+				o = cur
+				break
+			}
+		}
 	}
-	return o, f, nil
 }
+
+// replacedWait is how long a read waits for the newer version of a file
+// whose content its writer no longer holds.
+const replacedWait = 5 * time.Second
 
 func (s *Store) openBlob(ctx context.Context, o *Object) (Content, error) {
 	if f, err := s.openContent(o.SHA256); err == nil {
@@ -503,6 +588,30 @@ func (s *Store) openBlob(ctx context.Context, o *Object) (Content, error) {
 		return nil, ErrUnavailable
 	}
 	return f, nil
+}
+
+// CheckPut reports whether p could store size bytes as key, as PutObject
+// first checks: its access to the bucket, the key and the owner's quota.
+// It lets a caller refuse a write before reading what is to be written.
+func (s *Store) CheckPut(p *Principal, bucket, key string, size int64) error {
+	if !ValidKey(key) {
+		return ErrInvalidKey
+	}
+	owner, limit, err := s.quotaFor(p, bucket, AccessWrite)
+	if err != nil {
+		return err
+	}
+	s.mu.RLock()
+	var existing int64
+	if b := s.bucketByNameLocked(bucket); b != nil {
+		existing = s.existingSizeLocked(b.Id, key)
+	}
+	remaining := s.remainingLocked(owner, limit, existing)
+	s.mu.RUnlock()
+	if remaining >= 0 && size > remaining {
+		return ErrQuotaExceeded
+	}
+	return nil
 }
 
 // PutObject stores an object from r.
@@ -573,38 +682,53 @@ func (s *Store) commitContent(p *Principal, bucket, key string, st *staged, etag
 	}
 	defer release()
 
-	// A content file is installed and referenced under the lock that stops
-	// content whose last reference went from being removed in between.
-	if kind == contentFile {
-		s.blobMu.RLock()
-		defer s.blobMu.RUnlock()
-		if err := s.blobs.install(st.tw.Path(), sha); err != nil {
-			st.discard()
-			return nil, err
-		}
-	}
-
 	o := s.newObjectLocked(b, key, sha, etag, st.size, opts)
 	o.Writer = p.Writer
-	changed, err := s.applyObjects([]objectOp{{
-		obj: o,
-		pre: func(txn *badger.Txn, cur *Object) error {
-			if !s.liveLocked(cur) {
-				cur = nil
+
+	// A content file is installed and referenced under the lock that stops
+	// content whose last reference went from being removed in between. That
+	// lock is let go before the change is committed: committing removes the
+	// content changes left unreferenced, which takes it to write.
+	installed := false
+	changed, err := func() ([]*Object, error) {
+		if kind == contentFile {
+			s.blobMu.RLock()
+			defer s.blobMu.RUnlock()
+			if err := s.blobs.install(st.tw.Path(), sha); err != nil {
+				st.discard()
+				return nil, err
 			}
-			return checkPreconditions(cur, opts)
-		},
-		content: kind,
-		data:    data,
-	}})
+			installed = true
+		}
+		return s.applyObjects([]objectOp{{
+			obj: o,
+			pre: func(txn *badger.Txn, cur *Object) error {
+				if !s.liveLocked(cur) {
+					cur = nil
+				}
+				return checkPreconditions(cur, opts)
+			},
+			basedOnCur: opts.IfMatch != "",
+			content:    kind,
+			data:       data,
+		}})
+	}()
+	if (err != nil || len(changed) == 0) && installed {
+		// The write was refused (a precondition failed), or a newer record,
+		// from a write on another server at the same moment, is already held:
+		// this write happened and was replaced at once, which is what last
+		// writer wins means. Either way the content file installed for it goes
+		// unless something else holds the content.
+		s.unlinkMu.Lock()
+		s.unlink = append(s.unlink, sha)
+		s.unlinkMu.Unlock()
+		s.flushUnlinks()
+	}
 	if err != nil {
 		return nil, err
 	}
 	if len(changed) == 0 {
-		// A newer record, from a write on another server at the same moment,
-		// is already held: this write happened and was replaced at once, which
-		// is what last writer wins means. Nothing is stored or gossiped.
-		return o.clone(), nil
+		return o.clone(), nil // nothing is gossiped
 	}
 
 	s.commit(nil, []*Object{o})
@@ -724,6 +848,7 @@ func (s *Store) CopyObjectIf(p *Principal, srcBucket, srcKey, dstBucket, dstKey 
 			}
 			return checkPreconditions(cur, cond)
 		},
+		basedOnCur: cond.IfMatch != "",
 	}})
 	if err != nil {
 		return nil, err

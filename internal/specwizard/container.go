@@ -772,7 +772,7 @@ func buildLocalStorageDefinitions(entries []apiclient.StorageEntry, originalVolu
 		// the container job YAML patcher.
 	}
 
-	return renderLocalStorageDefinitions(volumeNames, volumeSizes, paths)
+	return withSyncBlock(renderLocalStorageDefinitions(volumeNames, volumeSizes, paths), originalVolumes)
 }
 
 // splitStorageDefinitions extracts the "volume" and "path" kind entries from

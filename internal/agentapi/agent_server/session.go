@@ -1,6 +1,7 @@
 package agent_server
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -14,6 +15,29 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/logger"
 )
+
+// How long the server waits for an agent's answer. 5 seconds, the default
+// for a message, is too short for anything the agent does work for first.
+const (
+	// agentReplyTimeout is for requests the agent acts on at once, such as
+	// starting a port forward or a tunnel: long enough for an agent on a
+	// busy host, or one dialling a tunnel server.
+	agentReplyTimeout = 30 * time.Second
+	// agentWorkTimeout is for file work, which can take minutes on large
+	// files or trees: copies, writes, finds, greps and deletes.
+	agentWorkTimeout = 10 * time.Minute
+)
+
+// runCommandWait is how long to wait for a command's result: the agent
+// answers when the command ends, which may take as long as its timeout, 30
+// seconds when none is given.
+func runCommandWait(timeoutSeconds int) time.Duration {
+	timeout := time.Duration(timeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	return timeout + agentReplyTimeout
+}
 
 // Struct holding the state / registration information of an agent
 type Session struct {
@@ -309,9 +333,8 @@ func (s *Session) SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCo
 			return
 		}
 
-		// Read the response
 		var response msg.RunCommandResponse
-		err = msg.ReadMessage(conn, &response)
+		err = msg.ReadMessageWithTimeout(conn, &response, runCommandWait(runCmd.Timeout))
 		if err != nil {
 			s.logger.WithError(err).Error("reading run command response:")
 			responseChannel <- &msg.RunCommandResponse{
@@ -365,7 +388,7 @@ func (s *Session) SendCopyFile(copyCmd *msg.CopyFileMessage) (chan *msg.CopyFile
 
 		// Read the response
 		var response msg.CopyFileResponse
-		err = msg.ReadMessage(conn, &response)
+		err = msg.ReadMessageWithTimeout(conn, &response, agentWorkTimeout)
 		if err != nil {
 			s.logger.WithError(err).Error("reading copy file response:")
 			responseChannel <- &msg.CopyFileResponse{
@@ -410,9 +433,8 @@ func sendSingleShot[Msg any, Resp any](s *Session, cmd msg.CmdType, cmdName stri
 
 		var response Resp
 		// File operations (find with hash, large writes, recursive deletes)
-		// can take minutes on big trees. The default ReadMessage timeout is
-		// 5s — use 10 minutes here so the agent has time to finish.
-		if err = msg.ReadMessageWithTimeout(conn, &response, 10*time.Minute); err != nil {
+		// can take minutes on big trees.
+		if err = msg.ReadMessageWithTimeout(conn, &response, agentWorkTimeout); err != nil {
 			s.logger.WithError(err).Error("reading " + cmdName + " response:")
 			return
 		}
@@ -471,7 +493,7 @@ func (s *Session) SendPortForward(portCmd *msg.PortForwardRequest) (*msg.PortFor
 
 	// Read the response
 	var response msg.PortForwardResponse
-	err = msg.ReadMessage(conn, &response)
+	err = msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout)
 	if err != nil {
 		s.logger.WithError(err).Error("reading port forward response:")
 		return &msg.PortForwardResponse{Success: false, Error: "Failed to read response from agent"}, nil
@@ -496,7 +518,7 @@ func (s *Session) SendPortList() (*msg.PortListResponse, error) {
 
 	// Read the response
 	var response msg.PortListResponse
-	err = msg.ReadMessage(conn, &response)
+	err = msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout)
 	if err != nil {
 		s.logger.WithError(err).Error("reading port list response:")
 		return nil, err
@@ -528,7 +550,7 @@ func (s *Session) SendPortStop(portCmd *msg.PortStopRequest) (*msg.PortStopRespo
 
 	// Read the response
 	var response msg.PortStopResponse
-	err = msg.ReadMessage(conn, &response)
+	err = msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout)
 	if err != nil {
 		s.logger.WithError(err).Error("reading port stop response:")
 		return &msg.PortStopResponse{Success: false, Error: "Failed to read response from agent"}, nil
@@ -555,7 +577,7 @@ func (s *Session) SendThrottle(req *msg.ThrottlePortRequest) (*msg.ThrottlePortR
 	}
 
 	var response msg.ThrottlePortResponse
-	if err := msg.ReadMessage(conn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout); err != nil {
 		s.logger.WithError(err).Error("reading throttle response:")
 		return &msg.ThrottlePortResponse{Success: false, Error: "Failed to read response from agent"}, nil
 	}
@@ -579,7 +601,7 @@ func (s *Session) SendTunnelStart(req *msg.TunnelStartRequest) (*msg.TunnelStart
 	}
 
 	var response msg.TunnelStartResponse
-	if err := msg.ReadMessage(conn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout); err != nil {
 		s.logger.WithError(err).Error("reading tunnel start response:")
 		return &msg.TunnelStartResponse{Success: false, Error: "Failed to read response from agent"}, nil
 	}
@@ -603,7 +625,7 @@ func (s *Session) SendTunnelStop(req *msg.TunnelStopRequest) (*msg.TunnelStopRes
 	}
 
 	var response msg.TunnelStopResponse
-	if err := msg.ReadMessage(conn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout); err != nil {
 		s.logger.WithError(err).Error("reading tunnel stop response:")
 		return &msg.TunnelStopResponse{Success: false, Error: "Failed to read response from agent"}, nil
 	}
@@ -623,7 +645,7 @@ func (s *Session) SendTunnelList() (*msg.TunnelListResponse, error) {
 	}
 
 	var response msg.TunnelListResponse
-	if err := msg.ReadMessage(conn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout); err != nil {
 		s.logger.WithError(err).Error("reading tunnel list response:")
 		return nil, err
 	}
@@ -645,6 +667,28 @@ func (s *Session) SendMirrorLog(batch *msg.MirrorLogMessage) error {
 	return msg.WriteMessage(conn, batch)
 }
 
+// SendSyncFlush asks the space's agent to have its sync projects send the
+// local changes they have not sent yet, as the space is about to stop,
+// waiting up to timeout.
+func (s *Session) SendSyncFlush(timeout time.Duration) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if err := msg.WriteCommand(conn, msg.CmdSyncFlush); err != nil {
+		return err
+	}
+	var response msg.SyncFlushResponse
+	if err := msg.ReadMessageWithTimeout(conn, &response, timeout); err != nil {
+		return err
+	}
+	if response.Error != "" {
+		return errors.New(response.Error)
+	}
+	return nil
+}
+
 // SendJobsList asks the space's agent for its scheduled jobs snapshot.
 func (s *Session) SendJobsList() (*spacejobs.JobsSnapshot, error) {
 	conn, err := s.MuxSession.Open()
@@ -659,7 +703,7 @@ func (s *Session) SendJobsList() (*spacejobs.JobsSnapshot, error) {
 	}
 
 	var response spacejobs.JobsSnapshot
-	if err := msg.ReadMessage(conn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout); err != nil {
 		s.logger.WithError(err).Error("reading jobs list response:")
 		return nil, err
 	}
@@ -684,7 +728,7 @@ func (s *Session) SendJobsRun(name string) (*msg.JobsResponse, error) {
 	}
 
 	var response msg.JobsResponse
-	if err := msg.ReadMessage(conn, &response); err != nil {
+	if err := msg.ReadMessageWithTimeout(conn, &response, agentReplyTimeout); err != nil {
 		s.logger.WithError(err).Error("reading jobs run response:")
 		return &msg.JobsResponse{Success: false, Error: "Failed to read response from agent"}, nil
 	}

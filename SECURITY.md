@@ -10,4 +10,4 @@ Currently only the latest version of Knot is supported. Please ensure you are ru
 
 ## Reporting a Vulnerability
 
-If you discover a security issue or bug, please report it by opening an issue [here](https://github.com/paularlott/knot/issues).
+If you discover a security issue or bug, please report it by opening an issue [here](https://github.com/paularlott/knot/security).

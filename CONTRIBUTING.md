@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Knot. We welcome improvements, bu
 
 ## 1. Contributor License Agreement (CLA)
 
-Before we can accept your contribution, you must accept the **Knot Contributor License Agreement (CLA)**.
+Before we can accept your contribution, you must accept the **[Contributor License Agreement (CLA)](https://github.com/paularlott/cla/blob/main/CONTRIBUTOR_LICENSE_AGREEMENT.md)**.
 
 This ensures that:
 
@@ -14,13 +14,13 @@ This ensures that:
 - the Project Owner receives the rights needed to use, modify, relicense, and distribute your Contribution
 - the Project can safely be used in both its open‑source core and commercial Enterprise versions, ensuring the project's sustainability
 
-You only need to sign the CLA **once**, and it applies to **all Knot repositories**.
+One CLA covers every open-source project under [github.com/paularlott](https://github.com/paularlott), including projects created later. You only need to sign it **once**.
 
 ### **Sign the CLA**
 
-Please complete the CLA acceptance form here: [https://forms.gle/bkZPYEzWskbXsfPS8](https://forms.gle/bkZPYEzWskbXsfPS8)
+Please complete the CLA acceptance form here: [https://forms.gle/47ZfWHQaqCF35MTU6](https://forms.gle/47ZfWHQaqCF35MTU6)
 
-After signing, your GitHub username will be added to the approved contributor list.
+After signing, a maintainer adds your GitHub username to the shared list of signers.
 Pull requests from contributors who have not signed the CLA will be marked as **cla: required** and cannot be merged.
 
 ---
@@ -29,11 +29,11 @@ Pull requests from contributors who have not signed the CLA will be marked as **
 
 When you open or update a pull request:
 
-- a GitHub Action checks whether your GitHub username is listed in `.clabot.json`
+- a GitHub Action checks whether your GitHub username is on the shared list of signers
 - if you have signed the CLA, your PR will be labeled **cla: ok**
 - if not, it will be labeled **cla: required**, and a bot will post instructions on how to sign
 
-Once your username is added to the registry, the PR will automatically update to **cla: ok**.
+Once your username has been added, the check passes the next time it runs: when you push to the pull request, or when a maintainer re-runs it.
 
 ---
 
@@ -91,4 +91,4 @@ Please read and adhere to our **[Code of Conduct](CODE_OF_CONDUCT.md)**.
 ## 7. License
 
 - The Knot Core Project is licensed under the **[Apache License 2.0](LICENSE.txt)**.
-- Your contributions are licensed under the terms of the **[Knot Contributor License Agreement (CLA)](CONTRIBUTOR_LICENSE_AGREEMENT.md)**.
+- Your contributions are licensed under the terms of the shared **[Contributor License Agreement (CLA)](https://github.com/paularlott/cla/blob/main/CONTRIBUTOR_LICENSE_AGREEMENT.md)**, which covers every open-source project under github.com/paularlott.

@@ -529,7 +529,7 @@ func (s *Store) expireHolds() {
 			return
 		}
 		var released []string
-		err := s.db.Update(func(txn *badger.Txn) error {
+		err := s.update(func(txn *badger.Txn) error {
 			released = released[:0]
 			for _, k := range keys {
 				if err := txn.Delete(k); err != nil {

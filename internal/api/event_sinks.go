@@ -480,7 +480,9 @@ func HandleEmitEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	service.RaiseCustomEvent("", request.Type, spaceId, space.UserId, request.Payload)
+	// The event belongs to the space owner but was raised by the caller, who
+	// may be someone the space is shared with.
+	service.RaiseCustomEvent("", request.Type, spaceId, space.UserId, user.Id, request.Payload)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -508,7 +510,7 @@ func HandleEmitUserEvent(w http.ResponseWriter, r *http.Request) {
 	// id so downstream consumers (gossip, in-flight records, persistence) see
 	// a valid UUID rather than an empty string.
 	const nilSpaceID = "00000000-0000-0000-0000-000000000000"
-	service.RaiseCustomEvent("", request.Type, nilSpaceID, user.Id, request.Payload)
+	service.RaiseCustomEvent("", request.Type, nilSpaceID, user.Id, user.Id, request.Payload)
 
 	w.WriteHeader(http.StatusOK)
 }

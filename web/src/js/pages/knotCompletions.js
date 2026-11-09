@@ -39,38 +39,38 @@ export const knotLibraries = [
       },
       {
         "name": "get",
-        "signature": "get(path, params)",
-        "description": "GET request to the Knot API. params is an optional dict of query parameters",
+        "signature": "get(path, params, timeout)",
+        "description": "GET request to the Knot API. params is an optional dict of query parameters; waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "post",
-        "signature": "post(path, body)",
-        "description": "POST request to the Knot API. body is a dict",
+        "signature": "post(path, body, timeout)",
+        "description": "POST request to the Knot API. body is a dict; waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "put",
-        "signature": "put(path, body)",
-        "description": "PUT request to the Knot API. body is a dict",
+        "signature": "put(path, body, timeout)",
+        "description": "PUT request to the Knot API. body is a dict; waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "delete",
-        "signature": "delete(path, headers)",
-        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match)",
+        "signature": "delete(path, headers, timeout)",
+        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match); waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       },
       {
         "name": "get_bytes",
-        "signature": "get_bytes(path)",
-        "description": "GET request to the Knot API returning the response body as bytes (file content)",
+        "signature": "get_bytes(path, timeout)",
+        "description": "GET request to the Knot API returning the response body as bytes (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "bytes"
       },
       {
         "name": "put_bytes",
-        "signature": "put_bytes(path, data, content_type)",
-        "description": "PUT request to the Knot API with a string or bytes body (file content)",
+        "signature": "put_bytes(path, data, content_type, timeout)",
+        "description": "PUT request to the Knot API with a string or bytes body (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows",
         "returns": "dict"
       }
     ]
@@ -179,7 +179,7 @@ export const knotLibraries = [
   },
   {
     "module": "knot.files",
-    "description": "Store, read and copy files in buckets replicated across the cluster, and manage the buckets.",
+    "description": "Store, read, copy and move files in buckets replicated across the cluster, snapshot folders, and manage the buckets. In a space, knot.files.sync runs sync projects.",
     "functions": [
       {
         "name": "list_buckets",
@@ -232,13 +232,13 @@ export const knotLibraries = [
       {
         "name": "list_files",
         "signature": "list_files(bucket, prefix, recursive)",
-        "description": "List the files in a bucket. Returns files (key, size, etag, sha256, content_type, modified_at) and folders (prefixes ending in /). prefix restricts to keys starting with it, so end it with / for a folder; recursive=True lists every file below the prefix and returns no folders",
+        "description": "List the files in a bucket. Returns files (as stat gives for a file) and folders (prefixes ending in /). prefix restricts to keys starting with it, so end it with / for a folder; recursive=True lists every file below the prefix and returns no folders",
         "returns": "dict"
       },
       {
         "name": "list_changes",
         "signature": "list_changes(bucket, prefix, cursor)",
-        "description": "List what changed in a bucket since a cursor, to follow it without listing it again. Without a cursor every file is returned; cursor=\"now\" returns none, only a cursor to follow from now; with a cursor, each file changed since, once, as it is now (deleted=True for one that was deleted). Returns changes (key, size, etag, sha256, content_type, modified_at, deleted), cursor (pass it next time) and reset (True when the cursor could not be followed: start again without one)",
+        "description": "List what changed in a bucket since a cursor, to follow it without listing it again. Without a cursor every file is returned; cursor=\"now\" returns none, only a cursor to follow from now; with a cursor, each file changed since, once, as it is now (deleted=True for one that was deleted). Returns changes (as stat gives for a file, with deleted), cursor (pass it next time) and reset (True when the cursor could not be followed: start again without one)",
         "returns": "dict"
       },
       {
@@ -256,7 +256,7 @@ export const knotLibraries = [
       {
         "name": "write_file",
         "signature": "write_file(bucket, key, data, content_type)",
-        "description": "Write a file, replacing any file with that key; folders need no creating. data is a string (written as UTF-8) or bytes, at most 64 MB at a time. content_type defaults to text/plain for a string, else application/octet-stream. Returns the file's key, size, etag, sha256, content_type and modified_at",
+        "description": "Write a file, replacing any file with that key; folders need no creating. data is a string (written as UTF-8) or bytes, at most 64 MB at a time. content_type defaults to text/plain for a string, else application/octet-stream. Returns the file, as stat gives it",
         "returns": "dict"
       },
       {
@@ -276,6 +276,60 @@ export const knotLibraries = [
         "signature": "file_exists(bucket, key)",
         "description": "Check whether there is a file with exactly this key",
         "returns": "bool"
+      },
+      {
+        "name": "stat",
+        "signature": "stat(bucket, key)",
+        "description": "Say what a path is without reading any content: None for nothing there, else a dict with type \"file\" or \"folder\". A file's has key, size, etag, sha256, content_type, modified_at, changed_at (when this version was saved), mode (permission bits such as 0o755, or None), link (True for a symbolic link) and meta; a folder's has key (ending in /) and marker (True when an empty-folder marker keeps it). key \"\" is the top of the bucket",
+        "returns": "dict<str,> | None"
+      },
+      {
+        "name": "move",
+        "signature": "move(bucket, source, dest, overwrite)",
+        "description": "Rename a file, or a folder and everything in it, within a bucket, on the server without transferring content. A destination holding a file is refused unless overwrite=True. Returns the number of files moved",
+        "returns": "int"
+      },
+      {
+        "name": "snapshot",
+        "signature": "snapshot(source_bucket, source, dest_bucket, dest)",
+        "description": "Copy a folder (\"\" for the whole bucket), as it was at one moment, to a new folder that must not exist, on the server: no content is transferred. Returns files, folders, bytes, taken_at, source_bucket, source and manifest (the .knot-snapshot.json written last, so a folder holding it is a complete snapshot)",
+        "returns": "dict"
+      },
+      {
+        "name": "set_attrs",
+        "signature": "set_attrs(bucket, key, mode, mtime)",
+        "description": "Change a file's permission bits (0 to 0o777; a link stays a link) or modification time (Unix seconds or an RFC 3339 string), keeping its content and other metadata. Returns the file, as stat gives it; HTTP 412 when the file changed meanwhile",
+        "returns": "dict"
+      }
+    ]
+  },
+  {
+    "module": "knot.files.sync",
+    "description": "Run sync projects in this space's agent: keep local folders in step with bucket folders. Works in scripts that run in a space: startup and shutdown scripts, knot space run-script and knot run-script.",
+    "functions": [
+      {
+        "name": "start",
+        "signature": "start(project, name, wait, timeout)",
+        "description": "Start a sync project, or replace one of the same name; one already running unchanged is left running, so a startup script can start it on every boot. project is a dict like a project file, {\"name\": \"code\", \"exclude\": [...], \"no_default_excludes\": False, \"sync\": [{\"name\", \"local\", \"remote\": \"bucket:folder/\", \"snapshot\": \"bucket:folder/\", \"mode\": \"two-way\" | \"download\" | \"upload\", \"watch\", \"delete\", \"exclude\", \"exclude_from\", \"no_default_excludes\", \"allow_mass_delete\"}]}, or a project file's TOML; name names a project that gives none. wait=True waits up to timeout seconds (default 600) for every job's first pass, raising if one fails. Returns the project's status, as status gives it",
+        "returns": "dict"
+      },
+      {
+        "name": "stop",
+        "signature": "stop(name)",
+        "description": "Stop a sync project after sending its last local changes, and forget it. The template's project, named template, cannot be stopped",
+        "returns": "bool"
+      },
+      {
+        "name": "list",
+        "signature": "list()",
+        "description": "The sync projects running in this space, the template's included, each as status gives it",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "status",
+        "signature": "status(name)",
+        "description": "How a sync project is doing, or None when none of that name runs: name, template (True for the template's) and jobs, each with name, local, remote, mode, state (starting, snapshotting, syncing, watching, done, failed or stopped), passes, last_pass, error, uploaded, downloaded, deleted and conflicts",
+        "returns": "dict<str,> | None"
       }
     ]
   },
@@ -569,7 +623,7 @@ export const knotLibraries = [
           },
           {
             "name": "method",
-            "signature": "method(self, name: str, *, local_name: str = \"\", description: str = \"\", scope: str = \"private\", keywords: list[str] | None = None, groups: list[str] | None = None, mcp_tool: bool = False, params: dict[str, Any] | None = None, result: dict[str, Any] | None = None, events: list[str] | None = None, event_sinks: list[str] | None = None,)",
+            "signature": "method(self, name: str, *, local_name: str = \"\", description: str = \"\", scope: str = \"\", keywords: list[str] | None = None, groups: list[str] | None = None, mcp_tool: bool = False, params: dict[str, Any] | None = None, result: dict[str, Any] | None = None, events: list[str] | None = None, event_sinks: list[str] | None = None,)",
             "description": "Method ",
             "returns": "bool"
           },
@@ -1181,13 +1235,19 @@ export const knotLibraries = [
   },
   {
     "module": "knot.server",
-    "description": "Server information.",
+    "description": "Server information, and the hosts space web ports are reached at.",
     "functions": [
       {
         "name": "info",
         "signature": "info()",
         "description": "Get server-wide information: version, wildcard_domain (space web-port URLs, e.g. \"*.knot.example.com\") and tunnel_domain (dot-prefixed suffix, e.g. \".tunnel.example.com\", appended straight after a tunnel name) — the domains are empty when not configured.",
         "returns": "dict"
+      },
+      {
+        "name": "host_label",
+        "signature": "host_label(user, name, port)",
+        "description": "The first label of the host a space's web port is reached at, before the wildcard domain: \"<user>--<name>--<port>\", lowercased; name is a space, alt name or pool, port a number or \"vnc\". A label longer than the 63 characters DNS allows has the name cut short and ended with a hyphen and an 8-character hash, which knot routes by",
+        "returns": "string"
       }
     ]
   },

@@ -23,9 +23,9 @@ func printJSON(v any) error {
 var FsckCmd = &cli.Command{
 	Name:  "fsck",
 	Usage: "Check file storage on the running server for damage, and repair it",
-	Description: `Check a running server's file storage for damage: file content that is missing or wrong, reference counts and indexes that disagree with the file records, statistics that have drifted, and buckets whose owner was deleted.
+	Description: `Check a running server's file storage for damage: file content that is missing or wrong, reference counts and indexes that disagree with the file records, statistics that have drifted, buckets whose owner was deleted, and file modes in the decimal form knot wrote before 0.42.
 
-With --repair, content that is missing or wrong is fetched from the other servers in the cluster, counts, indexes and statistics are rebuilt from the file records, and buckets of deleted users are removed. A file whose content no server holds can't be repaired from the cluster: add --from-backup to restore it from a backup folder made by knot admin backup, or delete the file. Records of files are never removed by a check.
+With --repair, content that is missing or wrong is fetched from the other servers in the cluster, counts, indexes and statistics are rebuilt from the file records, buckets of deleted users are removed, and modes are rewritten in the octal form knot and rclone read. Run it once on one server after upgrading to 0.42, and after restoring a backup made before then: the rewritten modes reach the rest of the cluster. A file whose content no server holds can't be repaired from the cluster: add --from-backup to restore it from a backup folder made by knot admin backup, or delete the file. Records of files are never removed by a check.
 
 --deep also reads every stored file and checks its checksum, which takes a while on a large store. Writes pause briefly while counts are rebuilt, and only if they were wrong.
 

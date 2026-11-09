@@ -107,6 +107,12 @@ func (ts *tunnelServer) ConnectAndServe() {
 						log.Fatal("Tunnels are not available on your account")
 					} else if response.StatusCode == http.StatusServiceUnavailable {
 						log.Fatal("Tunnel limit reached")
+					} else if response.StatusCode == http.StatusBadRequest {
+						// Refused for good, a name too long for DNS say:
+						// trying again would only be refused again.
+						reason, _ := io.ReadAll(io.LimitReader(response.Body, 1024))
+						ts.logger.Error("the tunnel server refused the tunnel", "reason", strings.TrimSpace(string(reason)))
+						return
 					}
 				}
 

@@ -1,7 +1,9 @@
 package nfs
 
 import (
+	"errors"
 	"io"
+	"os"
 
 	"github.com/go-git/go-billy/v5"
 )
@@ -61,6 +63,15 @@ func nfs4OnCreate(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	}
 
 	childPath := parent.child(req.Name)
+	// knot: a name already there is answered EXIST (RFC 7530 18.4.4), and
+	// the check and the making are one step for clients racing to make it.
+	unlock := lockName(nfs4Join(parent.fs, childPath))
+	defer unlock()
+	if _, err := parent.fs.Lstat(nfs4Join(parent.fs, childPath)); err == nil {
+		return nfs4ErrExist
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nfs4StatusFromErr(err)
+	}
 	before := parent.changeID()
 	// knot: a symbolic link is made, not a folder.
 	if req.Type == FileTypeLink {
@@ -70,8 +81,17 @@ func nfs4OnCreate(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 		if err := parent.fs.(billy.Symlink).Symlink(req.LinkData, nfs4Join(parent.fs, childPath)); err != nil {
 			return nfs4StatusFromErr(err)
 		}
-	} else if err := parent.fs.MkdirAll(nfs4Join(parent.fs, childPath), attrs.attrs.Mode(0777)); err != nil {
-		return nfs4StatusFromErr(err)
+	} else {
+		dirPath := nfs4Join(parent.fs, childPath)
+		if err := parent.fs.MkdirAll(dirPath, attrs.attrs.Mode(0777)); err != nil {
+			return nfs4StatusFromErr(err)
+		}
+		// knot: the attributes given are set on the new folder, as NFSv3's
+		// MKDIR and NFSv4's OPEN set theirs; upstream dropped them, so a
+		// folder made with a mode (mkdir -m 0700) got the default.
+		if err := attrs.attrs.Apply(c.handler.Change(parent.fs), parent.fs, dirPath); err != nil {
+			return nfs4StatusFromErr(err)
+		}
 	}
 	after := parent.changeID()
 	if status := c.setCurrent(parent.fs, childPath); status != nfs4OK {

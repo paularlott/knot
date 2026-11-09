@@ -143,14 +143,19 @@ func (h *Hub) Start() {
 		return
 	}
 	hubStarted = true
-	go h.run()
+	// A hub shut down before has its shutdown channel closed: started again,
+	// it needs a fresh one, or its loop would end at once and leave clients
+	// waiting to register forever.
+	h.shutdown = make(chan struct{})
+	go h.run(h.shutdown)
 }
 
-// run is the main event loop for the hub
-func (h *Hub) run() {
+// run is the main event loop for the hub, until stop is closed. It takes
+// the channel rather than reading the field, which a later Start replaces.
+func (h *Hub) run(stop <-chan struct{}) {
 	for {
 		select {
-		case <-h.shutdown:
+		case <-stop:
 			// Close all client connections
 			h.mu.Lock()
 			for client := range h.clients {

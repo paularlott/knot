@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/util/hostlabel"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -86,6 +87,10 @@ func (c *TunnelClient) ConnectAndServe() error {
 	}
 
 	if c.tunnelType == WebTunnel {
+		if err := hostlabel.CheckTunnel(user.Username, c.tunnelName); err != nil {
+			return err
+		}
+
 		// Get the tunnel server info
 		tunnelServerInfo, _, err := client.GetTunnelServerInfo(context.Background())
 		if err != nil {

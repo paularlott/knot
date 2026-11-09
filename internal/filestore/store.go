@@ -3,7 +3,6 @@ package filestore
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -84,9 +83,10 @@ type Config struct {
 	// together; a nil list means too much changed to name.
 	Changed func(changes []BucketChanges)
 
-	// NoSync skips the fsync of writes, so a crash or power loss can lose the
-	// last moments of writes. It is for tests and tools; a server always
-	// makes a write durable before it is reported done.
+	// NoSync skips the fsync of writes, so a crash of the system or a power
+	// cut can lose the last moments of writes reported done (a crash of the
+	// server alone loses nothing). Tests and tools use it, and a server with
+	// files.no_sync set.
 	NoSync bool
 }
 
@@ -308,6 +308,13 @@ func Open(cfg Config) (*Store, error) {
 
 // Close stops background work, sends any changes not yet gossiped and
 // closes the database.
+// TempFile makes a temporary file in the store's folder for them, on the
+// same disk as its content; one left behind is removed at start-up, or once
+// old.
+func (s *Store) TempFile(pattern string) (*os.File, error) {
+	return os.CreateTemp(filepath.Join(s.dir, "tmp"), pattern)
+}
+
 func (s *Store) Close() {
 	s.bgMu.Lock()
 	s.closed = true
@@ -692,7 +699,8 @@ func (s *Store) storeContent(sha string, size int64, data []byte, path string, f
 	// With no file, the content is the data, which is empty for an empty file.
 	if path == "" {
 		held := false
-		err := s.db.Update(func(txn *badger.Txn) error {
+		err := s.update(func(txn *badger.Txn) error {
+			held = false
 			n, err := getRef(txn, sha)
 			if err != nil {
 				return err
@@ -907,6 +915,10 @@ type objectOp struct {
 	// pre, for a change made here rather than received, checks the record
 	// being replaced, nil if there is none, inside the transaction.
 	pre func(txn *badger.Txn, cur *Object) error
+	// basedOnCur says the change was made from the record it replaces (an
+	// If-Match that pre checks): it is then later than that record whatever
+	// their stamps say.
+	basedOnCur bool
 
 	// content is what is stored with the record: nothing (it arrives by
 	// replication, or is shared with another record), the data to keep in the
@@ -955,7 +967,8 @@ func (s *Store) applyChunk(ops []objectOp) ([]*Object, error) {
 	var results []applied
 	first := s.changes.alloc(len(ops))
 	defer s.changes.done(first)
-	for attempt := 0; ; attempt++ {
+	var retry conflictRetry
+	for {
 		results = results[:0]
 		err := s.db.Update(func(txn *badger.Txn) error {
 			results = results[:0]
@@ -968,7 +981,7 @@ func (s *Store) applyChunk(ops []objectOp) ([]*Object, error) {
 			}
 			return nil
 		})
-		if errors.Is(err, badger.ErrConflict) && attempt < 50 {
+		if retry.again(err) {
 			continue
 		}
 		if err != nil {
@@ -1050,6 +1063,21 @@ func (s *Store) applyOne(txn *badger.Txn, op objectOp, seq uint64) (applied, err
 	if op.pre != nil {
 		if err := op.pre(txn, cur); err != nil {
 			return applied{}, err
+		}
+		// A write made from what is here now replaces it. It was stamped as
+		// it began, and what it replaces can have been stamped since: written
+		// meanwhile here (a copy of the file onto itself, which keeps its
+		// ETag, so a write made from the file before still meets its
+		// If-Match), or by another server ahead of this one's clock. Taken
+		// for older, it would be dropped while reported written, though it
+		// holds the change it was made from. (A write not made from what is
+		// here, which loses to a record stamped later, happened and was
+		// replaced at once: last writer wins.)
+		if op.basedOnCur && cur != nil && !objectNewer(o, cur) {
+			o.UpdatedAt = hlc.Now()
+			if !o.UpdatedAt.After(cur.UpdatedAt) {
+				o.UpdatedAt = cur.UpdatedAt + 1
+			}
 		}
 	}
 	if cur != nil && !objectNewer(o, cur) {
@@ -1445,9 +1473,10 @@ func (s *Store) dropRecords(recs []*Object) error {
 	var dropped []*Object
 	var released []string
 	var err error
-	for attempt := 0; attempt < 5; attempt++ {
+	var retry conflictRetry
+	for {
 		err = s.dropTxn(recs, &dropped, &released)
-		if !errors.Is(err, badger.ErrConflict) {
+		if !retry.again(err) {
 			break
 		}
 	}

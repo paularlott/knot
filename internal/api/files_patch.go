@@ -2,13 +2,17 @@ package api
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/filestore"
@@ -94,7 +98,10 @@ var errBadPatch = errors.New("invalid patch")
 // to write over the stored file, and X-Knot-Size the file's new size, so a
 // small change to a large file sends only what changed. The new content is
 // made on the server from the stored file. If-Match makes the change only if
-// the file is still the one the ranges were written against.
+// the file is still the one the ranges were written against; without it the
+// ranges go over whatever the file is when they are applied, made again
+// from the newer file when it changes meanwhile (another server's change
+// arriving, say), rather than refused.
 //
 // The body is a sequence of ranges, in order and not overlapping, each an
 // 8-byte big-endian offset, an 8-byte big-endian length, then that many
@@ -108,27 +115,94 @@ func HandlePatchFileObject(w http.ResponseWriter, r *http.Request) {
 	rest.NoDeadlines(w)
 
 	size, err := strconv.ParseInt(r.Header.Get(apiclient.FileSizeHeader), 10, 64)
-	if err != nil || size < 0 {
+	if err != nil || size < 0 || size > maxPatchSize {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: apiclient.FileSizeHeader + " must give the new size"})
 		return
 	}
 	bucket, key := filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key")
+	ifMatch := strings.Trim(r.Header.Get("If-Match"), `"`)
 
-	base, content, err := store.OpenObject(r.Context(), p, bucket, key)
-	if err != nil {
+	// What can be refused before the body is read is: a change the user may
+	// not make, cannot fit, or is to a version no longer there.
+	if err := store.CheckPut(p, bucket, key, size); err != nil {
 		filesError(w, r, err)
 		return
 	}
-	defer content.Close()
-	ifMatch := r.Header.Get("If-Match")
-	if ifMatch != "" && strings.Trim(ifMatch, `"`) != base.ETag {
-		filesError(w, r, filestore.ErrPrecondition)
+	if ifMatch != "" {
+		o, err := store.HeadObject(p, bucket, key)
+		if err != nil {
+			filesError(w, r, err)
+			return
+		}
+		if o.ETag != ifMatch {
+			filesError(w, r, filestore.ErrPrecondition)
+			return
+		}
+	}
+
+	// The ranges are read first, so the file is held below only while the
+	// change is made, not while a client sends it, and can be applied again.
+	body, err := spoolPatch(store, r.Body, size)
+	if err != nil {
+		if errors.Is(err, errBadPatch) {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		} else {
+			filesError(w, r, err)
+		}
 		return
+	}
+	defer body.Close()
+
+	// Patches to one file are made one at a time here, each from the file the
+	// last one left, so two at once do not refuse or undo each other.
+	defer patchLocks.lock(bucket + "\x00" + key)()
+
+	for attempt := 1; ; attempt++ {
+		o, err := patchOnce(r, store, user.Id, p, bucket, key, body, size, ifMatch)
+		if errors.Is(err, filestore.ErrPrecondition) && ifMatch == "" && attempt < patchAttempts {
+			continue // the file changed as the change was made: make it again
+		}
+		if errors.Is(err, errBadPatch) {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+		if err != nil {
+			filesError(w, r, err)
+			return
+		}
+		rest.WriteResponse(http.StatusOK, w, r, objectResponse(o))
+		return
+	}
+}
+
+// patchAttempts is how many times a patch without If-Match is made, the file
+// changing each time as it was.
+const patchAttempts = 10
+
+// maxPatchSize is the largest new size a patch may give: one whose body's
+// limit (see spoolPatch) can be counted.
+const maxPatchSize = (math.MaxInt64 - 16) / 17
+
+// patchOnce makes a patch's change once: from the stored file, which must
+// still be the version ifMatch names when it is given, and only if the file
+// is still the version it was made from.
+func patchOnce(r *http.Request, store *filestore.Store, userId string, p *filestore.Principal, bucket, key string, body *spooledPatch, size int64, ifMatch string) (*filestore.Object, error) {
+	base, content, err := store.OpenObject(r.Context(), p, bucket, key)
+	if err != nil {
+		return nil, err
+	}
+	defer content.Close()
+	if ifMatch != "" && ifMatch != base.ETag {
+		return nil, filestore.ErrPrecondition
+	}
+	ranges, err := body.reader()
+	if err != nil {
+		return nil, err
 	}
 
 	opts := filestore.PutOptions{
 		ContentType: r.Header.Get("Content-Type"),
-		ModifiedBy:  user.Id,
+		ModifiedBy:  userId,
 		Size:        size,
 		Meta:        metaFromRequest(r),
 		// The file must still be the one the content was made from.
@@ -140,18 +214,137 @@ func HandlePatchFileObject(w http.ResponseWriter, r *http.Request) {
 	if opts.Meta == nil {
 		opts.Meta = base.Meta
 	}
+	pr := &patchReader{base: content, baseLen: base.Size, body: bufio.NewReader(ranges), size: size}
+	return store.PutObject(p, bucket, key, pr, opts)
+}
 
-	pr := &patchReader{base: content, baseLen: base.Size, body: bufio.NewReader(r.Body), size: size}
-	o, err := store.PutObject(p, bucket, key, pr, opts)
-	if errors.Is(err, errBadPatch) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-		return
+// spooledPatch is a patch's body, kept to be read as often as it is applied:
+// in memory when small, else in a temporary file of the store's.
+type spooledPatch struct {
+	data []byte
+	f    *os.File
+}
+
+// patchInMemory is the largest patch body kept in memory.
+const patchInMemory = 1 << 20
+
+// spoolPatch reads a patch's body. It holds at most the new content and a
+// header for each range, a range being at least a byte (empty ones are
+// skipped as they arrive, so many cannot fill the disk); more is a bad
+// patch.
+func spoolPatch(store *filestore.Store, r io.Reader, size int64) (*spooledPatch, error) {
+	limit := 17*size + 16 // a 16-byte header for every byte, at worst
+	buf := make([]byte, 0, min(limit, 64<<10))
+	sp := &spooledPatch{}
+	var hdr [16]byte
+	var total int64
+	br := bufio.NewReader(r)
+	for {
+		if _, err := io.ReadFull(br, hdr[:]); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			sp.Close()
+			return nil, fmt.Errorf("%w: a range header is cut short", errBadPatch)
+		}
+		n := int64(binary.BigEndian.Uint64(hdr[8:]))
+		if n == 0 {
+			continue
+		}
+		if n < 0 || n > size {
+			sp.Close()
+			return nil, fmt.Errorf("%w: ranges must be in order, not overlap and fall within the new size", errBadPatch)
+		}
+		total += 16 + n
+		if total > limit {
+			sp.Close()
+			return nil, fmt.Errorf("%w: more ranges than the new size holds", errBadPatch)
+		}
+		if sp.f == nil && int64(len(buf))+16+n > patchInMemory {
+			f, err := store.TempFile("patch-*")
+			if err != nil {
+				return nil, err
+			}
+			os.Remove(f.Name()) // gone once closed
+			sp.f = f
+			if _, err := f.Write(buf); err != nil {
+				sp.Close()
+				return nil, err
+			}
+			buf = nil
+		}
+		if sp.f != nil {
+			if _, err := sp.f.Write(hdr[:]); err != nil {
+				sp.Close()
+				return nil, err
+			}
+			if _, err := io.CopyN(sp.f, br, n); err != nil {
+				sp.Close()
+				return nil, fmt.Errorf("%w: a range is cut short", errBadPatch)
+			}
+			continue
+		}
+		buf = append(buf, hdr[:]...)
+		start := len(buf)
+		buf = append(buf, make([]byte, n)...)
+		if _, err := io.ReadFull(br, buf[start:]); err != nil {
+			return nil, fmt.Errorf("%w: a range is cut short", errBadPatch)
+		}
 	}
-	if err != nil {
-		filesError(w, r, err)
-		return
+	sp.data = buf
+	return sp, nil
+}
+
+// reader reads the body from its start.
+func (sp *spooledPatch) reader() (io.Reader, error) {
+	if sp.f == nil {
+		return bytes.NewReader(sp.data), nil
 	}
-	rest.WriteResponse(http.StatusOK, w, r, objectResponse(o))
+	if _, err := sp.f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return sp.f, nil
+}
+
+func (sp *spooledPatch) Close() error {
+	if sp.f != nil {
+		return sp.f.Close()
+	}
+	return nil
+}
+
+// keyLocks are locks by name, each kept only while held or waited for.
+type keyLocks struct {
+	mu sync.Mutex
+	m  map[string]*keyLock
+}
+
+type keyLock struct {
+	sync.Mutex
+	users int
+}
+
+var patchLocks = keyLocks{m: map[string]*keyLock{}}
+
+// lock takes the lock named k, returning its release.
+func (l *keyLocks) lock(k string) func() {
+	l.mu.Lock()
+	kl := l.m[k]
+	if kl == nil {
+		kl = &keyLock{}
+		l.m[k] = kl
+	}
+	kl.users++
+	l.mu.Unlock()
+	kl.Lock()
+	return func() {
+		kl.Unlock()
+		l.mu.Lock()
+		if kl.users--; kl.users == 0 {
+			delete(l.m, k)
+		}
+		l.mu.Unlock()
+	}
 }
 
 // patchReader is the new content of a patched file: the stored file, with

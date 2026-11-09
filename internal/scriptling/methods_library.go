@@ -112,8 +112,9 @@ func buildServerClass() *object.Class {
 		return state, nil
 	})
 
-	// server.method(*, name, description, local_name="", keywords=[], scope="private",
+	// server.method(*, name, description, local_name="", keywords=[], scope="",
 	//                groups=[], mcp_tool=False, params=None, result=None)
+	// scope defaults to "shared" when groups are given, else "private".
 	// name may be passed positionally or as a keyword argument.
 	cb.MethodWithHelp("method", func(self *serverState, ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		var name string
@@ -134,8 +135,7 @@ func buildServerClass() *object.Class {
 		}
 
 		def := methods.MethodDefinition{
-			Name:  name,
-			Scope: methods.ScopePrivate,
+			Name: name,
 		}
 
 		if v := kwargs.Get("local_name"); v != nil {
@@ -200,7 +200,7 @@ func buildServerClass() *object.Class {
 
 		self.reg.Methods = append(self.reg.Methods, def)
 		return object.NewBoolean(true)
-	}, `method(name, *, local_name="", description="", scope="private", keywords=[], groups=[], mcp_tool=False, params=None, result=None, events=[], event_sinks=[]) - Add a method definition`)
+	}, `method(name, *, local_name="", description="", scope="", keywords=[], groups=[], mcp_tool=False, params=None, result=None, events=[], event_sinks=[]) - Add a method definition; scope defaults to "shared" when groups are given, else "private"`)
 
 	// server.register() - validate and publish the collected registration.
 	cb.MethodWithHelp("register", func(self *serverState, ctx context.Context) object.Object {

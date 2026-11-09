@@ -89,9 +89,24 @@ func (c *HTTPClient) SetResponseCheck(check func(*http.Response) error) RESTClie
 	return c
 }
 
+type noTimeoutKey struct{}
+
+// WithoutTimeout marks a request's context so the client's timeout does not
+// apply to it, for a call that may rightly take longer, such as a command
+// run with a timeout of its own: only ctx bounds it.
+func WithoutTimeout(ctx context.Context) context.Context {
+	return context.WithValue(ctx, noTimeoutKey{}, true)
+}
+
 // do sends req, applying the response check.
 func (c *HTTPClient) do(req *http.Request) (*http.Response, error) {
-	resp, err := c.HTTPClient.Do(req)
+	client := c.HTTPClient
+	if req.Context().Value(noTimeoutKey{}) != nil && client.Timeout != 0 {
+		unbounded := *client
+		unbounded.Timeout = 0
+		client = &unbounded
+	}
+	resp, err := client.Do(req)
 	if err != nil || c.responseCheck == nil {
 		return resp, err
 	}

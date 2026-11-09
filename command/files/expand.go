@@ -19,7 +19,9 @@ type source struct {
 	key    string
 	rel    string // where it goes below a destination folder, slash separated
 	size   int64
-	marker bool // a folder marker object (key ends in /): it makes a folder, not a file
+	marker bool        // a folder: a marker object (key ends in /), or a local directory below a copied one
+	mode   os.FileMode // a folder's permission bits, 0 when not known
+	link   bool        // a symbolic link: a local one found below a folder, or a bucket one
 }
 
 func (s source) String() string {
@@ -84,7 +86,7 @@ func remoteSources(ctx context.Context, client *apiclient.ApiClient, loc locatio
 		}
 		for _, o := range objects {
 			if rel, ok := matchGlob(key, o.Key, recursive); ok && rel != "" {
-				list = append(list, source{bucket: bucket, key: o.Key, rel: rel, size: o.Size, marker: strings.HasSuffix(o.Key, "/")})
+				list = append(list, remoteSource(bucket, o, rel))
 			}
 		}
 		if len(list) == 0 {
@@ -114,7 +116,7 @@ func remoteSources(ctx context.Context, client *apiclient.ApiClient, loc locatio
 			if rel == "" && !ownMarker {
 				continue // the folder's own marker
 			}
-			list = append(list, source{bucket: bucket, key: o.Key, rel: rel, size: o.Size, marker: strings.HasSuffix(o.Key, "/")})
+			list = append(list, remoteSource(bucket, o, rel))
 		}
 		return list, true, nil
 	}
@@ -122,6 +124,16 @@ func remoteSources(ctx context.Context, client *apiclient.ApiClient, loc locatio
 		return nil, false, fmt.Errorf("%s: no such file or folder", loc)
 	}
 	return []source{{bucket: bucket, key: key, rel: path.Base(key), size: info.file.Size}}, false, nil
+}
+
+// remoteSource describes a bucket file or folder marker found by expanding
+// a path.
+func remoteSource(bucket string, o apiclient.FileObjectInfo, rel string) source {
+	s := source{bucket: bucket, key: o.Key, rel: rel, size: o.Size, marker: strings.HasSuffix(o.Key, "/"), link: isLinkMeta(o.Meta)}
+	if s.marker {
+		s.mode, _ = storedMode(o.Meta)
+	}
+	return s
 }
 
 // localSources expands one local path argument into the files it names, the
@@ -151,8 +163,24 @@ func localSources(arg string, recursive bool) (list []source, folder bool, err e
 	if err != nil {
 		return nil, true, err
 	}
+	// Links below the folder are copied as links, not followed, as cp -R
+	// and rsync -a copy them. The folders below it are copied too, so empty
+	// ones are kept, with their modes.
 	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !d.Type().IsRegular() {
+		if err == nil && d.IsDir() && p != root {
+			rel, err := filepath.Rel(root, p)
+			if err != nil {
+				return err
+			}
+			fi, err := d.Info()
+			if err != nil {
+				return err
+			}
+			list = append(list, source{local: p, rel: filepath.ToSlash(rel) + "/", marker: true, mode: apiclient.LocalFileAttrs(fi).Mode})
+			return nil
+		}
+		link := d != nil && d.Type()&fs.ModeSymlink != 0 && linksSupported
+		if err != nil || d.IsDir() || (!d.Type().IsRegular() && !link) {
 			return err
 		}
 		rel, err := filepath.Rel(root, p)
@@ -163,7 +191,7 @@ func localSources(arg string, recursive bool) (list []source, folder bool, err e
 		if err != nil {
 			return err
 		}
-		list = append(list, source{local: p, rel: filepath.ToSlash(rel), size: fi.Size()})
+		list = append(list, source{local: p, rel: filepath.ToSlash(rel), size: fi.Size(), link: link})
 		return nil
 	})
 	return list, true, err

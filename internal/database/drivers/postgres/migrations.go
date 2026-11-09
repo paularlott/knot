@@ -30,6 +30,8 @@ var migrations = []string{
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS provider_token_at BIGINT NOT NULL DEFAULT 0`,
 	// 12: users' passkeys
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS passkeys JSONB DEFAULT NULL`,
+	// 13: the resource (RFC 8707) an OAuth2 token was issued for ('' = not recorded)
+	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS audience VARCHAR(2048) NOT NULL DEFAULT ''`,
 }
 
 func (db *PostgresDriver) runMigrations() error {

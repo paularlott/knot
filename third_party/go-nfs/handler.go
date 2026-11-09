@@ -4,6 +4,8 @@ import (
 	"context"
 	"io/fs"
 	"net"
+	"os"
+	"time"
 
 	billy "github.com/go-git/go-billy/v5"
 )
@@ -41,6 +43,30 @@ type Handler interface {
 // knot: added; upstream answers every write FILE_SYNC and COMMIT does nothing.
 type Committer interface {
 	Commit(path string) error
+}
+
+// ChangeInfo is implemented by an os.FileInfo whose file can change without
+// its size or modification time changing (its content replaced by another
+// with both the same). ChangeTime is reported as the file's ctime, and
+// ChangeID as NFSv4's change attribute, so a client that holds the file
+// cached sees that it changed.
+//
+// knot: added; upstream reports the modification time as ctime, and derives
+// the change attribute from the size and modification time.
+type ChangeInfo interface {
+	ChangeTime() time.Time
+	ChangeID() uint64
+}
+
+// VersionedReader is implemented by an open file whose content can be
+// replaced between looking at it and reading it. ReadAtInfo reads as ReadAt
+// does and returns the attributes of the version it read, nil when they are
+// not known, so a READ answers with the size, end of file and attributes of
+// the bytes it sends, not those of another version.
+//
+// knot: added; upstream takes the attributes before reading.
+type VersionedReader interface {
+	ReadAtInfo(p []byte, off int64) (int, os.FileInfo, error)
 }
 
 // UnixChange extends the billy `Change` interface with support for special files.

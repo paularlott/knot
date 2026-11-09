@@ -136,8 +136,8 @@ func TestSweepOnceManagesOnlyOwningZone(t *testing.T) {
 	setServerZone(t, "z1")
 	template := newPoolTestTemplate(t, "pool-zone-sweep-tmpl")
 	user := newPoolTestUser("pool-zone-sweep-user")
-	user.Username = "pool-zone-sweep-user"
-	user.Email = "pool-zone-sweep-user@test.local"
+	user.Username = user.Id
+	user.Email = user.Id + "@test.local"
 	if err := database.GetInstance().SaveUser(user, nil); err != nil {
 		t.Fatalf("SaveUser: %v", err)
 	}
@@ -189,8 +189,8 @@ func TestReapOrphansOnlyReapsLocalZone(t *testing.T) {
 	setServerZone(t, "z1")
 	template := newPoolTestTemplate(t, "pool-zone-reap-tmpl")
 	user := newPoolTestUser("pool-zone-reap-user")
-	user.Username = "pool-zone-reap-user"
-	user.Email = "pool-zone-reap-user@test.local"
+	user.Username = user.Id
+	user.Email = user.Id + "@test.local"
 	if err := database.GetInstance().SaveUser(user, nil); err != nil {
 		t.Fatalf("SaveUser: %v", err)
 	}

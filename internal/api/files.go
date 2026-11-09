@@ -65,13 +65,13 @@ func limitToSpace(p *filestore.Principal, space *model.Space) {
 func filesError(w http.ResponseWriter, r *http.Request, err error) {
 	status := http.StatusInternalServerError
 	switch {
-	case errors.Is(err, filestore.ErrNoSuchBucket), errors.Is(err, filestore.ErrNoSuchKey):
+	case errors.Is(err, filestore.ErrNoSuchBucket), errors.Is(err, filestore.ErrNoSuchKey), errors.Is(err, filestore.ErrNoSuchUpload):
 		status = http.StatusNotFound
 	case errors.Is(err, filestore.ErrAccessDenied), errors.Is(err, filestore.ErrCannotOwn), errors.Is(err, filestore.ErrBucketLimit),
 		errors.Is(err, filestore.ErrCannotShare), errors.Is(err, filestore.ErrCannotTransfer):
 		status = http.StatusForbidden
 	case errors.Is(err, filestore.ErrBucketExists), errors.Is(err, filestore.ErrBucketNotEmpty), errors.Is(err, filestore.ErrTransferNameTaken),
-		errors.Is(err, filestore.ErrDestinationExists), errors.Is(err, filestore.ErrContentNotHeld):
+		errors.Is(err, filestore.ErrDestinationExists), errors.Is(err, filestore.ErrContentNotHeld), errors.Is(err, filestore.ErrSnapshotChanged):
 		status = http.StatusConflict
 	case errors.Is(err, filestore.ErrQuotaExceeded):
 		status = http.StatusRequestEntityTooLarge
@@ -81,7 +81,7 @@ func filesError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, filestore.ErrBucketNamespace), errors.Is(err, filestore.ErrUsernameUnusable), errors.Is(err, filestore.ErrRecipientCannotOwn),
 		errors.Is(err, filestore.ErrInvalidKey), errors.Is(err, filestore.ErrInvalidGrant), errors.Is(err, filestore.ErrTooManyGrants),
 		errors.Is(err, filestore.ErrMetadataTooLarge), errors.Is(err, filestore.ErrInvalidMetadata), errors.Is(err, filestore.ErrContentMismatch), errors.Is(err, io.ErrUnexpectedEOF),
-		errors.Is(err, filestore.ErrInvalidCursor):
+		errors.Is(err, filestore.ErrInvalidCursor), errors.Is(err, filestore.ErrInvalidPart):
 		status = http.StatusBadRequest
 	case errors.Is(err, filestore.ErrUnavailable):
 		status = http.StatusServiceUnavailable
@@ -511,6 +511,7 @@ func objectResponse(o *filestore.Object) apiclient.FileObjectInfo {
 		SHA256:      o.SHA256,
 		ContentType: o.ContentType,
 		ModifiedAt:  modified,
+		ChangedAt:   o.ModifiedAt,
 		Meta:        o.Meta,
 	}
 }
@@ -571,6 +572,7 @@ func setObjectHeaders(w http.ResponseWriter, o *filestore.Object) {
 	h.Set("ETag", `"`+o.ETag+`"`)
 	h.Set("Last-Modified", o.ModifiedAt.UTC().Format(http.TimeFormat))
 	h.Set("X-Knot-Sha256", o.SHA256)
+	h.Set(apiclient.FileChangedHeader, apiclient.FormatMtime(o.ModifiedAt))
 	if mtime, ok := o.Meta["mtime"]; ok {
 		h.Set(apiclient.FileMtimeHeader, mtime)
 	} else {
@@ -640,6 +642,8 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 		IfNoneMatch: r.Header.Get("If-None-Match") == "*",
 		Meta:        metaFromRequest(r),
 	}
+	bucket, key := filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key")
+	store.FillFileAttrs(p, bucket, key, &opts)
 
 	var o *filestore.Object
 	var err error
@@ -649,9 +653,9 @@ func HandlePutFileObject(w http.ResponseWriter, r *http.Request) {
 			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "a reuse carries no content"})
 			return
 		}
-		o, err = store.ReuseObject(p, filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key"), strings.ToLower(sha), opts)
+		o, err = store.ReuseObject(p, bucket, key, strings.ToLower(sha), opts)
 	} else {
-		o, err = store.PutObject(p, filestore.ResolveName(p, r.PathValue("bucket")), r.PathValue("key"), r.Body, opts)
+		o, err = store.PutObject(p, bucket, key, r.Body, opts)
 	}
 	if err != nil {
 		filesError(w, r, err)
@@ -752,6 +756,41 @@ func HandleMoveFileObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.FileMoveResponse{Moved: n})
+}
+
+// POST /api/files/snapshot: copy a folder, as it was at one moment, to a new
+// folder, on the server.
+func HandleSnapshotFileFolder(w http.ResponseWriter, r *http.Request) {
+	store, _, p, ok := filesContext(w, r)
+	if !ok {
+		return
+	}
+
+	var req apiclient.FileSnapshotRequest
+	if err := rest.DecodeRequestBody(w, r, &req); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if req.SourceBucket == "" || req.DestBucket == "" || strings.Trim(req.Dest, "/") == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "source_bucket, dest_bucket and dest are required"})
+		return
+	}
+
+	dst := filestore.ResolveName(p, req.DestBucket)
+	snap, err := store.SnapshotFolder(p, filestore.ResolveName(p, req.SourceBucket), req.Source, dst, req.Dest)
+	if err != nil {
+		filesError(w, r, err)
+		return
+	}
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.FileSnapshot{
+		Files:        snap.Files,
+		Folders:      snap.Folders,
+		Bytes:        snap.Bytes,
+		TakenAt:      snap.TakenAt,
+		SourceBucket: snap.SourceBucket,
+		SourcePath:   snap.SourcePath,
+		Manifest:     strings.Trim(req.Dest, "/") + "/" + filestore.SnapshotManifest,
+	})
 }
 
 func HandleDeleteFileObject(w http.ResponseWriter, r *http.Request) {

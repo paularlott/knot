@@ -12,8 +12,8 @@
             <div>
               <label for="username" class="form-label">Username<span x-show="!isEdit">{{ template "req" }}</span></label>
               <input type="text" id="username" class="form-field" name="username" x-on:blur="checkUsername()" x-on:input="if (!usernameValid) checkUsername()" :class="{'form-field-error': !usernameValid}" :aria-invalid="!usernameValid ? 'true' : 'false'" :aria-required="!isEdit ? 'true' : null" :aria-describedby="!usernameValid ? 'username-help username-error' : 'username-help'" autocomplete="username" placeholder="Username" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
-              <p id="username-help" class="description" x-show="!isEdit">Letters, numbers, hyphens (-) and dots (.). Start with a letter, end with a letter or number, up to 30 characters.</p>
-              <div id="username-error" x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 30 characters.</div>
+              <p id="username-help" class="description" x-show="!isEdit">Letters, numbers, hyphens (-) and dots (.). Start with a letter, end with a letter or number, up to 24 characters.</p>
+              <div id="username-error" x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., start with a letter, end with a letter or digit, max 24 characters.</div>
             </div>
             <div>
               <label for="email" class="form-label">Email{{ template "req" }}</label>
@@ -46,7 +46,7 @@
               <label for="tz" class="form-label">Timezone</label>
               <div x-data="autocompleter()" x-init="setData(window.Timezones)" data-parent-variable="timezone" @refresh-autocompleter.window="refresh()" class="relative">
                 <input id="tz" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search..." role="combobox" aria-autocomplete="list" autocomplete="off" :aria-expanded="showList && filteredOptions.length > 0" :aria-controls="_listboxId" :aria-activedescendant="activeDescendant" :aria-invalid="!tzValid ? 'true' : 'false'" :aria-describedby="!tzValid ? 'tz-error' : null" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)">
-                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <div tabindex="-1" @mousedown.prevent x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                   <ul class="list-none" role="listbox" aria-label="Timezones" :id="_listboxId">
                     <template x-for="(option, index) in filteredOptions" :key="index">
                       <li @click="selectOption(option)" role="option" :id="`${_listboxId}-opt-${index}`" :aria-selected="selectedIndex === index ? 'true' : 'false'" x-text="option" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
@@ -128,6 +128,7 @@
                 <p id="max_tunnels-help" class="description">The maximum number of tunnels this user can create, 0 for unlimited.</p>
                 <div id="max_tunnels-error" x-show="!maxTunnelsValid" class="error-message" x-cloak>Enter a valid number between 0 and 100.</div>
               </div>
+{{ if .filesEnabled }}
               <div>
                 <label for="file_storage_mb" class="form-label">File Storage (MB)</label>
                 <input type="number" id="file_storage_mb" class="form-field" name="file_storage_mb" x-model="formData.file_storage_mb" min="0" x-on:blur="checkFileStorage()" x-on:input="if (!fileStorageValid) checkFileStorage()" :class="{'form-field-error': !fileStorageValid}" :aria-invalid="!fileStorageValid ? 'true' : 'false'" :aria-describedby="!fileStorageValid ? 'file_storage_mb-help file_storage_mb-error' : 'file_storage_mb-help'">
@@ -140,6 +141,7 @@
                 <p id="max_buckets-help" class="description">The maximum number of file storage buckets this user can own, 0 to use the server default.</p>
                 <div id="max_buckets-error" x-show="!maxBucketsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
               </div>
+{{ end }}
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
               <div x-show="roles.length" x-cloak role="group" aria-labelledby="user-roles-label">
@@ -282,7 +284,7 @@
               <div class="relative mt-4" x-data="autocompleterUser()" x-init="setDataSource('linkableUsers'); loadUserOptions()" data-parent-var-group="linkUserForm" data-parent-variable="userId" data-parent-variable-username="username" @refresh-autocompleter.window="refresh()">
                 <label class="form-label" for="linked-user-search">User</label>
                 <input id="linked-user-search" x-model="search" x-ref="searchInput" class="form-field" type="search" placeholder="Search users..." aria-label="Search users" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" autocomplete="off">
-                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <div tabindex="-1" @mousedown.prevent x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="max-h-40 overflow-auto fixed z-[70] my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                   <ul class="list-none" role="listbox" :id="_listboxId">
                     <template x-for="(option, index) in filteredOptions" :key="index">
                       <li @click="selectOption(option)" x-text="option.username" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>

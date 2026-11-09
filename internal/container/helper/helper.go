@@ -283,6 +283,7 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false, ShutdownScriptTimeout); err != nil {
 		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
+	flushSpaceSyncs(space)
 
 	if err := containerClient.DeleteSpaceJob(space, nil); err != nil {
 		space.IsPending = false
@@ -341,6 +342,7 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false, ShutdownScriptTimeout); err != nil {
 		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
+	flushSpaceSyncs(space)
 
 	if err := containerClient.DeleteSpaceJob(space, func() {
 		// Start the container again
@@ -410,6 +412,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 						logger.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 					}
 				}
+				flushSpaceSyncs(space)
 
 				err = containerClient.DeleteSpaceJob(space, nil)
 				if err != nil {
@@ -682,3 +685,21 @@ func executeScript(space *model.Space, script *model.Script, waitForAgent bool, 
 	log.Trace("script completed", "script_id", script.Id, "space_id", space.Id)
 	return nil
 }
+
+// flushSpaceSyncs has the space's agent send the local changes its sync
+// projects have not sent yet, before the space stops: a space is stopped
+// with a moment's grace, too short for them, and its agent is not told.
+// It waits up to the agent's reply timeout.
+func flushSpaceSyncs(space *model.Space) {
+	session := agent_server.GetSession(space.Id)
+	if session == nil {
+		return
+	}
+	if err := session.SendSyncFlush(syncFlushWait); err != nil {
+		log.WithError(err).Warn("the space's sync projects may not have sent every local change before it stopped", "space_id", space.Id)
+	}
+}
+
+// syncFlushWait is how long a space stopping waits for its agent's sync
+// projects to send their local changes; the agent gives them a little less.
+const syncFlushWait = 30 * time.Second

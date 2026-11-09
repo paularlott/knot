@@ -64,6 +64,8 @@ func resolveSpaceForFileOps(w http.ResponseWriter, r *http.Request) *agent_serve
 
 // HandleGrep searches file contents in a space.
 func HandleGrep(w http.ResponseWriter, r *http.Request) {
+	// The agent may take minutes over a large file or tree.
+	rest.NoDeadlines(w)
 	session := resolveSpaceForFileOps(w, r)
 	if session == nil {
 		return
@@ -91,6 +93,8 @@ func HandleGrep(w http.ResponseWriter, r *http.Request) {
 
 // HandleFind finds files/directories in a space.
 func HandleFind(w http.ResponseWriter, r *http.Request) {
+	// The agent may take minutes over a large file or tree.
+	rest.NoDeadlines(w)
 	session := resolveSpaceForFileOps(w, r)
 	if session == nil {
 		return
@@ -124,6 +128,8 @@ func HandleFind(w http.ResponseWriter, r *http.Request) {
 
 // HandleSed performs in-place edits or capture extraction in a space.
 func HandleSed(w http.ResponseWriter, r *http.Request) {
+	// The agent may take minutes over a large file or tree.
+	rest.NoDeadlines(w)
 	session := resolveSpaceForFileOps(w, r)
 	if session == nil {
 		return
@@ -157,6 +163,8 @@ func HandleSed(w http.ResponseWriter, r *http.Request) {
 
 // HandleEditFile performs a targeted search-and-replace edit in a space.
 func HandleEditFile(w http.ResponseWriter, r *http.Request) {
+	// The agent may take minutes over a large file or tree.
+	rest.NoDeadlines(w)
 	session := resolveSpaceForFileOps(w, r)
 	if session == nil {
 		return
@@ -192,6 +200,8 @@ func HandleEditFile(w http.ResponseWriter, r *http.Request) {
 // idempotent — important for sync tools whose "delete list" was computed
 // against a slightly stale remote snapshot.
 func HandleDeleteSpaceFile(w http.ResponseWriter, r *http.Request) {
+	// The agent may take minutes over a large file or tree.
+	rest.NoDeadlines(w)
 	session := resolveSpaceForFileOps(w, r)
 	if session == nil {
 		return

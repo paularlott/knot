@@ -32,7 +32,9 @@ func onSetAttr(ctx context.Context, w *response, userHandle Handler) error {
 		if os.IsNotExist(err) {
 			return &NFSStatusError{NFSStatusNoEnt, err}
 		}
-		return &NFSStatusError{NFSStatusAccess, err}
+		// knot: mapped by statusFromError; upstream answered ACCESS for any
+		// failure, a server unable to answer for a moment included.
+		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 
 	// see if there's a "guard"

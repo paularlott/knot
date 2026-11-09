@@ -4,13 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"sync"
 
 	badger "github.com/dgraph-io/badger/v4"
+	"github.com/paularlott/gossip/hlc"
 )
 
 // What a check can find.
@@ -29,6 +32,7 @@ const (
 	FsckUnknownBucket  = "unknown-bucket-files" // records of a bucket this server has no record of
 	FsckOwnerDeleted   = "owner-deleted"        // a bucket whose owner was deleted
 	FsckOwnerMissing   = "owner-missing"        // a bucket whose owner is not in the user database
+	FsckDecimalMode    = "decimal-mode"         // a file mode in the decimal form knot wrote before 0.42
 )
 
 // maxFsckIssues is how many individual findings a report lists; the counts
@@ -38,7 +42,8 @@ const maxFsckIssues = 200
 // FsckOptions says what a check does beyond looking.
 type FsckOptions struct {
 	// Repair fixes what it can: content is fetched from the cluster, counts
-	// and indexes are rebuilt, buckets of deleted users are removed.
+	// and indexes are rebuilt, buckets of deleted users are removed, modes
+	// are rewritten in octal.
 	Repair bool `json:"repair"`
 	// Deep reads every stored content and checks its checksum.
 	Deep bool `json:"deep"`
@@ -102,6 +107,34 @@ type fsckScan struct {
 	tombs     map[string]bool         // deletion index entries expected
 	haveTombs map[string]bool         // and found
 	holds     map[string]uint32       // references taken by content held for reuse
+	modes     []fsckMode              // files with a mode in the decimal form
+}
+
+// fsckMode is a file whose mode is in the decimal form, as the record read.
+type fsckMode struct {
+	bucketId, key string
+	updated       hlc.Timestamp
+	decimal       string
+	octal         string
+}
+
+// decimalMode reports whether a mode is in the decimal form s3fs uses, which
+// knot wrote before 0.42, and gives it in the octal form knot reads (see
+// apiclient.FileModeMeta). An octal mode is never taken for one: read as
+// decimal it is too large ("100755") or names no file type ("40755").
+func decimalMode(v string) (string, bool) {
+	if v == "" || v[0] == '0' {
+		return "", false
+	}
+	d, err := strconv.ParseUint(v, 10, 32)
+	if err != nil || d > 0o177777 {
+		return "", false
+	}
+	switch d & 0o170000 {
+	case 0o100000, 0o040000, 0o120000: // file, folder, link
+		return strconv.FormatUint(d, 8), true
+	}
+	return "", false
 }
 
 // expect is the reference count content should have.
@@ -149,6 +182,9 @@ func (s *Store) fsckScanLocked() (*fsckScan, error) {
 			if s.liveLocked(o) {
 				st.size += o.Size
 				st.count++
+			}
+			if octal, ok := decimalMode(o.Meta["mode"]); ok {
+				sc.modes = append(sc.modes, fsckMode{bucketId: o.BucketId, key: o.Key, updated: o.UpdatedAt, decimal: o.Meta["mode"], octal: octal})
 			}
 			raw := string(rawSha(o.SHA256))
 			if r := sc.refs[raw]; r != nil {
@@ -388,6 +424,10 @@ func (s *Store) Fsck(ctx context.Context, opt FsckOptions) (*FsckReport, error) 
 		rep.note("bucket owners were not checked: no user database is connected")
 	}
 
+	for _, m := range sc.modes {
+		rep.add(FsckDecimalMode, name(m.bucketId), m.key, fmt.Sprintf("mode %s is decimal, %s in octal", m.decimal, m.octal))
+	}
+
 	if !opt.Repair {
 		return rep, ctx.Err()
 	}
@@ -409,6 +449,9 @@ func (s *Store) Fsck(ctx context.Context, opt FsckOptions) (*FsckReport, error) 
 	if orphanFiles > 0 {
 		n := s.removeOrphanBlobs()
 		rep.Repaired[FsckOrphanFile] += n
+	}
+	if len(sc.modes) > 0 {
+		rep.Repaired[FsckDecimalMode] += s.fsckRepairModes(sc.modes)
 	}
 
 	// Content comes from the cluster.
@@ -438,6 +481,44 @@ func (s *Store) Fsck(ctx context.Context, opt FsckOptions) (*FsckReport, error) 
 		}
 	}
 	return rep, ctx.Err()
+}
+
+// errModeChanged skips a file changed since the check read it.
+var errModeChanged = errors.New("changed since read")
+
+// fsckRepairModes rewrites modes in the decimal form in octal, returning how
+// many it rewrote. Only the record's metadata changes, as a new version that
+// replicates to the other servers: not the content, its ETag or the file's
+// modification time. A file changed since the check read it is left for the
+// next check.
+func (s *Store) fsckRepairModes(modes []fsckMode) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	n := 0
+	for _, m := range modes {
+		cur := s.liveObjectLocked(m.bucketId, m.key)
+		if cur == nil || cur.UpdatedAt != m.updated {
+			continue
+		}
+		o := cur.clone()
+		o.Meta["mode"] = m.octal
+		o.UpdatedAt = hlc.Now()
+		changed, err := s.applyObjects([]objectOp{{
+			obj: o,
+			pre: func(txn *badger.Txn, cur *Object) error {
+				if cur == nil || cur.IsDeleted || cur.UpdatedAt != m.updated {
+					return errModeChanged
+				}
+				return nil
+			},
+		}})
+		if err != nil || len(changed) == 0 {
+			continue
+		}
+		s.commit(nil, []*Object{o})
+		n++
+	}
+	return n
 }
 
 // fsckFetch fetches content from the other servers, a few at a time,

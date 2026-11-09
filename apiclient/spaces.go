@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 type SpaceRequest struct {
@@ -594,6 +595,16 @@ func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*Spac
 	return nil, fmt.Errorf("space not found")
 }
 
+// spaceWorkTimeout bounds a call the server answers once a space's agent has
+// done file work, which it allows ten minutes, with a minute to spare.
+const spaceWorkTimeout = 11 * time.Minute
+
+// spaceWork bounds a call that waits on a space's agent by how long the agent
+// may take, not the client's own timeout.
+func spaceWork(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(rest.WithoutTimeout(ctx), spaceWorkTimeout)
+}
+
 func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *RunCommandRequest) (string, error) {
 	var response struct {
 		Output  string `json:"output" msgpack:"output"`
@@ -601,6 +612,14 @@ func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *Run
 		Error   string `json:"error" msgpack:"error"`
 	}
 
+	// The server answers when the command ends, which may take as long as
+	// its timeout, 30 seconds when none is given.
+	wait := time.Duration(request.Timeout) * time.Second
+	if wait <= 0 {
+		wait = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(rest.WithoutTimeout(ctx), wait+time.Minute)
+	defer cancel()
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/run-command", request, &response, 200)
 	if err != nil {
 		return "", err
@@ -651,6 +670,8 @@ func (c *ApiClient) ReadSpaceFile(ctx context.Context, spaceId string, filePath 
 // number of lines to return (0 = no limit). Returns the content, the total
 // number of lines in the file, and any error.
 func (c *ApiClient) ReadSpaceFileRange(ctx context.Context, spaceId string, filePath string, offset, limit int) (string, int, error) {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var request struct {
 		Path   string `json:"path" msgpack:"path"`
 		Offset int    `json:"offset,omitempty" msgpack:"offset,omitempty"`
@@ -696,6 +717,8 @@ type SpaceFileRange struct {
 // ReadSpaceFileBytes reads up to length bytes of a file from offset (the
 // space returns at most 8 MB at a time).
 func (c *ApiClient) ReadSpaceFileBytes(ctx context.Context, spaceId string, filePath string, offset, length int64) (*SpaceFileRange, error) {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	request := struct {
 		Path       string `json:"path" msgpack:"path"`
 		ByteOffset int64  `json:"byte_offset" msgpack:"byte_offset"`
@@ -748,6 +771,8 @@ func (c *ApiClient) WriteSpaceFileMode(ctx context.Context, spaceId string, file
 // binary-safe. JSON encoding would have replaced non-UTF-8 bytes with U+FFFD,
 // changing the byte count and making mirror re-upload the same files forever.
 func (c *ApiClient) WriteSpaceFileOpts(ctx context.Context, spaceId string, filePath string, content string, mode string, mtimeNs int64, filePerm uint32) error {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var request struct {
 		Path     string `json:"path" msgpack:"path"`
 		Content  string `json:"content" msgpack:"content"`
@@ -788,6 +813,8 @@ type GrepMatch struct {
 
 // Grep searches file contents in a running space. Returns matching lines.
 func (c *ApiClient) Grep(ctx context.Context, spaceId string, req GrepRequest) (*GrepResponse, error) {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var resp GrepResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/grep", req, &resp, 200)
 	if err != nil {
@@ -862,6 +889,8 @@ type FindEntry struct {
 
 // Find finds files/directories in a running space.
 func (c *ApiClient) Find(ctx context.Context, spaceId string, req FindRequest) (*FindResponse, error) {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var resp FindResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/find", req, &resp, 200)
 	if err != nil {
@@ -904,6 +933,8 @@ type SedResponse struct {
 
 // Sed performs an in-place edit or extraction in a running space.
 func (c *ApiClient) Sed(ctx context.Context, spaceId string, req SedRequest) (*SedResponse, error) {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var resp SedResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/sed", req, &resp, 200)
 	if err != nil {
@@ -932,6 +963,8 @@ type EditFileResponse struct {
 // EditFile performs a targeted search-and-replace on a single file. The search
 // text must appear exactly once; fails if 0 or >1 matches.
 func (c *ApiClient) EditFile(ctx context.Context, spaceId string, req EditFileRequest) (*EditFileResponse, error) {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var resp EditFileResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/edit", req, &resp, 200)
 	if err != nil {
@@ -988,6 +1021,8 @@ type DeleteFileResponse struct {
 // Missing paths are treated as success (idempotent) — important for sync tools
 // whose delete list was computed against a slightly stale snapshot.
 func (c *ApiClient) DeleteSpaceFile(ctx context.Context, spaceId string, req DeleteFileRequest) (*DeleteFileResponse, error) {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var resp DeleteFileResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/delete", req, &resp, 200)
 	if err != nil {

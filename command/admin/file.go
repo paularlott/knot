@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"sort"
@@ -43,16 +44,30 @@ type backupBucket struct {
 }
 
 type backupObject struct {
-	BucketId    string    `json:"bucket_id" msgpack:"bucket_id"`
-	Key         string    `json:"key" msgpack:"key"`
-	Size        int64     `json:"size" msgpack:"size"`
-	SHA256      string    `json:"sha256" msgpack:"sha256"`
-	ContentType string    `json:"content_type" msgpack:"content_type"`
-	ModifiedAt  time.Time `json:"modified_at" msgpack:"modified_at"`
+	BucketId    string            `json:"bucket_id" msgpack:"bucket_id"`
+	Key         string            `json:"key" msgpack:"key"`
+	Size        int64             `json:"size" msgpack:"size"`
+	SHA256      string            `json:"sha256" msgpack:"sha256"`
+	ContentType string            `json:"content_type" msgpack:"content_type"`
+	Meta        map[string]string `json:"meta,omitempty" msgpack:"meta"`
+	ModifiedAt  time.Time         `json:"modified_at" msgpack:"modified_at"`
+}
+
+// attrs are the attributes the file is restored with: its own modification
+// time and mode, a link's included, when the backup holds them.
+func (o *backupObject) attrs() apiclient.FileAttrs {
+	attrs := apiclient.FileAttrs{Mtime: o.ModifiedAt}
+	if t, ok := apiclient.ParseMtime(o.Meta["mtime"]); ok {
+		attrs.Mtime = t
+	}
+	if mode, ok := apiclient.ParseFileMode(o.Meta); ok {
+		attrs.Mode = mode
+	}
+	return attrs
 }
 
 var encryptKeyFlag = &cli.StringFlag{
-	Name: "encrypt-key", Aliases: []string{"e"}, Usage: "The key the backup's records were encrypted with.",
+	Name: "encrypt-key", Aliases: []string{"e"}, Usage: "The key the backup was encrypted with.",
 	EnvVars: []string{config.CONFIG_ENV_PREFIX + "_RESTORE_ENCRYPT_KEY"},
 }
 
@@ -251,6 +266,10 @@ The files are written as the user the command connects as, who needs the Manage 
 		if err != nil {
 			return err
 		}
+		content, err := backupContentOf(dir, key)
+		if err != nil {
+			return err
+		}
 		bucketName, prefix, err := splitBucketPath(cmd.GetStringArg("path"))
 		if err != nil {
 			return err
@@ -381,7 +400,7 @@ The files are written as the user the command connects as, who needs the Manage 
 						mu.Unlock()
 						continue
 					}
-					outcome, err := restoreFile(ctx, client, dir, dest.Name, dst, &o, overwrite)
+					outcome, err := restoreFile(ctx, client, content, dest.Name, dst, &o, overwrite)
 					mu.Lock()
 					switch outcome {
 					case "restored":
@@ -428,11 +447,11 @@ The files are written as the user the command connects as, who needs the Manage 
 }
 
 // restoreFile copies one file from the backup into a bucket on the server.
-func restoreFile(ctx context.Context, client *apiclient.ApiClient, dir, bucket, key string, o *backupObject, overwrite bool) (string, error) {
-	var f *os.File
+func restoreFile(ctx context.Context, client *apiclient.ApiClient, content *backupfile.Content, bucket, key string, o *backupObject, overwrite bool) (string, error) {
+	var f io.ReadCloser
 	if o.Size > 0 || o.SHA256 != "" {
 		var err error
-		if f, err = backupfile.OpenContent(dir, o.SHA256); err != nil {
+		if f, _, err = content.Open(o.SHA256); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return "no-content", err
 			}
@@ -444,12 +463,11 @@ func restoreFile(ctx context.Context, client *apiclient.ApiClient, dir, bucket, 
 	if overwrite {
 		put = client.PutFileObject
 	}
-	var body *os.File = f
 	var err error
-	if body == nil {
-		_, err = put(ctx, bucket, key, nil, 0, o.ContentType, o.ModifiedAt)
+	if f == nil {
+		_, err = put(ctx, bucket, key, nil, 0, o.ContentType, o.attrs())
 	} else {
-		_, err = put(ctx, bucket, key, body, o.Size, o.ContentType, o.ModifiedAt)
+		_, err = put(ctx, bucket, key, f, o.Size, o.ContentType, o.attrs())
 	}
 	switch {
 	case err == nil:

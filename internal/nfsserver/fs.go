@@ -2,6 +2,7 @@ package nfsserver
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -24,11 +25,11 @@ import (
 	nfsfile "github.com/willscott/go-nfs/file"
 )
 
-// Object metadata holding POSIX attributes, the keys s3fs uses so a bucket
-// mounted either way shows the same modes and times; mtime is in the form
-// the knot CLI and rclone write.
+// Object metadata holding POSIX attributes, the keys rclone --metadata and
+// s3fs use, so a bucket reached any of those ways shows the same modes and
+// times; mode and mtime are in the forms the knot CLI and rclone write.
 const (
-	metaMode  = "mode"
+	metaMode  = apiclient.FileModeMeta
 	metaMtime = "mtime"
 	metaUid   = "uid"
 	metaGid   = "gid"
@@ -78,6 +79,10 @@ type storeFS struct {
 	// writer names this server in the changes it makes (Config.Writer),
 	// so it can pass over its own in change events.
 	writer string
+
+	// moved remembers where files renamed here went, for handles made
+	// before (see moves).
+	moved moves
 
 	mu        sync.Mutex
 	stats     map[string]cachedStat // by statKey
@@ -155,6 +160,13 @@ func (fs *storeFS) cached(bucket, key string) (fi *fileInfo, ok bool) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	if c, found := fs.stats[statKey(bucket, key)]; found && time.Since(c.at) < fs.ttlLocked() {
+		// Nothing found is reused only briefly: a wrong "not there" answered
+		// from here is a missing file or a stale handle to the client, and
+		// no change event may come to put it right, while asking again
+		// costs one request.
+		if c.fi == nil && time.Since(c.at) >= statTTL {
+			return nil, false
+		}
 		return c.fi, true
 	}
 	return nil, false
@@ -454,6 +466,13 @@ func (fs *storeFS) Changed(bucketIds []string, files []FileChanged) {
 // forgetChanged drops what is kept of a file changed elsewhere: the file,
 // every folder above it, which a change there can make or unmake, and for a
 // folder's marker, what is below it.
+//
+// Every folder above moves its time on, not only the file's own: a file
+// saved into, or removed from, a folder without a marker can make or
+// unmake that folder, and the folders above it, and the change cannot say
+// whether it did. A folder whose time stood still would have clients keep
+// a listing without (or with) it for as long as they like: NFSv4 clients
+// keep a listing while the folder's change attribute holds.
 func (fs *storeFS) forgetChanged(bucket, key string) {
 	folder := strings.HasSuffix(key, "/")
 	key = strings.TrimSuffix(key, "/")
@@ -462,8 +481,6 @@ func (fs *storeFS) forgetChanged(bucket, key string) {
 	fs.bumpLocked(bucket)
 	delete(fs.stats, statKey(bucket, key))
 	fs.dropDirsLocked(bucket, key, folder)
-	dir, _ := parentOf(key)
-	fs.dirTouchedLocked(bucket, dir)
 	for k := key; k != ""; {
 		k = path.Dir(k)
 		if k == "." {
@@ -471,6 +488,7 @@ func (fs *storeFS) forgetChanged(bucket, key string) {
 		}
 		delete(fs.stats, statKey(bucket, k))
 		delete(fs.dirs, statKey(bucket, k))
+		fs.dirTouchedLocked(bucket, k)
 	}
 	if folder {
 		prefix := statKey(bucket, key) + "/"
@@ -498,6 +516,10 @@ type fileInfo struct {
 	id    uint64 // the inode number reported
 	ino   uint64 // the stored inode number, 0 when there is none
 	sha   string // a file's content, as sha256 hex, when saved
+	etag  string // a saved file's version
+	// ctime is when the version was saved, or the staged copy last changed:
+	// see ChangeTime.
+	ctime time.Time
 	uid   uint32
 	gid   uint32
 	// owned says uid and gid were stored; otherwise they are the default
@@ -512,6 +534,37 @@ func (fi *fileInfo) Size() int64        { return fi.size }
 func (fi *fileInfo) Mode() os.FileMode  { return fi.mode }
 func (fi *fileInfo) ModTime() time.Time { return fi.mtime }
 func (fi *fileInfo) IsDir() bool        { return fi.mode.IsDir() }
+
+var _ nfs.ChangeInfo = (*fileInfo)(nil)
+
+// ChangeTime is when the file last changed in any way: when its version was
+// saved. A version can have the modification time and size another has
+// (changes from several clients merged, or written over another server's,
+// keep a writer's time), and NFS clients keep what they cached of a file
+// whose times and size are as they were.
+func (fi *fileInfo) ChangeTime() time.Time {
+	if fi.ctime.IsZero() {
+		return fi.mtime
+	}
+	return fi.ctime
+}
+
+// ChangeID is NFSv4's change attribute: the version saved, else its times
+// and size.
+func (fi *fileInfo) ChangeID() uint64 {
+	h := fnv.New64a()
+	var b [8]byte
+	binary.BigEndian.PutUint64(b[:], fi.id)
+	h.Write(b[:])
+	h.Write([]byte(fi.etag))
+	binary.BigEndian.PutUint64(b[:], uint64(fi.size))
+	h.Write(b[:])
+	binary.BigEndian.PutUint64(b[:], uint64(fi.mtime.UnixNano()))
+	h.Write(b[:])
+	binary.BigEndian.PutUint64(b[:], uint64(fi.ChangeTime().UnixNano()))
+	h.Write(b[:])
+	return h.Sum64()
+}
 
 // Sys gives the attributes go-nfs reports. A folder has two links, as POSIX
 // has it (its entry and its "."): macOS takes one link to mean no entries and
@@ -571,10 +624,8 @@ func (fi *fileInfo) withMeta(meta map[string]string) *fileInfo {
 
 // withMarker gives a folder the attributes stored on its marker.
 func (fi *fileInfo) withMarker(marker *Object) *fileInfo {
-	if v, ok := marker.Meta[metaMode]; ok {
-		if m, err := strconv.ParseUint(v, 10, 32); err == nil {
-			fi.mode = os.ModeDir | os.FileMode(m)&os.ModePerm
-		}
+	if m, ok := apiclient.ParseFileMode(marker.Meta); ok {
+		fi.mode = os.ModeDir | m&os.ModePerm
 	}
 	fi.mtime = mtimeFrom(marker.Meta, marker.ModifiedAt)
 	return fi.withMeta(marker.Meta)
@@ -594,6 +645,14 @@ func appleDouble(key string) string {
 }
 
 // newIno is a new inode number for metaIno.
+// folderIno is the inode number of a folder: the one it shows with no
+// marker, so making a marker keeps it, and two clients or two servers making
+// the same folder at once give it the same one. A random one would leave the
+// file handles given out with the losing number stale.
+func folderIno(bucket, key string) string {
+	return strconv.FormatUint(fileId(bucket, key+"/"), 16)
+}
+
 func newIno() string {
 	var b [8]byte
 	for {
@@ -604,31 +663,18 @@ func newIno() string {
 	}
 }
 
-// modeFrom reads the permission bits stored on a file, s3fs style (the
-// decimal st_mode).
+// modeFrom reads the permission bits stored on a file (see
+// apiclient.FileModeMeta).
 func modeFrom(meta map[string]string) os.FileMode {
-	if v, ok := meta[metaMode]; ok {
-		if m, err := strconv.ParseUint(v, 10, 32); err == nil {
-			mode := os.FileMode(m) & os.ModePerm
-			if m&syscall.S_IFMT == syscall.S_IFLNK {
-				mode |= os.ModeSymlink
-			}
-			return mode
-		}
+	if mode, ok := apiclient.ParseFileMode(meta); ok {
+		return mode
 	}
 	return defaultFileMode
 }
 
-// stMode is the decimal st_mode stored in metaMode.
+// stMode is the st_mode stored in metaMode.
 func stMode(mode os.FileMode) string {
-	typ := uint32(syscall.S_IFREG)
-	switch {
-	case mode&os.ModeSymlink != 0:
-		typ = syscall.S_IFLNK
-	case mode&os.ModeDir != 0:
-		typ = syscall.S_IFDIR
-	}
-	return strconv.FormatUint(uint64(typ|uint32(mode&os.ModePerm)), 10)
+	return apiclient.FormatFileMode(mode)
 }
 
 // mtimeFrom reads the modification time stored on a file, falling back to
@@ -648,6 +694,8 @@ func objectInfo(name, bucket string, o *Object) *fileInfo {
 		mtime: mtimeFrom(o.Meta, o.ModifiedAt),
 		id:    fileId(bucket, o.Key),
 		sha:   o.SHA256,
+		etag:  o.ETag,
+		ctime: cmp.Or(o.ChangedAt, o.ModifiedAt),
 	}).withMeta(o.Meta)
 }
 
@@ -698,6 +746,14 @@ func (fs *storeFS) stat(bucket, key, base string) (*fileInfo, error) {
 		return dirInfo(base, bucket, "", b.CreatedAt), nil
 	}
 	st, err := fs.backend.Stat(ctx(), bucket, key)
+	// A lookup the server could not answer for a moment (busy, a timeout,
+	// a connection dropped) is asked again: answered as it is, a lookup
+	// reports the name not found, and a call on a handle reports it stale,
+	// which clients take for the file being gone.
+	for attempt, wait := 0, 50*time.Millisecond; transientStat(err) && attempt < statAttempts; attempt, wait = attempt+1, wait*2 {
+		time.Sleep(wait)
+		st, err = fs.backend.Stat(ctx(), bucket, key)
+	}
 	if errors.Is(err, os.ErrNotExist) && fs.staging.hasUnder(bucket, key+"/") {
 		// A folder holding only files not yet saved.
 		return dirInfo(base, bucket, key+"/", started), nil
@@ -715,6 +771,16 @@ func (fs *storeFS) stat(bucket, key, base string) (*fileInfo, error) {
 	return fi, nil
 }
 
+// statAttempts is how many times a lookup is asked again after an error
+// that says nothing about the file (see transientStat).
+const statAttempts = 3
+
+// transientStat reports whether a lookup's error leaves it unknown what is
+// there: not an answer that it is missing, refused or malformed.
+func transientStat(err error) bool {
+	return err != nil && !errors.Is(err, os.ErrNotExist) && !errors.Is(err, os.ErrPermission) && !errors.Is(err, syscall.EINVAL)
+}
+
 // isDir reports whether key names a folder: there is a folder marker,
 // which it returns, or any file below it, saved or staged. The marker's key
 // is the folder's prefix itself, so a listing of the prefix starts with it.
@@ -729,10 +795,11 @@ func (fs *storeFS) isDir(bucket, key string) (bool, *Object, error) {
 	return st.Folder, st.Marker, nil
 }
 
-// readSaved reads part of a saved file whose content is sha: from the disk
-// cache when it holds it, else from the server, filling the cache meanwhile
-// so the next read need not.
-func (fs *storeFS) readSaved(bucket, key, sha string, size int64, b []byte, off int64) (int, error) {
+// readSaved reads part of a saved file whose content is sha, the version
+// etag: from the disk cache when it holds it, else from the server, filling
+// the cache meanwhile so the next read need not. errPrecondition says the
+// file is no longer that version.
+func (fs *storeFS) readSaved(bucket, key, sha, etag string, size int64, b []byte, off int64) (int, error) {
 	if f := fs.cache.open(sha); f != nil {
 		defer f.Close()
 		n, err := f.ReadAt(b, off)
@@ -743,11 +810,11 @@ func (fs *storeFS) readSaved(bucket, key, sha string, size int64, b []byte, off 
 	}
 	if fs.cache.keeps(size) && sha != "" {
 		go fs.cache.fill(sha, size, func() (io.ReadCloser, error) {
-			r, _, err := fs.backend.Get(ctx(), bucket, key)
+			r, _, err := fs.backend.Get(ctx(), bucket, key, etag)
 			return r, err
 		})
 	}
-	return fs.backend.ReadAt(ctx(), bucket, key, b, off)
+	return fs.backend.ReadAt(ctx(), bucket, key, etag, b, off)
 }
 
 func (fs *storeFS) Lstat(name string) (os.FileInfo, error) { return fs.Stat(name) }
@@ -931,11 +998,19 @@ func (fs *storeFS) Remove(name string) error {
 		return pathErr("remove", name, fs.backend.DeleteBucket(ctx(), bucket))
 	}
 
+	var ino uint64
+	if fi, err := fs.Stat(name); err == nil {
+		if info, ok := fi.(*fileInfo); ok && !info.IsDir() {
+			ino = info.ino
+		}
+	}
 	staged := fs.staging.remove(bucket, key)
 	err := fs.backend.Delete(ctx(), bucket, key)
 	if err == nil || (staged && errors.Is(err, os.ErrNotExist)) {
 		fs.removeAppleDouble(bucket, key)
 		fs.noteGone(bucket, key)
+		// Its handles are of a file removed here (see moves).
+		fs.moved.add(name, "", ino, time.Now())
 		return nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -1007,6 +1082,8 @@ func (fs *storeFS) removeAppleDouble(bucket, key string) {
 	case err == nil, errors.Is(err, os.ErrNotExist):
 		fs.forget(bucket, ad, false)
 		fs.noteGone(bucket, ad)
+		// Its handles are of a file removed here (see moves).
+		fs.moved.add(bucket+"/"+ad, "", 0, time.Now())
 	default:
 		// Not known whether it is still there: ask again.
 		fs.mu.Lock()
@@ -1033,7 +1110,12 @@ func (fs *storeFS) Rename(from, to string) error {
 	if err != nil {
 		return err
 	}
-	if dst, err := fs.Stat(to); err == nil {
+	var replacedIno uint64
+	dst, dstErr := fs.Stat(to)
+	if info, ok := dst.(*fileInfo); ok && dstErr == nil && !info.IsDir() {
+		replacedIno = info.ino
+	}
+	if dstErr == nil {
 		if dst.IsDir() != src.IsDir() {
 			if dst.IsDir() {
 				return pathErr("rename", to, syscall.EISDIR)
@@ -1071,6 +1153,15 @@ func (fs *storeFS) Rename(from, to string) error {
 	}
 	fs.noteGone(fb, fk)
 	fs.noteExists(tb, tk)
+	var ino uint64
+	if info, ok := src.(*fileInfo); ok {
+		ino = info.ino
+	}
+	if dstErr == nil && !dst.IsDir() {
+		// What the rename replaced is a file removed here.
+		fs.moved.add(to, "", replacedIno, time.Now())
+	}
+	fs.moved.add(from, to, ino, time.Now())
 	return nil
 }
 
@@ -1079,6 +1170,7 @@ func (fs *storeFS) MkdirAll(name string, perm os.FileMode) error {
 	if bucket == "" {
 		return nil
 	}
+	ep := fs.epochOf(bucket)
 	if fi, err := fs.Stat(name); err == nil {
 		if fi.IsDir() {
 			return nil
@@ -1091,16 +1183,17 @@ func (fs *storeFS) MkdirAll(name string, perm os.FileMode) error {
 		// A new top level folder is a new bucket of the user's own.
 		err = fs.backend.CreateBucket(ctx(), bucket)
 	} else {
-		_, err = fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: newIno()})
+		_, err = fs.backend.Put(ctx(), bucket, key+"/", bytes.NewReader(nil), 0, "", map[string]string{metaIno: folderIno(bucket, key)})
 	}
 	if err != nil {
 		return pathErr("mkdir", name, err)
 	}
-	// A folder just made holds nothing yet.
+	// A folder just made holds nothing yet: unless the bucket changed since
+	// it was looked up, when another server may have made the folder and
+	// filled it first. Recorded empty, what that put there would be taken
+	// for absent (knownAbsent) until the next change there.
+	fs.listed(bucket, key, map[string]bool{}, ep)
 	fs.noteExists(bucket, key)
-	fs.mu.Lock()
-	fs.listedLocked(bucket, key, map[string]bool{})
-	fs.mu.Unlock()
 	return nil
 }
 
@@ -1249,7 +1342,7 @@ func (fs *storeFS) setMeta(name string, kv map[string]string) error {
 		}
 		defer fs.forget(bucket, key, false)
 		if marker == nil {
-			meta := map[string]string{metaIno: newIno()}
+			meta := map[string]string{metaIno: folderIno(bucket, key)}
 			for k, v := range kv {
 				meta[k] = v
 			}
@@ -1294,21 +1387,51 @@ type file struct {
 func (f *file) Name() string { return f.name }
 
 func (f *file) ReadAt(b []byte, off int64) (int, error) {
-	if e := f.fs.staging.get(f.bucket, f.key); e != nil {
-		if n, err, ok := e.readAt(b, off); ok {
-			return n, err
-		}
-	}
-	sha, size := "", int64(-1)
-	if fi, err := f.fs.Stat(f.name); err == nil {
-		sha, size = fi.(*fileInfo).sha, fi.Size()
-	}
-	n, err := f.fs.readSaved(f.bucket, f.key, sha, size, b, off)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return n, pathErr("read", f.name, err)
-	}
+	n, _, err := f.ReadAtInfo(b, off)
 	return n, err
 }
+
+var _ nfs.VersionedReader = (*file)(nil)
+
+// ReadAtInfo reads as ReadAt does, and returns the attributes of the version
+// it read, nil for a file being written here, which has no other.
+func (f *file) ReadAtInfo(b []byte, off int64) (int, os.FileInfo, error) {
+	if e := f.fs.staging.get(f.bucket, f.key); e != nil {
+		if n, err, ok := e.readAt(b, off); ok {
+			return n, nil, err
+		}
+	}
+	// What is read is the version the file's attributes describe, so a
+	// client is never sent one version's bytes as another's: its size, and
+	// whether it changed, come from those attributes. Changed meanwhile, the
+	// file is looked at afresh and the newer version read. One changing
+	// faster than that, every time, is read as it is when read, its
+	// attributes not known.
+	for attempt := 0; ; attempt++ {
+		var read os.FileInfo
+		sha, etag, size := "", "", int64(-1)
+		if attempt < readAttempts {
+			if fi, err := f.fs.Stat(f.name); err == nil {
+				info := fi.(*fileInfo)
+				read, sha, etag, size = fi, info.sha, info.etag, fi.Size()
+			}
+		}
+		n, err := f.fs.readSaved(f.bucket, f.key, sha, etag, size, b, off)
+		if errors.Is(err, errPrecondition) && attempt < readAttempts {
+			f.fs.forget(f.bucket, f.key, false)
+			time.Sleep(time.Duration(attempt) * 10 * time.Millisecond)
+			continue
+		}
+		if err != nil && !errors.Is(err, io.EOF) {
+			return n, nil, pathErr("read", f.name, err)
+		}
+		return n, read, err
+	}
+}
+
+// readAttempts is how many times in a row a read finds the file changed
+// since it was looked at, and looks again, before reading it as it is.
+const readAttempts = 10
 
 func (f *file) Read(b []byte) (int, error) {
 	n, err := f.ReadAt(b, f.offset)

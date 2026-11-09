@@ -1,8 +1,10 @@
 package devicegrant
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNormUserCode(t *testing.T) {
@@ -78,13 +80,16 @@ func TestGuessLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Guesses are counted for a while across the whole process: a user of
+	// this run's own, so the test can run again (go test -count).
+	guesser := fmt.Sprintf("guesser-%d", time.Now().UnixNano())
 	for i := 0; i < maxGuesses; i++ {
-		if found, limited := ByUserCode("guesser", "BBBB-BBBB"); found != nil || limited {
+		if found, limited := ByUserCode(guesser, "BBBB-BBBB"); found != nil || limited {
 			t.Fatalf("guess %d: found %v, limited %v", i, found, limited)
 		}
 	}
 	// Even the right code is refused once the limit is reached.
-	if found, limited := ByUserCode("guesser", g.UserCode); found != nil || !limited {
+	if found, limited := ByUserCode(guesser, g.UserCode); found != nil || !limited {
 		t.Errorf("after %d wrong guesses: found %v, limited %v; want refused", maxGuesses, found, limited)
 	}
 	// Other users are unaffected.

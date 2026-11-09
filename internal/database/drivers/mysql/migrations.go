@@ -189,6 +189,8 @@ var migrations = []string{
 	"ALTER TABLE `groups` ADD COLUMN IF NOT EXISTS external_name VARCHAR(255) NOT NULL DEFAULT ''",
 	// 96: users' passkeys
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS passkeys JSON DEFAULT NULL`,
+	// 97: the resource (RFC 8707) an OAuth2 token was issued for ('' = not recorded)
+	`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS audience VARCHAR(2048) NOT NULL DEFAULT ''`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

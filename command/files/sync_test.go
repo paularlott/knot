@@ -7,7 +7,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,8 +30,18 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	testDBDir = dir
+	// Sync state and checksum caches go to the user's configuration
+	// directory: keep the tests' out of the real one.
+	cfg, err := os.MkdirTemp("", "knot-files-cli-config")
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("HOME", cfg)
+	os.Setenv("XDG_CONFIG_HOME", cfg)
+	os.Setenv("APPDATA", cfg)
 	code := m.Run()
 	os.RemoveAll(dir)
+	os.RemoveAll(cfg)
 	os.Exit(code)
 }
 
@@ -60,11 +72,25 @@ func newFilesServer(t *testing.T) (*apiclient.ApiClient, *filestore.Store) {
 	mux.HandleFunc("GET /api/files/buckets/{bucket}", api.HandleGetFileBucket)
 	mux.HandleFunc("POST /api/files/copy", api.HandleCopyFileObject)
 	mux.HandleFunc("POST /api/files/move", api.HandleMoveFileObjects)
+	mux.HandleFunc("POST /api/files/snapshot", api.HandleSnapshotFileFolder)
 	mux.HandleFunc("GET /api/files/list/{bucket}", api.HandleListFileObjects)
 	mux.HandleFunc("GET /api/files/changes/{bucket}", api.HandleListFileChanges)
 	mux.HandleFunc("GET /api/files/objects/{bucket}/{key...}", api.HandleGetFileObject)
-	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", api.HandlePutFileObject)
+	mux.HandleFunc("PUT /api/files/objects/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {
+		if failPuts.Load() {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		api.HandlePutFileObject(w, r)
+	})
 	mux.HandleFunc("DELETE /api/files/objects/{bucket}/{key...}", api.HandleDeleteFileObject)
+	mux.HandleFunc("POST /api/files/uploads/{bucket}/{key...}", api.HandleStartFileUpload)
+	mux.HandleFunc("PUT /api/files/uploads/{bucket}/{key...}", func(w http.ResponseWriter, r *http.Request) {
+		partsSent.Add(1)
+		api.HandleUploadFilePart(w, r)
+	})
+	mux.HandleFunc("GET /api/files/uploads/{bucket}/{key...}", api.HandleListFileUploadParts)
+	mux.HandleFunc("DELETE /api/files/uploads/{bucket}/{key...}", api.HandleAbortFileUpload)
 	srv := httptest.NewServer(middleware.KnotVersion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), "user", user)))
 	})))
@@ -125,7 +151,7 @@ func TestSyncUpAndDown(t *testing.T) {
 	if err := syncUp(ctx, client, src, "sync-test", "cfg/", false, false); err != nil {
 		t.Fatal(err)
 	}
-	if keys := remoteKeys(t, client); len(keys) != 2 || keys[0] != "cfg/a.txt" || keys[1] != "cfg/sub/b.txt" {
+	if keys := remoteKeys(t, client); len(keys) != 3 || keys[0] != "cfg/a.txt" || keys[1] != "cfg/sub/" || keys[2] != "cfg/sub/b.txt" {
 		t.Fatalf("after first sync %v", keys)
 	}
 
@@ -157,7 +183,7 @@ func TestSyncUpAndDown(t *testing.T) {
 	if err := syncUp(ctx, client, src, "sync-test", "cfg/", true, false); err != nil {
 		t.Fatal(err)
 	}
-	if keys := remoteKeys(t, client); len(keys) != 1 || keys[0] != "cfg/sub/b.txt" {
+	if keys := remoteKeys(t, client); len(keys) != 2 || keys[0] != "cfg/sub/" || keys[1] != "cfg/sub/b.txt" {
 		t.Fatalf("after delete sync %v", keys)
 	}
 
@@ -216,14 +242,16 @@ func TestSyncUpThroughSymlink(t *testing.T) {
 }
 
 // Downloads get normal file permissions, not the temporary file's 0600.
+// A file the bucket keeps no mode for, written before modes were kept, is
+// downloaded 0644, or with the mode of the file it replaces;
+// TestCopyKeepsMode covers one that has a mode.
 func TestDownloadMode(t *testing.T) {
-	client, _ := newFilesServer(t)
-	ctx := context.Background()
-	src := filepath.Join(t.TempDir(), "f.txt")
-	writeFile(t, src, "x")
-	if err := uploadFile(ctx, client, src, "sync-test", "mode/f.txt"); err != nil {
-		t.Fatal(err)
+	if runtime.GOOS == "windows" {
+		t.Skip("no POSIX modes on Windows")
 	}
+	client, store := newFilesServer(t)
+	ctx := context.Background()
+	putModeless(t, store, "mode/f.txt", "x")
 	dst := filepath.Join(t.TempDir(), "f.txt")
 	if err := downloadFile(ctx, client, "sync-test", "mode/f.txt", dst); err != nil {
 		t.Fatal(err)
@@ -235,5 +263,15 @@ func TestDownloadMode(t *testing.T) {
 	downloadFile(ctx, client, "sync-test", "mode/f.txt", dst)
 	if info, _ := os.Stat(dst); info.Mode().Perm() != 0600 {
 		t.Errorf("replaced file lost its mode: %o", info.Mode().Perm())
+	}
+}
+
+// putModeless writes a file with no mode straight into the store, as files
+// written before modes were kept are.
+func putModeless(t *testing.T, store *filestore.Store, key, content string) {
+	t.Helper()
+	p, _ := filestore.PrincipalFor(adminUser)
+	if _, err := store.PutObject(p, "tester--sync-test", key, strings.NewReader(content), filestore.PutOptions{Size: int64(len(content))}); err != nil {
+		t.Fatal(err)
 	}
 }

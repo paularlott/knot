@@ -82,6 +82,8 @@ func onRename(ctx context.Context, w *response, userHandle Handler) error {
 		return &NFSStatusError{statusFromError(err, NFSStatusIO), err}
 	}
 
+	// knot: NFSv4 open and lock state follows the file (see rename).
+	w.Server.nfs4State().rename(fromLoc, toLoc)
 	if err := userHandle.InvalidateHandle(fs, oldHandle); err != nil {
 		return &NFSStatusError{NFSStatusServerFault, err}
 	}

@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/integration-tests/harness"
@@ -72,7 +71,7 @@ func TestAdminBackupRestore(t *testing.T) {
 	}
 	small, large := []byte("small file"), bytes.Repeat([]byte("L"), 200*1024)
 	for key, data := range map[string][]byte{"dir/small.txt": small, "large.bin": large} {
-		if _, err := admin.Client.PutFileObject(ctx, "it-bak-files", key, bytes.NewReader(data), int64(len(data)), "application/octet-stream", time.Time{}); err != nil {
+		if _, err := admin.Client.PutFileObject(ctx, "it-bak-files", key, bytes.NewReader(data), int64(len(data)), "application/octet-stream", apiclient.FileAttrs{}); err != nil {
 			t.Fatalf("put %s: %v", key, err)
 		}
 	}
@@ -156,6 +155,31 @@ func TestAdminBackupRestore(t *testing.T) {
 	raw, _ := os.ReadFile(backupfile.RecordPath(backupDir, "users"))
 	if strings.Contains(string(raw), "it-bak-plain") {
 		t.Error("the backup of users is not encrypted")
+	}
+	// The files' content is encrypted too, under names that are not their
+	// checksums, and a backup again into the folder copies none of it.
+	if !m.ContentEncrypted {
+		t.Error("the manifest does not say the content is encrypted")
+	}
+	if _, err := os.Stat(backupfile.ContentPath(backupDir, sha256Hex(small))); err == nil {
+		t.Error("content kept under its checksum")
+	}
+	contentFiles := 0
+	filepath.WalkDir(filepath.Join(backupDir, "content"), func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		contentFiles++
+		if data, _ := os.ReadFile(p); bytes.Contains(data, small) {
+			t.Errorf("%s holds a file's content in the clear", p)
+		}
+		return nil
+	})
+	if contentFiles != 2 {
+		t.Errorf("the backup holds %d content files, want 2", contentFiles)
+	}
+	if out, err := run("admin", "backup", backupDir, "--server", s.BaseURL, "--token", only.Token, "--encrypt-key", "0123456789abcdef0123456789abcdef"); err != nil || !strings.Contains(out, "0 copied") {
+		t.Errorf("a backup again into the folder: %v\n%s", err, out)
 	}
 
 	// Listing and restoring one file from the backup.

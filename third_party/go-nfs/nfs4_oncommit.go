@@ -20,7 +20,7 @@ func nfs4OnCommit(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
 	// filesystem every WRITE was FILE_SYNC, so there is nothing to commit.
 	if cm, ok := current.fs.(Committer); ok {
 		if err := cm.Commit(current.fullPath()); err != nil {
-			return nfs4StatusFromErr(err)
+			return nfs4FileStatusFromErr(err)
 		}
 	}
 	return nfs4Encode(res, c.w.Server.ID)
