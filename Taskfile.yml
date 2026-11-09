@@ -179,6 +179,8 @@ tasks:
     env:
       GOOS: "{{.GOOS}}"
       GOARCH: "{{.GOARCH}}"
+    # MACOS_SIGN_IDENTITY (see .env.example) signs Knot.app for release.
+    dotenv: [".env"]
     cmds:
       - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} .
       - |
@@ -190,7 +192,22 @@ tasks:
           cp "{{.OUTPUT_FILE}}" "$APP/Contents/MacOS/{{$.PROJECT_NAME}}"
           cp build/darwin/icon.icns "$APP/Contents/Resources/"
           sed "s/0\.0\.0/{{$.VERSION}}/g" build/darwin/Info.plist > "$APP/Contents/Info.plist"
-          codesign --force --deep --sign - "$APP" 2>/dev/null || true
+          if [ -n "$MACOS_SIGN_IDENTITY" ]; then
+            # Developer ID signature for release: the hardened runtime and a
+            # secure timestamp are required for notarization. Entitlements are
+            # only added when build/darwin/entitlements.plist exists.
+            if [ -f build/darwin/entitlements.plist ]; then
+              codesign --force --timestamp --options runtime \
+                --entitlements build/darwin/entitlements.plist \
+                --sign "$MACOS_SIGN_IDENTITY" "$APP" || exit 1
+            else
+              codesign --force --timestamp --options runtime \
+                --sign "$MACOS_SIGN_IDENTITY" "$APP" || exit 1
+            fi
+          else
+            # Ad-hoc signature for local builds without a Developer ID
+            codesign --force --deep --sign - "$APP" 2>/dev/null || true
+          fi
           rm -f "{{$.OUTPUT_DIR}}/{{.ZIP_FILE}}"
           cd {{$.OUTPUT_DIR}} && zip -r --symlinks "{{.ZIP_FILE}}" "Knot.app"
           rm -rf "$APP"
@@ -282,6 +299,77 @@ tasks:
       - go.sum
     generates:
       - "{{.ZIP_FILE}}"
+
+  notarize-macos:
+    desc: Notarize the Developer ID signed Knot.app in the macOS zips and staple the ticket (NOTARY_* in .env)
+    dotenv: [".env"]
+    cmds:
+      - |
+        if [ -z "$NOTARY_KEY" ] || [ -z "$NOTARY_KEY_ID" ] || [ -z "$NOTARY_ISSUER" ]; then
+          echo "NOTARY_KEY, NOTARY_KEY_ID and NOTARY_ISSUER must be set: see .env.example" >&2
+          exit 1
+        fi
+        key=$NOTARY_KEY
+        case $key in "~/"*) key="$HOME/${key#\~/}" ;; esac
+        if [ ! -f "$key" ]; then
+          echo "Notary API key not found: $key" >&2
+          exit 1
+        fi
+        notary() {
+          xcrun notarytool "$@" --key "$key" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER"
+        }
+
+        stage=$(mktemp -d "${TMPDIR:-/tmp}/knot-notarize.XXXXXX") || exit 1
+        trap 'rm -rf "$stage"' EXIT
+        out="$PWD/{{.OUTPUT_DIR}}"
+
+        # Unpack each architecture's Knot.app and check it carries a
+        # Developer ID signature before anything is sent to Apple.
+        for arch in amd64 arm64; do
+          zip="$out/{{.PROJECT_NAME}}_darwin_${arch}.zip"
+          mkdir -p "$stage/apps/$arch" || exit 1
+          ditto -x -k "$zip" "$stage/apps/$arch" || exit 1
+          if ! codesign -dvv "$stage/apps/$arch/Knot.app" 2>&1 | grep -q '^Authority=Developer ID Application'; then
+            echo "$zip is not Developer ID signed: set MACOS_SIGN_IDENTITY in .env and rebuild (task clean all)" >&2
+            exit 1
+          fi
+        done
+
+        # One submission covers both apps: notarization is recorded per
+        # binary, so each app's ticket can then be stapled separately.
+        ditto -c -k --keepParent "$stage/apps" "$stage/submit.zip" || exit 1
+        result=$(notary submit "$stage/submit.zip" --wait --output-format json) || true
+        echo "$result"
+        status=$(echo "$result" | jq -r '.status // empty')
+        if [ "$status" != "Accepted" ]; then
+          id=$(echo "$result" | jq -r '.id // empty')
+          echo "Notarization failed (status: ${status:-unknown})" >&2
+          if [ -n "$id" ]; then notary log "$id" >&2; fi
+          exit 1
+        fi
+
+        # Staple the ticket into each app, so Gatekeeper accepts it offline
+        # too, then repack the release zip with the stapled app.
+        for arch in amd64 arm64; do
+          app="$stage/apps/$arch/Knot.app"
+          zip="$out/{{.PROJECT_NAME}}_darwin_${arch}.zip"
+          stapled=0
+          # A freshly accepted ticket can take a few seconds to be served.
+          for attempt in 1 2 3 4 5 6; do
+            if xcrun stapler staple "$app"; then
+              stapled=1
+              break
+            fi
+            sleep 10
+          done
+          if [ "$stapled" -ne 1 ]; then
+            echo "Could not staple the notarization ticket to the $arch app" >&2
+            exit 1
+          fi
+          spctl --assess --type execute -vv "$app" || exit 1
+          rm -f "$zip"
+          ditto -c -k --keepParent "$app" "$zip" || exit 1
+        done
 
   checksums:
     desc: Show the ZIP file checksums
@@ -455,6 +543,8 @@ tasks:
           git push origin v{{.VERSION}}
         fi
       - task: all
+      # Before anything is pushed or published, so a rejection stops here.
+      - task: notarize-macos
       - task: container
       - task: create-release
       - task: checksums
@@ -473,7 +563,8 @@ tasks:
     internal: true
     cmds:
       - gh release create v{{.VERSION}} {{.OUTPUT_DIR}}/*.zip -t "Release {{.VERSION}}" -n "Knot {{.VERSION}}"
-    deps: [all] # Ensure artifacts exist
+    # No deps on all: release runs it first, and as all never reports itself
+    # up to date a dep here would rebuild and replace the notarized zips.
 
   run-server:
     desc: Run the server for development

@@ -103,12 +103,6 @@ const caskTemplate = `cask "knot" do
 				"'  brew uninstall knot' >&2; exit 1"]
 		end
 
-		# The app is ad-hoc signed (not notarized) and brew quarantines cask
-		# downloads, which makes Gatekeeper kill the binary on first exec.
-		# Strip the flag so the app and the CLI link work immediately.
-		# must_succeed: false as xattr -d fails if the attribute is absent.
-		run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{"{{"}}appdir}}/Knot.app"], must_succeed: false
-
 		# overwrite: true replaces any existing link (was FileUtils.ln_sf);
 		# remove_on_uninstall unlinks the CLI on uninstall, replacing the old
 		# uninstall_postflight hook.
