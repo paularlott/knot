@@ -385,7 +385,15 @@ tasks:
           fi
           spctl --assess --type execute -vv "$app" || exit 1
           rm -f "$zip"
-          ditto -c -k --keepParent "$app" "$zip" || exit 1
+          # No extended attributes: ditto would store them (macOS tags every
+          # file with com.apple.provenance) as AppleDouble ._ files. ditto -x
+          # and casks merge those back, but unzip, which Homebrew formulae use,
+          # leaves them inside the bundle and so breaks its signature seal.
+          ditto -c -k --norsrc --noextattr --noacl --keepParent "$app" "$zip" || exit 1
+          # Unpack the way a Homebrew formula does and check the seal holds.
+          mkdir "$stage/check-$arch" || exit 1
+          unzip -q "$zip" -d "$stage/check-$arch" || exit 1
+          codesign --verify --strict "$stage/check-$arch/$(basename "$app")" || exit 1
         done
 
   checksums:
