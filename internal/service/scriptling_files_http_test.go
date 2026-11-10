@@ -57,7 +57,7 @@ func TestKnotFilesOverHTTPTransport(t *testing.T) {
 	}
 	env := scriptling.New()
 	env.EnableOutputCapture()
-	registerBaseLibraries(env, nil, netPolicy, newScriptLifetime(env))
+	registerBaseLibraries(env, nil, netPolicy)
 	// The python transports read KNOT_URL and friends from the environment.
 	extlibs.RegisterOSLibrary(env, nil)
 	env.SetLibraryLoader(newKnotLibsLoader())

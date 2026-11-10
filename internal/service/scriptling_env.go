@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -27,11 +28,13 @@ import (
 	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
 	"github.com/paularlott/scriptling/extlibs/fssecurity"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
+	scriptlingmercure "github.com/paularlott/scriptling/extlibs/mercure"
 	"github.com/paularlott/scriptling/extlibs/messaging/discord"
 	"github.com/paularlott/scriptling/extlibs/messaging/slack"
 	"github.com/paularlott/scriptling/extlibs/messaging/telegram"
 	"github.com/paularlott/scriptling/extlibs/netsecurity"
 	scriptlingoauth "github.com/paularlott/scriptling/extlibs/oauth"
+	"github.com/paularlott/scriptling/extlibs/provision/become"
 	provisioncommand "github.com/paularlott/scriptling/extlibs/provision/command"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
@@ -46,6 +49,15 @@ import (
 var (
 	libraryFetcher func(string) (string, error)
 )
+
+// agentBecome runs agent scripts' become=True provisioning steps as root,
+// through sudo. The agent runs as the space's user, inside their own space,
+// so root there is theirs to use: sudo is asked without a password first, so
+// a space with passwordless sudo is never prompted. One root helper serves
+// every agent script; it is started on first use.
+var agentBecome = sync.OnceValue(func() *become.Become {
+	return become.New(become.Config{})
+})
 
 // registerBaseLibraries registers common libraries shared across all environments
 // customLogger is optional - pass nil to use the default logger
@@ -99,7 +111,7 @@ func ValidateServerNetPolicy() error {
 	return err
 }
 
-func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger, netPolicy *netsecurity.Config, life *scriptLifetime) {
+func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger, netPolicy *netsecurity.Config) {
 	stdlib.RegisterAll(env)
 	extlibs.RegisterRequestsLibrary(env, netPolicy)
 	extlibs.RegisterSecretsLibrary(env)
@@ -136,7 +148,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	// scriptling.mercure — publish to and subscribe at Mercure hubs, under the
 	// network policy; a CA bundle (verify="path") must lie within the
 	// configured path allow-list. Clients close when the script's env is done.
-	registerMercure(env, fssecurity.Config{AllowedPaths: messagingPaths}, netPolicy, life)
+	scriptlingmercure.RegisterConfigured(env, fssecurity.Config{AllowedPaths: messagingPaths}, netPolicy)
 
 	extlibs.RegisterTOMLLibrary(env)
 	extlibs.RegisterTemplateHTMLLibrary(env)
@@ -210,7 +222,7 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 // only appear here when knot opts in. network libs use knot's resolver
 // configuration (scriptNetConfig). A nil log gets the default logging library
 // and a null logger for the libs that need one.
-func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger, life *scriptLifetime) {
+func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	netPolicy := scriptNetConfig()
 	stdlib.RegisterAll(env)
 
@@ -272,7 +284,7 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger, life 
 
 	// scriptling.mercure — publish to and subscribe at Mercure hubs through
 	// knot's resolver configuration; clients close when the script's env is done.
-	registerMercure(env, fssecurity.Config{}, netPolicy, life)
+	scriptlingmercure.RegisterConfigured(env, fssecurity.Config{}, netPolicy)
 
 	// Agent-side scriptling plugins (--plugin / --plugin-dir), loaded once at
 	// agent startup. This is how the agent reaches heavyweight drivers (e.g.
@@ -462,11 +474,11 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 
 	env := scriptling.New()
 	env.EnableOutputCapture()
-	life := newScriptLifetime(env)
-	registerBaseLibraries(env, nil, netPolicy, life)
+	registerBaseLibraries(env, nil, netPolicy)
 	registerServerFSPaths(env)
 
-	cleanup := life.end
+	// Closes what the script left open.
+	cleanup := env.Close
 
 	aiClient := createServerAIClient(client, opts.User)
 	if aiClient != nil {
@@ -555,7 +567,7 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 // as a bin/ peer, not an env library. Keep this list in step with
 // plugins.pluginEnvLibraries, which answers metadata dependency resolution
 // for the same set.
-func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger, life *scriptLifetime) {
+func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	stdlib.RegisterAll(env)
 
 	aux := log
@@ -584,7 +596,7 @@ func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger, life
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
 	// Clients close when the lease ends (ReleasePluginEnv resets the env).
-	registerMercure(env, fssecurity.Config{}, netPolicy, life)
+	scriptlingmercure.RegisterConfigured(env, fssecurity.Config{}, netPolicy)
 
 	telegram.Register(env, aux)
 	discord.Register(env, aux)
@@ -639,7 +651,7 @@ func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugi
 func buildPluginEnv(plugin *plugins.Plugin) *scriptling.Scriptling {
 	env := scriptling.New()
 	env.EnableOutputCapture()
-	registerPluginLibraries(env, nil, newScriptLifetime(env))
+	registerPluginLibraries(env, nil)
 
 	// This plugin's own handler namespace: a pure-script plugin's main.py is
 	// registered as the plugin.<ScriptNamespace> library so its declared
@@ -789,8 +801,7 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 		env.SetInputReader(opts.Input)
 	}
 
-	life := newScriptLifetime(env)
-	registerAgentLibraries(env, opts.Logger, life)
+	registerAgentLibraries(env, opts.Logger)
 
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
@@ -801,7 +812,8 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 	// knot.files.sync runs sync projects in the space's agent.
 	env.RegisterLibrary(knotscriptling.GetSyncLibrary(true))
 
-	cleanup := life.end
+	// Closes what the script left open.
+	cleanup := env.Close
 
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, opts.Argv, opts.Input)
