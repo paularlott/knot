@@ -32,9 +32,14 @@ import (
 
 	"github.com/paularlott/cli"
 	cli_toml "github.com/paularlott/cli/toml"
+	"github.com/paularlott/scriptling/extlibs/provision/become"
 )
 
 func main() {
+	// Started through sudo as the root helper for an agent script's
+	// become=True provisioning steps: serve it and exit, before anything else.
+	become.ServeIfHelper()
+
 	// A process spawned by scriptling as a plugin peer runs the plugin
 	// server instead of the CLI or the desktop.
 	if command_scriptling.ShouldAutoStart() {

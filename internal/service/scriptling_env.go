@@ -25,14 +25,17 @@ import (
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	aimemory "github.com/paularlott/scriptling/extlibs/ai/memory"
 	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
+	"github.com/paularlott/scriptling/extlibs/fssecurity"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/extlibs/messaging/discord"
 	"github.com/paularlott/scriptling/extlibs/messaging/slack"
 	"github.com/paularlott/scriptling/extlibs/messaging/telegram"
 	"github.com/paularlott/scriptling/extlibs/netsecurity"
 	scriptlingoauth "github.com/paularlott/scriptling/extlibs/oauth"
+	provisioncommand "github.com/paularlott/scriptling/extlibs/provision/command"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
+	provisionpackage "github.com/paularlott/scriptling/extlibs/provision/packages"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
@@ -96,7 +99,7 @@ func ValidateServerNetPolicy() error {
 	return err
 }
 
-func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger, netPolicy *netsecurity.Config) {
+func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger, netPolicy *netsecurity.Config, life *scriptLifetime) {
 	stdlib.RegisterAll(env)
 	extlibs.RegisterRequestsLibrary(env, netPolicy)
 	extlibs.RegisterSecretsLibrary(env)
@@ -129,6 +132,11 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	telegram.RegisterConfigured(env, nil, messagingPaths, netPolicy)
 	discord.RegisterConfigured(env, nil, messagingPaths, netPolicy)
 	slack.RegisterConfigured(env, nil, messagingPaths, netPolicy)
+
+	// scriptling.mercure — publish to and subscribe at Mercure hubs, under the
+	// network policy; a CA bundle (verify="path") must lie within the
+	// configured path allow-list. Clients close when the script's env is done.
+	registerMercure(env, fssecurity.Config{AllowedPaths: messagingPaths}, netPolicy, life)
 
 	extlibs.RegisterTOMLLibrary(env)
 	extlibs.RegisterTemplateHTMLLibrary(env)
@@ -202,7 +210,7 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 // only appear here when knot opts in. network libs use knot's resolver
 // configuration (scriptNetConfig). A nil log gets the default logging library
 // and a null logger for the libs that need one.
-func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
+func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger, life *scriptLifetime) {
 	netPolicy := scriptNetConfig()
 	stdlib.RegisterAll(env)
 
@@ -236,8 +244,13 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	extlibs.RegisterTemplateHTMLLibrary(env)
 	extlibs.RegisterTemplateTextLibrary(env)
 
-	provisionfile.Register(env)
-	provisionfetch.Register(env)
+	// Machine provisioning. become=True steps run as root through sudo
+	// (agentBecome): the agent runs as the space's user, in their own space.
+	root := agentBecome()
+	provisionfile.RegisterConfigured(env, fssecurity.Config{}, provisionfile.WithBecome(root))
+	provisionfetch.RegisterConfigured(env, fssecurity.Config{}, nil, provisionfetch.WithBecome(root))
+	provisioncommand.RegisterConfigured(env, provisioncommand.WithBecome(root))
+	provisionpackage.RegisterConfigured(env, provisionpackage.WithBecome(root))
 
 	scriptlingai.Register(env, netPolicy)
 	aimemory.Register(env, aux)
@@ -256,6 +269,10 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	// scriptling.oauth — sign scripts in to an identity provider (device sign-in, client credentials) and verify
 	// access tokens; requests to the IdP go through knot's resolver configuration like requests'.
 	scriptlingoauth.Register(env, netPolicy)
+
+	// scriptling.mercure — publish to and subscribe at Mercure hubs through
+	// knot's resolver configuration; clients close when the script's env is done.
+	registerMercure(env, fssecurity.Config{}, netPolicy, life)
 
 	// Agent-side scriptling plugins (--plugin / --plugin-dir), loaded once at
 	// agent startup. This is how the agent reaches heavyweight drivers (e.g.
@@ -445,10 +462,11 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 
 	env := scriptling.New()
 	env.EnableOutputCapture()
-	registerBaseLibraries(env, nil, netPolicy)
+	life := newScriptLifetime(env)
+	registerBaseLibraries(env, nil, netPolicy, life)
 	registerServerFSPaths(env)
 
-	cleanup := func() {}
+	cleanup := life.end
 
 	aiClient := createServerAIClient(client, opts.User)
 	if aiClient != nil {
@@ -537,7 +555,7 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 // as a bin/ peer, not an env library. Keep this list in step with
 // plugins.pluginEnvLibraries, which answers metadata dependency resolution
 // for the same set.
-func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
+func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger, life *scriptLifetime) {
 	stdlib.RegisterAll(env)
 
 	aux := log
@@ -565,6 +583,8 @@ func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	scriptlingmcp.Register(env, netPolicy)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+	// Clients close when the lease ends (ReleasePluginEnv resets the env).
+	registerMercure(env, fssecurity.Config{}, netPolicy, life)
 
 	telegram.Register(env, aux)
 	discord.Register(env, aux)
@@ -619,7 +639,7 @@ func NewPluginScriptlingEnv(client *apiclient.ApiClient, user *model.User, plugi
 func buildPluginEnv(plugin *plugins.Plugin) *scriptling.Scriptling {
 	env := scriptling.New()
 	env.EnableOutputCapture()
-	registerPluginLibraries(env, nil)
+	registerPluginLibraries(env, nil, newScriptLifetime(env))
 
 	// This plugin's own handler namespace: a pure-script plugin's main.py is
 	// registered as the plugin.<ScriptNamespace> library so its declared
@@ -769,7 +789,8 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 		env.SetInputReader(opts.Input)
 	}
 
-	registerAgentLibraries(env, opts.Logger)
+	life := newScriptLifetime(env)
+	registerAgentLibraries(env, opts.Logger, life)
 
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient, true)
@@ -780,7 +801,7 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 	// knot.files.sync runs sync projects in the space's agent.
 	env.RegisterLibrary(knotscriptling.GetSyncLibrary(true))
 
-	cleanup := func() {}
+	cleanup := life.end
 
 	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, opts.Argv, opts.Input)

@@ -146,10 +146,14 @@ func importPluginNamespace(ctx context.Context, env *scriptling.Scriptling, plug
 }
 
 // ReleasePluginEnv returns a dispatched env to its plugin's free list.
-// Output printed by handlers is drained so an env's capture buffer cannot
-// grow across leases; overflowing or stale lists are trimmed.
+// The env is reset, so output printed by handlers cannot grow its capture
+// buffer across leases and nothing a handler left open outlives the lease;
+// overflowing or stale lists are trimmed.
 func ReleasePluginEnv(env *scriptling.Scriptling, plugin *plugins.Plugin) {
-	_ = env.GetOutput()
+	// Reset ends the lease: it drains the output and closes what the
+	// handlers left open (Mercure clients), whether the env is pooled or
+	// dropped below. The next lease resets it again before use.
+	env.Reset()
 
 	pluginEnvs.mu.Lock()
 	defer pluginEnvs.mu.Unlock()

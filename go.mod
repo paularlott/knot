@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.27.2
+go 1.27.3
 
 //replace github.com/paularlott/gossip => ../gossip/
 
@@ -28,12 +28,12 @@ require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/miekg/dns v1.1.73
 	github.com/paularlott/cli v0.10.2
-	github.com/paularlott/gossip v0.30.3
+	github.com/paularlott/gossip v0.31.0
 	github.com/paularlott/jsonrpc v0.4.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.4.0
 	github.com/paularlott/mcp v0.35.2
-	github.com/paularlott/scriptling v0.36.1
+	github.com/paularlott/scriptling v0.37.0
 	github.com/pkg/sftp v1.13.12
 	github.com/shamaton/msgpack/v3 v3.2.7
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -44,10 +44,10 @@ require (
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.58.0
-	golang.org/x/exp v0.0.0-20261106192419-47ce03d25ef0
+	golang.org/x/exp v0.0.0-20261109185158-a52e3aef5920
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.50.0
-	golang.org/x/term v0.47.0
+	golang.org/x/term v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -75,6 +75,7 @@ require (
 	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20261101121723-be84dd9509a0 // indirect
+	github.com/paularlott/gossiper/client v1.0.0 // indirect
 	github.com/paularlott/snapshotkv v0.6.0 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -93,10 +94,10 @@ require (
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
-	golang.org/x/image v0.47.0 // indirect
+	golang.org/x/image v0.48.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
