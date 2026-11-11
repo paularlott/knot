@@ -1,0 +1,43 @@
+# Scans reachable code for known Go vulnerabilities. The toolchain comes
+# from go.mod, so a standard-library advisory against the version releases
+# are built with fails the check. The daily run catches advisories published
+# after the last push.
+name: govulncheck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # Packages embed build outputs that are gitignored (web assets, agent
+      # and package zips, legal texts). Empty placeholders let the code
+      # type-check; their contents don't matter to the scan.
+      - name: Create placeholder embed files
+        run: |
+          touch legal/license.txt legal/notice.txt
+          touch web/agents/placeholder.zip web/packages/placeholder.zip web/packages/placeholder.sha256
+          mkdir -p web/public_html/assets/css web/public_html/assets/js
+          touch web/public_html/assets/css/placeholder.css web/public_html/assets/js/placeholder.js
+
+      - name: Scan knot
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
