@@ -4,7 +4,7 @@
   "description": "Developer Tooling",
   "type": "module",
   "devDependencies": {
-    "@redocly/cli": "^2.1.0",
+    "@redocly/cli": "^2.78.0",
     "@tailwindcss/postcss": "^4.1.0",
     "less": "^4.2.0",
     "postcss": "^8.4.47",

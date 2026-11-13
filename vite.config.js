@@ -6,18 +6,27 @@ import tailwindcss from "@tailwindcss/vite";
 const here = import.meta.dirname;
 
 // Redoc's "API docs by Redocly" badge loads the Redocly logo from cdn.redoc.ly. The skin (web/src/less/api-docs.css)
-// hides the badge, but a hidden image is still fetched, so point it at a blank one: the API reference makes no outside
-// request. The build fails if Redoc changes this, so the plugin is reviewed on a Redoc upgrade.
+// hides the badge, but a hidden image is still fetched, so point it at a blank one. Its icon sets are fetched from
+// cdn.redocly.com by joining a base URL and an icon's name: an empty data: URL as the base makes any such URL inline
+// data, fetched from nowhere. So the API reference makes no outside request. The build fails if Redoc changes any of
+// this, so the plugin is reviewed on a Redoc upgrade.
 const blank = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>');
-const redocLogos = ['https://cdn.redoc.ly/redoc/logo-mini-full.svg', 'https://cdn.redoc.ly/redoc/logo-mini.svg'];
+const redocURLs = {
+  'https://cdn.redoc.ly/redoc/logo-mini-full.svg': blank,
+  'https://cdn.redoc.ly/redoc/logo-mini.svg': blank,
+  'https://cdn.redocly.com/icons/fa/7.0.0': 'data:,',
+  'https://cdn.redocly.com/icons/code/5.24.0': 'data:,',
+  // the telemetry collector (switched off in web/src/js/api-docs.js): nowhere to send to
+  'https://otel.cloud.redocly.com/v1/traces': 'data:,',
+};
 const redocOffline = {
   name: 'redoc-offline',
   transform(code, id) {
     if (!id.includes('/node_modules/redoc/bundles/')) return;
     let out = code;
-    for (const url of redocLogos) {
+    for (const [url, local] of Object.entries(redocURLs)) {
       if (!out.includes(url)) this.error(`redoc no longer references ${url}: review the redoc-offline plugin`);
-      out = out.replaceAll(url, blank);
+      out = out.replaceAll(url, local);
     }
     return {code: out, map: null};
   },

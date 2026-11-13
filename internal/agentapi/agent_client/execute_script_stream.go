@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/scriptling/extlibs"
+	"github.com/paularlott/scriptling/extlibs/sys"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -73,8 +73,8 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 	// Per-call I/O setup: point the env at this connection's stream/pipe.
 	env.SetOutputWriter(sw)
 	env.SetInputReader(stdinR)
-	extlibs.RegisterSysLibrary(env, execMsg.Arguments, stdinR)
-	env.SetObjectVar("input", extlibs.NewInputBuiltin(stdinR))
+	sys.Register(env, execMsg.Arguments, stdinR)
+	env.SetObjectVar("input", sys.NewInputBuiltin(stdinR))
 
 	result, err := env.EvalWithContext(ctx, execMsg.Content)
 

@@ -1,7 +1,7 @@
 package msg
 
 // GrepMessage searches file contents in the space's agent via the scriptling
-// extlibs Grep function (parallel worker pool, no interpreter).
+// extlibs/filesystem Grep function (parallel worker pool, no interpreter).
 type GrepMessage struct {
 	Pattern     string `msgpack:"pattern" json:"pattern"`
 	Path        string `msgpack:"path" json:"path"`
@@ -28,7 +28,7 @@ type GrepResponse struct {
 }
 
 // FindMessage finds files/directories in the space's agent via the scriptling
-// extlibs Find function (concurrent walker).
+// extlibs/filesystem Find function (concurrent walker).
 //
 // By default the response carries only Paths (cheap — no per-entry stat when
 // size/mtime filters are inactive). Set IncludeMetadata=true to get Entries
@@ -89,7 +89,7 @@ type FindResponse struct {
 }
 
 // SedMessage performs an in-place edit or capture extraction in the space's
-// agent via the scriptling extlibs Sed functions. Mode selects the operation:
+// agent via the scriptling extlibs/filesystem Sed functions. Mode selects the operation:
 // "replace" (literal), "replace_pattern" (regex), or "extract" (read-only
 // capture-group extraction).
 type SedMessage struct {
@@ -122,7 +122,7 @@ type SedResponse struct {
 }
 
 // EditFileMessage performs a targeted search-and-replace on a single file in
-// the space's agent via the scriptling extlibs EditFile function. The search
+// the space's agent via the scriptling extlibs/filesystem EditFile function. The search
 // text must appear exactly once (uniqueness check); the modification is written
 // atomically (temp file + rename).
 type EditFileMessage struct {

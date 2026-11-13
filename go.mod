@@ -12,7 +12,7 @@ go 1.27.4
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/alicebob/miniredis/v2 v2.38.0
+	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/creack/pty v1.1.24
 	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/fsnotify/fsnotify v1.10.1
@@ -25,15 +25,15 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/miekg/dns v1.1.73
-	github.com/paularlott/cli v0.10.2
+	github.com/paularlott/cli v0.10.3
 	github.com/paularlott/gossip v0.31.0
 	github.com/paularlott/jsonrpc v0.4.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.4.0
-	github.com/paularlott/mcp v0.35.2
-	github.com/paularlott/scriptling v0.38.0
+	github.com/paularlott/mcp v0.36.0
+	github.com/paularlott/scriptling v0.40.0
 	github.com/pkg/sftp v1.13.12
 	github.com/shamaton/msgpack/v3 v3.2.7
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -43,8 +43,8 @@ require (
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.7
-	golang.org/x/crypto v0.58.0
-	golang.org/x/exp v0.0.0-20261109185158-a52e3aef5920
+	golang.org/x/crypto v0.59.0
+	golang.org/x/exp v0.0.0-20261113113407-e3970619a1a4
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/term v0.48.0
@@ -87,7 +87,7 @@ require (
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
+	github.com/yuin/gopher-lua v1.1.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect

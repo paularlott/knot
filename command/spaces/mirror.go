@@ -255,7 +255,7 @@ var chunkSize = int64(4 * 1024 * 1024) // 4 MB — matches yamux stream window
 const mtimeTolerance = 1 * time.Second
 
 // crc64ISO is the table used for local file hashing. Must match the agent's
-// hashFile in extlibs/find.go (crc64.ISO).
+// hashFile in extlibs/filesystem/find.go (crc64.ISO).
 var crc64ISO = crc64.MakeTable(crc64.ISO)
 
 // hashLocalFile computes crc64-ISO of a local file. Used for the definitive
