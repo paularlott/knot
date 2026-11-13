@@ -97,6 +97,8 @@ github.com/paularlott/cli v0.10.3 h1:i2OJJgDTZU6FqZkhzPV2eW7VAXJRQQIhU3kO1re6hSU
 github.com/paularlott/cli v0.10.3/go.mod h1:sfRR24eVVblmv5gq9Enpk/9ZFfJWMovfo/7dNlqgDSM=
 github.com/paularlott/gossip v0.31.0 h1:9kst/zsaI8T6sy12JHGfLB8W36joNs6EW362vB8mXOI=
 github.com/paularlott/gossip v0.31.0/go.mod h1:o691UfdcTaXHmb8tVUJsUDwCjHXJ+E4K1Y/+rPaXpVc=
+github.com/paularlott/gossip v0.31.1 h1:N6zaTpFHcifyb0LE5auGhO6h7L1t94aajsmtA+avQu4=
+github.com/paularlott/gossip v0.31.1/go.mod h1:o691UfdcTaXHmb8tVUJsUDwCjHXJ+E4K1Y/+rPaXpVc=
 github.com/paularlott/gossiper/client v1.0.0 h1:3YKHwZ3mNNM1kB3MqraKMxc2w50qcz9YAhXpqQCsJzw=
 github.com/paularlott/gossiper/client v1.0.0/go.mod h1:fisjfxAzK9HLmd8tsXbY5l5j/zYVWSzSNsRHXN5vJLE=
 github.com/paularlott/jsonrpc v0.4.0 h1:ftR/oRvxKtpKgJ+CgEj/a9kjIjwxZ98DwxgXDS/pR1Y=
@@ -109,6 +111,8 @@ github.com/paularlott/mcp v0.36.0 h1:enAGt7+WhfRVn1m6eQ9GnIH9Zxw3MbDY4nohUqVzKtE
 github.com/paularlott/mcp v0.36.0/go.mod h1:xf5quKoG0/xFcrWMrTGzphKpBwzGDeCz1RqRf2x/MZw=
 github.com/paularlott/scriptling v0.40.0 h1:pYgFFW8hAgwC0q6Tb50+/bpyh+P7mVUXLwSnMGk1GNU=
 github.com/paularlott/scriptling v0.40.0/go.mod h1:EZrOGHlJf4A0qEDmZJLMoQjvMMDw6zsY2QhsZTnOB6Q=
+github.com/paularlott/scriptling v0.40.1 h1:E3AqqlfVgv/Pu+DSV1UhJd3+Z+zAZ7DBQLM/pZO1G90=
+github.com/paularlott/scriptling v0.40.1/go.mod h1:zwYMntF5JLDZF2q2/jen5/OhO9AJAPWGWDqP4h6l7DM=
 github.com/paularlott/snapshotkv v0.6.0 h1:bGUVANfPg7+2fsVnnnCWQvkuDrBWPg3mchGoEgel28Q=
 github.com/paularlott/snapshotkv v0.6.0/go.mod h1:TAiDx8gWhRS5cy1i8iKpxCQsWWpmQ0zA4IBEwLX58Ow=
 github.com/philhofer/fwd v1.2.1 h1:UtpS73q8bFgy/yH3gCq8LSNvj5gv/FowNOiWZa7uKwQ=

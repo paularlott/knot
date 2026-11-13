@@ -28,12 +28,12 @@ require (
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/miekg/dns v1.1.73
 	github.com/paularlott/cli v0.10.3
-	github.com/paularlott/gossip v0.31.0
+	github.com/paularlott/gossip v0.31.1
 	github.com/paularlott/jsonrpc v0.4.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.4.0
 	github.com/paularlott/mcp v0.36.0
-	github.com/paularlott/scriptling v0.40.0
+	github.com/paularlott/scriptling v0.40.1
 	github.com/pkg/sftp v1.13.12
 	github.com/shamaton/msgpack/v3 v3.2.7
 	github.com/shirou/gopsutil/v3 v3.24.5
