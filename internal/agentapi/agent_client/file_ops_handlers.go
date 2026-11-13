@@ -7,7 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/scriptling/extlibs"
+	"github.com/paularlott/scriptling/extlibs/filesystem"
 )
 
 // resolvePath joins path with workdir when path is relative and workdir is set.
@@ -33,7 +33,7 @@ func handleGrepExecution(stream net.Conn, g msg.GrepMessage) {
 	resp := msg.GrepResponse{}
 	defer sendResponse(stream, &resp)
 
-	matches, err := extlibs.Grep(context.Background(), g.Pattern, resolvePath(g.Path, g.Workdir), extlibs.GrepOptions{
+	matches, err := filesystem.Grep(context.Background(), g.Pattern, resolvePath(g.Path, g.Workdir), filesystem.GrepOptions{
 		Literal:     g.Literal,
 		Recursive:   g.Recursive,
 		IgnoreCase:  g.IgnoreCase,
@@ -58,7 +58,7 @@ func handleFindExecution(stream net.Conn, f msg.FindMessage) {
 	resp := msg.FindResponse{}
 	defer sendResponse(stream, &resp)
 
-	opts := extlibs.FindOptions{
+	opts := filesystem.FindOptions{
 		Type:            f.Type,
 		Name:            f.Name,
 		IncludeHidden:   f.IncludeHidden,
@@ -83,7 +83,7 @@ func handleFindExecution(stream net.Conn, f msg.FindMessage) {
 	// no size/mtime filter is active, which is the common case and what
 	// makes the default path cheap.
 	if f.IncludeMetadata {
-		entries, err := extlibs.FindEntries(context.Background(), resolved, opts)
+		entries, err := filesystem.FindEntries(context.Background(), resolved, opts)
 		if err != nil {
 			resp.Error = err.Error()
 			return
@@ -101,7 +101,7 @@ func handleFindExecution(stream net.Conn, f msg.FindMessage) {
 			}
 		}
 	} else {
-		paths, err := extlibs.Find(context.Background(), resolved, opts)
+		paths, err := filesystem.Find(context.Background(), resolved, opts)
 		if err != nil {
 			resp.Error = err.Error()
 			return
@@ -118,7 +118,7 @@ func handleSedExecution(stream net.Conn, s msg.SedMessage) {
 	defer sendResponse(stream, &resp)
 
 	path := resolvePath(s.Path, s.Workdir)
-	opts := extlibs.SedOptions{
+	opts := filesystem.SedOptions{
 		Recursive:   s.Recursive,
 		IgnoreCase:  s.IgnoreCase,
 		FollowLinks: s.FollowLinks,
@@ -128,7 +128,7 @@ func handleSedExecution(stream net.Conn, s msg.SedMessage) {
 
 	switch s.Mode {
 	case "replace":
-		n, err := extlibs.SedReplace(context.Background(), s.Pattern, s.Replacement, path, opts)
+		n, err := filesystem.SedReplace(context.Background(), s.Pattern, s.Replacement, path, opts)
 		if err != nil {
 			resp.Error = err.Error()
 			return
@@ -136,7 +136,7 @@ func handleSedExecution(stream net.Conn, s msg.SedMessage) {
 		resp.FilesModified = n
 
 	case "replace_pattern":
-		n, err := extlibs.SedReplacePattern(context.Background(), s.Pattern, s.Replacement, path, opts)
+		n, err := filesystem.SedReplacePattern(context.Background(), s.Pattern, s.Replacement, path, opts)
 		if err != nil {
 			resp.Error = err.Error()
 			return
@@ -144,7 +144,7 @@ func handleSedExecution(stream net.Conn, s msg.SedMessage) {
 		resp.FilesModified = n
 
 	case "extract":
-		matches, err := extlibs.SedExtract(context.Background(), s.Pattern, path, opts)
+		matches, err := filesystem.SedExtract(context.Background(), s.Pattern, path, opts)
 		if err != nil {
 			resp.Error = err.Error()
 			return
@@ -170,7 +170,7 @@ func handleEditFileExecution(stream net.Conn, e msg.EditFileMessage) {
 	resp := msg.EditFileResponse{}
 	defer sendResponse(stream, &resp)
 
-	n, err := extlibs.EditFile(context.Background(), resolvePath(e.Path, e.Workdir), e.Search, e.Replace)
+	n, err := filesystem.EditFile(context.Background(), resolvePath(e.Path, e.Workdir), e.Search, e.Replace)
 	if err != nil {
 		resp.Error = err.Error()
 		return

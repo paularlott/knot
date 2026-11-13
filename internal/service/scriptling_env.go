@@ -20,20 +20,30 @@ import (
 	ai "github.com/paularlott/mcp/ai"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
 	"github.com/paularlott/scriptling"
-	"github.com/paularlott/scriptling/extlibs"
 	"github.com/paularlott/scriptling/extlibs/agent"
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	aimemory "github.com/paularlott/scriptling/extlibs/ai/memory"
 	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
+	"github.com/paularlott/scriptling/extlibs/filesystem"
+	"github.com/paularlott/scriptling/extlibs/logging"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/extlibs/messaging/discord"
 	"github.com/paularlott/scriptling/extlibs/messaging/slack"
 	"github.com/paularlott/scriptling/extlibs/messaging/telegram"
 	"github.com/paularlott/scriptling/extlibs/netsecurity"
+	"github.com/paularlott/scriptling/extlibs/netsecurity/policyfile"
 	scriptlingoauth "github.com/paularlott/scriptling/extlibs/oauth"
+	"github.com/paularlott/scriptling/extlibs/platform"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
+	"github.com/paularlott/scriptling/extlibs/requests"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
+	"github.com/paularlott/scriptling/extlibs/subprocess"
+	"github.com/paularlott/scriptling/extlibs/sys"
+	scriptlingtemplate "github.com/paularlott/scriptling/extlibs/template"
+	"github.com/paularlott/scriptling/extlibs/toml"
+	"github.com/paularlott/scriptling/extlibs/waitfor"
+	"github.com/paularlott/scriptling/extlibs/yaml"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
 	pluginpkg "github.com/paularlott/scriptling/plugin"
@@ -64,7 +74,7 @@ func scriptNetConfig() *netsecurity.Config {
 // wait_for, scriptling.ai and scriptling.mcp are all governed by it — the
 // network equivalent of ScriptFSAllowedPaths (registerServerFSPaths). When
 // the admin configures ScriptNetPolicyFile, it is loaded with the exact same
-// schema and loader (netsecurity.LoadConfig) as the scriptling CLI's own
+// schema and loader (policyfile.LoadConfig) as the scriptling CLI's own
 // --network-policy flag, so the full option set is available — not just a
 // host allow-list: https_only, allow_ip_literals, allow_loopback,
 // allow_private_ips, allow_hosts, deny_hosts, allow_cidrs, deny_cidrs,
@@ -81,7 +91,7 @@ func serverNetConfig() (*netsecurity.Config, error) {
 	if cfg == nil || cfg.ScriptNetPolicyFile == "" {
 		return scriptNetConfig(), nil
 	}
-	policy, err := netsecurity.LoadConfig(cfg.ScriptNetPolicyFile)
+	policy, err := policyfile.LoadConfig(cfg.ScriptNetPolicyFile)
 	if err != nil {
 		return nil, fmt.Errorf("script-net-policy %s: %w", cfg.ScriptNetPolicyFile, err)
 	}
@@ -98,17 +108,16 @@ func ValidateServerNetPolicy() error {
 
 func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger, netPolicy *netsecurity.Config) {
 	stdlib.RegisterAll(env)
-	extlibs.RegisterRequestsLibrary(env, netPolicy)
-	extlibs.RegisterSecretsLibrary(env)
-	extlibs.RegisterHTMLParserLibrary(env)
+	platform.Register(env) // was part of stdlib.RegisterAll before scriptling v0.40.0
+	requests.Register(env, netPolicy)
 	// No wait_for here: it is an agent-side library (registerAgentLibraries),
 	// where it runs unrestricted; server-side scripts (MCP tools, event sinks)
 	// get no file or port waiting at all.
-	extlibs.RegisterYAMLLibrary(env)
+	yaml.Register(env)
 	if customLogger != nil {
-		extlibs.RegisterLoggingLibrary(env, customLogger)
+		logging.Register(env, customLogger)
 	} else {
-		extlibs.RegisterLoggingLibraryDefault(env)
+		logging.RegisterDefault(env)
 	}
 
 	scriptlingai.Register(env, netPolicy)
@@ -130,12 +139,9 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	discord.RegisterConfigured(env, nil, messagingPaths, netPolicy)
 	slack.RegisterConfigured(env, nil, messagingPaths, netPolicy)
 
-	extlibs.RegisterTOMLLibrary(env)
-	extlibs.RegisterTemplateHTMLLibrary(env)
-	extlibs.RegisterTemplateTextLibrary(env)
-	extlibs.RegisterShlexLibrary(env) // shlex — pure string processing, no filesystem access
-	extlibs.RegisterCsvLibrary(env)   // scriptling.csv — CSV parsing/formatting, no filesystem access
-	extlibs.RegisterXmlLibrary(env)   // scriptling.xml — XML parsing/formatting, no filesystem access
+	toml.Register(env)
+	scriptlingtemplate.RegisterHTML(env)
+	scriptlingtemplate.RegisterText(env)
 }
 
 // serverScriptPaths is the path allow-list for server-side scripts: the
@@ -156,7 +162,7 @@ func serverScriptPaths() []string {
 // treated as "not configured" and the library is skipped either way.
 func registerServerFSPaths(env *scriptling.Scriptling) {
 	if cfg := config.GetServerConfig(); cfg != nil && len(cfg.ScriptFSAllowedPaths) > 0 {
-		extlibs.RegisterFSLibrary(env, cfg.ScriptFSAllowedPaths)
+		filesystem.RegisterFS(env, cfg.ScriptFSAllowedPaths)
 	}
 }
 
@@ -205,36 +211,32 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	netPolicy := scriptNetConfig()
 	stdlib.RegisterAll(env)
+	platform.Register(env) // was part of stdlib.RegisterAll before scriptling v0.40.0
 
 	aux := log
 	if aux == nil {
 		aux = logger.NewNullLogger()
 	}
 
-	extlibs.RegisterYAMLLibrary(env)
-	extlibs.RegisterTOMLLibrary(env)
-	extlibs.RegisterHTMLParserLibrary(env)
-	extlibs.RegisterRequestsLibrary(env, netPolicy)
-	extlibs.RegisterSecretsLibrary(env)
-	extlibs.RegisterOSLibrary(env, nil)
-	extlibs.RegisterLoggingLibrary(env, log)
-	extlibs.RegisterSubprocessLibrary(env)
-	extlibs.RegisterPathlibLibrary(env, nil)
-	extlibs.RegisterGlobLibrary(env, nil)
-	extlibs.RegisterTempfileLibrary(env, nil)
-	extlibs.RegisterShutilLibrary(env, nil)
-	extlibs.RegisterShlexLibrary(env)
-	extlibs.RegisterZipfileLibrary(env, nil)
-	extlibs.RegisterTarfileLibrary(env, nil)
-	extlibs.RegisterCsvLibrary(env)
-	extlibs.RegisterXmlLibrary(env)
-	extlibs.RegisterFSLibrary(env, nil)
-	extlibs.RegisterGrepLibrary(env, nil)
-	extlibs.RegisterFindLibrary(env, nil)
-	extlibs.RegisterSedLibrary(env, nil)
-	extlibs.RegisterWaitForLibrary(env, netPolicy)
-	extlibs.RegisterTemplateHTMLLibrary(env)
-	extlibs.RegisterTemplateTextLibrary(env)
+	yaml.Register(env)
+	toml.Register(env)
+	requests.Register(env, netPolicy)
+	filesystem.RegisterOS(env, nil)
+	logging.Register(env, log)
+	subprocess.Register(env)
+	filesystem.RegisterPathlib(env, nil)
+	filesystem.RegisterGlob(env, nil)
+	filesystem.RegisterTempfile(env, nil)
+	filesystem.RegisterShutil(env, nil)
+	filesystem.RegisterZipfile(env, nil)
+	filesystem.RegisterTarfile(env, nil)
+	filesystem.RegisterFS(env, nil)
+	filesystem.RegisterGrep(env, nil)
+	filesystem.RegisterFind(env, nil)
+	filesystem.RegisterSed(env, nil)
+	waitfor.Register(env, netPolicy)
+	scriptlingtemplate.RegisterHTML(env)
+	scriptlingtemplate.RegisterText(env)
 
 	provisionfile.Register(env)
 	provisionfetch.Register(env)
@@ -539,6 +541,7 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 // for the same set.
 func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	stdlib.RegisterAll(env)
+	platform.Register(env) // was part of stdlib.RegisterAll before scriptling v0.40.0
 
 	aux := log
 	if aux == nil {
@@ -546,17 +549,12 @@ func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	}
 
 	netPolicy := scriptNetConfig()
-	extlibs.RegisterRequestsLibrary(env, netPolicy)
-	extlibs.RegisterSecretsLibrary(env)
-	extlibs.RegisterYAMLLibrary(env)
-	extlibs.RegisterTOMLLibrary(env)
-	extlibs.RegisterHTMLParserLibrary(env)
-	extlibs.RegisterLoggingLibraryDefault(env)
-	extlibs.RegisterShlexLibrary(env)
-	extlibs.RegisterCsvLibrary(env)
-	extlibs.RegisterXmlLibrary(env)
-	extlibs.RegisterTemplateHTMLLibrary(env)
-	extlibs.RegisterTemplateTextLibrary(env)
+	requests.Register(env, netPolicy)
+	yaml.Register(env)
+	toml.Register(env)
+	logging.RegisterDefault(env)
+	scriptlingtemplate.RegisterHTML(env)
+	scriptlingtemplate.RegisterText(env)
 
 	scriptlingai.Register(env, netPolicy)
 	agent.Register(env)
@@ -572,18 +570,18 @@ func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 
 	// nil allowed-paths: no filesystem restriction — the plugin reads and
 	// writes anywhere the knot process user can.
-	extlibs.RegisterOSLibrary(env, nil)
-	extlibs.RegisterSubprocessLibrary(env)
-	extlibs.RegisterPathlibLibrary(env, nil)
-	extlibs.RegisterGlobLibrary(env, nil)
-	extlibs.RegisterTempfileLibrary(env, nil)
-	extlibs.RegisterShutilLibrary(env, nil)
-	extlibs.RegisterZipfileLibrary(env, nil)
-	extlibs.RegisterTarfileLibrary(env, nil)
-	extlibs.RegisterFSLibrary(env, nil)
-	extlibs.RegisterGrepLibrary(env, nil)
-	extlibs.RegisterFindLibrary(env, nil)
-	extlibs.RegisterSedLibrary(env, nil)
+	filesystem.RegisterOS(env, nil)
+	subprocess.Register(env)
+	filesystem.RegisterPathlib(env, nil)
+	filesystem.RegisterGlob(env, nil)
+	filesystem.RegisterTempfile(env, nil)
+	filesystem.RegisterShutil(env, nil)
+	filesystem.RegisterZipfile(env, nil)
+	filesystem.RegisterTarfile(env, nil)
+	filesystem.RegisterFS(env, nil)
+	filesystem.RegisterGrep(env, nil)
+	filesystem.RegisterFind(env, nil)
+	filesystem.RegisterSed(env, nil)
 }
 
 // NewPluginScriptlingEnv creates the environment a plugin's handlers run in
@@ -783,9 +781,9 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 	cleanup := func() {}
 
 	setupLibraryLoader(env, client)
-	extlibs.RegisterSysLibrary(env, opts.Argv, opts.Input)
+	sys.Register(env, opts.Argv, opts.Input)
 	if opts.Input != nil {
-		env.SetObjectVar("input", extlibs.NewInputBuiltin(opts.Input))
+		env.SetObjectVar("input", sys.NewInputBuiltin(opts.Input))
 	}
 	return env, cleanup, nil
 }

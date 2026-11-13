@@ -2244,7 +2244,7 @@ const scriptlingLibraries = [
             name: "tools",
             signature: "tools()",
             description: "List available tools.",
-            returns: "list[dict[str, Any]] - List of tool dicts with name, description, inputSchema, is_app. is_app is True when the tool is an MCP Apps view (linked to a ui:// resource): a host UI renders its view when it is called.",
+            returns: "list[dict[str, Any]] - List of tool dicts with name, title, description, inputSchema, is_app, read_only, destructive, idempotent, open_world. is_app is True when the tool is an MCP Apps view (linked to a ui:// resource): a host UI renders its view when it is called. title is the tool's display name (\"\" when none). read_only, destructive, idempotent and open_world are the server's behaviour hints, named as mcp.tool declares them: True, False, or None when the server did not state one (treat a None destructive or open_world as True). They are the server's claims, not guarantees.",
           },
           {
             name: "call_tool",
@@ -2323,6 +2323,12 @@ const scriptlingLibraries = [
             signature: "get_prompt(name, arguments)",
             description: "Render a prompt by name into messages for the model.",
             returns: "dict[str, Any] - dict with \"description\" and \"messages\" (a list of {\"role\": ..., \"content\": ...})",
+          },
+          {
+            name: "complete",
+            signature: "complete(ref, argument, value=\"\", context=None)",
+            description: "Ask the server for argument completions (completion/complete).",
+            returns: "dict[str, Any] - dict with \"values\" (list of str, at most 100), \"total\" (int or None) and \"hasMore\" (bool)",
           },
           {
             name: "close",
@@ -2439,6 +2445,148 @@ const scriptlingLibraries = [
         signature: "return_error(message)",
         description: "Return an error from the tool and stop execution.",
         returns: "None",
+      },
+      {
+        name: "progress",
+        signature: "progress(progress, total=None, message=None)",
+        description: "Report progress to the MCP client.",
+        returns: "None",
+      },
+    ],
+  },
+  {
+    module: "scriptling.mercure",
+    description: "Scriptling Mercure Library - Type stubs for IntelliSense support.",
+    functions: [
+      {
+        name: "Client",
+        signature: "Client(url, key=None, publish=None, subscribe=None, token_ttl=3600, token=None, stream=False, verify=True, timeout=30, headers=None, host=None, h2c=False, max_event_size=8388608, payload=None, issuer=\"https://localhost\", audience=None, match_type=\"exact\", subject=None, client_id=\"scriptling\", algorithm=\"HS256\", draft07=False)",
+        description: "A client of a Mercure hub, to publish updates and subscribe to topics.",
+        returns: "\"MercureClient\" - MercureClient",
+      },
+      {
+        name: "create_token",
+        signature: "create_token(key, audience=None, publish=None, subscribe=None, payload=None, expires=3600, issuer=\"https://localhost\", match_type=\"exact\", subject=None, client_id=\"scriptling\", algorithm=\"HS256\", draft07=False)",
+        description: "A Mercure JWT, signed with a hub's HMAC key.",
+        returns: "str - str: the token",
+      },
+    ],
+    classes: [
+      {
+        name: "MercureClient",
+        description: "A client of a Mercure hub. Obtain one with mercure.Client().",
+        methods: [
+          {
+            name: "publish",
+            signature: "publish(topic, data=None, id=None, type=None, private=False, retry=None, replicas=0)",
+            description: "Publish an update and return its event ID once the hub has it.",
+            returns: "str - str: the event ID",
+          },
+          {
+            name: "publish_many",
+            signature: "publish_many(updates)",
+            description: "Publish several updates and return their event IDs, in order. Over a stream they are pipelined, in order; with a POST per update they are published one after another.",
+            returns: "list[str] - list: the event IDs. If one fails, the error names it; the updates before it were published",
+          },
+          {
+            name: "subscribe",
+            signature: "subscribe(*match_topics, match=None, match_urlpattern=None, topics=None, last_event_id=None, buffer=1024)",
+            description: "Subscribe to topics; returns once the hub accepted the subscription. The subscription reconnects by itself, resuming from its last event ID, until it is closed.",
+            returns: "\"Subscription\" - Subscription",
+          },
+          {
+            name: "set_token",
+            signature: "set_token(token)",
+            description: "Replace the token of a client made with token=. The next request, and every stream the client opens or reopens from then on, presents it. A client made with key= renews its own tokens and refuses it.",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the client, its subscriptions and its publish stream.",
+            returns: "None",
+          },
+        ],
+        properties: [
+        {
+          name: "url",
+          description: "str",
+        },
+        {
+          name: "transport",
+          description: "Literal[\"http\", \"stream\", \"auto\"]",
+        },
+        {
+          name: "closed",
+          description: "bool",
+        },
+        ],
+      },
+      {
+        name: "Subscription",
+        description: "An open subscription. Obtain one with MercureClient.subscribe().",
+        methods: [
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description: "The next event, or None when none comes within timeout seconds.",
+            returns: "\"Event\" - Event, or None on a timeout or once the subscription is closed. Raises when the hub refused the subscription for good once reconnecting (its token expired, say)",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "End the subscription.",
+            returns: "None",
+          },
+          {
+            name: "__iter__",
+            signature: "__iter__()",
+            description: "Iterate over the events as they come, until the subscription is closed.",
+            returns: "Iterator[\"Event\"]",
+          },
+        ],
+        properties: [
+        {
+          name: "last_event_id",
+          description: "Optional[str]",
+        },
+        ],
+      },
+      {
+        name: "Event",
+        description: "An event a subscription received.",
+        methods: [
+          {
+            name: "json",
+            signature: "json()",
+            description: "The event's data parsed as JSON. Raises ValueError when it is not JSON.",
+            returns: "Any",
+          },
+          {
+            name: "to_dict",
+            signature: "to_dict()",
+            description: "The event as a dict: id, type, data and retry.",
+            returns: "dict[str, Any]",
+          },
+        ],
+        properties: [
+        {
+          name: "id",
+          description: "str",
+        },
+        {
+          name: "type",
+          description: "Optional[str]",
+        },
+        {
+          name: "data",
+          description: "str",
+        },
+        {
+          name: "retry",
+          description: "Optional[float]",
+        },
+        ],
       },
     ],
   },
@@ -4315,12 +4463,64 @@ const scriptlingLibraries = [
     description: "Scriptling Provision Library - Type stubs for IntelliSense support.",
   },
   {
+    module: "scriptling.provision.command",
+    description: "Scriptling Provision Command Library - Type stubs for IntelliSense support.",
+    functions: [
+      {
+        name: "run",
+        signature: "run(cmd, become=False, cwd=None, env=None, input=None, timeout=None, check=True)",
+        description: "Run a command and wait for it, capturing its output.",
+        returns: "Result - The Result",
+      },
+      {
+        name: "is_root",
+        signature: "is_root()",
+        description: "Whether the script itself runs as root (with sudo scriptling, say).",
+        returns: "bool",
+      },
+      {
+        name: "require_root",
+        signature: "require_root()",
+        description: "Stop the script unless it runs as root.",
+        returns: "None",
+      },
+    ],
+    classes: [
+      {
+        name: "Result",
+        description: "How a command ended.",
+        properties: [
+        {
+          name: "args",
+          description: "list[str]",
+        },
+        {
+          name: "returncode",
+          description: "int",
+        },
+        {
+          name: "stdout",
+          description: "str",
+        },
+        {
+          name: "stderr",
+          description: "str",
+        },
+        {
+          name: "ok",
+          description: "bool",
+        },
+        ],
+      },
+    ],
+  },
+  {
     module: "scriptling.provision.fetch",
     description: "Scriptling Provision Fetch Library - Type stubs for IntelliSense support.",
     functions: [
       {
         name: "file",
-        signature: "file(url, dest, insecure=False, unpack_zip=False, timeout=30, max_bytes=0, mode=0o644, dir_mode=0o755, provides=None)",
+        signature: "file(url, dest, insecure=False, unpack_zip=False, timeout=30, max_bytes=0, mode=0o644, dir_mode=0o755, provides=None, owner=None, group=None, become=False)",
         description: "Fetch a file over HTTP or HTTPS.",
         returns: "dict[str, Any] - A dict with status, url, path, bytes, unpacked, and files keys. status is fetch.CREATED, fetch.UPDATED, or fetch.UNCHANGED.",
       },
@@ -4346,37 +4546,37 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "ensure",
-        signature: "ensure(path, content, mode=0o644, create_only=False)",
+        signature: "ensure(path, content, mode=0o644, create_only=False, owner=None, group=None, become=False)",
         description: "Ensure a file exists with the given content.",
         returns: "str - file.CREATED, file.UPDATED, or file.UNCHANGED",
       },
       {
         name: "absent",
-        signature: "absent(path)",
+        signature: "absent(path, become=False)",
         description: "Ensure a file does not exist.",
         returns: "str - file.REMOVED if the file was deleted, file.ABSENT if the file did not exist",
       },
       {
         name: "ensure_directory",
-        signature: "ensure_directory(path, mode=0o755)",
+        signature: "ensure_directory(path, mode=0o755, owner=None, group=None, become=False)",
         description: "Ensure a directory exists.",
-        returns: "str - file.CREATED if the directory was newly created, file.EXISTS if the directory already existed",
+        returns: "str - file.CREATED if the directory was newly created, file.UPDATED if it existed and its mode or owner was changed, file.EXISTS if the directory already existed as it should be",
       },
       {
         name: "absent_directory",
-        signature: "absent_directory(path)",
+        signature: "absent_directory(path, become=False)",
         description: "Ensure an empty directory does not exist.",
         returns: "str - file.REMOVED if the directory was deleted, file.ABSENT if the directory did not exist",
       },
       {
         name: "ensure_block",
-        signature: "ensure_block(path, content, id=\"managed\", comment=\"#\", position=\"end\", insert_after=\"\", mode=0o644, create_only=False)",
+        signature: "ensure_block(path, content, id=\"managed\", comment=\"#\", position=\"end\", insert_after=\"\", mode=0o644, create_only=False, owner=None, group=None, become=False)",
         description: "Maintain a marker-delimited block within a file.",
         returns: "str - file.CREATED, file.UPDATED, or file.UNCHANGED",
       },
       {
         name: "absent_block",
-        signature: "absent_block(path, id=\"managed\", comment=\"#\")",
+        signature: "absent_block(path, id=\"managed\", comment=\"#\", become=False)",
         description: "Remove a managed block.",
         returns: "str - file.REMOVED if the block was deleted, file.UNCHANGED if the block was not present",
       },
@@ -4404,6 +4604,54 @@ const scriptlingLibraries = [
       },
       {
         name: "EXISTS",
+        description: "str",
+      },
+    ],
+  },
+  {
+    module: "scriptling.provision.package",
+    description: "Scriptling Provision Package Library - Type stubs for IntelliSense support.",
+    functions: [
+      {
+        name: "ensure",
+        signature: "ensure(packages, update=False, manager=None)",
+        description: "Ensure packages are installed.",
+        returns: "str - package.CREATED if anything was installed, package.UNCHANGED if all were already",
+      },
+      {
+        name: "absent",
+        signature: "absent(packages, manager=None)",
+        description: "Ensure packages are not installed.",
+        returns: "str - package.REMOVED if anything was removed, package.ABSENT if none was installed",
+      },
+      {
+        name: "installed",
+        signature: "installed(packages, manager=None)",
+        description: "Whether every one of packages is installed.",
+        returns: "bool",
+      },
+      {
+        name: "manager",
+        signature: "manager()",
+        description: "The package manager ensure() would use: \"apt\", \"dnf\", \"yum\", \"apk\" or \"brew\"; None when there is none.",
+        returns: "str",
+      },
+    ],
+    constants: [
+      {
+        name: "CREATED",
+        description: "str",
+      },
+      {
+        name: "UNCHANGED",
+        description: "str",
+      },
+      {
+        name: "REMOVED",
+        description: "str",
+      },
+      {
+        name: "ABSENT",
         description: "str",
       },
     ],
@@ -4910,21 +5158,27 @@ const scriptlingLibraries = [
     functions: [
       {
         name: "register_request_tool",
-        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False, ui=None, icons=None)",
+        signature: "register_request_tool(name, handler, description=\"\", params=None, keywords=None, discoverable=False, ui=None, icons=None, title=None, read_only=None, destructive=None, idempotent=None, open_world=None)",
         description: "Register an MCP tool for this request.",
         returns: "None",
       },
       {
         name: "register_request_resource",
-        signature: "register_request_resource(uri, handler, name=\"\", description=\"\", mime_type=\"\", template=False)",
+        signature: "register_request_resource(uri, handler, name=\"\", description=\"\", mime_type=\"\", template=False, complete=None)",
         description: "Register an MCP resource for this request.",
         returns: "None",
       },
       {
         name: "register_request_prompt",
-        signature: "register_request_prompt(name, handler, description=\"\", arguments=None)",
+        signature: "register_request_prompt(name, handler, description=\"\", arguments=None, complete=None)",
         description: "Register an MCP prompt for this request.",
         returns: "None",
+      },
+      {
+        name: "notify_resource_updated",
+        signature: "notify_resource_updated(uri)",
+        description: "Tell subscribed MCP clients a resource changed.",
+        returns: "bool - True if an MCP server is running to send it, False otherwise",
       },
       {
         name: "transport",
@@ -4934,19 +5188,19 @@ const scriptlingLibraries = [
       },
       {
         name: "tool",
-        signature: "tool(description, params=None, keywords=None, discoverable=False, ui=None, icons=None)",
+        signature: "tool(description, params=None, keywords=None, discoverable=False, ui=None, icons=None, title=None, read_only=None, destructive=None, idempotent=None, open_world=None)",
         description: "Decorator for MCP tools.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },
       {
         name: "resource",
-        signature: "resource(uri, name=\"\", description=\"\", mime_type=\"\", template=False)",
+        signature: "resource(uri, name=\"\", description=\"\", mime_type=\"\", template=False, complete=None)",
         description: "Decorator for MCP resources.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },
       {
         name: "prompt",
-        signature: "prompt(description=\"\", arguments=None)",
+        signature: "prompt(description=\"\", arguments=None, complete=None)",
         description: "Decorator for MCP prompts.",
         returns: "Callable[[Callable[..., Any]], Callable[..., Any]]",
       },

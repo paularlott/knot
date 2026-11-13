@@ -13,7 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling"
-	"github.com/paularlott/scriptling/extlibs"
+	"github.com/paularlott/scriptling/extlibs/sys"
 )
 
 var agentClient *AgentClient
@@ -94,7 +94,7 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 		}
 		// Per-call setup: enable output capture + set argv.
 		env.EnableOutputCapture()
-		extlibs.RegisterSysLibrary(env, execMsg.Arguments, nil)
+		sys.Register(env, execMsg.Arguments, nil)
 	}
 
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/paularlott/scriptling"
-	"github.com/paularlott/scriptling/extlibs"
+	"github.com/paularlott/scriptling/extlibs/filesystem"
 )
 
 // TestKnotFilesOverHTTPTransport runs the embedded knot.apiclient and
@@ -59,7 +59,7 @@ func TestKnotFilesOverHTTPTransport(t *testing.T) {
 	env.EnableOutputCapture()
 	registerBaseLibraries(env, nil, netPolicy)
 	// The python transports read KNOT_URL and friends from the environment.
-	extlibs.RegisterOSLibrary(env, nil)
+	filesystem.RegisterOS(env, nil)
 	env.SetLibraryLoader(newKnotLibsLoader())
 
 	script := `

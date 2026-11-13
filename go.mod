@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.27.2
+go 1.27.4
 
 //replace github.com/paularlott/gossip => ../gossip/
 
@@ -8,11 +8,12 @@ go 1.27.2
 
 //replace github.com/paularlott/mcp => ../mcp
 
-//replace github.com/paularlott/scriptling => ../scriptling
+// TEMPORARY until scriptling v0.40.0 is tagged: comment out again and run go mod tidy
+replace github.com/paularlott/scriptling => ../scriptling
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/alicebob/miniredis/v2 v2.38.0
+	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/creack/pty v1.1.24
 	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/fsnotify/fsnotify v1.10.1
@@ -25,17 +26,17 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/miekg/dns v1.1.73
-	github.com/paularlott/cli v0.10.2
-	github.com/paularlott/gossip v0.30.3
+	github.com/paularlott/cli v0.10.3
+	github.com/paularlott/gossip v0.31.0
 	github.com/paularlott/jsonrpc v0.4.0
 	github.com/paularlott/lmchatkit v0.12.1
 	github.com/paularlott/logger v0.4.0
-	github.com/paularlott/mcp v0.34.0
-	github.com/paularlott/scriptling v0.34.0
+	github.com/paularlott/mcp v0.36.0
+	github.com/paularlott/scriptling v0.40.0
 	github.com/pkg/sftp v1.13.12
-	github.com/shamaton/msgpack/v3 v3.2.6
+	github.com/shamaton/msgpack/v3 v3.2.7
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valkey-io/valkey-go v1.0.79
 	github.com/willscott/go-nfs v0.0.5-0.20260926204150-6274d051a57f
@@ -46,8 +47,8 @@ require (
 	golang.org/x/crypto v0.58.0
 	golang.org/x/exp v0.0.0-20261106192419-47ce03d25ef0
 	golang.org/x/net v0.62.0
-	golang.org/x/sys v0.49.0
-	golang.org/x/term v0.47.0
+	golang.org/x/sys v0.50.0
+	golang.org/x/term v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -72,7 +73,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.3 // indirect
-	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20261101121723-be84dd9509a0 // indirect
 	github.com/paularlott/snapshotkv v0.6.0 // indirect
@@ -86,7 +87,7 @@ require (
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
+	github.com/yuin/gopher-lua v1.1.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
@@ -94,9 +95,9 @@ require (
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/image v0.47.0 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 

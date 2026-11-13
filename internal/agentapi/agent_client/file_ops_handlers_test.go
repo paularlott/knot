@@ -242,7 +242,7 @@ func TestHandleFindExecutionErrorOnBadType(t *testing.T) {
 		Path: root,
 		Type: "block", // invalid
 	})
-	// Bad type yields an error response from extlibs.FindEntries.
+	// Bad type yields an error response from filesystem.FindEntries.
 	if resp.Success {
 		t.Errorf("expected failure on bad type, got success")
 	}

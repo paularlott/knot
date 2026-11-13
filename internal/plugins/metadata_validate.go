@@ -25,7 +25,7 @@ import (
 // scriptling.ai.memory (AI scratchpad — agent only). A plugin that needs a
 // database ships the driver as a bin/ peer, not an env library.
 var pluginEnvLibraries = map[string]bool{
-	// stdlib (stdlib.RegisterAll)
+	// stdlib (stdlib.RegisterAll; platform is registered beside it from extlibs/platform)
 	"json": true, "re": true, "math": true, "time": true, "datetime": true,
 	"itertools": true, "random": true, "string": true, "collections": true,
 	"functools": true,
