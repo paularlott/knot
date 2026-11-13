@@ -14,6 +14,10 @@
 // arms the next Tab (or Shift+Tab) to move focus out of the editor instead.
 // Any other key disarms it. The editor's input is described by a hidden hint
 // saying so, and arming is announced.
+//
+// Prose editors (e.g. a description) have no use for indenting: a host with
+// data-ace-tab="exit" leaves Tab and Shift+Tab to the browser, so they move
+// focus like they would from a native <textarea>, and Escape is left alone.
 
 import ace from 'ace-builds/src-noconflict/ace';
 
@@ -119,6 +123,14 @@ function keyboardExit(editor) {
   editor.on('blur', () => disarm());
 }
 
+function tabExits(editor) {
+  if (!editor || !editor.commands) return;
+  // With nothing bound to Tab, Ace lets the key through to the browser.
+  editor.commands.removeCommands(['indent', 'outdent']);
+  // Lets form-dirty-guard.js treat Escape here as it would in a textarea.
+  if (editor.container) editor.container.setAttribute('data-ace-tab-exits', '');
+}
+
 if (ace && typeof ace.edit === 'function') {
   const origEdit = ace.edit;
   ace.edit = function (el, ...rest) {
@@ -134,6 +146,7 @@ if (ace && typeof ace.edit === 'function') {
           describedby: host.getAttribute('aria-describedby'),
         }
       : {};
+    const tabExit = !!host && host.getAttribute('data-ace-tab') === 'exit';
     const editor = origEdit.call(this, el, ...rest);
     try {
       labelEditor(editor, scope, hostId, attrs);
@@ -141,7 +154,8 @@ if (ace && typeof ace.edit === 'function') {
       /* labelling is best-effort */
     }
     try {
-      keyboardExit(editor);
+      if (tabExit) tabExits(editor);
+      else keyboardExit(editor);
     } catch (e) {
       /* best-effort */
     }

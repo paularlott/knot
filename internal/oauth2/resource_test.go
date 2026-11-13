@@ -118,12 +118,12 @@ func TestHandleAuthorizeResource(t *testing.T) {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
 	})
-	t.Run("foreign resource, registered client is redirected the error", func(t *testing.T) {
+	t.Run("foreign resource, registered client is not redirected", func(t *testing.T) {
+		// Anyone can register a client, so its redirect URI is not trusted
+		// enough to send the user to before they have done anything.
 		rec := authorize(registered + "&resource=" + url.QueryEscape("https://other.example.com/mcp"))
-		loc, _ := url.Parse(rec.Header().Get("Location"))
-		if rec.Code != http.StatusSeeOther || loc == nil || loc.Host != "claude.ai" ||
-			loc.Query().Get("error") != ErrorInvalidTarget || loc.Query().Get("state") != "st" {
-			t.Errorf("status = %d, Location = %q, want 303 to the redirect URI with error=invalid_target", rec.Code, rec.Header().Get("Location"))
+		if rec.Code != http.StatusBadRequest || rec.Header().Get("Location") != "" || !strings.Contains(rec.Body.String(), ErrorInvalidTarget) {
+			t.Errorf("status = %d, Location = %q, want 400 invalid_target with no redirect", rec.Code, rec.Header().Get("Location"))
 		}
 	})
 }

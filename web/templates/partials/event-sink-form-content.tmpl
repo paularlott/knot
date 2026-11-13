@@ -132,7 +132,7 @@
                    @blur.debounce.200ms="scriptShowList = false"
                    @keydown="scriptKeydown($event)"
                    spellcheck="false" autocomplete="off">
-            <div x-show="scriptShowList && filteredScripts.length" x-cloak
+            <div tabindex="-1" x-show="scriptShowList && filteredScripts.length" x-cloak
                  class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 text-base shadow-lg dark:border-slate-700 dark:bg-slate-800">
               <ul class="list-none" role="listbox" id="script_id-listbox" aria-label="Scripts">
                 <template x-for="(option, index) in filteredScripts" :key="option.script_id">

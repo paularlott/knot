@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -25,8 +26,10 @@ import (
 	aimemory "github.com/paularlott/scriptling/extlibs/ai/memory"
 	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
 	"github.com/paularlott/scriptling/extlibs/filesystem"
+	"github.com/paularlott/scriptling/extlibs/fssecurity"
 	"github.com/paularlott/scriptling/extlibs/logging"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
+	scriptlingmercure "github.com/paularlott/scriptling/extlibs/mercure"
 	"github.com/paularlott/scriptling/extlibs/messaging/discord"
 	"github.com/paularlott/scriptling/extlibs/messaging/slack"
 	"github.com/paularlott/scriptling/extlibs/messaging/telegram"
@@ -34,8 +37,11 @@ import (
 	"github.com/paularlott/scriptling/extlibs/netsecurity/policyfile"
 	scriptlingoauth "github.com/paularlott/scriptling/extlibs/oauth"
 	"github.com/paularlott/scriptling/extlibs/platform"
+	"github.com/paularlott/scriptling/extlibs/provision/become"
+	provisioncommand "github.com/paularlott/scriptling/extlibs/provision/command"
 	provisionfetch "github.com/paularlott/scriptling/extlibs/provision/fetch"
 	provisionfile "github.com/paularlott/scriptling/extlibs/provision/file"
+	provisionpackage "github.com/paularlott/scriptling/extlibs/provision/packages"
 	"github.com/paularlott/scriptling/extlibs/requests"
 	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/extlibs/subprocess"
@@ -53,6 +59,15 @@ import (
 var (
 	libraryFetcher func(string) (string, error)
 )
+
+// agentBecome runs agent scripts' become=True provisioning steps as root,
+// through sudo. The agent runs as the space's user, inside their own space,
+// so root there is theirs to use: sudo is asked without a password first, so
+// a space with passwordless sudo is never prompted. One root helper serves
+// every agent script; it is started on first use.
+var agentBecome = sync.OnceValue(func() *become.Become {
+	return become.New(become.Config{})
+})
 
 // registerBaseLibraries registers common libraries shared across all environments
 // customLogger is optional - pass nil to use the default logger
@@ -138,6 +153,11 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	telegram.RegisterConfigured(env, nil, messagingPaths, netPolicy)
 	discord.RegisterConfigured(env, nil, messagingPaths, netPolicy)
 	slack.RegisterConfigured(env, nil, messagingPaths, netPolicy)
+
+	// scriptling.mercure — publish to and subscribe at Mercure hubs, under the
+	// network policy; a CA bundle (verify="path") must lie within the
+	// configured path allow-list. Clients close when the script's env is done.
+	scriptlingmercure.RegisterConfigured(env, fssecurity.Config{AllowedPaths: messagingPaths}, netPolicy)
 
 	toml.Register(env)
 	scriptlingtemplate.RegisterHTML(env)
@@ -238,8 +258,13 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	scriptlingtemplate.RegisterHTML(env)
 	scriptlingtemplate.RegisterText(env)
 
-	provisionfile.Register(env)
-	provisionfetch.Register(env)
+	// Machine provisioning. become=True steps run as root through sudo
+	// (agentBecome): the agent runs as the space's user, in their own space.
+	root := agentBecome()
+	provisionfile.RegisterConfigured(env, fssecurity.Config{}, provisionfile.WithBecome(root))
+	provisionfetch.RegisterConfigured(env, fssecurity.Config{}, nil, provisionfetch.WithBecome(root))
+	provisioncommand.RegisterConfigured(env, provisioncommand.WithBecome(root))
+	provisionpackage.RegisterConfigured(env, provisionpackage.WithBecome(root))
 
 	scriptlingai.Register(env, netPolicy)
 	aimemory.Register(env, aux)
@@ -258,6 +283,10 @@ func registerAgentLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	// scriptling.oauth — sign scripts in to an identity provider (device sign-in, client credentials) and verify
 	// access tokens; requests to the IdP go through knot's resolver configuration like requests'.
 	scriptlingoauth.Register(env, netPolicy)
+
+	// scriptling.mercure — publish to and subscribe at Mercure hubs through
+	// knot's resolver configuration; clients close when the script's env is done.
+	scriptlingmercure.RegisterConfigured(env, fssecurity.Config{}, netPolicy)
 
 	// Agent-side scriptling plugins (--plugin / --plugin-dir), loaded once at
 	// agent startup. This is how the agent reaches heavyweight drivers (e.g.
@@ -450,7 +479,8 @@ func NewServerScriptlingEnv(client *apiclient.ApiClient, opts ServerScriptlingOp
 	registerBaseLibraries(env, nil, netPolicy)
 	registerServerFSPaths(env)
 
-	cleanup := func() {}
+	// Closes what the script left open.
+	cleanup := env.Close
 
 	aiClient := createServerAIClient(client, opts.User)
 	if aiClient != nil {
@@ -563,6 +593,8 @@ func registerPluginLibraries(env *scriptling.Scriptling, log logger.Logger) {
 	scriptlingmcp.Register(env, netPolicy)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+	// Clients close when the lease ends (ReleasePluginEnv resets the env).
+	scriptlingmercure.RegisterConfigured(env, fssecurity.Config{}, netPolicy)
 
 	telegram.Register(env, aux)
 	discord.Register(env, aux)
@@ -778,7 +810,8 @@ func NewAgentScriptlingEnv(client *apiclient.ApiClient, userId string, opts Agen
 	// knot.files.sync runs sync projects in the space's agent.
 	env.RegisterLibrary(knotscriptling.GetSyncLibrary(true))
 
-	cleanup := func() {}
+	// Closes what the script left open.
+	cleanup := env.Close
 
 	setupLibraryLoader(env, client)
 	sys.Register(env, opts.Argv, opts.Input)

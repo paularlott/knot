@@ -82,7 +82,7 @@ func HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// Resource indicators (RFC 8707): a resource, when named, must be
 	// knot's MCP endpoint, the only resource it issues tokens for.
 	if _, desc, ok := checkResourceParams(r, r.URL.Query()["resource"]); !ok {
-		authorizeError(w, r, clientId, redirectURI, r.URL.Query().Get("state"), ErrorInvalidTarget, desc)
+		authorizeError(w, ErrorInvalidTarget, desc)
 		return
 	}
 
@@ -100,30 +100,12 @@ func HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 }
 
 // authorizeError answers an authorization request that has a valid client
-// and redirect URI but can't be granted. A registered client's redirect URI
-// is known to be its own, so the error goes there as RFC 6749 section
-// 4.1.2.1 describes; an unregistered client's could be anyone's, so it is
-// answered here rather than turning /authorize into an open redirect.
-func authorizeError(w http.ResponseWriter, r *http.Request, clientId, redirectURI, state, code, desc string) {
-	if !strings.HasPrefix(clientId, registeredClientPrefix) {
-		http.Error(w, code+": "+desc, http.StatusBadRequest)
-		return
-	}
-	redirectURL, err := url.Parse(redirectURI)
-	if err != nil {
-		http.Error(w, code+": "+desc, http.StatusBadRequest)
-		return
-	}
-	q := redirectURL.Query()
-	q.Set("error", code)
-	if desc != "" {
-		q.Set("error_description", desc)
-	}
-	if state != "" {
-		q.Set("state", state)
-	}
-	redirectURL.RawQuery = q.Encode()
-	http.Redirect(w, r, redirectURL.String(), http.StatusSeeOther)
+// and redirect URI but can't be granted. It is answered here rather than at
+// the redirect URI, as RFC 9700 section 4.11.2 allows: registration is open,
+// so a registered redirect URI can be anyone's, and redirecting to it before
+// the user has done anything would make knot an open redirector.
+func authorizeError(w http.ResponseWriter, code, desc string) {
+	http.Error(w, code+": "+desc, http.StatusBadRequest)
 }
 
 // HandleGrant handles the OAuth2 grant approval
@@ -159,7 +141,7 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 		// the code so /token can hold the client to it.
 		resource, desc, ok := checkResourceParams(r, r.Form["resource"])
 		if !ok {
-			authorizeError(w, r, clientId, redirectURI, state, ErrorInvalidTarget, desc)
+			authorizeError(w, ErrorInvalidTarget, desc)
 			return
 		}
 

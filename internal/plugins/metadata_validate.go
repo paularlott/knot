@@ -56,6 +56,7 @@ var pluginEnvLibraries = map[string]bool{
 	"scriptling.messaging.telegram": true,
 	"scriptling.messaging.discord":  true,
 	"scriptling.messaging.slack":    true,
+	"scriptling.mercure":            true,
 
 	// system access (unrestricted in the env: the knot process user's
 	// filesystem, plus subprocess)

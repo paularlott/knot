@@ -53,7 +53,7 @@
           <label for="description" class="form-label">Description</label>
           <div class="short-editor" x-effect="aceSetInvalid($data.descriptionEditor, !descValid, 'description-error')">
             <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
-              <textarea name="description" id="description" class="form-field" placeholder="Description"></textarea>
+              <textarea name="description" id="description" class="form-field" placeholder="Description" data-ace-tab="exit"></textarea>
             </div>
           </div>
           <div id="description-error" x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
@@ -62,7 +62,7 @@
           <label for="stack" class="form-label">Stack</label>
           <input id="stack" x-model="search" class="form-field" type="search" placeholder="e.g. Backend Services" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" autocomplete="off">
           <div class="description">Group spaces together under a stack name. Leave empty for unstacked.</div>
-          <div x-show="showList" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible, 'divide-y divide-gray-100 dark:divide-gray-600': filteredOptions.length > 0}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+          <div tabindex="-1" @mousedown.prevent x-show="showList" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible, 'divide-y divide-gray-100 dark:divide-gray-600': filteredOptions.length > 0}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
             <p x-show="filteredOptions.length === 0" class="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">No stacks found</p>
             <ul x-show="filteredOptions.length > 0" class="list-none" role="listbox" :id="_listboxId">
               <template x-for="(option, index) in filteredOptions" :key="option">
@@ -82,7 +82,7 @@
             <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
             <div class="relative w-full max-w-sm">
               <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
-              <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+              <div tabindex="-1" @mousedown.prevent x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
                 <ul class="list-none" role="listbox" :id="_listboxId">
                   <template x-for="(option, index) in filteredOptions" :key="index">
                     <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
@@ -150,7 +150,7 @@
           <label for="startup_script_id" class="form-label">User Startup Script</label>
           <div class="relative w-full">
             <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
-            <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+            <div tabindex="-1" @mousedown.prevent x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
               <ul class="list-none" role="listbox" :id="_listboxId">
                 <template x-for="(option, index) in filteredOptions" :key="index">
                   <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
@@ -212,7 +212,7 @@
                        @input="snapValue(index); if (customFieldValid[index] === false) checkCustomField(index)"
                        @focus="handleFocus()" @blur.debounce.200ms="showList = false; checkCustomField(index)" @keydown="handleKeydown($event)"
                        :id="'space-cf-' + index" :aria-invalid="customFieldValid[index] === false ? 'true' : 'false'" :aria-describedby="customFieldValid[index] === false ? 'space-cf-error-' + index : null">
-                <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+                <div tabindex="-1" @mousedown.prevent x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
                   <ul class="list-none" role="listbox" :id="$id('cfac')" :aria-label="template.custom_fields[index].description + ' options'">
                     <template x-for="(option, i) in filteredOptions" :key="i">
                       <li @click="selectOption(option)" role="option" :id="$id('cfac') + '-opt-' + i" :aria-selected="selectedIndex === i ? 'true' : 'false'" x-text="optText(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === i}" class="my-1 cursor-pointer nav-item text-sm"></li>
@@ -289,7 +289,7 @@
         <p>Select a space in the same zone to add as a dependency.</p>
         <div x-data="autocompleterSpace()" x-init="setDataSource('dependencyOptions')" data-parent-var-group="dependencyModal" data-parent-variable="selectedId" data-parent-variable-name="selectedName" @refresh-space-autocompleter.window="refresh()" @space-selected="dependencyModal.invalid = false" class="relative mt-4">
           <input x-model="search" class="form-field" type="search" placeholder="Search spaces..." aria-label="Search spaces" :aria-invalid="dependencyModal.invalid ? 'true' : 'false'" :aria-describedby="dependencyModal.invalid ? 'dependency-error' : null" role="combobox" aria-autocomplete="list" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
-          <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-x-hidden overflow-y-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block">
+          <div tabindex="-1" @mousedown.prevent x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-x-hidden overflow-y-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block">
             <ul class="list-none" role="listbox" :id="_listboxId">
               <template x-for="(option, index) in filteredOptions" :key="option.id">
                 <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1 overflow-hidden">

@@ -45,7 +45,7 @@ require (
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.58.0
-	golang.org/x/exp v0.0.0-20261106192419-47ce03d25ef0
+	golang.org/x/exp v0.0.0-20261109185158-a52e3aef5920
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/term v0.48.0
@@ -76,6 +76,7 @@ require (
 	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20261101121723-be84dd9509a0 // indirect
+	github.com/paularlott/gossiper/client v1.0.0 // indirect
 	github.com/paularlott/snapshotkv v0.6.0 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -94,7 +95,7 @@ require (
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
-	golang.org/x/image v0.47.0 // indirect
+	golang.org/x/image v0.48.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/text v0.44.0 // indirect

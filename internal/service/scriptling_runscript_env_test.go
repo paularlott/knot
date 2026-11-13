@@ -51,7 +51,9 @@ func TestRunScriptEvalEnv_LibrariesPresent(t *testing.T) {
 		"scriptling.messaging.slack",
 		// misc
 		"scriptling.similarity",
-		"scriptling.provision.file", "scriptling.provision.fetch", "logging",
+		"scriptling.provision.file", "scriptling.provision.fetch",
+		"scriptling.provision.command", "scriptling.provision.package",
+		"scriptling.mercure", "logging",
 	}
 	for _, lib := range libs {
 		if err := evalImport(t, lib); err != nil {
