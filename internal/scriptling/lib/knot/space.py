@@ -130,14 +130,17 @@ def _build_space_update_body(space, **overrides):
     return body
 
 
-def list(all_zones=False):
+def list(all_zones=False, user_id=None):
     """List spaces visible to the current user.
 
     Args:
         all_zones: If True, include spaces from all zones. Default False
             (only spaces in the current server's zone are returned).
+        user_id: Optional user ID whose spaces to list; another user's needs
+            the manage spaces permission (without it the list is empty).
+            Default: the current user's own and shared spaces.
     """
-    params = {"user_id": _current_user_id()}
+    params = {"user_id": user_id or _current_user_id()}
     if all_zones:
         params["all_zones"] = "true"
 
@@ -320,6 +323,25 @@ def stop(name):
         Exception if not configured or on API error
     """
     api.post(f"/api/spaces/{_enc(name)}/stop")
+    return True
+
+
+def stop_for_user(user):
+    """Stop every running space a user owns in this server's zone (spaces
+    shared with the user are left alone).
+
+    Args:
+        user: User ID or username; another user's needs the manage users
+            permission
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if the user is not found, you lack the permission, or on
+        API error (spaces stopped before the error stay stopped)
+    """
+    api.post(f"/api/spaces/{_enc(user)}/stop-for-user")
     return True
 
 
@@ -704,12 +726,12 @@ def unshare(name, user_id=None):
     """
     path = f"/api/spaces/{_enc(name)}/share"
     if user_id:
-        path += f"?user_id={user_id}"
+        path += f"?user_id={_enc(user_id)}"
     api.delete(path)
     return True
 
 
-def run(name, command, args=None, timeout=30, workdir=""):
+def run(name, command, args=None, timeout=30, workdir="", check=True):
     """Execute a command in a space.
 
     Args:
@@ -718,12 +740,22 @@ def run(name, command, args=None, timeout=30, workdir=""):
         args: List of command arguments (optional)
         timeout: Timeout in seconds (default: 30)
         workdir: Working directory (optional)
+        check: When True (default), return the output string and raise if the
+            command fails. When False, never raise for a failed command and
+            return a dict instead.
 
     Returns:
-        The command output string
+        With check=True: the command output string.
+        With check=False: a dict containing:
+        - output: Command output (also given when the command fails)
+        - exit_code: Exit code (124 when the command timed out)
+        - success: True if the command exited with code 0
+        - error: Error message (empty string on success)
 
     Raises:
-        Exception if not configured or on API error
+        Exception if not configured or on API error, and with check=True when
+        the command fails (non-zero exit, timeout, no shell); the message holds
+        the error, the exit code and the command's output
     """
     body = {
         "command": command,
@@ -733,7 +765,23 @@ def run(name, command, args=None, timeout=30, workdir=""):
     }
 
     response = api.post(f"/api/spaces/{_enc(name)}/run-command", body, timeout=timeout + 60)
-    return response.get("output", "")
+    output = response.get("output", "")
+    success = response.get("success", True)
+    exit_code = response.get("exit_code", 0)
+    error = response.get("error", "") or ""
+    if not check:
+        return {
+            "output": output,
+            "exit_code": exit_code,
+            "success": success,
+            "error": error,
+        }
+    if not success:
+        message = f"command failed (exit code {exit_code}): {error or 'unknown error'}"
+        if output:
+            message += "\n" + output
+        raise Exception(message)
+    return output
 
 
 def run_script(name, script_name, args=None):
@@ -813,7 +861,8 @@ def read_file(name, file_path, offset=0, limit=0):
         requested line range is returned.
 
     Raises:
-        Exception if not configured or on API error
+        Exception if not configured, on API error, or if the agent cannot read
+        the file (for example it does not exist)
     """
     body = {"path": file_path}
     if offset > 0:
@@ -821,6 +870,8 @@ def read_file(name, file_path, offset=0, limit=0):
     if limit > 0:
         body["limit"] = limit
     response = api.post(f"/api/spaces/{_enc(name)}/files/read", body, timeout=_FILE_WORK_TIMEOUT)
+    if not response.get("success", True):
+        raise Exception(response.get("error", "read_file failed"))
     return response.get("content", "")
 
 
@@ -844,7 +895,8 @@ def write_file(name, file_path, content, mode="overwrite", mtime_ns=None, file_p
         True if successful
 
     Raises:
-        Exception if not configured or on API error
+        Exception if not configured, on API error, or if the agent cannot
+        write the file
     """
     body = {
         "path": file_path,
@@ -856,7 +908,9 @@ def write_file(name, file_path, content, mode="overwrite", mtime_ns=None, file_p
         body["mtime_ns"] = mtime_ns
     if file_perm is not None:
         body["file_perm"] = file_perm
-    api.post(f"/api/spaces/{_enc(name)}/files/write", body, timeout=_FILE_WORK_TIMEOUT)
+    response = api.post(f"/api/spaces/{_enc(name)}/files/write", body, timeout=_FILE_WORK_TIMEOUT)
+    if response and not response.get("success", True):
+        raise Exception(response.get("error", "write_file failed"))
     return True
 
 
@@ -968,8 +1022,8 @@ def find_entries(name, path=".", recursive=True, type="any", name_glob="", mtime
         include_hidden: Match entries whose name starts with "." (default False)
         follow_links: Follow symlinks if they resolve within the space
         max_depth: Maximum recursion depth; 0 = unlimited
-        include_hash: When True, each file is crc64-hashed and the hex checksum
-                      is returned in the hash field (default False)
+        include_hash: When True, each file is crc64-hashed and the checksum
+                      is returned in the hash field as an int (default False)
         include_symlinks: When True, symlink entries are yielded with their
                           link_target instead of being followed (default False)
         workdir: Resolve relative path against this directory
@@ -981,7 +1035,8 @@ def find_entries(name, path=".", recursive=True, type="any", name_glob="", mtime
         - mtime (float): Modification time, epoch seconds
         - is_dir (bool): True if the entry is a directory
         - file_perm (int): File permission bits (e.g. 0o644)
-        - hash (str, optional): Hex crc64 checksum (only with include_hash=True)
+        - hash (int, optional): crc64 (ISO) checksum as an unsigned 64-bit int
+          (only with include_hash=True; absent for directories and empty files)
         - link_target (str, optional): Symlink target (only with include_symlinks=True)
     """
     body = _find_body(
@@ -1251,7 +1306,7 @@ def port_forward(source_space, local_port, remote_space, remote_port, persistent
         "persistent": persistent,
         "force": force,
     }
-    api.post(f"/space-io/{_enc(source_space)}/port/forward", body, timeout=_AGENT_REPLY_TIMEOUT)
+    api.post(f"/space-io/{_enc(_space_id(source_space))}/port/forward", body, timeout=_AGENT_REPLY_TIMEOUT)
     return True
 
 
@@ -1266,18 +1321,31 @@ def port_list(name):
         - local_port: Local port number
         - space: Remote space name
         - remote_port: Remote port number
+        - persistent: True if the forward survives agent restarts
+        - mode: Connection mode ("direct", "relay" or "—" before first use)
+        - latency_ms, jitter_ms, bandwidth_kb, timeout_ms, down: Throttle settings
+
+        When the space is not running, the persistent forwards saved for it
+        are listed instead: mode is "" and the throttle settings are 0/False.
 
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/space-io/{_enc(name)}/port/list", timeout=_AGENT_REPLY_TIMEOUT)
+    response = api.get(f"/space-io/{_enc(_space_id(name))}/port/list", timeout=_AGENT_REPLY_TIMEOUT)
 
     result = []
     for fwd in response.get("forwards", []):
         result.append({
             "local_port": fwd.get("local_port"),
             "space": fwd.get("space"),
-            "remote_port": fwd.get("remote_port")
+            "remote_port": fwd.get("remote_port"),
+            "persistent": fwd.get("persistent", False),
+            "mode": fwd.get("mode", ""),
+            "latency_ms": fwd.get("latency_ms", 0),
+            "jitter_ms": fwd.get("jitter_ms", 0),
+            "bandwidth_kb": fwd.get("bandwidth_kb", 0),
+            "timeout_ms": fwd.get("timeout_ms", 0),
+            "down": fwd.get("down", False),
         })
 
     return result
@@ -1297,7 +1365,7 @@ def port_stop(name, local_port):
         Exception if not configured or on API error
     """
     body = {"local_port": local_port}
-    api.post(f"/space-io/{_enc(name)}/port/stop", body, timeout=_AGENT_REPLY_TIMEOUT)
+    api.post(f"/space-io/{_enc(_space_id(name))}/port/stop", body, timeout=_AGENT_REPLY_TIMEOUT)
     return True
 
 
@@ -1333,7 +1401,7 @@ def port_throttle(name, local_port, latency_ms=0, jitter_ms=0, bandwidth_kb=0, t
         "down": down,
         "reset": reset,
     }
-    api.post(f"/space-io/{_enc(name)}/port/throttle", body, timeout=_AGENT_REPLY_TIMEOUT)
+    api.post(f"/space-io/{_enc(_space_id(name))}/port/throttle", body, timeout=_AGENT_REPLY_TIMEOUT)
     return True
 
 
@@ -1356,15 +1424,22 @@ def port_apply(source_space, forwards):
 
     Returns:
         A dict containing:
-        - applied: List of forwards that were started
-        - stopped: List of forwards that were stopped
-        - errors: List of error messages (if any)
+        - applied: List of forwards that were started (None when none were)
+        - stopped: List of forwards that were stopped (None when none were)
+        - errors: List of error messages (absent when there are none; use
+          result.get("errors", []))
+
+        Entries are shaped like port_list() entries. On a running space a
+        stopped entry carries the forward's last mode and throttle settings,
+        and an applied entry has mode "—" (no connection yet) and no throttle.
+        When the space is not running only the saved forwards change: entries
+        have mode "" and zero throttle settings.
 
     Raises:
         Exception if not configured or on API error
     """
     body = {"forwards": forwards}
-    return api.post(f"/space-io/{_enc(source_space)}/port/apply", body, timeout=_AGENT_REPLY_TIMEOUT)
+    return api.post(f"/space-io/{_enc(_space_id(source_space))}/port/apply", body, timeout=_AGENT_REPLY_TIMEOUT)
 
 
 def _space_id(space):
@@ -1454,3 +1529,114 @@ def tunnel_stop(space, name):
     space_id = _space_id(space)
     api.post(f"/space-io/{_enc(space_id)}/tunnel/stop", {"name": name}, timeout=_AGENT_REPLY_TIMEOUT)
     return True
+
+
+def emit_event(name, event_type, payload=None):
+    """Raise a custom event for a space, as if the space raised it.
+
+    The event belongs to the space's owner and carries the space's ID and
+    name, so sinks and methods filtering on the space see it; the caller may
+    be someone the space is shared with. The "custom." prefix is prepended
+    to the type automatically. Use knot.event.emit for an event with no space.
+
+    Args:
+        name: Space name or ID
+        event_type: Event type without the "custom." prefix, e.g. "myapp.deployed"
+        payload: Optional dict sent with the event
+
+    Returns:
+        True if the event was accepted
+
+    Raises:
+        Exception if the space is not found, you may not use it, or on API error
+    """
+    api.post(f"/api/spaces/{_enc(_space_id(name))}/emit-event", {
+        "type": event_type,
+        "payload": payload or {},
+    })
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Space methods (JSON-RPC methods registered by running spaces)
+# ---------------------------------------------------------------------------
+
+
+def list_methods():
+    """List the JSON-RPC methods running spaces offer that the current user
+    may call (registered with knot.methods in a space).
+
+    Returns:
+        A list of dicts, each containing:
+        - name: Method name to call
+        - local_name: Name inside the providing space
+        - description: Description
+        - keywords: List of search keywords
+        - scope: "private" (owner only) or "shared" (members of groups)
+        - groups: Groups a shared method is offered to
+        - mcp_tool: Whether the method is also an MCP tool
+        - events: Event patterns the method subscribes to
+        - event_sinks: JSON-RPC sinks formatting those events
+        - params_schema: JSON Schema of the params, or None
+        - result_schema: JSON Schema of the result, or None
+        - owner_id: Owner user ID
+        - owner: Owner username
+        - provider_count: Number of spaces currently serving the method
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    response = api.get("/api/methods")
+    result = []
+    for m in response.get("methods", []):
+        result.append({
+            "name": m.get("name", ""),
+            "local_name": m.get("local_name", ""),
+            "description": m.get("description", ""),
+            "keywords": m.get("keywords") or [],
+            "scope": m.get("scope", ""),
+            "groups": m.get("groups") or [],
+            "mcp_tool": m.get("mcp_tool", False),
+            "events": m.get("events") or [],
+            "event_sinks": m.get("event_sinks") or [],
+            "params_schema": m.get("params_schema"),
+            "result_schema": m.get("result_schema"),
+            "owner_id": m.get("owner_id", ""),
+            "owner": m.get("owner", ""),
+            "provider_count": m.get("provider_count", 0),
+        })
+    return result
+
+
+def call_method(method, params=None, space=None, timeout=_SCRIPT_TIMEOUT):
+    """Call a space method over JSON-RPC and return its result.
+
+    The server routes the call to a running space providing the method
+    (spreading load when several do), or to one space when space is given —
+    e.g. the pool member held through knot.pool.acquire.
+
+    Args:
+        method: Method name, as list_methods() gives it
+        params: Optional params: a dict (named) or list (positional)
+        space: Optional space name or ID to pin the call to
+        timeout: Seconds to wait for the answer (default 420)
+
+    Returns:
+        The method's result (any JSON value)
+
+    Raises:
+        Exception with the JSON-RPC error message and code if the method
+        fails, no space provides it, you may not call it, or on API error
+    """
+    body = {"jsonrpc": "2.0", "id": 1, "method": method}
+    if params is not None:
+        body["params"] = params
+    if space:
+        body["space_id"] = _space_id(space)
+    response = api.post("/api/methods/call", body, timeout=timeout)
+    if response and response.get("error"):
+        err = response.get("error")
+        if isinstance(err, dict):
+            raise Exception(f"method {method} failed ({err.get('code')}): {err.get('message', '')}")
+        raise Exception(f"method {method} failed: {err}")
+    return response.get("result") if response else None

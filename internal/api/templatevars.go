@@ -51,10 +51,23 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, data)
 }
 
+// updateTemplateVarRequest is apiclient.TemplateVarValue with an optional
+// value: a request that omits "value" keeps the stored one. Reads blank a
+// protected variable's value, so read-modify-write clients must be able to
+// leave it out rather than send the blank back.
+type updateTemplateVarRequest struct {
+	Name       string   `json:"name" msgpack:"name"`
+	Zones      []string `json:"zones" msgpack:"zones"`
+	Local      bool     `json:"local" msgpack:"local"`
+	Value      *string  `json:"value" msgpack:"value"`
+	Protected  bool     `json:"protected" msgpack:"protected"`
+	Restricted bool     `json:"restricted" msgpack:"restricted"`
+}
+
 func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVarId := r.PathValue("templatevar_id")
 
-	request := apiclient.TemplateVarValue{}
+	request := updateTemplateVarRequest{}
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -65,7 +78,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template variable name given"})
 		return
 	}
-	if !validate.MaxLength(request.Value, 10*1024*1024) {
+	if request.Value != nil && !validate.MaxLength(*request.Value, 10*1024*1024) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
@@ -95,8 +108,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVar.Name = request.Name
 	templateVar.Zones = request.Zones
 	templateVar.Local = request.Local
-	templateVar.Value = request.Value
-	templateVar.Protected = request.Protected
+	applyTemplateVarValue(templateVar, &request)
 	templateVar.Restricted = request.Restricted
 	templateVar.UpdatedUserId = user.Id
 	templateVar.UpdatedAt = hlc.Now()
@@ -122,6 +134,23 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	)
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// applyTemplateVarValue sets a variable's value and protection from an
+// update. A request that leaves out the value keeps the stored one only
+// where no read could show it that it could not show before: the variable
+// stays protected (reads blank its value), or it was not protected (reads
+// show it already). Un-protecting a variable without a new value clears the
+// value, as an update without a value always did: otherwise the next read
+// would reveal what protection hid, to anyone who may edit variables.
+func applyTemplateVarValue(templateVar *model.TemplateVar, request *updateTemplateVarRequest) {
+	switch {
+	case request.Value != nil:
+		templateVar.Value = *request.Value
+	case templateVar.Protected && !request.Protected:
+		templateVar.Value = ""
+	}
+	templateVar.Protected = request.Protected
 }
 
 func cleanZones(zones []string) ([]string, error) {

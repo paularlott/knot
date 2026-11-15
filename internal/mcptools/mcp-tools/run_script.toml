@@ -1,21 +1,26 @@
-description = "Execute a named script in a running space and capture its output."
-keywords = ["run", "execute", "script", "python", "space", "trigger", "invoke"]
-requires_approval = true
+description = "Write and run a short scriptling (Python dialect) script against the knot API as the current user, for questions or changes no other tool covers. Read mode by default; write mode needs the user's approval. Call script_docs first for the rules, libraries and limits."
+keywords = ["custom script", "analyse", "analyze", "script", "python", "code", "calculate", "aggregate", "total", "count", "group by", "ranking", "breakdown", "bulk change", "data question"]
+handler = "go"
+title = "Run an AI-written script"
+# Write-mode runs are confirmed every time in the web assistant, with no
+# "Always Allow"; read-mode runs can be always-allowed.
+always_confirm = { mode = "write" }
+openworld = false
 
 [[parameters]]
-name = "name"
+name = "code"
 type = "string"
-description = "Name of the space to run the script in"
+description = "REQUIRED: the scriptling (Python) script. The knot libraries are already imported under their short names (space.list(), template.list(), ...) and help() works as in Python. Print the answer or set result to a dict or list."
 required = true
 
 [[parameters]]
-name = "script"
+name = "purpose"
 type = "string"
-description = "Name of the script to execute (e.g., 'backup', 'deploy', 'test')"
+description = "REQUIRED: one sentence on what the script works out or changes, e.g. 'Count running spaces per template'. Recorded in the audit log and shown when approval is asked."
 required = true
 
 [[parameters]]
-name = "arguments"
-type = "array:string"
-description = "Script arguments as an array (e.g., ['--verbose', 'output.txt'])"
+name = "mode"
+type = "string"
+description = "Exactly 'read' (the default) or 'write', lower case. 'read' can only read. 'write' may also create, change, start, stop or delete things the user asked to change; the user must approve each write-mode run, and it is refused to connections signed in with an API token limited to scopes."
 required = false

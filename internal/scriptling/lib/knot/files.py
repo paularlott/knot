@@ -300,6 +300,65 @@ def usage():
     }
 
 
+def share_targets():
+    """List the users and groups your buckets can be shared with or
+    transferred to. Needs the share buckets or transfer buckets permission.
+
+    Returns:
+        A dict containing:
+        - users: List of dicts with id, username, can_own (may own buckets,
+          so may receive a transfer) and self (True for you)
+        - groups: List of dicts with id and name
+
+    Raises:
+        Exception if you may neither share nor transfer buckets, or on API error
+    """
+    info = api.get("/api/files/share-targets")
+    return {
+        "users": [{
+            "id": u.get("user_id"),
+            "username": u.get("username", ""),
+            "can_own": u.get("can_own", False),
+            "self": u.get("self", False),
+        } for u in info.get("users") or []],
+        "groups": [{"id": g.get("group_id"), "name": g.get("name", "")} for g in info.get("groups") or []],
+    }
+
+
+def fsck(repair=False, deep=False, timeout=3600):
+    """Check file storage for problems, and with repair fix what can be
+    fixed. Only file storage administrators may run it.
+
+    Args:
+        repair: Fix what can be fixed: fetch missing content from the
+            cluster, rebuild counts and indexes, remove buckets of deleted
+            users, rewrite modes in octal (default False: check only)
+        deep: Also read every stored content and verify its checksum (slow)
+        timeout: Seconds to wait for the check to finish (default 3600)
+
+    Returns:
+        A dict containing:
+        - buckets: Number of buckets checked
+        - files: Number of files checked
+        - found: Dict of issue kind to count found
+        - repaired: Dict of issue kind to count repaired
+        - issues: List of dicts with kind, bucket, key and detail (capped)
+        - notes: List of notes, as strings
+
+    Raises:
+        Exception if you are not a file storage administrator, or on API error
+    """
+    report = api.post("/api/files/fsck", {"repair": repair, "deep": deep}, timeout=timeout)
+    return {
+        "buckets": report.get("buckets", 0),
+        "files": report.get("files", 0),
+        "found": report.get("found") or {},
+        "repaired": report.get("repaired") or {},
+        "issues": report.get("issues") or [],
+        "notes": report.get("notes") or [],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Files
 # ---------------------------------------------------------------------------
@@ -692,3 +751,125 @@ def set_attrs(bucket, key, mode=None, mtime=None):
         "meta": meta,
         "if_match": f["etag"],
     }))
+
+
+
+# ---------------------------------------------------------------------------
+# Uploads in parts
+# ---------------------------------------------------------------------------
+#
+# A file larger than a script can write in one go (64 MB) is sent a part at a
+# time: start_upload, upload_part for each part in order from 1, then
+# complete_upload. The parts are held on the server until the upload
+# completes, so an upload stopped part way carries on from the parts already
+# sent (list_upload_parts); abort_upload discards them.
+
+
+def _upload_path(bucket, key):
+    return "/api/files/uploads/" + _enc(bucket) + "/" + _enc_key(key)
+
+
+def start_upload(bucket, key, content_type="application/octet-stream"):
+    """Start an upload in parts of a file.
+
+    Args:
+        bucket: Bucket name
+        key: The file's key
+        content_type: Content type the file will have
+            (default application/octet-stream)
+
+    Returns:
+        The upload ID, for upload_part, list_upload_parts, complete_upload
+        and abort_upload
+
+    Raises:
+        Exception if you may not write there, or on API error
+    """
+    _check_key(key)
+    response = api.post(_upload_path(bucket, key), None,
+                        headers={"Content-Type": content_type or "application/octet-stream"})
+    return response.get("upload_id")
+
+
+def upload_part(bucket, key, upload_id, number, data):
+    """Send one part of an upload. Sending a part number again replaces it.
+
+    Args:
+        bucket: Bucket name
+        key: The file's key
+        upload_id: From start_upload
+        number: Part number, from 1, in file order
+        data: The part's content, str (sent as UTF-8) or bytes, at most 64 MB
+
+    Returns:
+        A dict with number, etag and size of the part held
+
+    Raises:
+        Exception if the upload is not found, the quota is exceeded, or on API error
+    """
+    path = _upload_path(bucket, key) + "?upload_id=" + _enc(upload_id) + "&part=" + str(int(number))
+    part = api.put_bytes(path, data, "application/octet-stream")
+    return {"number": part.get("number", number), "etag": part.get("etag", ""), "size": part.get("size", 0)}
+
+
+def list_upload_parts(bucket, key, upload_id):
+    """List the parts of an upload the server holds.
+
+    Args:
+        bucket: Bucket name
+        key: The file's key
+        upload_id: From start_upload
+
+    Returns:
+        A list of dicts with number, etag and size, in part order
+
+    Raises:
+        Exception if the upload is not found, or on API error
+    """
+    response = api.get(_upload_path(bucket, key) + "?upload_id=" + _enc(upload_id))
+    return [{"number": p.get("number", 0), "etag": p.get("etag", ""), "size": p.get("size", 0)}
+            for p in response.get("parts") or []]
+
+
+def complete_upload(bucket, key, upload_id, parts=None, timeout=3600):
+    """Make the parts of an upload the file, replacing any file with that key.
+
+    Args:
+        bucket: Bucket name
+        key: The file's key
+        upload_id: From start_upload
+        parts: The parts in order, as upload_part returned them (dicts with
+            number and etag); default: every part the server holds
+        timeout: Seconds to wait while the server assembles the file
+            (default 3600)
+
+    Returns:
+        The file dict, as stat returns for a file
+
+    Raises:
+        Exception if the upload is not found, a part is missing or does not
+        match, the quota is exceeded, or on API error
+    """
+    if parts is None:
+        parts = list_upload_parts(bucket, key, upload_id)
+    body = {"parts": [{"number": p.get("number"), "etag": p.get("etag", "")} for p in parts]}
+    path = _upload_path(bucket, key) + "?upload_id=" + _enc(upload_id) + "&complete=1"
+    return _file(api.post(path, body, timeout=timeout))
+
+
+def abort_upload(bucket, key, upload_id):
+    """Discard an upload and the parts held.
+
+    Args:
+        bucket: Bucket name
+        key: The file's key
+        upload_id: From start_upload
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if the upload is not found, or on API error
+    """
+    api.delete(_upload_path(bucket, key) + "?upload_id=" + _enc(upload_id))
+    return True

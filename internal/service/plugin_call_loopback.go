@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
@@ -33,34 +32,9 @@ func registerPluginLoopbackCallLibrary(env *scriptling.Scriptling, client *apicl
 	lib := object.NewLibrary("knot.plugin", map[string]*object.Builtin{
 		"call": {
 			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				if len(args) < 2 || len(args) > 3 {
-					return errors.NewError("call: requires (plugin, handler[, params])")
-				}
-				pluginName, errObj := args[0].AsString()
+				pluginName, handler, callParams, method, errObj := pluginCallArgs(kwargs, args)
 				if errObj != nil {
-					return errors.NewError("call: plugin must be a string")
-				}
-				handler, errObj := args[1].AsString()
-				if errObj != nil {
-					return errors.NewError("call: handler must be a string")
-				}
-				if strings.ContainsAny(pluginName, "/") || strings.ContainsAny(handler, "/?&#") {
-					return errors.NewError("call: invalid plugin or handler name")
-				}
-				callParams := map[string]any{}
-				if len(args) == 3 {
-					raw := conversion.ToGo(args[2])
-					if m, ok := raw.(map[string]any); ok {
-						callParams = m
-					} else {
-						return errors.NewError("call: params must be a table")
-					}
-				}
-				method := "GET"
-				if m := kwargs.Get("method"); m != nil {
-					if s, errObj := m.AsString(); errObj == nil {
-						method = strings.ToUpper(s)
-					}
+					return errObj
 				}
 
 				transport := client.GetRESTClient()

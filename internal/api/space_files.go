@@ -172,7 +172,11 @@ func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := <-responseChannel
+	response, waitErr := awaitAgent(r.Context(), responseChannel)
+	if waitErr != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "Request ended before the agent replied: " + waitErr.Error()})
+		return
+	}
 	if response == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
@@ -330,7 +334,11 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := <-responseChannel
+	response, waitErr := awaitAgent(r.Context(), responseChannel)
+	if waitErr != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "Request ended before the agent replied: " + waitErr.Error()})
+		return
+	}
 	if response == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return

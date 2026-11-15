@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -123,8 +124,8 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := <-respChan
-
+	// Audited once the script has been handed to the agent, so a run whose
+	// request ends early is recorded too.
 	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
@@ -138,6 +139,19 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
+	// Wait for the agent, but no longer than the request: an in-process
+	// caller (an AI-written script) cancels it at its time limit, and an
+	// HTTP client that has gone away has no one to answer.
+	resp, err := awaitAgent(r.Context(), respChan)
+	if err != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "the request ended before the script finished; it may still be running in the space"})
+		return
+	}
+	if resp == nil {
+		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from the space agent"})
+		return
+	}
+
 	response := apiclient.ScriptExecuteResponse{
 		Output:   resp.Output,
 		ExitCode: resp.ExitCode,
@@ -147,4 +161,19 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, response)
+}
+
+// awaitAgent waits for a space agent's reply on ch, or for ctx to end:
+// handlers that wait on an agent return when their request does, so an
+// in-process caller's deadline (an AI-written script's time limit) holds
+// and a client that has gone away does not hold a goroutine. The agent
+// session's channels are buffered, so an abandoned reply never blocks its
+// sender. A closed channel gives nil.
+func awaitAgent[T any](ctx context.Context, ch <-chan *T) (*T, error) {
+	select {
+	case reply := <-ch:
+		return reply, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }

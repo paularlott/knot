@@ -38,3 +38,20 @@ func TestGrantedPermissionKeysAreStable(t *testing.T) {
 		}
 	}
 }
+
+// TestRunAIScriptsPermission pins the AI script permission at the end of
+// the id list (ids are stored in roles, so it may never move), its key, and
+// that the admin role does not hold it: it is only granted deliberately.
+func TestRunAIScriptsPermission(t *testing.T) {
+	if PermissionRunAIScripts != PermissionUseUserSecrets+1 {
+		t.Fatalf("PermissionRunAIScripts = %d, want %d (appended after PermissionUseUserSecrets)", PermissionRunAIScripts, PermissionUseUserSecrets+1)
+	}
+	if PermissionKey(PermissionRunAIScripts) != "run_ai_scripts" {
+		t.Errorf("run_ai_scripts key = %q", PermissionKey(PermissionRunAIScripts))
+	}
+	SetRoleCache(nil)
+	admin := &User{Roles: []string{RoleAdminUUID}}
+	if admin.HasPermission(PermissionRunAIScripts) {
+		t.Error("the admin role holds run_ai_scripts; it must be granted through a role made for it")
+	}
+}

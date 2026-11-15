@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/toolsurface"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
@@ -85,7 +86,9 @@ func recoverIncompleteResponses(client AIClient) {
 
 // Handles POST /v1/responses
 func (s *Service) HandleCreateResponse(w http.ResponseWriter, r *http.Request) {
-	var ctx context.Context = r.Context()
+	// Tools run here with no one to ask: no approval, even one inherited
+	// from an in-process caller, may reach them.
+	var ctx context.Context = toolsurface.Strip(r.Context())
 
 	var req CreateResponseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

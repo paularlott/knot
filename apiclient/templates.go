@@ -217,6 +217,10 @@ type TemplateDetails struct {
 	KvmIPRangeEnd            string                   `json:"kvm_ip_range_end,omitempty" msgpack:"kvm_ip_range_end,omitempty"`
 	KvmGateway               string                   `json:"kvm_gateway,omitempty" msgpack:"kvm_gateway,omitempty"`
 	KvmBridge                string                   `json:"kvm_bridge,omitempty" msgpack:"kvm_bridge,omitempty"`
+	// RuntimeAvailable reports whether any node in the zone currently
+	// offers the runtime the template needs (always true for manual and
+	// Nomad templates). Only set by GET /api/templates/{template_id}.
+	RuntimeAvailable bool `json:"runtime_available" msgpack:"runtime_available"`
 }
 
 func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {

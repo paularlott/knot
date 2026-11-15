@@ -28,37 +28,9 @@ func registerPluginCallLibrary(env *scriptling.Scriptling, client *apiclient.Api
 	lib := object.NewLibrary("knot.plugin", map[string]*object.Builtin{
 		"call": {
 			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				if len(args) < 2 || len(args) > 3 {
-					return errors.NewError("call: requires (plugin, handler[, params])")
-				}
-				pluginName, errObj := args[0].AsString()
+				pluginName, handler, callParams, method, errObj := pluginCallArgs(kwargs, args)
 				if errObj != nil {
-					return errors.NewError("call: plugin must be a string")
-				}
-				handler, errObj := args[1].AsString()
-				if errObj != nil {
-					return errors.NewError("call: handler must be a string")
-				}
-				if strings.ContainsAny(pluginName, "/") || strings.ContainsAny(handler, "/?&#") {
-					return errors.NewError("call: invalid plugin or handler name")
-				}
-				method := "GET"
-				if m := kwargs.Get("method"); m != nil {
-					if ms, errObj := m.AsString(); errObj == nil {
-						method = strings.ToUpper(ms)
-						if method != "GET" && method != "POST" {
-							return errors.NewError("call: method must be GET or POST")
-						}
-					}
-				}
-				callParams := map[string]any{}
-				if len(args) == 3 {
-					raw := conversion.ToGo(args[2])
-					if m, ok := raw.(map[string]any); ok {
-						callParams = m
-					} else {
-						return errors.NewError("call: params must be a table")
-					}
+					return errObj
 				}
 
 				registry := plugins.GetRegistry()
@@ -92,4 +64,64 @@ func registerPluginCallLibrary(env *scriptling.Scriptling, client *apiclient.Api
 	}, nil, "In-process calls to declared plugin handlers, as the requesting user.")
 
 	env.RegisterLibrary(lib)
+}
+
+// pluginCallArgs parses call(plugin, handler, params=None, method="GET")
+// for both knot.plugin twins: params and method may be given positionally
+// or by keyword, and None means the default.
+func pluginCallArgs(kwargs object.Kwargs, args []object.Object) (pluginName, handler string, params map[string]any, method string, errObj object.Object) {
+	arg := func(pos int, name string) object.Object {
+		v := kwargs.Get(name)
+		if v == nil && len(args) > pos {
+			v = args[pos]
+		}
+		if _, isNull := v.(*object.Null); isNull {
+			return nil
+		}
+		return v
+	}
+	if len(args) > 4 {
+		return "", "", nil, "", errors.NewError("call: requires (plugin, handler[, params[, method]])")
+	}
+	for _, k := range kwargs.Keys() {
+		switch k {
+		case "plugin", "handler", "params", "method":
+		default:
+			return "", "", nil, "", errors.NewError("call: unexpected keyword argument %s", k)
+		}
+	}
+	p, h := arg(0, "plugin"), arg(1, "handler")
+	if p == nil || h == nil {
+		return "", "", nil, "", errors.NewError("call: requires (plugin, handler[, params[, method]])")
+	}
+	var e object.Object
+	if pluginName, e = p.AsString(); e != nil {
+		return "", "", nil, "", errors.NewError("call: plugin must be a string")
+	}
+	if handler, e = h.AsString(); e != nil {
+		return "", "", nil, "", errors.NewError("call: handler must be a string")
+	}
+	if strings.ContainsAny(pluginName, "/") || strings.ContainsAny(handler, "/?&#") {
+		return "", "", nil, "", errors.NewError("call: invalid plugin or handler name")
+	}
+	method = "GET"
+	if m := arg(3, "method"); m != nil {
+		ms, e := m.AsString()
+		if e != nil {
+			return "", "", nil, "", errors.NewError("call: method must be GET or POST")
+		}
+		method = strings.ToUpper(ms)
+		if method != "GET" && method != "POST" {
+			return "", "", nil, "", errors.NewError("call: method must be GET or POST")
+		}
+	}
+	params = map[string]any{}
+	if raw := arg(2, "params"); raw != nil {
+		m, ok := conversion.ToGo(raw).(map[string]any)
+		if !ok {
+			return "", "", nil, "", errors.NewError("call: params must be a table")
+		}
+		params = m
+	}
+	return pluginName, handler, params, method, nil
 }

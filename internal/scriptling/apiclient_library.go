@@ -3,6 +3,7 @@ package scriptling
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,127 @@ import (
 
 // maxRawBytes caps one raw transfer: a script holds file content in memory.
 const maxRawBytes = 64 << 20
+
+// Caps on what a script hands the transport, checked on the script value
+// before it is converted to Go: a value shared by many containers converts
+// (and encodes) once per reference, so a few kilobytes of script data could
+// otherwise expand into gigabytes. maxRequestBodyBytes is above the largest
+// value the API takes (a 10 MB variable).
+const (
+	maxRequestBodyBytes   = 16 << 20
+	maxRequestHeaderBytes = 64 << 10
+	maxQueryBytes         = 1 << 20
+)
+
+// RequestPrechecker is a client that refuses some calls on their method and
+// path alone (the AI script client). The transport asks it before it
+// converts a request's body, headers or query parameters, so a call that
+// will be refused costs nothing to build.
+type RequestPrechecker interface {
+	PrecheckRequest(method, path string) error
+}
+
+// precheck asks the client, when it is a RequestPrechecker, whether the call
+// may go ahead; nil when it may.
+func precheck(client rest.RESTClient, method, path string) object.Object {
+	if pc, ok := client.(RequestPrechecker); ok {
+		if err := pc.PrecheckRequest(method, path); err != nil {
+			return &object.Error{Message: fmt.Sprintf("API error: %v", err)}
+		}
+	}
+	return nil
+}
+
+// boundedToGo converts a script value for a request, refusing it when it
+// would encode to more than limit bytes (what names it in the error) and
+// holding the conversion to the interpreter's own limits.
+func boundedToGo(obj object.Object, limit int, what string) (interface{}, object.Object) {
+	if size := JSONSizeAtLeast(obj, limit); size > limit {
+		return nil, &object.Error{Message: fmt.Sprintf("API error: the %s is larger than the %d bytes a request may carry", what, limit)}
+	}
+	v, errObj := conversion.ToGoLimited(obj)
+	if errObj != nil {
+		return nil, errObj
+	}
+	return v, nil
+}
+
+// stringHeaders converts a headers dict, bounded like a body.
+func stringHeaders(obj object.Object) (map[string]string, object.Object) {
+	headers := map[string]string{}
+	if obj == nil {
+		return headers, nil
+	}
+	v, errObj := boundedToGo(obj, maxRequestHeaderBytes, "request headers")
+	if errObj != nil {
+		return nil, errObj
+	}
+	if d, ok := v.(map[string]interface{}); ok {
+		for k, val := range d {
+			headers[k] = fmt.Sprint(val)
+		}
+	}
+	return headers, nil
+}
+
+// JSONSizeAtLeast returns a lower bound on the size of obj encoded as JSON,
+// giving up once it passes limit (the result is then over limit): strings
+// count their bytes and quotes, containers their brackets and separators,
+// and every other value one byte. A value shared by several containers
+// counts once per reference, as it would encode. A container that holds
+// itself stops counting once the limit is passed, as each level adds at
+// least two bytes.
+func JSONSizeAtLeast(obj object.Object, limit int) int {
+	size := 0
+	var walk func(o object.Object)
+	walkAll := func(elements []object.Object) {
+		size += 2 + len(elements)
+		for _, e := range elements {
+			if size > limit {
+				return
+			}
+			walk(e)
+		}
+	}
+	walk = func(o object.Object) {
+		if size > limit {
+			return
+		}
+		switch v := o.(type) {
+		case *object.String:
+			size += len(v.StringValue()) + 2
+		case *object.Bytes:
+			size += v.Len() + 2
+		case *object.List:
+			walkAll(v.Elements)
+		case *object.Tuple:
+			walkAll(v.Elements)
+		case *object.Set:
+			size += 2 + len(v.Elements)
+			for _, e := range v.Elements {
+				if size > limit {
+					return
+				}
+				walk(e)
+			}
+		case *object.FloatArray:
+			size += 2 + 2*len(v.Data)
+		case *object.Dict:
+			size += 2 + 2*len(v.Pairs)
+			for _, pair := range v.Pairs {
+				if size > limit {
+					return
+				}
+				walk(pair.Key)
+				walk(pair.Value)
+			}
+		default:
+			size++
+		}
+	}
+	walk(obj)
+	return size
+}
 
 // callContext bounds one call by the timeout, in seconds, the script gives
 // as timeout= or as the positional argument at pos, lifting the REST
@@ -45,6 +167,22 @@ func callContext(ctx context.Context, kwargs object.Kwargs, args []object.Object
 	return ctx, cancel, nil
 }
 
+// argOrKwarg returns the argument given as name= or at position pos,
+// matching the Python transport's signatures; nil when absent or None.
+func argOrKwarg(args []object.Object, kwargs object.Kwargs, pos int, name string) object.Object {
+	v := kwargs.Get(name)
+	if v == nil && len(args) > pos {
+		v = args[pos]
+	}
+	if v == nil {
+		return nil
+	}
+	if _, isNull := v.(*object.Null); isNull {
+		return nil
+	}
+	return v
+}
+
 // statusError is the error for a refused request, with the server's own
 // message when the response carried one, as the in-process client leaves
 // it decoded in result.
@@ -52,6 +190,12 @@ func statusError(statusCode int, result interface{}) object.Object {
 	if m, ok := result.(map[string]interface{}); ok {
 		if msg, ok := m["error"].(string); ok && msg != "" {
 			return &object.Error{Message: fmt.Sprintf("API error: HTTP %d: %s", statusCode, msg)}
+		}
+		// A JSON-RPC error (/api/methods/call) carries its message in an object.
+		if e, ok := m["error"].(map[string]interface{}); ok {
+			if msg, ok := e["message"].(string); ok && msg != "" {
+				return &object.Error{Message: fmt.Sprintf("API error: HTTP %d: %s", statusCode, msg)}
+			}
 		}
 	}
 	return &object.Error{Message: fmt.Sprintf("API error: HTTP %d", statusCode)}
@@ -90,8 +234,14 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 				paramsObj = dict
 			}
 		}
+		if errObj := precheck(client, http.MethodGet, path); errObj != nil {
+			return errObj
+		}
 		if paramsObj != nil {
 			if paramsDict, ok := paramsObj.(*object.Dict); ok {
+				if size := JSONSizeAtLeast(paramsDict, maxQueryBytes); size > maxQueryBytes {
+					return &object.Error{Message: fmt.Sprintf("API error: the query parameters are larger than the %d bytes a request may carry", maxQueryBytes)}
+				}
 				params := url.Values{}
 				for _, pair := range paramsDict.Pairs {
 					key := pair.Key.Inspect()
@@ -116,7 +266,9 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 
 		var result interface{}
 		statusCode, apiErr := client.GetJSON(ctx, path, &result)
-		if apiErr != nil {
+		// An empty 2xx body is no error: it returns None, as post, put
+		// and delete do.
+		if apiErr != nil && apiErr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
 		}
 		if statusCode >= 400 {
@@ -137,10 +289,14 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return errors.ParameterError("path", err)
 		}
 
+		if errObj := precheck(client, http.MethodPost, path); errObj != nil {
+			return errObj
+		}
 		var body interface{}
-		if len(args) > 1 && args[1] != nil {
-			if _, isNull := args[1].(*object.Null); !isNull {
-				body = conversion.ToGo(args[1])
+		if b := argOrKwarg(args, kwargs, 1, "body"); b != nil {
+			var errObj object.Object
+			if body, errObj = boundedToGo(b, maxRequestBodyBytes, "request body"); errObj != nil {
+				return errObj
 			}
 		}
 
@@ -150,19 +306,53 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		}
 		defer cancel()
 
-		var result interface{}
-		statusCode, apiErr := client.PostJSON(ctx, path, body, &result, 0)
-		if apiErr != nil && apiErr != io.EOF {
-			return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
+		// Extra request headers, such as the Content-Type a file upload in
+		// parts records for the file.
+		headers, errObj := stringHeaders(argOrKwarg(args, kwargs, 3, "headers"))
+		if errObj != nil {
+			return errObj
 		}
-		if statusCode >= 400 {
-			return statusError(statusCode, result)
+
+		var result interface{}
+		if len(headers) > 0 {
+			hc, ok := client.(rest.RawClient)
+			if !ok {
+				return &object.Error{Message: "API error: request headers are not supported by this client"}
+			}
+			var reader io.Reader
+			var size int64
+			if body != nil {
+				data, merr := json.Marshal(body)
+				if merr != nil {
+					return &object.Error{Message: fmt.Sprintf("API error: %v", merr)}
+				}
+				reader, size = bytes.NewReader(data), int64(len(data))
+			}
+			if _, set := headers["Content-Type"]; !set {
+				headers["Content-Type"] = "application/json"
+			}
+			resp, rerr := hc.DoRaw(ctx, http.MethodPost, path, reader, size, headers)
+			if rerr != nil {
+				return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
+			}
+			defer resp.Body.Close()
+			if derr := rest.DecodeResponse(resp, &result); derr != nil && derr != io.EOF {
+				return &object.Error{Message: fmt.Sprintf("API error: %v", derr)}
+			}
+		} else {
+			statusCode, apiErr := client.PostJSON(ctx, path, body, &result, 0)
+			if apiErr != nil && apiErr != io.EOF {
+				return &object.Error{Message: fmt.Sprintf("API error: %v", apiErr)}
+			}
+			if statusCode >= 400 {
+				return statusError(statusCode, result)
+			}
 		}
 		if result == nil {
 			return &object.Null{}
 		}
 		return conversion.FromGo(result)
-	}, "post(path, body=None, timeout=None) - Make a POST request, waiting up to timeout seconds if given; returns Dict or List")
+	}, "post(path, body=None, timeout=None, headers=None) - Make a POST request, with any extra request headers, waiting up to timeout seconds if given; returns Dict or List")
 
 	builder.FunctionWithHelp("put", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if err := errors.MinArgs(args, 1); err != nil {
@@ -173,10 +363,14 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return errors.ParameterError("path", err)
 		}
 
+		if errObj := precheck(client, http.MethodPut, path); errObj != nil {
+			return errObj
+		}
 		var body interface{}
-		if len(args) > 1 && args[1] != nil {
-			if _, isNull := args[1].(*object.Null); !isNull {
-				body = conversion.ToGo(args[1])
+		if b := argOrKwarg(args, kwargs, 1, "body"); b != nil {
+			var errObj object.Object
+			if body, errObj = boundedToGo(b, maxRequestBodyBytes, "request body"); errObj != nil {
+				return errObj
 			}
 		}
 
@@ -209,14 +403,13 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 			return errors.ParameterError("path", err)
 		}
 
+		if errObj := precheck(client, http.MethodDelete, path); errObj != nil {
+			return errObj
+		}
 		// Extra request headers, such as If-Match for a conditional delete.
-		headers := map[string]string{}
-		if len(args) > 1 && args[1] != nil {
-			if d, ok := conversion.ToGo(args[1]).(map[string]interface{}); ok {
-				for k, v := range d {
-					headers[k] = fmt.Sprint(v)
-				}
-			}
+		headers, errObj := stringHeaders(argOrKwarg(args, kwargs, 1, "headers"))
+		if errObj != nil {
+			return errObj
 		}
 
 		ctx, cancel, errObj := callContext(ctx, kwargs, args, 2)
@@ -343,7 +536,8 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 		defer resp.Body.Close()
 
 		var result interface{}
-		if rerr := rest.DecodeResponse(resp, &result); rerr != nil {
+		// An empty 2xx body returns None, as post, put and delete do.
+		if rerr := rest.DecodeResponse(resp, &result); rerr != nil && rerr != io.EOF {
 			return &object.Error{Message: fmt.Sprintf("API error: %v", rerr)}
 		}
 		if result == nil {

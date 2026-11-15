@@ -60,6 +60,18 @@ func getEventMeta(ctx context.Context, key string) object.Object {
 	return pair.Value
 }
 
+// eventDefault is a get_* accessor's default, given positionally after the
+// name or as default=; nil when not given.
+func eventDefault(kwargs object.Kwargs, args []object.Object) object.Object {
+	if d := kwargs.Get("default"); d != nil {
+		return d
+	}
+	if len(args) > 1 {
+		return args[1]
+	}
+	return nil
+}
+
 func GetEventLibrary() *object.Library {
 	builder := object.NewLibraryBuilder("knot.event", "Knot event functions for sink scripts (server-side)")
 
@@ -72,8 +84,8 @@ func GetEventLibrary() *object.Library {
 			return errObj
 		}
 		var defaultVal string
-		if len(args) > 1 {
-			defaultVal, errObj = args[1].AsString()
+		if d := eventDefault(kwargs, args); d != nil {
+			defaultVal, errObj = d.AsString()
 			if errObj != nil {
 				return errObj
 			}
@@ -98,8 +110,8 @@ func GetEventLibrary() *object.Library {
 			return errObj
 		}
 		var defaultVal int64
-		if len(args) > 1 {
-			defaultVal, errObj = args[1].CoerceInt()
+		if d := eventDefault(kwargs, args); d != nil {
+			defaultVal, errObj = d.CoerceInt()
 			if errObj != nil {
 				return errObj
 			}
@@ -124,8 +136,8 @@ func GetEventLibrary() *object.Library {
 			return errObj
 		}
 		var defaultVal bool
-		if len(args) > 1 {
-			defaultVal, errObj = args[1].AsBool()
+		if d := eventDefault(kwargs, args); d != nil {
+			defaultVal, errObj = d.AsBool()
 			if errObj != nil {
 				return errObj
 			}
@@ -151,8 +163,8 @@ func GetEventLibrary() *object.Library {
 		}
 		val := getEventParam(ctx, name)
 		if val == nil {
-			if len(args) > 1 {
-				return args[1]
+			if d := eventDefault(kwargs, args); d != nil {
+				return d
 			}
 			return &object.List{Elements: []object.Object{}}
 		}
@@ -172,8 +184,8 @@ func GetEventLibrary() *object.Library {
 		}
 		val := getEventParam(ctx, name)
 		if val == nil {
-			if len(args) > 1 {
-				return args[1]
+			if d := eventDefault(kwargs, args); d != nil {
+				return d
 			}
 			return object.NewStringDict(map[string]object.Object{})
 		}

@@ -23,7 +23,53 @@ const (
 	// maxConcurrentTargets limits how many different destination agents
 	// receive sub-batches concurrently.
 	maxConcurrentTargets = 10
+	// maxMethodTimeoutSeconds caps the timeout a space's method server
+	// asks for, per call; maxBatchTimeoutSeconds the wait for one
+	// sub-batch, which the agent serves concurrently. A caller that goes
+	// away (a script at its time limit) is not waited for either way.
+	maxMethodTimeoutSeconds = 300
+	maxBatchTimeoutSeconds  = 600
 )
+
+// methodTimeout is a method server's timeout, defaulted and capped.
+func methodTimeout(seconds int) int {
+	switch {
+	case seconds <= 0:
+		return 30
+	case seconds > maxMethodTimeoutSeconds:
+		return maxMethodTimeoutSeconds
+	}
+	return seconds
+}
+
+// batchTimeout is the per-item timeout to give SendCallMethodBatch, which
+// waits that long times the request items: the total is capped at
+// maxBatchTimeoutSeconds (or one call's timeout, when that is longer).
+func batchTimeout(seconds, requestItems int) int {
+	seconds = methodTimeout(seconds)
+	if requestItems < 1 {
+		requestItems = 1
+	}
+	total := seconds * requestItems
+	limit := maxBatchTimeoutSeconds
+	if seconds > limit {
+		limit = seconds
+	}
+	if total > limit {
+		total = limit
+	}
+	per := (total + requestItems - 1) / requestItems
+	if per < 1 {
+		per = 1
+	}
+	return per
+}
+
+// methodCallResult is the outcome of a call to a space's method server.
+type methodCallResult struct {
+	response *msg.CallMethodResponse
+	err      error
+}
 
 type MethodListResponse struct {
 	Count   int                  `json:"count" msgpack:"count"`
@@ -107,7 +153,14 @@ func handleSingleCall(w http.ResponseWriter, r *http.Request, body []byte, user 
 		writeRouteError(w, r, err, request.ID)
 		return
 	}
-	defer methods.DefaultRegistry().Done(entry)
+	// The entry is released when the call is done, which may be after the
+	// caller has gone (see below).
+	released := false
+	defer func() {
+		if !released {
+			methods.DefaultRegistry().Done(entry)
+		}
+	}()
 
 	session := agent_server.GetSession(entry.SpaceID)
 	if session == nil {
@@ -127,12 +180,26 @@ func handleSingleCall(w http.ResponseWriter, r *http.Request, body []byte, user 
 		return
 	}
 
-	response, err := session.SendCallMethod(callReq, entry.Server.Timeout)
+	// The call runs on its own so the handler can return when the request
+	// ends (a script at its time limit) rather than wait out the method's
+	// timeout; the call itself still ends by that timeout.
+	released = true
+	done := make(chan *methodCallResult, 1)
+	go func() {
+		defer methods.DefaultRegistry().Done(entry)
+		response, err := session.SendCallMethod(callReq, methodTimeout(entry.Server.Timeout))
+		done <- &methodCallResult{response: response, err: err}
+	}()
+	result, err := awaitAgent(r.Context(), done)
 	if err != nil {
-		writeJSONRPCError(w, r, -32000, err.Error(), request.ID)
+		writeJSONRPCError(w, r, -32000, "request ended before the method returned: "+err.Error(), request.ID)
 		return
 	}
-	_ = rest.WriteResponse(http.StatusOK, w, r, response.Response)
+	if result.err != nil {
+		writeJSONRPCError(w, r, -32000, result.err.Error(), request.ID)
+		return
+	}
+	_ = rest.WriteResponse(http.StatusOK, w, r, result.response.Response)
 }
 
 // --------------------------------------------------------------------
@@ -260,7 +327,11 @@ func handleBatchCall(w http.ResponseWriter, r *http.Request, rawItems []json.Raw
 	// Phase 3: Send each group as a sub-batch. Groups run concurrently
 	// (up to maxConcurrentTargets at once). Each group uses one yamux
 	// stream — items inside are multiplexed by the agent.
+	// Groups write their results under resultsMu: the handler stops
+	// waiting when the request ends, and groups still running then finish
+	// on their own.
 	results := make([]any, len(rawItems)) // nil = no response entry
+	var resultsMu sync.Mutex
 	var wg sync.WaitGroup
 	targetSem := make(chan struct{}, maxConcurrentTargets)
 
@@ -300,7 +371,15 @@ func handleBatchCall(w http.ResponseWriter, r *http.Request, rawItems []json.Raw
 			targetSem <- struct{}{}
 			defer func() { <-targetSem }()
 
-			resp, err := g.session.SendCallMethodBatch(&g.request, g.timeout)
+			requestItems := 0
+			for _, it := range g.request.Items {
+				if !it.IsNotification {
+					requestItems++
+				}
+			}
+			resp, err := g.session.SendCallMethodBatch(&g.request, batchTimeout(g.timeout, requestItems))
+			resultsMu.Lock()
+			defer resultsMu.Unlock()
 			if err != nil {
 				// Entire group failed — emit error for each request item.
 				respIdx := 0
@@ -343,7 +422,22 @@ func handleBatchCall(w http.ResponseWriter, r *http.Request, rawItems []json.Raw
 			}
 		}(g)
 	}
-	wg.Wait()
+	allDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(allDone)
+	}()
+	select {
+	case <-allDone:
+	case <-r.Context().Done():
+		_ = rest.WriteResponse(http.StatusGatewayTimeout, w, r, methods.JSONRPCResponse{
+			JSONRPC: "2.0",
+			Error:   &methods.JSONRPCError{Code: -32000, Message: "request ended before the methods returned: " + r.Context().Err().Error()},
+		})
+		return
+	}
+	resultsMu.Lock()
+	defer resultsMu.Unlock()
 
 	// Phase 4: Emit item-level errors for requests (notifications get none).
 	for i := range items {

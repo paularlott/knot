@@ -207,6 +207,18 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// lookupRole resolves a role by id. Built-in roles (Admin) are not stored in
+// the database, so they are served from the role cache.
+func lookupRole(roleId string) (*model.Role, error) {
+	if model.IsBuiltinRole(roleId) {
+		if role := model.GetRoleFromCache(roleId); role != nil {
+			return role, nil
+		}
+		return nil, fmt.Errorf("role %s not loaded", roleId)
+	}
+	return database.GetInstance().GetRole(roleId)
+}
+
 func HandleGetRole(w http.ResponseWriter, r *http.Request) {
 	roleId := r.PathValue("role_id")
 
@@ -215,8 +227,7 @@ func HandleGetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := database.GetInstance()
-	role, err := db.GetRole(roleId)
+	role, err := lookupRole(roleId)
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return

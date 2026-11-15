@@ -69,7 +69,9 @@ required = false
 
 **Approval for write-capable tools:**
 
-Add `requires_approval = true` at the top level for tools that write, mutate, delete, start, stop, or execute commands. When the tool is called from the web assistant, Knot asks the browser user to approve the action before it runs. External MCP clients connected to `/mcp` are not prompted.
+Add `requires_approval = true` at the top level for tools that write, mutate, delete, start, stop, or execute commands. Knot publishes the tool as destructive (`destructiveHint`), so MCP clients connected to `/mcp` ask before calling it. The web assistant asks before every tool call, and offers "Always Allow".
+
+Add `always_confirm` when the user must be asked every time, with no "Always Allow" in the web assistant: `always_confirm = true` for every call, or a table of argument values for only the calls that match, e.g. `always_confirm = { mode = "write" }` (as `run_script` does). It is published in the tool's `_meta` under `lmchatkit/alwaysConfirm`, and also makes the tool destructive. Setting `destructive = true` or `destructive = false` explicitly overrides the destructive hint either way.
 
 ```toml
 requires_approval = true

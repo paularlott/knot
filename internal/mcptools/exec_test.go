@@ -882,7 +882,7 @@ func TestExecute_RunCommand(t *testing.T) {
 	}
 }
 
-func TestExecute_RunScript(t *testing.T) {
+func TestExecute_RunSpaceScript(t *testing.T) {
 	mustLoadTools(t)
 
 	scriptHandler, scriptReq := capturingHandler(map[string]interface{}{
@@ -894,7 +894,7 @@ func TestExecute_RunScript(t *testing.T) {
 	})
 	defer server.Close()
 
-	response, err := runTool(t, "run_script", server.URL, map[string]interface{}{
+	response, err := runTool(t, "run_space_script", server.URL, map[string]interface{}{
 		"name":   "my-space",
 		"script": "deploy",
 	})

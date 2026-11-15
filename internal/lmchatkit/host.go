@@ -23,7 +23,9 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	internalmcp "github.com/paularlott/knot/internal/mcp"
+	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/systemprompt"
 
 	"github.com/paularlott/lmchatkit"
 	mcplib "github.com/paularlott/mcp"
@@ -61,7 +63,8 @@ func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvide
 				return current
 			}
 			return current + internalmcp.BuildSkillsPrompt(ctx, user,
-				"Call the lmchatkit__get_skill tool with the skill URI to retrieve detailed instructions:")
+				"Call the lmchatkit__get_skill tool with the skill URI to retrieve detailed instructions:") +
+				systemprompt.CustomScriptsBlock(user)
 		},
 	}
 }
@@ -95,6 +98,9 @@ func AuthMiddleware(apiAuthMiddleware func(http.Handler) http.Handler, mcpServer
 		withTools := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, "mcp", mcpServer)
+			// The chat UI asks the user before running each tool call and
+			// shows its arguments, so tools may count on that approval.
+			ctx = mcptools.WithSurface(ctx, mcptools.SurfaceWebChat)
 			if user, ok := ctx.Value("user").(*model.User); ok && user != nil {
 				if scriptToolsProvider != nil {
 					if providers := scriptToolsProvider(ctx, user); len(providers) > 0 {

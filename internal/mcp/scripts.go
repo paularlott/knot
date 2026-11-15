@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/knot/internal/plugins"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/toolsurface"
 	"github.com/paularlott/mcp"
 	"github.com/paularlott/scriptling/conversion"
 	"github.com/paularlott/scriptling/object"
@@ -101,12 +102,18 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		}
 
 		// Store tool with visibility and track ownership
+		// requires_approval and always_confirm in the schema TOML are
+		// published as destructiveHint, so clients ask before each call;
+		// always_confirm also as the web assistant's always-confirm rule.
+		annotations, meta := mcptools.ToolHints(script.MCPInputSchemaToml)
 		toolsMap[script.Name] = mcp.MCPTool{
 			Name:        script.Name,
 			Description: script.Description,
 			InputSchema: inputSchema,
 			Keywords:    script.MCPKeywords,
 			Visibility:  visibility,
+			Annotations: annotations,
+			Meta:        meta,
 		}
 		userIdMap[script.Name] = script.UserId // Empty string for global scripts
 	}
@@ -140,9 +147,15 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		tools = append(tools, tool)
 	}
 
-	// Add boot-loaded MCP tools (they set their own visibility)
-	bootTools := mcptools.GetAllMCPTools()
-	tools = append(tools, bootTools...)
+	// Add boot-loaded MCP tools (they set their own visibility). The AI
+	// script tools are only offered to users who may run AI scripts.
+	canRunAIScripts := p.user.HasPermission(model.PermissionRunAIScripts)
+	for _, tool := range mcptools.GetAllMCPTools() {
+		if mcptools.AIScriptTool(tool.Name) && !canRunAIScripts {
+			continue
+		}
+		tools = append(tools, tool)
+	}
 
 	log.Debug("scriptToolsProvider.GetTools returning tools", "count", len(tools), "user", p.user.Username)
 	for _, tool := range tools {
@@ -155,7 +168,7 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 // ExecuteTool executes a script tool by name
 func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (*mcp.ToolResponse, error) {
 	// Try boot-loaded tools first
-	toolResult, toolErr := mcptools.ExecuteTool(name, params, p.user)
+	toolResult, toolErr := mcptools.ExecuteToolContext(ctx, name, params, p.user)
 	if toolErr == nil {
 		// Boot-loaded tool executed successfully
 		return mcp.NewToolResponseAuto(toolResult), nil
@@ -237,7 +250,10 @@ func (p *scriptToolsProvider) executePluginTool(ctx context.Context, name string
 			if !pluginToolAllowed(p.user, tool) {
 				return nil, fmt.Errorf("permission denied to execute tool '%s'", name), true
 			}
-			result, response, exitCode, err := service.DispatchPluginMCPTool(ctx, apiclient.NewMuxClient(p.user), p.user, plugin, tool.Handler, params)
+			// The plugin's handler runs with the user's whole API and no
+			// guard: it must not inherit the approval the chat or MCP client
+			// gave this call, or a tool it calls in turn could count on it.
+			result, response, exitCode, err := service.DispatchPluginMCPTool(toolsurface.Strip(ctx), apiclient.NewMuxClient(p.user), p.user, plugin, tool.Handler, params)
 			switch {
 			case exitCode != 0:
 				// return_error: the response carries the actual error body —

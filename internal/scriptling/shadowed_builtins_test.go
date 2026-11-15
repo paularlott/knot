@@ -34,7 +34,9 @@ var shadowedBuiltins = map[string]bool{
 // allowedSelfCalls lists "file:name" pairs where a module deliberately
 // calls its own function of a shadowed-builtin name.
 var allowedSelfCalls = map[string]bool{
-	"audit.py:list": true, // search() delegates to the module's list()
+	"audit.py:list":      true, // search() delegates to the module's list()
+	"event_sink.py:list": true, // names resolve to IDs through the module's list()
+	"mcp_server.py:list": true, // namespaces resolve to IDs through the module's list()
 }
 
 var defRe = regexp.MustCompile(`(?m)^def ([A-Za-z_][A-Za-z0-9_]*)\s*\(`)

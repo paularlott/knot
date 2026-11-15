@@ -51,17 +51,21 @@ def _custom_fields(fields):
     return out
 
 
-def field_options(handler_id):
+def field_options(handler_id, query=""):
     """Resolve a plugin field handler's option keys as the requesting user.
 
     Returns the valid values for a handler-backed custom field — the same
     list the space form's dropdown offers and the API's validation accepts —
     or None when the handler cannot be reached. Entries may be plain strings
     or key/text pairs; keys are returned (text stands in when a pair carries
-    no key).
+    no key). query is passed to the handler as the text typed so far, for
+    handlers that filter (autocomplete fields).
     """
+    path = f"/api/plugins/field-handlers/{_enc(handler_id)}"
+    if query:
+        path += "?query=" + _enc(query)
     try:
-        response = api.get(f"/api/plugins/field-handlers/{_enc(handler_id)}")
+        response = api.get(path)
     except Exception:
         return None
     if not response:
@@ -160,6 +164,9 @@ def list(include_inactive=False, resolve_options=False):
             "active": tmpl.get("active", False),
             "usage": tmpl.get("usage", 0),
             "deployed": tmpl.get("deployed", 0),
+            # Whether any node in the zone currently offers the runtime this
+            # template needs (always true for manual and Nomad templates).
+            "runtime_available": tmpl.get("runtime_available", True),
             "custom_fields": _custom_field_defs(tmpl.get("custom_fields"), resolve_options),
         })
 
@@ -417,6 +424,174 @@ def get_icons():
         })
 
     return result
+
+
+def field_handlers():
+    """List the field handlers loaded plugins declare, for binding to a
+    custom field's handler. Needs the manage templates permission; raises
+    when no plugins are loaded.
+
+    Returns:
+        A list of dicts, each containing:
+        - id: Qualified handler ID to use as a custom field's handler,
+          e.g. "plugin.jira.projects"
+        - label: Human-readable label
+        - plugin: The plugin providing the handler
+
+    Raises:
+        Exception if no plugins are loaded, you lack the permission, or on API error
+    """
+    response = api.get("/api/plugins/field-handlers")
+    return [{
+        "id": h.get("id", ""),
+        "label": h.get("label", ""),
+        "plugin": h.get("plugin", ""),
+    } for h in response.get("handlers", [])]
+
+
+def export(template_id):
+    """Export a template as portable YAML, with script IDs replaced by script
+    names. Needs the manage templates permission.
+
+    Args:
+        template_id: Template name or ID
+
+    Returns:
+        The YAML text, ready for import_yaml() on this or another server
+
+    Raises:
+        Exception if the template is not found, you lack the permission, or on API error
+    """
+    return api.get(f"/api/templates/{_enc(template_id)}/export")
+
+
+def import_yaml(yaml_text):
+    """Create or update a template from YAML as export() writes it.
+
+    A template with the YAML's name is updated in place; otherwise a new
+    one is created. Startup and shutdown scripts are looked up by name and
+    dropped when no such script exists. Needs the manage templates permission.
+
+    Args:
+        yaml_text: The template YAML
+
+    Returns:
+        The ID of the created or updated template
+
+    Raises:
+        Exception if the YAML is invalid or has no name, you lack the
+        permission, or on API error
+    """
+    response = api.post("/api/templates/import", yaml_text)
+    return response.get("template_id") if response else None
+
+
+def parse_spec(platform, job, volumes=""):
+    """Convert a template's native job and volume text into the unified spec
+    build_spec() takes, as the UI spec wizard does when it opens. Needs the
+    manage templates permission.
+
+    Args:
+        platform: "nomad", "container", "docker", "podman" or "apple"
+        job: Native job text (Nomad HCL or container YAML)
+        volumes: Volume definition YAML (default "")
+
+    Returns:
+        A dict containing:
+        - wizardable: Whether the spec could be converted
+        - reason: Why not, when wizardable is False
+        - spec: The unified spec dict (image, environment, ports, storage,
+          memory, cpus, ...), or None
+        - fully_representable: Whether the unified spec holds everything in
+          the native text; when False, build_spec() with the original text
+          keeps what it cannot represent
+        - advanced_reason: What the unified spec cannot represent
+
+    Raises:
+        Exception if you lack the permission, or on API error
+    """
+    response = api.post("/api/spec/parse", {
+        "platform": platform,
+        "job": job,
+        "volumes": volumes,
+    })
+    return {
+        "wizardable": response.get("wizardable", False),
+        "reason": response.get("reason", ""),
+        "spec": response.get("spec"),
+        "fully_representable": response.get("fully_representable", False),
+        "advanced_reason": response.get("advanced_reason", ""),
+    }
+
+
+def base_images():
+    """Get the catalog of base images the spec wizard offers.
+
+    Returns:
+        A dict containing:
+        - version: Manifest schema version
+        - manifest_version: Catalog revision (yyyymmddbb)
+        - description: Catalog description
+        - registry_auth: Whether the server has base image registry
+          credentials configured
+        - images: List of dicts with name, display_name, description, image
+          (may contain ${{ .server.base_image_registry }}), icon, category,
+          tags, default_memory, default_cpus, default_cores, recommended and
+          optional default_env, default_port and volumes
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    response = api.get("/api/base-images")
+    return {
+        "version": response.get("version", 0),
+        "manifest_version": response.get("manifest_version", ""),
+        "description": response.get("description", ""),
+        "registry_auth": response.get("registry_auth", False),
+        "images": response.get("images") or [],
+    }
+
+
+def refresh_base_images():
+    """Fetch the base image catalog from its update URL now. Needs the manage
+    templates permission, and base image updates enabled with an update URL
+    in the server configuration.
+
+    Returns:
+        A dict containing:
+        - updated: Whether a newer catalog was stored
+        - active_version: The catalog revision now in use
+        - update_url: The URL fetched
+
+    Raises:
+        Exception if updates are not configured (HTTP 409), the fetch fails
+        (HTTP 502), you lack the permission, or on API error
+    """
+    response = api.post("/api/base-images/refresh")
+    return {
+        "updated": response.get("updated", False),
+        "active_version": response.get("active_version", ""),
+        "update_url": response.get("update_url", ""),
+    }
+
+
+def capabilities():
+    """List the Linux capabilities the spec wizard offers for cap_add and
+    cap_drop.
+
+    Returns:
+        A list of dicts, each containing name (e.g. "CAP_NET_ADMIN"),
+        description and common (True for the commonly used ones)
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    response = api.get("/api/capabilities")
+    return [{
+        "name": c.get("name", ""),
+        "description": c.get("description", ""),
+        "common": c.get("common", False),
+    } for c in response.get("capabilities", [])]
 
 
 def _strip_paths_block(yaml_str):

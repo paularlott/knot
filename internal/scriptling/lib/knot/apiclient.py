@@ -161,11 +161,14 @@ def get(path, params=None, timeout=DEFAULT_TIMEOUT):
     if resp.status_code >= 400:
         raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
 
-    return resp.json()
+    if resp.text:
+        return resp.json()
+    return None
 
 
-def post(path, body=None, timeout=DEFAULT_TIMEOUT):
-    """Make a POST request to the Knot API, waiting up to timeout seconds."""
+def post(path, body=None, timeout=DEFAULT_TIMEOUT, headers=None):
+    """Make a POST request to the Knot API, with any extra request headers
+    (which may replace Content-Type), waiting up to timeout seconds."""
     import requests as req
     import json
 
@@ -174,7 +177,11 @@ def post(path, body=None, timeout=DEFAULT_TIMEOUT):
         raise Exception("Knot client not configured. Call knot.apiclient.configure() or set KNOT_URL and KNOT_TOKEN.")
 
     url = client["url"] + path
+    extra = headers
     headers = {"Authorization": "Bearer " + client["token"], "Content-Type": "application/json", "Accept": "application/json"}
+    if extra:
+        for k in extra:
+            headers[k] = extra[k]
 
     resp = req.post(
         url,

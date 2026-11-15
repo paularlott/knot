@@ -65,7 +65,9 @@ const (
 	// another (user manager): the linked accounts join its become-list
 	// and its profile menu offers them. One way only. This is
 	// impersonation-grade: whoever holds it can link to any account —
-	// administrators included — and act as it fully.
+	// administrators included — and act as it fully. It is not part of the
+	// Admin role, so it is only ever granted deliberately, through a role
+	// made for it; links already made keep working without it.
 	PermissionLinkUsers // Can link user accounts for fast user switching
 	PermissionUseFiles  // Can use file storage: own buckets and buckets shared with them
 	// PermissionManageFiles grants full access to every bucket, including
@@ -85,6 +87,14 @@ const (
 	// user's own 1Password secrets at runtime); the constant exists in both
 	// editions so the permission ids stay aligned.
 	PermissionUseUserSecrets // Can store a 1Password token and read own secrets
+	// PermissionRunAIScripts lets the AI assistant (web chat or an MCP
+	// client) write and run its own scripts against the API as the user,
+	// through the run_script tool. The script can do no more than the
+	// user's other permissions allow; write mode needs their approval. It is
+	// not part of the Admin role: an administrator's scripts could change
+	// anything on the server, so it is only ever granted deliberately,
+	// through a role made for it.
+	PermissionRunAIScripts // Can run scripts the AI assistant writes
 )
 
 type PermissionName struct {
@@ -143,6 +153,7 @@ var permissionKeys = map[uint16]string{
 	PermissionUseCodeServer:             "use_code_server",
 	PermissionUseLogSinks:               "use_log_sinks",
 	PermissionUseUserSecrets:            "use_user_secrets",
+	PermissionRunAIScripts:              "run_ai_scripts",
 	PermissionUseLogs:                   "use_logs",
 	PermissionUseMCPServer:              "use_mcp_server",
 	PermissionUseMethods:                "use_methods",
@@ -205,6 +216,7 @@ var PermissionNames = []PermissionName{
 	{PermissionManageOwnSlashCommands, "Slash Commands", "Manage Own Slash Commands", "Create and edit your own slash commands."},
 
 	{PermissionManageMCPServers, "AI Tools", "Manage MCP Servers", "Register and configure MCP servers."},
+	{PermissionRunAIScripts, "AI Tools", "Run AI Scripts", "Let the AI assistant write and run scripts against the API as you. Scripts that make changes need your approval."},
 
 	{PermissionManageStackDefinitions, "Stacks", "Manage Global Stack Definitions", "Create, edit, and delete global (system) stack definitions."},
 	{PermissionManageOwnStackDefinitions, "Stacks", "Manage Own Stack Definitions", "Create, edit, and delete personal stack definitions."},
@@ -320,7 +332,6 @@ func SetRoleCache(roles []*Role) {
 			PermissionUsePools,
 			PermissionManageEvents,
 			PermissionManageGlobalEvents,
-			PermissionLinkUsers,
 			PermissionUseFiles,
 			PermissionManageFiles,
 			PermissionShareBuckets,
@@ -336,6 +347,16 @@ func SetRoleCache(roles []*Role) {
 	for _, role := range roles {
 		roleCache[role.Id] = role
 	}
+}
+
+// GetRoleFromCache returns a role from the cache by id, or nil. Built-in roles
+// (Admin) exist only here, never in the database, so any lookup by id must
+// consult this first.
+func GetRoleFromCache(roleId string) *Role {
+	roleCacheMutex.RLock()
+	defer roleCacheMutex.RUnlock()
+
+	return roleCache[roleId]
 }
 
 func GetRolesFromCache() []*Role {

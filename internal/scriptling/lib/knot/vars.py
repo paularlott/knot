@@ -118,7 +118,7 @@ def set_value(var_id, value=None):
 
     Args:
         var_id: Variable name or ID
-        value: New value
+        value: New value (None leaves the value unchanged)
 
     Returns:
         True if successful
@@ -134,7 +134,8 @@ def update(var_id, value=None, zones=None, local=None, protected=None, restricte
 
     Args:
         var_id: Variable name or ID
-        value: New value (optional)
+        value: New value (optional; omitted keeps the current value,
+            including a protected variable's hidden value)
         zones: New zones list (optional)
         local: New local flag (optional)
         protected: New protected flag (optional)
@@ -150,12 +151,15 @@ def update(var_id, value=None, zones=None, local=None, protected=None, restricte
 
     body = {
         "name": current.get("name"),
-        "value": value if value is not None else current.get("value", ""),
-        "zones": zones if zones is not None else current.get("zones", []),
+        "zones": zones if zones is not None else (current.get("zones") or []),
         "local": local if local is not None else current.get("local", False),
         "protected": protected if protected is not None else current.get("protected", False),
         "restricted": restricted if restricted is not None else current.get("restricted", False)
     }
+    # Omitting value keeps the stored one. Reads blank a protected
+    # variable's value, so sending it back would wipe the secret.
+    if value is not None:
+        body["value"] = value
 
     api.put(f"/api/templatevars/{_enc(var_id)}", body)
     return True

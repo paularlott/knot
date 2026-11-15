@@ -109,24 +109,36 @@ func GetSyncLibrary(inSpace bool) *object.Library {
 	}
 
 	builder.FunctionWithHelp("start", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		if err := errors.MinArgs(args, 1); err != nil {
+		// start(project, name="", wait=False, timeout=600): each may be
+		// given positionally or by keyword.
+		if err := errors.MaxArgs(args, 4); err != nil {
 			return err
 		}
-		content, errObj := projectContent(args[0])
+		projectObj := argOrKwarg(args, kwargs, 0, "project")
+		if projectObj == nil {
+			return &object.Error{Message: "start() requires a project"}
+		}
+		content, errObj := projectContent(projectObj)
 		if errObj != nil {
 			return errObj
 		}
-		name, errObj := kwargs.GetString("name", "")
-		if errObj != nil {
-			return errObj
+		name := ""
+		if v := argOrKwarg(args, kwargs, 1, "name"); v != nil {
+			if name, errObj = v.AsString(); errObj != nil {
+				return errors.ParameterError("name", errObj)
+			}
 		}
-		wait, errObj := kwargs.GetBool("wait", false)
-		if errObj != nil {
-			return errObj
+		wait := false
+		if v := argOrKwarg(args, kwargs, 2, "wait"); v != nil {
+			if wait, errObj = v.AsBool(); errObj != nil {
+				return errors.ParameterError("wait", errObj)
+			}
 		}
-		timeout, errObj := kwargs.GetFloat("timeout", syncWaitDefault.Seconds())
-		if errObj != nil {
-			return errObj
+		timeout := syncWaitDefault.Seconds()
+		if v := argOrKwarg(args, kwargs, 3, "timeout"); v != nil {
+			if timeout, errObj = v.AsFloat(); errObj != nil {
+				return errors.ParameterError("timeout", errObj)
+			}
 		}
 		if timeout <= 0 {
 			return &object.Error{Message: "timeout must be more than 0 seconds"}
@@ -179,12 +191,9 @@ func GetSyncLibrary(inSpace bool) *object.Library {
 	}, `start(project, name="", wait=False, timeout=600) - Start a sync project in this space's agent, or replace one of the same name; one already running unchanged is left running. project is a dict like a project file ({"name": ..., "sync": [{"local": ..., "remote": "bucket:folder/"}]}) or a project file's TOML; name names a project that gives none. With wait, waits up to timeout seconds for every job's first pass, raising if one fails. Returns the project's status, as status()`)
 
 	builder.FunctionWithHelp("stop", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		if err := errors.ExactArgs(args, 1); err != nil {
-			return err
-		}
-		name, err := args[0].AsString()
+		name, err := syncNameArg(kwargs, args)
 		if err != nil {
-			return errors.ParameterError("name", err)
+			return err
 		}
 		a, errObj := agentFor(ctx)
 		if errObj != nil {
@@ -213,12 +222,9 @@ func GetSyncLibrary(inSpace bool) *object.Library {
 	}, `list() - The sync projects running in this space, the template's included, each as status() returns it`)
 
 	builder.FunctionWithHelp("status", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		if err := errors.ExactArgs(args, 1); err != nil {
-			return err
-		}
-		name, err := args[0].AsString()
+		name, err := syncNameArg(kwargs, args)
 		if err != nil {
-			return errors.ParameterError("name", err)
+			return err
 		}
 		a, errObj := agentFor(ctx)
 		if errObj != nil {
@@ -327,4 +333,20 @@ func toObject(v interface{}) object.Object {
 		return &object.Error{Message: err.Error()}
 	}
 	return o
+}
+
+// syncNameArg is stop/status's one name argument, positional or name=.
+func syncNameArg(kwargs object.Kwargs, args []object.Object) (string, object.Object) {
+	if err := errors.MaxArgs(args, 1); err != nil {
+		return "", err
+	}
+	v := argOrKwarg(args, kwargs, 0, "name")
+	if v == nil {
+		return "", &object.Error{Message: "a sync project name is required"}
+	}
+	name, err := v.AsString()
+	if err != nil {
+		return "", errors.ParameterError("name", err)
+	}
+	return name, nil
 }

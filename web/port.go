@@ -260,6 +260,8 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 			LatencyMs:   fwd.LatencyMs,
 			JitterMs:    fwd.JitterMs,
 			BandwidthKB: fwd.BandwidthKB,
+			TimeoutMs:   fwd.TimeoutMs,
+			Down:        fwd.Down,
 		})
 	}
 
@@ -568,11 +570,21 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			} else if !resp.Success {
 				errors = append(errors, fmt.Sprintf("Failed to stop port %d: %s", port, resp.Error))
 			} else {
+				mode := current.Mode
+				if mode == "" {
+					mode = "—"
+				}
 				stopped = append(stopped, apiclient.PortForwardInfo{
-					LocalPort:  current.LocalPort,
-					Space:      current.Space,
-					RemotePort: current.RemotePort,
-					Persistent: current.Persistent,
+					LocalPort:   current.LocalPort,
+					Space:       current.Space,
+					RemotePort:  current.RemotePort,
+					Persistent:  current.Persistent,
+					Mode:        mode,
+					LatencyMs:   current.LatencyMs,
+					JitterMs:    current.JitterMs,
+					BandwidthKB: current.BandwidthKB,
+					TimeoutMs:   current.TimeoutMs,
+					Down:        current.Down,
 				})
 			}
 		}
@@ -597,11 +609,14 @@ func HandlePortApply(w http.ResponseWriter, r *http.Request) {
 			} else if !resp.Success {
 				errors = append(errors, fmt.Sprintf("Failed to forward port %d: %s", fwd.LocalPort, resp.Error))
 			} else {
+				// A forward just started has carried no connection yet and
+				// has no throttle
 				applied = append(applied, apiclient.PortForwardInfo{
 					LocalPort:  uint16(fwd.LocalPort),
 					Space:      fwd.TargetRef,
 					RemotePort: uint16(fwd.RemotePort),
 					Persistent: fwd.Persistent,
+					Mode:       "—",
 				})
 			}
 		}

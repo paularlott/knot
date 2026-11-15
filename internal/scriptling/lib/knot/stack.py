@@ -24,8 +24,12 @@ def _enc(s):
 
 # ── Definition Management ──────────────────────────────────────────────
 
-def list_defs():
+def list_defs(include_inactive=False):
     """List all stack definitions visible to the current user.
+
+    Args:
+        include_inactive: If True, include inactive definitions. Default
+            False (only active definitions are returned).
 
     Returns:
         A list of dicts, each containing:
@@ -40,7 +44,7 @@ def list_defs():
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get("/api/stack-definitions")
+    response = api.get("/api/stack-definitions?include_inactive=true" if include_inactive else "/api/stack-definitions")
 
     result = []
     for defn in response.get("stack_definitions", []):
@@ -101,7 +105,7 @@ def create_def(name, description="", icon_url="", scope="user", active=True, gro
         icon_url: Optional icon URL
         scope: "user" or "global" (default: "user")
         active: Whether the definition is active (default: True)
-        groups: List of group names allowed to create instances (global scope only)
+        groups: List of group IDs allowed to create instances (global scope only)
         zones: List of zone restrictions
         spaces: List of space dicts, each containing:
             - name: Space identifier (used in prefix-name naming and dependency references)
@@ -253,7 +257,7 @@ def add_component(stack_definition, template, name, description="", shell="",
         duplicate, or the API rejects the update
     """
     defn = get_def(stack_definition)
-    spaces = defn.get("spaces", [])
+    spaces = defn.get("spaces") or []
 
     for s in spaces:
         if s.get("name") == name:
@@ -298,7 +302,7 @@ def remove_component(stack_definition, name):
         Exception if the component is not found or the API rejects the update
     """
     defn = get_def(stack_definition)
-    spaces = defn.get("spaces", [])
+    spaces = defn.get("spaces") or []
 
     new_spaces = [s for s in spaces if s.get("name") != name]
 
@@ -309,8 +313,8 @@ def remove_component(stack_definition, name):
         )
 
     for s in new_spaces:
-        s["depends_on"] = [d for d in s.get("depends_on", []) if d != name]
-        s["port_forwards"] = [pf for pf in s.get("port_forwards", []) if pf.get("to_space") != name]
+        s["depends_on"] = [d for d in (s.get("depends_on") or []) if d != name]
+        s["port_forwards"] = [pf for pf in (s.get("port_forwards") or []) if pf.get("to_space") != name]
 
     update_def(stack_definition, spaces=new_spaces)
     return True
@@ -409,7 +413,30 @@ def create(definition_name, prefix, stack_name=None):
     return {"spaces": space_map}
 
 
-def delete(stack_name):
+def _user_query(user_id):
+    """The ?user_id= query naming another user's stack, or ""."""
+    return f"?user_id={_enc(user_id)}" if user_id else ""
+
+
+def exists(stack_name, user_id=None):
+    """Check whether a stack has any spaces.
+
+    Args:
+        stack_name: Stack name
+        user_id: Optional ID of the user whose stack it is; another user's
+            needs the manage spaces permission. Default: the current user.
+
+    Returns:
+        True if at least one space belongs to the stack, else False
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    response = api.get(f"/api/stacks/{_enc(stack_name)}/exists" + _user_query(user_id))
+    return bool(response.get("exists", False)) if response else False
+
+
+def delete(stack_name, user_id=None):
     """Delete all spaces in a stack.
 
     The server validates that every space in the stack is stoppable before
@@ -417,6 +444,8 @@ def delete(stack_name):
 
     Args:
         stack_name: Stack name
+        user_id: Optional ID of the user whose stack it is; another user's
+            needs the manage spaces permission. Default: the current user.
 
     Returns:
         True if successful
@@ -424,15 +453,17 @@ def delete(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    api.delete(f"/api/stacks/{_enc(stack_name)}")
+    api.delete(f"/api/stacks/{_enc(stack_name)}" + _user_query(user_id))
     return True
 
 
-def start(stack_name):
+def start(stack_name, user_id=None):
     """Start all spaces in a stack in dependency order.
 
     Args:
         stack_name: Stack name
+        user_id: Optional ID of the user whose stack it is; another user's
+            needs the manage spaces permission. Default: the current user.
 
     Returns:
         True if successful
@@ -440,15 +471,17 @@ def start(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/start", {})
+    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/start" + _user_query(user_id), {})
     return True
 
 
-def stop(stack_name):
+def stop(stack_name, user_id=None):
     """Stop all spaces in a stack in reverse dependency order.
 
     Args:
         stack_name: Stack name
+        user_id: Optional ID of the user whose stack it is; another user's
+            needs the manage spaces permission. Default: the current user.
 
     Returns:
         True if successful
@@ -456,15 +489,17 @@ def stop(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/stop", {})
+    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/stop" + _user_query(user_id), {})
     return True
 
 
-def restart(stack_name):
+def restart(stack_name, user_id=None):
     """Restart all spaces in a stack.
 
     Args:
         stack_name: Stack name
+        user_id: Optional ID of the user whose stack it is; another user's
+            needs the manage spaces permission. Default: the current user.
 
     Returns:
         True if successful
@@ -472,7 +507,7 @@ def restart(stack_name):
     Raises:
         Exception if not configured or on API error
     """
-    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/restart", {})
+    api.post(f"/api/spaces/stacks/{_enc(stack_name)}/restart" + _user_query(user_id), {})
     return True
 
 

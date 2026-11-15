@@ -93,7 +93,14 @@ func HandleRunCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := <-responseChannel
+	// Wait for the agent, but no longer than the request: an in-process
+	// caller (an AI-written script) cancels it at its time limit, and an
+	// HTTP client that has gone away has no one to answer.
+	response, err := awaitAgent(r.Context(), responseChannel)
+	if err != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "the request ended before the command finished; it may still be running in the space"})
+		return
+	}
 	if response == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return

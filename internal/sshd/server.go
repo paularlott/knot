@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/build"
@@ -177,12 +178,25 @@ func executeNonPtyCommand(s ssh.Session, command string) {
 // client goes away. A command left behind by a client that disconnects is hung up, as
 // OpenSSH does, so a shell gets to save its history rather than lingering.
 func runPtySession(s ssh.Session, cmd *exec.Cmd, tty *os.File, winCh <-chan ssh.Window) {
-	// The pty has to stay open until the command has exited, see util.HangUpShell
-	defer tty.Close()
+	// The pty has to stay open until the command has exited, see util.HangUpShell. A
+	// window change can still arrive as it closes: it is skipped once the pty is closed,
+	// rather than reaching for a descriptor that is going away.
+	var ttyMu sync.Mutex
+	ttyClosed := false
+	defer func() {
+		ttyMu.Lock()
+		ttyClosed = true
+		tty.Close()
+		ttyMu.Unlock()
+	}()
 
 	go func() {
 		for win := range winCh {
-			setWinsize(tty, win.Width, win.Height)
+			ttyMu.Lock()
+			if !ttyClosed {
+				setWinsize(tty, win.Width, win.Height)
+			}
+			ttyMu.Unlock()
 		}
 	}()
 	go io.Copy(tty, s) // stdin

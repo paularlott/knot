@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -88,6 +89,21 @@ func HandleGetMCPServer(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, toMCPServerDetails(server))
 }
 
+// validateMCPServerNamespace checks a user MCP server's namespace: required,
+// and valid. Every remote tool name carries it, which keeps remote tools
+// apart from knot's own.
+func validateMCPServerNamespace(namespace string) error {
+	if strings.TrimSpace(namespace) == "" {
+		return errors.New("Namespace is required")
+	}
+	// The MCP client trims a namespace, so one with spaces around it would
+	// not be the namespace its tools carry.
+	if strings.TrimSpace(namespace) != namespace {
+		return errors.New("Namespace must not start or end with spaces")
+	}
+	return mcp.ValidateNamespace(namespace)
+}
+
 func HandleCreateMCPServer(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
@@ -98,9 +114,7 @@ func HandleCreateMCPServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.Namespace == "" {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Namespace is required"})
-	} else if err := mcp.ValidateNamespace(request.Namespace); err != nil {
+	if err := validateMCPServerNamespace(request.Namespace); err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -204,6 +218,13 @@ func HandleUpdateMCPServer(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.MCPServerUpdateRequest{}
 	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// The namespace is required on update as on create: a server without
+	// one would answer knot's own tool names.
+	if err := validateMCPServerNamespace(request.Namespace); err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}

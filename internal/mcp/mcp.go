@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/paularlott/mcp"
@@ -121,6 +122,14 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 			if info := tokenInfoFromRequest(ctx); info != nil {
 				ctx = mcp.WithTokenInfo(ctx, info)
 			}
+
+			// Tool calls here are approved by the MCP client, which asks
+			// before a tool marked destructive (run_script's write mode
+			// relies on it). run_script still refuses write mode when the
+			// request came with an API token limited to scopes such as mcp:
+			// a write-mode script reaches far more of the API than those
+			// scopes grant. OAuth connections may use write mode.
+			ctx = mcptools.WithSurface(ctx, mcptools.SurfaceMCP)
 
 			// Attach providers and apply show-all mode (X-MCP-Show-All / ?show_all) in one step
 			ctx = mcp.WithShowAllFromRequest(ctx, r, providers...)

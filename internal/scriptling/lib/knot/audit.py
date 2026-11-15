@@ -22,7 +22,7 @@ def list(start=0, max_items=10, q="", actor="", actor_type="", event="", from_ti
         q: Full-text search across actor, event, and details
         actor: Filter by actor name (exact match)
         actor_type: Filter by actor type (User, System, MCP)
-        event: Filter by event type (exact match)
+        event: Filter by event type (case-insensitive substring match)
         from_time: Start of date range (RFC3339 string)
         to_time: End of date range (RFC3339 string)
 
@@ -65,7 +65,7 @@ def search(q, start=0, max_items=10, actor="", actor_type="", event="", from_tim
         max_items: Maximum number of items to return (default: 10)
         actor: Filter by actor name (exact match)
         actor_type: Filter by actor type (User, System, MCP)
-        event: Filter by event type (exact match)
+        event: Filter by event type (case-insensitive substring match)
         from_time: Start of date range (RFC3339 string)
         to_time: End of date range (RFC3339 string)
 
@@ -79,6 +79,44 @@ def search(q, start=0, max_items=10, actor="", actor_type="", event="", from_tim
     """
     return list(start=start, max_items=max_items, q=q, actor=actor,
                 actor_type=actor_type, event=event, from_time=from_time, to_time=to_time)
+
+
+def export(format="json", q="", actor="", actor_type="", event="", from_time="", to_time=""):
+    """Export every matching audit log entry, unpaged. Needs the download
+    audit logs permission.
+
+    Args:
+        format: "json" (default) for a list of entry dicts, or "csv" for the
+            CSV text the web UI downloads (columns time, zone, actor,
+            actor_type, event, details)
+        q: Full-text search across actor, event, and details
+        actor: Filter by actor name (exact match)
+        actor_type: Filter by actor type (User, System, MCP)
+        event: Filter by event type (case-insensitive substring match)
+        from_time: Start of date range (RFC3339 string)
+        to_time: End of date range (RFC3339 string)
+
+    Returns:
+        For "json", a list of audit log entry dicts (as list() returns in
+        items); for "csv", a string
+
+    Raises:
+        Exception if format is not "json" or "csv", you lack the permission,
+        or on API error
+    """
+    if format not in ("json", "csv"):
+        raise Exception("format must be \"json\" or \"csv\"")
+    import urllib.parse
+    query = "format=" + format
+    for key, value in (("q", q), ("actor", actor), ("actor_type", actor_type),
+                       ("event", event), ("from", from_time), ("to", to_time)):
+        if value:
+            query += "&" + key + "=" + urllib.parse.quote(str(value), safe='')
+    if format == "csv":
+        data = api.get_bytes("/api/audit-logs/export?" + query)
+        return data.decode("utf-8") if isinstance(data, bytes) else str(data)
+    response = api.get("/api/audit-logs/export?" + query)
+    return [_parse_entry(e) for e in response or []]
 
 
 def _parse_entry(entry):

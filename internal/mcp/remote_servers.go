@@ -65,7 +65,9 @@ func (p *remoteServerProvider) enabledServers() ([]*model.MCPServer, error) {
 	}
 	enabled := make([]*model.MCPServer, 0, len(servers))
 	for _, server := range servers {
-		if !server.IsDeleted && server.Enabled {
+		// A server with no namespace would publish bare names, which are
+		// knot's own (see bareNameFor): it is skipped until given one.
+		if !server.IsDeleted && server.Enabled && server.Namespace != "" {
 			enabled = append(enabled, server)
 		}
 	}
@@ -229,18 +231,17 @@ func (p *remoteServerProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, err
 // namespace, and the bare (un-namespaced) name to use when calling that
 // server directly. Shared by ExecuteTool and ToolSource so they resolve a
 // namespaced name to a server identically. Strict matching, no guessing: a
-// namespaced server answers only its own ns__name, and a server with no
-// namespace answers bare names only — a name carrying someone else's
-// namespace never routes here.
+// server answers only its own ns__name. A server with no namespace (left
+// from before one was required) answers nothing: an un-namespaced name is
+// one of knot's own tools, and taking it for a remote server's would let a
+// view mounted from that server call knot's tools, or run knot's tool
+// calls on the remote server.
 func bareNameFor(server *model.MCPServer, name string) (bareName string, ok bool) {
 	if server.Namespace == "" {
-		if strings.Contains(name, mcp.DefaultNamespaceSeparator) {
-			return "", false
-		}
-		return name, true
+		return "", false
 	}
 	prefix := server.Namespace + mcp.DefaultNamespaceSeparator
-	if strings.HasPrefix(name, prefix) {
+	if strings.HasPrefix(name, prefix) && len(name) > len(prefix) {
 		return strings.TrimPrefix(name, prefix), true
 	}
 	return "", false

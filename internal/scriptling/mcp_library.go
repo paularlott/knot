@@ -61,18 +61,41 @@ func buildMCPLibrary(m *mcpLibrary, client *apiclient.ApiClient, mcpParams map[s
 	}, "list_tools() - Get list of available MCP tools and their parameters.")
 
 	builder.FunctionWithHelp("call_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return mcpCallTool(ctx, client, args...)
+		return mcpCallTool(ctx, client, mcpPositional(kwargs, args, "name", "arguments")...)
 	}, "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.")
 
 	builder.FunctionWithHelp("tool_search", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return mcpToolSearch(ctx, client, kwargs.Kwargs, args...)
+		return mcpToolSearch(ctx, client, nil, mcpPositional(kwargs, args, "query", "max_results")...)
 	}, "tool_search(query, max_results=10) - Search for tools by keyword. Returns list of matching tools.")
 
 	builder.FunctionWithHelp("execute_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return mcpExecuteTool(ctx, client, args...)
+		return mcpExecuteTool(ctx, client, mcpPositional(kwargs, args, "name", "arguments")...)
 	}, "execute_tool(name, arguments) - Execute a discovered tool. Arguments should be a dict.")
 
 	return builder.Build()
+}
+
+// mcpPositional folds keyword arguments into positional order, matching the
+// Python library's signatures (call_tool(name, arguments),
+// tool_search(query, max_results=10)): a keyword fills its slot when the
+// positional is absent. Unfilled slots before a filled one are nil.
+func mcpPositional(kwargs object.Kwargs, args []object.Object, names ...string) []object.Object {
+	out := append([]object.Object{}, args...)
+	for i, name := range names {
+		v := kwargs.Get(name)
+		if v == nil || i < len(args) {
+			continue
+		}
+		for len(out) <= i {
+			out = append(out, nil)
+		}
+		out[i] = v
+	}
+	// Drop trailing unfilled slots so the length checks still apply.
+	for len(out) > 0 && out[len(out)-1] == nil {
+		out = out[:len(out)-1]
+	}
+	return out
 }
 
 // mcpListTools fetches available tools via API for local/remote environments
@@ -120,7 +143,7 @@ func mcpListTools(ctx context.Context, client *apiclient.ApiClient, args ...obje
 
 // mcpCallTool calls a tool via API for local/remote environments
 func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
-	if len(args) < 2 {
+	if len(args) < 2 || args[0] == nil || args[1] == nil {
 		return &object.Error{Message: "call_tool() requires tool name and arguments"}
 	}
 
@@ -170,7 +193,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, args ...objec
 
 // mcpToolSearch searches for tools by keyword via API
 func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	if len(args) < 1 {
+	if len(args) < 1 || args[0] == nil {
 		return &object.Error{Message: "tool_search() requires a search query"}
 	}
 
@@ -184,11 +207,17 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 		return err
 	}
 
-	// Get optional max_results from kwargs (default: 10)
+	// Optional max_results, positional or max_results= (default: 10)
 	maxResults := 10
-	if maxResultsObj, found := kwargs["max_results"]; found {
-		if maxResultsInt, err := maxResultsObj.AsInt(); err == nil {
-			maxResults = int(maxResultsInt)
+	maxResultsObj, found := kwargs["max_results"]
+	if !found && len(args) > 1 && args[1] != nil {
+		maxResultsObj, found = args[1], true
+	}
+	if found {
+		if _, isNull := maxResultsObj.(*object.Null); !isNull {
+			if maxResultsInt, err := maxResultsObj.AsInt(); err == nil {
+				maxResults = int(maxResultsInt)
+			}
 		}
 	}
 
@@ -239,7 +268,7 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 
 // mcpExecuteTool executes a discovered tool via API
 func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
-	if len(args) < 2 {
+	if len(args) < 2 || args[0] == nil || args[1] == nil {
 		return &object.Error{Message: "execute_tool() requires tool name and arguments"}
 	}
 

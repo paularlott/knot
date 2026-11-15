@@ -110,6 +110,9 @@ BACKUP_SERVER = 50
 # Personal Secrets (Pro)
 USE_USER_SECRETS = 51
 
+# AI Tools
+RUN_AI_SCRIPTS = 52
+
 # Aliases for convenience
 SPACE_MANAGE = MANAGE_SPACES
 SPACE_USE = USE_SPACES

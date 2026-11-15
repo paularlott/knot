@@ -38,14 +38,14 @@ func SetMethodsUnregisterAll(fn func() error) {
 }
 
 // RegisterMethodLibraries registers knot.methods and knot.methods.schema on a
-// scriptling env. This is opt-in: daemon-side script execution contexts
-// (startup scripts via CmdExecuteScript, `knot methods register file.py`)
-// call this so scripts running in the agent can register methods. CLI-side
-// contexts (e.g. `knot run-script`) do not call it — those scripts cannot
-// even import knot.methods, which makes the agent/CLI boundary explicit.
-// Registering the libraries is independent of methodsRegistrar: the libraries
-// give scripts a way to call Server(...).register(), and methodsRegistrar
-// (installed once at daemon startup) is what register() actually invokes.
+// scriptling env. The agent-side envs (service.NewAgentScriptlingEnv: the
+// agent daemon and `knot run-script` inside a space) register them directly;
+// server-side envs (MCP tools, AI-written scripts, event sinks, plugins) do
+// not, so scripts there cannot import knot.methods. Registering the libraries
+// is independent of methodsRegistrar: the libraries give scripts a way to
+// call Server(...).register(), and methodsRegistrar (installed by the agent
+// daemon, or by `knot run-script`, which forwards to the daemon) is what
+// register() actually invokes; without it register() raises.
 func RegisterMethodLibraries(env *scriptling.Scriptling) {
 	env.RegisterLibrary(GetMethodsLibrary())
 	env.RegisterLibrary(GetMethodsSchemaLibrary())
@@ -218,8 +218,24 @@ func buildServerClass() *object.Class {
 	// everything). With a name: removes that method from the local registration
 	// and re-publishes the reduced set via methodsRegistrar.
 	cb.MethodWithHelp("unregister", func(self *serverState, ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		// No args — unregister all.
-		if len(args) == 0 {
+		// The name may be given positionally or as name=; None means all.
+		var nameObj object.Object
+		if v := kwargs.Get("name"); v != nil {
+			nameObj = v
+		} else if len(args) > 0 {
+			nameObj = args[0]
+		}
+		if _, isNull := nameObj.(*object.Null); isNull {
+			nameObj = nil
+		}
+		for _, k := range kwargs.Keys() {
+			if k != "name" {
+				return &object.Error{Message: fmt.Sprintf("unregister() unknown kwarg %q", k)}
+			}
+		}
+
+		// No name — unregister all.
+		if nameObj == nil {
 			if methodsUnregisterAll == nil {
 				return &object.Error{Message: "method registration is not available in this environment"}
 			}
@@ -233,7 +249,7 @@ func buildServerClass() *object.Class {
 		if methodsRegistrar == nil {
 			return &object.Error{Message: "method registration is not available in this environment"}
 		}
-		name, errObj := args[0].AsString()
+		name, errObj := nameObj.AsString()
 		if errObj != nil {
 			return errors.ParameterError("name", errObj)
 		}

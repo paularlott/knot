@@ -101,6 +101,9 @@ const (
 	AuditEventScriptUpdate  = "Script Update"
 	AuditEventScriptDelete  = "Script Delete"
 	AuditEventScriptExecute = "Script Execute"
+	// AuditEventAIScriptRun records one run of a script the AI assistant
+	// wrote (the run_script MCP tool): mode, purpose, outcome and the code.
+	AuditEventAIScriptRun = "AI Script Run"
 
 	// Skills
 	AuditEventSkillCreate = "Skill Create"

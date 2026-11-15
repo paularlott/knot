@@ -7,10 +7,12 @@ import (
 
 	"github.com/paularlott/knot/internal/database/model"
 	internalmcp "github.com/paularlott/knot/internal/mcp"
+	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/util/rest"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/toolsurface"
 )
 
 type Service struct {
@@ -45,7 +47,9 @@ func (s *Service) HandleGetModels(w http.ResponseWriter, r *http.Request) {
 
 // Handles POST /v1/chat/completions
 func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	// Tools run here with no one to ask: no approval, even one inherited
+	// from an in-process caller, may reach them.
+	ctx := toolsurface.Strip(r.Context())
 
 	var req ChatCompletionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -66,7 +70,7 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 	// URIs are listed so a tool-executing model (scriptling's knot.mcp) can
 	// still read them.
 	user, _ := ctx.Value("user").(*model.User)
-	skillsPrompt := internalmcp.BuildSkillsPrompt(ctx, user, "")
+	skillsPrompt := internalmcp.BuildSkillsPrompt(ctx, user, "") + systemprompt.CustomScriptsBlock(user)
 	req.Messages = s.replaceSystemPrompt(req.Messages, skillsPrompt)
 
 	if req.Stream {

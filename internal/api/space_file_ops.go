@@ -82,7 +82,11 @@ func HandleGrep(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("Failed to send grep to agent: %v", err)})
 		return
 	}
-	resp := <-ch
+	resp, waitErr := awaitAgent(r.Context(), ch)
+	if waitErr != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "Request ended before the agent replied: " + waitErr.Error()})
+		return
+	}
 	if resp == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
@@ -117,7 +121,11 @@ func HandleFind(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("Failed to send find to agent: %v", err)})
 		return
 	}
-	resp := <-ch
+	resp, waitErr := awaitAgent(r.Context(), ch)
+	if waitErr != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "Request ended before the agent replied: " + waitErr.Error()})
+		return
+	}
 	if resp == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
@@ -152,7 +160,11 @@ func HandleSed(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("Failed to send sed to agent: %v", err)})
 		return
 	}
-	resp := <-ch
+	resp, waitErr := awaitAgent(r.Context(), ch)
+	if waitErr != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "Request ended before the agent replied: " + waitErr.Error()})
+		return
+	}
 	if resp == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
@@ -185,7 +197,11 @@ func HandleEditFile(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("Failed to send edit to agent: %v", err)})
 		return
 	}
-	resp := <-ch
+	resp, waitErr := awaitAgent(r.Context(), ch)
+	if waitErr != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "Request ended before the agent replied: " + waitErr.Error()})
+		return
+	}
 	if resp == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return
@@ -222,7 +238,11 @@ func HandleDeleteSpaceFile(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("Failed to send delete to agent: %v", err)})
 		return
 	}
-	resp := <-ch
+	resp, waitErr := awaitAgent(r.Context(), ch)
+	if waitErr != nil {
+		rest.WriteResponse(http.StatusGatewayTimeout, w, r, ErrorResponse{Error: "Request ended before the agent replied: " + waitErr.Error()})
+		return
+	}
 	if resp == nil {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "No response from agent"})
 		return

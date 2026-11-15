@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/toolsurface"
 	"github.com/paularlott/mcp"
 )
 
@@ -28,7 +29,10 @@ type SkillProviders func(ctx context.Context, user *model.User) (skills mcp.Skil
 func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProvider, skillProviders SkillProviders) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
+			// Tools called through these endpoints (scriptling's knot.mcp,
+			// the OpenAI compatible endpoints) have no one to ask, so they
+			// carry no tool-call surface, even one inherited from a caller.
+			ctx := toolsurface.Strip(r.Context())
 
 			// Add MCP server to context
 			ctx = context.WithValue(ctx, "mcp", mcpServer)

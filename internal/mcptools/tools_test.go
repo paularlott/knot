@@ -189,6 +189,14 @@ func TestAllToolsConformToSchema(t *testing.T) {
 				}
 			}
 
+			// A Go tool has a registered handler and no script.
+			if tool.Handler != nil {
+				if tool.Script != "" {
+					t.Errorf("Go tool has a script")
+				}
+				return
+			}
+
 			// Python script sanity
 			script := tool.Script
 			if script == "" {

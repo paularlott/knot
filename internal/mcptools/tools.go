@@ -1,6 +1,7 @@
 package mcptools
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/lmchatkit"
 	"github.com/paularlott/mcp"
 	"github.com/paularlott/mcp/toolmetadata"
 	"github.com/paularlott/scriptling/conversion"
@@ -22,6 +24,18 @@ type Tool struct {
 	Script           string
 	Metadata         *toolmetadata.ToolMetadata
 	RequiresApproval bool
+	// AlwaysConfirm is the tool's always_confirm setting (ParseAlwaysConfirm),
+	// published in its tools/list _meta; nil when unset.
+	AlwaysConfirm any
+	// Handler is set for a tool implemented in Go (handler = "go" in its
+	// TOML, see go_tools.go), which has no script.
+	Handler GoToolHandler
+}
+
+// ModelOnly reports whether only the model may call the tool, not an MCP
+// Apps view: tools that need the user's approval.
+func (t *Tool) ModelOnly() bool {
+	return t.RequiresApproval || t.AlwaysConfirm != nil
 }
 
 var (
@@ -92,6 +106,25 @@ func LoadTools(toolsPath string, disabledTools []string) error {
 			return nil
 		}
 
+		// A Go tool's handler is built in; it has no script.
+		if ParseHandler(tomlData) == "go" {
+			handler, ok := goToolHandlers[toolName]
+			if !ok {
+				log.WithGroup("mcptools").Error("No Go handler for tool", "path", path)
+				failed++
+				return nil
+			}
+			registry[toolName] = &Tool{
+				Name:             toolName,
+				Metadata:         metadata,
+				RequiresApproval: ParseRequiresApproval(tomlData),
+				AlwaysConfirm:    ParseAlwaysConfirm(tomlData),
+				Handler:          handler,
+			}
+			loaded++
+			return nil
+		}
+
 		// Load corresponding .py file
 		scriptPath := strings.TrimSuffix(path, ".toml") + ".py"
 		scriptData, err := fs.ReadFile(toolFS, scriptPath)
@@ -107,6 +140,7 @@ func LoadTools(toolsPath string, disabledTools []string) error {
 			Script:           string(scriptData),
 			Metadata:         metadata,
 			RequiresApproval: ParseRequiresApproval(tomlData),
+			AlwaysConfirm:    ParseAlwaysConfirm(tomlData),
 		}
 		loaded++
 
@@ -148,9 +182,18 @@ func ListTools() []*Tool {
 }
 
 func ExecuteTool(name string, params map[string]interface{}, user *model.User) (interface{}, error) {
+	return ExecuteToolContext(context.Background(), name, params, user)
+}
+
+// ExecuteToolContext runs a built-in tool. ctx is the MCP request's: Go
+// tools read the calling surface from it.
+func ExecuteToolContext(ctx context.Context, name string, params map[string]interface{}, user *model.User) (interface{}, error) {
 	tool, ok := GetTool(name)
 	if !ok {
 		return nil, fmt.Errorf("tool not found: %s", name)
+	}
+	if tool.Handler != nil {
+		return tool.Handler(ctx, params, user)
 	}
 
 	// Convert params to scriptling objects for mcp library
@@ -195,8 +238,7 @@ func GetMCPTools(visibility string) []mcp.MCPTool {
 		if err != nil {
 			continue
 		}
-		mcpTool := toolBuilder.ToMCPTool()
-		tools = append(tools, mcpTool)
+		tools = append(tools, tool.mcpTool(toolBuilder))
 	}
 
 	return tools
@@ -213,9 +255,29 @@ func GetAllMCPTools() []mcp.MCPTool {
 		if err != nil {
 			continue
 		}
-		mcpTool := toolBuilder.ToMCPTool()
-		tools = append(tools, mcpTool)
+		tools = append(tools, tool.mcpTool(toolBuilder))
 	}
 
 	return tools
+}
+
+// mcpTool builds the tools/list entry for a built-in tool, adding its
+// always_confirm rule to _meta for the web assistant. A tool that needs the
+// user's approval (requires_approval or always_confirm, run_script among
+// them) is published with _meta.ui.visibility ["model"]: only the model may
+// call it, never an MCP Apps view, which calls tools with no one asked.
+func (t *Tool) mcpTool(builder *mcp.ToolBuilder) mcp.MCPTool {
+	if t.ModelOnly() {
+		builder.Visibility("model")
+	}
+	mcpTool := builder.ToMCPTool()
+	if t.AlwaysConfirm != nil {
+		meta := make(map[string]any, len(mcpTool.Meta)+1)
+		for k, v := range mcpTool.Meta {
+			meta[k] = v
+		}
+		meta[lmchatkit.AlwaysConfirmMetaKey] = t.AlwaysConfirm
+		mcpTool.Meta = meta
+	}
+	return mcpTool
 }

@@ -20,7 +20,8 @@ def _parse_member(member):
         "combined_rps": member.get("combined_rps", 0),
         "method_rps": member.get("method_rps", 0),
         "http_rps": member.get("http_rps", 0),
-        "tcp_rps": member.get("tcp_rps", 0),
+        # The API's member JSON key is "tcprps" (apiclient.PoolMemberInfo).
+        "tcp_rps": member.get("tcprps", member.get("tcp_rps", 0)),
         "method_inflight": member.get("method_inflight", 0),
         "cpu_percent": member.get("cpu_percent", 0),
         "memory_percent": member.get("memory_percent", 0),
@@ -57,14 +58,14 @@ def _parse_pool(pool):
             "avg_cpu_percent": util.get("avg_cpu_percent", 0),
             "avg_memory_percent": util.get("avg_memory_percent", 0),
         },
-        "members": [_parse_member(member) for member in pool.get("members", [])],
+        "members": [_parse_member(member) for member in (pool.get("members") or [])],
     }
 
 
 def list():
     """List visible pools with utilization."""
     response = api.get("/api/pools")
-    return [_parse_pool(pool) for pool in response.get("pools", [])]
+    return [_parse_pool(pool) for pool in (response.get("pools") or [])]
 
 
 def get(name):
@@ -246,7 +247,7 @@ def release(space, destroy=False):
 def leases(name):
     """List the pool's held leases — active plus draining."""
     response = api.get(f"/api/pools/{_enc(name)}/leases")
-    return [_parse_lease(lease) for lease in response.get("leases", [])]
+    return [_parse_lease(lease) for lease in (response.get("leases") or [])]
 
 
 class leased:

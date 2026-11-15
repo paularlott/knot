@@ -538,6 +538,9 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Computed the same way as the list handler
+	data.RuntimeAvailable = service.TemplateRuntimeAvailable(template)
+
 	rest.WriteResponse(http.StatusOK, w, r, data)
 }
 

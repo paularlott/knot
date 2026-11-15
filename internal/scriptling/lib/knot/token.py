@@ -1,8 +1,8 @@
 # knot.token - API token management library for the Knot server
 #
 # Tokens carry the creating user's permissions, optionally narrowed by
-# scopes: a token scoped to "methods", "mcp", "tunnels" and/or "files" can reach
-# only those endpoint groups; no scopes means full access.
+# scopes: a token scoped to "methods", "mcp", "tunnels", "files" and/or "backup"
+# can reach only those endpoint groups; no scopes means full access.
 
 import knot.apiclient as api
 import urllib.parse
@@ -48,8 +48,9 @@ def create(name, scopes=None):
         scopes: Optional list narrowing the token to endpoint groups —
             "methods" (/api/methods*), "mcp" (/mcp), "tunnels"
             (/tunnel/* and /api/tunnels*: create, list and delete tunnels
-            only) and "files" (/api/files*, and S3 on Knot Pro). None or
-            empty means full access. A tunnels-only key is
+            only), "files" (/api/files*, and S3 on Knot Pro) and "backup"
+            (/api/backup* and /api/restore*: for a backup job's token). None
+            or empty means full access. A tunnels-only key is
             what a machine that should do nothing but expose a port wants.
 
     Returns:
@@ -66,6 +67,33 @@ def create(name, scopes=None):
 
     response = api.post("/api/tokens", body)
     return response.get("token_id")
+
+
+def update(token_id, name=None, scopes=None):
+    """Rename an API token or change its scopes; only the arguments given change.
+
+    Args:
+        token_id: The token's value, from create or list
+        name: New name for the token
+        scopes: New scope list (see create); [] clears the scopes, giving
+            the token full access
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if the token is not one of yours, the name or a scope is
+        invalid, or on API error
+    """
+    body = {}
+    if name is not None:
+        body["name"] = name
+    if scopes is not None:
+        body["scopes"] = scopes
+    if not body:
+        return True
+    api.put(f"/api/tokens/{_enc(token_id)}", body)
+    return True
 
 
 def delete(token_id):

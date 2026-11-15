@@ -35,10 +35,15 @@ def list(space):
 def run(space, name):
     """Trigger a job immediately by name.
 
+    Args:
+        space: Space name or ID.
+        name: Job name.
+
     Works for disabled and manual-only jobs. The space must be running.
     Returns True if the job was started.
     """
-    response = api.post(f"/space-io/{_enc(space)}/jobs/run", {"name": name}, timeout=60)
+    space_id = api.get(f"/api/spaces/{_enc(space)}").get("space_id", space)
+    response = api.post(f"/space-io/{_enc(space_id)}/jobs/run", {"name": name}, timeout=60)
     if not response.get("success", False):
         raise RuntimeError(response.get("error", f"failed to run job '{name}'"))
     return True

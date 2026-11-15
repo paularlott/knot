@@ -15,7 +15,7 @@ def get_me():
 
 
 def get(user_id):
-    """Get user by ID, username, or email."""
+    """Get user by ID or username (lookup by email is not supported)."""
     response = api.get(f"/api/users/{_enc(user_id)}")
     return _parse_user(response)
 
@@ -43,8 +43,12 @@ def list(state="", zone=""):
     return result
 
 
-def create(username, email, password, active=True, max_spaces=0, compute_units=0, storage_units=0, max_tunnels=0, ssh_public_key="", github_username=""):
-    """Create a new user."""
+def create(username, email, password, active=True, max_spaces=0, compute_units=0, storage_units=0, max_tunnels=0, ssh_public_key="", github_username="", file_storage_mb=0, max_buckets=0):
+    """Create a new user.
+
+    file_storage_mb and max_buckets set the user's file storage quota and
+    bucket limit (0 = no allowance beyond what their groups grant).
+    """
     body = {
         "username": username,
         "email": email,
@@ -54,6 +58,8 @@ def create(username, email, password, active=True, max_spaces=0, compute_units=0
         "compute_units": compute_units,
         "storage_units": storage_units,
         "max_tunnels": max_tunnels,
+        "file_storage_mb": file_storage_mb,
+        "max_buckets": max_buckets,
         "ssh_public_key": ssh_public_key,
         "ssh_private_key": "",
         "github_username": github_username
@@ -63,8 +69,13 @@ def create(username, email, password, active=True, max_spaces=0, compute_units=0
     return response.get("user_id")
 
 
-def update(user_id, username=None, email=None, password=None, active=None, max_spaces=None, ssh_public_key=None, github_username=None):
-    """Update user properties."""
+def update(user_id, username=None, email=None, password=None, active=None, max_spaces=None, ssh_public_key=None, github_username=None,
+           compute_units=None, storage_units=None, max_tunnels=None, file_storage_mb=None, max_buckets=None):
+    """Update user properties.
+
+    Only the given arguments change; every other field (quotas, roles,
+    groups, shell, timezone, ...) keeps its current value.
+    """
     current = api.get(f"/api/users/{_enc(user_id)}")
 
     body = {
@@ -75,9 +86,11 @@ def update(user_id, username=None, email=None, password=None, active=None, max_s
         "groups": current.get("groups", []),
         "active": active if active is not None else current.get("active", True),
         "max_spaces": max_spaces if max_spaces is not None else current.get("max_spaces", 0),
-        "compute_units": current.get("compute_units", 0),
-        "storage_units": current.get("storage_units", 0),
-        "max_tunnels": current.get("max_tunnels", 0),
+        "compute_units": compute_units if compute_units is not None else current.get("compute_units", 0),
+        "storage_units": storage_units if storage_units is not None else current.get("storage_units", 0),
+        "max_tunnels": max_tunnels if max_tunnels is not None else current.get("max_tunnels", 0),
+        "file_storage_mb": file_storage_mb if file_storage_mb is not None else current.get("file_storage_mb", 0),
+        "max_buckets": max_buckets if max_buckets is not None else current.get("max_buckets", 0),
         "ssh_public_key": ssh_public_key if ssh_public_key is not None else current.get("ssh_public_key", ""),
         "ssh_private_key": "",
         "github_username": github_username if github_username is not None else current.get("github_username", ""),
@@ -151,11 +164,15 @@ def get_quota(user_id):
         "compute_units": response.get("compute_units", 0),
         "storage_units": response.get("storage_units", 0),
         "max_tunnels": response.get("max_tunnels", 0),
+        "file_storage_mb": response.get("file_storage_mb", 0),
+        "max_buckets": response.get("max_buckets", 0),
         "number_spaces": response.get("number_spaces", 0),
         "number_spaces_deployed": response.get("number_spaces_deployed", 0),
         "used_compute_units": response.get("used_compute_units", 0),
         "used_storage_units": response.get("used_storage_units", 0),
-        "used_tunnels": response.get("used_tunnels", 0)
+        "used_tunnels": response.get("used_tunnels", 0),
+        "used_file_storage_mb": response.get("used_file_storage_mb", 0),
+        "used_buckets": response.get("used_buckets", 0)
     }
 
 
@@ -202,6 +219,8 @@ def _parse_user(response):
         "compute_units": response.get("compute_units", 0),
         "storage_units": response.get("storage_units", 0),
         "max_tunnels": response.get("max_tunnels", 0),
+        "file_storage_mb": response.get("file_storage_mb", 0),
+        "max_buckets": response.get("max_buckets", 0),
         "preferred_shell": response.get("preferred_shell", ""),
         "timezone": response.get("timezone", ""),
         "ssh_public_key": response.get("ssh_public_key", ""),

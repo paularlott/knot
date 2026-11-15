@@ -10,7 +10,7 @@ export const knotLibraries = [
       {
         "name": "get_default_model",
         "signature": "get_default_model()",
-        "description": "Get the server-configured default model name",
+        "description": "Get the default model name. Returns \"\" in embedded contexts (the server then uses its configured default model when \"\" is passed to completion()); standalone it returns the ai_model given to knot.apiclient.configure() or KNOT_AI_MODEL, or \"\" when unset.",
         "returns": "string"
       },
       {
@@ -40,38 +40,50 @@ export const knotLibraries = [
       {
         "name": "get",
         "signature": "get(path, params, timeout)",
-        "description": "GET request to the Knot API. params is an optional dict of query parameters; waits up to timeout seconds if given, otherwise as long as the runtime allows",
-        "returns": "dict"
+        "description": "GET request to the Knot API. params is an optional dict of query parameters; waits up to timeout seconds if given, otherwise as long as the runtime allows (standalone: DEFAULT_TIMEOUT, or CONTENT_TIMEOUT for get_bytes/put_bytes; None means no limit). Returns the decoded JSON (dict or list), or None for an empty body",
+        "returns": "dict<str,> | list<Any> | None"
       },
       {
         "name": "post",
-        "signature": "post(path, body, timeout)",
-        "description": "POST request to the Knot API. body is a dict; waits up to timeout seconds if given, otherwise as long as the runtime allows",
-        "returns": "dict"
+        "signature": "post(path, body, timeout, headers)",
+        "description": "POST request to the Knot API. body is a dict; headers are extra request headers (a Content-Type given replaces application/json); waits up to timeout seconds if given, otherwise as long as the runtime allows (standalone: DEFAULT_TIMEOUT, or CONTENT_TIMEOUT for get_bytes/put_bytes; None means no limit). Returns the decoded JSON (dict or list), or None for an empty body",
+        "returns": "dict<str,> | list<Any> | None"
       },
       {
         "name": "put",
         "signature": "put(path, body, timeout)",
-        "description": "PUT request to the Knot API. body is a dict; waits up to timeout seconds if given, otherwise as long as the runtime allows",
-        "returns": "dict"
+        "description": "PUT request to the Knot API. body is a dict; waits up to timeout seconds if given, otherwise as long as the runtime allows (standalone: DEFAULT_TIMEOUT, or CONTENT_TIMEOUT for get_bytes/put_bytes; None means no limit). Returns the decoded JSON (dict or list), or None for an empty body",
+        "returns": "dict<str,> | list<Any> | None"
       },
       {
         "name": "delete",
         "signature": "delete(path, headers, timeout)",
-        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match); waits up to timeout seconds if given, otherwise as long as the runtime allows",
-        "returns": "dict"
+        "description": "DELETE request to the Knot API, with any extra request headers (such as If-Match); waits up to timeout seconds if given, otherwise as long as the runtime allows (standalone: DEFAULT_TIMEOUT, or CONTENT_TIMEOUT for get_bytes/put_bytes; None means no limit). Returns the decoded JSON (dict or list), or None for an empty body",
+        "returns": "dict<str,> | list<Any> | None"
       },
       {
         "name": "get_bytes",
         "signature": "get_bytes(path, timeout)",
-        "description": "GET request to the Knot API returning the response body as bytes (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows",
+        "description": "GET request to the Knot API returning the response body as bytes (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows (standalone: DEFAULT_TIMEOUT, or CONTENT_TIMEOUT for get_bytes/put_bytes; None means no limit)",
         "returns": "bytes"
       },
       {
         "name": "put_bytes",
         "signature": "put_bytes(path, data, content_type, timeout)",
-        "description": "PUT request to the Knot API with a string or bytes body (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows",
-        "returns": "dict"
+        "description": "PUT request to the Knot API with a string or bytes body (file content); waits up to timeout seconds if given, otherwise as long as the runtime allows (standalone: DEFAULT_TIMEOUT, or CONTENT_TIMEOUT for get_bytes/put_bytes; None means no limit). Returns the decoded JSON (dict or list), or None for an empty body",
+        "returns": "dict<str,> | list<Any> | None"
+      },
+      {
+        "name": "DEFAULT_TIMEOUT",
+        "signature": "DEFAULT_TIMEOUT",
+        "description": "Constant (Final = 30)",
+        "returns": "Final = 30"
+      },
+      {
+        "name": "CONTENT_TIMEOUT",
+        "signature": "CONTENT_TIMEOUT",
+        "description": "Constant (Final = 600)",
+        "returns": "Final = 600"
       }
     ]
   },
@@ -90,6 +102,12 @@ export const knotLibraries = [
         "signature": "search(q, start, max_items, actor, actor_type, event, from_time, to_time)",
         "description": "Search audit logs with a text query across actor, event, and details",
         "returns": "dict"
+      },
+      {
+        "name": "export",
+        "signature": "export(format, q, actor, actor_type, event, from_time, to_time)",
+        "description": "Export every matching audit log entry, unpaged (needs download audit logs). format \"json\" (default) returns a list of entry dicts; \"csv\" returns CSV text with columns time, zone, actor, actor_type, event, details",
+        "returns": "list<dict<str,>> | str"
       }
     ]
   },
@@ -174,6 +192,42 @@ export const knotLibraries = [
         "signature": "custom()",
         "description": "Get custom fields dict (sink scripts only)",
         "returns": "dict<str, str>"
+      }
+    ]
+  },
+  {
+    "module": "knot.event_sink",
+    "description": "Manage event sinks: webhook, script and json-rpc listeners for space lifecycle and custom events.",
+    "functions": [
+      {
+        "name": "list",
+        "signature": "list()",
+        "description": "List the event sinks you may manage (your own with manage events, global ones with manage global events): id, name, description, user_id, is_global, events, sink_type (\"webhook\", \"script\" or \"json-rpc\"), webhook ({url, secret (masked here), headers, body_template, skip_tls_verify} or None), script_id, active",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "get",
+        "signature": "get(name_or_id)",
+        "description": "Get an event sink by name or ID, as list() gives it but with the webhook secret in plain text. A name shared by a global sink and your own is ambiguous; give the ID",
+        "returns": "dict"
+      },
+      {
+        "name": "create",
+        "signature": "create(name, events, sink_type, description, url, secret, headers, body_template, skip_tls_verify, script, active, is_global)",
+        "description": "Create an event sink and return its ID. events are type patterns such as [\"space.started\", \"custom.myapp.*\", \"*\"]. sink_type \"webhook\" (default; POSTs to url, signed with secret, generated when empty), \"script\" (runs script, a name or ID) or \"json-rpc\" (a named formatter for subscribed methods, using body_template). is_global=True makes a global sink (needs manage global events); otherwise it is your own (needs manage events)",
+        "returns": "string"
+      },
+      {
+        "name": "update",
+        "signature": "update(name_or_id, name, description, events, sink_type, url, secret, headers, body_template, skip_tls_verify, script, active)",
+        "description": "Update an event sink; only the arguments given change, and the webhook secret is kept unless a new one is given",
+        "returns": "bool"
+      },
+      {
+        "name": "delete",
+        "signature": "delete(name_or_id)",
+        "description": "Delete an event sink by name or ID",
+        "returns": "bool"
       }
     ]
   },
@@ -300,6 +354,48 @@ export const knotLibraries = [
         "signature": "set_attrs(bucket, key, mode, mtime)",
         "description": "Change a file's permission bits (0 to 0o777; a link stays a link) or modification time (Unix seconds or an RFC 3339 string), keeping its content and other metadata. Returns the file, as stat gives it; HTTP 412 when the file changed meanwhile",
         "returns": "dict"
+      },
+      {
+        "name": "share_targets",
+        "signature": "share_targets()",
+        "description": "Users ({id, username, can_own, self}) and groups ({id, name}) your buckets can be shared with or transferred to. Needs share or transfer buckets",
+        "returns": "dict"
+      },
+      {
+        "name": "fsck",
+        "signature": "fsck(repair, deep, timeout)",
+        "description": "Check file storage (file storage administrators only); repair fixes what it can, deep verifies every content checksum. Returns buckets, files, found, repaired, issues, notes",
+        "returns": "dict"
+      },
+      {
+        "name": "start_upload",
+        "signature": "start_upload(bucket, key, content_type)",
+        "description": "Start an upload in parts of a file larger than write_file takes (64 MB); returns the upload ID",
+        "returns": "string"
+      },
+      {
+        "name": "upload_part",
+        "signature": "upload_part(bucket, key, upload_id, number, data)",
+        "description": "Send part number (from 1, in file order; at most 64 MB) of an upload; sending a number again replaces it. Returns {number, etag, size}",
+        "returns": "dict"
+      },
+      {
+        "name": "list_upload_parts",
+        "signature": "list_upload_parts(bucket, key, upload_id)",
+        "description": "The parts of an upload the server holds, {number, etag, size}, to resume a stopped upload",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "complete_upload",
+        "signature": "complete_upload(bucket, key, upload_id, parts, timeout)",
+        "description": "Make the parts (default: every part held) the file, replacing any file with that key; returns the file as stat gives it",
+        "returns": "dict"
+      },
+      {
+        "name": "abort_upload",
+        "signature": "abort_upload(bucket, key, upload_id)",
+        "description": "Discard an upload and the parts held",
+        "returns": "bool"
       }
     ]
   },
@@ -345,8 +441,8 @@ export const knotLibraries = [
       },
       {
         "name": "in_group",
-        "signature": "in_group(name)",
-        "description": "Check membership of one group.",
+        "signature": "in_group(group_id)",
+        "description": "Check membership of one group by its ID (not its name); compares against groups.",
         "returns": "bool"
       }
     ],
@@ -392,6 +488,12 @@ export const knotLibraries = [
             "returns": "list of strings"
           },
           {
+            "name": "user",
+            "signature": "user",
+            "description": "User ",
+            "returns": "User"
+          },
+          {
             "name": "has_permission",
             "signature": "has_permission(self, key: str | int)",
             "description": "Check a permission. The argument picks the check: an integer is a built-in permission id (the knot.permission constants, e.g. knot.permission.MANAGE_SPACES), a \"plugin.\"-prefixed string is a qualified grant (\"plugin.metrics.read\"), any other string is a built-in's stable key (\"manage_spaces\"). Admins pass every check.",
@@ -399,8 +501,8 @@ export const knotLibraries = [
           },
           {
             "name": "in_group",
-            "signature": "in_group(self, name: str)",
-            "description": "Check membership of one group.",
+            "signature": "in_group(self, group_id: str)",
+            "description": "Check membership of one group by its ID (not its name); compares against groups.",
             "returns": "bool"
           }
         ]
@@ -425,14 +527,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, max_spaces, compute_units, storage_units, max_tunnels)",
-        "description": "Create a new group (optional kwargs: max_spaces, compute_units, storage_units, max_tunnels)",
+        "signature": "create(name, max_spaces, compute_units, storage_units, max_tunnels, file_storage_mb, max_buckets)",
+        "description": "Create a new group and return its ID",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(group_id, name, max_spaces, compute_units, storage_units)",
-        "description": "Update group properties",
+        "signature": "update(group_id, name, max_spaces, compute_units, storage_units, max_tunnels, file_storage_mb, max_buckets)",
+        "description": "Update group properties; arguments left as None keep their current values",
         "returns": "bool"
       },
       {
@@ -572,6 +674,60 @@ export const knotLibraries = [
         "signature": "execute_tool(name, arguments)",
         "description": "Execute a discovered tool. Use full name for namespaced tools",
         "returns": "Any"
+      }
+    ]
+  },
+  {
+    "module": "knot.mcp_server",
+    "description": "Manage remote MCP servers whose tools knot exposes under a namespace (call the tools with knot.mcp).",
+    "functions": [
+      {
+        "name": "list",
+        "signature": "list(user_id)",
+        "description": "List remote MCP servers, sorted by namespace: id, user_id, namespace, url, command, args, env (\"KEY=value\" entries), enabled, tool_visibility (\"native\" or \"discoverable\"), disabled_tools, remote_search. user_id lists another user's servers (needs manage MCP servers)",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "get",
+        "signature": "get(namespace_or_id)",
+        "description": "Get a remote MCP server by namespace (your own) or ID: list()'s fields plus auth_type (\"\", \"bearer\" or \"oauth2\"), oauth_client_id, oauth_token_url, and has_token / has_oauth_tokens flags — token values are never returned",
+        "returns": "dict"
+      },
+      {
+        "name": "create",
+        "signature": "create(namespace, url, command, args, env, auth_type, token, oauth_client_id, oauth_token_url, oauth_access_token, oauth_refresh_token, enabled, tool_visibility, remote_search)",
+        "description": "Add a remote MCP server for the current user and return its ID: url for HTTP(S), or command (with args and env) for stdio. namespace must be unique among your servers and not contain \"__\". Needs manage MCP servers",
+        "returns": "string"
+      },
+      {
+        "name": "update",
+        "signature": "update(namespace_or_id, namespace, url, command, args, env, auth_type, token, oauth_client_id, oauth_token_url, oauth_access_token, oauth_refresh_token, enabled, tool_visibility, remote_search)",
+        "description": "Update a remote MCP server; only the arguments given change (namespace renames it), stored tokens are kept unless new ones are given",
+        "returns": "bool"
+      },
+      {
+        "name": "delete",
+        "signature": "delete(namespace_or_id)",
+        "description": "Delete a remote MCP server",
+        "returns": "bool"
+      },
+      {
+        "name": "tools",
+        "signature": "tools(namespace_or_id)",
+        "description": "Connect to the server and list its tools: name (no namespace prefix), description, enabled, is_app. Raises with the reason when the server cannot be reached",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "set_tool_enabled",
+        "signature": "set_tool_enabled(namespace_or_id, tool_name, enabled)",
+        "description": "Switch one of the server's tools on or off",
+        "returns": "bool"
+      },
+      {
+        "name": "protocol_version",
+        "signature": "protocol_version(namespace_or_id)",
+        "description": "The MCP protocol version negotiated with the server, e.g. \"2025-06-18\"; \"\" when it cannot be reached",
+        "returns": "string"
       }
     ]
   },
@@ -716,296 +872,344 @@ export const knotLibraries = [
       {
         "name": "MANAGE_USERS",
         "signature": "MANAGE_USERS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 0)",
+        "returns": "Final = 0"
       },
       {
         "name": "MANAGE_GROUPS",
         "signature": "MANAGE_GROUPS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 4)",
+        "returns": "Final = 4"
       },
       {
         "name": "MANAGE_ROLES",
         "signature": "MANAGE_ROLES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 5)",
+        "returns": "Final = 5"
       },
       {
         "name": "MANAGE_SPACES",
         "signature": "MANAGE_SPACES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 2)",
+        "returns": "Final = 2"
       },
       {
         "name": "MANAGE_TEMPLATES",
         "signature": "MANAGE_TEMPLATES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 1)",
+        "returns": "Final = 1"
       },
       {
         "name": "MANAGE_VOLUMES",
         "signature": "MANAGE_VOLUMES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 3)",
+        "returns": "Final = 3"
       },
       {
         "name": "MANAGE_VARIABLES",
         "signature": "MANAGE_VARIABLES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 6)",
+        "returns": "Final = 6"
       },
       {
         "name": "USE_SPACES",
         "signature": "USE_SPACES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 7)",
+        "returns": "Final = 7"
       },
       {
         "name": "TRANSFER_SPACES",
         "signature": "TRANSFER_SPACES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 10)",
+        "returns": "Final = 10"
       },
       {
         "name": "SHARE_SPACES",
         "signature": "SHARE_SPACES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 11)",
+        "returns": "Final = 11"
       },
       {
         "name": "USE_TUNNELS",
         "signature": "USE_TUNNELS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 8)",
+        "returns": "Final = 8"
       },
       {
         "name": "EDIT_SPACE_JOBS",
         "signature": "EDIT_SPACE_JOBS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 43)",
+        "returns": "Final = 43"
       },
       {
         "name": "VIEW_AUDIT_LOGS",
         "signature": "VIEW_AUDIT_LOGS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 9)",
+        "returns": "Final = 9"
       },
       {
         "name": "CLUSTER_INFO",
         "signature": "CLUSTER_INFO",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 12)",
+        "returns": "Final = 12"
       },
       {
         "name": "USE_VNC",
         "signature": "USE_VNC",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 13)",
+        "returns": "Final = 13"
       },
       {
         "name": "USE_WEB_TERMINAL",
         "signature": "USE_WEB_TERMINAL",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 14)",
+        "returns": "Final = 14"
       },
       {
         "name": "USE_SSH",
         "signature": "USE_SSH",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 15)",
+        "returns": "Final = 15"
       },
       {
         "name": "USE_CODE_SERVER",
         "signature": "USE_CODE_SERVER",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 16)",
+        "returns": "Final = 16"
       },
       {
         "name": "USE_VSCODE_TUNNEL",
         "signature": "USE_VSCODE_TUNNEL",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 17)",
+        "returns": "Final = 17"
       },
       {
         "name": "USE_LOGS",
         "signature": "USE_LOGS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 18)",
+        "returns": "Final = 18"
       },
       {
         "name": "RUN_COMMANDS",
         "signature": "RUN_COMMANDS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 19)",
+        "returns": "Final = 19"
       },
       {
         "name": "COPY_FILES",
         "signature": "COPY_FILES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 20)",
+        "returns": "Final = 20"
       },
       {
         "name": "USE_MCP_SERVER",
         "signature": "USE_MCP_SERVER",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 21)",
+        "returns": "Final = 21"
       },
       {
         "name": "USE_WEB_ASSISTANT",
         "signature": "USE_WEB_ASSISTANT",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 22)",
+        "returns": "Final = 22"
       },
       {
         "name": "MANAGE_SCRIPTS",
         "signature": "MANAGE_SCRIPTS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 23)",
+        "returns": "Final = 23"
       },
       {
         "name": "EXECUTE_SCRIPTS",
         "signature": "EXECUTE_SCRIPTS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 24)",
+        "returns": "Final = 24"
       },
       {
         "name": "MANAGE_OWN_SCRIPTS",
         "signature": "MANAGE_OWN_SCRIPTS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 25)",
+        "returns": "Final = 25"
       },
       {
         "name": "EXECUTE_OWN_SCRIPTS",
         "signature": "EXECUTE_OWN_SCRIPTS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 26)",
+        "returns": "Final = 26"
       },
       {
         "name": "MANAGE_GLOBAL_SKILLS",
         "signature": "MANAGE_GLOBAL_SKILLS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 27)",
+        "returns": "Final = 27"
       },
       {
         "name": "MANAGE_OWN_SKILLS",
         "signature": "MANAGE_OWN_SKILLS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 28)",
+        "returns": "Final = 28"
       },
       {
         "name": "SET_SPACE_DEPENDENCIES",
         "signature": "SET_SPACE_DEPENDENCIES",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 29)",
+        "returns": "Final = 29"
       },
       {
         "name": "USE_SPACE_STARTUP_SCRIPT",
         "signature": "USE_SPACE_STARTUP_SCRIPT",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 30)",
+        "returns": "Final = 30"
       },
       {
         "name": "DOWNLOAD_AUDIT_LOGS",
         "signature": "DOWNLOAD_AUDIT_LOGS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 31)",
+        "returns": "Final = 31"
       },
       {
         "name": "MANAGE_STACK_DEFINITIONS",
         "signature": "MANAGE_STACK_DEFINITIONS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 32)",
+        "returns": "Final = 32"
       },
       {
         "name": "MANAGE_OWN_STACK_DEFINITIONS",
         "signature": "MANAGE_OWN_STACK_DEFINITIONS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 33)",
+        "returns": "Final = 33"
       },
       {
         "name": "USE_STACK_DEFINITIONS",
         "signature": "USE_STACK_DEFINITIONS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 34)",
+        "returns": "Final = 34"
       },
       {
         "name": "USE_METHODS",
         "signature": "USE_METHODS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 35)",
+        "returns": "Final = 35"
       },
       {
         "name": "USE_POOLS",
         "signature": "USE_POOLS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 36)",
+        "returns": "Final = 36"
       },
       {
         "name": "MANAGE_EVENTS",
         "signature": "MANAGE_EVENTS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 37)",
+        "returns": "Final = 37"
       },
       {
         "name": "MANAGE_GLOBAL_EVENTS",
         "signature": "MANAGE_GLOBAL_EVENTS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 38)",
+        "returns": "Final = 38"
       },
       {
         "name": "MANAGE_GLOBAL_SLASH_COMMANDS",
         "signature": "MANAGE_GLOBAL_SLASH_COMMANDS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 39)",
+        "returns": "Final = 39"
       },
       {
         "name": "MANAGE_OWN_SLASH_COMMANDS",
         "signature": "MANAGE_OWN_SLASH_COMMANDS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 40)",
+        "returns": "Final = 40"
       },
       {
         "name": "MANAGE_MCP_SERVERS",
         "signature": "MANAGE_MCP_SERVERS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 41)",
+        "returns": "Final = 41"
+      },
+      {
+        "name": "USE_LOG_SINKS",
+        "signature": "USE_LOG_SINKS",
+        "description": "Constant (Final = 42)",
+        "returns": "Final = 42"
       },
       {
         "name": "VIEW_PLUGINS",
         "signature": "VIEW_PLUGINS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 44)",
+        "returns": "Final = 44"
       },
       {
         "name": "LINK_USERS",
         "signature": "LINK_USERS",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 45)",
+        "returns": "Final = 45"
+      },
+      {
+        "name": "USE_FILES",
+        "signature": "USE_FILES",
+        "description": "Constant (Final = 46)",
+        "returns": "Final = 46"
+      },
+      {
+        "name": "MANAGE_FILES",
+        "signature": "MANAGE_FILES",
+        "description": "Constant (Final = 47)",
+        "returns": "Final = 47"
+      },
+      {
+        "name": "SHARE_BUCKETS",
+        "signature": "SHARE_BUCKETS",
+        "description": "Constant (Final = 48)",
+        "returns": "Final = 48"
+      },
+      {
+        "name": "TRANSFER_BUCKETS",
+        "signature": "TRANSFER_BUCKETS",
+        "description": "Constant (Final = 49)",
+        "returns": "Final = 49"
+      },
+      {
+        "name": "BACKUP_SERVER",
+        "signature": "BACKUP_SERVER",
+        "description": "Constant (Final = 50)",
+        "returns": "Final = 50"
+      },
+      {
+        "name": "USE_USER_SECRETS",
+        "signature": "USE_USER_SECRETS",
+        "description": "Constant (Final = 51)",
+        "returns": "Final = 51"
+      },
+      {
+        "name": "RUN_AI_SCRIPTS",
+        "signature": "RUN_AI_SCRIPTS",
+        "description": "Constant (Final = 52)",
+        "returns": "Final = 52"
       },
       {
         "name": "SPACE_MANAGE",
         "signature": "SPACE_MANAGE",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 2)",
+        "returns": "Final = 2"
       },
       {
         "name": "SPACE_USE",
         "signature": "SPACE_USE",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 7)",
+        "returns": "Final = 7"
       },
       {
         "name": "SCRIPT_MANAGE",
         "signature": "SCRIPT_MANAGE",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 23)",
+        "returns": "Final = 23"
       },
       {
         "name": "SCRIPT_EXECUTE",
         "signature": "SCRIPT_EXECUTE",
-        "description": "Constant (int)",
-        "returns": "int"
+        "description": "Constant (Final = 24)",
+        "returns": "Final = 24"
       }
     ]
   },
@@ -1191,13 +1395,13 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(name, content, description, owner, groups, zones, **kwargs: Any)",
-        "description": "Create a script. Use owner='current' for an own script.",
+        "signature": "create(name, content, description, owner, groups, zones, active, script_type, mcp_input_schema_toml, mcp_keywords, discoverable)",
+        "description": "Create a script and return its ID. Use owner='current' for an own script; omit owner for a global script. script_type is \"script\" (default), \"lib\" or \"tool\"; mcp_input_schema_toml, mcp_keywords and discoverable describe an MCP tool.",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(script_id, name, content, description, groups, **kwargs: Any)",
+        "signature": "update(script_id, name, content, description, groups, zones, active, script_type, mcp_input_schema_toml, mcp_keywords, discoverable)",
         "description": "Update a script while preserving fields not passed",
         "returns": "bool"
       },
@@ -1248,6 +1452,30 @@ export const knotLibraries = [
         "signature": "host_label(user, name, port)",
         "description": "The first label of the host a space's web port is reached at, before the wildcard domain: \"<user>--<name>--<port>\", lowercased; name is a space, alt name or pool, port a number or \"vnc\". A label longer than the 63 characters DNS allows has the name cut short and ended with a hyphen and an 8-character hash, which knot routes by",
         "returns": "string"
+      },
+      {
+        "name": "ping",
+        "signature": "ping()",
+        "description": "Check the server is reachable and the credentials work: status, version, zone",
+        "returns": "dict"
+      },
+      {
+        "name": "cluster_info",
+        "signature": "cluster_info()",
+        "description": "List the cluster's server nodes (needs view cluster info): id, address, state, zone, hostname, allocated_spaces, running_spaces, runtimes, metadata",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "search",
+        "signature": "search(query)",
+        "description": "Search everything you may see by name (case-insensitive substring, at most 5 hits per type): query plus lists of {id, name, description} for pages, spaces, templates, variables, volumes, stacks, scripts, skills, commands, mcp_servers, event_sinks, users, groups, roles, tokens",
+        "returns": "dict"
+      },
+      {
+        "name": "plugins",
+        "signature": "plugins()",
+        "description": "List loaded server plugins (needs manage roles): count, plugins (name, version, description, permissions, menus, pages, mcp_tools, handlers, field_handlers, libs, ...), failed, warnings. Raises when no plugins are loaded",
+        "returns": "dict"
       }
     ]
   },
@@ -1269,14 +1497,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(content, is_global, groups, zones)",
-        "description": "Create a new skill",
+        "signature": "create(content, is_global, groups, zones, owner, active)",
+        "description": "Create a new skill and return its ID: a user skill owned by owner (default: the current user) unless is_global=True. A global skill, or another user's, needs Manage Global Skills; groups (group IDs) apply to global skills only",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(name_or_id, content, groups, zones)",
-        "description": "Update skill",
+        "signature": "update(name_or_id, content, groups, zones, active)",
+        "description": "Update a skill; arguments left as None keep their current values",
         "returns": "bool"
       },
       {
@@ -1288,7 +1516,7 @@ export const knotLibraries = [
       {
         "name": "search",
         "signature": "search(query)",
-        "description": "Fuzzy search skills by name/description",
+        "description": "Fuzzy search skills by name/description: up to 3 matches, best first, each with id, name, description, user_id, content and score (0 to 1)",
         "returns": "list of dicts"
       }
     ]
@@ -1335,8 +1563,8 @@ export const knotLibraries = [
     "functions": [
       {
         "name": "list",
-        "signature": "list(all_zones)",
-        "description": "List spaces visible to the current user. Defaults to the current server's zone; pass all_zones=True to include other zones.",
+        "signature": "list(all_zones, user_id)",
+        "description": "List spaces visible to the current user. Defaults to the current server's zone; pass all_zones=True to include other zones. user_id lists another user's spaces (needs manage spaces; empty without it).",
         "returns": "list of dicts"
       },
       {
@@ -1348,7 +1576,7 @@ export const knotLibraries = [
       {
         "name": "create",
         "signature": "create(name, template_name, description, shell, depends_on, stack, selected_node_id, alt_names, icon_url, custom_fields, startup_script_id, ip_address, start_on_create)",
-        "description": "Create a new space and return its ID. ip_address sets the static IP for bridged KVM templates (validated against the template's range); unused by other platforms.",
+        "description": "Create a new space and return its ID. alt_names is a list of {\"name\": str, \"port\": int} dicts. ip_address sets the static IP for bridged KVM templates (validated against the template's range); unused by other platforms.",
         "returns": "string"
       },
       {
@@ -1367,6 +1595,12 @@ export const knotLibraries = [
         "name": "start",
         "signature": "start(name)",
         "description": "Start a space by name",
+        "returns": "bool"
+      },
+      {
+        "name": "stop_for_user",
+        "signature": "stop_for_user(user)",
+        "description": "Stop every running space a user (ID or username) owns in this server's zone; shared spaces are left alone. Another user's needs the manage users permission",
         "returns": "bool"
       },
       {
@@ -1408,8 +1642,8 @@ export const knotLibraries = [
       {
         "name": "usage_history",
         "signature": "usage_history(name, range)",
-        "description": "Get historical resource usage for a space",
-        "returns": "list of dicts"
+        "description": "Get historical resource usage for a space: a dict with space_id, range, bucket_kind and points. range is \"1h\" (minute samples, the default) or \"7d\" (daily samples).",
+        "returns": "dict"
       },
       {
         "name": "set_description",
@@ -1498,7 +1732,7 @@ export const knotLibraries = [
       {
         "name": "share",
         "signature": "share(name, user_ids)",
-        "description": "Share space with one or more users (user_ids can be usernames, emails, or UUIDs)",
+        "description": "Share space with one or more users; user_ids is one user or a list (usernames, emails, or UUIDs)",
         "returns": "bool"
       },
       {
@@ -1509,9 +1743,9 @@ export const knotLibraries = [
       },
       {
         "name": "run",
-        "signature": "run(name, command, args, timeout, workdir)",
-        "description": "Execute a command in a space",
-        "returns": "dict"
+        "signature": "run(name, command, args, timeout, workdir, check)",
+        "description": "Execute a command in a space. With check=True (the default) returns the output as str and raises if the command fails (non-zero exit, timeout as exit code 124, no shell), with the error, exit code and output in the message. With check=False never raises for a failed command and returns a dict with output, exit_code, success and error (empty on success).",
+        "returns": "str | dict<str,>"
       },
       {
         "name": "run_script",
@@ -1528,13 +1762,13 @@ export const knotLibraries = [
       {
         "name": "read_file",
         "signature": "read_file(name, file_path, offset, limit)",
-        "description": "Read file contents from a running space; offset/limit select a 1-based line range",
+        "description": "Read file contents from a running space; offset/limit select a 1-based line range. Raises if the agent cannot read the file (for example it does not exist).",
         "returns": "string"
       },
       {
         "name": "write_file",
         "signature": "write_file(name, file_path, content, mode, mtime_ns, file_perm)",
-        "description": "Write content to a file in a running space (overwrite/append/prepend). Optional mtime_ns (Unix nanoseconds) and file_perm (int bits like 0o644) are applied after the write so the destination matches a source file's metadata — useful for sync tools.",
+        "description": "Write content to a file in a running space (overwrite/append/prepend). Optional mtime_ns (Unix nanoseconds) and file_perm (int bits like 0o644) are applied after the write so the destination matches a source file's metadata — useful for sync tools. Raises if the agent cannot write the file.",
         "returns": "bool"
       },
       {
@@ -1594,7 +1828,7 @@ export const knotLibraries = [
       {
         "name": "port_list",
         "signature": "port_list(name)",
-        "description": "List active port forwards for a space",
+        "description": "List port forwards for a space: local_port, space, remote_port, persistent, mode (\"direct\", \"relay\" or \"—\" before first use) and the throttle settings latency_ms, jitter_ms, bandwidth_kb, timeout_ms and down. For a stopped space its saved persistent forwards, with mode \"\" and zero throttle settings.",
         "returns": "list of dicts"
       },
       {
@@ -1612,8 +1846,8 @@ export const knotLibraries = [
       {
         "name": "port_apply",
         "signature": "port_apply(source_space, forwards)",
-        "description": "Replace all port forwards for a space",
-        "returns": "bool"
+        "description": "Replace all port forwards for a space. Returns a dict with applied and stopped (lists of port_list-shaped entries, or None when empty) and errors (a list, absent when there were none).",
+        "returns": "dict"
       },
       {
         "name": "tunnel_start",
@@ -1632,6 +1866,24 @@ export const knotLibraries = [
         "signature": "tunnel_stop(space, name)",
         "description": "Stop an agent-owned web tunnel in a space by name",
         "returns": "bool"
+      },
+      {
+        "name": "emit_event",
+        "signature": "emit_event(name, event_type, payload)",
+        "description": "Raise a custom event for a space (name or ID) as if the space raised it: it belongs to the owner and carries the space; \"custom.\" is prepended to event_type. Use knot.event.emit for an event with no space",
+        "returns": "bool"
+      },
+      {
+        "name": "list_methods",
+        "signature": "list_methods()",
+        "description": "List the JSON-RPC methods running spaces offer that you may call: name, local_name, description, keywords, scope (\"private\"/\"shared\"), groups, mcp_tool, events, event_sinks, params_schema, result_schema, owner_id, owner, provider_count",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "call_method",
+        "signature": "call_method(method, params, space, timeout)",
+        "description": "Call a space method over JSON-RPC and return its result. space (name or ID) pins the call to one providing space, e.g. a leased pool member; otherwise the server picks one. Raises with the JSON-RPC error message when the call fails",
+        "returns": "Any"
       }
     ]
   },
@@ -1641,8 +1893,8 @@ export const knotLibraries = [
     "functions": [
       {
         "name": "list_defs",
-        "signature": "list_defs()",
-        "description": "List stack definitions visible to the current user",
+        "signature": "list_defs(include_inactive)",
+        "description": "List stack definitions visible to the current user; active ones only unless include_inactive=True",
         "returns": "list of dicts"
       },
       {
@@ -1684,37 +1936,43 @@ export const knotLibraries = [
       {
         "name": "remove_component",
         "signature": "remove_component(stack_definition, name)",
-        "description": "Remove a component from a stack definition by name. Also cleans up depends_on and port_forward references in sibling components.",
-        "returns": "dict"
+        "description": "Remove a component from a stack definition (by name or ID) by component name. Also cleans up depends_on and port_forward references in sibling components.",
+        "returns": "bool"
       },
       {
         "name": "create",
         "signature": "create(definition_name, prefix, stack_name)",
-        "description": "Create spaces from a stack definition",
-        "returns": "list of strings"
+        "description": "Create spaces from a stack definition (by name or ID), named {prefix}-{component}. Returns {\"spaces\": {component_name: space_id, ...}}",
+        "returns": "dict<str, dict<str, str>>"
+      },
+      {
+        "name": "exists",
+        "signature": "exists(stack_name, user_id)",
+        "description": "True if at least one space belongs to the stack. user_id names another user's stack (needs manage spaces)",
+        "returns": "bool"
       },
       {
         "name": "delete",
-        "signature": "delete(stack_name)",
-        "description": "Delete all spaces in a stack",
+        "signature": "delete(stack_name, user_id)",
+        "description": "Delete all spaces in a stack. user_id names another user's stack (needs manage spaces)",
         "returns": "bool"
       },
       {
         "name": "start",
-        "signature": "start(stack_name)",
-        "description": "Start all spaces in a stack in dependency order",
+        "signature": "start(stack_name, user_id)",
+        "description": "Start all spaces in a stack in dependency order. user_id names another user's stack (needs manage spaces)",
         "returns": "bool"
       },
       {
         "name": "stop",
-        "signature": "stop(stack_name)",
-        "description": "Stop all spaces in a stack in reverse dependency order",
+        "signature": "stop(stack_name, user_id)",
+        "description": "Stop all spaces in a stack in reverse dependency order. user_id names another user's stack (needs manage spaces)",
         "returns": "bool"
       },
       {
         "name": "restart",
-        "signature": "restart(stack_name)",
-        "description": "Restart all spaces in a stack",
+        "signature": "restart(stack_name, user_id)",
+        "description": "Restart all spaces in a stack. user_id names another user's stack (needs manage spaces)",
         "returns": "bool"
       },
       {
@@ -1731,20 +1989,20 @@ export const knotLibraries = [
     "functions": [
       {
         "name": "field_options",
-        "signature": "field_options(handler_id)",
-        "description": "Resolve a plugin field handler's option keys as the requesting user — the exact values the space form offers and the API's validation accepts. None when the handler cannot be reached.",
+        "signature": "field_options(handler_id, query)",
+        "description": "Resolve a plugin field handler's option keys as the requesting user — the exact values the space form offers and the API's validation accepts. query is passed to the handler as the text typed so far (autocomplete). None when the handler cannot be reached.",
         "returns": "list of strings or None"
       },
       {
         "name": "list",
         "signature": "list(include_inactive, resolve_options)",
-        "description": "List templates visible to the current user. Defaults to active templates only; pass include_inactive=True to include retired ones. With resolve_options=True, handler-backed custom fields carry their options resolved live (one plugin call per field) instead of naming their handler.",
+        "description": "List templates visible to the current user. Defaults to active templates only; pass include_inactive=True to include retired ones. Each entry has runtime_available: whether a node in the zone currently offers the runtime the template needs (always True for manual and Nomad templates). With resolve_options=True, handler-backed custom fields carry their options resolved live (one plugin call per field) instead of naming their handler.",
         "returns": "list of dicts"
       },
       {
         "name": "get",
         "signature": "get(template_id, resolve_options)",
-        "description": "Get template by ID or name. With resolve_options=True, handler-backed custom fields carry their options resolved live instead of naming their handler.",
+        "description": "Get template by ID or name. runtime_available reports whether a node in the zone currently offers the runtime the template needs (always True for manual and Nomad templates). With resolve_options=True, handler-backed custom fields carry their options resolved live instead of naming their handler.",
         "returns": "dict"
       },
       {
@@ -1762,18 +2020,18 @@ export const knotLibraries = [
       {
         "name": "nodes",
         "signature": "nodes(template_id)",
-        "description": "List available placement nodes for a local-container template",
+        "description": "List available placement nodes for a local-container or KVM template (node_id, hostname, running_spaces, total_spaces); empty for other platforms",
         "returns": "list of dicts"
       },
       {
         "name": "create",
-        "signature": "create(name, job, description, platform, volumes, active, custom_fields, disable_user_activity, disable_file_storage, disable_user_secrets, **kwargs: Any)",
+        "signature": "create(name, job, description, platform, volumes, active, compute_units, storage_units, with_terminal, with_vscode_tunnel, with_code_server, with_ssh, with_run_command, allow_node_migration, schedule_enabled, icon_url, with_vnc, groups, zones, paths, disable_user_activity, disable_file_storage, disable_user_secrets, health_check_type, health_check_config, health_check_skip_ssl_verify, health_check_timeout, health_check_interval, health_check_max_failures, health_check_auto_restart, ports, jobs, max_uptime, max_uptime_unit, idle_timeout, idle_timeout_unit, port_forwards, custom_fields)",
         "description": "Create a new template. health_check_type can be none, agent, tcp, http, program, or custom. ports is a list of {name, port, protocol} objects, protocol one of \"http\", \"https\", \"tcp\" or \"shared\" (a shared port is reachable by every user in the same zone through a port forward as user--space, not just the space's owner; http/https get dev URLs, tcp is published on the host); port_forwards is a list of {local_port, space, remote_port} dicts seeded into spaces created from the template and connected when they start (space: a space or pool name, or user--name for another user's shared port); jobs is a list of {name, command, schedule, enabled} objects copied into new spaces; custom_fields declares the template's custom fields. max_uptime / max_uptime_unit and idle_timeout / idle_timeout_unit control the max-runtime and idle auto-stops (unit one of \"minute\", \"hour\", \"day\"; \"disabled\" or a 0 value turns the stop off). disable_file_storage refuses file storage (knot file, the files API) from the template's spaces; disable_user_secrets refuses personal secrets (knot secret get, knot.secret.get()) from them (Knot Pro); disable_user_activity stops filesystem user activity collection (Knot Pro).\n\n    custom_fields declares the template's custom fields: a list of dicts with\n    name, description, type (\"text\", \"masked\", \"number\", \"bool\", \"select\", \"autocomplete\"\n    or \"textarea\"), handler (a plugin field handler id) or options (a manual\n    option list) — select and autocomplete take exactly one of the two,\n    language (the editor language, textarea only), default — a bool default\n    becomes the string \"true\"/\"false\"; values are stored as strings — and\n    required (bool): a required field cannot be blank when creating or editing\n    a space, and the default can satisfy the requirement — and show_on_create\n    (bool): an optional field shown on the create-space form without opening\n    its optional fields toggle. The list order is the order the form shows\n    the fields in.",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(template_id, name, job, description, platform, volumes, active, custom_fields, disable_user_activity, disable_file_storage, disable_user_secrets, **kwargs: Any)",
+        "signature": "update(template_id, name, job, description, platform, volumes, active, compute_units, storage_units, with_terminal, with_vscode_tunnel, with_code_server, with_ssh, with_run_command, allow_node_migration, schedule_enabled, with_vnc, icon_url, groups, zones, paths, disable_user_activity, disable_file_storage, disable_user_secrets, health_check_type, health_check_config, health_check_skip_ssl_verify, health_check_timeout, health_check_interval, health_check_max_failures, health_check_auto_restart, ports, jobs, max_uptime, max_uptime_unit, idle_timeout, idle_timeout_unit, port_forwards, custom_fields)",
         "description": "Update template properties, including health_check_type, health_check_auto_restart, max_uptime, idle_timeout, ports, jobs and port_forwards. Omitted properties are left unchanged. disable_file_storage and disable_user_secrets switch file storage and personal secrets (Knot Pro) off for the template's spaces; disable_user_activity stops user activity collection (Knot Pro). max_uptime / idle_timeout units are one of \"minute\", \"hour\", \"day\"; \"disabled\" (or a 0 value for idle) turns the stop off. custom_fields, when given, replaces the template's custom fields (same shape as create); omitted leaves them unchanged.",
         "returns": "bool"
       },
@@ -1786,7 +2044,49 @@ export const knotLibraries = [
       {
         "name": "get_icons",
         "signature": "get_icons()",
-        "description": "Get list of available icons",
+        "description": "Get list of available icons, each a dict with description, source and url",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "field_handlers",
+        "signature": "field_handlers()",
+        "description": "List the field handlers loaded plugins declare (id, label, plugin), for a custom field's handler. Needs manage templates; raises when no plugins are loaded",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "export",
+        "signature": "export(template_id)",
+        "description": "Export a template (name or ID) as portable YAML, script IDs replaced by names. Needs manage templates",
+        "returns": "string"
+      },
+      {
+        "name": "import_yaml",
+        "signature": "import_yaml(yaml_text)",
+        "description": "Create or update (by name) a template from YAML as export() writes it and return its ID (None if the server returns no body); scripts are looked up by name. Needs manage templates",
+        "returns": "str | None"
+      },
+      {
+        "name": "parse_spec",
+        "signature": "parse_spec(platform, job, volumes)",
+        "description": "Convert native job/volume text into the unified spec build_spec() takes: wizardable, reason, spec, fully_representable, advanced_reason. Needs manage templates",
+        "returns": "dict"
+      },
+      {
+        "name": "base_images",
+        "signature": "base_images()",
+        "description": "The spec wizard's base image catalog: version, manifest_version, description, registry_auth and images (name, display_name, image, category, default_memory, ...)",
+        "returns": "dict"
+      },
+      {
+        "name": "refresh_base_images",
+        "signature": "refresh_base_images()",
+        "description": "Fetch the base image catalog from its update URL now: updated, active_version, update_url. Needs manage templates; HTTP 409 when updates are not configured",
+        "returns": "dict"
+      },
+      {
+        "name": "capabilities",
+        "signature": "capabilities()",
+        "description": "Linux capabilities the spec wizard offers for cap_add/cap_drop: name, description, common",
         "returns": "list of dicts"
       }
     ]
@@ -1804,13 +2104,43 @@ export const knotLibraries = [
       {
         "name": "create",
         "signature": "create(name, scopes)",
-        "description": "Create an API token and return its value (the bearer key). scopes narrows it to endpoint groups: \"methods\" (/api/methods*), \"mcp\" (/mcp) and \"tunnels\" (/tunnel/* and /api/tunnels*: tunnels only); None means full access",
+        "description": "Create an API token and return its value (the bearer key). scopes narrows it to endpoint groups: \"methods\" (/api/methods*), \"mcp\" (/mcp), \"tunnels\" (/tunnel/* and /api/tunnels*: tunnels only), \"files\" (/api/files*, and S3 on Knot Pro) and \"backup\" (/api/backup* and /api/restore*); None means full access",
         "returns": "string"
+      },
+      {
+        "name": "update",
+        "signature": "update(token_id, name, scopes)",
+        "description": "Rename a token or change its scopes; only the arguments given change. scopes=[] clears them (full access)",
+        "returns": "bool"
       },
       {
         "name": "delete",
         "signature": "delete(token_id)",
         "description": "Delete an API token by its value, revoking it immediately",
+        "returns": "bool"
+      }
+    ]
+  },
+  {
+    "module": "knot.tunnel",
+    "description": "List and close your tunnels (start tunnels from a space with knot.space.tunnel_start). Needs the use tunnels permission.",
+    "functions": [
+      {
+        "name": "list",
+        "signature": "list()",
+        "description": "List your open tunnels from every client and space, sorted by name: name (\"<username>--<tunnel>\") and address (public URL)",
+        "returns": "list of dicts"
+      },
+      {
+        "name": "server_info",
+        "signature": "server_info()",
+        "description": "Tunnel server settings: domain (suffix such as \".tunnel.example.com\") and tunnel_servers (list of URLs)",
+        "returns": "dict"
+      },
+      {
+        "name": "delete",
+        "signature": "delete(name)",
+        "description": "Close one of your tunnels, disconnecting its client; name is the full \"<username>--<tunnel>\" or the bare tunnel name",
         "returns": "bool"
       }
     ]
@@ -1839,14 +2169,14 @@ export const knotLibraries = [
       },
       {
         "name": "create",
-        "signature": "create(username, email, password, active, max_spaces, compute_units, storage_units, max_tunnels, ssh_public_key, github_username)",
+        "signature": "create(username, email, password, active, max_spaces, compute_units, storage_units, max_tunnels, ssh_public_key, github_username, file_storage_mb, max_buckets)",
         "description": "Create a new user",
         "returns": "string"
       },
       {
         "name": "update",
-        "signature": "update(user_id, username, email, password, active, max_spaces, ssh_public_key, github_username)",
-        "description": "Update user properties",
+        "signature": "update(user_id, username, email, password, active, max_spaces, ssh_public_key, github_username, compute_units, storage_units, max_tunnels, file_storage_mb, max_buckets)",
+        "description": "Update user properties; arguments left as None (and roles, groups, shell, timezone) keep their current values",
         "returns": "bool"
       },
       {
@@ -1888,8 +2218,8 @@ export const knotLibraries = [
       {
         "name": "list_permissions",
         "signature": "list_permissions(user_id)",
-        "description": "List all permissions for a user",
-        "returns": "list of dicts"
+        "description": "List a user's built-in permissions as integer permission IDs (compare with the knot.permission constants). Plugin grants are separate: see list_plugin_permissions()",
+        "returns": "list<int>"
       },
       {
         "name": "list_plugin_permissions",

@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/toolsurface"
 )
 
 var apiMux *http.ServeMux
@@ -117,8 +119,7 @@ func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) 
 	if err != nil {
 		return 0, err
 	}
-	ctx = context.WithValue(ctx, "user", c.user)
-	req = req.WithContext(ctx)
+	req = req.WithContext(muxContext(ctx, c.user))
 
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))
 	req.Header.Set("User-Agent", c.userAgent)
@@ -126,8 +127,11 @@ func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) 
 		req.Header.Set(key, value)
 	}
 
-	rec := httptest.NewRecorder()
+	rec := newMuxRecorder(ctx)
 	apiMux.ServeHTTP(rec, req)
+	if err := rec.err(); err != nil {
+		return rec.Code, err
+	}
 
 	if response != nil {
 		err := decodeBody(rec.Header().Get("Content-Type"), rec.Body, response)
@@ -149,8 +153,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 	if err != nil {
 		return 0, err
 	}
-	ctx = context.WithValue(ctx, "user", c.user)
-	req = req.WithContext(ctx)
+	req = req.WithContext(muxContext(ctx, c.user))
 
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))
 	req.Header.Set("Content-Type", c.contentType)
@@ -159,8 +162,11 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 		req.Header.Set(key, value)
 	}
 
-	rec := httptest.NewRecorder()
+	rec := newMuxRecorder(ctx)
 	apiMux.ServeHTTP(rec, req)
+	if err := rec.err(); err != nil {
+		return rec.Code, err
+	}
 
 	if (successCode == 0 && rec.Code >= http.StatusBadRequest) || (successCode > 0 && rec.Code != successCode) {
 		bodyBytes, _ := io.ReadAll(rec.Body)
@@ -220,7 +226,7 @@ func (c *MuxClient) DoRaw(ctx context.Context, method string, path string, body 
 	if err != nil {
 		return nil, err
 	}
-	req = req.WithContext(context.WithValue(ctx, "user", c.user))
+	req = req.WithContext(muxContext(ctx, c.user))
 	if body != nil {
 		req.ContentLength = size
 	}
@@ -234,8 +240,11 @@ func (c *MuxClient) DoRaw(ctx context.Context, method string, path string, body 
 		req.Header.Set(key, value)
 	}
 
-	rec := httptest.NewRecorder()
+	rec := newMuxRecorder(ctx)
 	apiMux.ServeHTTP(rec, req)
+	if err := rec.err(); err != nil {
+		return nil, err
+	}
 
 	resp := rec.Result()
 	resp.Request = req
@@ -278,11 +287,13 @@ func (c *MuxClient) SetTokenFormat(format string) RESTClient {
 // RoundTrip implements http.RoundTripper by routing the request through the API
 // mux with the user injected into context for authentication.
 func (c *MuxClient) RoundTrip(req *http.Request) (*http.Response, error) {
-	ctx := context.WithValue(req.Context(), "user", c.user)
-	muxReq := req.Clone(ctx)
+	muxReq := req.Clone(muxContext(req.Context(), c.user))
 
-	rec := httptest.NewRecorder()
+	rec := newMuxRecorder(req.Context())
 	apiMux.ServeHTTP(rec, muxReq)
+	if err := rec.err(); err != nil {
+		return nil, err
+	}
 
 	return rec.Result(), nil
 }
@@ -298,4 +309,77 @@ func NewMuxHTTPClient(user *model.User) *http.Client {
 	return &http.Client{
 		Transport: &MuxClient{user: user},
 	}
+}
+
+// muxContext is the context of an in-process API request: the caller's,
+// carrying the user to act as, without the caller's tool-call surface. An
+// approval obtained for the calling request (toolsurface) must never reach
+// a nested request, such as a chat completion or a tool call it makes.
+func muxContext(ctx context.Context, user *model.User) context.Context {
+	return context.WithValue(toolsurface.Strip(ctx), "user", user)
+}
+
+// ErrResponseTooLarge is returned by the in-process client when a response
+// grows past the limit set with WithResponseLimit.
+var ErrResponseTooLarge = errors.New("response too large")
+
+type responseLimitKey struct{}
+
+// WithResponseLimit caps, at limit bytes, the body of every in-process API
+// response made under ctx: the client buffers a response whole, so a caller
+// that must bound its memory (an AI-written script) sets one. A response
+// over the limit is refused with ErrResponseTooLarge.
+func WithResponseLimit(ctx context.Context, limit int64) context.Context {
+	return context.WithValue(ctx, responseLimitKey{}, limit)
+}
+
+// ResponseLimit returns the limit set on ctx with WithResponseLimit, 0 when
+// there is none.
+func ResponseLimit(ctx context.Context) int64 {
+	if ctx == nil {
+		return 0
+	}
+	limit, _ := ctx.Value(responseLimitKey{}).(int64)
+	return limit
+}
+
+// muxRecorder is the in-process client's response recorder: an
+// httptest.ResponseRecorder that refuses writes past the context's response
+// limit, so a handler streaming a large body stops rather than grows the
+// buffer.
+type muxRecorder struct {
+	*httptest.ResponseRecorder
+	limit   int64
+	written int64
+	over    bool
+}
+
+func newMuxRecorder(ctx context.Context) *muxRecorder {
+	return &muxRecorder{ResponseRecorder: httptest.NewRecorder(), limit: ResponseLimit(ctx)}
+}
+
+func (r *muxRecorder) Write(p []byte) (int, error) {
+	if r.limit > 0 && r.written+int64(len(p)) > r.limit {
+		r.over = true
+		return 0, ErrResponseTooLarge
+	}
+	r.written += int64(len(p))
+	return r.ResponseRecorder.Write(p)
+}
+
+func (r *muxRecorder) WriteString(s string) (int, error) {
+	if r.limit > 0 && r.written+int64(len(s)) > r.limit {
+		r.over = true
+		return 0, ErrResponseTooLarge
+	}
+	r.written += int64(len(s))
+	return r.ResponseRecorder.WriteString(s)
+}
+
+// err reports a response refused for its size.
+func (r *muxRecorder) err() error {
+	if r.over {
+		return fmt.Errorf("%w: the response is over the %d byte limit", ErrResponseTooLarge, r.limit)
+	}
+	return nil
 }

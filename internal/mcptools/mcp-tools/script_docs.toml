@@ -1,0 +1,14 @@
+description = "Documentation for run_script. With no library: the rules (read and write mode, the user's access, the limits), how to return an answer, the knot libraries and worked examples. With library names such as 'space' or 'space, pool' (add 'guide' to combine): those libraries' functions."
+keywords = ["script docs", "scriptling", "python", "library docs", "how to write a script", "run_script help"]
+handler = "go"
+title = "Documentation for run_script"
+readonly = true
+destructive = false
+idempotent = true
+openworld = false
+
+[[parameters]]
+name = "library"
+type = "string"
+description = "Optional: a library such as 'space' or 'knot.pool', or several comma-separated ('space, template'). 'guide' (or blank) returns the guide, and can be combined: 'guide, space'."
+required = false
