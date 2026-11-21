@@ -95,7 +95,7 @@ func HandleImportTemplate(w http.ResponseWriter, r *http.Request) {
 	// Check if a template with this name already exists (upsert).
 	if existing, err := db.GetTemplateByName(exp.Name); err == nil && existing != nil {
 		// Update existing template — use a recorder so we can return a
-		// consistent response with the template ID (HandleUpdateTemplate
+		// consistent response with the template ID (updateTemplate
 		// returns 200 with no body).
 		r2 := r.Clone(r.Context())
 		r2.SetPathValue("template_id", existing.Id)
@@ -103,7 +103,9 @@ func HandleImportTemplate(w http.ResponseWriter, r *http.Request) {
 		r2.ContentLength = int64(len(jsonBody))
 		r2.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
-		HandleUpdateTemplate(rec, r2)
+		// A soft-deleted template with the same name is overwritten and
+		// restored rather than left deleted.
+		updateTemplate(rec, r2, existing.IsDeleted)
 		if rec.Code == http.StatusOK {
 			rest.WriteResponse(http.StatusOK, w, r, apiclient.TemplateCreateResponse{Status: true, Id: existing.Id})
 		} else {

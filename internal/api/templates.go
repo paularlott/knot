@@ -152,6 +152,14 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
+	updateTemplate(w, r, false)
+}
+
+// updateTemplate applies a TemplateUpdateRequest to the template named by the
+// template_id path value. A soft-deleted template is treated as not found
+// unless restoreDeleted is set, in which case it is undeleted as part of the
+// update (used by template import to overwrite a previously deleted template).
+func updateTemplate(w http.ResponseWriter, r *http.Request, restoreDeleted bool) {
 	templateId := r.PathValue("template_id")
 
 	request := apiclient.TemplateUpdateRequest{}
@@ -202,7 +210,12 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	if template == nil || (template.IsDeleted && !restoreDeleted) {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
 	templateId = template.Id // Use the resolved ID for subsequent operations
+	template.IsDeleted = false
 
 	user := r.Context().Value("user").(*model.User)
 

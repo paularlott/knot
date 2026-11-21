@@ -118,6 +118,21 @@ func TestTemplatesCRUD(t *testing.T) {
 	if _, _, err := admin.Client.GetTemplate(ctx, id); err == nil {
 		t.Fatal("deleted template still readable")
 	}
+
+	// Importing over a soft-deleted template of the same name restores it.
+	restoredId, code, err := admin.Client.ImportTemplate(ctx, yamlText)
+	if err != nil {
+		t.Fatalf("re-import deleted template: %v (status %d)", err, code)
+	}
+	mustEqual(t, "restored id", restoredId, id)
+	restored, code, err := admin.Client.GetTemplate(ctx, id)
+	if err != nil {
+		t.Fatalf("restored template not readable: %v (status %d)", err, code)
+	}
+	mustEqual(t, "restored description", restored.Description, "updated description")
+	if code, err := admin.Client.DeleteTemplate(ctx, id); err != nil {
+		t.Fatalf("delete restored template: %v (status %d)", err, code)
+	}
 	// unused import guard
 	_ = strings.TrimSpace
 }
