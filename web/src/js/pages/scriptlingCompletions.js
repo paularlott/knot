@@ -1000,7 +1000,7 @@ const scriptlingLibraries = [
         },
         {
           name: "request_timeout",
-          description: "int",
+          description: "float",
         },
         {
           name: "extra_body",
