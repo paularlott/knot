@@ -29,7 +29,7 @@ version = 1
 # whether a manifest fetched from a configured --base-images-update-url is
 # newer than the one compiled into this binary. Lexicographic compare ==
 # chronological compare.
-manifest_version = "2026101101"
+manifest_version = "2026112201"
 description = "Default knot base image catalog"
 
 # ── Base Ubuntu ────────────────────────────────────────────────────────────
@@ -87,6 +87,26 @@ description = "Persistent home directory (desktop profile, user files)."
 # ── PHP / Web ───────────────────────────────────────────────────────────────
 
 [[image]]
+name            = "php-8.6"
+display_name    = "PHP 8.6"
+description     = "Ubuntu with Caddy and PHP 8.6."
+image           = "${{ .server.base_image_registry }}/knot-php:8.6"
+icon            = "/icons/php.svg"
+category        = "web"
+default_memory  = "2G"
+default_env     = ["KNOT_SERVICE_PASSWORD=${{ .user.service_password }}"]
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory. Web root is ~/public_html."
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+[[image]]
 name            = "php-8.5"
 display_name    = "PHP 8.5"
 description     = "Ubuntu with Caddy and PHP 8.5."
@@ -128,6 +148,25 @@ port     = 80
 protocol = "http"
 
 [[image]]
+name            = "frankenphp-8.6"
+display_name    = "FrankenPHP 8.6"
+description     = "Ubuntu with FrankenPHP 8.6."
+image           = "${{ .server.base_image_registry }}/knot-frankenphp:8.6"
+icon            = "/icons/frankenphp.svg"
+category        = "web"
+default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory. Web root is ~/public_html."
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+[[image]]
 name            = "frankenphp-8.5"
 display_name    = "FrankenPHP 8.5"
 description     = "Ubuntu with FrankenPHP 8.5."
@@ -148,10 +187,48 @@ port     = 80
 protocol = "http"
 
 [[image]]
+name            = "frankenscriptling-8.6"
+display_name    = "FrankenScriptling 8.6"
+description     = "FrankenPHP 8.6 with the Scriptling PHP extension."
+image           = "${{ .server.base_image_registry }}/knot-frankenscriptling:8.6"
+icon            = "/icons/scriptling.svg"
+category        = "web"
+default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory. Web root is ~/public_html."
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+[[image]]
 name            = "frankenscriptling-8.5"
 display_name    = "FrankenScriptling 8.5"
 description     = "FrankenPHP 8.5 with the Scriptling PHP extension."
 image           = "${{ .server.base_image_registry }}/knot-frankenscriptling:8.5"
+icon            = "/icons/scriptling.svg"
+category        = "web"
+default_memory  = "2G"
+
+[[image.volume]]
+path        = "/home"
+name        = "${{ .space.id }}-home"
+description = "Persistent home directory. Web root is ~/public_html."
+
+[[image.default_port]]
+name     = "Web"
+port     = 80
+protocol = "http"
+
+[[image]]
+name            = "frankenscriptling-runtime-8.6"
+display_name    = "FrankenScriptling Runtime 8.6"
+description     = "FrankenPHP 8.6 with the Scriptling PHP extension, no dev tools. Lean runtime for serving apps."
+image           = "${{ .server.base_image_registry }}/knot-frankenscriptling-runtime:8.6"
 icon            = "/icons/scriptling.svg"
 category        = "web"
 default_memory  = "2G"
@@ -389,6 +466,20 @@ name        = "${{ .space.id }}-data"
 description = "PostgreSQL data directory. Persist for durable databases."
 
 [[image]]
+name            = "valkey-9.2"
+display_name    = "Valkey 9.2"
+description     = "Valkey 9.2 with knot startup tooling."
+image           = "${{ .server.base_image_registry }}/knot-valkey:9.2"
+icon            = "/icons/valkey.svg"
+category        = "datastore"
+default_memory  = "512M"
+
+[[image.volume]]
+path        = "/data"
+name        = "${{ .space.id }}-data"
+description = "Valkey working directory (RDB snapshots / AOF). Persist for durable data."
+
+[[image]]
 name            = "valkey-9.1"
 display_name    = "Valkey 9.1"
 description     = "Valkey 9.1 with knot startup tooling."
@@ -434,8 +525,8 @@ description = "Redis working directory (RDB snapshots / AOF). Persist for durabl
 # ── Database management ─────────────────────────────────────────────────────
 
 [[image]]
-name            = "adminer-6.0"
-display_name    = "Adminer 6.0"
+name            = "adminer-6.3"
+display_name    = "Adminer 6.3"
 description     = "Adminer database management UI on FrankenPHP. Connect to MySQL / MariaDB, PostgreSQL, Redis / Valkey, SQLite and more."
 image           = "${{ .server.base_image_registry }}/knot-adminer:latest"
 icon            = "/icons/adminer.svg"
@@ -450,10 +541,10 @@ protocol = "http"
 # ── Mail ────────────────────────────────────────────────────────────────────
 
 [[image]]
-name            = "mailpit-1.30"
-display_name    = "Mailpit 1.30"
+name            = "mailpit-1.34"
+display_name    = "Mailpit 1.34"
 description     = "Mailpit SMTP mail catcher with a web UI for inspecting captured mail."
-image           = "${{ .server.base_image_registry }}/knot-mailpit:1.30"
+image           = "${{ .server.base_image_registry }}/knot-mailpit:1.34.0"
 icon            = "/icons/mailpit.svg"
 category        = "datastore"
 default_memory  = "512M"
@@ -477,10 +568,10 @@ description = "Mailpit database. Persist for durable captured mail across restar
 # ── Log database ────────────────────────────────────────────────────────────
 
 [[image]]
-name            = "victoria-logs-1.52"
-display_name    = "VictoriaLogs 1.52"
+name            = "victoria-logs-1.54"
+display_name    = "VictoriaLogs 1.54"
 description     = "VictoriaLogs log database — JSON / Loki / Elasticsearch / syslog ingest with LogsQL. Basic-auth protected via vmauth."
-image           = "${{ .server.base_image_registry }}/knot-victoria-logs:1.52.0"
+image           = "${{ .server.base_image_registry }}/knot-victoria-logs:1.54.0"
 icon            = "/icons/victorialogs.svg"
 category        = "datastore"
 default_memory  = "1G"
