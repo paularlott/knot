@@ -115,8 +115,8 @@ func JSONSizeAtLeast(obj object.Object, limit int) int {
 		case *object.Tuple:
 			walkAll(v.Elements)
 		case *object.Set:
-			size += 2 + len(v.Elements)
-			for _, e := range v.Elements {
+			size += 2 + v.Len()
+			for _, e := range v.All() {
 				if size > limit {
 					return
 				}
@@ -125,8 +125,8 @@ func JSONSizeAtLeast(obj object.Object, limit int) int {
 		case *object.FloatArray:
 			size += 2 + 2*len(v.Data)
 		case *object.Dict:
-			size += 2 + 2*len(v.Pairs)
-			for _, pair := range v.Pairs {
+			size += 2 + 2*v.Len()
+			for _, pair := range v.All() {
 				if size > limit {
 					return
 				}
@@ -243,7 +243,7 @@ func GetApiClientLibrary(client rest.RESTClient, userId string) *object.Library 
 					return &object.Error{Message: fmt.Sprintf("API error: the query parameters are larger than the %d bytes a request may carry", maxQueryBytes)}
 				}
 				params := url.Values{}
-				for _, pair := range paramsDict.Pairs {
+				for _, pair := range paramsDict.All() {
 					key := pair.Key.Inspect()
 					val := pair.Value.Inspect()
 					params.Set(key, val)

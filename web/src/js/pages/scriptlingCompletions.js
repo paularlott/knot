@@ -48,13 +48,13 @@ const scriptlingLibraries = [
       },
       {
         name: "dumps",
-        signature: "dumps(obj, indent=None, separators=None, sort_keys=False, ensure_ascii=True)",
+        signature: "dumps(obj, indent=None, separators=None, sort_keys=False, ensure_ascii=True, default=None)",
         description: "Serialize a Scriptling value to a JSON string.",
         returns: "str",
       },
       {
         name: "stringify",
-        signature: "stringify(obj, indent=None, separators=None, sort_keys=False, ensure_ascii=True)",
+        signature: "stringify(obj, indent=None, separators=None, sort_keys=False, ensure_ascii=True, default=None)",
         description: "Serialize a Scriptling value to a JSON string (alias for dumps).",
         returns: "str",
       },
@@ -339,6 +339,66 @@ const scriptlingLibraries = [
             returns: "str",
           },
           {
+            name: "__eq__",
+            signature: "__eq__(other)",
+            description: "Paths are equal when their paths are.",
+            returns: "bool",
+          },
+          {
+            name: "__lt__",
+            signature: "__lt__(other)",
+            description: "Order paths by their path strings.",
+            returns: "bool",
+          },
+          {
+            name: "__hash__",
+            signature: "__hash__()",
+            description: "Hash of the path string, so paths work in sets and as dict keys.",
+            returns: "int",
+          },
+          {
+            name: "with_name",
+            signature: "with_name(name)",
+            description: "A new path with the final component replaced.",
+            returns: "\"Path\"",
+          },
+          {
+            name: "with_suffix",
+            signature: "with_suffix(suffix)",
+            description: "A new path with the suffix changed (added, or removed with \"\").",
+            returns: "\"Path\"",
+          },
+          {
+            name: "with_stem",
+            signature: "with_stem(stem)",
+            description: "A new path with the stem changed, keeping the suffix.",
+            returns: "\"Path\"",
+          },
+          {
+            name: "is_absolute",
+            signature: "is_absolute()",
+            description: "True for a path starting at the root.",
+            returns: "bool",
+          },
+          {
+            name: "as_posix",
+            signature: "as_posix()",
+            description: "The path as a string with forward slashes.",
+            returns: "str",
+          },
+          {
+            name: "relative_to",
+            signature: "relative_to(other)",
+            description: "This path relative to other; ValueError when it is not under other.",
+            returns: "\"Path\"",
+          },
+          {
+            name: "is_relative_to",
+            signature: "is_relative_to(other)",
+            description: "True when this path is under other.",
+            returns: "bool",
+          },
+          {
             name: "exists",
             signature: "exists()",
             description: "Return True if the path exists.",
@@ -443,8 +503,12 @@ const scriptlingLibraries = [
           description: "str",
         },
         {
+          name: "suffixes",
+          description: "List[str]",
+        },
+        {
           name: "parent",
-          description: "str",
+          description: "\"Path\"",
         },
         {
           name: "parts",
@@ -870,7 +934,7 @@ const scriptlingLibraries = [
           },
           {
             name: "trigger",
-            signature: "trigger(message, max_iterations=1)",
+            signature: "trigger(message, max_iterations=25)",
             description: "Trigger the agent with a message and run the agentic loop.",
             returns: "Message - The final message from the agent (content field has thinking blocks removed)",
           },
@@ -941,6 +1005,10 @@ const scriptlingLibraries = [
         {
           name: "extra_body",
           description: "Optional[dict[str, Any]]",
+        },
+        {
+          name: "stop_reason",
+          description: "str",
         },
         ],
       },

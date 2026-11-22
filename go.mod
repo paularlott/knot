@@ -18,7 +18,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-git/go-billy/v5 v5.9.2
-	github.com/go-sql-driver/mysql v1.10.1
+	github.com/go-sql-driver/mysql v1.10.2
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/go-webgpu/goffi v0.6.8
 	github.com/gogpu/systray v0.3.0
@@ -33,19 +33,19 @@ require (
 	github.com/paularlott/lmchatkit v0.13.2
 	github.com/paularlott/logger v0.4.0
 	github.com/paularlott/mcp v0.36.0
-	github.com/paularlott/scriptling v0.41.1
+	github.com/paularlott/scriptling v0.43.0
 	github.com/pkg/sftp v1.13.12
-	github.com/shamaton/msgpack/v3 v3.2.7
+	github.com/shamaton/msgpack/v3 v3.2.8
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/valkey-io/valkey-go v1.0.79
+	github.com/valkey-io/valkey-go v1.0.80
 	github.com/willscott/go-nfs v0.0.5-0.20260926204150-6274d051a57f
-	github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886
+	github.com/willscott/go-nfs-client v0.0.0-20261119163802-435f28074572
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.59.0
-	golang.org/x/exp v0.0.0-20261113113407-e3970619a1a4
-	golang.org/x/net v0.62.0
+	golang.org/x/exp v0.0.0-20261121134650-e1094eeca1b5
+	golang.org/x/net v0.63.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/term v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -63,7 +63,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/go-webauthn/x v0.3.1 // indirect
+	github.com/go-webauthn/x v0.4.1 // indirect
 	github.com/godbus/dbus/v5 v5.2.4 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
@@ -71,8 +71,8 @@ require (
 	github.com/google/go-tpm v0.9.8 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/puddle/v2 v2.2.3 // indirect
-	github.com/klauspost/compress v1.20.4 // indirect
+	github.com/jackc/puddle/v2 v2.2.4 // indirect
+	github.com/klauspost/compress v1.20.5 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20261101121723-be84dd9509a0 // indirect
 	github.com/paularlott/gossiper/client v1.0.0 // indirect
@@ -89,7 +89,7 @@ require (
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	github.com/yuin/gopher-lua v1.1.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.2 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect

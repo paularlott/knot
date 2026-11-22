@@ -30,9 +30,9 @@ import (
 // and URL; knot.plugin.call carries its method (GET default) with the
 // handler's plugin-root URL; MCP tool execution carries "CALL".
 func RequestObject(method, path string, params map[string]any, user *model.User, pluginConfig map[string]any) object.Object {
-	req := &object.Dict{Pairs: map[string]object.DictPair{}}
+	req := object.NewDict()
 	set := func(key string, value object.Object) {
-		req.Pairs[object.DictKey(object.NewString(key))] = object.DictPair{Key: object.NewString(key), Value: value}
+		req.SetByString(key, value)
 	}
 	set("method", object.NewString(method))
 	set("path", object.NewString(path))
@@ -55,7 +55,7 @@ func RequestObject(method, path string, params map[string]any, user *model.User,
 // as data, not as authority.
 func userDataObject(user *model.User) object.Object {
 	if user == nil {
-		return &object.Dict{Pairs: map[string]object.DictPair{}}
+		return object.NewDict()
 	}
 	strList := func(items []string) any {
 		out := make([]any, 0, len(items))
@@ -118,7 +118,7 @@ func DispatchPluginMCPTool(ctx context.Context, client *apiclient.ApiClient, use
 	}
 	defer release()
 
-	paramsDict := &object.Dict{Pairs: make(map[string]object.DictPair)}
+	paramsDict := object.NewDict()
 	for key, value := range params {
 		paramsDict.SetByString(key, conversion.FromGo(value))
 	}

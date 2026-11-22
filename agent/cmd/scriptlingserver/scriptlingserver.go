@@ -436,7 +436,7 @@ func extractQuery(kwargs object.Kwargs) string {
 		return ""
 	}
 	var parts []string
-	for _, pair := range dict.Pairs {
+	for _, pair := range dict.All() {
 		parts = append(parts, pair.Key.Inspect()+"="+pair.Value.Inspect())
 	}
 	return strings.Join(parts, "&")

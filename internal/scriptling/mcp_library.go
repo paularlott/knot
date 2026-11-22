@@ -119,22 +119,11 @@ func mcpListTools(ctx context.Context, client *apiclient.ApiClient, args ...obje
 	// Convert to scriptling objects
 	toolList := make([]object.Object, 0, len(tools))
 	for _, tool := range tools {
-		toolDict := &object.Dict{
-			Pairs: map[string]object.DictPair{
-				"name": {
-					Key:   object.NewString("name"),
-					Value: object.NewString(tool.Name),
-				},
-				"description": {
-					Key:   object.NewString("description"),
-					Value: object.NewString(tool.Description),
-				},
-				"parameters": {
-					Key:   object.NewString("parameters"),
-					Value: conversion.FromGo(tool.InputSchema),
-				},
-			},
-		}
+		toolDict := object.NewStringDict(map[string]object.Object{
+			"name":        object.NewString(tool.Name),
+			"description": object.NewString(tool.Description),
+			"parameters":  conversion.FromGo(tool.InputSchema),
+		})
 		toolList = append(toolList, toolDict)
 	}
 
@@ -222,18 +211,10 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 	}
 
 	// Use call_tool to call tool_search
-	searchArgs := &object.Dict{
-		Pairs: map[string]object.DictPair{
-			"query": {
-				Key:   object.NewString("query"),
-				Value: object.NewString(query),
-			},
-			"max_results": {
-				Key:   object.NewString("max_results"),
-				Value: object.NewInteger(int64(maxResults)),
-			},
-		},
-	}
+	searchArgs := object.NewStringDict(map[string]object.Object{
+		"query":       object.NewString(query),
+		"max_results": object.NewInteger(int64(maxResults)),
+	})
 
 	result := mcpCallTool(ctx, client, object.NewString(mcp.ToolSearchName), searchArgs)
 
@@ -243,11 +224,11 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 		if resultDict, ok := resultList.Elements[0].(*object.Dict); ok {
 			// Try both "text" and "Text" keys (from JSON parsing)
 			var textVal *object.String
-			if val, found := resultDict.Pairs["text"]; found {
+			if val, found := resultDict.GetByString("text"); found {
 				if s, ok := val.Value.(*object.String); ok {
 					textVal = s
 				}
-			} else if val, found := resultDict.Pairs["Text"]; found {
+			} else if val, found := resultDict.GetByString("Text"); found {
 				if s, ok := val.Value.(*object.String); ok {
 					textVal = s
 				}

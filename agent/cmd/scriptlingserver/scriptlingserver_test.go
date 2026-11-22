@@ -774,8 +774,8 @@ func testPluginControlLibrary(pc *plugin.Client) *object.Library {
 				}
 				values = append(values, v)
 			}
-			kw := make(map[string]plugin.Value, len(kwargs.Kwargs))
-			for k, v := range kwargs.Kwargs {
+			kw := make(map[string]plugin.Value, kwargs.Len())
+			for k, v := range kwargs.All() {
 				pv, err := testPluginValue(v)
 				if err != nil {
 					return &object.Error{Message: err.Error()}
@@ -809,8 +809,8 @@ func testPluginValue(o object.Object) (plugin.Value, error) {
 	case *object.Null:
 		return plugin.Value{Type: "null"}, nil
 	case *object.Dict:
-		entries := make(map[string]plugin.Value, len(v.Pairs))
-		for _, pair := range v.Pairs {
+		entries := make(map[string]plugin.Value, v.Len())
+		for _, pair := range v.All() {
 			key, errObj := pair.Key.AsString()
 			if errObj != nil {
 				return plugin.Value{}, fmt.Errorf("dict keys must be strings")
