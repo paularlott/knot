@@ -34,7 +34,7 @@ require (
 	github.com/paularlott/logger v0.4.0
 	github.com/paularlott/mcp v0.36.0
 	github.com/paularlott/scriptling v0.44.0
-	github.com/pkg/sftp v1.13.12
+	github.com/pkg/sftp v1.13.13
 	github.com/shamaton/msgpack/v3 v3.2.8
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valkey-io/valkey-go v1.0.80
@@ -44,7 +44,7 @@ require (
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.59.0
-	golang.org/x/exp v0.0.0-20261121134650-e1094eeca1b5
+	golang.org/x/exp v0.0.0-20261124000051-d6646c509b6d
 	golang.org/x/net v0.63.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/term v0.48.0
