@@ -23,7 +23,7 @@ require (
 	github.com/go-webgpu/goffi v0.6.8
 	github.com/gogpu/systray v0.3.0
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/websocket v1.5.3
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/hashicorp/yamux v0.1.2
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/miekg/dns v1.1.73
